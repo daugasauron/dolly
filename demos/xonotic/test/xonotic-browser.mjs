@@ -221,7 +221,7 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser,
   }
   // Escape closes the first-run dialog, the main menu, and the game menu the
   // map opens into; once the game has the keys the engine asks for relative
-  // motion, and the capture takes a click, as bhop's does.
+  // motion, and the capture takes a click.
   for (let attempt = 0; attempt < 70 && !await page.evaluate(() => __dolly.inputTransport.relativePointerRequested()); attempt++) {
     if (await cursorStyle() === 4) await page.keyboard.press("Escape");
     await delay(3000);

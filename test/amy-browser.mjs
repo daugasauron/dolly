@@ -576,7 +576,7 @@ const elsewhere = {
   "fingers-build": "demos/fingers: fingers installs it",
   anykey: "demos/closed-source-agent: closed-source-agent installs it", "pi-llm": "demos/local-llm: pi-local installs it",
   "classicube-agent": "demos/classicube: classicube installs it", "seven-kingdoms": "demos/rts: rts-arena installs it",
-  airtime: "demos/bhop: bhop installs it", "slopyard-game": "demos/slopyard: slopyard installs it", "vendor-crates": "demos/rust/test/vendor-crates-browser.mjs",
+  "slopyard-game": "demos/slopyard: slopyard installs it", "vendor-crates": "demos/rust/test/vendor-crates-browser.mjs",
   fmt: "demos/zero-ad: zero-ad-deps installs it", libxml2: "demos/zero-ad: zero-ad-deps installs it",
   libsodium: "demos/zero-ad: zero-ad-deps installs it", "boost-headers": "demos/zero-ad: zero-ad-deps installs it",
   premake: "demos/zero-ad: zero-ad-engine's build uses it",

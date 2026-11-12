@@ -205,8 +205,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, snaps
   await chord(',','Comma',188); await chord(',','Comma',188); await menu('Agent settings');
   const configured=await probe(); assert.deepEqual(configured.config,{provider:relayFile?'codex-local':'openrouter',model,effort:'low'});
   assert.equal(await evaluate('__dolly.httpRequestCount'),relayFile?0:5,'selection makes no inference calls');
-  // The X button closes settings in bhop's copy of this viewer; here, after
-  // Ctrl+, and F11, its click is intermittently ignored.
+  // After Ctrl+, and F11 the X button's click is intermittently ignored.
   await fullscreen(); await fullscreen(); await snapshot('settings'); await chord(',','Comma',188);
   await delay(150); await snapshot('log-panel');
   await click(1210,238); await state(s=>s.ui.includes('activity=0'),'hide activity independently');

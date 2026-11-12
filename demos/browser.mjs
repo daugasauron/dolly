@@ -108,7 +108,7 @@ function terminalHelpers(page) {
   };
 }
 
-// Leaves a game-agent game (bhop, classicube) through its exit control for the shell.
+// Leaves a game-agent game (classicube) through its exit control for the shell.
 export async function leaveGame({ page, prompt }) {
   await page.waitForFunction(() => __dolly.graphicsActive &&
     document.querySelector("#display").width === 1280 && document.querySelector("#display").height === 960);

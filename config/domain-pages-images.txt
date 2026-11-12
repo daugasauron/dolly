@@ -1,5 +1,4 @@
 default
-bhop
 classicube
 codex-agent
 dollyfile-studio
