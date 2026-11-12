@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { browserTest, composed } from "./browser.mjs";
+import { browserTest, composed, runSteps } from "./browser.mjs";
 import { parseWasmInterface } from "../src/wasm-interface.mjs";
 import { executableHostRequirements } from "../host/requirements.mjs";
-import { DOLLY_HTTP_ABI_DIGEST } from "../host/http/abi.mjs";
+import hostCases from "./cases/host-modules.json" with { type: "json" };
 
 // The site's page offers only the modules a test names before it loads.
 const hostModules = modules => page => page.addInitScript(modules => { globalThis.DOLLY_HOST_MODULES = modules; }, modules);
@@ -16,8 +16,9 @@ function handle(request, response, path, headers) {
   response.writeHead(200, headers).end();
   return true;
 }
-const fixtures = { "nena.c": "src/commands/nena.c", "gpu.h": "host/gpu/gpu.h", "gpu-abi.h": "host/gpu/gpu-abi.h", "gpu-client.c": "host/gpu/client.c" };
-await browserTest("host modules", { image: "system", server: { sourceOverrides, handle, fixtures },
+// The refusals are test/cases/host-modules.json; what an executable declares is read here, from
+// the bytes Dolly offers for download.
+await browserTest("host modules", { image: "system", server: { sourceOverrides, handle, fixtures: hostCases.fixtures },
   timeout: 300_000 }, async ({ server, open }) => {
   const loaderFetches = () => server.requests.get("/dist/dolly-process-dso.mjs") ?? 0;
   const loaderFetchesBefore = loaderFetches();
@@ -27,16 +28,7 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides, 
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
-  // gpu@0's header and client, as the libdolly-gpu package installs them.
-  const fixture = (name, path) => `curl -fsS ${server.origin}/fixture/${name} -o ${path}`;
-  await run(`${fixture("gpu.h", "/usr/include/dolly/gpu.h")} && ${fixture("gpu-abi.h", "/usr/include/dolly/gpu-abi.h")} && ` +
-    `${fixture("gpu-client.c", "/tmp/gpu-client.c")} && cc -O1 -c /tmp/gpu-client.c -o /tmp/gpu-client.o && ` +
-    "ar rcs /usr/lib/dolly/process/libdolly-gpu.a /tmp/gpu-client.o");
-  // A refused program exits 126 with one line on its own stderr that names the cause.
-  async function refused(command, cause) {
-    assert.equal(await submit(`${command} > /tmp/refused.out 2> /tmp/refused.err`), 126, command);
-    await run(`test ! -s /tmp/refused.out && test $(wc -l < /tmp/refused.err) -eq 1 && grep -q '${cause}' /tmp/refused.err`);
-  }
+  await runSteps(submit, server.origin, hostCases);
   async function source(code) {
     sourceOverrides.set("/fixture/process-check.c", code);
     await run(`curl -fsS ${server.origin}/fixture/process-check.c -o /tmp/probe.c`);
@@ -67,56 +59,12 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides, 
   await source("extern int outer(void);int main(void){return outer()!=37;}");
   await run("cc -O1 /tmp/probe.c /tmp/libouter.a /tmp/libprobe.a -o /tmp/transitive && /tmp/transitive");
   assert.deepEqual(await requirements("/tmp/transitive"), linked.used);
-
-  // A disabled or unknown provider denies the executable before it runs.
-  await source("#include <dolly/gpu.h>\nint main(void){static dolly_gpu g;return dolly_gpu_open(&g,0,0)<0;}");
-  await run("cc -O1 /tmp/probe.c -ldolly-gpu -o /tmp/gpu-client");
+  // The programs the cases refused declared what they were refused for; the forged ones and
+  // the plain dlopen caller declared nothing.
   assert.ok((await requirements("/tmp/gpu-client")).includes("gpu@0"));
-  await refused("/tmp/gpu-client", "gpu@0");
-  // So does a module whose layout differs from its provider's in one digest bit.
-  const otherLayout = [...Buffer.from(DOLLY_HTTP_ABI_DIGEST, "hex")].map((byte, index) => index ? byte : byte ^ 1);
-  for (const [required, cause] of [
-    ["unknown,0,DOLLY_HTTP_ABI_DIGEST", "unknown@0"],
-    ["http,1,DOLLY_HTTP_ABI_DIGEST", "http@1"],
-    ["http,0,OTHER_LAYOUT", "http@0"],
-  ]) {
-    await source(`#include <dolly/host.h>\n#include <dolly/http-abi.h>\n#include <stdio.h>\n` +
-      `#define OTHER_LAYOUT ${otherLayout.join(",")}\nDOLLY_HOST_REQUIRE(${required});\n` +
-      `int main(void){FILE*f=fopen("/tmp/entered","w");if(f)fclose(f);return 0;}`);
-    await run("cc -O1 /tmp/probe.c -o /tmp/denied");
-    await refused("/tmp/denied", cause);
-    await run("test ! -e /tmp/entered");
-  }
-  // Without a requirement claim the disabled outer provider still denies the operation.
-  await source("#include <dolly/process.h>\n#include <dolly/gpu-abi.h>\n#include <stdint.h>\n#include <errno.h>\nint main(void){uint64_t p[5]={DOLLY_GPU_OPEN*(1ull<<32),0,1,8,0};char reply[64];return dolly_process_call(DOLLY_GPU_PROCESS_OP,p,sizeof p,reply,sizeof reply)!=-ENOSYS;}");
-  await run("cc -O1 /tmp/probe.c -o /tmp/forged && /tmp/forged");
   assert.ok(!(await requirements("/tmp/forged")).includes("gpu@0"));
-  // This image does not declare nena@0, so nothing in it switches a module:
-  // the command is refused as any program recording an undeclared module, its
-  // operation is ENOSYS to a program that links no client, and the program
-  // that needs gpu@0 is refused as before.
-  await run(`curl -fsS ${server.origin}/fixture/nena.c -o /tmp/nena.c && cc -O1 /tmp/nena.c -o /tmp/nena`);
-  await refused("/tmp/nena enable gpu", "nena@0");
-  await source("#include <dolly/process.h>\n#include <dolly/nena-abi.h>\n#include <stdint.h>\n#include <errno.h>\nint main(void){uint32_t p[8]={DOLLY_NENA_VERSION,DOLLY_NENA_OPEN,0,0,1};char reply[DOLLY_NENA_REPLY_BYTES];return dolly_process_call(DOLLY_NENA_PROCESS_OP,p,sizeof p,reply,sizeof reply)!=-ENOSYS;}");
-  await run("cc -O1 /tmp/probe.c -o /tmp/forged-nena && /tmp/forged-nena");
-  await refused("/tmp/gpu-client", "gpu@0");
-  // dso@0, which this image does not declare, is recorded by a host of modules
-  // (cc -rdynamic) and by a caller of the FFI client, and both are refused. A
-  // program that only calls dlopen records nothing: libc refuses at the call,
-  // naming the module, and the raw operations are unknown ones.
-  await source('#include <dlfcn.h>\n#include <errno.h>\n#include <stdio.h>\n#include <dolly/process.h>\n#include <dolly/dso-abi.h>\n' +
-    'int main(void){char p[16]={0},r[256];errno=0;if(dlopen("/tmp/none.so",RTLD_NOW)||errno!=ENOSYS)return 1;' +
-    'const char*e=dlerror();if(!e||dlerror())return 2;puts(e);' +
-    'for(unsigned o=DOLLY_DSO_OPEN;o<=DOLLY_FFI_CLOSURE_PREP;++o)if(dolly_process_call(o,p,sizeof p,r,sizeof r)!=-ENOSYS)return 3;return 0;}');
-  await run("cc -O1 /tmp/probe.c -o /tmp/dl-caller && /tmp/dl-caller > /tmp/dl-refusal && test $(wc -l < /tmp/dl-refusal) -eq 1 && grep -q 'dso@0' /tmp/dl-refusal");
-  await run("cc -O1 -rdynamic /tmp/probe.c -o /tmp/dl-host");
-  await source("#include <dolly/dso.h>\nint main(void){dolly_ffi_call_request r={0};return dolly_ffi_call(&r)==0;}");
-  await run("cc -O1 /tmp/probe.c -o /tmp/ffi-caller");
   assert.ok(!(await requirements("/tmp/dl-caller")).includes("dso@0"));
-  for (const program of ["/tmp/dl-host", "/tmp/ffi-caller"]) {
-    assert.ok((await requirements(program)).includes("dso@0"), program);
-    await refused(program, "dso@0");
-  }
+  for (const program of ["/tmp/dl-host", "/tmp/ffi-caller"]) assert.ok((await requirements(program)).includes("dso@0"), program);
   assert.equal(loaderFetches(), loaderFetchesBefore, "an image without dso@0 fetched its loader");
   assert.notEqual(await submit(`curl -fsS ${server.origin}/denied`), 0);
   assert.equal(server.requests.has("/denied"), false, "denied network request escaped the broker");
