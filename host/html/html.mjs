@@ -2,8 +2,9 @@ import { DOLLY_ERRNO as E, DOLLY_HTML_OPEN, DOLLY_HTML_ANSWER, DOLLY_HTML_CLOSE,
   DOLLY_HTML_FIELDS_MAX } from "./abi.mjs";
 export { DOLLY_HTML_ABI_DIGEST as digest } from "./abi.mjs";
 
-// After the user closes a popup, the next is refused for this long, so the
-// user reaches the terminal (and Ctrl+C) before a program shows another.
+// After the user closes or answers a popup, the next is refused for this long,
+// so the user reaches the terminal (and Ctrl+C) before a program shows another,
+// and a click or key meant for one cannot land on the next.
 const quietMilliseconds = 2000;
 
 // The popup's look is the page's: an embedding sets these on boot()'s element
@@ -229,7 +230,7 @@ export function worker({ send, get }) {
       "html-answer"({ popup, fields }) {
         if (shown?.popup !== popup || "fields" in shown || fields !== null && typeof fields !== "string") return;
         shown.fields = fields;
-        if (fields === null) quietUntil = performance.now() + quietMilliseconds;
+        quietUntil = performance.now() + quietMilliseconds;
         get("runtime").serviceDeferred();
       },
     },

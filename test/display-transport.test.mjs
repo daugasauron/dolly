@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DisplayTransport as Display, FramebufferPresenter } from "../host/display/display.mjs";
-import { DOLLY_DISPLAY_COPY_AVAILABLE } from "../host/display/abi.mjs";
+import { DOLLY_DISPLAY_COPY_AVAILABLE, DOLLY_DISPLAY_MAX_HEIGHT, DOLLY_DISPLAY_MAX_WIDTH } from "../host/display/abi.mjs";
 
 test("copied selections preserve literal UTF-8", () => {
   const buffer = new SharedArrayBuffer(4096);
@@ -40,5 +40,16 @@ test("the presenter refuses a malformed published frame", () => {
     transport.words[word(Display.frameStride)] = stride;
     transport.words[word(Display.frameSequence)] += 1;
     assert.throws(() => presenter.paint(), /invalid framebuffer/, `${index} ${width}x${height} stride ${stride}`);
+  }
+  // A frame within the capacity is still refused past the display's largest width or height.
+  const large = new SharedArrayBuffer(65536), wide = new Display(large, 64, 3072, { copyCapacity: 1024 });
+  const bounded = new FramebufferPresenter({ getContext: () => ({}) }, large, [8192, 32768], 24576, wide, () => {});
+  for (const [width, height] of [[DOLLY_DISPLAY_MAX_WIDTH + 4, 1], [1, DOLLY_DISPLAY_MAX_HEIGHT + 1]]) {
+    wide.words[wide.word + Display.frameIndex] = 0;
+    wide.words[wide.word + Display.frameWidth] = width;
+    wide.words[wide.word + Display.frameHeight] = height;
+    wide.words[wide.word + Display.frameStride] = width * 4;
+    wide.words[wide.word + Display.frameSequence] += 1;
+    assert.throws(() => bounded.paint(), /invalid framebuffer/, `${width}x${height}`);
   }
 });
