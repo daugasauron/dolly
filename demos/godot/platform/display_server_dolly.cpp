@@ -269,6 +269,30 @@ static void read_scroll(const dolly_input_event &p_event, const Point2i &mouse_p
 	}
 }
 
+// Relative motion while the pointer is captured, in thousandths of a CSS pixel.
+static void read_motion(const dolly_input_event &p_event, const Point2i &mouse_position) {
+	Ref<InputEventMouseMotion> motion;
+	motion.instantiate();
+	const Vector2 relative(p_event.x / 1000.0, p_event.y / 1000.0);
+	motion->set_position(mouse_position);
+	motion->set_global_position(mouse_position);
+	motion->set_relative(relative);
+	motion->set_relative_screen_position(relative);
+	motion->set_button_mask(Input::get_singleton()->get_mouse_button_mask());
+	Input::get_singleton()->parse_input_event(motion);
+}
+
+void DisplayServerDolly::mouse_set_mode(DisplayServerEnums::MouseMode p_mode) {
+	const bool wanted = p_mode == DisplayServerEnums::MOUSE_MODE_CAPTURED;
+	if (wanted != capture_wanted && dolly_input_set_pointer_relative(input, wanted) != 0) {
+		return;
+	}
+	capture_wanted = wanted;
+	if (!wanted) {
+		mouse_mode = p_mode;
+	}
+}
+
 void DisplayServerDolly::read_event(const dolly_input_event &p_event) {
 	switch (p_event.type) {
 		case DOLLY_INPUT_EVENT_KEY:
@@ -294,6 +318,14 @@ void DisplayServerDolly::read_event(const dolly_input_event &p_event) {
 				Main::force_redraw();
 			}
 			send_window_event(focused ? DisplayServerEnums::WINDOW_EVENT_FOCUS_IN : DisplayServerEnums::WINDOW_EVENT_FOCUS_OUT);
+			break;
+		case DOLLY_INPUT_EVENT_POINTER_MOTION:
+			read_motion(p_event, mouse_position);
+			break;
+		case DOLLY_INPUT_EVENT_POINTER_CAPTURE:
+			if (capture_wanted) {
+				mouse_mode = p_event.action ? DisplayServerEnums::MOUSE_MODE_CAPTURED : DisplayServerEnums::MOUSE_MODE_VISIBLE;
+			}
 			break;
 		case DOLLY_INPUT_EVENT_POINTER_PRESENCE:
 			send_window_event(p_event.action ? DisplayServerEnums::WINDOW_EVENT_MOUSE_ENTER : DisplayServerEnums::WINDOW_EVENT_MOUSE_EXIT);

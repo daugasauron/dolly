@@ -27,6 +27,7 @@ rust-tools
 zero-ad
 slopyard
 godot-lantern-drift
+godot-airtime
 photocraft-photos
 cmake
 sdl2

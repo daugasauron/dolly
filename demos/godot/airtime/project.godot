@@ -1,0 +1,32 @@
+; Airtime: Foundry in Godot: the strafe trials of demos/bhop with the same movement, made with
+; Godot's editor inside Dolly.
+
+config_version=5
+
+[application]
+
+config/name="Airtime: Foundry"
+config/description="Strafe trials across a foundry at night: air-strafe and bunny-hop over dropping pads."
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.7", "Forward Plus")
+config/icon="res://icon.svg"
+boot_splash/bg_color=Color(0.03, 0.04, 0.06, 1)
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/size/mode=2
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[physics]
+
+common/physics_ticks_per_second=100
+common/max_physics_steps_per_frame=10
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+anti_aliasing/quality/screen_space_aa=1
+lights_and_shadows/directional_shadow/size=2048
