@@ -134,8 +134,9 @@ Ctrl+C included, and resolves to how many it took, fewer while the input is
 full; `exited` is the program's status. The terminal is a pseudo-terminal's
 ([process model](process-model.md#pseudo-terminals)). With `pipes: true` in
 place of the size, the program's standard streams are pipes: `write` is its
-input byte for byte, `endInput()` ends it, and `output` and `errors` are its
-standard output and error apart.
+input byte for byte, `endInput()` ends it, `interrupt()` is its Ctrl+C (SIGINT
+to the program, as a terminal's interrupt key), and `output` and `errors` are
+its standard output and error apart.
 
 ```js
 const shell = await dolly.openConsole({ columns: 100, rows: 30, argv: ["/bin/slop"] });

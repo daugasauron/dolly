@@ -95,9 +95,15 @@ await browserTest("console pipes", { image: "system", timeout: 300_000 }, async 
     const reader = endless.output.getReader();
     await reader.read();
     await endless.close();
-    return { cat, split, endless: await endless.exited };
+    // Without a terminal's interrupt key, interrupt() applies Ctrl+C's rules: SIGINT ends the program.
+    const sleeper = await __dolly.openConsole({ pipes: true, argv: ["/bin/slop", "-c", "echo started; sleep 30"] });
+    const sleeping = read(sleeper.output);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    await sleeper.interrupt();
+    return { cat, split, endless: await endless.exited, interrupted: { output: await sleeping, status: await sleeper.exited } };
   });
   assert.deepEqual(seen.cat, { output: "typed\nline two\n", errors: "", status: 0 });
   assert.deepEqual(seen.split, { output: "out\nnot a terminal\n", errors: "err\n", status: 4 });
   assert.equal(seen.endless, 141);
+  assert.deepEqual(seen.interrupted, { output: "started\n", status: 130 });
 });
