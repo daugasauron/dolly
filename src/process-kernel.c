@@ -47,6 +47,19 @@ typedef struct {
   unsigned char bytes[DOLLY_KERNEL_PIPE_CAPACITY];
 } dolly_kernel_pipe;
 
+/* A descriptor: a file's kernel descriptor, or a stream, the display's
+ * terminal (`terminal`), and the descriptor's DOLLY_PROCESS_FD_* flags. */
+typedef struct {
+  int file;                    /* -1 for none. */
+  dolly_kernel_socket *stream;
+  DIR *directory;              /* A directory's listing, once it is read. */
+  /* A file's open file description: duplicates and inherited descriptors
+   * share its number. Zero for a stream or none. */
+  uint64_t description;
+  unsigned char flags;
+  unsigned char terminal;
+} dolly_kernel_descriptor;
+
 /* What a process runs: the executable, its arguments and its environment.
  * The executable stays open until the supervisor takes it (-1 then); the image
  * is its head, read to find a Wasm header or a #! line. */
@@ -70,14 +83,7 @@ typedef struct {
   int exit_signal;
   uint32_t spawn_flags;
   int worker_retired;
-  int descriptors[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
-  /* The open file description of each file descriptor: duplicates and
-   * inherited descriptors share its number. Zero for a pipe or none. */
-  uint64_t descriptions[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
-  unsigned char descriptor_flags[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
-  dolly_kernel_socket *sockets[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
-  unsigned char terminal_descriptors[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
-  DIR *directories[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
+  dolly_kernel_descriptor fds[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
   dolly_kernel_program program;
   /* The program EXEC has read, until the supervisor starts or refuses it, and
    * the signal state the old program leaves it. */
@@ -284,7 +290,7 @@ static void dispose_program(dolly_kernel_program *program) {
 static int descriptor_is_open(const dolly_kernel_process *process,
                               uint32_t descriptor) {
   return descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT &&
-      (process->descriptors[descriptor] >= 0 || process->sockets[descriptor] != NULL);
+      (process->fds[descriptor].file >= 0 || process->fds[descriptor].stream != NULL);
 }
 
 static const dolly_kernel_socket_kind pipe_reader, pipe_writer;
@@ -378,7 +384,7 @@ void dolly_kernel_socket_release(dolly_kernel_socket *socket) {
 static int description_is_open(uint64_t description) {
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
     for (size_t descriptor = 0; descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT; ++descriptor) {
-      if (process_table[index].descriptions[descriptor] == description) return 1;
+      if (process_table[index].fds[descriptor].description == description) return 1;
     }
   }
   return 0;
@@ -388,8 +394,8 @@ static int has_other_descriptor(const dolly_kernel_process *process, uint32_t cl
                                 const struct stat *file) {
   for (uint32_t descriptor = 0; descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT; ++descriptor) {
     struct stat other;
-    if (descriptor != closing && process->descriptors[descriptor] >= 0 &&
-        fstat(process->descriptors[descriptor], &other) == 0 &&
+    if (descriptor != closing && process->fds[descriptor].file >= 0 &&
+        fstat(process->fds[descriptor].file, &other) == 0 &&
         other.st_dev == file->st_dev && other.st_ino == file->st_ino) return 1;
   }
   return 0;
@@ -400,13 +406,13 @@ static int has_other_descriptor(const dolly_kernel_process *process, uint32_t cl
  * program's to close, so it leaves them while the process has another. A
  * description's lock goes with its last descriptor, in whichever process. */
 static void release_descriptor_locks(dolly_kernel_process *process, uint32_t descriptor) {
-  const uint64_t description = process->descriptions[descriptor];
-  process->descriptions[descriptor] = 0;
+  const uint64_t description = process->fds[descriptor].description;
+  process->fds[descriptor].description = 0;
   struct stat file;
-  if (lock_count == 0 || fstat(process->descriptors[descriptor], &file) != 0) return;
+  if (lock_count == 0 || fstat(process->fds[descriptor].file, &file) != 0) return;
   const int description_closed = !description_is_open(description);
   const int keeps_ranges =
-      (process->descriptor_flags[descriptor] & DOLLY_PROCESS_FD_KEEP_LOCKS) != 0 &&
+      (process->fds[descriptor].flags & DOLLY_PROCESS_FD_KEEP_LOCKS) != 0 &&
       has_other_descriptor(process, descriptor, &file);
   for (size_t index = lock_count; index-- > 0;) {
     const dolly_kernel_lock *held = &lock_table[index];
@@ -421,22 +427,22 @@ static void release_descriptor_locks(dolly_kernel_process *process, uint32_t des
 static void release_descriptor(dolly_kernel_process *process,
                                uint32_t descriptor) {
   if (descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT) return;
-  if (process->directories[descriptor] != NULL) {
-    closedir(process->directories[descriptor]);
-    process->directories[descriptor] = NULL;
+  if (process->fds[descriptor].directory != NULL) {
+    closedir(process->fds[descriptor].directory);
+    process->fds[descriptor].directory = NULL;
   }
-  if (process->descriptors[descriptor] >= 0) {
+  if (process->fds[descriptor].file >= 0) {
     release_descriptor_locks(process, descriptor);
-    close(process->descriptors[descriptor]);
-    process->descriptors[descriptor] = -1;
+    close(process->fds[descriptor].file);
+    process->fds[descriptor].file = -1;
   }
-  dolly_kernel_socket *socket = process->sockets[descriptor];
+  dolly_kernel_socket *socket = process->fds[descriptor].stream;
   if (socket != NULL) {
-    process->sockets[descriptor] = NULL;
+    process->fds[descriptor].stream = NULL;
     dolly_kernel_socket_release(socket);
   }
-  process->terminal_descriptors[descriptor] = 0;
-  process->descriptor_flags[descriptor] = 0;
+  process->fds[descriptor].terminal = 0;
+  process->fds[descriptor].flags = 0;
 }
 
 static void release_process_resources(dolly_kernel_process *process) {
@@ -544,7 +550,7 @@ static dolly_kernel_process *allocate_process(void) {
     process->current_directory = -1;
     for (size_t descriptor = 0; descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT;
          ++descriptor) {
-      process->descriptors[descriptor] = -1;
+      process->fds[descriptor].file = -1;
     }
     process->program = process->staged = no_program;
     process->pid = next_process_pid++;
@@ -732,21 +738,21 @@ static int copy_descriptor(dolly_kernel_process *process,
                             uint32_t source, uint32_t target) {
   if (source > INT_MAX || target >= DOLLY_KERNEL_DESCRIPTOR_LIMIT ||
       (parent != NULL && !descriptor_is_open(parent, source))) return -EBADF;
-  if (parent != NULL && parent->sockets[source] != NULL) {
-    dolly_kernel_socket *socket = parent->sockets[source];
+  if (parent != NULL && parent->fds[source].stream != NULL) {
+    dolly_kernel_socket *socket = parent->fds[source].stream;
     ++socket->descriptors;
     release_descriptor(process, target);
-    process->sockets[target] = socket;
+    process->fds[target].stream = socket;
   } else {
-    const int kernel_fd = parent != NULL ? parent->descriptors[source] : (int)source;
+    const int kernel_fd = parent != NULL ? parent->fds[source].file : (int)source;
     const int duplicate = dup(kernel_fd);
     if (duplicate < 0) return -errno;
     release_descriptor(process, target);
-    process->descriptors[target] = duplicate;
-    process->descriptions[target] = parent != NULL
-        ? parent->descriptions[source] : ++last_description;
-    process->terminal_descriptors[target] = parent != NULL
-        ? parent->terminal_descriptors[source]
+    process->fds[target].file = duplicate;
+    process->fds[target].description = parent != NULL
+        ? parent->fds[source].description : ++last_description;
+    process->fds[target].terminal = parent != NULL
+        ? parent->fds[source].terminal
         : (source <= STDERR_FILENO);
   }
   return 0;
@@ -793,8 +799,8 @@ static dolly_kernel_program *program_to_launch(dolly_kernel_process *process) {
 int dolly_kernel_launch_diagnostic(int pid, const unsigned char *bytes, size_t size) {
   dolly_kernel_process *process = find_process(pid);
   if (program_to_launch(process) == NULL) return 0;
-  if (process->terminal_descriptors[STDERR_FILENO]) return 1;
-  dolly_kernel_socket *stream = process->sockets[STDERR_FILENO];
+  if (process->fds[STDERR_FILENO].terminal) return 1;
+  dolly_kernel_socket *stream = process->fds[STDERR_FILENO].stream;
   const dolly_process_terminal_request request = {DOLLY_PROCESS_TERMINAL_ISATTY, 0, 0, 0, 0};
   dolly_process_terminal_response response = {0};
   if (stream != NULL && stream->kind->terminal != NULL &&
@@ -810,7 +816,7 @@ int dolly_kernel_launch_diagnostic(int pid, const unsigned char *bytes, size_t s
 static int terminal_stream(const dolly_kernel_process *process) {
   const dolly_process_terminal_request request = {DOLLY_PROCESS_TERMINAL_ISATTY, 0, 0, 0, 0};
   for (int descriptor = 0; descriptor <= STDERR_FILENO; ++descriptor) {
-    dolly_kernel_socket *stream = process->sockets[descriptor];
+    dolly_kernel_socket *stream = process->fds[descriptor].stream;
     dolly_process_terminal_response response = {0};
     if (stream != NULL && stream->kind->terminal != NULL &&
         stream->kind->terminal(stream, &request, &response) == 0 && response.value == 1) return descriptor;
@@ -853,7 +859,7 @@ static int configure_descriptors(dolly_kernel_process *process,
   }
   for (uint32_t descriptor = 0; descriptor < limit; ++descriptor) {
     if (mapped[descriptor] || !descriptor_is_open(parent, descriptor) ||
-        (parent->descriptor_flags[descriptor] & DOLLY_PROCESS_FD_CLOEXEC)) continue;
+        (parent->fds[descriptor].flags & DOLLY_PROCESS_FD_CLOEXEC)) continue;
     const int result = copy_descriptor(process, parent, descriptor, descriptor);
     if (result != 0) return result;
   }
@@ -1063,8 +1069,8 @@ static int64_t vector_bytes(char **vector, uint32_t count,
 
 static int descriptor_for(dolly_kernel_process *process, uint32_t descriptor) {
   if (!descriptor_is_open(process, descriptor)) return -EBADF;
-  if (process->descriptors[descriptor] < 0) return -ESPIPE;
-  return process->descriptors[descriptor];
+  if (process->fds[descriptor].file < 0) return -ESPIPE;
+  return process->fds[descriptor].file;
 }
 
 /* Decodes a dolly_process_fd_request that names an open descriptor. */
@@ -1097,8 +1103,8 @@ static int place_streams(dolly_kernel_process *process, dolly_kernel_socket *con
     descriptors[index] = (uint32_t)descriptor;
   }
   for (uint32_t index = 0; index < count; ++index) {
-    process->sockets[descriptors[index]] = sockets[index];
-    process->descriptor_flags[descriptors[index]] = flags;
+    process->fds[descriptors[index]].stream = sockets[index];
+    process->fds[descriptors[index]].flags = flags;
     ++sockets[index]->descriptors;
   }
   return 0;
@@ -1474,12 +1480,12 @@ static int64_t fd_read_packet(dolly_kernel_process *process,
   memcpy(&request, process_mailbox, sizeof(request));
   if (request.reserved != 0 || request.size > response_capacity) return -EINVAL;
   if (request.descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT) return -EBADF;
-  if (process->sockets[request.descriptor] != NULL) {
-    return socket_read(process, process->sockets[request.descriptor], request.descriptor, (size_t)request.size);
+  if (process->fds[request.descriptor].stream != NULL) {
+    return socket_read(process, process->fds[request.descriptor].stream, request.descriptor, (size_t)request.size);
   }
   int descriptor = descriptor_for(process, request.descriptor);
   if (descriptor < 0) return descriptor;
-  if (process->terminal_descriptors[request.descriptor]) {
+  if (process->fds[request.descriptor].terminal) {
     if (request.size == 0) return 0;
     const int64_t count = dolly_kernel_terminal_receive(process_mailbox, (size_t)request.size);
     if (count != -EAGAIN) return terminal_read_ended(process, count);
@@ -1546,7 +1552,7 @@ static int64_t fd_read_directory_packet(dolly_kernel_process *process,
   if (request.reserved != 0 || request.maximum_entries == 0) return -EINVAL;
   int descriptor = descriptor_for(process, request.descriptor);
   if (descriptor < 0) return descriptor;
-  DIR *directory = process->directories[request.descriptor];
+  DIR *directory = process->fds[request.descriptor].directory;
   if (directory == NULL) {
     int duplicate = dup(descriptor);
     if (duplicate < 0) return -errno;
@@ -1556,7 +1562,7 @@ static int64_t fd_read_directory_packet(dolly_kernel_process *process,
       close(duplicate);
       return -error;
     }
-    process->directories[request.descriptor] = directory;
+    process->fds[request.descriptor].directory = directory;
   }
   if (request.cookie == 0) rewinddir(directory);
   else if (request.cookie != UINT64_MAX) seekdir(directory, (long)request.cookie);
@@ -1609,8 +1615,8 @@ static int64_t fd_write_packet(dolly_kernel_process *process,
   memcpy(&request, process_mailbox, sizeof(request));
   if (request.reserved != 0 || request.size != request_size - sizeof(request)) return -EINVAL;
   if (request.descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT) return -EBADF;
-  if (process->sockets[request.descriptor] != NULL) {
-    dolly_kernel_socket *socket = process->sockets[request.descriptor];
+  if (process->fds[request.descriptor].stream != NULL) {
+    dolly_kernel_socket *socket = process->fds[request.descriptor].stream;
     const int64_t sent = socket->kind->send(socket, process_mailbox + sizeof(request),
                                             (size_t)request.size, 1);
     if (sent < 0) return sent;
@@ -1732,7 +1738,7 @@ static int64_t fd_lock_packet(dolly_kernel_process *process, uintptr_t request_s
     return -EINVAL;
   }
   if (!descriptor_is_open(process, request.descriptor)) return -EBADF;
-  const int descriptor = process->descriptors[request.descriptor];
+  const int descriptor = process->fds[request.descriptor].file;
   if (descriptor < 0) return -ENOTSUP;
   struct stat file;
   if (fstat(descriptor, &file) != 0) return -errno;
@@ -1741,7 +1747,7 @@ static int64_t fd_lock_packet(dolly_kernel_process *process, uintptr_t request_s
       .exclusive = request.type == DOLLY_PROCESS_LOCK_EXCLUSIVE,
   };
   if (by_description) {
-    wanted.description = process->descriptions[request.descriptor];
+    wanted.description = process->fds[request.descriptor].description;
   } else {
     wanted.pid = process->pid;
     const int invalid = lock_range(descriptor, &file, &request, &wanted);
@@ -1795,7 +1801,7 @@ static int64_t terminal_foreground(const dolly_kernel_process *process,
     const int64_t result = stream->kind->terminal(stream, &request, &response);
     return result < 0 ? result : response.value == 1 ? process->pid : -ENOTTY;
   }
-  if (!process->terminal_descriptors[descriptor]) return -ENOTTY;
+  if (!process->fds[descriptor].terminal) return -ENOTTY;
   return foreground_pid == 0 || dolly_process_descends_from(process->pid, foreground_pid)
       ? process->pid : foreground_pid;
 }
@@ -1810,7 +1816,7 @@ static int64_t terminal_packet(dolly_kernel_process *process,
   if (request.reserved != 0) return -EINVAL;
   dolly_process_terminal_response response = {0};
   dolly_kernel_socket *stream = request.descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT
-      ? process->sockets[request.descriptor] : NULL;
+      ? process->fds[request.descriptor].stream : NULL;
   if (stream != NULL && stream->kind->terminal == NULL) stream = NULL;
   if (request.operation == DOLLY_PROCESS_TERMINAL_PUBLISH_RESULT) {
     /* The page follows the shell at the display's terminal, not one at a stream. */
@@ -1832,7 +1838,7 @@ static int64_t terminal_packet(dolly_kernel_process *process,
     return result < 0 ? result : respond(&response, sizeof(response));
   }
   if (!descriptor_is_open(process, request.descriptor)) return -EBADF;
-  const int terminal = process->terminal_descriptors[request.descriptor] != 0;
+  const int terminal = process->fds[request.descriptor].terminal != 0;
   if (request.operation == DOLLY_PROCESS_TERMINAL_ISATTY) {
     response.value = terminal;
   } else if (!terminal) {
@@ -1877,8 +1883,8 @@ static uint16_t fd_poll_events(dolly_kernel_process *process,
     return DOLLY_PROCESS_POLL_INVALID;
   }
 
-  if (process->sockets[query->descriptor] != NULL) {
-    const dolly_kernel_socket *socket = process->sockets[query->descriptor];
+  if (process->fds[query->descriptor].stream != NULL) {
+    const dolly_kernel_socket *socket = process->fds[query->descriptor].stream;
     return socket->kind->poll(socket, requested);
   }
 
@@ -1886,7 +1892,7 @@ static uint16_t fd_poll_events(dolly_kernel_process *process,
   if (descriptor < 0) return DOLLY_PROCESS_POLL_INVALID;
   /* POSIX: regular files always poll true for reading and writing, as do the
    * kernel's other files; their next read or write completes at once. */
-  if (!process->terminal_descriptors[query->descriptor])
+  if (!process->fds[query->descriptor].terminal)
     return requested & (DOLLY_PROCESS_POLL_READ | DOLLY_PROCESS_POLL_WRITE);
   int access = fcntl(descriptor, F_GETFL);
   if (access < 0) return DOLLY_PROCESS_POLL_ERROR;
@@ -2044,9 +2050,9 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       if (offset < 0) return -errno;
       /* A directory set to a position (rewinddir, seekdir) is read on from
        * there, not from the entries the kernel's reader holds. */
-      if (request.whence == DOLLY_PROCESS_SEEK_SET && process->directories[request.descriptor] != NULL) {
-        closedir(process->directories[request.descriptor]);
-        process->directories[request.descriptor] = NULL;
+      if (request.whence == DOLLY_PROCESS_SEEK_SET && process->fds[request.descriptor].directory != NULL) {
+        closedir(process->fds[request.descriptor].directory);
+        process->fds[request.descriptor].directory = NULL;
       }
       dolly_process_fd_seek_response response = {(uint64_t)offset};
       return respond(&response, sizeof(response));
@@ -2133,7 +2139,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       if (target < 0) return target;
       const int result = copy_descriptor(process, process, request.source_descriptor, (uint32_t)target);
       if (result != 0) return result;
-      process->descriptor_flags[target] = (request.flags & DOLLY_PROCESS_FD_DUP_CLOEXEC)
+      process->fds[target].flags = (request.flags & DOLLY_PROCESS_FD_DUP_CLOEXEC)
           ? DOLLY_PROCESS_FD_CLOEXEC : 0;
       dolly_process_fd_dup_response response = {(uint32_t)target, 0};
       return respond(&response, sizeof(response));
@@ -2143,7 +2149,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       uint32_t guest;
       const int result = decode_fd_request(process, request_size, &guest);
       if (result != 0) return result;
-      const dolly_process_fd_flags response = {guest, process->descriptor_flags[guest]};
+      const dolly_process_fd_flags response = {guest, process->fds[guest].flags};
       return respond(&response, sizeof(response));
     }
     case DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS: {
@@ -2152,7 +2158,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       memcpy(&request, process_mailbox, sizeof(request));
       if (!descriptor_is_open(process, request.descriptor)) return -EBADF;
       if (request.flags & ~(DOLLY_PROCESS_FD_CLOEXEC | DOLLY_PROCESS_FD_KEEP_LOCKS)) return -EINVAL;
-      process->descriptor_flags[request.descriptor] = (unsigned char)request.flags;
+      process->fds[request.descriptor].flags = (unsigned char)request.flags;
       return 0;
     }
     case DOLLY_PROCESS_FD_GET_FLAGS: {
@@ -2161,9 +2167,9 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       const int result = decode_fd_request(process, request_size, &guest);
       if (result != 0) return result;
       uint32_t flags;
-      if (process->sockets[guest] != NULL) {
-        flags = process->sockets[guest]->kind->access |
-            (process->sockets[guest]->nonblocking ? DOLLY_PROCESS_FD_STATUS_NONBLOCK : 0);
+      if (process->fds[guest].stream != NULL) {
+        flags = process->fds[guest].stream->kind->access |
+            (process->fds[guest].stream->nonblocking ? DOLLY_PROCESS_FD_STATUS_NONBLOCK : 0);
       } else {
         const int descriptor = descriptor_for(process, guest);
         if (descriptor < 0) return descriptor;
@@ -2188,9 +2194,9 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
         return -EINVAL;
       }
       const int nonblocking = (request.flags & DOLLY_PROCESS_FD_STATUS_NONBLOCK) != 0;
-      if (process->descriptors[request.descriptor] < 0) {
+      if (process->fds[request.descriptor].file < 0) {
         if (request.flags & DOLLY_PROCESS_FD_STATUS_APPEND) return -ENOTSUP;
-        process->sockets[request.descriptor]->nonblocking = (unsigned char)nonblocking;
+        process->fds[request.descriptor].stream->nonblocking = (unsigned char)nonblocking;
         return 0;
       }
       const int descriptor = descriptor_for(process, request.descriptor);
@@ -2227,11 +2233,11 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       const int result = decode_fd_request(process, request_size, &guest);
       if (result != 0) return result;
       dolly_process_stat_response response = {.mode = 0600, .link_count = 1, .block_size = 4096};
-      if (process->sockets[guest] != NULL) {
-        response.file_type = process->sockets[guest]->kind->file_type;
+      if (process->fds[guest].stream != NULL) {
+        response.file_type = process->fds[guest].stream->kind->file_type;
       } else {
         struct stat metadata;
-        if (fstat(process->descriptors[guest], &metadata) != 0) return -errno;
+        if (fstat(process->fds[guest].file, &metadata) != 0) return -errno;
         encode_stat(&metadata, &response);
       }
       return respond(&response, sizeof(response));
@@ -2276,11 +2282,11 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
         result = copy_descriptor(process, process, (uint32_t)stream, (uint32_t)guest_fd);
         if (result != 0) return result;
       } else {
-        process->descriptors[guest_fd] = kernel_fd;
-        process->descriptions[guest_fd] = ++last_description;
-        process->terminal_descriptors[guest_fd] = controlling_terminal(kernel_fd);
+        process->fds[guest_fd].file = kernel_fd;
+        process->fds[guest_fd].description = ++last_description;
+        process->fds[guest_fd].terminal = controlling_terminal(kernel_fd);
       }
-      process->descriptor_flags[guest_fd] = (request.flags & DOLLY_PROCESS_OPEN_CLOEXEC)
+      process->fds[guest_fd].flags = (request.flags & DOLLY_PROCESS_OPEN_CLOEXEC)
           ? DOLLY_PROCESS_FD_CLOEXEC : 0;
       dolly_process_path_open_response response = {(uint32_t)guest_fd, 0};
       return respond(&response, sizeof(response));
@@ -2698,7 +2704,7 @@ int dolly_kernel_socket_descriptor(int pid, uint32_t descriptor, const dolly_ker
   const dolly_kernel_process *process = find_process(pid);
   if (process == NULL) return -ESRCH;
   if (!descriptor_is_open(process, descriptor)) return -EBADF;
-  *socket = process->sockets[descriptor];
+  *socket = process->fds[descriptor].stream;
   return *socket != NULL && (*socket)->kind == kind ? 0 : -ENOTSOCK;
 }
 
@@ -2726,7 +2732,7 @@ static int holds_socket(const dolly_kernel_process *process, const dolly_kernel_
   if (process->state != DOLLY_KERNEL_PROCESS_PENDING &&
       process->state != DOLLY_KERNEL_PROCESS_RUNNING) return 0;
   for (size_t descriptor = 0; descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT; ++descriptor) {
-    if (process->sockets[descriptor] == socket) return 1;
+    if (process->fds[descriptor].stream == socket) return 1;
   }
   return 0;
 }
@@ -2804,7 +2810,7 @@ int dolly_process_exec_commit(int pid) {
       process->staged.path == NULL || process->staged.image_descriptor >= 0) return -EINVAL;
   release_modules(pid, 0);
   for (uint32_t descriptor = 0; descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT; ++descriptor) {
-    if (process->descriptor_flags[descriptor] & DOLLY_PROCESS_FD_CLOEXEC)
+    if (process->fds[descriptor].flags & DOLLY_PROCESS_FD_CLOEXEC)
       release_descriptor(process, descriptor);
   }
   dispose_program(&process->program);
