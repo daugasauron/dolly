@@ -106,7 +106,7 @@ function reportThreadFinished() {
 
 // The process's memory lives in its Workers alone, so that it goes when they
 // end: the first Worker makes it, and a thread's receives it from the Worker
-// that spawned the thread (tasks/20261101-102515-retained-process-memory).
+// that spawned the thread.
 async function processMemory() {
   if (configuration.port) {
     // A thread's start word (control word 5): the supervisor sets 2 when it ends
@@ -190,7 +190,7 @@ function copyRequest(request) {
 // Chrome checks a copy, fill or atomic access of a shared memory against each
 // thread's own record of its size, which another thread's growth updates
 // late: the memory takes its maximum before a second thread starts and never
-// grows while two run (tasks/20261030-090000-chrome-grown-memory). The thread
+// grows while two run. The thread
 // that spawns does it, so its own record is current at once; a reservation
 // the browser refuses fails this spawn, and the next one asks again.
 function reserveMaximum() {

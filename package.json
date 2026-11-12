@@ -10,7 +10,7 @@
     "build:runtime": "./scripts/build.sh",
     "routes": "node scripts/generate-routes.mjs",
     "image": "node scripts/build-image.mjs",
-    "test": "npm run test:source && node test/core-browser.mjs",
+    "test": "npm run test:source && npm run test:artifacts && node test/core-browser.mjs",
     "test:source": "node --test 'test/*.test.mjs' 'demos/**/*.test.mjs'",
     "publish": "./scripts/package-pages.sh",
     "export:pages": "node scripts/export-cloudflare-pages.mjs",
