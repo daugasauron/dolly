@@ -33,6 +33,12 @@ them). So that direction trades the shared packs' single download for storage. T
 both: packs kept decoded, each a file, and the image cache's snapshot a Blob of an image's pack
 files in order, with no file of its own. Not kept.
 
+That other direction is not a Blob of files either: an image's snapshot is its packs' records
+merged in path order (`packagedSystemSnapshot`, `joined`), which the artifact's digest covers and
+the builder restores, not the packs one after another. Keeping one copy means the image cache
+holding pack references and its reader merging them as `packagedSystemSnapshot` does, with the
+digest checked over the merge.
+
 Done when an image read once occupies its snapshot's size (within the packs' framing), it
 starts again without a download, and the image, session and acceptance browser tests pass
 in Chromium and Firefox.
