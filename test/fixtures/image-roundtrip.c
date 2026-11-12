@@ -130,7 +130,7 @@ static int roundtrip(void) {
 static int feed_part(const unsigned char *bytes, size_t size, size_t chunk) {
   for (size_t offset = 0; offset < size; offset += chunk) {
     size_t amount = size - offset < chunk ? size - offset : chunk;
-    unsigned char *staged = (unsigned char *)dolly_snapshot_restore_address(chunk);
+    unsigned char *staged = (unsigned char *)dolly_snapshot_restore_address(chunk < DOLLY_SNAPSHOT_HEADER_SIZE ? DOLLY_SNAPSHOT_HEADER_SIZE : chunk);
     CHECK(staged != NULL);
     memcpy(staged, bytes + offset, amount);
     CHECK(dolly_snapshot_stream_write(amount, 0) == 0);
