@@ -15,8 +15,14 @@ Owner (2026-11-12): "Just add all the videos to git ?" Done in `92d7d3aa4`:
 Town section, 37 videos, every file within Pages' 25 MiB (`test/site-release.test.mjs` passes).
 Video 1 is in (`feature/videos`): `wine-tcc.mp4` (1:18, 7.7 MiB) and its poster, a section "Wine: a
 C compiler on its desktop"; how it was made is in `work/videos-2026-11-12/wine-tcc/README.md` (a
-take scripted in Chrome, typing past the first 12 s at 12x as its caption says). The Godot one
-waits for `20261112-075500-godot-bhop`.
+take scripted in Chrome, typing past the first 12 s at 12x as its caption says).
+Video 2 is in (`feature/video-godot`): `godot-airtime.mp4` (2:10, 16.0 MiB) and its poster, a
+section "Airtime: a game changed in Godot's editor"; how it was made is in
+`work/videos-2026-11-12/godot-airtime/README.md` (the `godot-airtime` image: the editor recolours
+the foundry's sea in `foundry.gd` and `molten.gdshader`, runs it, exports the pack as the recipe
+does, and `godot` plays it with the autopilot; speed-ups named in the caption bar). Found on the
+way: a double click does not register in Godot in Dolly (`display_server_dolly.cpp` never sets
+`InputEventMouseButton`'s `double_click`), so the editor's FileSystem dock opens a file on Enter only.
 
 ## Do
 
