@@ -14,7 +14,7 @@ REQUIRES HEADER http
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.6/dist/static/default/commands/amy.c f7c5e9328434e22fe728f110a3a0f1073230d7ad7701b1f8ed41027853302a2c /tmp/amy/amy.c
+SOURCE /v0.1.6/dist/static/default/commands/amy.c 2599efe4c8f614d5b634222d16b3dc5a46a0a6d091dcc8bcf6adc9f5d3f12433 /tmp/amy/amy.c
 SLOP cc -O2 /tmp/amy/amy.c -o /bin/amy
 
 EXPORTS TOOL amy

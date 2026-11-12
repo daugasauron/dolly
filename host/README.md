@@ -125,7 +125,8 @@ package, `Dollyfile-libdolly-NAME` named as the manifest's `package`, which
 sockets and touch (stack's is `stack-wrap`, html's `html`, which holds its command too); a module that a
 core source includes stays in the seed. A module without imports may instead own a
 reserved origin of the HTTP broker ([`http/local-services.mjs`](http/local-services.mjs)),
-as `build` and `packages` do: its service admits each request itself.
+as `build` does, and `packages` for a directory other than the page's: its service admits
+each request itself.
 
 ## Modules switched at run time
 
