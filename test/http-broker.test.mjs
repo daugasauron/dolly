@@ -326,7 +326,7 @@ test("HTTP metadata is not repaired by stripping Unicode before validation", asy
 test("HTTP header values use Fetch whitespace normalization, not Unicode trim", async () => {
   for (const value of [" \tvalue\t ", "\u00A0value\u00A0", " \t\u00A0value\u00A0\t "]) {
     let observed;
-    const f = fixture({}, async (_url, options) => {
+    const f = fixture({ credentialHeaders: ["x-value"] }, async (_url, options) => {
       observed = options.headers.get("x-value"); return new Response("ok");
     });
     assert.equal(await f.dispatch(admission(f, { headers: `X-Value:${value}\r\n` })), 0);
