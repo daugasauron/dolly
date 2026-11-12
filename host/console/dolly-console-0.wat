@@ -44,6 +44,13 @@
   ;; terminal's input ends as typed, with its VEOF (-EINVAL).
   (func (export "dolly_console_end_input") (param i32) (result i32)
     i32.const 0)
+  ;; Ctrl-C for a pipe console's program, which has no interrupt key: SIGINT
+  ;; by the terminal's rules (an interactive program's commands in its place,
+  ;; else it and its descendants), which the host carries out at its next
+  ;; event (dolly_process_next_event). -ESRCH before a program started; a
+  ;; terminal's interrupt key is typed (-EINVAL).
+  (func (export "dolly_console_interrupt") (param i32) (result i32)
+    i32.const 0)
   ;; A terminal's new size, as the master's resize: SIGWINCH for the programs on
   ;; the slave (a pipe console's: -EINVAL).
   (func (export "dolly_console_resize") (param i32 i32 i32) (result i32)

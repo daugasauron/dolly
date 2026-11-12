@@ -23,7 +23,7 @@ typedef struct {
   dolly_pty *pty;                 /* A terminal console's. */
   dolly_kernel_socket *host[3];   /* A pipe console's ends that the host holds. */
   dolly_kernel_socket *given[3];  /* Its ends for the process, until it has them. */
-  int started;
+  int started, pid;
 } console;
 static console consoles[DOLLY_PTY_LIMIT];
 
@@ -99,6 +99,7 @@ int dolly_console_spawn(int id, uintptr_t request_size) {
   /* The process holds them now: a pipe ends once it lets them go. */
   for (int descriptor = 0; descriptor < 3; ++descriptor) release(&found->given[descriptor]);
   found->started = found->pty == NULL;
+  found->pid = pid;
   return pid;
 }
 
@@ -122,6 +123,16 @@ int64_t dolly_console_read(int id, int descriptor, uint64_t capacity) {
   /* A master reads EIO once the slave is gone, and a pipe the end of the
    * file once its writers are: for the host, the end. */
   return count == -EIO ? 0 : count;
+}
+
+/* Ctrl-C for a pipe console's program, which has no terminal's interrupt key. */
+int dolly_console_interrupt(int id) {
+  console *found = find(id);
+  if (found == NULL) return -EBADF;
+  if (found->pty != NULL) return -EINVAL;
+  if (found->pid == 0) return -ESRCH;
+  dolly_kernel_interrupt_tree(found->pid);
+  return 0;
 }
 
 int dolly_console_end_input(int id) {
