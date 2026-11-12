@@ -36,6 +36,12 @@ export const isolationHeaders = {
   "cache-control": "no-store",
 };
 const releaseDigest = /^[0-9a-f]{64}$/;
+// The site's Content-Security-Policy, as Pages and this server send it: the
+// strict policy of docs/embedding.md, with the inline styles of its menu and
+// lists, and every destination its default HTTP policy admits.
+export const siteContentSecurityPolicy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; " +
+  "worker-src 'self' blob:; img-src 'self' blob:; style-src 'self' 'unsafe-inline'; connect-src *; " +
+  "object-src 'none'; base-uri 'none'";
 
 // Serves RELEASES/current as it would be deployed: / leads to its version, the
 // release's files are under /vX.Y.Z/, robots.txt speaks for that version, and
@@ -96,7 +102,7 @@ export function createReleaseServer(releases) {
       const body = await readFile(resolve(releases, digest, file));
       if (sha256(body) !== files.get(file)) throw new Error("published file changed");
       response.writeHead(200, {
-        ...isolationHeaders, "cache-control": "no-cache", etag,
+        ...isolationHeaders, "cache-control": "no-cache", etag, "content-security-policy": siteContentSecurityPolicy,
         "content-type": /^Dollyfile(?:-|$)/.test(basename(file)) ? "text/plain; charset=utf-8" :
           mimeTypes.get(extname(file)) ?? "application/octet-stream",
       });

@@ -10,7 +10,7 @@ import { readFile, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, resolve } from "node:path";
 import { buildImageInPage } from "./page-image-build.mjs";
-import { isolationHeaders, mimeTypes } from "./serve.mjs";
+import { isolationHeaders, mimeTypes, siteContentSecurityPolicy } from "./serve.mjs";
 import { siteReference } from "../src/static-asset.mjs";
 
 const inventory = (await readFile(new URL("./image-inventory.c", import.meta.url), "utf8"))
@@ -54,8 +54,9 @@ export async function acceptImage(browser, server, image) {
   if (!hostRequirements.includes("display@0") || hostRequirements.includes("gpu@0")) return;
   server.requests.clear();
   // The default ENTRY reaches its shell without network requests.
-  const route = await browser.newPage(), missing = [];
+  const route = await browser.newPage(), missing = [], violations = [];
   route.on("response", response => { if (response.status() === 404) missing.push(new URL(response.url()).pathname); });
+  route.on("console", message => { if (/Content.Security.Policy/i.test(message.text())) violations.push(message.text()); });
   await route.goto(`${server.origin}/${image}/`);
   await route.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null, { timeout: 120_000 });
   assert.equal(await route.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",
@@ -64,6 +65,7 @@ export async function acceptImage(browser, server, image) {
   assert.equal(seedRequested(server.requests), false, `${image}: prebuilt boot fetched the compiler seed`);
   if (image === "default") assert.equal(await route.evaluate(() => __dolly.httpRequestCount), 0);
   assert.deepEqual(missing, [], `${image}: the route asked for files the site lacks`);
+  assert.deepEqual(violations, [], `${image}: the route broke the site's Content-Security-Policy`);
   await route.close();
 }
 
@@ -92,7 +94,7 @@ export async function startSiteServer(site) {
       }
       [file, status] = [resolve(site, "404.html"), 404];
     }
-    response.writeHead(status, { ...isolationHeaders, "content-type": /(?:^|\/)Dollyfile(?:-|$)/.test(relative)
+    response.writeHead(status, { ...isolationHeaders, "content-security-policy": siteContentSecurityPolicy, "content-type": /(?:^|\/)Dollyfile(?:-|$)/.test(relative)
       ? "text/plain; charset=utf-8" : mimeTypes.get(extname(file)) ?? "application/octet-stream" });
     if (request.method === "HEAD") response.end(); else createReadStream(file).pipe(response);
   });
