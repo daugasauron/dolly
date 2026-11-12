@@ -38,31 +38,6 @@ function readPalette(style, rgb) {
 // The Worker's end of the display mailbox: it reads frames, the terminal's
 // geometry and its selection, and writes the surface and the animation frame.
 export class DisplayTransport {
-  static flags = A.DOLLY_DISPLAY_WORD_FLAGS;
-  static frameSequence = A.DOLLY_DISPLAY_WORD_FRAME_SEQUENCE;
-  static frameIndex = A.DOLLY_DISPLAY_WORD_FRAME_INDEX;
-  static frameWidth = A.DOLLY_DISPLAY_WORD_FRAME_WIDTH;
-  static frameHeight = A.DOLLY_DISPLAY_WORD_FRAME_HEIGHT;
-  static frameStride = A.DOLLY_DISPLAY_WORD_FRAME_STRIDE;
-  static terminalCols = A.DOLLY_DISPLAY_WORD_TERMINAL_COLS;
-  static terminalRows = A.DOLLY_DISPLAY_WORD_TERMINAL_ROWS;
-  static fontSizeMilli = A.DOLLY_DISPLAY_WORD_FONT_SIZE_MILLI;
-  static copySequence = A.DOLLY_DISPLAY_WORD_COPY_SEQUENCE;
-  static copyLength = A.DOLLY_DISPLAY_WORD_COPY_LENGTH;
-  static copyFlags = A.DOLLY_DISPLAY_WORD_COPY_FLAGS;
-  static cursorCol = A.DOLLY_DISPLAY_WORD_CURSOR_COL;
-  static cursorRow = A.DOLLY_DISPLAY_WORD_CURSOR_ROW;
-  static cellWidth = A.DOLLY_DISPLAY_WORD_CELL_WIDTH;
-  static cellHeight = A.DOLLY_DISPLAY_WORD_CELL_HEIGHT;
-  static paddingX = A.DOLLY_DISPLAY_WORD_PADDING_X;
-  static paddingY = A.DOLLY_DISPLAY_WORD_PADDING_Y;
-  static cursorStyle = A.DOLLY_DISPLAY_WORD_CURSOR_STYLE;
-  static animationFrameSequence = A.DOLLY_DISPLAY_WORD_ANIMATION_FRAME_SEQUENCE;
-  static surfaceSequence = A.DOLLY_DISPLAY_WORD_SURFACE_SEQUENCE;
-  static surfaceWidth = A.DOLLY_DISPLAY_WORD_SURFACE_WIDTH;
-  static surfaceHeight = A.DOLLY_DISPLAY_WORD_SURFACE_HEIGHT;
-  static surfaceScaleMilli = A.DOLLY_DISPLAY_WORD_SURFACE_SCALE_MILLI;
-  static paletteSequence = A.DOLLY_DISPLAY_WORD_PALETTE_SEQUENCE;
 
   // The copy buffer's size is the contract's; a test may shrink it.
   constructor(buffer, address, copyAddress, { copyCapacity = A.DOLLY_DISPLAY_COPY_CAPACITY } = {}) {
@@ -86,15 +61,15 @@ export class DisplayTransport {
     for (let attempt = 0; attempt < 3; attempt++) {
       const before = Atomics.load(
         this.words,
-        this.word + DisplayTransport.copySequence,
+        this.word + A.DOLLY_DISPLAY_WORD_COPY_SEQUENCE,
       ) >>> 0;
       const flags = Atomics.load(
         this.words,
-        this.word + DisplayTransport.copyFlags,
+        this.word + A.DOLLY_DISPLAY_WORD_COPY_FLAGS,
       ) >>> 0;
       const length = Atomics.load(
         this.words,
-        this.word + DisplayTransport.copyLength,
+        this.word + A.DOLLY_DISPLAY_WORD_COPY_LENGTH,
       ) >>> 0;
       if ((flags & A.DOLLY_DISPLAY_COPY_AVAILABLE) === 0) return null;
       if ((flags & A.DOLLY_DISPLAY_COPY_TRUNCATED) !== 0 ||
@@ -106,7 +81,7 @@ export class DisplayTransport {
       );
       const after = Atomics.load(
         this.words,
-        this.word + DisplayTransport.copySequence,
+        this.word + A.DOLLY_DISPLAY_WORD_COPY_SEQUENCE,
       ) >>> 0;
       if (before === after) return textDecoder.decode(bytes);
     }
@@ -115,12 +90,12 @@ export class DisplayTransport {
 
   // The surface frames are shown on: the terminal lays its grid out for it.
   publishSurface(width, height, devicePixelRatio) {
-    Atomics.add(this.words, this.word + DisplayTransport.surfaceSequence, 1);
-    Atomics.store(this.words, this.word + DisplayTransport.surfaceWidth, Math.max(1, Math.round(width)));
-    Atomics.store(this.words, this.word + DisplayTransport.surfaceHeight, Math.max(1, Math.round(height)));
-    Atomics.store(this.words, this.word + DisplayTransport.surfaceScaleMilli,
+    Atomics.add(this.words, this.word + A.DOLLY_DISPLAY_WORD_SURFACE_SEQUENCE, 1);
+    Atomics.store(this.words, this.word + A.DOLLY_DISPLAY_WORD_SURFACE_WIDTH, Math.max(1, Math.round(width)));
+    Atomics.store(this.words, this.word + A.DOLLY_DISPLAY_WORD_SURFACE_HEIGHT, Math.max(1, Math.round(height)));
+    Atomics.store(this.words, this.word + A.DOLLY_DISPLAY_WORD_SURFACE_SCALE_MILLI,
       Math.max(500, Math.min(4000, Math.round(devicePixelRatio * 1000))));
-    Atomics.add(this.words, this.word + DisplayTransport.surfaceSequence, 1);
+    Atomics.add(this.words, this.word + A.DOLLY_DISPLAY_WORD_SURFACE_SEQUENCE, 1);
   }
 
   // The terminal's colours, 0xRRGGBB each: { background, foreground, cursor, colors: [16] }.
@@ -129,49 +104,49 @@ export class DisplayTransport {
     if (colors.length !== 16 || !words.every(word => Number.isInteger(word) && word >= 0 && word <= 0xffffff)) {
       throw new Error("Dolly display palette must be 19 colours of 0xRRGGBB");
     }
-    Atomics.add(this.words, this.word + DisplayTransport.paletteSequence, 1);
+    Atomics.add(this.words, this.word + A.DOLLY_DISPLAY_WORD_PALETTE_SEQUENCE, 1);
     for (const [index, word] of words.entries()) {
       Atomics.store(this.words, this.word + A.DOLLY_DISPLAY_WORD_PALETTE_BACKGROUND + index, word);
     }
-    Atomics.add(this.words, this.word + DisplayTransport.paletteSequence, 1);
+    Atomics.add(this.words, this.word + A.DOLLY_DISPLAY_WORD_PALETTE_SEQUENCE, 1);
   }
 
   graphicsActive() {
-    return (Atomics.load(this.words, this.word + DisplayTransport.flags) & A.DOLLY_DISPLAY_GRAPHICS_ACTIVE) !== 0;
+    return (Atomics.load(this.words, this.word + A.DOLLY_DISPLAY_WORD_FLAGS) & A.DOLLY_DISPLAY_GRAPHICS_ACTIVE) !== 0;
   }
 
   publishAnimationFrame() {
     if (!this.graphicsActive()) return;
-    Atomics.add(this.words, this.word + DisplayTransport.animationFrameSequence, 1);
-    Atomics.notify(this.words, this.word + DisplayTransport.animationFrameSequence);
+    Atomics.add(this.words, this.word + A.DOLLY_DISPLAY_WORD_ANIMATION_FRAME_SEQUENCE, 1);
+    Atomics.notify(this.words, this.word + A.DOLLY_DISPLAY_WORD_ANIMATION_FRAME_SEQUENCE);
   }
 
   cursorStyle() {
     return Atomics.load(
       this.words,
-      this.word + DisplayTransport.cursorStyle,
+      this.word + A.DOLLY_DISPLAY_WORD_CURSOR_STYLE,
     ) >>> 0;
   }
 
   fontSize() {
-    return Atomics.load(this.words, this.word + DisplayTransport.fontSizeMilli) / 1000;
+    return Atomics.load(this.words, this.word + A.DOLLY_DISPLAY_WORD_FONT_SIZE_MILLI) / 1000;
   }
 
   dimensions() {
     return {
-      cols: Atomics.load(this.words, this.word + DisplayTransport.terminalCols),
-      rows: Atomics.load(this.words, this.word + DisplayTransport.terminalRows),
+      cols: Atomics.load(this.words, this.word + A.DOLLY_DISPLAY_WORD_TERMINAL_COLS),
+      rows: Atomics.load(this.words, this.word + A.DOLLY_DISPLAY_WORD_TERMINAL_ROWS),
     };
   }
 
   geometry() {
     return {
-      cursorCol: Atomics.load(this.words, this.word + DisplayTransport.cursorCol) >>> 0,
-      cursorRow: Atomics.load(this.words, this.word + DisplayTransport.cursorRow) >>> 0,
-      cellWidth: Atomics.load(this.words, this.word + DisplayTransport.cellWidth) >>> 0,
-      cellHeight: Atomics.load(this.words, this.word + DisplayTransport.cellHeight) >>> 0,
-      paddingX: Atomics.load(this.words, this.word + DisplayTransport.paddingX) >>> 0,
-      paddingY: Atomics.load(this.words, this.word + DisplayTransport.paddingY) >>> 0,
+      cursorCol: Atomics.load(this.words, this.word + A.DOLLY_DISPLAY_WORD_CURSOR_COL) >>> 0,
+      cursorRow: Atomics.load(this.words, this.word + A.DOLLY_DISPLAY_WORD_CURSOR_ROW) >>> 0,
+      cellWidth: Atomics.load(this.words, this.word + A.DOLLY_DISPLAY_WORD_CELL_WIDTH) >>> 0,
+      cellHeight: Atomics.load(this.words, this.word + A.DOLLY_DISPLAY_WORD_CELL_HEIGHT) >>> 0,
+      paddingX: Atomics.load(this.words, this.word + A.DOLLY_DISPLAY_WORD_PADDING_X) >>> 0,
+      paddingY: Atomics.load(this.words, this.word + A.DOLLY_DISPLAY_WORD_PADDING_Y) >>> 0,
     };
   }
 }
@@ -218,7 +193,7 @@ export class FramebufferPresenter {
       if (now < activeUntil) return request();
       // One wait at a time: any notify after it began ends it.
       if (!waiting) {
-        const parked = Atomics.waitAsync(words, word + DisplayTransport.frameSequence, this.sequence | 0);
+        const parked = Atomics.waitAsync(words, word + A.DOLLY_DISPLAY_WORD_FRAME_SEQUENCE, this.sequence | 0);
         waiting = parked.async;
         if (waiting) parked.value.then(() => { waiting = false; this.wake(); });
         else this.wake();
@@ -251,14 +226,14 @@ export class FramebufferPresenter {
   // Copies a newly published frame to the canvas; returns whether it painted one.
   paint() {
     const { words, word } = this.transport;
-    const sequence = Atomics.load(words, word + DisplayTransport.frameSequence) >>> 0;
+    const sequence = Atomics.load(words, word + A.DOLLY_DISPLAY_WORD_FRAME_SEQUENCE) >>> 0;
     if (sequence === this.sequence) return false;
     for (let attempt = 0; attempt < 3; attempt++) {
-      const before = Atomics.load(words, word + DisplayTransport.frameSequence) >>> 0;
-      const index = Atomics.load(words, word + DisplayTransport.frameIndex) >>> 0;
-      const width = Atomics.load(words, word + DisplayTransport.frameWidth) >>> 0;
-      const height = Atomics.load(words, word + DisplayTransport.frameHeight) >>> 0;
-      const stride = Atomics.load(words, word + DisplayTransport.frameStride) >>> 0;
+      const before = Atomics.load(words, word + A.DOLLY_DISPLAY_WORD_FRAME_SEQUENCE) >>> 0;
+      const index = Atomics.load(words, word + A.DOLLY_DISPLAY_WORD_FRAME_INDEX) >>> 0;
+      const width = Atomics.load(words, word + A.DOLLY_DISPLAY_WORD_FRAME_WIDTH) >>> 0;
+      const height = Atomics.load(words, word + A.DOLLY_DISPLAY_WORD_FRAME_HEIGHT) >>> 0;
+      const stride = Atomics.load(words, word + A.DOLLY_DISPLAY_WORD_FRAME_STRIDE) >>> 0;
       const length = stride * height;
       const address = this.frameAddresses[index];
       if (index >= A.DOLLY_DISPLAY_FRAME_COUNT || width === 0 || height === 0 || stride !== width * 4 ||
@@ -273,7 +248,7 @@ export class FramebufferPresenter {
         this.frames = [];
       }
       this.image.data.set(this.frames[index] ??= new Uint8ClampedArray(this.buffer, address, length));
-      const after = Atomics.load(words, word + DisplayTransport.frameSequence) >>> 0;
+      const after = Atomics.load(words, word + A.DOLLY_DISPLAY_WORD_FRAME_SEQUENCE) >>> 0;
       if (before !== after) continue;
       // A frame is opaque, as a window is: the fourth byte of a pixel is not shown.
       const pixels = this.image.data;
@@ -411,7 +386,7 @@ export function worker({ get, send, configuration }) {
     const { cols, rows } = transport.dimensions();
     const state = { graphicsActive: transport.graphicsActive(), cursor: transport.cursorStyle(),
       fontSize: transport.fontSize(), cols, rows, geometry: transport.geometry(),
-      frame: Atomics.load(words, word + DisplayTransport.frameSequence) >>> 0 };
+      frame: Atomics.load(words, word + A.DOLLY_DISPLAY_WORD_FRAME_SEQUENCE) >>> 0 };
     const text = JSON.stringify(state);
     if (text === reported) return;
     reported = text;

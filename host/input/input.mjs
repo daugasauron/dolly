@@ -25,26 +25,6 @@ function modifiers(event) {
 // The Worker's end of the input mailbox, the one producer of its records:
 // the page sends it what it sees.
 export class InputTransport {
-  static headerSize = A.DOLLY_INPUT_HEADER_SIZE;
-  static eventRead = A.DOLLY_INPUT_WORD_EVENT_READ;
-  static eventWrite = A.DOLLY_INPUT_WORD_EVENT_WRITE;
-  static flags = A.DOLLY_INPUT_WORD_FLAGS;
-  static pasteSequence = A.DOLLY_INPUT_WORD_PASTE_SEQUENCE;
-  static pasteConsumedSequence = A.DOLLY_INPUT_WORD_PASTE_CONSUMED_SEQUENCE;
-  static pasteLength = A.DOLLY_INPUT_WORD_PASTE_LENGTH;
-  static enabled = A.DOLLY_INPUT_WORD_ENABLED;
-
-  static keyEvent = A.DOLLY_INPUT_EVENT_KEY;
-  static textEvent = A.DOLLY_INPUT_EVENT_TEXT;
-  static focusEvent = A.DOLLY_INPUT_EVENT_FOCUS;
-  static pasteEvent = A.DOLLY_INPUT_EVENT_PASTE;
-  static pointerEvent = A.DOLLY_INPUT_EVENT_POINTER;
-  static scrollEvent = A.DOLLY_INPUT_EVENT_SCROLL;
-  static pointerMotionEvent = A.DOLLY_INPUT_EVENT_POINTER_MOTION;
-  static pointerCaptureEvent = A.DOLLY_INPUT_EVENT_POINTER_CAPTURE;
-  static pointerPresenceEvent = A.DOLLY_INPUT_EVENT_POINTER_PRESENCE;
-  static droppedEvent = A.DOLLY_INPUT_EVENT_DROPPED;
-
   // The ring and paste sizes are the contract's; a test may shrink them.
   // dropped(count) reports every record the ring had no room for.
   constructor(buffer, address, pasteAddress, { eventCapacity = A.DOLLY_INPUT_EVENT_CAPACITY,
@@ -56,7 +36,7 @@ export class InputTransport {
       start > 0 && length > 0 && start <= buffer.byteLength - length;
     if (address % 4 !== 0 || !Number.isSafeInteger(eventCapacity) ||
         eventCapacity <= 1 || (eventCapacity & (eventCapacity - 1)) !== 0 ||
-        !within(address, InputTransport.headerSize + eventCapacity * A.DOLLY_INPUT_EVENT_SIZE) ||
+        !within(address, A.DOLLY_INPUT_HEADER_SIZE + eventCapacity * A.DOLLY_INPUT_EVENT_SIZE) ||
         !within(pasteAddress, pasteCapacity)) {
       throw new Error("Dolly supplied an invalid input mailbox");
     }
@@ -79,19 +59,19 @@ export class InputTransport {
   // Free slots for records: the ring's last slot is kept for a loss mark. This
   // page is the ring's one producer, so they stay free until it writes.
   freeRecords() {
-    const read = Atomics.load(this.words, this.word + InputTransport.eventRead) >>> 0;
-    const write = Atomics.load(this.words, this.word + InputTransport.eventWrite) >>> 0;
+    const read = Atomics.load(this.words, this.word + A.DOLLY_INPUT_WORD_EVENT_READ) >>> 0;
+    const write = Atomics.load(this.words, this.word + A.DOLLY_INPUT_WORD_EVENT_WRITE) >>> 0;
     return this.eventCapacity - 1 - ((write - read) >>> 0);
   }
 
   // Writes one record if the ring has room and the record's strings fit.
   writeRecord({ type, action = 0, modifiers = 0, flags = 0, x = 0, y = 0, key = "", code = "", text = "" }) {
     const keyEnd = appendString(key, 0), codeEnd = appendString(code, keyEnd), textEnd = appendString(text, codeEnd);
-    const lossMark = type === InputTransport.droppedEvent;
+    const lossMark = type === A.DOLLY_INPUT_EVENT_DROPPED;
     if (textEnd < 0 || this.freeRecords() < (lossMark ? 0 : 1)) return false;
     this.lossMarked = lossMark;
-    const write = Atomics.load(this.words, this.word + InputTransport.eventWrite) >>> 0;
-    const offset = this.address + InputTransport.headerSize +
+    const write = Atomics.load(this.words, this.word + A.DOLLY_INPUT_WORD_EVENT_WRITE) >>> 0;
+    const offset = this.address + A.DOLLY_INPUT_HEADER_SIZE +
       (write & (this.eventCapacity - 1)) * A.DOLLY_INPUT_EVENT_SIZE;
     const view = this.view;
     view.setUint32(offset, type, true);
@@ -109,13 +89,13 @@ export class InputTransport {
     recordData.fill(0, textEnd);
     this.bytes.set(recordData, offset + 40);
 
-    Atomics.store(this.words, this.word + InputTransport.eventWrite, (write + 1) | 0);
+    Atomics.store(this.words, this.word + A.DOLLY_INPUT_WORD_EVENT_WRITE, (write + 1) | 0);
     // Wakes the record's reader (worker().start): a program holding the lease
     // reads every record, the terminal's reader keys, text and paste. The
     // terminal handles its own pointer and scroll records on its tick, all of
     // them before it draws one frame.
-    if (this.leased() || (type !== InputTransport.pointerEvent && type !== InputTransport.scrollEvent)) {
-      Atomics.notify(this.words, this.word + InputTransport.eventWrite);
+    if (this.leased() || (type !== A.DOLLY_INPUT_EVENT_POINTER && type !== A.DOLLY_INPUT_EVENT_SCROLL)) {
+      Atomics.notify(this.words, this.word + A.DOLLY_INPUT_WORD_EVENT_WRITE);
     }
     return true;
   }
@@ -125,7 +105,7 @@ export class InputTransport {
   // tells the reader where; the next mark follows only after later records.
   refuse() {
     this.dropped(++this.droppedRecords);
-    if (!this.lossMarked) this.writeRecord({ type: InputTransport.droppedEvent, action: this.droppedRecords });
+    if (!this.lossMarked) this.writeRecord({ type: A.DOLLY_INPUT_EVENT_DROPPED, action: this.droppedRecords });
     return false;
   }
 
@@ -143,7 +123,7 @@ export class InputTransport {
   flushMotion(reserve) {
     if ((this.movementX || this.movementY) && this.freeRecords() > reserve) {
       const x = clampMotion(this.movementX), y = clampMotion(this.movementY);
-      this.writeRecord({ type: InputTransport.pointerMotionEvent, x, y });
+      this.writeRecord({ type: A.DOLLY_INPUT_EVENT_POINTER_MOTION, x, y });
       this.movementX -= x;
       this.movementY -= y;
     }
@@ -158,7 +138,7 @@ export class InputTransport {
   }
 
   pushSyntheticKey(key, code, modifiers = 0, action = A.DOLLY_KEY_ACTION_PRESS, flags = 0) {
-    return this.pushRecord({ type: InputTransport.keyEvent, action, modifiers, flags, key, code });
+    return this.pushRecord({ type: A.DOLLY_INPUT_EVENT_KEY, action, modifiers, flags, key, code });
   }
 
   // All or nothing: a partially delivered paste or command would be worse
@@ -174,7 +154,7 @@ export class InputTransport {
     }
     this.flushMotion(chunks.length);
     if (chunks.length > this.freeRecords()) return this.refuse();
-    for (const chunk of chunks) this.writeRecord({ type: InputTransport.textEvent, text: chunk });
+    for (const chunk of chunks) this.writeRecord({ type: A.DOLLY_INPUT_EVENT_TEXT, text: chunk });
     return true;
   }
 
@@ -184,22 +164,22 @@ export class InputTransport {
     const bytes = encoder.encode(text);
     if (bytes.length > this.pasteCapacity) return false;
     if (this.leased()) return this.pushText(text);
-    const published = Atomics.load(this.words, this.word + InputTransport.pasteSequence) >>> 0;
-    const consumed = Atomics.load(this.words, this.word + InputTransport.pasteConsumedSequence) >>> 0;
+    const published = Atomics.load(this.words, this.word + A.DOLLY_INPUT_WORD_PASTE_SEQUENCE) >>> 0;
+    const consumed = Atomics.load(this.words, this.word + A.DOLLY_INPUT_WORD_PASTE_CONSUMED_SEQUENCE) >>> 0;
     if (published !== consumed) return false;
 
     // The record must follow its bytes; the caller reports a paste that is not delivered.
     this.flushMotion(1);
     if (this.freeRecords() <= 0) return false;
     this.bytes.set(bytes, this.pasteAddress);
-    Atomics.store(this.words, this.word + InputTransport.pasteLength, bytes.length);
-    Atomics.store(this.words, this.word + InputTransport.pasteSequence, (published + 1) | 0);
-    return this.writeRecord({ type: InputTransport.pasteEvent });
+    Atomics.store(this.words, this.word + A.DOLLY_INPUT_WORD_PASTE_LENGTH, bytes.length);
+    Atomics.store(this.words, this.word + A.DOLLY_INPUT_WORD_PASTE_SEQUENCE, (published + 1) | 0);
+    return this.writeRecord({ type: A.DOLLY_INPUT_EVENT_PASTE });
   }
 
   pushPointer(x, y, action, event) {
     const record = {
-      type: InputTransport.pointerEvent,
+      type: A.DOLLY_INPUT_EVENT_POINTER,
       action,
       modifiers: modifiers(event),
       flags: Math.max(0, Math.min(4, event.button ?? 0)) << 8,
@@ -216,7 +196,7 @@ export class InputTransport {
   pushScroll(delta, unit) {
     const y = Math.max(-2_000_000_000, Math.min(2_000_000_000, Math.round(delta * 1000)));
     if (y === 0) return true;
-    return this.pushRecord({ type: InputTransport.scrollEvent, action: unit, y });
+    return this.pushRecord({ type: A.DOLLY_INPUT_EVENT_SCROLL, action: unit, y });
   }
 
   pushPointerMotion(event) {
@@ -225,30 +205,30 @@ export class InputTransport {
   }
 
   pushFocus(focused) {
-    return this.pushRecord({ type: InputTransport.focusEvent, action: focused ? 1 : 0 });
+    return this.pushRecord({ type: A.DOLLY_INPUT_EVENT_FOCUS, action: focused ? 1 : 0 });
   }
 
   pushPointerCapture(captured) {
-    return this.pushRecord({ type: InputTransport.pointerCaptureEvent, action: captured ? 1 : 0 });
+    return this.pushRecord({ type: A.DOLLY_INPUT_EVENT_POINTER_CAPTURE, action: captured ? 1 : 0 });
   }
 
   pushPointerPresence(inside) {
-    return this.pushRecord({ type: InputTransport.pointerPresenceEvent, action: inside ? 1 : 0 });
+    return this.pushRecord({ type: A.DOLLY_INPUT_EVENT_POINTER_PRESENCE, action: inside ? 1 : 0 });
   }
 
   inputIdle() {
-    return Atomics.load(this.words, this.word + InputTransport.eventRead) ===
-      Atomics.load(this.words, this.word + InputTransport.eventWrite);
+    return Atomics.load(this.words, this.word + A.DOLLY_INPUT_WORD_EVENT_READ) ===
+      Atomics.load(this.words, this.word + A.DOLLY_INPUT_WORD_EVENT_WRITE);
   }
 
   // A foreground program holds the lease and reads every record.
   leased() {
-    return (Atomics.load(this.words, this.word + InputTransport.flags) & A.DOLLY_INPUT_LEASED) !== 0;
+    return (Atomics.load(this.words, this.word + A.DOLLY_INPUT_WORD_FLAGS) & A.DOLLY_INPUT_LEASED) !== 0;
   }
 
   // Tells the kernel whether this page listens: without it no lease is given.
   enable(enabled) {
-    Atomics.store(this.words, this.word + InputTransport.enabled, enabled ? 1 : 0);
+    Atomics.store(this.words, this.word + A.DOLLY_INPUT_WORD_ENABLED, enabled ? 1 : 0);
   }
 }
 
@@ -702,10 +682,10 @@ export function worker({ get, send }) {
       started.enable(true);
       // The page notifies the write word for a record a reader waits on: a
       // program waiting for input resumes then, not at the next service tick.
-      stop = get("runtime").serviceOnNotify(started.words, started.word + InputTransport.eventWrite);
+      stop = get("runtime").serviceOnNotify(started.words, started.word + A.DOLLY_INPUT_WORD_EVENT_WRITE);
       // The kernel notifies the flags word when the lease or its pointer
       // request changes; the page decides with what it was last told.
-      const index = started.word + InputTransport.flags;
+      const index = started.word + A.DOLLY_INPUT_WORD_FLAGS;
       const follow = () => {
         if (transport !== started) return;
         const seen = Atomics.load(started.words, index);
