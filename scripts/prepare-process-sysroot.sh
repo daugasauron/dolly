@@ -53,8 +53,12 @@ for library in "${host_libraries[@]}"; do
 done
 cp -- "${reserved_libc_symbols}" "${staging}/libc-provider.symbols"
 # The modules' parts (their manifests' `seed`): build/process-sysroot-parts/NAME/ is NAME/.
+parts=()
 if [[ -d "${project_dir}/build/process-sysroot-parts" ]]; then
   cp -R -- "${project_dir}/build/process-sysroot-parts/." "${staging}/"
+  for part in "${project_dir}/build/process-sysroot-parts/"*/; do
+    if [[ -d "${part}" ]]; then parts+=("$(basename -- "${part}")"); fi
+  done
 fi
 
 # Dolly owns signal and timer state, and dladdr. Keeping the replaced objects lets
@@ -122,13 +126,16 @@ rm -- "${staging}/.libc-defined.symbols"
 
 (
   cd -- "${staging}"
+  part_files=()
+  for part in "${parts[@]}"; do part_files+=("${part}"/*); done
   sha256sum -- \
     "${libraries[@]}" \
     crt1.o \
     libdolly-process.a \
     "${host_libraries[@]}" \
     libc-provider.symbols \
-    dynamic-provider.symbols threads/*
+    dynamic-provider.symbols \
+    "${part_files[@]}"
 ) >"${staging}/SHA256SUMS"
 
 key="$({
