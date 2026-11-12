@@ -1,0 +1,49 @@
+DOLLY 7
+PACKAGE airtime-godot
+REQUIRES HOST runtime@0
+REQUIRES HOST audio@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST threads@0
+REQUIRES HOST sockets@0
+REQUIRES HOST gpu@0
+
+# Airtime: Foundry in Godot: the strafe trials of demos/bhop with Airtime's own movement and course
+# (bunny-hop and air-strafe over pads that drop, 33 pads in four sections), drawn by Godot's
+# Forward+ renderer on gpu@0 as a foundry at night over a sea of molten metal. Its project
+# (demos/godot/airtime) is imported and exported here by Godot's editor, and airtime-godot plays
+# the pack with godot, which installs with it. The project installs too, for the editor.
+FROM /v0.1.6/Dollyfile-system c769a03cde506146459e12dca6d7f47721b53812aa4410dfb6d5bd0fc9b420ea
+INSTALL /v0.1.6/demos/godot/Dollyfile-godot e1c656dbce844b6305eef1fea297dd32e75289afe2c45f2e9a6c9bb7ab7bc131
+USE /v0.1.6/demos/godot/Dollyfile-godot-editor 856bb41daecdc801541b915e4ce89d252dbc03c01a1dfd6ea8e8af23ebdcca9b
+
+REQUIRES TOOL cp
+REQUIRES TOOL godot-editor
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /v0.1.6/dist/static/godot/airtime.tar 1b05da9af870785142eff9078a4c63b5e82c0ba7ffb67ba2dd808ad97cf4cd1c /tmp/airtime.tar
+SLOP CWD / tar -xf /tmp/airtime.tar
+SLOP mkdir -p /usr/share/airtime-godot
+SLOP cp -r /usr/src/airtime /usr/share/airtime-godot/project
+SLOP CWD /usr/src/airtime godot-editor --headless --import
+SLOP CWD /usr/src/airtime godot-editor --headless --export-pack Dolly /usr/share/airtime-godot/airtime.pck
+SLOP rm -rf /usr/src/airtime /tmp/airtime.tar
+
+FILE /usr/bin/airtime-godot
+    #!/bin/slop
+    godot --main-pack /usr/share/airtime-godot/airtime.pck "$@"
+EXPORTS TOOL airtime-godot
+FILE /usr/share/man/cat1/airtime-godot.1
+    airtime-godot [GODOT-OPTION...] [-- --autopilot SECONDS]
+    Plays Airtime: Foundry in Godot, the strafe trials of bhop with Airtime's own
+    movement and course. A click takes the mouse; A and D with the mouse turning
+    build speed in the air, Space or the wheel jumps, Escape gives the mouse back,
+    R restarts, F returns to the last checkpoint, 1-4 practise a section, Q quits.
+    Amber pads drop a moment after a landing; cyan decks hold. With --autopilot it
+    plays a run by itself for that many seconds and prints how far it got. It
+    draws through WebGPU (gpu@0). Its project is /usr/share/airtime-godot/project:
+    copy it to edit it with godot-editor.
+FILE /usr/share/airtime-godot/airtime.pck
+FOLDER /usr/share/airtime-godot/project

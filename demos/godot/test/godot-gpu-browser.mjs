@@ -183,7 +183,7 @@ for (const name of browsers) {
     page.on("pageerror", error => errors.push(error.message));
     // WebGPU's validation errors reach the page's console after their batch is answered.
     page.on("console", message => { if (message.text().startsWith("Dolly GPU:")) errors.push(message.text()); });
-    const image = await composed(["gpu", "audio", "display", "input", "threads", "sockets"], ["godot", "godot-editor", "truck-town", "lantern-drift"], { base: "system" });
+    const image = await composed(["gpu", "audio", "display", "input", "threads", "sockets"], ["godot", "godot-editor", "truck-town", "lantern-drift", "airtime-godot"], { base: "system" });
     await image.setup(page);
     await page.goto(server.origin + image.path);
     await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null, { timeout: 300_000 });
@@ -207,7 +207,8 @@ for (const name of browsers) {
     await run("godot-editor -e --windowed --resolution 1152x648 --path /tmp/scene3d > /tmp/editor.out 2>&1");
     await run("truck-town --quit-after 600 > /tmp/truck.out 2>&1");
     await run("lantern-drift -- --autopilot 20 > /tmp/drift.out 2>&1");
-    await run("! grep -q 'refused a batch' /tmp/scene2d.out /tmp/scene3d.out /tmp/forward.out /tmp/effects.out /tmp/editor.out /tmp/truck.out /tmp/drift.out");
+    await run("airtime-godot -- --autopilot 25 > /tmp/airtime.out 2>&1");
+    await run("! grep -q 'refused a batch' /tmp/scene2d.out /tmp/scene3d.out /tmp/forward.out /tmp/effects.out /tmp/editor.out /tmp/truck.out /tmp/drift.out /tmp/airtime.out");
 
     const lines2d = await output("/tmp/scene2d.out | grep -E '^(ADAPTER|FPS|BACKGROUND|SPRITE|LABEL) '");
     assert.match(lines2d, /^ADAPTER WebGPU$/m);
@@ -255,6 +256,13 @@ for (const name of browsers) {
     const [, rings] = drift.match(/^DRIFT seconds [\d.]+ frames \d+ fps [\d.]+ rings (\d+) /m) ?? [];
     const [, bright, warm] = drift.match(/^DRIFT frame \d+x\d+ bright (\d+) warm (\d+)$/m) ?? [];
     assert.ok(Number(rings) >= 4 && Number(bright) > 50 && Number(warm) > 5000, `Lantern Drift flies and draws: ${drift}`);
+    // Airtime's autopilot strafes on Airtime's movement: the run reaches past the first sections
+    // with few falls, and the frame draws the foundry.
+    const airtime = await output("/tmp/airtime.out | grep '^AIRTIME '");
+    assert.match(airtime, /^AIRTIME adapter WebGPU forward_plus$/m);
+    const [, falls, pad] = airtime.match(/^AIRTIME seconds [\d.]+ frames \d+ fps [\d.]+ ticks \d+ jumps \d+ falls (\d+) pad (\d+) /m) ?? [];
+    const [, lit, metal] = airtime.match(/^AIRTIME frame \d+x\d+ bright (\d+) warm (\d+)$/m) ?? [];
+    assert.ok(Number(falls) <= 2 && Number(pad) >= 16 && Number(lit) > 50 && Number(metal) > 2000, `Airtime runs and draws: ${airtime}`);
 
     // The editor runs the 2D project (F5): the game's 640 by 360 window takes the page over the
     // editor's, it reaches the editor's debugger over a local socket, its output goes where the

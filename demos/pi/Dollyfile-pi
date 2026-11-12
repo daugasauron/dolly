@@ -10,10 +10,10 @@ REQUIRES HOST threads@0
 # their registry files the site serves (prepare-pi-npm.mjs). The pi command runs
 # dist/cli.js in its own process; npm's bin, dist/bundle/cli.js, would need
 # Node's require of ES modules and runs the undici it bundles.
-FROM /v0.1.6/Dollyfile-system 303452ea95491694f86ddf98e74eb579620f0274ceee0049fc1ca97c69d3124b
-INSTALL /v0.1.6/demos/javascript/Dollyfile-janis-install a3cda4cc5e1f705b7c857c8c9e8be53256984240eef8ae1bdb6101c4b9671f42
-INSTALL /v0.1.6/demos/rust/Dollyfile-ripgrep 1638508379d8b33e2b861878e8230960dabb3db0c17a4ea8da7b10201c94eef6
-INSTALL /v0.1.6/demos/rust/Dollyfile-fd 4e98706e5e9295342bdffad8dfb1b89bafab294a35fdc0db1e00060d90aadf9b
+FROM /v0.1.6/Dollyfile-system c769a03cde506146459e12dca6d7f47721b53812aa4410dfb6d5bd0fc9b420ea
+INSTALL /v0.1.6/demos/javascript/Dollyfile-janis-install 04c5b2ed981ca941692721b646975a53d872e8f7e83d3dd7f62d552256e23237
+INSTALL /v0.1.6/demos/rust/Dollyfile-ripgrep 91a6197dcd1ef1d709b46076b4bcfed19fe4e9609226a47d242aa4052a8e4a8a
+INSTALL /v0.1.6/demos/rust/Dollyfile-fd ac0bd6188c89fe3b1a54146d4a0cd0a3a0d8b4a663036cc8dd507e5910a5fe94
 REQUIRES HEADER quickjs-runner
 REQUIRES LIB    dolly-js
 REQUIRES LIB    quickjs

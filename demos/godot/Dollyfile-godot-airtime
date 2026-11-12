@@ -1,0 +1,28 @@
+DOLLY 7
+APPLICATION godot-airtime
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST audio@0
+REQUIRES HOST gpu@0
+REQUIRES HOST threads@0
+REQUIRES HOST sockets@0
+
+# Airtime: Foundry in Godot on the page, with Godot's editor beside it: the game starts at once;
+# Q quits to a shell where the editor opens the game's project, a copy in the home directory.
+INSTALL /v0.1.6/Dollyfile-core d69d0e16a3e1a7813171966d23fcf5a44d488a6bcf2723a3d32f689fa162fc5c
+INSTALL /v0.1.6/Dollyfile-posix f43bd41a3f446fc9f1c3437a2e33d93fd39f08ea5acd72eaf8c92b348e2d60ed
+INSTALL /v0.1.6/Dollyfile-display e1328f1decb7f81e8b508cf5f03c18246fdac37d39d259021ea69882d59f4d9f
+INSTALL /v0.1.6/demos/godot/Dollyfile-airtime-godot e12e6f5c15101613aeae97f91d8ee283ee2a95eb0b02a18d153966231df7349e
+INSTALL /v0.1.6/demos/godot/Dollyfile-godot-editor 856bb41daecdc801541b915e4ce89d252dbc03c01a1dfd6ea8e8af23ebdcca9b
+COPY /v0.1.6/demos/godot/Dollyfile-airtime-godot e12e6f5c15101613aeae97f91d8ee283ee2a95eb0b02a18d153966231df7349e /usr/share/airtime-godot/project /home/dolly/airtime
+REQUIRES TOOL airtime-godot
+REQUIRES TOOL godot-editor
+
+FILE /etc/dolly/init.slop
+    /bin/foreground /usr/bin/airtime-godot
+    printf '\nAirtime has quit. godot-editor -e --path ~/airtime opens its project in the editor, airtime-godot plays it again.\n'
+    /bin/foreground -i /bin/slop
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
