@@ -6,9 +6,9 @@ REQUIRES HOST threads@0
 # SPIR-V of Vulkan GLSL shaders to WGSL for gpu@0 (spirv-wgsl/spirv_wgsl.h), as Godot's
 # RenderingDevice driver compiles its shaders: Tint, from Dawn, and SPIRV-Tools, built by their
 # CMake, under Dolly's passes (spirv-wgsl/spirv_wgsl.cpp), in one static library.
-FROM /v0.1.6/demos/cmake/Dollyfile-cmake-build 0f6d032ab6c8dc5fc6cb40fc316798fa489bc2afb90429c52c9f0f6e575a25d4
+FROM /v0.1.6/demos/cmake/Dollyfile-cmake-build 875b8ed2b79b6fb2c2c15e833adcaa8a24d5e5d1356558e332c52846c6ccb6d5
 # Dawn's CMake requires a Python 3 interpreter.
-USE /v0.1.6/demos/python/Dollyfile-python b9561ae6b9e2ad0fa364fba8a31337c7c151329402f1e0b3ada26f4896919bd0
+USE /v0.1.6/demos/python/Dollyfile-python aeb2be1dfe91ed1cc1dd0394338d24c397c3281945ee0b1e5f72626bf5376308
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python

@@ -12,19 +12,19 @@ REQUIRES HOST threads@0
 REQUIRES HOST packages@0
 REQUIRES HOST nena@0
 
-INSTALL /v0.1.6/Dollyfile-core a64f50b75a27a2701fd0dfe5576d51dbe8d2935c0d0e8d3246dbb79a7368dd47
-INSTALL /v0.1.6/Dollyfile-posix 469ea6b54a78b9737eb5378aadb9198068c27e621558938468588f0b0d574ebf
-INSTALL /v0.1.6/Dollyfile-display 0ac4795910e07e891278604f39ff54f6fe81c4347384b0a6d2470ba7d1dc5bdb
+INSTALL /v0.1.6/Dollyfile-core d69d0e16a3e1a7813171966d23fcf5a44d488a6bcf2723a3d32f689fa162fc5c
+INSTALL /v0.1.6/Dollyfile-posix f43bd41a3f446fc9f1c3437a2e33d93fd39f08ea5acd72eaf8c92b348e2d60ed
+INSTALL /v0.1.6/Dollyfile-display e1328f1decb7f81e8b508cf5f03c18246fdac37d39d259021ea69882d59f4d9f
 # The tools Pi's dolly skill teaches: cc and make, Git, curl.
-INSTALL /v0.1.6/Dollyfile-cc 45c600ca65a76228e0ab426460dde1ffe5692febc849c1e139a2b84486e9e05c
-INSTALL /v0.1.6/Dollyfile-git 5c3483cf0ad5dd4b89a4f6838b174178cb50c1088bb4d9854965a4b2378f8950
-INSTALL /v0.1.6/Dollyfile-curl 24fb8c4a86fc84af77d1470e6685b66fae4d1bf08964a22d452c54f5bc904f1c
+INSTALL /v0.1.6/Dollyfile-cc a6f96b01bf8368add739d79a57ed2829615fcfb85461b50bb28c02bede8e6b6a
+INSTALL /v0.1.6/Dollyfile-git 41f1aa917316b481870e233ad0b2abae525cb8173908534f9b771b13ca0f68a0
+INSTALL /v0.1.6/Dollyfile-curl 50830dca6325422d1b1d76d882d1ec4daf856abb9d8c296e6e4459f429486dbf
 # download and upload, which Pi's prompt teaches (transfer).
-INSTALL /v0.1.6/Dollyfile-transfer 18537911f1c05f4538a89276bb509c7b1af9444c9faae8adef94369065f0b18d
-INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly 42f6908a4ed24940e01f1ed213ed4d732b79d759a47440fe9d6e3a49b692fedc
-INSTALL /v0.1.6/Dollyfile-amy f8c8e777c5b781d7da0d5ef02cd21b8c7bba1aa2bb6369bf9d8f42b08095a44a
+INSTALL /v0.1.6/Dollyfile-transfer 420ed424bcd0127a54789d4958d128b40fc0a679bd202c664f1b3632f2fa4309
+INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly db63943ae6ed39a0e2e90612a8547368fe759d98e58986f3b323253f47857720
+INSTALL /v0.1.6/Dollyfile-amy c928fd1990becf977dfc3c6b6accf920d448c25f8e031c5868b0f73837f6191d
 # nena enables the host modules a package needs beyond these.
-INSTALL /v0.1.6/Dollyfile-nena 5589875174e91242cb7860fb958d2c44e2029d61c382a6f0d6608366722c1852
+INSTALL /v0.1.6/Dollyfile-nena c93355eba59f5cb1f469f498be983f563c60aa753e8da3172363c5935d0e0f66
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL printf
