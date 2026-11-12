@@ -65,7 +65,7 @@ export function boot(mount, { images, image, modules, site, http = {}, files = {
 //   enables (by default the required ones), which a build alone may set;
 // - configuration, inherited: the modules' configuration, and what http@0
 //   inherits from the tab that opened this one;
-// - worker: the runtime Worker's URL, by default runtime-worker.mjs;
+// - worker: the runtime Worker's URL, by default dist/dolly-runtime-worker.mjs (runtime-worker.mjs bundled);
 // - start(host, report): before the Worker starts, the fields it adds to the
 //   configure message ({ message, transfers }), or null once an image without
 //   ENTRY is built;
@@ -149,7 +149,7 @@ export async function run(mount, { images, modules, site, http }, route) {
     const selected = await route(registry);
     const { image } = selected;
     // The Worker loads its code while the page starts the host modules; it waits for configure.
-    runtimeWorker = new Worker(selected.worker ?? new URL("./runtime-worker.mjs", import.meta.url), {
+    runtimeWorker = new Worker(selected.worker ?? new URL("../dist/dolly-runtime-worker.mjs", import.meta.url), {
       type: "module",
       name: "dolly-runtime",
     });
@@ -159,6 +159,8 @@ export async function run(mount, { images, modules, site, http }, route) {
       const message = event.message || "the runtime Worker failed";
       if (rejectReady) rejectReady(new Error(message)); else fatal(message);
     });
+    runtimeWorker.postMessage({ type: "prepare", images: imageBase.href, modules: registry.urls,
+      hostModules: selected.enabled ?? selected.required });
     appendBootstrap(`DOLLY / ${image.toUpperCase()} / ${selected.label}\n\n`);
     host = await registry.createHost("browser", selected.enabled ?? selected.required, {
       send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),

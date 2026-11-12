@@ -68,6 +68,7 @@ cp \
   "${project_dir}/dist/dolly.wasm" \
   "${project_dir}/dist/dolly-process-abi.mjs" \
   "${project_dir}/dist/dolly-process-worker.mjs" \
+  "${project_dir}/dist/dolly-runtime-worker.mjs" \
   "${project_dir}/dist/dolly-process-dso.mjs" \
   "${project_dir}/dist/dolly-process-stack.mjs" \
   "${project_dir}/dist/dolly-kernel-plugin-abi.mjs" \

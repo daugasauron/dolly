@@ -26,6 +26,16 @@ export async function bundleProcessWorker(projectDir = resolve(import.meta.dirna
     await writeFile(`${outfile}.${process.pid}.tmp`, result.outputFiles[0].contents);
     await rename(`${outfile}.${process.pid}.tmp`, outfile);
   }
+  // dist/dolly-runtime-worker.mjs: the runtime Worker's code in one file, fetched at once, not an
+  // import level a round trip. The providers it imports by their manifests stay files of their own.
+  const runtime = resolve(projectDir, "dist/dolly-runtime-worker.mjs");
+  const bundled = await build({
+    entryPoints: ["src/runtime-worker.mjs"], absWorkingDir: projectDir, write: false,
+    // esnext keeps the JSON imports' attributes, which es2022 has not.
+    bundle: true, platform: "browser", format: "esm", target: "esnext",
+  });
+  await writeFile(`${runtime}.${process.pid}.tmp`, bundled.outputFiles[0].contents);
+  await rename(`${runtime}.${process.pid}.tmp`, runtime);
 }
 
 if (process.argv[1] === import.meta.filename) await bundleProcessWorker();

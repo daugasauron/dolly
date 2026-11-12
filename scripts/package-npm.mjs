@@ -76,7 +76,7 @@ async function writePackage(directory, files, packageJson, readme) {
   return execFileSync("npm", ["pack", "--silent", "--pack-destination", out], { cwd: directory, encoding: "utf8" }).trim();
 }
 
-const runtimeEntries = ["src/browser.mjs", "src/runtime-worker.mjs", "host/modules.mjs",
+const runtimeEntries = ["src/browser.mjs", "host/modules.mjs",
   "src/image-builder.mjs", "src/image-build.mjs", "host/http/local-services.mjs"];
 for (const name of runtimeModules) {
   const { host } = await manifest(name);
@@ -85,7 +85,7 @@ for (const name of runtimeModules) {
 // The contracts the runtime reads (process-supervisor.mjs, host/dso/dso.mjs); a
 // device module's travel in its own package. coi-serviceworker.js isolates a site
 // dolly-build writes where the host sends no isolation headers.
-const runtimeFiles = [...await closure(runtimeEntries), "dist/dolly.wasm", "dist/dolly-process-worker.mjs",
+const runtimeFiles = [...await closure(runtimeEntries), "dist/dolly.wasm", "dist/dolly-process-worker.mjs", "dist/dolly-runtime-worker.mjs",
   "dist/dolly-process-dso.mjs", "dist/dolly-process-stack.mjs", "LICENSE", "coi-serviceworker.js",
   ...["process-gate", "process", "threads", "dso"].map(name => `dist/dolly-${name}-0.wasm`)];
 const tarballs = [await writePackage(join(out, "dolly"), runtimeFiles.map(file => [file, file]), {
