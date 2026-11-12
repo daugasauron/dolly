@@ -148,6 +148,17 @@ export async function run(mount, { images, modules, site, http }, route) {
     const registry = await hostRegistry(modules);
     const selected = await route(registry);
     const { image } = selected;
+    // The Worker loads its code while the page starts the host modules; it waits for configure.
+    runtimeWorker = new Worker(selected.worker ?? new URL("./runtime-worker.mjs", import.meta.url), {
+      type: "module",
+      name: "dolly-runtime",
+    });
+    // An uncaught failure in the Worker, a kernel trap outside a system call
+    // among them, is the runtime's end: the page says so.
+    runtimeWorker.addEventListener("error", event => {
+      const message = event.message || "the runtime Worker failed";
+      if (rejectReady) rejectReady(new Error(message)); else fatal(message);
+    });
     appendBootstrap(`DOLLY / ${image.toUpperCase()} / ${selected.label}\n\n`);
     host = await registry.createHost("browser", selected.enabled ?? selected.required, {
       send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),
@@ -161,19 +172,10 @@ export async function run(mount, { images, modules, site, http }, route) {
     if (started === null) {
       document.documentElement.dataset.dollyStatus = "built";
       host.dispose();
+      runtimeWorker.terminate();
       return null;
     }
 
-    runtimeWorker = new Worker(selected.worker ?? new URL("./runtime-worker.mjs", import.meta.url), {
-      type: "module",
-      name: "dolly-runtime",
-    });
-    // An uncaught failure in the Worker, a kernel trap outside a system call
-    // among them, is the runtime's end: the page says so.
-    runtimeWorker.addEventListener("error", event => {
-      const message = event.message || "the runtime Worker failed";
-      if (rejectReady) rejectReady(new Error(message)); else fatal(message);
-    });
     runtimeWorker.addEventListener("message", (event) => {
       const message = event.data;
       void host.handle(message).catch(error => fatal(error.message));
