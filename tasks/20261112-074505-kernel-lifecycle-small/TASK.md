@@ -8,7 +8,22 @@ From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, K3, K4).
 
 ## State (2026-11-12)
 
-Filed.
+On `fix/batch`, waiting for its rebuild round:
+
+- SIGCHLD stays as it is, measured: a kernel round trip costs 15 to 25 µs and a spawn and
+  wait 3.0 to 6.0 ms (`tasks/20261006-093856-flock-stub`), so the three calls a default
+  SIGCHLD adds (the interrupted call, INTERRUPT_POLL, SIGNAL_ACKNOWLEDGE) are 1 to 2.5% of a
+  spawn. Dropping it in the kernel would lose a SIGCHLD that arrives while the mask blocks it
+  and a handler is installed later, which Linux keeps: the kernel does not know the mask.
+- `launching_pid` is gone: `dolly_terminal_write_bytes` takes the pid whose launch started the
+  compile (`abi/dolly-supervisor-0.wat`), so two compiles in flight address their own terminals.
+- `worker_exited` and `worker_failed` answer 0 for a process that already exited, as the
+  contract says, and `-ESRCH` for one the kernel never had; the supervisor checks both results.
+- Upload's chunks and rename wait during a session save (`dolly_kernel_change_waits`): the save
+  lists `/tmp`, so a concurrent upload made it fail. mmap writes back through FD_PWRITE, which
+  waits already. The page's own boot-file writes (nena's `/etc/dolly/enabled`) are synchronous
+  exports and cannot wait; a save they race fails with its "save again" line.
+- `process_dispatch`'s split waits for `20261112-074504-kernel-streams`.
 
 ## Do
 

@@ -415,7 +415,7 @@ export class DollyProcessSupervisor {
       }
       return this.#cachedModule(key);
     }
-    const compiled = await this.#compileProcess(this.#takeImage(pid));
+    const compiled = await this.#compileProcess(this.#takeImage(pid), pid);
     if (version !== 0n) {
       this.compiledVersions.delete(version);
       this.compiledVersions.set(version, compiled.key);
@@ -434,7 +434,8 @@ export class DollyProcessSupervisor {
     return cached;
   }
 
-  async #compileProcess(bytes) {
+  // The notices of a slow compile go to process `pid`, whose launch started it.
+  async #compileProcess(bytes, pid) {
     const byteLength = bytes.byteLength;
     const digest = hex(await crypto.subtle.digest("SHA-256", bytes));
     const key = `${byteLength}:${digest}`;
@@ -447,7 +448,7 @@ export class DollyProcessSupervisor {
     const notice = setTimeout(() => {
       noticeShown = true;
       const mebibytes = (byteLength / (1024 * 1024)).toFixed(1);
-      this.#writeTerminal(
+      this.#writeTerminal(pid,
         `\r\ndolly: preparing ${mebibytes} MiB WebAssembly executable for this session...\r\n`,
       );
     }, compilationNoticeMilliseconds);
@@ -472,7 +473,7 @@ export class DollyProcessSupervisor {
     } finally {
       clearTimeout(notice);
       if (noticeShown) {
-        this.#writeTerminal(
+        this.#writeTerminal(pid,
           prepared
             ? `dolly: executable ready in ${((performance.now() - started) / 1000).toFixed(1)}s\r\n`
             : "dolly: executable preparation failed\r\n",
@@ -508,7 +509,7 @@ export class DollyProcessSupervisor {
     compiled.module.terminate();
   }
 
-  #writeTerminal(text) {
+  #writeTerminal(pid, text) {
     const bytes = encoder.encode(text);
     const address = this.kernel.malloc(BigInt(Math.max(1, bytes.byteLength)));
     if (address === 0 || address === 0n) return;
@@ -517,7 +518,7 @@ export class DollyProcessSupervisor {
         this.kernelMemory.buffer, Number(address), bytes.byteLength,
       ).set(bytes);
       this.kernel.dolly_terminal_write_bytes(
-        BigInt(address), BigInt(bytes.byteLength),
+        pid, BigInt(address), BigInt(bytes.byteLength),
       );
     } finally {
       this.kernel.free(BigInt(address));
@@ -536,7 +537,7 @@ export class DollyProcessSupervisor {
         // A failed launch ends only its own process; exiting it in the kernel
         // also stops next_launch from naming it again.
         if (process) this.#fail(process, error);
-        else this.kernel.dolly_process_worker_exited(pid, 126, 0);
+        else this.#recordExit(pid, 126, 0);
       } finally {
         if (compiled) this.#release(compiled);
       }
@@ -885,7 +886,7 @@ export class DollyProcessSupervisor {
       else this.serviceDeferred();
     } else if (message.type === "finished") {
       // _start returned (status zero), or EXIT has already recorded the status.
-      this.kernel.dolly_process_worker_exited(process.pid, 0, 0);
+      this.#recordExit(process.pid, 0, 0);
       this.#retire(process);
     } else if (message.type === "failed") {
       const detail = message.stack ? `${message.message}\n${message.stack}` : message.message;
@@ -980,7 +981,8 @@ export class DollyProcessSupervisor {
     const line = encoder.encode(`dolly: process ${process.pid} ` +
       `${process.started ? "failed" : "was refused"}: ${reason}\n`);
     new Uint8Array(this.kernelMemory.buffer, this.mailboxAddress, line.length).set(line);
-    this.kernel.dolly_process_worker_failed(process.pid, BigInt(line.length));
+    const recorded = this.kernel.dolly_process_worker_failed(process.pid, BigInt(line.length));
+    if (recorded !== 0) throw new Error(`kernel refused the failure of process ${process.pid} (${recorded})`);
     detail.message = `Dolly process ${process.pid} failed: ${detail.message}`;
     process.failure = Object.assign(detail, { reason });
     if (!process.reject) console.error(detail.stack ?? detail.message);
@@ -991,9 +993,15 @@ export class DollyProcessSupervisor {
     const process = this.processes.get(pid);
     if (!process) return false;
     if (process.retiring) return true;
-    this.kernel.dolly_process_worker_exited(pid, status, signalNumber);
+    this.#recordExit(pid, status, signalNumber);
     this.#retire(process);
     return true;
+  }
+
+  // The kernel refuses only a process it never had or an impossible status.
+  #recordExit(pid, status, signalNumber) {
+    const result = this.kernel.dolly_process_worker_exited(pid, status, signalNumber);
+    if (result !== 0) throw new Error(`kernel refused the exit of process ${pid} (${result})`);
   }
 
   // A timed command's deadline ends its tree, deepest first, as timeout(1)

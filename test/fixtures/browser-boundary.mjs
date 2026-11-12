@@ -214,10 +214,10 @@ export async function checkKernelBounds(assetRoot) {
 
     // No display driver is resident, so the kernel's terminal write is boot text.
     const textLimit = 1024 * 1024, address = kernel.malloc(BigInt(textLimit + 1));
-    check(kernel.dolly_terminal_write_bytes(address, BigInt(textLimit)) === 0 &&
+    check(kernel.dolly_terminal_write_bytes(0, address, BigInt(textLimit)) === 0 &&
       sent.at(-1).bytes.length === textLimit, "a boot text write at its bound was refused");
     const messages = sent.length;
-    check(kernel.dolly_terminal_write_bytes(address, BigInt(textLimit + 1)) === -errno.EINVAL &&
+    check(kernel.dolly_terminal_write_bytes(0, address, BigInt(textLimit + 1)) === -errno.EINVAL &&
       sent.length === messages, "an oversized boot text write reached the page");
 
     // Memory grows inside the kernel: an allocation past its 8 GiB maximum

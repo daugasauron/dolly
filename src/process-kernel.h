@@ -104,6 +104,9 @@ int dolly_process_spawn_serialized(uintptr_t request_size);
  * that change a file's bytes or times, or remove, rename or truncate one, wait:
  * nothing changes the files being copied. Everything else runs. */
 void dolly_kernel_hold_calls(int held);
+/* 1 while a change to `descriptor`'s bytes or times must wait, a regular
+ * file's; -1 names a path's removal, rename or truncation. */
+int dolly_kernel_change_waits(int descriptor);
 void dolly_kernel_wake(void);
 /* Raises `number` for `pid`, which the supervisor delivers as it delivers a
  * kill: what a module's device decides, as a pseudo-terminal's interrupt key. */
@@ -181,7 +184,7 @@ int dolly_bootstrap_write_bytes(const unsigned char *bytes, uintptr_t length);
 /* What a process writes to the display's terminal. Zero, or the negative
  * errno of a refused boot text write. */
 int dolly_kernel_terminal_write(const unsigned char *bytes, uintptr_t length);
-int dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length);
+int dolly_terminal_write_bytes(int pid, const unsigned char *bytes, uintptr_t length);
 /* The version of the bytes a kernel descriptor reads, src/file-blocks.cpp. */
 uint64_t dolly_fs_version(int descriptor);
 /* The address of block `index` of those bytes (DOLLY_FS_BLOCK_SIZE each, the
@@ -191,7 +194,7 @@ uintptr_t dolly_fs_block(int descriptor, uintptr_t index);
  * bytes, which the Worker holds: 0 or a negative errno. */
 int dolly_fs_input_file(const char *path, uint32_t input, uint64_t size);
 /* The supervisor's words about the executable it prepares, src/process-kernel.c. */
-int dolly_kernel_launch_diagnostic(const unsigned char *bytes, size_t size);
+int dolly_kernel_launch_diagnostic(int pid, const unsigned char *bytes, size_t size);
 void dolly_terminal_publish_result(int status);
 void dolly_kernel_foreground_publish(int pid, unsigned interrupt);
 /* The terminal's foreground owner, or zero. */

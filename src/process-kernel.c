@@ -116,9 +116,7 @@ static uint32_t live_pipe_count;
 static int wakeup_pending;
 /* While a save runs, changes to files wait (dolly_kernel_hold_calls). */
 static int calls_held;
-/* A change to `descriptor`'s bytes or times waits while held, a regular
- * file's; -1 names a path's removal, rename or truncation. */
-static int change_waits(int descriptor) {
+int dolly_kernel_change_waits(int descriptor) {
   struct stat metadata;
   return calls_held && (descriptor < 0 || (fstat(descriptor, &metadata) == 0 && S_ISREG(metadata.st_mode)));
 }
@@ -672,9 +670,6 @@ static int controlling_terminal(int kernel_fd) {
       terminal.st_ino == opened.st_ino;
 }
 
-/* The process whose executable the supervisor prepares: the last one taken. */
-static int launching_pid;
-
 /* The program the supervisor prepares for a process: the one it was spawned
  * with until it starts, then the one EXEC read. */
 static dolly_kernel_program *program_to_launch(dolly_kernel_process *process) {
@@ -690,8 +685,8 @@ static dolly_kernel_program *program_to_launch(dolly_kernel_process *process) {
  * file or a pipe, and not onto the display from a process that is not on it:
  * a program that draws the display (tmux) does not know of the lines.
  * 1 when the display's terminal is the one to show it. */
-int dolly_kernel_launch_diagnostic(const unsigned char *bytes, size_t size) {
-  dolly_kernel_process *process = find_process(launching_pid);
+int dolly_kernel_launch_diagnostic(int pid, const unsigned char *bytes, size_t size) {
+  dolly_kernel_process *process = find_process(pid);
   if (program_to_launch(process) == NULL) return 0;
   if (process->terminal_descriptors[STDERR_FILENO]) return 1;
   dolly_kernel_socket *stream = process->sockets[STDERR_FILENO];
@@ -1444,7 +1439,7 @@ static int64_t fd_pwrite_packet(dolly_kernel_process *process,
       request.offset > INT64_MAX) return -EINVAL;
   int descriptor = descriptor_for(process, request.descriptor);
   if (descriptor < 0) return descriptor;
-  if (change_waits(descriptor)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
+  if (dolly_kernel_change_waits(descriptor)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
   const ssize_t count = pwrite(
       descriptor, process_mailbox + sizeof(request),
       (size_t)request.size, (off_t)request.offset);
@@ -1561,7 +1556,7 @@ static int64_t fd_write_packet(dolly_kernel_process *process,
   }
   const int descriptor = descriptor_for(process, request.descriptor);
   if (descriptor < 0) return descriptor;
-  if (change_waits(descriptor)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
+  if (dolly_kernel_change_waits(descriptor)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
   const unsigned char *bytes = process_mailbox + sizeof(request);
   size_t completed = 0;
   while (completed < request.size) {
@@ -2037,7 +2032,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       if (request.reserved != 0 || request.size > INT64_MAX) return -EINVAL;
       int descriptor = descriptor_for(process, request.descriptor);
       if (descriptor < 0) return descriptor == -ESPIPE ? -EINVAL : descriptor;
-      if (change_waits(descriptor)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
+      if (dolly_kernel_change_waits(descriptor)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
       /* POSIX: a descriptor open for writing; WasmFS truncates through any. */
       const int access = fcntl(descriptor, F_GETFL);
       if (access < 0) return -errno;
@@ -2066,7 +2061,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       if (request.reserved != 0) return -EINVAL;
       int descriptor = descriptor_for(process, request.descriptor);
       if (descriptor < 0) return descriptor;
-      if (change_waits(descriptor)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
+      if (dolly_kernel_change_waits(descriptor)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
       struct timespec times[2];
       int result = decode_timestamps(
           &request.access, &request.modification, times);
@@ -2239,7 +2234,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       int result = decode_path_request(process, request_size, UINT32_MAX,
                                        &request, &path, &directory);
       int flags = result == 0 ? open_flags(request.flags) : result;
-      if (flags >= 0 && (flags & O_TRUNC) != 0 && change_waits(-1)) {
+      if (flags >= 0 && (flags & O_TRUNC) != 0 && dolly_kernel_change_waits(-1)) {
         free(path);
         return DOLLY_PROCESS_DISPATCH_DEFERRED;
       }
@@ -2310,7 +2305,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       return result;
     }
     case DOLLY_PROCESS_PATH_REMOVE: {
-      if (change_waits(-1)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
+      if (dolly_kernel_change_waits(-1)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
       dolly_process_path_request request;
       char *path = NULL;
       int directory = AT_FDCWD;
@@ -2327,7 +2322,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
     }
     case DOLLY_PROCESS_PATH_RENAME:
     case DOLLY_PROCESS_PATH_LINK: {
-      if (operation == DOLLY_PROCESS_PATH_RENAME && change_waits(-1)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
+      if (operation == DOLLY_PROCESS_PATH_RENAME && dolly_kernel_change_waits(-1)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
       dolly_process_two_path_request request;
       const int invalid = decode_two_path_request(request_size, &request);
       if (invalid != 0) return invalid;
@@ -2449,7 +2444,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       return respond(&response, sizeof(response));
     }
     case DOLLY_PROCESS_PATH_SET_TIMES: {
-      if (change_waits(-1)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
+      if (dolly_kernel_change_waits(-1)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
       if (request_size < sizeof(dolly_process_path_times_request) ||
           response_capacity != 0) return -EINVAL;
       dolly_process_path_times_request request;
@@ -2793,7 +2788,6 @@ int dolly_process_image_consumed(int pid) {
   if (program == NULL || program->image_descriptor < 0) return -EINVAL;
   close(program->image_descriptor);
   program->image_descriptor = -1;
-  launching_pid = pid;
   return 0;
 }
 
@@ -2859,9 +2853,10 @@ int dolly_process_worker_started(int pid) {
 
 int dolly_process_worker_exited(int pid, int status, int signal_number) {
   dolly_kernel_process *process = find_process(pid);
-  if (process == NULL || process->state == DOLLY_KERNEL_PROCESS_EXITED) return -EINVAL;
+  if (process == NULL) return -ESRCH;
   if (!supported_signal((uint32_t)signal_number) ||
       (signal_number != 0 && status != 128 + signal_number)) return -EINVAL;
+  if (process->state == DOLLY_KERNEL_PROCESS_EXITED) return 0;
   mark_process_exited(process, status, signal_number);
   return 0;
 }
@@ -2869,8 +2864,9 @@ int dolly_process_worker_exited(int pid, int status, int signal_number) {
 int dolly_process_worker_failed(int pid, uintptr_t size) {
   dolly_kernel_process *process = find_process(pid);
   process_mailbox = supervisor_mailbox;
-  if (process == NULL || process->state == DOLLY_KERNEL_PROCESS_EXITED ||
-      write_diagnostic(process, size) != 0) return -EINVAL;
+  if (process == NULL) return -ESRCH;
+  if (process->state == DOLLY_KERNEL_PROCESS_EXITED) return 0;
+  if (write_diagnostic(process, size) != 0) return -EINVAL;
   mark_process_exited(process, 126, 0);
   return 0;
 }

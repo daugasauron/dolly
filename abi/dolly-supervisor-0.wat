@@ -7,13 +7,13 @@
   ;; while no display driver is resident: boot, rebuilds and headless images.
   ;; The page shows it only as bounded plain text in the bootstrap log.
   (import "env" "dolly_bootstrap_write_bytes" (func (param i64 i64) (result i32)))
-  ;; The supervisor's words about the executable it prepares. Before a display
-  ;; driver is installed they reach the bootstrap sink. After it they go to
-  ;; descriptor 2 of the process that waits for the executable where that is a
-  ;; terminal, the display's or a pseudo-terminal's, and nowhere otherwise,
-  ;; without host interpretation. Zero, or the negative error number of a
-  ;; refused bootstrap write.
-  (func (export "dolly_terminal_write_bytes") (param i64 i64) (result i32) i32.const 0)
+  ;; The supervisor's words about the executable it prepares for process `pid`.
+  ;; Before a display driver is installed they reach the bootstrap sink. After
+  ;; it they go to that process's descriptor 2 where that is a terminal, the
+  ;; display's or a pseudo-terminal's, and nowhere otherwise, without host
+  ;; interpretation. Zero, or the negative error number of a refused bootstrap
+  ;; write.
+  (func (export "dolly_terminal_write_bytes") (param i32 i64 i64) (result i32) i32.const 0)
   ;; Runs the kernel's constructors: once, after instantiation, before any
   ;; other export.
   (func (export "_initialize"))
@@ -54,6 +54,7 @@
   ;; A Worker failed or its executable was refused. The mailbox holds one
   ;; diagnostic line of the given size: the kernel writes it to the process's
   ;; descriptor 2, so the program that asked is told, and records status 126.
+  ;; A process that already exited keeps its status and is told nothing.
   (func $worker_failed (param i32 i64) (result i32) i32.const 0)
   ;; 1 once the kernel recorded the process's exit, which an ancestor's EXIT
   ;; can do before the process launches, or when it is unknown; otherwise 0.
