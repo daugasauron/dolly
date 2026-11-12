@@ -95,7 +95,7 @@ const policy = {
   `{ origin: location.origin, path: "/amy-index.txt" }`, with the site's
   prefix in the path. Package snapshots come from `packages@0`, not from here.
 - A request under a rule carries an ordinary request's headers (`accept`,
-  `accept-language`, `content-language`, `content-type`, `range`, the
+  `accept-language`, `content-encoding`, `content-language`, `content-type`, `range`, the
   conditional ones, `cache-control`, `pragma`) and those its rule lists in
   `credentialHeaders`; every other header is removed, a token under a name no
   list knows included. The broker never stores, injects or rewrites

@@ -30,7 +30,7 @@ const browserOwnedTransportHeaderNames = new Set([
 // What an ordinary request carries: under a hardened rule these and the
 // headers the rule names leave the sandbox, and nothing else does, a token in
 // a header of any other name included.
-const ordinaryHeaderNames = new Set(["accept", "accept-language", "content-language", "content-type",
+const ordinaryHeaderNames = new Set(["accept", "accept-language", "content-encoding", "content-language", "content-type",
   "range", "if-match", "if-none-match", "if-modified-since", "if-unmodified-since", "if-range",
   "cache-control", "pragma"]);
 

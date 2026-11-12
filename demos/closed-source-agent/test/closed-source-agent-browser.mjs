@@ -73,7 +73,8 @@ await demoTest("closed-source-agent", { image: "closed-source-agent", timeout: 6
   server: { handle } }, async ({ server, open }) => {
   const policy = { maxRequests: 64, rules: [
     { origin: registry, path: tarballPath, methods: ["GET"], maxResponseBytes: 32 << 20 },
-    { origin: anthropic, pathPrefix: "/v1/", methods: ["POST"], credentialHeaders: ["x-api-key", "authorization"], maxRequestBytes: 4 << 20 },
+    { origin: anthropic, pathPrefix: "/v1/", methods: ["POST"], credentialHeaders: ["x-api-key", "authorization", "anthropic-version", "anthropic-beta",
+      "anthropic-dangerous-direct-browser-access"], maxRequestBytes: 4 << 20 },
     { origin: anthropic, pathPrefix: "/api/", methods: ["GET"] },
     { origin: platform, path: "/v1/oauth/hello", methods: ["GET"] },
   ] };

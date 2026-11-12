@@ -21,7 +21,7 @@ export const codexLoginRules = [
   ...["/api/accounts/deviceauth/usercode", "/api/accounts/deviceauth/token", "/oauth/token", "/oauth/revoke"]
     .map(path => ({ origin: issuer, path, methods: ["POST"] })),
   ...["/backend-api/codex/models", "/backend-api/codex/responses", "/backend-api/wham/usage"]
-    .map(path => ({ origin: backend, path, methods: [path.endsWith("/responses") ? "POST" : "GET"], credentialHeaders: ["authorization"] })),
+    .map(path => ({ origin: backend, path, methods: [path.endsWith("/responses") ? "POST" : "GET"], credentialHeaders: ["authorization", "chatgpt-account-id"] })),
 ];
 
 // Installed only by the browser test, after broker admission. Production URLs
