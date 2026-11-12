@@ -32,6 +32,20 @@ every image that installs it (`default`, `tmux-panes`, `ghostty-x11`, `x11-deskt
 
 Cost: a module contract, the client in the seed, amy, `default` and the images with amy; a round.
 
+Design (2026-11-12), for the next full round (amy and the client are in the seed):
+- packages@0 gets a mailbox of its own, as upload@0 has: amy's one operation names a kind
+  (the page's directory, a directory's `amy-index.txt`, a package snapshot by directory and
+  recipe pin) and a destination file; the page streams the bytes into it a chunk at a time, the
+  kernel writes and renames. No dispatch import; the host side is a Worker (`worker.mjs`).
+- A foreign directory (`amy server URL`, Donna's request) is judged by the page's HTTP policy.
+  That policy is boot()'s configuration, today held by http@0's page side: it becomes a page
+  resource every provider receives (as `mount` and `showStatus` are), so packages@0 judges a URL
+  without depending on http@0. Its packs are not kept in the origin's store; the catalog and the
+  metadata are read with a byte bound.
+- Then `default` drops `curl` and `http@0` (owner, 2026-11-04: http only where an agent fetches),
+  and `http@0` stops being fixed: its page side keeps the policy from load and starts its
+  transport when enabled, so `amy install curl` and `nena enable http` give a session curl.
+
 ## Done when
 
 - The owner has decided whether `default` keeps `http@0`. If not: `amy` declares `packages@0`
