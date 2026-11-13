@@ -24,12 +24,16 @@ On `fix/batch`:
   round runs.
 - 4 is in `docs/dollyfile.md`: INSTALL's and FROM's meaning by role in the table, and the
   opening rule is the site's.
-- 3 needs a mechanism first: a recipe without `FROM` starts from the compiler seed
-  (`dist/dolly.data`, 117 MB, not in npm) only to compile `/bin/dollyfile`. Next: a root build
-  whose rows `INSTALL` the `dollyfile` package starts from that package's snapshot and engine
-  (`src/build-worker.mjs` `prepare`/`restore`), which also spares `/IMAGE/rebuild/` the seed
-  when every input is prebuilt; then `dolly-build init` writes `INSTALL` rows of `core`,
-  `dollyfile`, `posix`, `display`, `curl`, `pi-dolly` and npm publishes those packages.
+- 3 is in (2026-11-13, `fix/audit-0.1.6`): a root build whose rows `INSTALL` the `dollyfile`
+  package starts, as a `FROM` build does, from that package's `/bin/dollyfile` alone
+  (`src/build-worker.mjs`, `dolly_process_bootstrap_resume_prepare`), so it never loads the seed:
+  `test/default-browser.mjs` "composed with the engine" passes in Chromium and Firefox (no request
+  for `dist/dolly.data`). `dolly-build init` writes `INSTALL` rows of Pi's packages (`pi-minimal`'s:
+  core, dollyfile, posix, display, curl, pi-dolly), which `dolly-build` depends on, then the named
+  packages, the template's rows and `ENTRY`; `dolly-build` builds a recipe `FROM` an image or one
+  that installs `dollyfile`. `config/npm-images.txt` lists `pi-dolly`'s closure (17 packages more).
+  Left: `test/npm-browser.mjs` in the round, which packs the full catalog; `pi-minimal` built this way
+  matches the seed-built one file for file.
 
 ## Do
 
