@@ -14,7 +14,7 @@ test("Slop semantics under sanitizers against Bash", async t => {
   try {
     const compile = (output, ...sources) => execFileSync("cc", ["-g", "-O1",
       "-fsanitize=address,undefined", "-fno-omit-frame-pointer", "-no-pie", `-I${includeDirectory}`,
-      "src/slop.c", ...sources, "test/fixtures/slop-denied-host.c", "-o", output], { cwd: project, stdio: "pipe" });
+      "-DDOLLY_SHELL_UTILITY", "src/slop.c", "src/commands/test.c", "src/commands/echo.c", "src/commands/printf.c", ...sources, "test/fixtures/slop-denied-host.c", "-o", output], { cwd: project, stdio: "pipe" });
     compile(resolve(scratch, "native-slop"));
     // The same shell over the host's posix_spawn, pipes and SIGPIPE.
     const spawning = resolve(scratch, "spawning");

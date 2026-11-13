@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-// printf FORMAT [ARGUMENT ...], as POSIX specifies it. Slop includes this file
+// printf FORMAT [ARGUMENT ...], as POSIX specifies it. Slop links this file
 // and runs the same code itself for the printf that PATH finds in /bin
 // (DOLLY_SHELL_UTILITY), so nothing here exits.
 
@@ -189,7 +189,7 @@ static int printf_format(PrintfOperands *operands, const char *format) {
   return 1;
 }
 
-static int printf_utility(int argc, char **argv) {
+int printf_utility(int argc, char **argv) {
   // POSIX: a utility without options discards a first --.
   const int first = argc > 1 && strcmp(argv[1], "--") == 0 ? 2 : 1;
   if (first >= argc) {

@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 // test and [ are this one program, [ when it is called by that name. Slop
-// includes it and runs the same code itself for the test and [ that PATH finds
+// links it and runs the same code itself for the test and [ that PATH finds
 // in /bin (DOLLY_SHELL_UTILITY), as other shells have them built in.
 
 static int unary(const char *operation, const char *value, int *known) {
@@ -210,7 +210,7 @@ static int evaluate(int argc, char **argv, int *error) {
   return result;
 }
 
-static int test_utility(int argc, char **argv) {
+int test_utility(int argc, char **argv) {
   const char *slash = strrchr(argv[0], '/');
   const int bracket = strcmp(slash == NULL ? argv[0] : slash + 1, "[") == 0;
   argc--; argv++;

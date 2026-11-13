@@ -99,7 +99,8 @@ SOURCE /v0.1.6/dist/static/default/slop.c 307f9ccf561345702323f982764c75776525b1
 SOURCE /v0.1.6/dist/static/default/commands/test.c 3b21b6855f7495f8e6dca7b46bc8b9ce54f4f589570c30339b1ea5e869471edd /tmp/slop/commands/test.c
 SOURCE /v0.1.6/dist/static/default/commands/echo.c b452aa1e2e101d11bc6ac27052d116a8b9e1792cb3ad3406dc23f31f218adb56 /tmp/slop/commands/echo.c
 SOURCE /v0.1.6/dist/static/default/commands/printf.c 7188ef27e1c62707313cb627b7d75865a28b1b186bba1180a8913b61c07ed5d7 /tmp/slop/commands/printf.c
-RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/slop/slop.c -o /bin/slop
+RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 -DDOLLY_SHELL_UTILITY /tmp/slop/slop.c \
+  /tmp/slop/commands/test.c /tmp/slop/commands/echo.c /tmp/slop/commands/printf.c -o /bin/slop
 
 EXPORTS TOOL slop
 EXPORTS ENV SHELL /bin/slop
