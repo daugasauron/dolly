@@ -144,6 +144,34 @@
  fn startPosix(self: *Command, arena: Allocator) !void {
      // Null-terminate all our arguments
      const argsZ = try arena.allocSentinel(?[*:0]const u8, self.args.len, null);
+--- a/src/apprt/gtk/class/application.zig
++++ b/src/apprt/gtk/class/application.zig
+@@ -3306,6 +3306,14 @@
+         _ = setenv("GDK_DISABLE", @ptrCast(value[0 .. value.len - 1 :0]), 1);
+     }
+ 
++    // Dolly's GL is Mesa's softpipe, linked into the program: OpenGL 3.3
++    // with the parts of 4.3 the renderer uses. Mesa gives the renderer the
++    // 4.3 context it asks for when told to; what the environment says stands.
++    if (comptime builtin.os.tag == .emscripten) {
++        _ = setenv("MESA_GL_VERSION_OVERRIDE", "4.3", 0);
++        _ = setenv("MESA_GLSL_VERSION_OVERRIDE", "430", 0);
++    }
++
+     // Sync environ after altering system env
+     global.syncEnviron();
+ }
+--- a/src/apprt/gtk/class/surface.zig
++++ b/src/apprt/gtk/class/surface.zig
+@@ -1618,6 +1618,8 @@
+         _ = env.orderedRemove("GDK_DEBUG");
+         _ = env.orderedRemove("GDK_DISABLE");
+         _ = env.orderedRemove("GSK_RENDERER");
++        _ = env.orderedRemove("MESA_GL_VERSION_OVERRIDE");
++        _ = env.orderedRemove("MESA_GLSL_VERSION_OVERRIDE");
+ 
+         // Remove some environment variables that are set when Ghostty is launched
+         // from a `.desktop` file, by D-Bus activation, or systemd.
 --- a/src/build/GhosttyExe.zig
 +++ b/src/build/GhosttyExe.zig
 @@ -20,6 +20,8 @@
@@ -341,33 +369,43 @@
          } else |_| {
 --- a/src/renderer/generic.zig
 +++ b/src/renderer/generic.zig
-@@ -1908,13 +1908,37 @@
+@@ -387,6 +387,15 @@
+             /// Custom shader state, this is null if we have no custom shaders.
+             custom_shader_state: ?CustomShaderState = null,
+ 
++            /// What the target shows, for a renderer that shades only the
++            /// rows that differ from it (see `damage`): a hash of each
++            /// row's cells as last drawn into it, `drawn_rows` of them, and
++            /// one of what every row depends on. No rows when the target
++            /// does not show a whole frame.
++            drawn: [256]u64 = undefined,
++            drawn_rows: usize = 0,
++            drawn_shared: u64 = 0,
++
+             const UniformBuffer = Buffer(shaderpkg.Uniforms);
+             const CellBgBuffer = Buffer(shaderpkg.CellBg);
+             const CellTextBuffer = Buffer(shaderpkg.CellText);
+@@ -480,6 +489,7 @@
+                 const target = try api.initTarget(width, height);
+                 self.target.deinit();
+                 self.target = target;
++                self.drawn_rows = 0;
+             }
+         };
+ 
+@@ -1908,15 +1918,29 @@
              var frame_ctx = try self.api.beginFrame(self, &frame.target);
              defer frame_ctx.complete(sync);
  
 +            // On Emscripten (Dolly) GL is Mesa's softpipe, which shades every
-+            // pixel of a full-screen pass in its interpreter: the background
-+            // color is the pass's clear color instead, and cell backgrounds
-+            // are shaded only over the rows that have any.
++            // pixel of a pass in its interpreter: the background color is
++            // the pass's clear color instead, cell backgrounds are scissored
++            // clears, which shade nothing, and where the target already
++            // shows this frame's rows only the others are drawn.
 +            const shade_less = comptime builtin.os.tag == .emscripten;
 +            const clear_background = shade_less and self.bg_image == null;
-+            const clear_color: [4]f32 = if (clear_background) clear: {
-+                // As bg_color.f.glsl's load_color: linearized for linear
-+                // blending, then premultiplied by its alpha.
-+                const bg = self.uniforms.bg_color;
-+                const linear = self.uniforms.bools.use_linear_blending;
-+                const alpha = @as(f32, @floatFromInt(bg[3])) / 255.0;
-+                var color: [4]f32 = undefined;
-+                for (bg[0..3], color[0..3]) |byte, *channel| {
-+                    const value = @as(f32, @floatFromInt(byte)) / 255.0;
-+                    channel.* = alpha * if (!linear) value else if (value <= 0.04045)
-+                        value / 12.92
-+                    else
-+                        std.math.pow(f32, (value + 0.055) / 1.055, 2.4);
-+                }
-+                color[3] = alpha;
-+                break :clear color;
-+            } else .{ 0.0, 0.0, 0.0, 0.0 };
++            var damage_rects: [8][4]i32 = undefined;
++            const damaged = if (shade_less) self.damage(frame, &damage_rects) else {};
 +
              {
                  var pass = frame_ctx.renderPass(&.{.{
@@ -376,10 +414,16 @@
                      else
                          .{ .target = frame.target },
 -                    .clear_color = .{ 0.0, 0.0, 0.0, 0.0 },
-+                    .clear_color = clear_color,
++                    .clear_color = if (clear_background)
++                        self.loadColor(self.uniforms.bg_color)
++                    else
++                        .{ 0.0, 0.0, 0.0, 0.0 },
                  }});
                  defer pass.complete();
++                if (shade_less) pass.scissors = damaged.rects;
  
+                 // First we draw our background image, if we have one.
+                 // The bg image shader also draws the main bg color.
 @@ -1939,11 +1963,12 @@
                      }),
                      else => {},
@@ -394,57 +438,181 @@
                      });
                  }
  
-@@ -1957,7 +1982,15 @@
+@@ -1957,7 +1982,7 @@
                  );
  
                  // Then we draw any opaque cell backgrounds.
 -                pass.step(.{
-+                if (comptime shade_less) {
-+                    if (self.cellBackgroundRows()) |scissor| pass.step(.{
-+                        .pipeline = self.shaders.pipelines.cell_bg,
-+                        .uniforms = frame.uniforms.buffer,
-+                        .buffers = &.{ null, frame.cells_bg.buffer },
-+                        .draw = .{ .type = .triangle, .vertex_count = 3 },
-+                        .scissor = scissor,
-+                    });
-+                } else pass.step(.{
++                if (!shade_less or !self.fillCellBackgrounds(&pass)) pass.step(.{
                      .pipeline = self.shaders.pipelines.cell_bg,
                      .uniforms = frame.uniforms.buffer,
                      .buffers = &.{ null, frame.cells_bg.buffer },
-@@ -2303,6 +2336,38 @@
+@@ -2009,6 +2034,8 @@
+                 );
+             }
+ 
++            if (shade_less) frame.drawn_rows = damaged.rows;
++
+             // If we have custom shaders, then we render them.
+             if (frame.custom_shader_state) |*state| {
+                 // Sync our uniforms.
+@@ -2303,6 +2330,161 @@
              };
          }
  
-+        /// The rectangle of rows with a cell background other than the
-+        /// default, reaching the edge of the screen from the first and last
-+        /// row (a padding color extends them), as a scissor; null if none.
-+        fn cellBackgroundRows(self: *const Self) ?[4]i32 {
++        /// A color as common.glsl's load_color gives it to the target:
++        /// linearized for linear blending, then premultiplied by its alpha.
++        fn loadColor(self: *const Self, rgba: [4]u8) [4]f32 {
++            const linear = self.uniforms.bools.use_linear_blending;
++            const alpha = @as(f32, @floatFromInt(rgba[3])) / 255.0;
++            var color: [4]f32 = undefined;
++            for (rgba[0..3], color[0..3]) |byte, *channel| {
++                const value = @as(f32, @floatFromInt(byte)) / 255.0;
++                channel.* = alpha * if (!linear) value else if (value <= 0.04045)
++                    value / 12.92
++                else
++                    std.math.pow(f32, (value + 0.055) / 1.055, 2.4);
++            }
++            color[3] = alpha;
++            return color;
++        }
++
++        /// The first pixel whose center is in cell `index` of an axis, as
++        /// the shaders place cells.
++        fn cellEdge(padding: f32, size: f32, index: usize) i32 {
++            return @intFromFloat(@ceil(padding + size * @as(f32, @floatFromInt(index)) - 0.5));
++        }
++
++        /// The rows of this frame that the frame's target does not show yet,
++        /// as rectangles of the target for the pass to keep to (null: all of
++        /// it), and the row count to note in `frame.drawn_rows` once the pass
++        /// has drawn them. A row is compared by a hash of its cells, with the
++        /// cursor's where it is; a neighbour of a changed row is drawn too,
++        /// for the glyphs that reach out of their cells.
++        fn damage(self: *const Self, frame: *FrameState, rects: *[8][4]i32) struct {
++            rects: ?[]const [4]i32,
++            rows: usize,
++        } {
 +            const rows: usize = self.cells.size.rows;
 +            const columns: usize = self.cells.size.columns;
-+            var first: ?usize = null;
-+            var last: usize = 0;
-+            for (0..rows) |row| {
-+                for (self.cells.bg_cells[row * columns ..][0..columns]) |cell| {
-+                    // A cell without a background of its own has alpha 0.
-+                    if (cell[3] == 0) continue;
-+                    if (first == null) first = row;
-+                    last = row;
++            const shown = frame.drawn_rows;
++            frame.drawn_rows = 0;
++            // What the cells do not say is drawn whole.
++            if (rows == 0 or rows > frame.drawn.len or
++                self.bg_image != null or frame.custom_shader_state != null or
++                self.images.kitty_placements.items.len > 0 or
++                self.images.overlay_placements.items.len > 0) return .{ .rects = null, .rows = 0 };
++
++            // Every row depends on the uniforms, but for the cursor's,
++            // which recolor the one cell under it.
++            var uniforms = self.uniforms;
++            uniforms.cursor_pos = .{ 0, 0 };
++            uniforms.cursor_color = .{ 0, 0, 0, 0 };
++            uniforms.bools.cursor_wide = false;
++            const shared = std.hash.Wyhash.hash(columns, std.mem.asBytes(&uniforms));
++
++            // A cell's bytes without the struct's padding.
++            const cell_bytes = @offsetOf(shaderpkg.CellText, "bools") + 1;
++            var hashes: [@typeInfo(@TypeOf(frame.drawn)).array.len]u64 = undefined;
++            for (hashes[0..rows], 0..) |*hash, row| {
++                var hasher: std.hash.Wyhash = .init(row);
++                hasher.update(std.mem.sliceAsBytes(self.cells.bg_cells[row * columns ..][0..columns]));
++                for (self.cells.fg_rows[row + 1].items) |*cell| hasher.update(std.mem.asBytes(cell)[0..cell_bytes]);
++                hash.* = hasher.final();
++            }
++            for ([_]usize{ 0, rows + 1 }) |list| for (self.cells.fg_rows[list].items) |*cell| {
++                const row = cell.grid_pos[1];
++                if (row < rows) hashes[row] = std.hash.Wyhash.hash(hashes[row], std.mem.asBytes(cell)[0..cell_bytes]);
++            };
++            const cursor_row = self.uniforms.cursor_pos[1];
++            if (cursor_row < rows) {
++                const cursor = [_]u16{ self.uniforms.cursor_pos[0], @intFromBool(self.uniforms.bools.cursor_wide) };
++                hashes[cursor_row] = std.hash.Wyhash.hash(hashes[cursor_row], std.mem.asBytes(&cursor));
++                hashes[cursor_row] = std.hash.Wyhash.hash(hashes[cursor_row], &self.uniforms.cursor_color);
++            }
++
++            const whole = shown != rows or frame.drawn_shared != shared;
++            var count: usize = 0;
++            var row: usize = 0;
++            const width: i32 = @intFromFloat(self.uniforms.screen_size[0]);
++            const height: i32 = @intFromFloat(self.uniforms.screen_size[1]);
++            const top = self.uniforms.grid_padding[0];
++            const cell_height = self.uniforms.cell_size[1];
++            var fits = true;
++            while (!whole and row < rows) : (row += 1) {
++                if (hashes[row] == frame.drawn[row]) continue;
++                // The run of changed rows from here, and a row around it.
++                var end = row + 1;
++                while (end < rows and hashes[end] != frame.drawn[end]) end += 1;
++                const first = row -| 1;
++                const last = @min(end, rows - 1);
++                row = end;
++                const y0 = if (first == 0) 0 else cellEdge(top, cell_height, first);
++                const y1 = if (last + 1 == rows) height else cellEdge(top, cell_height, last + 1);
++                if (count > 0 and rects[count - 1][1] <= height - y0) {
++                    // It touches the band above: one band.
++                    const above = &rects[count - 1];
++                    above[3] += above[1] - (height - y1);
++                    above[1] = height - y1;
++                } else if (count == rects.len) {
++                    fits = false;
 +                    break;
++                } else {
++                    rects[count] = .{ 0, height - y1, width, y1 - y0 };
++                    count += 1;
 +                }
 +            }
-+            const top_row = first orelse return null;
-+            const cell_height = self.uniforms.cell_size[1];
-+            const padding_top = self.uniforms.grid_padding[0];
-+            const width = self.uniforms.screen_size[0];
-+            const height = self.uniforms.screen_size[1];
-+            const top: f32 = if (top_row == 0) 0 else padding_top + @as(f32, @floatFromInt(top_row)) * cell_height;
-+            const bottom: f32 = if (last + 1 == rows) height else padding_top + @as(f32, @floatFromInt(last + 1)) * cell_height;
-+            return .{
-+                0,
-+                @intFromFloat(@max(0, @floor(height - bottom))),
-+                @intFromFloat(@ceil(width)),
-+                @intFromFloat(@ceil(bottom - top)),
-+            };
++            @memcpy(frame.drawn[0..rows], hashes[0..rows]);
++            frame.drawn_shared = shared;
++            return .{ .rects = if (whole or !fits) null else rects[0..count], .rows = rows };
++        }
++
++        /// Fills the cells that have a background of their own, each run of
++        /// one color in a row with one clear, over the pixels cell_bg.f.glsl
++        /// gives them. False, with nothing drawn, if a background is
++        /// translucent: that one blends, which a clear does not.
++        fn fillCellBackgrounds(self: *const Self, pass: *RenderPass) bool {
++            const rows: usize = self.cells.size.rows;
++            const columns: usize = self.cells.size.columns;
++            const cells = self.cells.bg_cells[0 .. rows * columns];
++            // A cell without a background of its own has alpha 0.
++            for (cells) |cell| if (cell[3] != 0 and cell[3] != 255) return false;
++
++            const width: i32 = @intFromFloat(self.uniforms.screen_size[0]);
++            const height: i32 = @intFromFloat(self.uniforms.screen_size[1]);
++            const cell_size = self.uniforms.cell_size;
++            const top = self.uniforms.grid_padding[0];
++            const left = self.uniforms.grid_padding[3];
++            const extend = self.uniforms.padding_extend;
++            var fills: [256]RenderPass.Fill = undefined;
++            var count: usize = 0;
++            for (0..rows) |row| {
++                // The edge rows and columns reach the screen's where the
++                // padding extends them.
++                const y0 = if (row == 0 and extend.up) 0 else cellEdge(top, cell_size[1], row);
++                const y1 = if (row + 1 == rows and extend.down) height else cellEdge(top, cell_size[1], row + 1);
++                var column: usize = 0;
++                while (column < columns) {
++                    const cell = cells[row * columns + column];
++                    var end = column + 1;
++                    while (end < columns and std.mem.eql(u8, &cells[row * columns + end], &cell)) end += 1;
++                    defer column = end;
++                    if (cell[3] == 0) continue;
++                    const x0 = if (column == 0 and extend.left) 0 else cellEdge(left, cell_size[0], column);
++                    const x1 = if (end == columns and extend.right) width else cellEdge(left, cell_size[0], end);
++                    if (count == fills.len) {
++                        pass.fill(self.shaders.pipelines.cell_bg, &fills);
++                        count = 0;
++                    }
++                    fills[count] = .{
++                        .rect = .{ x0, height - y1, x1 - x0, y1 - y0 },
++                        .color = self.loadColor(cell),
++                    };
++                    count += 1;
++                }
++            }
++            pass.fill(self.shaders.pipelines.cell_bg, fills[0..count]);
++            return true;
 +        }
 +
          /// Update the background image vertex buffer (CPU-side).
@@ -477,30 +645,107 @@
  }
 --- a/src/renderer/opengl/RenderPass.zig
 +++ b/src/renderer/opengl/RenderPass.zig
-@@ -35,6 +35,10 @@
-     samplers: []const ?Sampler = &.{},
-     draw: Draw,
+@@ -43,10 +43,21 @@
+     };
+ };
  
-+    /// Shades only this rectangle of the target (x, y from its bottom left,
-+    /// width, height, in pixels), or all of it.
-+    scissor: ?[4]i32 = null,
++/// A rectangle of the target (x, y from its bottom left, width, height,
++/// in pixels) and the color that fills it.
++pub const Fill = struct {
++    rect: [4]i32,
++    color: [4]f32,
++};
 +
-     /// Describes the draw call for this step.
-     pub const Draw = struct {
-         type: gl.Primitive,
-@@ -128,6 +132,12 @@
+ attachments: []const Options.Attachment,
+ 
+ step_number: usize = 0,
+ 
++/// The rectangles of the target the pass keeps to (as a fill's), or all
++/// of it: the clear, each step and each fill reach no pixel outside them.
++scissors: ?[]const [4]i32 = null,
++
+ /// Begin a render pass.
+ pub fn begin(
+     opts: Options,
+@@ -87,7 +98,14 @@
+     // first step in the pass, go ahead and clear.
+     if (self.step_number == 0) if (self.attachments[0].clear_color) |c| {
+         gl.clearColor(c[0], c[1], c[2], c[3]);
+-        gl.clear(gl.c.GL_COLOR_BUFFER_BIT);
++        if (self.scissors) |rects| {
++            gl.enable(gl.c.GL_SCISSOR_TEST) catch return;
++            defer gl.disable(gl.c.GL_SCISSOR_TEST) catch {};
++            for (rects) |r| {
++                gl.glad.context.Scissor.?(r[0], r[1], r[2], r[3]);
++                gl.clear(gl.c.GL_COLOR_BUFFER_BIT);
++            }
++        } else gl.clear(gl.c.GL_COLOR_BUFFER_BIT);
+     };
+ 
+     // Bind the uniform buffer we bind at index 1 to align with Metal.
+@@ -128,6 +146,21 @@
          gl.disable(gl.c.GL_BLEND) catch return;
      }
  
-+    if (s.scissor) |r| {
++    if (self.scissors) |rects| {
 +        gl.enable(gl.c.GL_SCISSOR_TEST) catch return;
-+        gl.glad.context.Scissor.?(r[0], r[1], r[2], r[3]);
++        defer gl.disable(gl.c.GL_SCISSOR_TEST) catch {};
++        for (rects) |r| {
++            gl.glad.context.Scissor.?(r[0], r[1], r[2], r[3]);
++            gl.drawArraysInstanced(
++                s.draw.type,
++                0,
++                @intCast(s.draw.vertex_count),
++                @intCast(s.draw.instance_count),
++            ) catch return;
++        }
++        return;
 +    }
-+    defer if (s.scissor != null) gl.disable(gl.c.GL_SCISSOR_TEST) catch {};
 +
      gl.drawArraysInstanced(
          s.draw.type,
          0,
+@@ -136,6 +169,40 @@
+     ) catch return;
+ }
+ 
++/// Fills rectangles of the target with their colors, after the pass's
++/// first step: scissored clears, which shade no fragment. Where the target
++/// is a texture, `pipeline` lends its framebuffer, as in a step.
++pub fn fill(self: *Self, pipeline: Pipeline, fills: []const Fill) void {
++    const fbobind = switch (self.attachments[0].target) {
++        .target => |t| t.framebuffer.bind(.framebuffer) catch return,
++        .texture => |t| bind: {
++            const fbobind = pipeline.fbo.bind(.framebuffer) catch return;
++            fbobind.texture2D(.color0, t.target, t.texture, 0) catch {
++                fbobind.unbind();
++                return;
++            };
++            break :bind fbobind;
++        },
++    };
++    defer fbobind.unbind();
++
++    gl.enable(gl.c.GL_SCISSOR_TEST) catch return;
++    defer gl.disable(gl.c.GL_SCISSOR_TEST) catch {};
++    const whole = [_][4]i32{.{ 0, 0, std.math.maxInt(i32), std.math.maxInt(i32) }};
++    for (fills) |f| {
++        gl.clearColor(f.color[0], f.color[1], f.color[2], f.color[3]);
++        // The bands of the pass are rows of the target: a fill meets one
++        // over a range of y.
++        for (self.scissors orelse &whole) |r| {
++            const y0 = @max(f.rect[1], r[1]);
++            const y1 = @min(f.rect[1] + f.rect[3], r[1] +| r[3]);
++            if (y1 <= y0) continue;
++            gl.glad.context.Scissor.?(f.rect[0], y0, f.rect[2], y1 - y0);
++            gl.clear(gl.c.GL_COLOR_BUFFER_BIT);
++        }
++    }
++}
++
+ /// Complete this render pass.
+ /// This struct can no longer be used after calling this.
+ pub fn complete(self: *const Self) void {
 --- a/src/termio/Exec.zig
 +++ b/src/termio/Exec.zig
 @@ -1053,7 +1053,8 @@

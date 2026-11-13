@@ -16,6 +16,7 @@ USE /v0.1.6/demos/zig/Dollyfile-zig-llvm d1caaa736e07a5e633727cd4f140dab4b6641c0
 REQUIRES TOOL   c++
 REQUIRES TOOL   cc
 REQUIRES TOOL   cp
+REQUIRES TOOL   glib-compile-schemas
 REQUIRES TOOL   gzip
 REQUIRES TOOL   ln
 REQUIRES TOOL   meson
@@ -25,6 +26,23 @@ REQUIRES TOOL   python3
 REQUIRES TOOL   tar
 REQUIRES TOOL   xz
 REQUIRES TOOL   zig
+
+# What GTK's libraries read as they start, which a static link leaves out:
+# GTK's settings schemas, compiled (a dialog that keeps a setting, as the emoji
+# chooser of a text field does, aborts without its schema), and fontconfig's
+# configuration, for the fonts an image has in /usr/share/fonts.
+SOURCE /v0.1.6/dist/static/gtk/gtk-4.24.1.tar.xz e98abe720e16129c8c0f50761dee0a2e9ae2478055e31018f6cf977fcf6513e9 /tmp/ghostty-gtk/gtk.tar.xz
+SLOP CWD /tmp/ghostty-gtk xz -dc gtk.tar.xz | tar -xf -
+SLOP mkdir -p /usr/share/glib-2.0/schemas && cp /tmp/ghostty-gtk/gtk-4.24.1/gtk/*.gschema.xml /usr/share/glib-2.0/schemas/
+SLOP glib-compile-schemas --strict /usr/share/glib-2.0/schemas
+FILE /usr/share/glib-2.0/schemas/gschemas.compiled
+FILE /etc/fonts/fonts.conf
+    <?xml version="1.0"?>
+    <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+    <fontconfig>
+      <dir>/usr/share/fonts</dir>
+      <cachedir>/tmp/fontconfig</cachedir>
+    </fontconfig>
 
 # libadwaita, static. It carries its own copies of five of GTK's builder
 # helpers under GTK's names, which a static link of both would hold twice:
@@ -76,7 +94,7 @@ SLOP cc -O1 /tmp/ghostty-cc/cc.c -o /tmp/ghostty-cc/cc
 # Ghostty's build finds libdolly-sockets and libdolly-pty under a prefix's lib.
 SLOP mkdir -p /tmp/ghostty-prefix && ln -s /usr/lib/dolly/process /tmp/ghostty-prefix/lib
 
-SOURCE /v0.1.6/dist/static/ghostty-gtk/ghostty.tar.gz 6c5d144628a8bc6b7800e3b264628ea357877cff42c60f6845936b5a327c335a /tmp/ghostty.tar.gz
+SOURCE /v0.1.6/dist/static/ghostty-gtk/ghostty.tar.gz f11c48d17b3237e5f8590f6df96a61eac3f5abade37d1b52aaf75f5611600077 /tmp/ghostty.tar.gz
 SLOP gzip -dc /tmp/ghostty.tar.gz | tar -xf - -C /
 # Ghostty's threads share the program's memory, so its code needs wasm's
 # atomics, which Zig's baseline for Emscripten lacks: the CPU Dolly's cc
@@ -106,7 +124,5 @@ FILE /usr/share/man/cat1/ghostty.1
       ghostty +help                     the actions and options
     
     It draws its terminal with Mesa's OpenGL in the program (softpipe through
-    EGL's surfaceless platform) and its window with cairo: set
-    GSK_RENDERER=cairo MESA_GL_VERSION_OVERRIDE=4.3
-    MESA_GLSL_VERSION_OVERRIDE=430, as ghostty-x11 does.
+    EGL's surfaceless platform) and its window with cairo.
     Upstream's documentation: https://ghostty.org/docs

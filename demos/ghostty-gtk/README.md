@@ -15,7 +15,8 @@ with Zig and LLVM built in Dolly ([zig](../zig/README.md)).
 Open `/ghostty-x11/`: Ghostty's window, drawn by softpipe, with Slop in its
 terminal and amy to install packages into the session (`amy install tmux`).
 `kill $(cat /tmp/.X0-pid)` in its shell ends the server and returns to the
-terminal's.
+terminal's. In another X session, as `/x11-desktop/`: `amy install
+ghostty-gtk`, then `ghostty &`.
 
 ## Key files
 
@@ -34,12 +35,15 @@ terminal's.
   reset Ghostty's post-fork hook does as spawn attributes; Dear ImGui's GL
   backend built for desktop GL, which it assumes is WebGL on Emscripten, and
   EGL's native types as pointers where its header would take Emscripten's
-  integers. Softpipe runs a shader per pixel in its interpreter, so the renderer clears
-  to the background color instead of shading it and
-  shades cell backgrounds only over the rows that have one: a frame of a
-  shell took 410 ms, now 51 ms, and a key's echo appears 65 ms after the key
-  instead of 0.7 s (Chromium, 2026-10-16). On Ghostty 1.4, through EGL, the
-  echo takes 46 ms in Chromium and 44 ms in Firefox (median of 15, 2026-11-04).
+  integers. Softpipe has OpenGL 3.3 and the parts of 4.3 the renderer uses:
+  the program tells Mesa to give it the 4.3 context it asks for
+  (`MESA_GL_VERSION_OVERRIDE`, where GTK's own environment is set), so
+  `ghostty` needs nothing set to start. Softpipe runs a shader per pixel in
+  its interpreter, so the renderer shades as little as it can: the
+  background color is the pass's clear color, a cell's background is a
+  scissored clear, which shades nothing, and a frame draws only the rows
+  whose cells differ from what its target shows, by a hash a row
+  ([measured](#softpipe)).
 - [`mesa-dolly.patch`](mesa-dolly.patch): Mesa's EGL and its gallium driver
   (softpipe) as static libraries linked into the program, and DRI, which EGL
   needs, without kernel modesetting. Ghostty renders each surface in its own
@@ -57,9 +61,31 @@ terminal's.
   with debug information unless they strip it: glslang's is stripped, as
   Ghostty strips its program, since clang 22 took over 8 GiB for its
   `SPIRV/doc.cpp` with it ([task](../../tasks/20261103-110119-ghostty-egl/TASK.md)).
+- The package carries what GTK's libraries read as they start and a static
+  link leaves out: GTK's settings schemas, compiled (the emoji chooser of a
+  text field aborts without its own), and a fontconfig configuration for
+  the fonts an image has in `/usr/share/fonts`.
 - Made outside Dolly, as bootstrap exceptions: Mesa's parsers and scanners by
   the host's Bison and flex ([`prepare-mesa.sh`](prepare-mesa.sh)); Ghostty's
   Zig packages, fetched by the host's Zig
   ([`prepare-ghostty.sh`](prepare-ghostty.sh), [`zig-packages.txt`](zig-packages.txt));
   Ghostty's interface files, compiled by upstream into its signed release
   tarball, which its packaging guide asks distributions to build from.
+
+## Softpipe
+
+What the renderer's changes for softpipe gave, in a window of 102 by 37
+cells (1020x777 pixels) on `x11-desktop` in Chromium, from a key's press to
+the frame that shows it (2026-11-13; the machine's load was 15 on 16 cores):
+
+| | Neovim, a full window of code | a shell |
+| --- | --- | --- |
+| cell backgrounds shaded over their rows | 1.2 s | 0.14 s |
+| cell backgrounds as scissored clears | 0.43 s | 0.15 s |
+| and only the rows that changed | 0.15 s | 0.09 s |
+
+A window of 3,300 glyphs costs 0.38 s to shade, about 1.4 µs a pixel of a
+glyph: that is what a whole redraw (a scroll, another screen) still takes.
+Backgrounds no longer cost: a program that colours every cell of 340 by 111
+(a Julia set, [the workbench video](../../tasks/20261112-223154-x11-workbench-video/TASK.md))
+shows 36 to 40 frames a second.
