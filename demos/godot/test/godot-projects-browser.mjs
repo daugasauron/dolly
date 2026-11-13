@@ -83,25 +83,26 @@ for (const name of browsers) {
       const editing = page.evaluate(text => __dolly.submit(text), `godot-editor -e --path ${directory} > /tmp/editor.log 2>&1`);
       editing.catch(() => {});
       await page.waitForFunction(() => __dolly.gpu?.active, null, { polling: 250, timeout: 180_000 });
+      // A move to where the pointer already is reaches no program: it steps a pixel each time.
       for (let tries = 0; ; tries++) {
-        await page.mouse.move(150, 95);
+        await page.mouse.move(150 + tries % 2, 95);
         if (await page.evaluate(() => document.querySelector("#display").style.cursor === "text")) break;
         assert.ok(tries < 120, "the editor's Scene dock is laid out");
         await sleep(1000);
       }
       await sleep(25_000);
-      // The Scene dock's filter shows the node asked for alone under the scene's root.
+      // The Scene dock's filter shows the node asked for alone, in its first row.
       const node = async label => {
         await page.mouse.click(150, 95);
         await page.keyboard.press("Control+a");
         await page.keyboard.type(label);
         await sleep(1000);
-        await page.mouse.click(90, 157);
+        await page.mouse.click(90, 135);
         await sleep(500);
       };
       // The HUD's eye hides it; F5 runs the game so; Ctrl+S saves.
       await node(game.hud);
-      await page.mouse.click(266, 157);
+      await page.mouse.click(266, 135);
       await sleep(1000);
       await page.keyboard.press("F5");
       await sleep(30_000);
@@ -149,7 +150,7 @@ for (const name of browsers) {
       assert.ok(Number(colours) > 100, `the 3D view shows it: ${colours} colours`);
       // The game ran from the editor (a second engine's banner), with the HUD hidden and saved.
       await run("test $(grep -c '^Godot Engine v' /tmp/editor.log) -ge 2");
-      await run(`grep -A3 'name="Overlay"' ${directory}/main.tscn | grep -q 'visible = false'`);
+      await run(`sed -n '/name="Overlay"/,/^$/p' ${directory}/main.tscn | grep -qx 'visible = false'`);
       await run(`grep -q 'node name="${game.copied}Rig"' ${directory}/main.tscn`);
       // Nothing a step needs failed: no error, and none of the warnings of the owner's log.
       await run("! grep -E '^ERROR|TCP|Debug adapter|language server|Keeping screen on|Clipboard is not supported' /tmp/editor.log");
