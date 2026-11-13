@@ -26,11 +26,11 @@ INSTALL /v0.1.6/Dollyfile-nena 3946645dbbc253accb15ce4ce43b012da951ec9aa0c7eb6c0
 INSTALL /v0.1.6/Dollyfile-transfer 4fa648be8267a2f66c4d29ab3c9e31c8832d7c6245ed3c227619fed030dd6953
 INSTALL /v0.1.6/Dollyfile-html 22e707c22f773d42417b8e389c0745edfa1e594b93b6c8a1f7a107f62a080381
 INSTALL /v0.1.6/Dollyfile-ps 39cdf2bfaa3fb52f3c161672634f9600381754e6f006971896d6f79b6b345b77
-INSTALL /v0.1.6/demos/python/Dollyfile-python e56507cd3e46a01fad3de6dfb164da5a5eadcb1cd0533488175b6cd3806b79f3
-INSTALL /v0.1.6/demos/python/Dollyfile-numpy d69358c43431b654e32e13bda5f066101327e1bd95a3f20f80cc8a98e1776224
-INSTALL /v0.1.6/demos/python/Dollyfile-pandas e4b205e903ce69bef91ee3065b50e702dd64dd499b6d6676f118784b894fa1ac
-INSTALL /v0.1.6/demos/python/Dollyfile-matplotlib 859c489ebaae52ecf73c40772dcb79db994598f7f8834f10abf0d395bbd78ecf
-INSTALL /v0.1.6/demos/python/Dollyfile-seaborn d1bff54c958364ea97e2dd62a89f8dc48a76f2ed512305fc16557194308c5761
+INSTALL /v0.1.6/demos/python/Dollyfile-python fb8dabff3a8cf17f54fed54072a288c587351530053d45e053caf57b90304011
+INSTALL /v0.1.6/demos/python/Dollyfile-numpy dd1b84b35ebaa1b00f61104fcac4eb2aa8e09f331537fa6a9ac5f1e1409ba237
+INSTALL /v0.1.6/demos/python/Dollyfile-pandas cfe5a71d0fc9559a3d1f5719c0eeff3896bcabf2382ca7ea9f23196a93ebbe82
+INSTALL /v0.1.6/demos/python/Dollyfile-matplotlib 73128c1e2456aa35467bc0a4c6572939f1df2254a047d6be94d8ad57611943ac
+INSTALL /v0.1.6/demos/python/Dollyfile-seaborn d5823ba9edb78b911c3bc6eed7a926087e0bb649bbd3e1f2ebacbebd16495375
 REQUIRES TOOL python
 
 # The font list Matplotlib writes on its first import, which takes 6 s, kept

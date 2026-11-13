@@ -14,17 +14,17 @@ REQUIRES HOST sockets@0
 # bitmap fonts) and libmd's SHA-1 are built by the Makefile below for the
 # server alone: libXfont2 with the server's own protocol types, and of libmd
 # only the hash the server takes.
-FROM /v0.1.6/demos/x11/Dollyfile-x11-build 2e1ffb7380529613c47a0c45b68d733efb3c36aae3c0dc4d9610800f6797ad68
-USE /v0.1.6/demos/tools/Dollyfile-meson 513a99b60193b904c22b51e895c3a368740fae1d116e96b6244ec5ca46ed458e
+FROM /v0.1.6/demos/x11/Dollyfile-x11-build 160d715fb710bc9b595df6dc901e7bd9d06656126c9f4a27a5874c48fae903e7
+USE /v0.1.6/demos/tools/Dollyfile-meson 9de7f688a0ce8afacafb79a6d8d6bd79f648537baa397e4dfe6703edc7213444
 USE /v0.1.6/demos/zero-ad/Dollyfile-pkgconf c23689c5e826c5143377ee1b66de9a5c2830187fa84d6b7cc9bd4fe63e6d2bba
 USE /v0.1.6/demos/sdl2/Dollyfile-sdl2 0cb3d31f4b0eb87610b9d1d5956d1adbc575e67c662b9b8f7d8d50183da65333
-USE /v0.1.6/demos/x11/Dollyfile-pixman 41b918690bb7d713f4970dbeed47e855a23344b1e63600e7c38f83e65021a05b
-USE /v0.1.6/demos/x11/Dollyfile-libxkbfile a8f2a58dc6bb18fb9eccdbb6adf1481f91bba211e36c4ae672974097b6c17154
+USE /v0.1.6/demos/x11/Dollyfile-pixman 4512fc87c7a8d6ff18fc588a57a8a6cd285db6b0f7ee880e11ab1a048db0c04b
+USE /v0.1.6/demos/x11/Dollyfile-libxkbfile 19b998280c87c3b63613d78ff999d33ad604a223726058d3055c71cc9cc600b4
 USE /v0.1.6/Dollyfile-zlib 48ee0a5552eada81c0324749ba5ce9a7d2a2505a91f3ffcaf51f81c36a641f82
 USE /v0.1.6/demos/tools/Dollyfile-xz 9b8487a105a5fa4e6c10e63e42aab0c6a42e6297b91b463d6f088c84de059964
 USE /v0.1.6/demos/tools/Dollyfile-yacc 0f0d512ea117cd46dbf4582f23f27558ad3166af8b79c9ceb36ef6d4f601921c
-INSTALL /v0.1.6/demos/x11/Dollyfile-xkbcomp e2d92cc539502e81a26bd9ba67b8ee22e15f9bb3610c147569b51dd41058392f
-INSTALL /v0.1.6/demos/x11/Dollyfile-xkeyboard-config 9d7eee94840306474beb9a32b636ef91a4d434447c43c6569c3ec33e074cb39d
+INSTALL /v0.1.6/demos/x11/Dollyfile-xkbcomp cc46257fd51e103d390d2739d5a257f8abbc07e681a71a838872bfac99e700d7
+INSTALL /v0.1.6/demos/x11/Dollyfile-xkeyboard-config 6ed4907b530c3200f65b4710841e126b3aff04000e0b3223091df0f8103d72dd
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2
 REQUIRES LIB z

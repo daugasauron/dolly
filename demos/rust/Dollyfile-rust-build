@@ -12,7 +12,7 @@ REQUIRES HOST threads@0
 # builds the rustc kept. Every Rust program in the catalog is built by this
 # image's toolchain.
 FROM /v0.1.6/demos/rust/Dollyfile-rust-sdk 46a52acff72a024c4b5738585ce3459befcaded6b1ceaab8843ae80554ae9614
-COPY /v0.1.6/demos/rust/Dollyfile-rust-llvm 185e6adbbe01c1c3a01e3b01383c43da8b5d53a823a974054d703f95ea1e36af /opt/rust-llvm /opt/rust-llvm
+COPY /v0.1.6/demos/rust/Dollyfile-rust-llvm 26e6ea8ca216222f83d769b37b17a3a9e9d5630cadce116153a98377ee5a35fe /opt/rust-llvm /opt/rust-llvm
 # patch, for the compiler's patch below.
 INSTALL /v0.1.6/Dollyfile-git 3393aa9b0bb67b91dd2195bfc5be7477d276e9522ae2ada7041abc1d21cb1e1c
 # cmp, for the check that the second generation rebuilds the same library.

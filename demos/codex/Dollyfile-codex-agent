@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 INSTALL /v0.1.6/Dollyfile-core 1af35bd391b18ddb626a8a5248c4c940564cc4c23af9c2d44e313bf847b66bba
 INSTALL /v0.1.6/Dollyfile-posix 37d85018d9ab218475d878070e6d5df646238f3e450e534e5c31b6c9e3198191
 INSTALL /v0.1.6/Dollyfile-display 9516e36ef9c8566c9f0590546e1474db96ca02ddc75028e562e92af71fdbdeef
-INSTALL /v0.1.6/demos/codex/Dollyfile-codex 490a9ba8645ab228a9d53b255b9dd193da7b73ef22b593b52f02c0d3d661d935
+INSTALL /v0.1.6/demos/codex/Dollyfile-codex e73565cbae7bba7868aae8b1b3a9ca71eb0e7c13403c971d58d0ad419aa1391b
 REQUIRES TOOL codex
 REQUIRES TOOL sh
 
