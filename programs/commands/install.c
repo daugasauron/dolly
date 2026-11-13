@@ -112,31 +112,7 @@ static int copy_file(const char *source, const char *destination,
     close(input);
     return 1;
   }
-  int status = 0;
-  unsigned char bytes[16384];
-  for (;;) {
-    ssize_t count = read(input, bytes, sizeof(bytes));
-    if (count < 0 && errno == EINTR) continue;
-    if (count < 0) {
-      fprintf(stderr, "install: %s: %s\n", source, strerror(errno));
-      status = 1;
-      break;
-    }
-    if (count == 0) break;
-    size_t offset = 0;
-    while (offset < (size_t)count) {
-      const ssize_t written = write(output, bytes + offset, (size_t)count - offset);
-      if (written < 0 && errno == EINTR) continue;
-      if (written <= 0) {
-        fprintf(stderr, "install: %s: %s\n", destination,
-                written == 0 ? "short write" : strerror(errno));
-        status = 1;
-        break;
-      }
-      offset += (size_t)written;
-    }
-    if (status != 0) break;
-  }
+  int status = copy_bytes("install", input, source, output, destination);
   const struct timespec times[2] = {source_metadata.st_atim, source_metadata.st_mtim};
   if (status == 0 && preserve_times && futimens(output, times) != 0) {
     fprintf(stderr, "install: %s: %s\n", destination, strerror(errno));

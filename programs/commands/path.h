@@ -1,11 +1,13 @@
-// Paths of Dolly's commands that walk or copy directories.
+// Paths and copies of Dolly's commands that walk or copy directories.
 #ifndef DOLLY_COMMAND_PATH_H
 #define DOLLY_COMMAND_PATH_H
 
 #include <errno.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 // DIRECTORY/NAME, one slash between them, in a new allocation; NULL with errno.
 static inline char *join_path(const char *directory, const char *name) {
@@ -30,6 +32,31 @@ static inline char *base_name_copy(const char *path) {
   size_t start = length;
   while (start > 0 && path[start - 1] != '/') start--;
   return strndup(path + start, length - start);
+}
+
+// Copies INPUT's bytes to OUTPUT, as PROGRAM: 0, or 1 after saying which file failed and why.
+static inline int copy_bytes(const char *program, int input, const char *source,
+                             int output, const char *destination) {
+  unsigned char buffer[16384];
+  for (;;) {
+    const ssize_t count = read(input, buffer, sizeof(buffer));
+    if (count < 0 && errno == EINTR) continue;
+    if (count < 0) {
+      fprintf(stderr, "%s: %s: %s\n", program, source, strerror(errno));
+      return 1;
+    }
+    if (count == 0) return 0;
+    for (size_t offset = 0; offset < (size_t)count;) {
+      const ssize_t written = write(output, buffer + offset, (size_t)count - offset);
+      if (written < 0 && errno == EINTR) continue;
+      if (written <= 0) {
+        fprintf(stderr, "%s: %s: %s\n", program, destination,
+                written == 0 ? "short write" : strerror(errno));
+        return 1;
+      }
+      offset += (size_t)written;
+    }
+  }
 }
 
 #endif

@@ -60,31 +60,7 @@ static int copy_regular(const char *source, const char *destination) {
     return 1;
   }
 
-  int status = 0;
-  unsigned char buffer[16384];
-  for (;;) {
-    ssize_t count = read(input, buffer, sizeof(buffer));
-    if (count < 0 && errno == EINTR) continue;
-    if (count < 0) {
-      fprintf(stderr, "cp: %s: %s\n", source, strerror(errno));
-      status = 1;
-      break;
-    }
-    if (count == 0) break;
-    size_t offset = 0;
-    while (offset < (size_t)count) {
-      ssize_t written = write(output, buffer + offset, (size_t)count - offset);
-      if (written < 0 && errno == EINTR) continue;
-      if (written <= 0) {
-        fprintf(stderr, "cp: %s: %s\n", destination,
-                written == 0 ? "short write" : strerror(errno));
-        status = 1;
-        break;
-      }
-      offset += (size_t)written;
-    }
-    if (status != 0) break;
-  }
+  int status = copy_bytes("cp", input, source, output, destination);
   if (close(input) != 0 && status == 0) status = 1;
   if (close(output) != 0 && status == 0) {
     fprintf(stderr, "cp: %s: %s\n", destination, strerror(errno));
