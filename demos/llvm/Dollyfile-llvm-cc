@@ -33,8 +33,8 @@ SLOP slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
 # The driver the seed compiler is (programs/compiler.cpp), with the two contract
 # digests the runtime build generates.
-SOURCE /v0.1.6/dist/static/llvm/compiler.cpp bdc2af6d9555b2411e2037421904d7126e824816495e6640148e5df58296dcfb /tmp/dolly-compiler/compiler.cpp
-SOURCE /v0.1.6/dist/static/llvm/compiler-main.c 104ebf5d2862d51f9a67d4e7dd6a71e0f5beb1898310f74d6b331e9f154a2f8c /tmp/dolly-compiler/compiler-main.c
+SOURCE /v0.1.6/dist/static/llvm/compiler.cpp db85da4b1394f3e8982a3b335590be26edc1d2e3ca0f14d597237ada32c455de /tmp/dolly-compiler/compiler.cpp
+SOURCE /v0.1.6/dist/static/llvm/compiler-main.c d1ec5af18c8124c37461cfcde481ff0bfc2bf3a001055c775c51436237ecde16 /tmp/dolly-compiler/compiler-main.c
 SOURCE /v0.1.6/dist/static/llvm/dolly-process-abi-digest.h 25c2977835ea284be7b8d05296effafd03261c2eda1daf245263d5218b6f10b8 /tmp/dolly-compiler/dolly-process-abi-digest.h
 SOURCE /v0.1.6/dist/static/llvm/dolly-kernel-plugin-abi-digest.h a680157985ef34465efdfce079749799bb3cc7e1c119867c34730d8669bc669e /tmp/dolly-compiler/dolly-kernel-plugin-abi-digest.h
 

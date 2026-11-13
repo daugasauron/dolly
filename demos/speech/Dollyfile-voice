@@ -12,7 +12,7 @@ FROM /v0.1.6/Dollyfile-system 33e5bcf65ef4a634da5dbf8e291a379148e7971aa0411fe1bd
 INSTALL /v0.1.6/demos/speech/Dollyfile-parakeet 5eebe209f7c64d1c88e661f3389e72803be513aeccf68b5ccb2b32d899d19c52
 USE /v0.1.6/demos/speech/Dollyfile-transcribe 895f06c29d205a75bb83f9d30c33db0b75ef22600c10b42d4cf045aab267f40f
 USE /v0.1.6/Dollyfile-libdolly-microphone 3656fd929351a98805bac8398984ab88cd0c944643d700b6a25f2a66009ce2b2
-USE /v0.1.6/Dollyfile-libdolly-touch cdc290ea2066c24f4d47e44a54a263ef8043d7fa05c7cb90b5a4a243ae44985d
+USE /v0.1.6/Dollyfile-libdolly-touch 3c23d1f22584166c434123c76bbc1be95ffe3738cbef0382e672e768a934f8d7
 USE /v0.1.6/Dollyfile-libdolly-pty 06d2042a07b180ad4d8295ec2a4384dbe10c888c4c2e87721a1906b3fa045834
 REQUIRES TOOL cc
 REQUIRES TOOL c++
