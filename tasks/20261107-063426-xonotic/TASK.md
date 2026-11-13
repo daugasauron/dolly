@@ -9,6 +9,36 @@ broken, create a task to fix that too." Not yet recorded: the browser and system
 whether the page drew on `gpu@0` or in the engine's software rasterizer (no WebGPU adapter), and
 what "broken" looks like (a screenshot settles most of it).
 
+## State (2026-11-14): fixed on `fix/xonotic-walls`, waiting for a release
+
+Cause: whole world surfaces had no WGSL, so `dpgpurast.c` skipped their draws. Firefox on the
+owner's display, at the image's starting settings, logged on Boil: `dpgpurast: no WGSL for shader
+mode 4 permutation 8388608, its draws are skipped` (and 8390656). Those are vertex-lit walls with
+reflectcube. They draw in the vertex-colour mode 4 at every preset, and the shader list held only
+four of mode 4's permutations and none of the lightmap mode 5. Stormkeep at high and above draws its
+world in mode 7, which the list covered, so the earlier repros were solid.
+
+Fix (`demos/xonotic/Makefile`, `dpgpurast.c`):
+- The list holds the permutations `R_SetupShader_Surface` (`gl_rmain.c`) gives the world: modes 4
+  and 5, and 7 with deluxemapping, each with the material bits. Vertex texture blend 2 is never
+  combined with reflectcube or colormapping, which share its texture unit; naga rejects those pairs
+  (`Bindings ... conflict`).
+- A permutation that still has no WGSL (fog, on courtfun and warfare) draws as
+  `R_SetupShader_SetPermutationGLSL` draws one that does not compile: with its highest bits removed
+  until one has WGSL, instead of not at all.
+
+Evidence (2026-11-14, `work/evidence-2026-11-13/xonotic/`), on this branch's images served from the
+checkout on the owner's display, each browser with a profile of its own:
+- Chrome, Vulkan, NVIDIA adapter: Boil drew solid, textured walls, and its console had no
+  `dpgpurast` line (`fix-c-3`, `fix-c-5`, `fix-c-6`).
+- Firefox: the same (`fix-f-3`, `fix-f-5`). Before the fix, the console showed the missing
+  permutations (`before-firefox-boil.png`). Firefox's own page capture swaps red and blue, for the
+  release on 9045 as much as for this build (`fix-f-old`); the screen itself did not (`before-firefox-boil.png`).
+- `demos/xonotic/test/xonotic-browser.mjs` loads Boil on gpu@0 and fails on any `no WGSL` line,
+  as the broken build printed. It passes on this branch.
+
+Left: the release (Done when, last item).
+
 ## State (2026-11-13): walls drawn see-through, in Chrome and Firefox
 
 Owner (2026-11-13), after the fix below: "The xonotix bug is not fixed, it looks a bit better (I can

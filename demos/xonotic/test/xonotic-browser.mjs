@@ -191,6 +191,12 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser,
     const lit = Number((await text()).match(/ultimate lit ([\d.]+)/)[1]);
     assert.ok(lit > 0.2, `the ultimate preset's frame is drawn: lit ${lit}`);
     console.log(`xonotic: the ultimate preset draws space-elevator on gpu@0, lit fraction ${lit.toFixed(3)}`);
+    // Boil's vertex-lit walls draw in the vertex-colour mode 4 with reflectcube at every preset;
+    // without those permutations' WGSL the walls were not drawn.
+    const boil = start(`${client} +log_file boil.log +map boil +defer 30 quit`);
+    assert.equal(await boil.done, 0, "the client must quit back to the shell");
+    await run(`grep -q 'SpawnServer: boil' ${userdir}/boil.log && ! grep -E 'dpgpurast: (no WGSL|a command packet failed)' ${userdir}/boil.log`);
+    console.log("xonotic: every permutation boil draws on gpu@0 has its WGSL");
   }
 
   await page.evaluate(() => { audioMeters.length = 0; });
