@@ -38,7 +38,7 @@ done < "${sysroot}/dynamic-provider.symbols"
   "${port_dir}"/package/rust-link/*.a \
   "${sysroot}/libdolly-process.a" \
   "${sysroot}/crt1.o" -L"${sysroot}" \
-  -ldolly-runtime -ldolly-http -ldolly-display -ldolly-download -ldolly-upload -ldolly-dso \
+  -ldolly-runtime -ldolly-http -ldolly-dso \
   -lstandalonewasm-ww-memgrow -lstubs -lc-ww -ldlmalloc-ww \
   -lclang_rt.builtins-wasmsjlj-ww "${cxx}/libc++-ww-wasmexcept.a" "${cxx}/libc++abi-ww-wasmexcept.a" \
   "${cxx}/libunwind-ww-wasmexcept.a" \
