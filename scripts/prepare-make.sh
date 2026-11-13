@@ -11,7 +11,7 @@ prepared_source make "${DOLLY_MAKE_VERSION}" "make=${DOLLY_MAKE_SHA256} emsdk=${
 configured="$(mktemp -d "${project_dir}/build/generated/make-config.XXXXXX")"
 trap 'rm -rf -- "${temporary}" "${configured}"' EXIT
 
-"${project_dir}/scripts/fetch-make.sh" >/dev/null
+"${project_dir}/scripts/fetch-verified-file.sh" "${DOLLY_MAKE_URL}" "${DOLLY_MAKE_SHA256}" "${archive}" >/dev/null
 mkdir -p "${temporary}/src" "${temporary}/lib"
 tar -xzf "${archive}" -C "${configured}" --strip-components=1
 patch --silent -d "${configured}" -p1 < "${project_dir}/config/make-dolly.patch"
