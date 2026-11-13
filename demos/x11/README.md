@@ -17,6 +17,7 @@ own under a stock window manager.
 - `xeyes`: xeyes, the eyes that follow the pointer.
 - `xterm`: xterm, the terminal emulator for X, with a shell on a pseudo-terminal.
 - `x11-build`: A build stage: X's client libraries, from the protocol headers and libxcb to the Athena widgets, as static libraries.
+- `x11-window`: A program's window on the X server, for a platform that draws on the page through display@0 and input@0: frames go in, input@0's records come out. Godot and PhotoCraft draw their X windows through it.
 
 Open `/x11-desktop/`; build with `npm run image -- x11-desktop`. The session
 starts the server, twm, xclock, xeyes and xterm. Windows move by their title
