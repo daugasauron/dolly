@@ -29,7 +29,7 @@
   <h1>Demos</h1>
   <p class="lead">Dolly in Chrome: Godot playing one of its demos on the GPU, recorded on 8 November 2026, a game
     changed in Godot's editor and a C compiler at work on Wine's desktop, recorded on 12 November 2026, a terminal
-    workbench installed on an X desktop, recorded on 13 November 2026, and Claude
+    workbench installed on an X desktop and a folder kept in step with a machine's, recorded on 13 November 2026, and Claude
     Opus 5.5 at high effort working in Dolly, recorded on 1 and 2 November 2026. Each video's caption bar names its
     speed-ups.</p>
   <h2>Godot: its Forward+ renderer on WebGPU</h2>
@@ -82,6 +82,20 @@
       <div>
         <h3>A Julia set in Ghostty</h3>
         <p>amy install ghostty-gtk, zsh, tmux, nvim and mojo; julia.mojo in Neovim, mojo build, and the program on 514 by 155 cells of Ghostty, drawn by Mesa's software OpenGL at 24 frames a second while recorded · 2:30</p>
+      </div>
+    </article>
+  </div>
+  <h2><a href="../default/">rclone</a>: a folder kept in step with a machine's</h2>
+  <p class="lead">A machine serves a folder with upstream's rclone over WebDAV, with the CORS headers the page needs.
+    In the default image, amy installs rclone, built inside Dolly from its release by the Go toolchain, and rclone
+    bisync copies what changed on either side to the other. Dolly has no sockets: each of its requests goes through
+    the page's HTTP broker.</p>
+  <div class="grid">
+    <article>
+      <video controls playsinline preload="none" poster="posters/rclone-sync.jpg" aria-label="rclone bisync recording"><source src="videos/rclone-sync.mp4" type="video/mp4"></video>
+      <div>
+        <h3>One folder, two sides</h3>
+        <p>rclone serve webdav on the machine, amy install rclone and rclone bisync in the session; files written, edited and removed on each side reach the other, then a loop in the background carries them every ten seconds · 1:57</p>
       </div>
     </article>
   </div>
