@@ -46,7 +46,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, snaps
     await __dolly.saveSession(name);
     document.querySelector("#session-status").style.display = "none";
     const browser=performance.getEntriesByType('resource').find(e=>e.name.endsWith('/page/browser.mjs')).name;
-    const store=await import(new URL('session-store.mjs',browser));
+    const store=await import(new URL('../site/session-store.mjs',browser));
     const buffer=(await store.decodeSessionSnapshot((await store.loadStoredSession(name)).bytes)).slice(0);
     await store.deleteStoredSession(name);
     const view=new DataView(buffer), bytes=new Uint8Array(buffer), result={players:{},agentEvents:{}}; let offset=16;
