@@ -41,6 +41,12 @@ flowchart LR
 | Display | [`host/display/kernel.c`](../host/display/kernel.c), [`programs/ghostty/display.c`](../programs/ghostty/display.c), [`kernel-plugin.mjs`](../page/kernel-plugin.mjs) | The terminal device's output and the framebuffer lease; resident terminal emulator and rasterizer; see [display](display.md) |
 | Input | [`host/input/kernel.c`](../host/input/kernel.c), [`host/input/input.mjs`](../host/input/input.mjs) | The record ring, the input lease and the terminal's reader; see [input](input.md) |
 
+A file's directory says what it is: `kernel/` the Wasm kernel (`dist/dolly.wasm`),
+`process/` the runtime every program links, `page/` the trusted page and Worker
+code `boot()` loads, `site/` the site's own (its routes, image builder, sessions
+and custom images), `programs/` the guest programs Dolly builds from source, and
+`host/` one directory per host module.
+
 ## Decisions
 
 - **Slop is serial; programs run in parallel.** Slop is one process without

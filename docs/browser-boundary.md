@@ -262,7 +262,8 @@ Worker URL.
 ## Trusted files
 
 Beside the host modules (each one's directory, named by its manifest), these
-are the trusted files a page and its runtime Worker load, with the build
+are the trusted files a page and its runtime Worker load: `boot()`'s in `page/`,
+the site's own in `site/`, with the build
 identities and ABI constants the runtime's build writes (`dist/dolly-build-id.mjs`,
 `dist/dolly-image-build-id.mjs`, `dist/dolly-process-abi.mjs`; `dist/dolly-build-id.json` is the same identities as data); a process Worker
 loads the bundle of [`process-worker.mjs`](../page/process-worker.mjs) and the
