@@ -49,7 +49,11 @@ is back.
   it into the display lease. The window's surface is the screen: damage is
   copied to it at most once every 16 ms, SDL's events are read when the
   server wakes, at least every 8 ms, and SDL's scancodes become the evdev
-  keycodes of the default keymap (`us`, `pc105`).
+  keycodes of the default keymap (`us`, `pc105`). While it has the keyboard
+  it clears `ISIG` on the terminal it was started at, as kdrive's Linux
+  keyboard driver sets its console raw: Ctrl+C is a key of the window under
+  the pointer, where it interrupts a shell's command, and no signal to the
+  server, which it ended until 2026-11-13.
 - [`xorg-server-dolly.patch`](xorg-server-dolly.patch): `Popen` and `Pclose`, with which the server runs xkbcomp for its
   keymap, use libc's `popen`, since Dolly has no `fork`; and the null
   functions the server installs as casts of `NoopDDA(void)` are functions of
