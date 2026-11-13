@@ -15,12 +15,14 @@ use crate::window::{CustomCursor as RootCustomCursor, CustomCursorSource, Theme,
 use super::ffi;
 use super::{DeviceId, KeyEventExtra, MonitorHandle, PlatformSpecificEventLoopAttributes, WindowId};
 
-/// The window's leases, as the loop reads them.
+/// The window's leases, as the loop reads them, or its X window (`x11`, x11-window.h's), whose
+/// address is then its id. `size` is the monitor's: the page's canvas, or the X server's screen.
 #[derive(Clone, Copy)]
 pub(super) struct Leases {
     pub display: u64,
     pub input: u64,
     pub size: (u32, u32),
+    pub x11: usize,
 }
 
 /// State the window (on any thread) and the loop share.
@@ -35,6 +37,10 @@ pub(super) struct Shared {
     /// threads' events and redraw requests, and for its deadline.
     pub records: Mutex<VecDeque<ffi::InputEvent>>,
     pub wake: Condvar,
+    /// The window's size: the canvas's, or what the X server last reported.
+    pub size: Mutex<(u32, u32)>,
+    /// The X window is closing: its reader ends.
+    pub closing: AtomicBool,
 }
 
 impl Shared {
@@ -59,6 +65,26 @@ pub(super) fn read_input(shared: Arc<Shared>, input: u64) {
         let mut record = ffi::InputEvent::zeroed();
         // SAFETY: record is a whole input record; a negative timeout waits for one.
         let result = unsafe { ffi::dolly_input_next_event(input, &mut record, -1.0) };
+        if result < 0 {
+            return;
+        }
+        if result > 0 {
+            shared.records.lock().unwrap().push_back(record);
+            shared.wake.notify_one();
+        }
+    }
+}
+
+/// The X window's records, as read_input reads the page's. Its reader looks for the window's
+/// closing between waits.
+pub(super) fn read_x11(shared: Arc<Shared>, window: usize) {
+    while !shared.closing.load(Ordering::Acquire) {
+        let mut record = ffi::InputEvent::zeroed();
+        // SAFETY: window is open until closing is set and this reader is joined; record is a whole
+        // input record.
+        // A frame's wait at most: what another thread's request read from the connection is
+        // queued without waking the wait.
+        let result = unsafe { ffi::x11_window_next_event(window as *mut _, &mut record, 16.0) };
         if result < 0 {
             return;
         }
@@ -202,9 +228,9 @@ impl<T: 'static> EventLoop<T> {
         // A handler may create or drop the window: no lock is held while one runs.
         while let Some(window_id) = pop(&shared.created) {
             let leases = *shared.window.lock().unwrap();
-            if let Some(leases) = leases {
+            if leases.is_some() {
                 self.input = Input::default();
-                let event = event::WindowEvent::Resized(leases.size.into());
+                let event = event::WindowEvent::Resized((*shared.size.lock().unwrap()).into());
                 event_handler(event::Event::WindowEvent { window_id: RootWindowId(window_id), event }, target);
             }
         }
@@ -215,7 +241,17 @@ impl<T: 'static> EventLoop<T> {
             let window_id = RootWindowId(WindowId(leases.display));
             let mut send = |event| event_handler(event, target);
             for record in &records {
-                self.input.translate(window_id, record, &mut send);
+                match record.kind {
+                    ffi::EVENT_X11_SIZE => {
+                        let size = (record.x as u32, record.y as u32);
+                        *shared.size.lock().unwrap() = size;
+                        send(event::Event::WindowEvent { window_id, event: event::WindowEvent::Resized(size.into()) });
+                    },
+                    ffi::EVENT_X11_CLOSE => {
+                        send(event::Event::WindowEvent { window_id, event: event::WindowEvent::CloseRequested });
+                    },
+                    _ => self.input.translate(window_id, record, &mut send),
+                }
             }
         }
 

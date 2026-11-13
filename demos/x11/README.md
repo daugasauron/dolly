@@ -17,6 +17,7 @@ own under a stock window manager.
 - `xeyes`: xeyes, the eyes that follow the pointer.
 - `xterm`: xterm, the terminal emulator for X, with a shell on a pseudo-terminal.
 - `x11-build`: A build stage: X's client libraries, from the protocol headers and libxcb to the Athena widgets, as static libraries.
+- `x11-window`: A program's window on the X server, for a platform that draws on the page through display@0 and input@0: frames go in, input@0's records come out. Godot and PhotoCraft draw their X windows through it.
 
 Open `/x11-desktop/`; build with `npm run image -- x11-desktop`. The session
 starts the server, twm, xclock, xeyes and xterm. Windows move by their title
@@ -65,6 +66,23 @@ is back.
   (`-S`): [`xterm-pty.c`](xterm-pty.c), installed as `xterm`, opens the
   pseudo-terminal, starts upstream's program (`/usr/libexec/xterm`) on the
   master and the shell, or the command after `-e`, on the slave.
+
+## Programs of the page
+
+Godot and PhotoCraft, which draw on the page through `display@0` and
+`input@0`, open windows of their own here: `amy install godot-editor
+lantern-drift` or `amy install photocraft` in xterm, then `lantern-drift`,
+`godot-editor -e --path DIRECTORY` or `photocraft
+/usr/share/photocraft/pictures/great-wave.jpg`. Where `DISPLAY` names an X
+display (`:0`; the terminal's own `DISPLAY` is its display library's path)
+their platforms open the window through
+[`x11-window`](x11-window/x11-window.h): a static library over Xlib whose
+records are `input@0`'s, keys named as a browser names them, so a platform
+reads an X window with the code that reads the page. Their frames are drawn
+on `gpu@0` into a texture, read back and put in the window with `XPutImage`,
+as the core protocol has no other way here (no GLX, DRI or MIT-SHM); twm
+frames, moves and closes the windows (Delete asks the program to close).
+Copy and paste are `clipboard@0`'s while the program holds it.
 
 ## Limits
 

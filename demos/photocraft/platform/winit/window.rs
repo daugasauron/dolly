@@ -8,14 +8,35 @@ use crate::error::{ExternalError, NotSupportedError, OsError as RootOsError};
 use crate::platform_impl::Fullscreen;
 use crate::window::{self, CursorIcon, ImePurpose};
 
-use super::event_loop::{read_input, Leases, Shared};
+use super::event_loop::{read_input, read_x11, Leases, Shared};
 use super::{ffi, ActiveEventLoop, MonitorHandle, OsError, WindowId};
 
-/// The page's canvas: Dolly has one, so a second window is refused while it is open.
+/// The page's canvas: Dolly has one, so a second window is refused while it is open. Where DISPLAY
+/// names an X server (x11_window_display) the window is one of its windows instead, as on a Unix
+/// desktop.
 pub struct Window {
     leases: Leases,
     shared: Arc<Shared>,
     state: Mutex<State>,
+    reader: Mutex<Option<std::thread::JoinHandle<()>>>,
+    /// The program's terminal and its modes as the window found them, given back when it closes.
+    terminal: Option<(std::fs::File, u32)>,
+}
+
+/// The page's keys are the window's: Ctrl+C is Copy, as in a window on a desktop, not the
+/// terminal's interrupt key (ISIG off); the app's Quit ends it. The terminal and the modes it
+/// found, if it changed them.
+fn take_interrupt_key() -> Option<(std::fs::File, u32)> {
+    use std::os::fd::AsRawFd;
+    let terminal = std::fs::OpenOptions::new().read(true).write(true).open("/dev/tty").ok()?;
+    // SAFETY: the descriptor is the terminal's, open while terminal is.
+    let mode = unsafe { ffi::dolly_terminal_mode_get(terminal.as_raw_fd()) };
+    if mode < 0 || mode & ffi::TERMINAL_ISIG == 0 {
+        return None;
+    }
+    // SAFETY: as above.
+    unsafe { ffi::dolly_terminal_mode_set(terminal.as_raw_fd(), (mode & !ffi::TERMINAL_ISIG) as u32) };
+    Some((terminal, mode as u32))
 }
 
 struct State {
@@ -67,6 +88,10 @@ impl Window {
         if window.is_some() {
             return Err(os_error("display", -EBUSY));
         }
+        // SAFETY: a function of the environment.
+        if !unsafe { ffi::x11_window_display() }.is_null() {
+            return Self::new_x11(el, attrs, &mut window);
+        }
         let mut surface = ffi::Surface::default();
         // SAFETY: surface is a whole record.
         let error = unsafe { ffi::dolly_display_acquire(&mut surface) };
@@ -93,7 +118,8 @@ impl Window {
             return Err(os_error("input thread", -error.raw_os_error().unwrap_or(EAGAIN)));
         }
         // The window fills the canvas, as a maximized one fills a screen.
-        let leases = Leases { display, input, size: (surface.width, surface.height) };
+        let leases = Leases { display, input, size: (surface.width, surface.height), x11: 0 };
+        *el.shared.size.lock().unwrap() = leases.size;
         *window = Some(leases);
         el.shared.created.lock().unwrap().push_back(WindowId(display));
         let this = Self {
@@ -105,9 +131,62 @@ impl Window {
                 cursor_visible: true,
                 visible: attrs.visible,
             }),
+            reader: Mutex::new(None),
+            terminal: take_interrupt_key(),
         };
         this.set_cursor(attrs.cursor.clone());
         Ok(this)
+    }
+
+    /// A window of the size asked for (or 1280 by 800) on the X server DISPLAY names.
+    fn new_x11(
+        el: &ActiveEventLoop,
+        attrs: window::WindowAttributes,
+        window: &mut Option<Leases>,
+    ) -> Result<Self, RootOsError> {
+        let size: PhysicalSize<u32> = attrs.inner_size.map_or((1280, 800).into(), |size| size.to_physical(1.0));
+        let title = std::ffi::CString::new(attrs.title.replace('\0', "")).unwrap();
+        // SAFETY: title is a string.
+        let x11 = unsafe { ffi::x11_window_open(title.as_ptr(), size.width, size.height) };
+        if x11.is_null() {
+            return Err(os_error("X window", -std::io::Error::last_os_error().raw_os_error().unwrap_or(EAGAIN)));
+        }
+        let (mut width, mut height) = (0, 0);
+        // SAFETY: x11 is this window.
+        unsafe { ffi::x11_window_screen_size(x11, &mut width, &mut height) };
+        let shared = el.shared.clone();
+        let address = x11 as usize;
+        shared.closing.store(false, Ordering::Release);
+        let reader = match std::thread::Builder::new().name("dolly x11".into()).spawn(move || read_x11(shared, address)) {
+            Ok(reader) => reader,
+            Err(error) => {
+                // SAFETY: x11 is this window, which no reader uses.
+                unsafe { ffi::x11_window_close(x11) };
+                return Err(os_error("input thread", -error.raw_os_error().unwrap_or(EAGAIN)));
+            },
+        };
+        let leases = Leases { display: address as u64, input: 0, size: (width, height), x11: address };
+        *el.shared.size.lock().unwrap() = (size.width, size.height);
+        *window = Some(leases);
+        el.shared.created.lock().unwrap().push_back(WindowId(leases.display));
+        let this = Self {
+            leases,
+            shared: el.shared.clone(),
+            state: Mutex::new(State {
+                title: attrs.title.clone(),
+                cursor: CursorIcon::Default,
+                cursor_visible: true,
+                visible: attrs.visible,
+            }),
+            reader: Mutex::new(Some(reader)),
+            terminal: None,
+        };
+        this.set_cursor(attrs.cursor.clone());
+        Ok(this)
+    }
+
+    fn x11(&self) -> Option<*mut std::ffi::c_void> {
+        (self.leases.x11 != 0).then_some(self.leases.x11 as *mut std::ffi::c_void)
     }
 
     pub(crate) fn maybe_queue_on_main(&self, f: impl FnOnce(&Self) + Send + 'static) {
@@ -124,6 +203,11 @@ impl Window {
 
     fn show_cursor(&self, state: &State) {
         let style = if state.cursor_visible { cursor_style(state.cursor) } else { ffi::CURSOR_HIDDEN };
+        if let Some(x11) = self.x11() {
+            // SAFETY: x11 is this window.
+            unsafe { ffi::x11_window_set_cursor(x11, style) };
+            return;
+        }
         // SAFETY: display is this window's lease.
         unsafe { ffi::dolly_display_set_cursor(self.leases.display, style) };
     }
@@ -180,12 +264,18 @@ impl Window {
 
     #[inline]
     pub fn inner_size(&self) -> PhysicalSize<u32> {
-        self.leases.size.into()
+        (*self.shared.size.lock().unwrap()).into()
     }
 
-    /// The canvas's size is the page's.
+    /// The canvas's size is the page's; an X window's is the window manager's to grant, and
+    /// arrives as Resized.
     #[inline]
-    pub fn request_inner_size(&self, _size: Size) -> Option<PhysicalSize<u32>> {
+    pub fn request_inner_size(&self, size: Size) -> Option<PhysicalSize<u32>> {
+        if let Some(x11) = self.x11() {
+            let size: PhysicalSize<u32> = size.to_physical(1.0);
+            // SAFETY: x11 is this window.
+            unsafe { ffi::x11_window_resize(x11, size.width, size.height) };
+        }
         None
     }
 
@@ -208,6 +298,10 @@ impl Window {
     #[inline]
     pub fn set_title(&self, title: &str) {
         self.state.lock().unwrap().title = title.to_owned();
+        if let (Some(x11), Ok(title)) = (self.x11(), std::ffi::CString::new(title)) {
+            // SAFETY: x11 is this window; title is a string.
+            unsafe { ffi::x11_window_set_title(x11, title.as_ptr()) };
+        }
     }
 
     #[inline]
@@ -325,6 +419,10 @@ impl Window {
                 return Err(ExternalError::NotSupported(NotSupportedError::new()))
             },
         };
+        // An X window here has no pointer grab.
+        if self.x11().is_some() {
+            return Err(ExternalError::NotSupported(NotSupportedError::new()));
+        }
         // SAFETY: input is this window's lease.
         let error = unsafe { ffi::dolly_input_set_pointer_relative(self.leases.input, relative) };
         if error != 0 {
@@ -361,7 +459,9 @@ impl Window {
     #[cfg(feature = "rwh_06")]
     #[inline]
     pub fn raw_window_handle_rwh_06(&self) -> Result<rwh_06::RawWindowHandle, rwh_06::HandleError> {
-        Ok(rwh_06::RawWindowHandle::Dolly(rwh_06::DollyWindowHandle::new(self.leases.display)))
+        let mut handle = rwh_06::DollyWindowHandle::new(self.leases.display);
+        handle.x11 = self.leases.x11;
+        Ok(rwh_06::RawWindowHandle::Dolly(handle))
     }
 
     #[cfg(feature = "rwh_06")]
@@ -396,10 +496,24 @@ impl Window {
 
 impl Drop for Window {
     fn drop(&mut self) {
-        // SAFETY: these are this window's leases.
-        unsafe {
-            ffi::dolly_input_release(self.leases.input);
-            ffi::dolly_display_release(self.leases.display);
+        if let Some(x11) = self.x11() {
+            self.shared.closing.store(true, Ordering::Release);
+            if let Some(reader) = self.reader.lock().unwrap().take() {
+                let _ = reader.join();
+            }
+            // SAFETY: x11 is this window, whose reader has ended.
+            unsafe { ffi::x11_window_close(x11) };
+        } else {
+            // SAFETY: these are this window's leases.
+            unsafe {
+                ffi::dolly_input_release(self.leases.input);
+                ffi::dolly_display_release(self.leases.display);
+            }
+        }
+        if let Some((terminal, mode)) = &self.terminal {
+            use std::os::fd::AsRawFd;
+            // SAFETY: the descriptor is the terminal whose modes these were.
+            unsafe { ffi::dolly_terminal_mode_set(terminal.as_raw_fd(), *mode) };
         }
         *self.shared.window.lock().unwrap() = None;
         self.shared.destroyed.lock().unwrap().push_back(self.id());

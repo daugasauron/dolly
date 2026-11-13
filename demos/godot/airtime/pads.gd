@@ -1,6 +1,7 @@
 # The course as it is shown: each pad a steel slab on a column out of the metal sea, amber-edged
 # where it drops, a cyan deck with railings and a lamp at each checkpoint. A pad that is landed
 # on flashes red, falls away and comes back; a landing throws sparks.
+@tool
 extends Node3D
 
 const PLATE := preload("res://plate.gdshader")
@@ -14,6 +15,13 @@ var materials: Array[ShaderMaterial] = []
 var homes: Array[Vector3] = []
 var sparks: Array[GPUParticles3D] = []
 var spark_next := 0
+
+
+# In the editor the course stands as the game builds it (main.gd); what is built here is not the
+# scene's and is not saved with it.
+func _ready() -> void:
+	if Engine.is_editor_hint():
+		build(Course.new(), metres)
 
 
 func build(course: Course, scale: float) -> void:

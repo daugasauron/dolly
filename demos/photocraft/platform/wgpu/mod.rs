@@ -52,6 +52,24 @@ pub(crate) mod ffi {
         pub fn dolly_gpu_batch(g: *mut Gpu) -> i32;
         pub fn dolly_gpu_continue(g: *mut Gpu) -> i32;
     }
+
+    // <x11-window.h> (demos/x11) and the libraries under it, as winit's platform links them: a
+    // program without a window (photocraft-cli) links them too.
+    #[link(name = "x11-window")]
+    #[link(name = "X11")]
+    #[link(name = "xcb")]
+    #[link(name = "Xau")]
+    #[link(name = "dolly-sockets")]
+    extern "C" {
+        pub fn x11_window_present(
+            window: *mut core::ffi::c_void,
+            pixels: *const u8,
+            width: u32,
+            height: u32,
+            stride: usize,
+            rgba: core::ffi::c_int,
+        ) -> core::ffi::c_int;
+    }
 }
 
 /// Record opcodes of dolly-gpu-0.wat.
@@ -448,15 +466,18 @@ impl dispatch::InstanceInterface for ContextDolly {
         target: crate::SurfaceTargetUnsafe,
     ) -> Result<dispatch::DispatchSurface, crate::CreateSurfaceError> {
         let crate::SurfaceTargetUnsafe::RawHandle { raw_window_handle, .. } = target;
-        let raw_window_handle::RawWindowHandle::Dolly(_) = raw_window_handle else {
+        let raw_window_handle::RawWindowHandle::Dolly(window) = raw_window_handle else {
             return Err(crate::CreateSurfaceError {
                 inner: crate::CreateSurfaceErrorKind::RawHandle(
                     raw_window_handle::HandleError::NotSupported,
                 ),
             });
         };
-        self.surfaces.store(true, core::sync::atomic::Ordering::Release);
-        Ok(dispatch::DispatchSurface::custom(DollySurface { config: Mutex::new(None) }))
+        // An X window's frames are read back, so its device needs no page surface.
+        if window.x11 == 0 {
+            self.surfaces.store(true, core::sync::atomic::Ordering::Release);
+        }
+        Ok(dispatch::DispatchSurface::custom(DollySurface { config: Mutex::new(None), x11: window.x11, frame: Mutex::new(None) }))
     }
 
     fn request_adapter(
@@ -474,9 +495,11 @@ impl dispatch::InstanceInterface for ContextDolly {
         if !self.requested_backends.contains(wgt::Backends::BROWSER_WEBGPU) {
             return Box::pin(ready(Err(not_found)));
         }
-        // A scope presents only when it was opened with a surface.
-        let surface = options.compatible_surface.is_some()
-            || self.surfaces.load(core::sync::atomic::Ordering::Acquire);
+        // A scope presents only when it was opened with a surface: the page's, not an X window's.
+        let surface = match options.compatible_surface {
+            Some(surface) => surface.inner.as_custom::<DollySurface>().is_none_or(|surface| surface.x11 == 0),
+            None => self.surfaces.load(core::sync::atomic::Ordering::Acquire),
+        };
         match DollyAdapter::open(surface) {
             Ok(adapter) => Box::pin(ready(Ok(dispatch::DispatchAdapter::custom(adapter)))),
             Err(_) => Box::pin(ready(Err(not_found))),
@@ -572,8 +595,8 @@ impl dispatch::AdapterInterface for DollyAdapter {
         Box::pin(ready(Ok((dispatch::DispatchDevice::custom(device), dispatch::DispatchQueue::custom(queue)))))
     }
 
-    fn is_surface_supported(&self, _surface: &dispatch::DispatchSurface) -> bool {
-        self.surface
+    fn is_surface_supported(&self, surface: &dispatch::DispatchSurface) -> bool {
+        self.surface || surface.as_custom::<DollySurface>().is_some_and(|surface| surface.x11 != 0)
     }
 
     fn features(&self) -> crate::Features {
@@ -1436,8 +1459,34 @@ impl dispatch::QueueInterface for DollyQueue {
         unimplemented!("gpu@0 has no ray tracing")
     }
 
-    /// SUBMIT presented the surface its work drew on.
-    fn present(&self, _detail: &dispatch::DispatchSurfaceOutputDetail) {}
+    /// SUBMIT presented the page's surface its work drew on. An X window's frame is copied out of
+    /// its texture, read back and put in the window.
+    fn present(&self, detail: &dispatch::DispatchSurfaceOutputDetail) {
+        let Some(frame) = detail.as_custom::<DollySurfaceOutputDetail>().and_then(|detail| detail.x11.as_ref()) else {
+            return;
+        };
+        let size = frame.texture.size;
+        let pixels = frame.texture.object.gpu.with(|client| {
+            let mut copy = Record::new(op::COPY_TEXTURE_TO_BUFFER, 72);
+            copy.u64(8, frame.buffer.handle)
+                .u32(24, frame.row_bytes)
+                .u32(28, size.height)
+                .u64(32, frame.texture.object.handle)
+                .u32(60, size.width)
+                .u32(64, size.height)
+                .u32(68, 1);
+            client.push(&copy, false);
+            client.push(&Record::new(op::SUBMIT, 8), false);
+            client.send(false);
+            client.read(frame.buffer.handle, 0..u64::from(frame.row_bytes) * u64::from(size.height))
+        });
+        if let Some(pixels) = pixels {
+            // SAFETY: the window is open while its surface is; pixels holds height rows of row_bytes.
+            unsafe {
+                ffi::x11_window_present(frame.window as *mut _, pixels.as_ptr(), size.width, size.height, frame.row_bytes as usize, 0)
+            };
+        }
+    }
 }
 
 impl dispatch::ShaderModuleInterface for DollyShaderModule {
@@ -1625,14 +1674,33 @@ impl dispatch::TextureInterface for DollyTexture {
 #[derive(Debug)]
 pub struct DollySurface {
     config: Mutex<Option<(Arc<Gpu>, wgt::Extent3d, wgt::TextureFormat)>>,
+    /// The X window frames go to (x11-window.h), or zero for the page's surface, and the texture
+    /// of its frames with the buffer they are read back through.
+    x11: usize,
+    frame: Mutex<Option<Arc<X11Frame>>>,
+}
+
+/// An X window's frame: drawn into a texture of its own and read back through a buffer, rows of
+/// row_bytes, blue first.
+#[derive(Debug)]
+struct X11Frame {
+    window: usize,
+    texture: Arc<TextureInfo>,
+    buffer: Arc<Object>,
+    row_bytes: u32,
 }
 
 #[derive(Debug)]
-pub struct DollySurfaceOutputDetail;
+pub struct DollySurfaceOutputDetail {
+    x11: Option<Arc<X11Frame>>,
+}
 
 impl dispatch::SurfaceInterface for DollySurface {
     fn get_capabilities(&self, adapter: &dispatch::DispatchAdapter) -> wgt::SurfaceCapabilities {
-        let format = adapter.as_custom::<DollyAdapter>().map_or(wgt::TextureFormat::Bgra8Unorm, |a| a.surface_format);
+        let format = match adapter.as_custom::<DollyAdapter>() {
+            Some(adapter) if self.x11 == 0 => adapter.surface_format,
+            _ => wgt::TextureFormat::Bgra8Unorm,
+        };
         wgt::SurfaceCapabilities {
             format_capabilities: vec![wgt::SurfaceFormatCapabilities { format, color_spaces: wgt::SurfaceColorSpaces::SRGB }],
             formats: vec![format],
@@ -1644,10 +1712,11 @@ impl dispatch::SurfaceInterface for DollySurface {
 
     fn configure(&self, device: &dispatch::DispatchDevice, config: &crate::SurfaceConfiguration) {
         let device = device.as_custom::<DollyDevice>().unwrap();
-        if config.format != device.gpu.surface_format {
+        let format = if self.x11 == 0 { device.gpu.surface_format } else { wgt::TextureFormat::Bgra8Unorm };
+        if config.format != format {
             device.gpu.validation(alloc::format!(
                 "gpu@0's surface is {:?}, not {:?}",
-                device.gpu.surface_format, config.format
+                format, config.format
             ));
         }
         let size = wgt::Extent3d { width: config.width, height: config.height, depth_or_array_layers: 1 };
@@ -1659,6 +1728,15 @@ impl dispatch::SurfaceInterface for DollySurface {
     ) -> (Option<dispatch::DispatchTexture>, crate::SurfaceStatus, dispatch::DispatchSurfaceOutputDetail) {
         let config = self.config.lock().unwrap();
         let (gpu, size, format) = config.as_ref().expect("This surface has not been configured yet.");
+        if self.x11 != 0 {
+            let frame = self.x11_frame(gpu, *size);
+            let texture = DollyTexture { info: frame.texture.clone() };
+            return (
+                Some(dispatch::DispatchTexture::custom(texture)),
+                crate::SurfaceStatus::Good,
+                dispatch::DispatchSurfaceOutputDetail::custom(DollySurfaceOutputDetail { x11: Some(frame) }),
+            );
+        }
         let texture = DollyTexture {
             info: Arc::new(TextureInfo {
                 object: object(gpu, 0),
@@ -1668,7 +1746,53 @@ impl dispatch::SurfaceInterface for DollySurface {
                 surface: true,
             }),
         };
-        (Some(dispatch::DispatchTexture::custom(texture)), crate::SurfaceStatus::Good, dispatch::DispatchSurfaceOutputDetail::custom(DollySurfaceOutputDetail))
+        (Some(dispatch::DispatchTexture::custom(texture)), crate::SurfaceStatus::Good, dispatch::DispatchSurfaceOutputDetail::custom(DollySurfaceOutputDetail { x11: None }))
+    }
+}
+
+impl DollySurface {
+    /// The X window's frame of this size, made again when the size changes.
+    fn x11_frame(&self, gpu: &Arc<Gpu>, size: wgt::Extent3d) -> Arc<X11Frame> {
+        let mut frame = self.frame.lock().unwrap();
+        if let Some(frame) = frame.as_ref().filter(|frame| frame.texture.size == size) {
+            return frame.clone();
+        }
+        let usage = wgt::TextureUsages::RENDER_ATTACHMENT | wgt::TextureUsages::COPY_SRC;
+        let texture = gpu.create(|handle| {
+            let mut record = Record::new(op::CREATE_TEXTURE, 48);
+            record
+                .u64(8, handle)
+                .u32(16, size.width)
+                .u32(20, size.height)
+                .u32(24, 1)
+                .u32(28, 1)
+                .u32(32, convert::texture_format(wgt::TextureFormat::Bgra8Unorm).unwrap())
+                .u32(36, usage.bits())
+                .u32(40, convert::texture_dimension(wgt::TextureDimension::D2))
+                .bytes(44, &1u16.to_le_bytes());
+            record
+        });
+        let row_bytes = (size.width * 4).next_multiple_of(256);
+        let buffer = gpu.create(|handle| {
+            let mut record = Record::new(op::CREATE_BUFFER, 32);
+            let usage = wgt::BufferUsages::MAP_READ | wgt::BufferUsages::COPY_DST;
+            record.u64(8, handle).u64(16, u64::from(row_bytes) * u64::from(size.height)).u32(24, usage.bits());
+            record
+        });
+        let created = Arc::new(X11Frame {
+            window: self.x11,
+            texture: Arc::new(TextureInfo {
+                object: object(gpu, texture),
+                size,
+                format: wgt::TextureFormat::Bgra8Unorm,
+                dimension: wgt::TextureDimension::D2,
+                surface: false,
+            }),
+            buffer: object(gpu, buffer),
+            row_bytes,
+        });
+        *frame = Some(created.clone());
+        created
     }
 }
 

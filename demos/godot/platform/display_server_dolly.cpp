@@ -7,11 +7,13 @@
 #include "main/main.h"
 #include "servers/display/native_menu.h"
 
+#include "core/config/engine.h"
+#include "core/config/project_settings.h"
+
 #if defined(RD_ENABLED)
 #include "rendering_context_driver_webgpu.h"
 #include "servers/rendering/renderer_rd/renderer_compositor_rd.h"
 #include "servers/rendering/rendering_device.h"
-#include "core/config/project_settings.h"
 #endif
 
 #include <platform_gl.h>
@@ -20,10 +22,17 @@
 
 // After Godot's headers: in C++ before C++23, <stdatomic.h>, which these
 // include, defines macros over std::atomic's functions.
+#include <dolly/clipboard.h>
 #include <dolly/display.h>
 #include <dolly/input.h>
+#include <x11-window.h>
 
+#include <errno.h>
+#include <fcntl.h>
+#include <stdlib.h>
 #include <string.h>
+#include <termios.h>
+#include <unistd.h>
 
 // Godot's map of a browser keyboard event's code and key, which an input@0
 // record carries, from its web platform.
@@ -103,7 +112,29 @@ Error DisplayServerDolly::create_gl_surface() {
 }
 
 bool DisplayServerDolly::has_feature(DisplayServerEnums::Feature p_feature) const {
-	return p_feature == DisplayServerEnums::FEATURE_MOUSE || p_feature == DisplayServerEnums::FEATURE_CURSOR_SHAPE;
+	return p_feature == DisplayServerEnums::FEATURE_MOUSE || p_feature == DisplayServerEnums::FEATURE_CURSOR_SHAPE ||
+			p_feature == DisplayServerEnums::FEATURE_CLIPBOARD;
+}
+
+// The page's clipboard while the program holds it (clipboard@0); its own otherwise.
+void DisplayServerDolly::clipboard_set(const String &p_text) {
+	clipboard = p_text;
+	if (clipboard_lease) {
+		const CharString text = p_text.utf8();
+		const int error = dolly_clipboard_write(clipboard_lease, text.get_data(), text.length());
+		ERR_FAIL_COND_MSG(error != 0, vformat("The clipboard took no copy: %s.", strerror(-error)));
+	}
+}
+
+String DisplayServerDolly::clipboard_get() const {
+	if (!clipboard_lease) {
+		return clipboard;
+	}
+	LocalVector<char> text;
+	text.resize(DOLLY_CLIPBOARD_CAPACITY);
+	const int64_t length = dolly_clipboard_read(clipboard_lease, text.ptr(), text.size());
+	ERR_FAIL_COND_V_MSG(length < 0, clipboard, vformat("The clipboard could not be read: %s.", strerror(-length)));
+	return String::utf8(text.ptr(), MIN(length, (int64_t)text.size()));
 }
 
 Vector<DisplayServerEnums::WindowID> DisplayServerDolly::get_window_list() const {
@@ -116,9 +147,22 @@ void DisplayServerDolly::window_set_size(const Size2i p_size, DisplayServerEnums
 	if (p_size == size || p_size.width <= 0 || p_size.height <= 0) {
 		return;
 	}
+	if (x11) {
+		// The window manager may refuse; the size is what the server reports (resized).
+		x11_window_resize(x11, p_size.width, p_size.height);
+		return;
+	}
 	dolly_display_surface surface;
 	ERR_FAIL_COND(dolly_display_set_size(display, p_size.width, p_size.height, &surface) != 0);
+	resized(p_size);
+}
+
+// The window's new size, which the X server or the page's surface reports.
+void DisplayServerDolly::resized(const Size2i &p_size) {
 	size = p_size;
+	if (rect_changed_callback.is_valid()) {
+		rect_changed_callback.call(Rect2i(Point2i(), size));
+	}
 #if defined(RD_ENABLED)
 	if (rendering_context) {
 		rendering_context->window_set_size(DisplayServerEnums::MAIN_WINDOW_ID, size.width, size.height);
@@ -130,6 +174,17 @@ void DisplayServerDolly::window_set_size(const Size2i p_size, DisplayServerEnums
 	create_gl_surface();
 }
 
+// A frame for the X window: the Compatibility renderer's, or RenderingDevice's
+// read back (rendering_context_driver_webgpu.h).
+void DisplayServerDolly::present(const uint8_t *p_pixels, uint32_t p_width, uint32_t p_height, size_t p_stride, bool p_rgba) {
+	const int error = x11_window_present(x11, p_pixels, p_width, p_height, p_stride, p_rgba);
+	ERR_FAIL_COND_MSG(error != 0, vformat("The X window took no frame: %s.", strerror(-error)));
+}
+
+void DisplayServerDolly::present_frame(const uint8_t *p_pixels, uint32_t p_width, uint32_t p_height, uint32_t p_stride) {
+	static_cast<DisplayServerDolly *>(get_singleton())->present(p_pixels, p_width, p_height, p_stride, false);
+}
+
 // The frame Godot drew, read back and presented; with vsync, Godot waits for
 // the page's next animation frame, at most 100 ms (a hidden tab shows none).
 // RenderingDevice presents its own frames, on gpu@0's surface.
@@ -137,12 +192,23 @@ void DisplayServerDolly::swap_buffers() {
 	if (rendering_device) {
 		return;
 	}
+	const size_t row = (size_t)size.width * 4;
+	if (x11) {
+		pixels.resize(row * size.height * 2);
+		uint8_t *upright = pixels.ptr() + row * size.height;
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+		glReadPixels(0, 0, size.width, size.height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.ptr());
+		for (int y = 0; y < size.height; y++) {
+			memcpy(upright + (size_t)y * row, pixels.ptr() + (size_t)(size.height - 1 - y) * row, row);
+		}
+		present(upright, size.width, size.height, row, true);
+		return;
+	}
 	dolly_display_frame frame;
 	if (dolly_display_begin_frame(display, &frame) != 0 ||
 			frame.width != (uint32_t)size.width || frame.height != (uint32_t)size.height) {
 		return;
 	}
-	const size_t row = (size_t)size.width * 4;
 	pixels.resize(row * size.height);
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 	glReadPixels(0, 0, size.width, size.height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.ptr());
@@ -298,6 +364,10 @@ static void read_motion(const dolly_input_event &p_event, const Point2i &mouse_p
 }
 
 void DisplayServerDolly::mouse_set_mode(DisplayServerEnums::MouseMode p_mode) {
+	if (x11) {
+		// An X window here has no pointer grab: the pointer stays the pointer.
+		return;
+	}
 	const bool wanted = p_mode == DisplayServerEnums::MOUSE_MODE_CAPTURED;
 	if (wanted != capture_wanted && dolly_input_set_pointer_relative(input, wanted) != 0) {
 		return;
@@ -349,12 +419,23 @@ void DisplayServerDolly::read_event(const dolly_input_event &p_event) {
 			// Records were lost: let go of what was held.
 			Input::get_singleton()->release_pressed_events();
 			break;
+		case X11_WINDOW_EVENT_SIZE:
+			resized(Size2i(p_event.x, p_event.y));
+			break;
+		case X11_WINDOW_EVENT_CLOSE:
+			send_window_event(DisplayServerEnums::WINDOW_EVENT_CLOSE_REQUEST);
+			break;
 	}
+}
+
+// The next record of the page's input or of the X window.
+int DisplayServerDolly::next_event(dolly_input_event &r_event, double p_timeout_milliseconds) {
+	return x11 ? x11_window_next_event(x11, &r_event, p_timeout_milliseconds) : dolly_input_next_event(input, &r_event, p_timeout_milliseconds);
 }
 
 void DisplayServerDolly::wait_for_event(uint64_t p_usec) {
 	if (!woken) {
-		woken = dolly_input_next_event(input, &woken_by, p_usec / 1000.0) > 0;
+		woken = next_event(woken_by, p_usec / 1000.0) > 0;
 	}
 }
 
@@ -364,10 +445,16 @@ void DisplayServerDolly::process_events() {
 		read_event(woken_by);
 	}
 	dolly_input_event event;
-	while (dolly_input_next_event(input, &event, 0) > 0) {
+	while (next_event(event, 0) > 0) {
 		read_event(event);
 	}
 	Input::get_singleton()->flush_buffered_events();
+}
+
+void DisplayServerDolly::window_set_title(const String &p_title, DisplayServerEnums::WindowID p_window) {
+	if (x11) {
+		x11_window_set_title(x11, p_title.utf8().get_data());
+	}
 }
 
 void DisplayServerDolly::cursor_set_shape(DisplayServerEnums::CursorShape p_shape) {
@@ -382,6 +469,10 @@ void DisplayServerDolly::cursor_set_shape(DisplayServerEnums::CursorShape p_shap
 	};
 	static_assert(std::size(cursors) == DisplayServerEnums::CURSOR_MAX);
 	ERR_FAIL_INDEX(p_shape, DisplayServerEnums::CURSOR_MAX);
+	if (x11) {
+		x11_window_set_cursor(x11, cursors[p_shape]);
+		return;
+	}
 	dolly_display_set_cursor(display, cursors[p_shape]);
 }
 
@@ -390,7 +481,12 @@ static bool fills_screen(DisplayServerEnums::WindowMode p_mode) {
 			p_mode == DisplayServerEnums::WINDOW_MODE_EXCLUSIVE_FULLSCREEN;
 }
 
+// A maximized or fullscreen window fills the page's canvas; an X window's size and place are the
+// window manager's (twm has no maximized state): it stays a window.
 void DisplayServerDolly::window_set_mode(DisplayServerEnums::WindowMode p_mode, DisplayServerEnums::WindowID p_window) {
+	if (x11) {
+		return;
+	}
 	mode = p_mode;
 	if (fills_screen(p_mode)) {
 		window_set_size(screen, p_window);
@@ -402,22 +498,56 @@ DisplayServerDolly::DisplayServerDolly(const String &p_rendering_driver, Display
 	native_menu = memnew(NativeMenu);
 	Input::get_singleton()->set_event_dispatch_function(dispatch_input_event);
 	vsync_mode = p_vsync_mode;
-	dolly_display_surface surface;
-	int error = dolly_display_acquire(&surface);
-	ERR_FAIL_COND_MSG(error != 0, vformat("Dolly's display: %s.", strerror(-error)));
-	display = surface.generation;
-	screen = Size2i(surface.width, surface.height);
 	mode = p_mode;
-	size = fills_screen(p_mode) ? screen : p_size;
-	error = dolly_input_acquire(&input);
-	ERR_FAIL_COND_MSG(error != 0, vformat("Dolly's input: %s.", strerror(-error)));
-	error = dolly_display_set_size(display, size.width, size.height, &surface);
-	ERR_FAIL_COND_MSG(error != 0, vformat("Dolly's display at %dx%d: %s.", size.width, size.height, strerror(-error)));
+	// A window on the X server DISPLAY names, as a program on a Unix desktop opens one; the
+	// page's own canvas otherwise.
+	if (x11_window_display()) {
+		const String name = GLOBAL_GET("application/config/name");
+		x11 = x11_window_open(name.is_empty() ? "Godot" : name.utf8().get_data(), p_size.width, p_size.height);
+		ERR_FAIL_NULL_MSG(x11, vformat("No window on the X server %s: %s.", x11_window_display(), strerror(errno)));
+		uint32_t width, height;
+		x11_window_screen_size(x11, &width, &height);
+		screen = Size2i(width, height);
+		size = p_size;
+		// The window manager frames, places and sizes windows: the window starts at its size.
+		mode = DisplayServerEnums::WINDOW_MODE_WINDOWED;
+	} else {
+		dolly_display_surface surface;
+		int error = dolly_display_acquire(&surface);
+		ERR_FAIL_COND_MSG(error != 0, vformat("Dolly's display: %s.", strerror(-error)));
+		display = surface.generation;
+		screen = Size2i(surface.width, surface.height);
+		size = fills_screen(p_mode) ? screen : p_size;
+		error = dolly_input_acquire(&input);
+		ERR_FAIL_COND_MSG(error != 0, vformat("Dolly's input: %s.", strerror(-error)));
+		error = dolly_display_set_size(display, size.width, size.height, &surface);
+		ERR_FAIL_COND_MSG(error != 0, vformat("Dolly's display at %dx%d: %s.", size.width, size.height, strerror(-error)));
+#ifdef TOOLS_ENABLED
+		// The editor's Ctrl+C is Copy, as in its window on a desktop: while it has the page's keys
+		// its terminal's interrupt key is a key (ISIG off), and Scene > Quit ends it.
+		struct termios modes;
+		if ((Engine::get_singleton()->is_editor_hint() || Engine::get_singleton()->is_project_manager_hint()) &&
+				(terminal = open("/dev/tty", O_RDWR | O_NOCTTY)) >= 0) {
+			if (tcgetattr(terminal, &modes) == 0 && (modes.c_lflag & ISIG)) {
+				terminal_lflag = modes.c_lflag;
+				modes.c_lflag &= ~ISIG;
+				tcsetattr(terminal, TCSANOW, &modes);
+			}
+		}
+#endif
+	}
+	// Without clipboard@0, or beside a program that holds it, the clipboard is the program's own.
+	if (dolly_clipboard_acquire(&clipboard_lease) != 0) {
+		clipboard_lease = 0;
+	}
 #if defined(RD_ENABLED)
 	// gpu@0 opens where the browser grants a WebGPU adapter; elsewhere Godot falls back to its
 	// Compatibility renderer, as its X11 server does when Vulkan fails.
 	if (p_rendering_driver == "webgpu") {
 		rendering_context = memnew(RenderingContextDriverWebGPU);
+		if (x11) {
+			static_cast<RenderingContextDriverWebGPU *>(rendering_context)->present = present_frame;
+		}
 		if (rendering_context->initialize() != OK) {
 			memdelete(rendering_context);
 			rendering_context = nullptr;
@@ -458,11 +588,23 @@ DisplayServerDolly::~DisplayServerDolly() {
 		eglMakeCurrent(egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 		eglTerminate(egl_display);
 	}
+	if (clipboard_lease) {
+		dolly_clipboard_release(clipboard_lease);
+	}
+	struct termios modes;
+	if (terminal_lflag >= 0 && tcgetattr(terminal, &modes) == 0) {
+		modes.c_lflag = terminal_lflag;
+		tcsetattr(terminal, TCSANOW, &modes);
+	}
+	if (terminal >= 0) {
+		close(terminal);
+	}
 	if (input) {
 		dolly_input_release(input);
 	}
 	if (display) {
 		dolly_display_release(display);
 	}
+	x11_window_close(x11);
 	memdelete(native_menu);
 }

@@ -4,7 +4,9 @@
 // the test's own opens, Ctrl+S saves it through zenity, and the page offers the file it wrote
 // (download@0), whose bytes the browser's download holds. Ctrl+Q asks to save the Great Wave,
 // zenity's dialog takes the page and gives it back, PhotoCraft writes the JPEG, offers it and
-// quits, and the shell reads the copy back.
+// quits, and the shell reads the copy back. Copy and paste are the page's clipboard (clipboard@0):
+// text copied outside pastes into the Layers panel's New Layer dialog, and its Ctrl+C gives it
+// back to the browser's clipboard.
 // Usage: node demos/photocraft/test/photocraft-gpu-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -37,12 +39,15 @@ for (const name of browsers) {
   assert.ok(["chromium", "firefox"].includes(name));
   const server = await startBrowserServer(new URL("../../..", import.meta.url).pathname, "photocraft-photos");
   const browser = name === "firefox"
-    ? await firefox.launch({ channel: "moz-firefox", headless: false, firefoxUserPrefs: { "dom.webgpu.enabled": true } })
+    ? await firefox.launch({ channel: "moz-firefox", headless: false,
+      firefoxUserPrefs: { "dom.webgpu.enabled": true, "dom.events.testing.asyncClipboard": true } })
     : await chromium.launch({ channel: "chrome", headless: false,
       args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan,VulkanFromANGLE"] });
   const deadline = setTimeout(() => void browser.close(), 600_000);
   try {
-    const page = await browser.newPage({ viewport: { width: 1600, height: 900 } }), errors = [];
+    const context = await browser.newContext({ viewport: { width: 1600, height: 900 } });
+    if (name === "chromium") await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: server.origin });
+    const page = await context.newPage(), errors = [];
     page.setDefaultTimeout(0);
     page.on("pageerror", error => errors.push(error.message));
     // WebGPU's validation errors reach the page's console after their batch is answered.
@@ -72,6 +77,30 @@ for (const name of browsers) {
     const psd = await readFile(await (await download).path());
     assert.equal(psd.toString("latin1", 0, 4), "8BPS", "the download is the PSD PhotoCraft wrote");
     assert.deepEqual([psd.readUInt32BE(18), psd.readUInt32BE(14)], [640, 400], "of the picture uploaded");
+    // The browser's text pastes into the New Layer dialog's name (the Layers panel's menu), and
+    // the field's Ctrl+C gives it back.
+    await page.evaluate(() => navigator.clipboard.writeText("Copied outside"));
+    await page.mouse.click(1586, 390);
+    await sleep(1000);
+    await page.mouse.click(1396, 87);
+    await sleep(2000);
+    // egui takes a frame's events together: a key pressed in the frame of the click that focuses
+    // the field, or of the Ctrl+A before a copy, would act before them.
+    await page.mouse.click(750, 462);
+    await sleep(500);
+    await page.keyboard.press("Control+a");
+    await page.keyboard.press("Control+v");
+    await sleep(1000);
+    await page.keyboard.press("Control+a");
+    await page.evaluate(() => { delete document.documentElement.dataset.clipboardCopy; });
+    await sleep(500);
+    await page.keyboard.press("Control+c");
+    await page.waitForFunction(() => document.documentElement.dataset.clipboardCopy === "copied", null, { timeout: 10_000 });
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), "Copied outside");
+    // Cancelled: the PSD stays as saved, and quitting asks about the Great Wave alone.
+    await page.keyboard.press("Escape");
+    await sleep(2000);
+    if (name === "chromium") await page.screenshot({ path: `build/photocraft-clipboard-${name}.png` });
     await page.mouse.click(800, 450);
     // Quitting asks to save: zenity's dialog opens in ~/Pictures on great-wave.jpg, Enter saves
     // and then replaces it, and Enter takes PhotoCraft's JPEG options.

@@ -122,9 +122,11 @@ impl VideoModeHandle {
     }
 }
 
-/// `<dolly/display.h>` and `<dolly/input.h>`; `cc` links their clients into every program.
+/// `<dolly/display.h>` and `<dolly/input.h>`; `cc` links their clients into every program. And
+/// `<x11-window.h>` (demos/x11), a window on the X server DISPLAY names whose records are input@0's,
+/// over Xlib and sockets@0's client.
 mod ffi {
-    use std::os::raw::c_int;
+    use std::os::raw::{c_char, c_int, c_void};
 
     pub const EVENT_KEY: u32 = 1;
     pub const EVENT_TEXT: u32 = 2;
@@ -134,6 +136,9 @@ mod ffi {
     pub const EVENT_POINTER_MOTION: u32 = 8;
     pub const EVENT_POINTER_PRESENCE: u32 = 10;
     pub const EVENT_DROPPED: u32 = 11;
+    pub const TERMINAL_ISIG: c_int = 1 << 4;
+    pub const EVENT_X11_SIZE: u32 = 64;
+    pub const EVENT_X11_CLOSE: u32 = 65;
     pub const KEY_ACTION_RELEASE: u32 = 0;
     pub const KEY_ACTION_REPEAT: u32 = 2;
     pub const POINTER_ACTION_PRESS: u32 = 1;
@@ -225,5 +230,24 @@ mod ffi {
         ) -> c_int;
         pub fn dolly_input_set_pointer_relative(generation: u64, relative: c_int) -> c_int;
         pub fn dolly_input_release(generation: u64) -> c_int;
+        /// `<dolly/runtime.h>`: the terminal's DOLLY_TERMINAL_* modes.
+        pub fn dolly_terminal_mode_get(descriptor: c_int) -> c_int;
+        pub fn dolly_terminal_mode_set(descriptor: c_int, flags: u32) -> c_int;
+    }
+
+    #[link(name = "x11-window")]
+    #[link(name = "X11")]
+    #[link(name = "xcb")]
+    #[link(name = "Xau")]
+    #[link(name = "dolly-sockets")]
+    extern "C" {
+        pub fn x11_window_display() -> *const c_char;
+        pub fn x11_window_open(title: *const c_char, width: u32, height: u32) -> *mut c_void;
+        pub fn x11_window_close(window: *mut c_void);
+        pub fn x11_window_next_event(window: *mut c_void, event: *mut InputEvent, timeout_milliseconds: f64) -> c_int;
+        pub fn x11_window_set_title(window: *mut c_void, title: *const c_char);
+        pub fn x11_window_set_cursor(window: *mut c_void, shape: u32);
+        pub fn x11_window_resize(window: *mut c_void, width: u32, height: u32);
+        pub fn x11_window_screen_size(window: *const c_void, width: *mut u32, height: *mut u32);
     }
 }

@@ -8,8 +8,10 @@ which WebGPU does not (SDFGI also needs more storage textures than WebGPU
 gives a shader stage), and the Project Manager draws on `gpu@0` as the editor
 does, where upstream starts it on the Compatibility renderer, which here is a
 software rasterizer: a hover took 0.6 s to show on it, 9 to 33 ms on `gpu@0`;
-and the editor's debugger listens on a local socket, as Dolly has no network ones. In Firefox, which has neither of WebGPU's texture format
-tiers, SSIL, the depth-of-field blur, VoxelGI and 2D SDFs do not draw.
+the editor's debugger listens on a local socket, as Dolly has no network ones, and its
+Debug Adapter server, which listens on TCP for other editors, is left out. In Firefox, which has
+neither of WebGPU's texture format tiers, SSIL, the depth-of-field blur, VoxelGI and 2D SDFs do
+not draw: the first dispatch of each says so.
 `amy install godot`, then
 `godot --path DIRECTORY` runs a project on the page, drawn by Godot's
 Mobile and Forward+ renderers through a RenderingDevice driver on `gpu@0`
@@ -23,14 +25,14 @@ Dolly, as it exported Dodge the Creeps for `amy install dodge-the-creeps`
 ## Images
 
 - `godot`: Godot 4.7's engine with GDScript, 2D and 3D with Godot's own physics, the fallback text server, its renderers on `gpu@0` and the Compatibility renderer on Mesa, and sound, which runs a project or the pack the editor exported.
-- `godot-editor`: Godot 4.7's editor, which imports a project's assets and exports its pack inside Dolly, and draws its own window on the page.
+- `godot-editor`: Godot 4.7's editor, which imports a project's assets and exports its pack inside Dolly, and draws its own window on the page, or on the X server DISPLAY names.
 - `spirv-wgsl`: A build stage: Tint, from Dawn, and SPIRV-Tools under Dolly's passes, which translate the SPIR-V Godot compiles its shaders to into WGSL for `gpu@0`.
 - `dodge-the-creeps`: Dodge the Creeps, the game of Godot's first 2D tutorial, which Godot's editor imported and exported here; `dodge-the-creeps` plays it.
 - `truck-town`: Truck Town, the demo projects' vehicle physics demo: a minivan, a semi-truck and a tow truck in a town at four times of day, drawn by Godot's Forward+ renderer on `gpu@0`; `truck-town` plays it.
 - `lantern-drift`: Lantern Drift, Dolly's showcase game for Godot: a paper lantern glides through rings of light over a sky archipelago from sunset into night, drawn by Forward+ on `gpu@0`; `lantern-drift` plays it.
-- `godot-lantern-drift`: Lantern Drift on the page at once, with Godot's editor and a copy of the game's project to open in it.
+- `godot-lantern-drift`: Lantern Drift on the page at once; Q leaves a shell where `godot-editor -e --path ~/lantern-drift` opens a copy of its project in Godot's editor, the islands in its 3D view. The eye beside HUD in the Scene dock hides the game's display, F5 plays the game so, and Ctrl+S saves the scene.
 - `airtime-godot`: Airtime: Foundry in Godot, the strafe trials of bhop on Airtime's own movement and course, drawn by Forward+ on `gpu@0` as a foundry at night over molten metal; `airtime-godot` plays it.
-- `godot-airtime`: Airtime in Godot on the page, which starts at once; Q leaves a shell where `godot-editor -e --path ~/airtime` opens its project.
+- `godot-airtime`: Airtime in Godot on the page, which starts at once; Q leaves a shell where `godot-editor -e --path ~/airtime` opens a copy of its project in Godot's editor, the course in its 3D view. The eye beside Hud in the Scene dock hides the game's display, F5 plays the game so, and Ctrl+S saves the scene.
 
 ## Lantern Drift
 
@@ -44,6 +46,11 @@ sky darkens from sunset into night as the run goes on. Godot's editor imports an
 while the package builds. It drew 59 frames a second at 1600 by 900 in Chrome (NVIDIA RTX
 5070, 2026-11-10). `-- --autopilot SECONDS` flies a run by itself, as the title screen does, and
 prints its frame rate, rings and score.
+
+Both games build their worlds in scripts as they start. The builders ([`world.gd`](lantern-drift/world.gd)
+with its islands and rings, Airtime's [`foundry.gd`](airtime/foundry.gd) and [`pads.gd`](airtime/pads.gd))
+are tool scripts, so Godot's editor runs them too and its 3D view shows what the game starts in;
+what they build there is not the scene's and is not saved with it.
 
 ## Building
 
@@ -71,7 +78,13 @@ Godot's build is SCons over its own platforms, each a directory of
   OpenGL 3.3 core context on Mesa's surfaceless EGL platform. Godot draws into
   a pbuffer of the window's size; each frame is read back, turned upright and
   presented, and with vsync Godot then waits for the page's next animation
-  frame.
+  frame. Where `DISPLAY` names an X server (`x11-desktop`), the window is one of
+  its windows instead, through [`x11-window`](../x11/README.md), whose records are
+  `input@0`'s: the window manager moves, resizes and closes it, and frames
+  RenderingDevice draws into a texture are read back and put in it. Its clipboard
+  is `clipboard@0`'s ([input](../../docs/input.md#clipboard)), and the program's
+  own beside a program that holds that; the screen is never kept on, as on
+  Godot's web platform.
 - [`audio_driver_dolly.cpp`](platform/audio_driver_dolly.cpp) plays Godot's
   mix as `audio@0`'s stereo float PCM at 48 kHz: a thread of its own keeps
   100 ms queued ahead of the page, as the SDL port does.
@@ -99,8 +112,10 @@ release on the same platform with Godot's default modules, 2,561 units,
 less two: Basis Universal, whose encoder names a header of Linux's that
 Emscripten's libc and Dolly's leave out (`sys/timex.h`), and Jolt Physics,
 which knows WebAssembly only as Emscripten (3D physics is Godot's own). It
-compiled in 26 minutes in the image build, a 182 MB program. Its language server finds no network
-and says so; its debugger listens on a local socket (below). The template packages the
+compiled in 26 minutes in the image build, a 182 MB program. Its debugger listens on a local
+socket (below). The GDScript language server and the Debug Adapter server serve other editors
+over TCP, which Dolly does not have: the language server's one module of its own, JSON-RPC, is
+not built (upstream's switch), and the patch leaves the adapter out. The template packages the
 modules an exported 2D game loads beside the engine's: Ogg Vorbis, MP3, WebP
 and regular expressions.
 
@@ -113,7 +128,11 @@ What the platform decides ([process model](../../docs/process-model.md)):
 
 - Threads: Mesa is built with `-pthread`, so Godot is too (`threads@0`).
 - One window, the page's canvas, which scales the frame; Godot's window
-  size is the project's.
+  size is the project's. On an X server, one window there.
+- Keys: the editor's and the Project Manager's Ctrl+C is Copy, as in a window on
+  a desktop: while it has the page they clear `ISIG` on their terminal, so the
+  interrupt key is theirs ([process model](../../docs/process-model.md)), and
+  their Quit ends them. A game keeps Ctrl+C as the terminal's interrupt.
 - Sockets: Godot links Dolly's local stream sockets (`sockets@0`). The editor's
   debugger listens at `/tmp/godot-debugger-PID.sock` (the patch: upstream's default
   is TCP, which has no network here), and a game the editor runs connects there:
@@ -155,3 +174,16 @@ RenderingDevice on `gpu@0` (`platform/rendering_device_driver_webgpu.cpp`) on
 a hardware adapter, in Chrome and the installed Firefox on a display: a 2D
 scene on the Mobile renderer, a 3D scene with a sky, light and shadow, and
 the editor, each reading its own frame back.
+
+[`test/godot-projects-browser.mjs`](test/godot-projects-browser.mjs) opens each game's project
+in the editor as a newcomer does, on a hardware adapter, in Chrome and Firefox: a probe plugin
+counts the meshes the scene shows and the colours of the 3D view; the HUD is hidden with its eye,
+the game runs with F5 and the scene is saved; a node's name copied in its rename field is the
+browser's clipboard's and pastes into another's, and the browser's text pastes as a third's.
+Both games passed in both browsers on 2026-11-13, the editor's log without an error.
+
+[`test/godot-x11-browser.mjs`](test/godot-x11-browser.mjs) installs the editor and Lantern Drift
+with amy in `x11-desktop`'s xterm: the game and then the editor open windows of their own on the
+X server, take keys and the pointer, and close at twm's Delete. On 2026-11-13 (NVIDIA RTX 5070)
+the game's window drew 12 to 14 s after its command and the X server showed 28.2 frames a second
+of it in Chrome and 49.0 in Firefox; the editor's window drew 53 s after its command.

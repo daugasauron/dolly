@@ -100,6 +100,7 @@ public:
 		// Vulkan keeps a module it could not pipeline; its compute pipelines do nothing, and render
 		// pipelines are refused.
 		String unavailable;
+		bool warned = false; // its first dispatch said so
 	};
 	struct Group {
 		uint64_t handle = 0;
@@ -196,6 +197,8 @@ public:
 
 private:
 	RenderingContextDriverWebGPU *context_driver = nullptr;
+	void free_offscreen(struct SwapChainInfo *p_swap_chain);
+	void read_back(struct SwapChainInfo *p_swap_chain);
 	dolly_gpu *gpu = nullptr; // the scope, opened with the window's surface
 	Mutex mutex; // the scope's packets and the objects' records
 	std::atomic<uint64_t> next_id = { 0 };

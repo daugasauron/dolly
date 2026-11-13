@@ -63,3 +63,7 @@ if has_image xterm; then
   copy_static "$(bash scripts/fetch-pinned-archive.sh xterm)" x11/xterm-412.tar.gz
   copy_static demos/x11/xterm-pty.c x11/xterm-pty.c
 fi
+if has_image x11-window; then
+  copy_static demos/x11/x11-window/x11-window.c x11/x11-window.c
+  copy_static demos/x11/x11-window/x11-window.h x11/x11-window.h
+fi

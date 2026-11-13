@@ -35,6 +35,7 @@ flowchart TB
     disp["display@0"]
     inp["input@0"]
     tch["touch@0"]
+    clip["clipboard@0"]
     up["upload@0"]
     snap["snapshot@0"]
   end
@@ -55,6 +56,7 @@ flowchart TB
   up --> picker["user picks a file"]
   mic --> prompt["browser's own permission prompt"]
   inp --> paste["user presses the page's Paste button"]
+  clip --> copy["user's key press or click moments before"]
   nena --> set["the page's set of modules for this session"]
 ```
 
@@ -80,6 +82,7 @@ Worker URL.
 | `display@0` | mailbox | Publish checked RGBA frames and a closed cursor value; read the surface's size and the page's colours; load the display plugin from WasmFS; the terminal's selection reaches the clipboard on the user's Ctrl+Shift+C | [`host/display/`](../host/display/module.json) ([`kernel-plugin.mjs`](../src/kernel-plugin.mjs)) |
 | `input@0` | mailbox | Receive bounded records of keys, IME text, paste, window focus, pointer buttons and positions on the canvas, wheel; ask for pointer lock, granted only on a user's press on the canvas. On a touchscreen the page's Paste button reads the clipboard's text inside the user's press of it | [`host/input/`](../host/input/module.json) |
 | `touch@0` | mailbox | Receive bounded records of fingers on the canvas (an id from down to up, position, pressure, time), ten at once and 512 queued, while the foreground program or a descendant holds the lease; then no finger is a pointer record of `input@0`. The holder may show up to 12 labels (31 bytes of text each) as buttons in the page's bar beside its Paste; a press is only a record to the holder, and Paste stays the page's own | [`host/touch/`](../host/touch/module.json) |
+| `clipboard@0` | mailbox | Write at most 256 KiB of UTF-8 text to the browser's clipboard, only while the page has the focus and the user's activation (`navigator.userActivation.isActive`: a key press or click on the page moments before, as the copy's own key or menu click is), and only by the program holding the clipboard, the foreground command or its descendant. Read nothing from the browser: the text of a paste the user makes into the page (input@0's) is written into the clipboard, and reaches a program holding it and the input lease as the paste chord's keys | [`host/clipboard/`](../host/clipboard/module.json) |
 | `gpu@0` | `env.dolly_gpu_dispatch` | Bounded WebGPU packets on the browser's `high-performance` adapter, 8 scopes, 65,536 objects each, 4 GiB total, one canvas, which the runtime Worker's animation frames pace. With no adapter, nothing: `OPEN` fails with `ENODEV` | [`host/gpu/`](../host/gpu/module.json) |
 | `audio@0` | `env.dolly_audio_dispatch` | Stereo PCM output, 4 streams of 1 s; no capture | [`host/audio/`](../host/audio/module.json) |
 | `microphone@0` | `env.dolly_microphone_dispatch` | Mono PCM of the browser's default input: one capture, 2 s queued. The browser is asked only when a program opens it and grants it only through its own prompt; the page shows it while held; tracks stop on close and exit. No device list, labels or choice, no video | [`host/microphone/`](../host/microphone/module.json) |
@@ -243,6 +246,7 @@ Worker URL.
 | Keyboard, pointer, wheel, focus, paste (`input@0`) | Bounded records, at most two motion samples per animation frame; a record the ring has no room for is counted, shown and marked in the ring, never queued on the page ([input](input.md#the-ring)). Interpretation stays in Wasm. Nothing is read from the clipboard but a paste the user makes: the browser's own, or, on a touchscreen, a press of the page's Paste button. Pointer lock only after a trusted canvas press while the program holding the lease asks; Escape ends it. Without `input@0` no listener writes a record |
 | Surface size (`display@0`) | Three numbers the page sends: width, height, device scale |
 | Clipboard copy (`display@0`) | Bounded selection text after a user Ctrl+Shift+C |
+| Clipboard copy (`clipboard@0`) | Bounded text a program copied, written by the page only under the user's activation and focus ([input](input.md#clipboard)) |
 | Page keys | F11 (fullscreen) and Ctrl+Shift+F (indicators) are the page's own and are taken before any module or the guest reads them ([`page-chords.mjs`](../src/page-chords.mjs)); the guest cannot request fullscreen |
 | RGBA frames, bootstrap text | Visible output only; the browser parses no terminal content, and HTML only in `html@0`'s popup |
 | Mailbox wake-ups | The kernel and the Worker's module sides notify each other on display, input and touch mailbox words (new frame, animation frame, input or touch record, lease); a notify carries no data, and a forged one only costs the guest's own time |

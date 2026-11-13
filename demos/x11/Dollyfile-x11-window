@@ -1,0 +1,24 @@
+DOLLY 7
+PACKAGE x11-window
+REQUIRES HOST runtime@0
+REQUIRES HOST sockets@0
+
+# A program's window on the X server, for a platform that draws on the page
+# through display@0 and input@0: frames of pixels go in, and keys, the pointer,
+# the wheel and focus come out as input@0's records, keys named as a browser
+# names them. Godot and PhotoCraft draw their X windows through it. A static
+# library over Xlib: a program links it with -lX11 -lxcb -lXau -ldolly-sockets.
+FROM /v0.1.6/demos/x11/Dollyfile-x11-build 62537a51803060aff6308e3ba9e71b26eef6aaa93692adfb6c4577e39b82dc57
+REQUIRES HEADER libc
+REQUIRES TOOL ar
+REQUIRES TOOL cc
+REQUIRES TOOL rm
+
+SOURCE /v0.1.6/dist/static/x11/x11-window.h e9101346f695e029fc06bd81b24a615958c262bffeaa781ec6343cf839d3b28f /usr/include/x11-window.h
+SOURCE /v0.1.6/dist/static/x11/x11-window.c b83baae42a180c5d00880097ce14ca64ba8700a037d8e5b021522a6379f12b27 /tmp/x11-window/x11-window.c
+SLOP cc -O2 -c /tmp/x11-window/x11-window.c -o /tmp/x11-window/x11-window.o
+SLOP ar rcs /usr/lib/libx11-window.a /tmp/x11-window/x11-window.o
+SLOP rm -rf /tmp/x11-window
+
+EXPORTS HEADER x11-window /usr/include/x11-window.h
+EXPORTS LIB x11-window /usr/lib/libx11-window.a

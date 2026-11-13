@@ -256,6 +256,8 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
   // selecting: the primary button's press went to the terminal; held: the
   // middle or secondary button's.
   let started = false, selecting = false, held = -1, flags = 0;
+  // clipboard@0's paste hook, and the chord of the paste the browser is about to deliver.
+  let clipboardPaste = null, pasteChord = null;
   // Every message that may write records is counted: input is idle once the
   // Worker reports its ring empty after the last of them.
   let sent = 0, idleThrough = 0;
@@ -372,7 +374,10 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
       // Let the browser deliver clipboard bytes through a user-initiated
       // PasteEvent. It goes to the focused element, and a click on page text
       // leaves none: the paste handler would not see it.
-      if (event.type === "keydown") keyboard.focus({ preventScroll: true });
+      if (event.type === "keydown") {
+        keyboard.focus({ preventScroll: true });
+        pasteChord = keyRecord(event);
+      }
       return;
     }
     // The interrupt key interrupts the foreground program where the terminal
@@ -543,8 +548,20 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
     post({ type: "input-text", text: event.data });
     keyboard.value = "";
   });
+  // A module that keeps a clipboard (clipboard@0) takes each paste first and
+  // says whether a program reads it from there: the program holding the lease
+  // then gets the chord the user pasted with (Ctrl+V from the Paste button).
   const deliverPaste = async text => {
-    if (text && !await client.pushPaste(text)) showStatus("Paste not delivered: the program's input buffer is full or too small");
+    const chord = pasteChord ?? { key: "v", code: "KeyV", modifiers: A.DOLLY_INPUT_MOD_CONTROL };
+    pasteChord = null;
+    if (!text) return;
+    if (clipboardPaste?.(text) && leased()) {
+      for (const action of [A.DOLLY_KEY_ACTION_PRESS, A.DOLLY_KEY_ACTION_RELEASE]) {
+        void client.pushSyntheticKey(chord.key, chord.code, chord.modifiers, action);
+      }
+      return;
+    }
+    if (!await client.pushPaste(text)) showStatus("Paste not delivered: the program's input buffer is full or too small");
   };
   window.addEventListener("paste", (event) => {
     if (event.target !== keyboard && (!leased() ||
@@ -594,6 +611,9 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
       paste: data => client.pushPaste(data),
       key: (key, code, modifiers = 0) => client.pushSyntheticKey(key, code, modifiers),
     },
+    // clipboard@0's: take(text) is called with each paste the user makes and
+    // returns whether the program holding the lease reads it from the clipboard.
+    pastes(take) { clipboardPaste = take; },
     // touch@0's: the holder's labels, each a button that calls press(index,
     // event); a press keeps the focus where it was.
     buttons(labels, press) {

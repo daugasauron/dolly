@@ -84,7 +84,12 @@ for (const browser of browsers) {
         if (attempt === 12) throw error;
       }
     }
-    await page.keyboard.press("Control+c");
-    assert.equal(await editor.done, 130);
+    // The editor's Ctrl+C is Copy (it clears ISIG while it has the page); Ctrl+Q quits it. One
+    // pressed at once after the click is not taken, so it repeats.
+    while (await page.evaluate(() => __dolly.transport.graphicsActive())) {
+      await page.keyboard.press("Control+q");
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+    assert.equal(await editor.done, 0);
   });
 }

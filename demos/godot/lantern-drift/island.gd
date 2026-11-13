@@ -1,3 +1,4 @@
+@tool
 extends StaticBody3D
 ## A floating island: a grassy top over a rock that tapers to a point, pines on top and, on some,
 ## glowing crystals or a waterfall off the edge. The meshes and materials are shared by every

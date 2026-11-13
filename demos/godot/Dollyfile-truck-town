@@ -7,16 +7,17 @@ REQUIRES HOST input@0
 REQUIRES HOST threads@0
 REQUIRES HOST sockets@0
 REQUIRES HOST gpu@0
+REQUIRES HOST clipboard@0
 
 # Truck Town, the vehicle physics demo of Godot's demo projects: a minivan, a
 # semi-truck and a tow truck with its impound in a town at sunrise, day, sunset
 # or night, drawn by Godot's Forward+ renderer on gpu@0. Godot's editor imports
 # its assets and exports its pack here, and truck-town plays the pack with
 # godot, which installs with it. Its physics is Godot's own (Jolt's is not built).
-FROM /v0.1.6/Dollyfile-system bfba59e4dc5a81a86ce706e3f8eb47d1980ba19cf4a3012c16ea2e3fc1af011d
-INSTALL /v0.1.6/demos/godot/Dollyfile-godot 4a9db098c3bef6e41524b653281701f06cc6a261d608a2ca718483bd53892a4c
-USE /v0.1.6/demos/godot/Dollyfile-godot-editor b6b00eb540f87970af27cef78fa3bd995e4e7dafacc75ee44f283b402167d853
-USE /v0.1.6/demos/tools/Dollyfile-unzip 71ab8dcc7351ab8c5663919321ff2ec716273738ab4b2f6f420dbc0a50305c7f
+FROM /v0.1.6/Dollyfile-system 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.6/demos/godot/Dollyfile-godot 0000000000000000000000000000000000000000000000000000000000000000
+USE /v0.1.6/demos/godot/Dollyfile-godot-editor 0000000000000000000000000000000000000000000000000000000000000000
+USE /v0.1.6/demos/tools/Dollyfile-unzip 0000000000000000000000000000000000000000000000000000000000000000
 
 REQUIRES TOOL cp
 REQUIRES TOOL godot-editor

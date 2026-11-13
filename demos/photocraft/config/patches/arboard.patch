@@ -1,8 +1,10 @@
 --- a/src/platform/dolly.rs
 +++ b/src/platform/dolly.rs
-@@ -0,0 +1,86 @@
-+//! Dolly: a program receives what the user pastes as text records (input@0) and has no access
-+//! to the browser's clipboard, so there is no clipboard to open.
+@@ -0,0 +1,130 @@
++//! Dolly: the page's clipboard, as text (clipboard@0). The program holds it from the first
++//! `Clipboard` it opens; a copy is offered to the browser's clipboard while the user acts on the
++//! page, and a paste the user makes into the page is read from it. Without the module, or beside
++//! a program that holds it, there is no clipboard to open.
 +
 +#[cfg(feature = "image-data")]
 +use crate::common::ImageData;
@@ -10,13 +12,45 @@
 +use std::{
 +	borrow::Cow,
 +	path::{Path, PathBuf},
++	sync::atomic::{AtomicU64, Ordering},
 +};
 +
-+pub(crate) enum Clipboard {}
++// <dolly/clipboard.h>, from the libdolly-clipboard package, which cc links.
++const CAPACITY: usize = 262144;
++unsafe extern "C" {
++	fn dolly_clipboard_acquire(generation: *mut u64) -> i32;
++	fn dolly_clipboard_write(generation: u64, text: *const u8, length: usize) -> i32;
++	fn dolly_clipboard_read(generation: u64, text: *mut u8, capacity: usize) -> i64;
++}
++
++// The lease, taken once for the process.
++static LEASE: AtomicU64 = AtomicU64::new(0);
++
++fn failure(what: &str, error: i64) -> Error {
++	Error::Unknown { description: format!("Dolly's clipboard {what}: errno {}", -error) }
++}
++
++pub(crate) struct Clipboard {
++	lease: u64,
++}
 +
 +impl Clipboard {
 +	pub(crate) fn new() -> Result<Clipboard, Error> {
-+		Err(Error::ClipboardNotSupported)
++		let mut lease = LEASE.load(Ordering::Acquire);
++		if lease == 0 {
++			if unsafe { dolly_clipboard_acquire(&mut lease) } != 0 {
++				return Err(Error::ClipboardNotSupported);
++			}
++			LEASE.store(lease, Ordering::Release);
++		}
++		Ok(Clipboard { lease })
++	}
++
++	fn write(&self, text: &str) -> Result<(), Error> {
++		match unsafe { dolly_clipboard_write(self.lease, text.as_ptr(), text.len()) } {
++			0 => Ok(()),
++			error => Err(failure("took no copy", error.into())),
++		}
 +	}
 +}
 +
@@ -30,20 +64,29 @@
 +	}
 +
 +	pub(crate) fn text(self) -> Result<String, Error> {
-+		match *self.clipboard {}
++		let mut text = vec![0u8; CAPACITY];
++		let length = unsafe { dolly_clipboard_read(self.clipboard.lease, text.as_mut_ptr(), CAPACITY) };
++		if length < 0 {
++			return Err(failure("could not be read", length));
++		}
++		text.truncate((length as usize).min(CAPACITY));
++		if text.is_empty() {
++			return Err(Error::ContentNotAvailable);
++		}
++		String::from_utf8(text).map_err(|_| Error::ConversionFailure)
 +	}
 +
 +	pub(crate) fn html(self) -> Result<String, Error> {
-+		match *self.clipboard {}
++		Err(Error::ContentNotAvailable)
 +	}
 +
 +	#[cfg(feature = "image-data")]
 +	pub(crate) fn image(self) -> Result<ImageData<'static>, Error> {
-+		match *self.clipboard {}
++		Err(Error::ContentNotAvailable)
 +	}
 +
 +	pub(crate) fn file_list(self) -> Result<Vec<PathBuf>, Error> {
-+		match *self.clipboard {}
++		Err(Error::ContentNotAvailable)
 +	}
 +}
 +
@@ -56,21 +99,22 @@
 +		Self { clipboard }
 +	}
 +
-+	pub(crate) fn text(self, _data: Cow<'_, str>) -> Result<(), Error> {
-+		match *self.clipboard {}
++	pub(crate) fn text(self, data: Cow<'_, str>) -> Result<(), Error> {
++		self.clipboard.write(&data)
 +	}
 +
-+	pub(crate) fn html(self, _html: Cow<'_, str>, _alt: Option<Cow<'_, str>>) -> Result<(), Error> {
-+		match *self.clipboard {}
++	// The clipboard holds text: HTML is offered as its alternative text.
++	pub(crate) fn html(self, html: Cow<'_, str>, alt: Option<Cow<'_, str>>) -> Result<(), Error> {
++		self.clipboard.write(alt.as_deref().unwrap_or(&html))
 +	}
 +
 +	#[cfg(feature = "image-data")]
 +	pub(crate) fn image(self, _data: ImageData) -> Result<(), Error> {
-+		match *self.clipboard {}
++		Err(Error::ClipboardNotSupported)
 +	}
 +
 +	pub(crate) fn file_list(self, _file_list: &[impl AsRef<Path>]) -> Result<(), Error> {
-+		match *self.clipboard {}
++		Err(Error::ClipboardNotSupported)
 +	}
 +}
 +
@@ -84,7 +128,7 @@
 +	}
 +
 +	pub(crate) fn clear(self) -> Result<(), Error> {
-+		match *self.clipboard {}
++		self.clipboard.write("")
 +	}
 +}
 --- a/src/platform/mod.rs

@@ -111,6 +111,36 @@ program's to decide.
 - C SDK: `<dolly/touch.h>` and `libdolly-touch.a`, from the `libdolly-touch`
   package; calling it stamps `touch@0` into the executable.
 
+## Clipboard
+
+`clipboard@0` is the page's clipboard, as text a program reads and writes
+([`host/clipboard/dolly-clipboard-0.wat`](../host/clipboard/dolly-clipboard-0.wat),
+[`clipboard.h`](../host/clipboard/clipboard.h), [`clipboard.mjs`](../host/clipboard/clipboard.mjs)).
+The kernel keeps its text, 256 KiB at most.
+
+- `dolly_clipboard_acquire` gives the foreground process or a descendant the
+  clipboard; a descendant takes it over, as the input lease nests, and the
+  holder has it back when the descendant's ends. The newest holder writes it
+  (`dolly_clipboard_write`) and reads it (`dolly_clipboard_read`); exit
+  releases it, and its text stays.
+- A write is offered to the browser's clipboard only while the page has the
+  focus and the user's activation, a key press or a click on the page moments
+  before: the copy's own Ctrl+C or menu click gives it. Otherwise the text
+  stays the clipboard's in Dolly, and the page marks it
+  (`data-clipboard-copy="inactive"` on `<html>`).
+- Every paste the user makes into the page is written into the clipboard.
+  While a program holds the clipboard and the input lease, the paste reaches
+  it as the keys of the chord the user pasted with (Ctrl+V, Cmd+V or
+  Shift+Insert, Ctrl+V from the Paste button) instead of text records, and
+  the program reads the text from the clipboard, as its own paste does on a
+  desktop. Without a holder a paste reaches the program or the terminal as
+  above.
+- The page never reads the browser's clipboard by itself: a program reads
+  what was pasted into the page or copied in Dolly last.
+- C SDK: `<dolly/clipboard.h>` and `libdolly-clipboard.a`, from the
+  `libdolly-clipboard` package; calling it stamps `clipboard@0` into the
+  executable.
+
 ## Images without one of the two
 
 - `display@0` without `input@0`: the terminal shows output and reads no key,

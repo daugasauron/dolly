@@ -892,6 +892,55 @@ public:
 	}
 };
 
+// WGSL has no point coordinate. Godot draws sized points as quads where the driver lacks point
+// size, and reads the coordinate it interpolates; its shaders still name gl_PointCoord in the
+// branch not taken, and WebGPU's points are one pixel, whose one fragment is at their centre.
+class PointCoordCentre : public Pass {
+public:
+	const char *name() const override { return "dolly-point-coord"; }
+	Status Process() override {
+		uint32_t coord = 0;
+		for (Instruction &d : get_module()->annotations()) {
+			if (d.opcode() == Op::OpDecorate && Decoration(d.GetSingleWordInOperand(1)) == Decoration::BuiltIn &&
+					spv::BuiltIn(d.GetSingleWordInOperand(2)) == spv::BuiltIn::PointCoord) {
+				coord = d.GetSingleWordInOperand(0);
+			}
+		}
+		if (!coord) return Status::SuccessWithoutChange;
+		analysis::DefUseManager *uses = context()->get_def_use_mgr();
+		analysis::ConstantManager *constants = context()->get_constant_mgr();
+		const uint32_t half = constants->GetFloatConstId(0.5f);
+		const analysis::Type *vector = context()->get_type_mgr()->GetType(pointee(context(), *uses->GetDef(coord))->result_id());
+		const uint32_t centre = constants->GetDefiningInstruction(constants->GetConstant(vector, { half, half }))->result_id();
+		// A load of the whole coordinate, or of one component through an access chain.
+		std::vector<std::pair<Instruction *, uint32_t>> loads;
+		std::vector<Instruction *> chains;
+		uses->ForEachUser(coord, [&](Instruction *user) {
+			if (user->opcode() == Op::OpLoad) loads.push_back({ user, centre });
+			if (user->opcode() == Op::OpAccessChain || user->opcode() == Op::OpInBoundsAccessChain) {
+				chains.push_back(user);
+				uses->ForEachUser(user, [&](Instruction *load) {
+					if (load->opcode() == Op::OpLoad) loads.push_back({ load, half });
+				});
+			}
+		});
+		for (auto [load, value] : loads) {
+			context()->ReplaceAllUsesWith(load->result_id(), value);
+			context()->KillInst(load);
+		}
+		for (Instruction *chain : chains) context()->KillInst(chain);
+		for (Instruction &entry : get_module()->entry_points()) {
+			Instruction::OperandList operands;
+			for (uint32_t i = 0; i < entry.NumOperands(); i++) {
+				if (i < 3 || entry.GetSingleWordOperand(i) != coord) operands.push_back(entry.GetOperand(i));
+			}
+			entry.ReplaceOperands(operands);
+		}
+		context()->KillInst(uses->GetDef(coord));
+		return Status::SuccessWithChange;
+	}
+};
+
 // Subgroups of one invocation: WebGPU has subgroups in Chrome alone, and a subgroup of size one
 // is one by the specification, with which Godot's algorithms keep their results (each fragment
 // walks its own light range; the cluster builder's first invocation is every invocation). The
@@ -1130,6 +1179,7 @@ extern "C" void spirv_wgsl_translate(const uint32_t *words, size_t word_count, c
 			.RegisterPass(pass<o::MultisampleFetch>())
 			.RegisterPass(pass<o::VertexReadOnlyStorage>())
 			.RegisterPass(pass<o::HelperInvocationFalse>())
+			.RegisterPass(pass<o::PointCoordCentre>())
 			.RegisterPass(pass<o::SubgroupsOfOne>(&ours))
 			.RegisterPass(spvtools::CreateAggressiveDCEPass())
 			.RegisterPass(spvtools::CreateDeadVariableEliminationPass())

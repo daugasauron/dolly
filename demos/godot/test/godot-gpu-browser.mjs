@@ -183,7 +183,7 @@ for (const name of browsers) {
     page.on("pageerror", error => errors.push(error.message));
     // WebGPU's validation errors reach the page's console after their batch is answered.
     page.on("console", message => { if (message.text().startsWith("Dolly GPU:")) errors.push(message.text()); });
-    const image = await composed(["gpu", "audio", "display", "input", "threads", "sockets"], ["godot", "godot-editor", "truck-town", "lantern-drift", "airtime-godot"], { base: "system" });
+    const image = await composed(["gpu", "audio", "display", "input", "threads", "sockets", "clipboard"], ["godot", "godot-editor", "truck-town", "lantern-drift", "airtime-godot"], { base: "system" });
     await image.setup(page);
     await page.goto(server.origin + image.path);
     await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null, { timeout: 300_000 });
@@ -275,8 +275,13 @@ for (const name of browsers) {
       await new Promise(resolve => setTimeout(resolve, 3000));
     }
     await page.waitForFunction(width => __dolly.gpu.active && __dolly.gpu.width === width, editorWidth, { polling: 200, timeout: 180_000 });
-    await page.keyboard.press("Control+c");
-    assert.equal(await editing, 130);
+    // The editor's Ctrl+C is Copy (it clears ISIG while it has the page); Ctrl+Q quits it, and
+    // repeats while the editor does not take it.
+    while (await page.evaluate(() => __dolly.gpu.active)) {
+      await page.keyboard.press("Control+q");
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+    assert.equal(await editing, 0);
     const ran = await output("/tmp/run.out | grep -E '^(ADAPTER|LABEL|DEBUGGER) '");
     assert.match(ran, /^ADAPTER WebGPU$/m, `the game the editor ran printed: ${ran}`);
     assert.match(ran, /^DEBUGGER true$/m, `the game the editor ran reached its debugger: ${ran}`);
