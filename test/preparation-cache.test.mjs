@@ -10,23 +10,28 @@ test("preparation keys track their code and survive checkout relocation", async 
   const original = join(scratch, "original");
   const relocated = join(scratch, "relocated");
   const inputs = [
-    "config/source-pins.sh",
+    "config/source-pins.sh", "scripts/prepared-source.sh",
     "scripts/prepare-samurai.sh", "scripts/prepare-zig-native.sh",
     "config/zig-0.17.0-dolly-native.patch",
   ];
-  const recipes = [
-    ["prepare-samurai.sh", "recipe_hash"],
-    ["prepare-zig-native.sh", "recipe_digest"],
-  ];
-  // Execute only each script's key calculation, not a network fetch or compiler.
-  const key = async (root, [script, variable]) => {
-    const source = await readFile(join(root, "scripts", script), "utf8");
+  // Execute only each key calculation, not a network fetch or compiler: zig-native's
+  // part of its script, and the prepared sources' (scripts/prepared-source.sh) with
+  // Samurai's inputs, whose tree's name ends with the key.
+  const zigKey = async root => {
+    const source = await readFile(join(root, "scripts/prepare-zig-native.sh"), "utf8");
     const boundary = source.indexOf("\nif [[");
     assert.ok(boundary > 0);
     const probe = join(root, "scripts/cache-probe.sh");
-    await writeFile(probe, source.slice(0, boundary) + '\nprintf \'%s\\n\' "${' + variable + '}"\n');
-    const digest = execFileSync("bash", [probe], { encoding: "utf8" }).trim();
-    assert.match(digest, /^[0-9a-f]{64}$/);
+    await writeFile(probe, source.slice(0, boundary) + '\nprintf \'%s\\n\' "${recipe_digest}"\n');
+    return execFileSync("bash", [probe], { encoding: "utf8" }).trim();
+  };
+  const preparedKey = root => execFileSync("bash", ["-c", 'project_dir="$1"; source "$1/scripts/prepared-source.sh"; ' +
+    'prepared_source samurai pin "" "$1/scripts/prepare-samurai.sh"; printf "%s\\n" "${output_dir##*-}"', "key", root],
+    { encoding: "utf8" }).trim();
+  const recipes = [["prepare-samurai.sh", preparedKey], ["prepared-source.sh", preparedKey], ["prepare-zig-native.sh", zigKey]];
+  const key = async (root, [, compute]) => {
+    const digest = await compute(root);
+    assert.match(digest, /^[0-9a-f]{16,64}$/);
     return digest;
   };
   try {

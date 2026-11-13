@@ -3,53 +3,29 @@ set -euo pipefail
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${project_dir}/config/source-pins.sh"
+source "${project_dir}/scripts/prepared-source.sh"
 archive="${project_dir}/.cache/make-${DOLLY_MAKE_VERSION}.tar.gz"
-recipe_hash="$({
-  printf '%s\n' \
-    "make=${DOLLY_MAKE_SHA256}" \
-    "emsdk=${DOLLY_EMSDK_IMAGE}"
-  sha256sum \
-    "${BASH_SOURCE[0]}" \
-    "${project_dir}/config/make-dolly.patch" \
-    "${project_dir}/config/make-sources.txt" | awk '{print $1}'
-} | sha256sum | awk '{print $1}')"
-output_dir="${project_dir}/build/generated/make-source-${DOLLY_MAKE_VERSION}-${recipe_hash:0:16}"
-
-if [[ -d "${output_dir}" ]]; then
-  printf '%s\n' "${output_dir}"
-  exit 0
-fi
-if [[ -e "${output_dir}" ]]; then
-  echo "dolly: prepared GNU Make output is not a directory: ${output_dir}" >&2
-  exit 1
-fi
-
-mkdir -p "${project_dir}/build/generated"
-temporary=""
-staging=""
-cleanup() {
-  [[ -z "${temporary}" ]] || rm -rf -- "${temporary}"
-  [[ -z "${staging}" ]] || rm -rf -- "${staging}"
-}
-trap cleanup EXIT
-temporary="$(mktemp -d "${project_dir}/build/generated/make-config.XXXXXX")"
-staging="$(mktemp -d "${project_dir}/build/generated/.make-source.XXXXXX")"
+prepared_source make "${DOLLY_MAKE_VERSION}" "make=${DOLLY_MAKE_SHA256} emsdk=${DOLLY_EMSDK_IMAGE}" \
+  "${BASH_SOURCE[0]}" "${project_dir}/config/make-dolly.patch" "${project_dir}/config/make-sources.txt"
+# Configure runs in a tree of its own; the prepared one holds what it generated.
+configured="$(mktemp -d "${project_dir}/build/generated/make-config.XXXXXX")"
+trap 'rm -rf -- "${temporary}" "${configured}"' EXIT
 
 "${project_dir}/scripts/fetch-make.sh" >/dev/null
-mkdir -p "${staging}/src" "${staging}/lib"
-tar -xzf "${archive}" -C "${temporary}" --strip-components=1
-patch --silent -d "${temporary}" -p1 < "${project_dir}/config/make-dolly.patch"
+mkdir -p "${temporary}/src" "${temporary}/lib"
+tar -xzf "${archive}" -C "${configured}" --strip-components=1
+patch --silent -d "${configured}" -p1 < "${project_dir}/config/make-dolly.patch"
 
 if command -v podman >/dev/null 2>&1; then
   container=(podman run --rm --userns=keep-id \
     -v "${project_dir}:/src" \
     -v "${project_dir}/.cache/emscripten:/emsdk/upstream/emscripten/cache" \
-    -w "/src/${temporary#"${project_dir}/"}" "${DOLLY_EMSDK_IMAGE}")
+    -w "/src/${configured#"${project_dir}/"}" "${DOLLY_EMSDK_IMAGE}")
 elif command -v docker >/dev/null 2>&1; then
   container=(docker run --rm -u "$(id -u):$(id -g)" \
     -v "${project_dir}:/src" \
     -v "${project_dir}/.cache/emscripten:/emsdk/upstream/emscripten/cache" \
-    -w "/src/${temporary#"${project_dir}/"}" "${DOLLY_EMSDK_IMAGE}")
+    -w "/src/${configured#"${project_dir}/"}" "${DOLLY_EMSDK_IMAGE}")
 else
   echo "dolly: podman or docker is required to configure GNU Make" >&2
   exit 1
@@ -77,28 +53,24 @@ fi
 # Dolly's in-Wasm compiler.
 {
   printf '%s\n' '/* DO NOT EDIT! GENERATED AUTOMATICALLY! */'
-  sed 's/@HAVE_ALLOCA_H@/1/g' "${temporary}/lib/alloca.in.h"
-} > "${temporary}/lib/alloca.h"
+  sed 's/@HAVE_ALLOCA_H@/1/g' "${configured}/lib/alloca.in.h"
+} > "${configured}/lib/alloca.h"
 for header in fnmatch glob; do
   {
     printf '%s\n' '/* DO NOT EDIT! GENERATED AUTOMATICALLY! */'
-    sed -n '1,$p' "${temporary}/lib/${header}.in.h"
-  } > "${temporary}/lib/${header}.h"
+    sed -n '1,$p' "${configured}/lib/${header}.in.h"
+  } > "${configured}/lib/${header}.h"
 done
 
 while IFS= read -r path; do
-  mkdir -p "${staging}/$(dirname -- "${path}")"
-  cp -- "${temporary}/${path}" "${staging}/${path}"
+  mkdir -p "${temporary}/$(dirname -- "${path}")"
+  cp -- "${configured}/${path}" "${temporary}/${path}"
 done < "${project_dir}/config/make-sources.txt"
-cp -- "${temporary}"/src/*.h "${staging}/src/"
-cp -- "${temporary}"/lib/*.h "${staging}/lib/"
-cp -- "${temporary}/COPYING" "${staging}/COPYING"
+cp -- "${configured}"/src/*.h "${temporary}/src/"
+cp -- "${configured}"/lib/*.h "${temporary}/lib/"
+cp -- "${configured}/COPYING" "${temporary}/COPYING"
 cp -- "${project_dir}/config/make-sources.txt" \
-  "${staging}/dolly-sources.txt"
+  "${temporary}/dolly-sources.txt"
 
-mv -T -- "${staging}" "${output_dir}"
-staging=""
-rm -rf -- "${temporary}"
-temporary=""
-trap - EXIT
-printf '%s\n' "${output_dir}"
+rm -rf -- "${configured}"
+publish_prepared_source
