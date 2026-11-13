@@ -17,3 +17,17 @@ the demos page (`sites/slopshare.dev/agents/index.html`) with a line of what it 
 
 The video and poster are in `sites/slopshare.dev/agents/` within Pages' 25 MiB a file
 (`test/site-release.test.mjs` passes), the section is on the page, and the release of 0.1.6 has it.
+
+## State (2026-11-13)
+
+Recorded, cut and on the demos page; left: the release of 0.1.6 carries it.
+
+- `sites/slopshare.dev/agents/videos/x11-workbench.mp4` (2:30, 1920x1080, 7.4 MiB) and
+  `posters/x11-workbench.jpg`, with the section "X11: a terminal workbench, installed as it
+  goes" after Wine's; `test/site-release.test.mjs` passes.
+- Take 1 of `work/videos-2026-11-13/x11-workbench/record.mjs` on the tree's own build
+  (`a9efb45fd`), which checked afterwards that the session held the program as typed and its
+  executable. Its README has the method, the timings and the four speed-ups its captions name.
+- The machine's load was 25 on 16 cores during the take: the installs and `mojo build` took two
+  to five times what they took in the rehearsals (28 s against 9 s for the build), which the
+  captions say. A take on a quiet machine would be shorter; `record.mjs` makes one.

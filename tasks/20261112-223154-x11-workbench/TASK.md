@@ -88,8 +88,8 @@ After the owner's steps (Ghostty from xterm, zsh, tmux, Neovim, the split, `amy 
 45-line Mojo program, `julia.mojo`, typed into Neovim, that computes a Julia set for a terminal of
 any size and prints each frame as coloured cells, the constant moving round a circle for 12 s.
 `mojo build` compiles it in the pane beside its source and it runs there; then tmux zooms the
-pane, Ctrl+minus nine times shrinks Ghostty's font until the window is 340 by 111 cells, and the
-same program draws 170 by 109 points at 36 to 40 frames a second; Ctrl+0 and the workbench is
+pane, Ctrl+minus nine times shrinks Ghostty's font until the window is 514 by 155 cells, and the
+same program draws 257 by 153 points at 36 to 40 frames a second; Ctrl+0 and the workbench is
 back. Chosen over a kernel on the GPU (`gpu@0` is not what `x11-desktop` declares, and one frame
 takes the CPU under a millisecond) and over a half-block picture (softpipe shades glyphs a pixel
 at a time: 1.6 frames a second), since backgrounds are clears.

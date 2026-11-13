@@ -86,6 +86,6 @@ the frame that shows it (2026-11-13; the machine's load was 15 on 16 cores):
 
 A window of 3,300 glyphs costs 0.38 s to shade, about 1.4 µs a pixel of a
 glyph: that is what a whole redraw (a scroll, another screen) still takes.
-Backgrounds no longer cost: a program that colours every cell of 340 by 111
+Backgrounds no longer cost: a program that colours every cell of 514 by 155
 (a Julia set, [the workbench video](../../tasks/20261112-223154-x11-workbench-video/TASK.md))
 shows 36 to 40 frames a second.
