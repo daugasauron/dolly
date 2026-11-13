@@ -26,7 +26,9 @@ body), `ef0cb8a42` (the package), `79b3e372a`.
   list the same modification times; the README's loop brings a file of each side to the other.
 - Measured in Chrome: a bisync without changes over three directories is three `PROPFIND`s, about
   0.1 s; the browser caches the preflights. The Go demo test passes in both browsers on the
-  rebuilt seed (58 s, 53 s); `npm run test:source` passes.
+  rebuilt seed (58 s, 53 s); `npm run test:source` passes. Logs of the last runs, after the
+  manual's change of `b733efd3b` rebuilt the package: `work/httpmount/build/evidence-http-mount/`
+  (`rclone-browser.log`, `go-browser.log`, `test-source.log`, two image rounds).
 - A page whose address the browser takes for a public one (`--ip-address-space-overrides` in
   Chrome, `network.lna.address_space.public.override` in Firefox) reaches the loopback server
   only with the local network access permission: Chrome 156 fails the `PROPFIND` (it answers 207
