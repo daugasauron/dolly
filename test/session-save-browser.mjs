@@ -67,6 +67,10 @@ await browserTest("session save", { image: "system", timeout: 240_000 }, async (
   assert.equal(await first.evaluate(() => document.documentElement.dataset.sessionStatus), "failed");
   const reason = await first.locator("#session-status").textContent();
   assert.ok(reason.length > "Save failed: QuotaExceededError".length, reason);
+  // What the failed save left is unsaved: leaving asks first, and goes once accepted.
+  answers[0] = "";
+  const before = asked.length;
   await shell(first);
+  assert.deepEqual(asked.slice(before), [0]);
   assert.equal(await submit(first, "test -e /workspace/second && test ! -e /workspace/third"), 0);
 });
