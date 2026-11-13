@@ -77,7 +77,8 @@ for (const name of browsers) {
     await page.mouse.move(...await at(page, 200, 450));
     await sleep(500);
     await type(page, "amy install photocraft > /tmp/amy 2>&1; echo $? >> /tmp/amy; photocraft /usr/share/photocraft/pictures/great-wave.jpg > /tmp/photocraft 2>&1 &\n");
-    // Its window, 1280 by 800, centred: the picture fills its middle once it draws.
+    // Its window, 1440 by 900 at the screen's top, under twm's title bar: the picture fills its
+    // middle once it draws.
     const picture = [560, 300, 480, 300];
     const started = performance.now();
     for (;;) {
@@ -96,10 +97,10 @@ for (const name of browsers) {
     await changes(page, picture, shown, 60_000);
     console.log(`photocraft-x11: ${name}: the inverted picture showed ${(performance.now() - pressed).toFixed(0)} ms after Ctrl+I`);
     // A drag of its title bar moves it 200 pixels left.
-    await page.mouse.move(...await at(page, 800, 41));
+    await page.mouse.move(...await at(page, 800, 10));
     await page.mouse.down();
     for (let step = 1; step <= 20; step++) {
-      await page.mouse.move(...await at(page, 800 - step * 10, 41));
+      await page.mouse.move(...await at(page, 800 - step * 10, 10));
       await sleep(30);
     }
     await page.mouse.up();

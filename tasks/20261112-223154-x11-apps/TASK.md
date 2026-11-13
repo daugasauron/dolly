@@ -36,6 +36,20 @@ centred and framed by twm, drawn by the Compatibility renderer (Chrome headless,
 by Forward+ on gpu@0 read back (Chrome on the NVIDIA GPU); keys with Shift and Ctrl, arrows, F5,
 Escape, a click and the wheel reached its window, and twm's Delete closed it, its log clean.
 
+`demos/godot/test/godot-x11-browser.mjs` passed in Chrome and Firefox (round of 09:35, before
+the fix below): from a fresh x11-desktop, `amy install godot-editor lantern-drift` and
+`lantern-drift` open the game's window (1280 by 720, centred) 16 to 24 s after the command; the X
+server showed 20.8 frames a second of its title in Chrome and 33.2 in Firefox (NVIDIA RTX 5070,
+frames read back from gpu@0 and put with `XPutImage`); Enter started a flight; twm's Delete
+closed it; `godot-editor -e` drew Lantern Drift's project 59 s after the command, the islands in
+its 3D view, and closed at Delete. Logs: `build/godot-x11-chromium.log`,
+`build/godot-x11-firefox.log`, screenshots `build/godot-x11-*.png`.
+
+Fixed after that run: Dolly's display package sets `DISPLAY` to the terminal's display library
+(`/usr/lib/libdisplay.so`), which Godot and PhotoCraft took for an X server on the page; an X
+display is one with a colon (`x11_window_display`). The editor's window ran off the screen: it
+asks to be maximized, which on twm now leaves it a window.
+
 Found: on x11-desktop the page's Ctrl+C is still the terminal's interrupt key and ends the X
 server: the workbench branch makes Xsdl clear `ISIG` (`20261112-223154-x11-workbench`); until it
 is merged, Ctrl+C copies nothing there.

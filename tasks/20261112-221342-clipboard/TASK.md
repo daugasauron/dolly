@@ -31,6 +31,9 @@ Decided and built on `feature/x11-apps` (`1abe5a768` and after):
   beside the foreground refused, a child taking the clipboard over, Ctrl+C into the browser's
   clipboard, the browser's text read at Ctrl+V with no text records, and a copy made eight seconds
   after the last key press kept in Dolly (`inactive`).
+- Core tests after the change to `input.mjs`, Chromium and Firefox: `terminal-browser.mjs` (the
+  terminal's Ctrl+Shift+V and Ctrl+Shift+C) and `touch-browser.mjs` (the Paste button) passed;
+  `host-modules-browser.mjs`, `boundary-browser.mjs` and `nena-browser.mjs` passed in Chromium.
 - Godot: `display_server_dolly.cpp` reports `FEATURE_CLIPBOARD` and implements `clipboard_get`
   and `clipboard_set` on it (the program's own clipboard without the module). PhotoCraft: arboard's
   Dolly platform holds the clipboard for the process (`config/patches/arboard.patch`).

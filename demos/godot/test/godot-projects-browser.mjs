@@ -30,7 +30,9 @@ func _enter_tree() -> void:
     await get_tree().create_timer(40.0).timeout
     var root := EditorInterface.get_edited_scene_root()
     var meshes := 0
-    var pending: Array[Node] = [root] if root else []
+    var pending := []
+    if root:
+        pending.append(root)
     while pending:
         var node: Node = pending.pop_back()
         if node is MeshInstance3D or node is MultiMeshInstance3D:
