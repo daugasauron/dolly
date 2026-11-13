@@ -63,8 +63,9 @@ the default closure rebuilt on them (`build/seedbatch-image-4.log`) and the suit
   (`build/seedbatch-image-5.log`). fetch-uucode and fetch-zig stay: as rows of
   `fetch-pinned-source.sh` their archives get other cache names, which every tree's `.cache` (and
   an offline one) would fetch again, and Zig's is xz, which it does not extract.
-Left: 8, the commands' option loops to `getopt`, which changes their messages and, in the native
-command tests, glibc's argument order.
+Left: 8, the commands' option loops: they take long options too (`--help`, mkdir's `--parents`),
+so `getopt` alone does not replace them, and `getopt_long` changes their messages and, in the
+native command tests, glibc's argument order.
 
 ## State (2026-11-13)
 
