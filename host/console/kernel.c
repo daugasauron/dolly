@@ -1,13 +1,13 @@
 // console@0 kernel side: the standard streams of a root process the host
 // starts (dolly-console-0.wat). A terminal console is a pseudo-terminal
-// (host/pty/kernel.c) whose master end the host holds in place of a process;
+// (src/pty.c) whose master end the host holds in place of a process;
 // its slave becomes descriptors 0, 1 and 2. A pipe console is three pipes:
 // the host writes the one that is descriptor 0 and reads descriptors 1 and 2.
 #include "process-kernel.h"
-#include "../pty/pty-kernel.h"
+#include "pty-kernel.h"
 
 #include <dolly/process.h>
-#include <dolly/pty-abi.h>
+#include <dolly/runtime.h>
 #include <errno.h>
 #include <stdint.h>
 #include <string.h>
@@ -25,27 +25,27 @@ typedef struct {
   dolly_kernel_socket *given[3];  /* Its ends for the process, until it has them. */
   int started, pid;
 } console;
-static console consoles[DOLLY_PTY_LIMIT];
+static console consoles[DOLLY_KERNEL_PTY_LIMIT];
 
 uintptr_t dolly_console_transfer_address(void) { return (uintptr_t)transfer; }
 
 /* An id is a slot and how many consoles the slot has held, so a closed console's id names
  * nothing again: the end of its program, which the host learns later, cannot reach the
  * console that takes the slot after it. */
-static uint32_t generations[DOLLY_PTY_LIMIT];
+static uint32_t generations[DOLLY_KERNEL_PTY_LIMIT];
 
 static console *find(int id) {
   if (id < 0) return NULL;
-  console *found = &consoles[(uint32_t)id % DOLLY_PTY_LIMIT];
+  console *found = &consoles[(uint32_t)id % DOLLY_KERNEL_PTY_LIMIT];
   return found->used && found->id == id ? found : NULL;
 }
 
 /* A free slot's next id, or -ENFILE. */
 static int free_id(void) {
-  for (uint32_t slot = 0; slot < DOLLY_PTY_LIMIT; ++slot) {
+  for (uint32_t slot = 0; slot < DOLLY_KERNEL_PTY_LIMIT; ++slot) {
     if (consoles[slot].used) continue;
-    generations[slot] = (generations[slot] + 1) % (INT32_MAX / DOLLY_PTY_LIMIT);
-    return (int)(slot + DOLLY_PTY_LIMIT * generations[slot]);
+    generations[slot] = (generations[slot] + 1) % (INT32_MAX / DOLLY_KERNEL_PTY_LIMIT);
+    return (int)(slot + DOLLY_KERNEL_PTY_LIMIT * generations[slot]);
   }
   return -ENFILE;
 }
@@ -61,14 +61,14 @@ int dolly_console_open(uint32_t columns, uint32_t rows) {
   int error;
   dolly_pty *pty = dolly_pty_pair(rows, columns, &error);
   if (pty == NULL) return error;
-  consoles[id % DOLLY_PTY_LIMIT] = (console){.used = 1, .id = id, .pty = pty};
+  consoles[id % DOLLY_KERNEL_PTY_LIMIT] = (console){.used = 1, .id = id, .pty = pty};
   return id;
 }
 
 int dolly_console_open_pipes(void) {
   const int id = free_id();
   if (id < 0) return id;
-  console *opened = &consoles[id % DOLLY_PTY_LIMIT];
+  console *opened = &consoles[id % DOLLY_KERNEL_PTY_LIMIT];
   *opened = (console){.used = 1, .id = id};
   for (int descriptor = 0; descriptor < 3; ++descriptor) {
     dolly_kernel_socket *ends[2];

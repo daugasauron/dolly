@@ -63,13 +63,13 @@ void dolly_kernel_thread_released(int pid, int tid);
 int64_t dolly_kernel_request_path(int pid, uintptr_t request_size,
                                   char *path, size_t capacity);
 
-/* A stream: the open description its descriptors name, a pipe's end or one a
- * host module implements (host/sockets/kernel.c, host/pty/kernel.c). The
- * kernel counts them, keeps the description's O_NONBLOCK, closes the stream
- * with its last descriptor and passes on reads, writes and polls; `wait` is
- * whether an empty read or a full write may be deferred. A kind that is a
- * terminal answers the terminal request of its descriptors: the response to
- * fill, or a negative errno. */
+/* A stream: the open description its descriptors name, a pipe's end, a
+ * pseudo-terminal's (src/pty.c) or one a host module implements
+ * (host/sockets/kernel.c). The kernel counts them, keeps the description's
+ * O_NONBLOCK, closes the stream with its last descriptor and passes on reads,
+ * writes and polls; `wait` is whether an empty read or a full write may be
+ * deferred. A kind that is a terminal answers the terminal request of its
+ * descriptors: the response to fill, or a negative errno. */
 typedef struct dolly_kernel_socket dolly_kernel_socket;
 typedef struct {
   uint32_t file_type; /* DOLLY_PROCESS_FILE_*, as fstat reports the descriptor. */
@@ -127,70 +127,42 @@ static inline int dolly_kernel_socket_node(mode_t mode) {
   return S_ISREG(mode) && (mode & S_ISVTX) != 0;
 }
 
-/* The terminal the boot's programs start on, whose halves modules give: its
- * output (host/display/kernel.c) and its input (host/input/kernel.c). The
- * accessors answer NULL where no module gives the half; output that is not
- * attached (no driver yet) is no terminal either, and the boot's streams then
- * go to the bootstrap log. replies() copies what the terminal answers its
- * program (a cursor report) and returns the count; service() handles the
- * pointer and scroll input that is the terminal's own, before it draws. */
+/* The display's terminal, whose halves modules give: its output
+ * (host/display/kernel.c) and its input (host/input/kernel.c). The accessors
+ * answer NULL where no module gives the half; output that is not attached (no
+ * driver yet) is no terminal either, and the boot terminal's output then goes
+ * to the bootstrap log. replies() copies what the terminal answers its
+ * program (a cursor report) and returns the count; read() is the next byte
+ * typed, or -1; service() handles the pointer and scroll input that is the
+ * terminal's own, before it draws; discard() drops what was typed. */
 typedef struct dolly_terminal_output {
   int (*attached)(void);
   void (*render)(const unsigned char *bytes, size_t length);
   size_t (*replies)(unsigned char *output, size_t capacity);
-  uint32_t (*columns)(void);
-  uint32_t (*rows)(void);
 } dolly_terminal_output;
 typedef struct dolly_terminal_input {
   int (*read)(void);
-  int (*ready)(void);
   int (*service)(void);
   void (*discard)(void);
 } dolly_terminal_input;
 const dolly_terminal_output *dolly_kernel_terminal_output_device(void);
 const dolly_terminal_input *dolly_kernel_terminal_input_device(void);
 
-/* The terminal line discipline and the page's terminal mailbox, src/dolly.c. */
-/* The mode a terminal starts in, the display's and a pseudo-terminal's slave,
- * as `stty sane` leaves one: lines edited and echoed, Enter read as LF
- * (ICRNL), LF shown as CRLF, the interrupt key. */
-#define DOLLY_KERNEL_TERMINAL_INITIAL_MODE (DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO | \
-    DOLLY_TERMINAL_ICRNL | DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG)
+/* The boot terminal and the page's terminal mailbox, src/dolly.c. */
+/* The boot terminal's slave, the page's terminal: its programs' standard
+ * streams; NULL without memory. */
+dolly_kernel_socket *dolly_kernel_boot_terminal(void);
 uint32_t dolly_kernel_terminal_mode(void);
-int dolly_kernel_terminal_set_mode(uint32_t flags);
-/* A terminal's line while its mode is canonical: what was typed and edited,
- * of which the first `ready` bytes are lines a read may take. `end` is Ctrl+D
- * on an empty line: the read after them returns no byte. */
-typedef struct {
-  unsigned char bytes[4096];
-  size_t size, ready;
-  int end;
-} dolly_kernel_line;
-/* One typed byte: Enter ends the line with a newline, Backspace erases a
- * character and Ctrl+U the line, Ctrl+D ends it without a newline. `show`, of
- * a terminal that echoes, gets what the byte displays. */
-void dolly_kernel_line_type(dolly_kernel_line *line, unsigned char byte,
-                            void (*show)(void *terminal, const unsigned char *bytes, size_t length),
-                            void *terminal);
-/* Moves bytes out and returns their count: one line at most, or with `raw`
- * whatever is held. */
-size_t dolly_kernel_line_take(dolly_kernel_line *line, unsigned char *bytes, size_t size, int raw);
-/* An input byte as a terminal of `mode` reads it (ICRNL, INLCR). */
-unsigned char dolly_kernel_terminal_input(uint32_t mode, unsigned char byte);
-/* The display's terminal for its readers. receive() is a read: a line under
- * the canonical mode (zero at its end of input), the typed bytes otherwise,
- * -EAGAIN while there is none. key() is the raw read, which no mode edits:
- * one byte, or -1. */
-int64_t dolly_kernel_terminal_receive(unsigned char *bytes, size_t size);
-int dolly_kernel_terminal_readable(void);
-int dolly_kernel_terminal_key(void);
+/* The display's new grid: SIGWINCH for the programs on the boot terminal. */
+void dolly_kernel_terminal_resized(uint32_t columns, uint32_t rows);
+/* Drops what was typed at the boot terminal and not read. */
 void dolly_kernel_terminal_discard(void);
 /* Boot text while no display driver is resident: the page's log. One write
  * holds at most DOLLY_PROCESS_PACKET_LIMIT bytes; the page refuses more. */
 DOLLY_BROWSER_IMPORT(dolly_bootstrap_write_bytes)
 int dolly_bootstrap_write_bytes(const unsigned char *bytes, uintptr_t length);
-/* What a process writes to the display's terminal. Zero, or the negative
- * errno of a refused boot text write. */
+/* What the kernel writes to the boot terminal. Zero, or the negative errno of
+ * a refused boot text write. */
 int dolly_kernel_terminal_write(const unsigned char *bytes, uintptr_t length);
 int dolly_terminal_write_bytes(int pid, const unsigned char *bytes, uintptr_t length);
 /* The version of the bytes a kernel descriptor reads, src/file-blocks.cpp. */
@@ -202,7 +174,7 @@ uintptr_t dolly_fs_block(int descriptor, uintptr_t index);
  * bytes, which the Worker holds: 0 or a negative errno. */
 int dolly_fs_input_file(const char *path, uint32_t input, uint64_t size);
 /* The supervisor's words about the executable it prepares, src/process-kernel.c. */
-int dolly_kernel_launch_diagnostic(int pid, const unsigned char *bytes, size_t size);
+void dolly_kernel_launch_diagnostic(int pid, const unsigned char *bytes, size_t size);
 void dolly_terminal_publish_result(int status);
 void dolly_kernel_foreground_publish(int pid, unsigned interrupt);
 /* The terminal's foreground owner, or zero. */
@@ -215,7 +187,6 @@ int dolly_kernel_take_interrupt(void);
 void dolly_kernel_interrupt_tree(int pid);
 
 int dolly_process_descends_from(int pid, int ancestor_pid);
-void dolly_kernel_terminal_resized(void);
 
 #define DOLLY_PROCESS_DISPATCH_DEFERRED INT64_MIN
 

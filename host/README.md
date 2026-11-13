@@ -189,15 +189,16 @@ names the same functions and nothing else) and records nothing.
 
 ## Pseudo-terminals
 
-`pty@0` has no import and no page side either: its kernel side is a second
-kind of the descriptor that sockets are, and the supervisor delivers the
-signals a pseudo-terminal raises for the programs on its slave
+`pty@0` has no import and no page side either: its kernel side opens a
+pseudo-terminal for a program, a descriptor kind of the kernel's own
+([`src/pty.c`](../src/pty.c)), which the boot terminal is too, and the
+supervisor delivers the signals one raises for the programs on its slave
 ([process model](../docs/process-model.md#pseudo-terminals)). Its client
 defines the libc's `openpty`, so a program asks with `-ldolly-pty` as one
 asks for sockets. The libc itself forwards `ioctl(TIOCSWINSZ)` on a master. `console@0` is a
 root process's standard streams that the host holds, a pseudo-terminal's
-master or three pipes: no program calls it, and its terminals are `pty@0`'s,
-through `host/pty/pty-kernel.h`.
+master or three pipes: no program calls it, and its terminals are the
+kernel's, through `src/pty-kernel.h`.
 
 ## Runtimes
 

@@ -174,7 +174,7 @@ static void notify_grid(void) {
   if (cols == notified_cols && rows == notified_rows) return;
   notified_cols = cols;
   notified_rows = rows;
-  dolly_kernel_terminal_resized();
+  dolly_kernel_terminal_resized(cols, rows);
 }
 
 static int process_may_acquire_display(int pid) {
@@ -291,8 +291,7 @@ int dolly_display_install(const dolly_display_driver_v6 *candidate) {
   fflush(stdout);
   driver = candidate;
   apply_palette();
-  notified_cols = terminal_columns();
-  notified_rows = terminal_rows();
+  notify_grid();
   return 0;
 }
 
@@ -574,8 +573,7 @@ static void display_release(int pid, int tid) {
 }
 
 /* The terminal's output half (src/process-kernel.h). */
-static const dolly_terminal_output terminal_output = {
-    terminal_attached, terminal_render, terminal_replies, terminal_columns, terminal_rows};
+static const dolly_terminal_output terminal_output = {terminal_attached, terminal_render, terminal_replies};
 
 const dolly_kernel_module dolly_display_kernel = {
     .first_operation = DOLLY_DISPLAY_ACQUIRE, .last_operation = DOLLY_DISPLAY_RELEASE,

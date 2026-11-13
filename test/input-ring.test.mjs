@@ -205,7 +205,6 @@ static const dolly_terminal_output display = { .replies = terminal_replies };
 const dolly_terminal_output *dolly_kernel_terminal_output_device(void) { return &display; }
 // The terminal's input half, as the kernel reaches it.
 #define dolly_kernel_terminal_read dolly_input_kernel.terminal_input->read
-#define dolly_kernel_terminal_ready dolly_input_kernel.terminal_input->ready
 #define dolly_kernel_terminal_input_service dolly_input_kernel.terminal_input->service
 #define dolly_terminal_discard_pending_input dolly_input_kernel.terminal_input->discard
 static unsigned notified;
@@ -240,7 +239,7 @@ int main(void) {
   assert(dolly_kernel_terminal_read() == -1 && unread() == 1);
   assert(dolly_input_decoder_install(&decoder) == 0 && dolly_input_decoder_install(&decoder) == -EBUSY);
   memcpy(replies, "R", reply_length = 1);
-  assert(dolly_kernel_terminal_ready() && dolly_kernel_terminal_read() == 'R');
+  assert(dolly_kernel_terminal_read() == 'R');
   assert(dolly_kernel_terminal_read() == 'a' && dolly_kernel_terminal_read() == -1);
   // A paste is read from its buffer and acknowledged.
   memcpy((void *)dolly_input_paste_buffer_address(), "pq", mailbox->paste_length = 2);

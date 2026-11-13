@@ -78,8 +78,11 @@ flowchart LR
 - The plugin is also the terminal's input decoder: it registers with the
   input kernel how a record becomes the bytes a program reads
   ([`input.h`](../host/input/input.h)). Without `input@0` no record arrives.
-- Before the plugin loads, and in images without a display, output goes to a
-  plain-text bootstrap log.
+- The terminal's programs stand on the boot terminal, a pseudo-terminal whose
+  master the kernel holds ([process model](process-model.md#descriptors-and-files)):
+  what they write is handed to the plugin as it comes, and the grid is the
+  boot terminal's size. Before the plugin loads, and in images without a
+  display, output goes to a plain-text bootstrap log.
 - Programs see `TERM=xterm-256color` and `TERM_PROGRAM=ghostty`, by which
   programs that show images (pi) recognize the terminal. The display package
   holds the terminal's `/etc/termcap` entry, for programs that link a termcap
