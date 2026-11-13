@@ -54,7 +54,14 @@ Found: on x11-desktop the page's Ctrl+C is still the terminal's interrupt key an
 server: the workbench branch makes Xsdl clear `ISIG` (`20261112-223154-x11-workbench`); until it
 is merged, Ctrl+C copies nothing there.
 
-Left: the editor, Lantern Drift and PhotoCraft in Chrome and Firefox
+On the build of 10:28 the Godot test passed again in Chrome and Firefox: Lantern Drift's window
+drew 12 and 10 s after the command, the X server showed 30.8 and 53.6 frames a second of it, and
+the editor's window drew 51 s after its command. Its screenshots showed red and blue swapped:
+Dolly's Xsdl draws on the page's RGBA surface, so its visual has red in the low byte, and
+`x11-window` put frames in blue first. It now follows the visual's masks, and the test checks
+that the game's sunset has more red than blue.
+
+Left: both tests on the build with that fix, in Chrome and Firefox
 (`demos/godot/test/godot-x11-browser.mjs`, `demos/photocraft/test/photocraft-x11-browser.mjs`).
 
 ## Do

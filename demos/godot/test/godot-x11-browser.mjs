@@ -1,9 +1,9 @@
 // Godot on x11-desktop, on a real adapter, on the private X display DISPLAY names: Chrome on
 // Vulkan, or the installed Firefox (docs/gpu.md). From a fresh x11-desktop, amy installs the
 // editor and Lantern Drift in xterm's shell; the game opens a window of its own on the X server,
-// its frames read back from gpu@0, takes keys, and closes at twm's Delete. The editor opens
-// the game's project in another window, which takes the pointer and closes the same way. The
-// server ends, and the terminal's shell reads what they printed.
+// its frames read back from gpu@0 in their own colours, takes keys, and closes at twm's Delete.
+// The editor opens the game's project in another window, which takes the pointer and closes the
+// same way. The server ends, and the terminal's shell reads what they printed.
 // Usage: node demos/godot/test/godot-x11-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { chromium, firefox } from "playwright-core";
@@ -92,6 +92,15 @@ for (const name of browsers) {
     const rate = (await frames() - before) / 5;
     console.log(`godot-x11: ${name}: the X server showed ${rate.toFixed(1)} frames a second of the game`);
     if (name === "chromium") await page.screenshot({ path: `build/godot-x11-drift-${name}.png` });
+    // Its sunset is warm: red and blue the way round Godot drew them.
+    const [red, blue] = await snapshotDisplay(page).then(() => page.evaluate(() => {
+      const data = displaySnapshot.getContext("2d").getImageData(300, 200, 1000, 500).data;
+      let red = 0, blue = 0;
+      for (let i = 0; i < data.length; i += 4) [red, blue] = [red + data[i], blue + data[i + 2]];
+      return [red, blue];
+    }));
+    console.log(`godot-x11: ${name}: the game's window has ${(red / blue).toFixed(2)} times as much red as blue`);
+    assert.ok(red > blue, "the game's colours are its own");
     // Keys reach it under the pointer: Enter starts the flight from the title.
     await page.mouse.move(...await at(page, 800, 450));
     await page.keyboard.press("Enter");

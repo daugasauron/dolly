@@ -64,7 +64,20 @@ Done on `feature/x11-apps`, built in the round of 08:56:
 - `demos/godot/test/godot-projects-browser.mjs` drives those steps and copy and paste in both
   games' projects, a probe plugin printing what the 3D view shows.
 
-Left: running that test in Chrome and Firefox on the new build, and Firefox by hand.
+Run on the build of 10:28 (`build/godot-projects-check-{chromium,firefox}.log`, the error check
+printed rather than asserted): in Chrome and Firefox, for both games, the editor opened
+`res://main.tscn` with the world standing in it (Airtime 418 meshes, 2169 to 2388 colours in the
+3D view; Lantern Drift 360 meshes, 740 to 775 colours), the HUD's eye hid it, F5 ran the game
+without it (a second engine's banner in the log), Q gave the editor back, Ctrl+S saved, and the
+copy and paste steps renamed two nodes. The log's one error was selecting the camera: its gizmo's
+handle material names `gl_PointCoord`, which Tint does not read, so two pipelines failed (and, at
+exit, freeing them and waiting for their compilations). `spirv-wgsl` now reads it as the centre of
+WebGPU's one-pixel points (Godot emulates sized points with quads where the driver lacks point
+size, so the built-in is in the branch not taken); a native build of the translator turned a
+shader reading it whole and by component into `vec2(0.5)` and `0.5`.
+
+Firefox once did not start Airtime's game within the test's 180 s while an image build ran beside
+it; on the next run it started at once.
 
 ## Do
 
