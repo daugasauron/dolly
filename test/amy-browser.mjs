@@ -306,7 +306,7 @@ const elsewhere = {
   scons: "demos/godot: godot's build uses it", "spirv-wgsl": "demos/godot: godot's build uses it",
   "truck-town": "demos/godot/test/godot-gpu-browser.mjs", "lantern-drift": "demos/godot/test/godot-gpu-browser.mjs",
   "airtime-godot": "demos/godot/test/godot-gpu-browser.mjs",
-  photocraft: "demos/photocraft: photocraft-photos installs it", html: "html-browser.mjs",
+  photocraft: "demos/photocraft: photocraft-photos installs it", html: "html-browser.mjs", rclone: "demos/rclone",
 };
 const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "llama", "tar", "meson", "typescript", ...[programCases, toolCases].flatMap(({ steps }) => steps.map(({ script }) => script.match(/^amy install ([^ ]+)$/)?.[1]).filter(Boolean)), ...Object.keys(elsewhere)]);
 assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no test installs and uses");

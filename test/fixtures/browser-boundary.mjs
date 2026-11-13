@@ -212,13 +212,22 @@ export async function checkKernelBounds(assetRoot) {
     files.write("/etc/dolly/entry", new Uint8Array(entryLimit + 1));
     rejects(() => files.read("/etc/dolly/entry", entryLimit), /\/etc\/dolly\/entry is larger than 65536 bytes/);
 
-    // No display driver is resident, so the kernel's terminal write is boot text.
+    // The bootstrap sink takes a message at its bound and refuses a larger one.
     const textLimit = 1024 * 1024, address = kernel.malloc(BigInt(textLimit + 1));
-    check(kernel.dolly_terminal_write_bytes(0, address, BigInt(textLimit)) === 0 &&
-      sent.at(-1).bytes.length === textLimit, "a boot text write at its bound was refused");
+    new Uint8Array(host.kernel.memory.buffer, Number(address), textLimit + 1).fill(0x41);
+    const sink = host.imports(module).env.dolly_bootstrap_write_bytes;
+    check(sink(address, BigInt(textLimit)) === 0 && sent.at(-1).bytes.length === textLimit,
+      "a boot text write at its bound was refused");
     const messages = sent.length;
-    check(kernel.dolly_terminal_write_bytes(0, address, BigInt(textLimit + 1)) === -errno.EINVAL &&
-      sent.length === messages, "an oversized boot text write reached the page");
+    check(sink(address, BigInt(textLimit + 1)) === -errno.EINVAL && sent.length === messages,
+      "an oversized boot text write reached the page");
+    // No display driver is resident, so the kernel's terminal write is boot text: the boot
+    // terminal hands it on whole, in messages within the bound.
+    check(kernel.dolly_terminal_write_bytes(0, address, BigInt(textLimit + 1)) === 0, "a terminal write was refused");
+    const boot = sent.slice(messages).filter(message => message.type === "bootstrap-bytes");
+    check(boot.every(message => message.bytes.length <= textLimit) &&
+      boot.reduce((total, message) => total + message.bytes.length, 0) === textLimit + 1,
+      "a terminal write did not reach the boot text whole");
 
     // Memory grows inside the kernel: an allocation past its 8 GiB maximum
     // fails there and the kernel goes on. Its abort is a trap the caller sees,

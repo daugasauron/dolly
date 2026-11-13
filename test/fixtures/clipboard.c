@@ -24,7 +24,8 @@ static void check(int ok, const char *what) {
    input lease, writes TEXT at Ctrl+C and prints the clipboard at Ctrl+V, then
    exits; it prints any text record it reads. Its Ctrl+C is a key, not the
    terminal's interrupt (ISIG off), as a window's on a desktop. unprompted writes TEXT eight
-   seconds after it starts, with no key pressed. */
+   seconds after it starts, with no key pressed, and exits two seconds later: the page
+   judges the copy before the test, whose calls count as gestures, asks anything. */
 int main(int argc, char **argv) {
   const char *mode = argc > 1 ? argv[1] : "";
   uint64_t clipboard = 0;
@@ -76,6 +77,8 @@ int main(int argc, char **argv) {
     sleep(8);
     check(dolly_clipboard_write(clipboard, argv[2], strlen(argv[2])) == 0, "a write");
     puts("CLIPBOARD-UNPROMPTED");
+    fflush(stdout);
+    sleep(2);
     return 0;
   }
   check(!strcmp(mode, "copy") && argc > 2, "usage: clipboard refuse|busy|idle|nest|copy TEXT|unprompted TEXT");
