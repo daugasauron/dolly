@@ -9,5 +9,6 @@
   "process": ["dolly-pty-0.wat"],
   "headers": ["pty.h", "pty-abi.h"],
   "kernel": ["kernel.c"],
-  "client": ["client.c"]
+  "client": ["client.c"],
+  "requested": true
 }

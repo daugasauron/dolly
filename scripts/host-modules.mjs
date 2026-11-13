@@ -43,10 +43,13 @@ if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === "k
   process.stdout.write(`// Generated from the host module manifests.\n${kernelModuleList()}`);
 } else if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === "packaged") {
   for (const { name, package: image } of hostManifests) if (image) console.log(name);
+} else if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === "links") {
+  // What cc links into every program: each client but those a program asks for.
+  for (const { name, client, requested } of hostManifests) if (client.length && !requested) console.log(`-ldolly-${name}`);
 } else if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const field = process.argv[2];
   if (process.argv.length !== 3 || !["contracts", "process", "headers", "kernel", "client", "seed"].includes(field)) {
-    throw new Error("usage: host-modules.mjs contracts|process|headers|kernel|client|seed|packaged");
+    throw new Error("usage: host-modules.mjs contracts|process|headers|kernel|client|seed|packaged|links");
   }
   for (const { name, file } of hostFiles(field)) console.log(field === "client" ? `${name} ${file}` : file);
 }

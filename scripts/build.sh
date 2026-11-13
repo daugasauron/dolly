@@ -209,9 +209,8 @@ EOF
 for module in $(printf '%s\n' "${clients[@]%% *}" | uniq); do
   replace_if_changed "build/libdolly-${module}.a.new" "build/libdolly-${module}.a"
 done
-# Not the clients that define libc's own names, sockets@0's and pty@0's: a
-# program links one by asking (-ldolly-sockets, -ldolly-pty).
-mapfile -t client_links < <(node scripts/host-modules.mjs client | awk '$1 != "sockets" && $1 != "pty" { print "-ldolly-" $1 }' | uniq)
+# Not the clients a program asks for (manifest `requested`), which define libc's own names.
+mapfile -t client_links < <(node scripts/host-modules.mjs links)
 
 build_process() {
   local output="$1"
@@ -301,8 +300,7 @@ node scripts/dolly-abi.mjs emit-digest-header \
   -B build/runtime \
   -DCMAKE_BUILD_TYPE=Release \
   -DDOLLY_PROCESS_SYSROOT_DIR="${process_sysroot_container_dir}" \
-  -DDOLLY_KERNEL_SOURCES="$(node scripts/host-modules.mjs kernel | sed 's#^#/src/#' | paste -sd ';')" \
-  -DDOLLY_CLIENT_LIBRARIES="$(printf '/src/build/lib%s.a\n' "${client_links[@]#-l}" | paste -sd ';')"
+  -DDOLLY_KERNEL_SOURCES="$(node scripts/host-modules.mjs kernel | sed 's#^#/src/#' | paste -sd ';')"
 if ! node scripts/dolly-abi.mjs validate-process \
   build/dolly-process-0.wasm \
   build/seed-compiler/usr/libexec/dolly/process-bin/compiler; then
