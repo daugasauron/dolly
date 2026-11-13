@@ -149,6 +149,7 @@ SLOP rm \
   /usr/src/awk
 # Dolly's own commands beside sbase's, from src/commands.
 SOURCE /v0.1.6/dist/static/default/commands/run-program.h e73415ba149e8dcb9944313c36d8d2319202d699c810e02a26d5a94caa8f3a9f /tmp/agent-tools/run-program.h
+SOURCE /v0.1.6/dist/static/default/commands/path.h        3c15f00e77b9b788acf63ad78d48d61af68e69ce4d41e0ed2f348cb0c5fda8ae /tmp/agent-tools/path.h
 SOURCE /v0.1.6/dist/static/default/commands/install.c     c65b5d737e8db898e44856df2924c155595296933ca3f79c0c16ef08bee360f5 /tmp/agent-tools/install.c
 SOURCE /v0.1.6/dist/static/default/commands/du.c          79c39241876af8a479c8afe3383dca43d002b560adbd6b773fb8f0d223f2ab4a /tmp/agent-tools/du.c
 SOURCE /v0.1.6/dist/static/default/commands/rev.c         3539529d49f26629a6518437dc76631f113bcc5822ff5dbc8aa26481933f3d05 /tmp/agent-tools/rev.c
@@ -168,7 +169,7 @@ FILE /tmp/agent-tools/Makefile
     NAMES := install du rev command xargs find env time timeout realpath hostname tty nproc
     TOOLS := $(addprefix /bin/,$(NAMES))
     all: $(TOOLS) $(NAMES:%=/usr/share/man/cat1/%.1)
-    /bin/%: /tmp/agent-tools/%.c /tmp/agent-tools/run-program.h
+    /bin/%: /tmp/agent-tools/%.c /tmp/agent-tools/run-program.h /tmp/agent-tools/path.h
     >cc -O2 $< -o $@
     /usr/share/man/cat1/%.1: /bin/%
     >$< --help > $@

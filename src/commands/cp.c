@@ -12,6 +12,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "path.h"
+
 static int recursive;
 static int verbose;
 static int preserve;
@@ -19,30 +21,6 @@ static int preserve;
 // 'L' every one, 'P' none. POSIX follows operands without -R; with -R, as GNU
 // cp does, none.
 static char follow;
-
-static char *base_name_copy(const char *path) {
-  size_t length = strlen(path);
-  while (length > 1 && path[length - 1] == '/') length--;
-  size_t start = length;
-  while (start > 0 && path[start - 1] != '/') start--;
-  return strndup(path + start, length - start);
-}
-
-static char *join_path(const char *directory, const char *name) {
-  const size_t directory_length = strlen(directory);
-  const size_t name_length = strlen(name);
-  const int slash = directory_length != 0 && directory[directory_length - 1] != '/';
-  if (directory_length > SIZE_MAX - name_length - (size_t)slash - 1) {
-    errno = ENAMETOOLONG;
-    return NULL;
-  }
-  char *joined = malloc(directory_length + (size_t)slash + name_length + 1);
-  if (joined == NULL) return NULL;
-  memcpy(joined, directory, directory_length);
-  if (slash) joined[directory_length] = '/';
-  memcpy(joined + directory_length + (size_t)slash, name, name_length + 1);
-  return joined;
-}
 
 static int copy_path(const char *source, const char *destination, int operand);
 

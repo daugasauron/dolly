@@ -9,6 +9,8 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include "path.h"
+
 typedef struct {
   int all;
   int summarize;
@@ -53,20 +55,6 @@ static int names_push(Names *names, const char *name) {
   if (names->items[names->count] == NULL) return 0;
   names->count++;
   return 1;
-}
-
-static char *join_path(const char *directory, const char *name) {
-  const size_t directory_length = strlen(directory);
-  const size_t name_length = strlen(name);
-  const int slash = directory_length != 0 && directory[directory_length - 1] != '/';
-  if (directory_length > SIZE_MAX - name_length - (size_t)slash - 1) return NULL;
-  char *path = malloc(directory_length + name_length + (size_t)slash + 1);
-  if (path == NULL) return NULL;
-  memcpy(path, directory, directory_length);
-  size_t offset = directory_length;
-  if (slash) path[offset++] = '/';
-  memcpy(path + offset, name, name_length + 1);
-  return path;
 }
 
 static uint64_t add_size(uint64_t left, uint64_t right, Options *options) {

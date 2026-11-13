@@ -107,6 +107,7 @@ REQUIRES TOOL   cc
 
 # Dolly's own small commands, from src/commands. Each TOOL export names the
 # compiled result.
+SOURCE /v0.1.6/dist/static/default/commands/path.h 3c15f00e77b9b788acf63ad78d48d61af68e69ce4d41e0ed2f348cb0c5fda8ae /tmp/core-tools/path.h
 SOURCE /v0.1.6/dist/static/default/commands/mkdir.c 0713179c0b44c92e30d2fd22c87a930ca23f5417b1b3392b3997547648617ad6 /tmp/core-tools/mkdir.c
 SOURCE /v0.1.6/dist/static/default/commands/rm.c 2adb95ed560a55f22b91eda217fdbfc4108bd14ebe71b143ef706869d88a1997 /tmp/core-tools/rm.c
 SOURCE /v0.1.6/dist/static/default/commands/foreground.c e926c3c87764e44064744fc1d3cba008c46666ed7a06d351824ce67792bcdd76 /tmp/core-tools/foreground.c

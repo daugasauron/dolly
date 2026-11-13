@@ -7,6 +7,8 @@
 #include <stdint.h>
 #include <time.h>
 
+#include "path.h"
+
 #include "run-program.h"
 
 enum {
@@ -142,22 +144,6 @@ static int append_copy(string_list *list, const char *item) {
     return -1;
   }
   return 0;
-}
-
-static char *join_path(const char *directory, const char *name) {
-  const size_t directory_length = strlen(directory);
-  const size_t name_length = strlen(name);
-  const int slash = directory_length != 0 && directory[directory_length - 1] != '/';
-  if (directory_length > SIZE_MAX - name_length - (size_t)slash - 1) {
-    errno = ENAMETOOLONG;
-    return NULL;
-  }
-  char *path = malloc(directory_length + (size_t)slash + name_length + 1);
-  if (path == NULL) return NULL;
-  memcpy(path, directory, directory_length);
-  if (slash) path[directory_length] = '/';
-  memcpy(path + directory_length + (size_t)slash, name, name_length + 1);
-  return path;
 }
 
 static char *root_name(const char *path) {
