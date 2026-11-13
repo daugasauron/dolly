@@ -17,8 +17,15 @@ flowchart LR
   `A-Z a-z 0-9 . _ -` (not `.` or `..`). `/sessions/` lists saves with Rename,
   Export, Import, Delete and Recover files; `/session/?name=NAME` loads one.
 - A tab asks before its save replaces one stored since it opened or last
-  saved the session, another tab's. A reload opens the last save: what a tab
-  changed after it is gone.
+  saved the session, another tab's.
+- A reload opens the last save. A tab of the site whose session was saved or
+  restored asks first, with the browser's own prompt, when processes changed
+  a file, directory or link since the last save: the kernel counts those
+  changes from each capture on and publishes the count
+  (`changes`, [`dolly-snapshot-0.wat`](../host/snapshot/dolly-snapshot-0.wat)).
+  A line typed at the shell is one, as it goes into the shell's history; a
+  program that only reads is none. A tab that was never saved, and an
+  embedding's page, ask nothing.
 - The Save button is one of the page's indicators
   ([`page-indicators.mjs`](../src/page-indicators.mjs)): it shows for ten
   seconds once the page is ready and `Ctrl+Shift+F` shows or hides it, so a
@@ -51,9 +58,10 @@ flowchart LR
   which a rebuilt kernel keeps while the images stay valid); the image's
   recipe may have changed since (a `dolly-build` project built again), as the
   save holds its files. The image's host modules are the catalog's. Otherwise **Recover
-  files** boots `system` and copies the regular files of `/workspace` and
-  `/home` into `/workspace/recovered-NAME`
-  ([`session-recover.c`](../src/commands/session-recover.c)); saved startup
+  files** boots `system` and has the kernel take the save's regular files and
+  directories under `/workspace` and `/home` into `/workspace/recovered-NAME`,
+  streamed as a restore is, so a save of any size recovers
+  (`dolly_session_recover_begin`); saved startup
   files and credentials stay in that folder for inspection without becoming
   live config. Recovery refuses an existing destination and leaves the save
   unchanged.
