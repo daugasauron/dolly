@@ -5,8 +5,6 @@ import { parseWasmInterface } from "../page/wasm-interface.mjs";
 import { executableHostRequirements } from "../host/requirements.mjs";
 import hostCases from "./cases/host-modules.json" with { type: "json" };
 
-// The site's page offers only the modules a test names before it loads.
-const hostModules = modules => page => page.addInitScript(modules => { globalThis.DOLLY_HOST_MODULES = modules; }, modules);
 const sourceOverrides = new Map();
 // A probe in an image without input cannot be typed to: it reports by request path.
 let reported;
@@ -84,10 +82,8 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides, 
 
   // An image whose required provider is disabled fails before its large downloads.
   const requests = [];
-  await open({ prompt: null, setup: async denied => {
-    await hostModules(["runtime@0", "display@0", "input@0", "download@0", "upload@0", "snapshot@0"])(denied);
-    denied.on("request", request => requests.push(new URL(request.url()).pathname));
-  } }).then(() => assert.fail("booted without a required provider"), error => assert.match(error.message, /http@0/));
+  await open({ prompt: null, modules: ["runtime@0", "display@0", "input@0", "download@0", "upload@0", "snapshot@0"],
+    setup: denied => denied.on("request", request => requests.push(new URL(request.url()).pathname)) }).then(() => assert.fail("booted without a required provider"), error => assert.match(error.message, /http@0/));
   assert.equal(requests.some(path => /\.snapshot(?:\.gz)?$|\/dolly\.wasm$/.test(path)), false,
     "compatibility must fail before large downloads");
 

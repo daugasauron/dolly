@@ -8,14 +8,14 @@
 // software WebGPU adapter when webgpu is set, in a Chrome window on DISPLAY with
 // the GPU's adapter when it is "window", or Firefox when browser is "firefox"; launch adds Chrome
 // arguments or Firefox preferences. open() loads the image
-// route after installing DOLLY_HTTP_POLICY = policy and awaiting setup(page),
+// route, its page naming the HTTP policy given (routeAttributes), after awaiting setup(page),
 // then waits for boot and prompt (null skips it), returning the terminal
 // helpers below and the prompting program's pid. On failure the latest page's
 // terminal is printed; the browser is closed after timeout milliseconds.
 import assert from "node:assert/strict";
 import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "../test/browser-server.mjs";
-import { shellQuote } from "../test/browser.mjs";
+import { routeAttributes, shellQuote } from "../test/browser.mjs";
 export { shellQuote, snapshotDisplay, waitForDisplay } from "../test/browser.mjs";
 import { siteReference } from "../page/static-asset.mjs";
 
@@ -50,7 +50,7 @@ async function openImage(browser, origin, image, { policy, prompt = shellPrompt,
   }
   const page = await context.newPage();
   page.setDefaultTimeout(60_000);
-  if (policy) await page.addInitScript(policy => { globalThis.DOLLY_HTTP_POLICY = policy; }, policy);
+  await routeAttributes(page, { policy });
   await setup?.(page);
   await page.goto(origin + path);
   await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus),

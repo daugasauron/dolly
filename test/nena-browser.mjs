@@ -269,8 +269,7 @@ await browserTest("nena", { image: "default", timeout: 300_000, server: { fixtur
   assert.equal(await slow.submit("test \"$(cat /etc/dolly/enabled)\" = microphone@0"), 0);
 
   // An embedding that names the page's modules bounds what nena enables.
-  const bounded = await open({ setup: page => page.addInitScript(modules => { globalThis.DOLLY_HOST_MODULES = modules; },
-    catalog.images.find(({ image }) => image === "default").hostRequirements) });
+  const bounded = await open({ modules: catalog.images.find(({ image }) => image === "default").hostRequirements });
   assert.equal(await bounded.submit("nena enable microphone 2> /dev/null"), 1);
   assert.equal(await bounded.submit("nena disable upload && nena enable upload"), 0);
   assert.ok(!(await bounded.page.evaluate(() => __dolly.hostModules)).includes("microphone@0"));

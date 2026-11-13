@@ -12,7 +12,7 @@ import { imageDefinition, loadImages } from "../page/images.mjs";
 // the directory run from its packs has its own and what they depend on; a route
 // that builds, one that learns its image later (a custom image, a saved
 // session) and an image that enables modules itself (a module that `switches`) have every module
-// this repository builds. A test may name fewer (named).
+// this repository builds. The route's page may name fewer (named, its data-modules).
 async function pageModules({ image, mode, loadSession, images, named }) {
   await loadImages(images);
   const declared = imageDefinition(image)?.hostRequirements;

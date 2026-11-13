@@ -1,7 +1,9 @@
 // A route of the site, the page terminal.html makes for an image (scripts/generate-routes.mjs).
 // It has no inline script or style, so a site's Content-Security-Policy needs no
 // 'unsafe-inline'; its main element names the image, how it opens and whether it opens the
-// saved session.
+// saved session, and may name fewer host modules than the route's (data-modules, names
+// separated by spaces) and an HTTP policy and relays other than the site's
+// (data-http-policy, data-http-relays: JSON, as boot() takes them; docs/http.md).
 const assets = new URL("../", import.meta.url);
 const terminal = document.querySelector("#terminal");
 // The popup's font file, as a URL a route under any path resolves alike.
@@ -12,22 +14,19 @@ const failed = text => {
 };
 if (crossOriginIsolated) {
   sessionStorage.removeItem("dolly-isolation-retry");
-  // The site is an embedding: its route names the host modules it uses
-  // (site/site.mjs), a test may name fewer before the page loads, and the
-  // test's settings are taken once.
-  const { image, mode, loadSession } = terminal.dataset;
-  const route = { image, mode, loadSession: loadSession === "true" };
-  const { DOLLY_HOST_MODULES: named, DOLLY_HTTP_POLICY: policy, DOLLY_HTTP_RELAYS: relays } = globalThis;
-  for (const name of ["DOLLY_HOST_MODULES", "DOLLY_HTTP_POLICY", "DOLLY_HTTP_RELAYS"]) delete globalThis[name];
-  let bootRoute;
+  // The site is an embedding: its route names the host modules it uses (site/site.mjs).
+  const { image, mode, loadSession, modules, httpPolicy, httpRelays } = terminal.dataset;
+  const json = text => text === undefined ? undefined : JSON.parse(text);
+  let bootRoute, options;
   try {
+    options = { image, mode, loadSession: loadSession === "true", images: assets.href, site: assets.href,
+      named: modules?.split(" "), http: { policy: json(httpPolicy), relays: json(httpRelays) } };
     ({ bootRoute } = await import("./site.mjs"));
   } catch (error) {
     failed(`Dolly failed to load.\n${error instanceof Error ? error.stack ?? error.message : String(error)}`);
   }
   // The route shows its own failure in the terminal.
-  if (bootRoute) window.__dolly = await bootRoute(terminal, { ...route, images: assets.href, site: assets.href, named,
-    http: { policy, relays } }).catch(error => console.error(error));
+  if (bootRoute) window.__dolly = await bootRoute(terminal, options).catch(error => console.error(error));
 } else if ("serviceWorker" in navigator) {
   await navigator.serviceWorker.register(new URL("coi-serviceworker.js", assets), { scope: assets.pathname });
   if (!navigator.serviceWorker.controller) {

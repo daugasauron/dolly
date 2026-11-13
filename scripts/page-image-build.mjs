@@ -5,19 +5,20 @@ import { MAX_SNAPSHOT_BYTES } from "../page/snapshot-records.mjs";
 // directory at IMAGES, or "custom" from CUSTOM, after its missing dependencies,
 // with the builder and HTTP broker of the runtime at RUNTIME and the host
 // modules whose module.json URLs are MODULES; on Dolly's site both directories
-// are the site and the modules every one it builds (host/manifests.mjs). With
+// are the site and the modules every one it builds (host/manifests.mjs). The
+// broker admits what POLICY admits (docs/http.md), without one any URL. With
 // RELAY, a URL prefix of the page's own origin, the broker fetches each remote
 // request it admits from RELAY + scheme/host/path?query instead. Logs
 // through the exposed dollyBuildLog(text), keeps the snapshot's Blob in
 // globalThis.dollySnapshot and returns { inputs, dependenciesBuilt }.
-export async function buildImageInPage(runtime, images, image, custom, modules, relay) {
+export async function buildImageInPage(runtime, images, image, custom, modules, relay, policy) {
   // What the runtime needs of the browser, said before anything is built.
   if (!crossOriginIsolated) throw new Error("the build page is not cross-origin isolated");
   if (!WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 4, 1]))) {
     throw new Error("this browser has no WebAssembly memory64, which Dolly needs (Chrome 138, Firefox 146 or later)");
   }
   const log = text => void globalThis.dollyBuildLog(text);
-  const [registry, policy, transport, builder, graph] = await Promise.all([
+  const [registry, http, transport, builder, graph] = await Promise.all([
     "page/images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
     "site/image-builder.mjs", "site/image-build.mjs",
   ].map(path => import(new URL(path, runtime).href)));
@@ -28,7 +29,7 @@ export async function buildImageInPage(runtime, images, image, custom, modules, 
     const response = await fetch(`${relay}${url.protocol.slice(0, -1)}/${url.host}${url.pathname}${url.search}`, init);
     return Object.defineProperty(response, "url", { value: response.headers.get("x-dolly-relay-url") ?? url.href });
   });
-  const network = { ...transport.localServicesTransport(new policy.DollyHttpPolicy(globalThis.DOLLY_HTTP_POLICY,
+  const network = { ...transport.localServicesTransport(new http.DollyHttpPolicy(policy,
     registry.bootstrapSources(), new URL(images)), {}, remoteFetch), site: images };
   modules ??= (await import(new URL("host/manifests.mjs", runtime).href)).hostModuleUrls;
   const build = (name, artifacts) => builder.buildImage(name, artifacts, { http: { network } }, log,

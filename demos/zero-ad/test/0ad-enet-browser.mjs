@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {createServer} from "node:http";
 import {chromium} from "playwright-core";
 import {startBrowserServer} from "../../../test/browser-server.mjs";
+import {routeAttributes} from "../../../test/browser.mjs";
 import {createRelayRoom} from "../toolchain/relay.mjs";
 import {imageFile} from "./fixtures/image-file.mjs";
 
@@ -20,12 +21,10 @@ try {
   for (const endpoint of room.endpoints) {
     const page = await browser.newPage(); pages.push(page);
     page.on("pageerror", error => console.error(error.message));
-    await page.addInitScript(({origin, relayOrigin, path}) => {
-      globalThis.DOLLY_HTTP_POLICY = {maxRequests: 2000, rules: [
-        {origin, pathPrefix: "/fixture/", methods: ["GET"]},
-        {origin: relayOrigin, pathPrefix: path, methods: ["POST"]}
-      ]};
-    }, {origin: server.origin, relayOrigin, path: endpoint.path});
+    await routeAttributes(page, {policy: {maxRequests: 2000, rules: [
+      {origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"]},
+      {origin: relayOrigin, pathPrefix: endpoint.path, methods: ["POST"]}
+    ]}});
     await page.goto(`${server.origin}/default/`);
     await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
     assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready");

@@ -1,15 +1,16 @@
 // Shared Playwright setup for Dolly browser tests:
 //
 //   await browserTest("name", { image, server, timeout, launch }, async ({ name, browser, server, open }) => {
-//     const { page, submit, text, result, waitForText } = await open({ policy, prompt, path, setup, context });
+//     const { page, submit, text, result, waitForText } = await open({ policy, modules, relays, prompt, path, setup, context });
 //     assert.equal(await submit("true"), 0);
 //   });
 //
 // runs the body once per browser named on the command line (default: chromium,
 // which is Chrome, then firefox) against one startBrowserServer(image, server).
 // open() loads the image route (path, default /IMAGE/) in a new page (of a
-// context with Playwright's options `context`, such as a phone's) after
-// installing DOLLY_HTTP_POLICY = policy and awaiting setup(page), then waits for
+// context with Playwright's options `context`, such as a phone's), its page
+// naming the HTTP policy, host modules and relays given (routeAttributes),
+// after awaiting setup(page), then waits for
 // boot and the shell prompt (null skips it). submit(command) resolves to the
 // exit status; text() reads the visible terminal; result(action) runs action()
 // (typing, a paste) and resolves to the status of the command it completes;
@@ -47,10 +48,27 @@ export async function runSteps(submit, origin, { directory, files = {}, fixtures
 }
 const shellPrompt = /dolly:[^\n]*\$\s*$/;
 
-async function openImage(browser, origin, image, { policy, prompt = shellPrompt, path = `/${image}/`, setup, context } = {}) {
+// Every route page PAGE loads names, on its main element (site/route.mjs), the
+// host modules (names), HTTP policy and relays given, as a route page that sets
+// them does: they are written before its module script runs.
+export async function routeAttributes(page, { modules, policy, relays }) {
+  const attributes = Object.fromEntries(Object.entries({ "data-modules": modules?.join(" "),
+    "data-http-policy": policy && JSON.stringify(policy), "data-http-relays": relays && JSON.stringify(relays) })
+    .filter(([, value]) => value !== undefined));
+  if (!Object.keys(attributes).length) return;
+  await page.addInitScript(attributes => new MutationObserver((records, observer) => {
+    const terminal = document.querySelector("main#terminal");
+    if (!terminal) return;
+    for (const [name, value] of Object.entries(attributes)) terminal.setAttribute(name, value);
+    observer.disconnect();
+  }).observe(document, { childList: true, subtree: true }), attributes);
+}
+
+async function openImage(browser, origin, image, { policy, modules, relays, prompt = shellPrompt, path = `/${image}/`, setup,
+  context } = {}) {
   const page = await browser.newPage(context);
   page.setDefaultTimeout(30000);
-  if (policy) await page.addInitScript(policy => { globalThis.DOLLY_HTTP_POLICY = policy; }, policy);
+  await routeAttributes(page, { modules, policy, relays });
   await setup?.(page);
   await page.goto(origin + path);
   await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));

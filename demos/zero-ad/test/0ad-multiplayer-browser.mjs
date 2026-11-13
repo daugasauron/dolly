@@ -3,6 +3,7 @@ import {createServer} from "node:http";
 import {mkdir, readFile} from "node:fs/promises";
 import {chromium} from "playwright-core";
 import {startBrowserServer} from "../../../test/browser-server.mjs";
+import {routeAttributes} from "../../../test/browser.mjs";
 import {acceptDownload} from "../../browser.mjs";
 import {createRelayRoom} from "../toolchain/relay.mjs";
 import {hasGameHud} from "./fixtures/0ad-hud.mjs";
@@ -37,12 +38,10 @@ try {
   for (const endpoint of room.endpoints) {
     const page = await browser.newPage({viewport:{width:1024,height:768}}); pages.push(page);
     page.on("pageerror", error => console.error(error.message));
-    await page.addInitScript(({origin, relayOrigin, path}) => {
-      globalThis.DOLLY_HTTP_POLICY = {maxRequests: 50000, rules: [
-        {origin, pathPrefix: "/fixture/", methods: ["GET"]},
-        {origin: relayOrigin, pathPrefix: path, methods: ["POST"]}
-      ]};
-    }, {origin: server.origin, relayOrigin, path: endpoint.path});
+    await routeAttributes(page, {policy: {maxRequests: 50000, rules: [
+      {origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"]},
+      {origin: relayOrigin, pathPrefix: endpoint.path, methods: ["POST"]}
+    ]}});
     await page.goto(`${server.origin}/${image}/`);
     await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus),null,{timeout:90000});
     assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready");

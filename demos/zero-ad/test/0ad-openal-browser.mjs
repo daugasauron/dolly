@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { chromium } from "playwright-core";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
+import { routeAttributes } from "../../../test/browser.mjs";
 import { imageFile } from "./fixtures/image-file.mjs";
 
 const server = await startBrowserServer(new URL("../../../", import.meta.url).pathname,
@@ -12,10 +13,8 @@ try {
   deadline = setTimeout(() => void browser.close(), 120000);
   page = await browser.newPage();
   page.on("pageerror", error => console.error(error.message));
-  await page.addInitScript(origin => {
-    globalThis.DOLLY_HTTP_POLICY = { maxRequests: 4,
-      rules: [{ origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
-  }, server.origin);
+  await routeAttributes(page, { policy: { maxRequests: 4,
+    rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   await page.goto(`${server.origin}/default/`);
   await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
   assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",

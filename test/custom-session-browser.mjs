@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { browserTest } from "./browser.mjs";
+import { browserTest, routeAttributes } from "./browser.mjs";
 import { siteReference } from "../page/static-asset.mjs";
 
 const scratch = await mkdtemp(join(tmpdir(), "dolly-custom-session-"));
@@ -28,7 +28,7 @@ async function newPage(context, rules) {
   const page = await context.newPage();
   page.setDefaultTimeout(30000);
   // A restricted embedding grants its fixtures again on every page.
-  if (rules) await page.addInitScript(rules => { globalThis.DOLLY_HTTP_POLICY = { rules }; }, rules);
+  if (rules) await routeAttributes(page, { policy: { rules } });
   return page;
 }
 async function customImageSessions(context, server, fixtures) {

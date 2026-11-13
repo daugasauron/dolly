@@ -86,8 +86,7 @@ await browserTest("network", { image: "system", server: { fixtures, handle } }, 
     // contacts it, only the relay does.
     const forge = server.origin.replace("127.0.0.1", "forge.localhost");
     const relays = [{ origin: forge, through: `${server.origin}/fixture/relay/` }];
-    const { submit } = await open({ setup: page => page.addInitScript(relays => { globalThis.DOLLY_HTTP_RELAYS = relays; }, relays),
-      policy: { rules: [
+    const { submit } = await open({ relays, policy: { rules: [
       { origin: forge, pathPrefix: "/fixture/", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },
       { origin: blocked, pathPrefix: "/fixture/", methods: ["GET"] },
       { origin: server.origin, path: "/fixture/http.txt", methods: ["GET"], maxResponseBytes: 8 },

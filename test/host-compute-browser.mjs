@@ -20,7 +20,7 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       const { DollyHttpPolicy } = await import("/host/http/policy.mjs");
       const { localServicesTransport } = await import("/host/http/local-services.mjs");
       const site = new URL("/", location.href);
-      return { ...localServicesTransport(new DollyHttpPolicy(globalThis.DOLLY_HTTP_POLICY, images.bootstrapSources(), site)),
+      return { ...localServicesTransport(new DollyHttpPolicy(undefined, images.bootstrapSources(), site)),
         site: site.href };
     };
     globalThis.runHeadless = async (modules, configuration, transfers, running) => {

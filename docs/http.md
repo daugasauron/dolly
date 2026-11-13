@@ -70,9 +70,8 @@ the app's own origin included, keeps caller credential headers, follows redirect
 on request, and applies a 10-minute timeout (an answer a model does not stream
 can take that long to its headers), no request quota and no response cap.
 **This does not prevent exfiltration.** A restricted embedding gives `boot()` a policy
-(`http: { policy }`); the site's own page reads
-it from `globalThis.DOLLY_HTTP_POLICY`, set before the page loads, and deletes
-the global:
+(`http: { policy }`); a route of the site names it in its own source, as JSON in
+its main element's `data-http-policy` ([`route.mjs`](../site/route.mjs)):
 
 ```js
 const policy = {
@@ -130,8 +129,8 @@ CORS details from Fetch, so a generic transport failure alone does not
 identify its cause.
 
 An embedding that wants such a host maps its origin to a relay it trusts,
-next to the policy (`http: { policy, relays }`; the site's page reads
-`globalThis.DOLLY_HTTP_RELAYS`):
+next to the policy (`http: { policy, relays }`; a route of the site, its
+`data-http-relays`):
 
 ```js
 const relays = [{

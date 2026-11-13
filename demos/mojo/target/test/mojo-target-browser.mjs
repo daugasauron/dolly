@@ -11,6 +11,7 @@ import { mkdir } from "node:fs/promises";
 import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "../../../../test/browser-server.mjs";
 import { shellPrompt } from "../../../browser.mjs";
+import { routeAttributes } from "../../../../test/browser.mjs";
 
 const root = new URL("../../../../", import.meta.url);
 const gpu = "-lmojo-gpu -ldolly-gpu", programs = { hello: "", library: "", tasks: "", saxpy: gpu, kernels: gpu, mandelbrot: gpu, output: gpu, shared: gpu,
@@ -37,8 +38,7 @@ try {
     const browser = await launch();
     try {
       const page = await (await browser.newContext()).newPage();
-      await page.addInitScript(policy => { globalThis.DOLLY_HTTP_POLICY = policy; },
-        { maxRequests: 16, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] });
+      await routeAttributes(page, { policy: { maxRequests: 16, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
       await page.goto(`${server.origin}/mojo-gpu/`);
       await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null, { timeout: 180_000 });
       assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready", await page.locator("#bootstrap-log").textContent());

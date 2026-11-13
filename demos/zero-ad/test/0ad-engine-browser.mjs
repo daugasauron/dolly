@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
 import { chromium } from "playwright-core";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
+import { routeAttributes } from "../../../test/browser.mjs";
 import { acceptDownload } from "../../browser.mjs";
 import { engineFixture, headlessData } from "./fixtures/image-file.mjs";
 
@@ -19,10 +20,8 @@ try {
   deadline = setTimeout(() => void browser.close(), 180000);
   page = await browser.newPage();
   page.on("pageerror", error => console.error(error.message));
-  await page.addInitScript(origin => {
-    globalThis.DOLLY_HTTP_POLICY = { maxRequests: 2,
-      rules: [{ origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
-  }, server.origin);
+  await routeAttributes(page, { policy: { maxRequests: 2,
+    rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   await page.goto(`${server.origin}/zero-ad-engine/`);
   await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
   assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",
