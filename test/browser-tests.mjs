@@ -9,8 +9,8 @@ import { runSideBySide } from "./side-by-side.mjs";
 // after another. Six and eight take 10% and 16% less again and stretch every
 // test by 23% and 38%; at eight the microphone test lost blocks of its recording.
 const limit = 4;
-// fs-growth fills 8 GiB of kernel memory and times its appends.
-const alone = ["fs-growth-browser.mjs"];
+// fs-growth fills 8 GiB of kernel memory and times its appends; session-large-file holds a file over 2 GiB.
+const alone = ["fs-growth-browser.mjs", "session-large-file-browser.mjs"];
 const hardware = ["gpu-render-browser.mjs", "gpu-explicit-browser.mjs"];
 
 const started = performance.now();

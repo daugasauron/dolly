@@ -1,4 +1,4 @@
-import { DOLLY_BUILD_ID } from "../../page/generated.mjs";
+import { DOLLY_IMAGE_BUILD_ID } from "../../page/generated.mjs";
 import { DOLLY_IMAGES } from "../../page/images.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION,
@@ -10,6 +10,7 @@ import {
   sessionLoadUrl,
   validSessionName,
 } from "../../site/session-store.mjs";
+import { keepRuntime } from "../../site/offline.mjs";
 
 // An adopted style sheet, which a page's style-src without 'unsafe-inline' allows.
 const style = `
@@ -68,6 +69,14 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
   const dataset = document.documentElement.dataset;
   let base, sessionName = null, lastSave = null, saveError = "";
   let saving = null, controller = null;
+  // When the save this tab restored or last made was stored: a later one is another tab's.
+  let knownSave = null;
+  // Whether processes changed files since the last capture began (the kernel's
+  // count, snapshot.mjs), and whether a save that failed left such changes unsaved.
+  let changed = false, unsaved = false;
+  // A tab of the site whose session was saved or restored asks, with the
+  // browser's own prompt, before it is left with changes no save holds.
+  if (site) addEventListener("beforeunload", event => { if (sessionName !== null && (changed || unsaved)) event.preventDefault(); });
 
   function update(message) {
     const failed = dataset.sessionStatus === "failed";
@@ -121,14 +130,21 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
       if (!validSessionName(name)) {
         throw new Error("Session names use 1-64 letters, numbers, '.', '_' or '-'");
       }
-      if (name !== sessionName && await loadStoredSession(name) !== null &&
-          !window.confirm(`Replace the saved session '${name}'?`)) return null;
-      showStatus(`Saving ${name}…`, true);
+      const before = dataset.sessionStatus;
       dataset.sessionStatus = "capturing";
+      const stored = await loadStoredSession(name);
+      if (stored !== null && (name !== sessionName ? !window.confirm(`Replace the saved session '${name}'?`)
+        : stored.updatedAt !== knownSave && !window.confirm(`'${name}' was saved from another tab at ` +
+          `${new Date(stored.updatedAt).toLocaleTimeString()}. Replace that save with this tab's files?`))) {
+        if (before === undefined) delete dataset.sessionStatus; else dataset.sessionStatus = before;
+        return null;
+      }
+      showStatus(`Saving ${name}…`, true);
       indicators.hold("session", true);
       update(`Saving ${name}…`);
       button.disabled = nameField.disabled = saveButton.disabled = true;
       controller = new AbortController();
+      unsaved ||= changed;
       const capture = async onChunk => {
         const result = await transport().capture({ signal: controller.signal, onChunk });
         dataset.sessionUncompressedBytes = String(onChunk ? result : result.byteLength);
@@ -137,18 +153,20 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
       };
       const encoded = await encodeSessionStream(capture);
       dataset.sessionStatus = "storing";
-      const encodedSize = encoded.bytes.size;
+      const encodedSize = encoded.bytes.size, updatedAt = Date.now();
       await saveStoredSession({
         name,
         formatVersion: DOLLY_SESSION_FORMAT_VERSION,
-        buildId: DOLLY_BUILD_ID,
+        buildId: DOLLY_IMAGE_BUILD_ID,
         image: base.image,
         imageIdentity: base.identity,
         ...(base.custom ? { customImage: base.custom } : {}),
-        updatedAt: Date.now(),
+        updatedAt,
         encoding: encoded.encoding,
         bytes: encoded.bytes,
       });
+      knownSave = updatedAt;
+      unsaved = false;
       sessionName = name;
       lastSave = new Date();
       dataset.session = name;
@@ -162,10 +180,16 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
       showStatus(`Saved ${name} locally${site ? " · /sessions lists your saves" : ""}`);
       indicators.hold("session", false);
       update();
+      // The site's runtime is kept beside the save, which then opens without a
+      // network (site/offline.mjs); the save does not wait for it.
+      if (site) void keepRuntime(site).then(() => "kept", () => "failed").then(state => { dataset.sessionOffline = state; });
       return name;
     })().catch((error) => {
       dataset.sessionStatus = "failed";
-      saveError = error instanceof Error ? error.message : String(error);
+      // Chrome's error for a full store has no text.
+      saveError = error?.name === "QuotaExceededError"
+        ? "this browser has no room left for the site. Delete saves or clear downloads on the sessions page; the previous save is unchanged"
+        : error instanceof Error ? error.message : String(error);
       showStatus(`Save failed: ${saveError}`, true);
       indicators.hold("session", true);
       update(`Save failed: ${saveError}`);
@@ -181,6 +205,7 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
   return {
     get name() { return sessionName; },
     save,
+    changed(value) { changed = value; },
     // The dialog and the Save button keep their keys; Ctrl+Shift+S saves, the
     // first time through the dialog.
     claimsKey(event) {
@@ -205,6 +230,7 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
         showStatus(`Recovered files in /workspace/recovered-${restored.name}. Ctrl+Shift+S saves this as a new session.`, true);
       } else if (restored) {
         sessionName = restored.name;
+        knownSave = restored.updatedAt;
         dataset.session = restored.name;
         dataset.sessionStatus = "restored";
       }

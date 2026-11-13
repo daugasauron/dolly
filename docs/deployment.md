@@ -180,7 +180,10 @@ pushes, uploads or deploys.
   `Cross-Origin-Resource-Policy: same-origin` where possible; otherwise
   [`coi-serviceworker.js`](../coi-serviceworker.js) isolates same-origin
   responses below its version and passes cross-origin broker requests through
-  unchanged.
+  unchanged. The same worker answers from the runtime a saved session
+  keeps when a request fails ([sessions](sessions.md)); packaging writes that
+  runtime's list, `dist/dolly-offline.json`
+  ([`offline-files.mjs`](../scripts/offline-files.mjs)).
 - Send the site's `Content-Security-Policy` (`siteContentSecurityPolicy` in
   [`serve.mjs`](../scripts/serve.mjs)): the strict policy of
   [embedding](embedding.md) with inline styles and every destination, as the

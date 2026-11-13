@@ -112,7 +112,7 @@ export async function runImage(image) {
     const supervisor = restored.supervisor ?? await host.kernel.supervisor(kernel);
     await steps.finish?.({ kernel, stage });
 
-    await host.imageRestored({ kernel, supervisor, stage, files, image: steps.name });
+    await host.imageRestored({ kernel, memory, supervisor, stage, files, image: steps.name });
     if (kernel.dolly_bootstrap_environment() !== 0) throw new Error("Dolly image environment is invalid");
     await host.start("image", { kernel, memory });
     const runtimeImage = decoder.decode(files.read("/etc/dolly/image", 256));

@@ -17,6 +17,7 @@ export class SessionTransport {
   static totalSizeLow = A.DOLLY_SESSION_WORD_TOTAL_SIZE_LOW;
   static totalSizeHigh = A.DOLLY_SESSION_WORD_TOTAL_SIZE_HIGH;
   static cancelledSequence = A.DOLLY_SESSION_WORD_CANCELLED_SEQUENCE;
+  static changes = A.DOLLY_SESSION_WORD_CHANGES;
 
   constructor(buffer, address, transferAddress, wake) {
     const range = (start, size) => Number.isSafeInteger(start) && start > 0 && start <= buffer.byteLength - size;
@@ -110,6 +111,10 @@ export class SessionTransport {
       if (status === -DOLLY_ERRNO.EFBIG) {
         throw new Error(`Dolly session exceeds its ${DOLLY_SESSION_MAX_BYTES / 1024 / 1024} MiB limit; remove files or installed packages and save again`);
       }
+      // DOLLY_SESSION_MAX_RECORDS (kernel/session-records.h).
+      if (status === -DOLLY_ERRNO.E2BIG) {
+        throw new Error("Dolly session holds more than 1,000,000 files and directories; remove some and save again");
+      }
       if (status !== 0) throw new Error(`Dolly session capture failed with status ${status}`);
       if (offset < 16 || offset !== declaredTotal) throw new Error("Dolly session snapshot was incomplete");
       complete = true;
@@ -120,5 +125,7 @@ export class SessionTransport {
       this.cancel = null;
     }
   }
+  // Whether processes changed what a save holds since the last capture began.
+  get changed() { return Atomics.load(this.words, SessionTransport.changes) !== 0; }
   close() { this.closed = true; this.cancel?.(); }
 }

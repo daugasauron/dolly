@@ -116,6 +116,15 @@ test("streamed capture copies the mailbox and waits for its consumer before ackn
     f.complete();
   };
   await assert.rejects(f.transport.capture({ onChunk() {} }), /capture failed with status 5/);
+
+  // More paths than a save holds (E2BIG) is refused with that limit.
+  f.complete();
+  f.transport.wake = () => {
+    f.publish();
+    Atomics.store(f.words, Mailbox.status, -1);
+    f.complete();
+  };
+  await assert.rejects(f.transport.capture({ onChunk() {} }), /1,000,000 files/);
 });
 
 test("a missing producer times out, and explicit cancellation wakes a pending save", async () => {
