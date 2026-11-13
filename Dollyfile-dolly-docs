@@ -5,25 +5,25 @@ REQUIRES HOST runtime@0
 # The platform as a program sees it: the documents and machine contracts of
 # this release at their repository paths, so their links to each other work.
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
-SOURCE /v0.1.6/docs/process-model.md 8bddaa38fd05305731309022922141add317eec7c2cc717e8a346a37ecc04d6f /usr/share/doc/dolly/docs/process-model.md
+SOURCE /v0.1.6/docs/process-model.md e3d067285141477fd5f65433a0174dc4257506bf9b14b5d07f70d1624b392562 /usr/share/doc/dolly/docs/process-model.md
 SOURCE /v0.1.6/docs/browser-stack.md 06764e5acb8c5a13ec19ff69c318cbdcc0a91324269f88700e6c0ea8be4f21e1 /usr/share/doc/dolly/docs/browser-stack.md
 SOURCE /v0.1.6/docs/slop.md 8bc24dafb4b07151ec6f5189bea4168e2b30281cf5809f0bae6a00380ccff061 /usr/share/doc/dolly/docs/slop.md
-SOURCE /v0.1.6/docs/display.md e8c4286028172555517276d8227fcaf0e3ff98782b8ed24da6fed8c5bb09462a /usr/share/doc/dolly/docs/display.md
+SOURCE /v0.1.6/docs/display.md ec6affe4e03b60589fb07f77fd9451f25319bae5d22b0395e63329d869702c89 /usr/share/doc/dolly/docs/display.md
 SOURCE /v0.1.6/docs/gpu.md 5185a6d8021600b4be103f77fc996f7ca405ec5627b8a68895eab1c3eca53d2e /usr/share/doc/dolly/docs/gpu.md
 SOURCE /v0.1.6/docs/audio.md c3a3ee22293a34f6284b07f89a48e0a69275957c6323a6c8e7d5016b85828a2b /usr/share/doc/dolly/docs/audio.md
 SOURCE /v0.1.6/docs/http.md 2cefc1a16f5b71f66c009dbe267449fe2cbc6a488ac3d1d4bbd945f733d30e3c /usr/share/doc/dolly/docs/http.md
 SOURCE /v0.1.6/docs/sessions.md f4d2ba12c4618180909db905b523ce9ec9f7d0d5af559d0f5f33ebd77611ae0a /usr/share/doc/dolly/docs/sessions.md
 SOURCE /v0.1.6/docs/dollyfile.md 75e11c6e22aaa879c7e0a692736cae08b0082e5f0d0f001d83fd27f627f7652b /usr/share/doc/dolly/docs/dollyfile.md
-SOURCE /v0.1.6/docs/architecture.md d52698ca472e5bd7635fea86a7e35e670f68d6dd0d1ef20c745f6d6e23db5764 /usr/share/doc/dolly/docs/architecture.md
-SOURCE /v0.1.6/docs/browser-boundary.md 9099badfdcf1d5fd1b492e267d469fe3707cfea7c2edb51eabddfe2d24aafaba /usr/share/doc/dolly/docs/browser-boundary.md
+SOURCE /v0.1.6/docs/architecture.md 16f54be6ff91756ad5d645cf58280d4ade5ec031432a76bf7f7a521d042a225c /usr/share/doc/dolly/docs/architecture.md
+SOURCE /v0.1.6/docs/browser-boundary.md 00fe086ff590b6809ba98957c718eb9fb29b5076abc2a874cdd4ff76640206f8 /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE /v0.1.6/docs/image-build-service.md 658d9961bf2af518506d8dc00a6c7ed7445cd15c783c5ce63a409816a4b3a201 /usr/share/doc/dolly/docs/image-build-service.md
 SOURCE /v0.1.6/abi/README.md 142b9ac2347e00aac08fb466c22c5279133c7019ffbd57214a3b53409c09c9a9 /usr/share/doc/dolly/abi/README.md
-SOURCE /v0.1.6/host/README.md 37ff8a325bbe1522b032a013fd8e6d07839108c30a60e7d4755b5927dce015b9 /usr/share/doc/dolly/host/README.md
+SOURCE /v0.1.6/host/README.md 9c804617796e18e7077bf6ed9e9fc029565702aabcd671d4d8d9e79d76d7c078 /usr/share/doc/dolly/host/README.md
 SOURCE /v0.1.6/abi/dolly-browser-0.wat 7bea6213b5ba9daebb36b0844501406f3ad97a26784621bc99f52c46ae64c79c /usr/share/doc/dolly/abi/dolly-browser-0.wat
 SOURCE /v0.1.6/abi/dolly-host-0.wat 7d1a02e3317086c06ca022e917d6d8537d9a005e9804e5ffdf256dc7d70c8671 /usr/share/doc/dolly/abi/dolly-host-0.wat
 SOURCE /v0.1.6/abi/dolly-image-0.wat 7c51564f3550e3428ffa49e4cdbca6d4a573585de0c03dd09e83e2a16599dedf /usr/share/doc/dolly/abi/dolly-image-0.wat
 SOURCE /v0.1.6/abi/dolly-kernel-plugin-0.wat 8ed18bd8b9221ac11e077bba609db2e161b34f90f3ab1adc088a5597bb409d36 /usr/share/doc/dolly/abi/dolly-kernel-plugin-0.wat
-SOURCE /v0.1.6/docs/input.md f9d585d0257979ee9aec3fd8c7fd84386660bcd15d12dea6c33e49cf959b026c /usr/share/doc/dolly/docs/input.md
+SOURCE /v0.1.6/docs/input.md fde2e1ac6194f0fe47e3b827507dcd9de0e8fa282fac9bb13a753369544cad84 /usr/share/doc/dolly/docs/input.md
 SOURCE /v0.1.6/abi/dolly-process-0.wat c857080df16c432c9932791c97290feb21a7d3672d1250cfead0ebb86084de64 /usr/share/doc/dolly/abi/dolly-process-0.wat
 SOURCE /v0.1.6/abi/dolly-process-gate-0.wat d74da2218538d0d83346da3d97efc62dabfd193517ba59c82a23b3eccf4cebbd /usr/share/doc/dolly/abi/dolly-process-gate-0.wat
 SOURCE /v0.1.6/abi/dolly-supervisor-0.wat 0626cc775e2fd13f00e271a748d2b94d198c1371707d8cff8d39899415724c0c /usr/share/doc/dolly/abi/dolly-supervisor-0.wat

@@ -12,12 +12,12 @@ REQUIRES HOST clipboard@0
 
 # Lantern Drift on the page, with Godot's editor beside it: the game starts at once; Q quits to
 # a shell where the editor opens the game's project, a copy in the home directory.
-INSTALL /v0.1.6/Dollyfile-core 0000000000000000000000000000000000000000000000000000000000000000
-INSTALL /v0.1.6/Dollyfile-posix 0000000000000000000000000000000000000000000000000000000000000000
-INSTALL /v0.1.6/Dollyfile-display 0000000000000000000000000000000000000000000000000000000000000000
-INSTALL /v0.1.6/demos/godot/Dollyfile-lantern-drift 0000000000000000000000000000000000000000000000000000000000000000
-INSTALL /v0.1.6/demos/godot/Dollyfile-godot-editor 0000000000000000000000000000000000000000000000000000000000000000
-COPY /v0.1.6/demos/godot/Dollyfile-lantern-drift 0000000000000000000000000000000000000000000000000000000000000000 /usr/share/lantern-drift/project /home/dolly/lantern-drift
+INSTALL /v0.1.6/Dollyfile-core d69d0e16a3e1a7813171966d23fcf5a44d488a6bcf2723a3d32f689fa162fc5c
+INSTALL /v0.1.6/Dollyfile-posix 3f1e6b15fe6a98d19c9a4d53aa9fd9d0a3e543f0098f61f4b28cfa690d095c5f
+INSTALL /v0.1.6/Dollyfile-display 04c5a260eb25a1f21c877baef97fb57fe930a637af40ad6dfa530f66709f2a7e
+INSTALL /v0.1.6/demos/godot/Dollyfile-lantern-drift 82b371801224b1beacfe54377a49232fd6a750b9aa6d0ad93d9476e0c64275f8
+INSTALL /v0.1.6/demos/godot/Dollyfile-godot-editor ee2129f91e837a1fa5fb5e5efbc17fc7f6dc5ca4ed38ce0bc017764b5ece32c9
+COPY /v0.1.6/demos/godot/Dollyfile-lantern-drift 82b371801224b1beacfe54377a49232fd6a750b9aa6d0ad93d9476e0c64275f8 /usr/share/lantern-drift/project /home/dolly/lantern-drift
 REQUIRES TOOL lantern-drift
 REQUIRES TOOL godot-editor
 

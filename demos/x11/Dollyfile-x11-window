@@ -8,7 +8,7 @@ REQUIRES HOST sockets@0
 # the wheel and focus come out as input@0's records, keys named as a browser
 # names them. Godot and PhotoCraft draw their X windows through it. A static
 # library over Xlib: a program links it with -lX11 -lxcb -lXau -ldolly-sockets.
-FROM /v0.1.6/demos/x11/Dollyfile-x11-build 62537a51803060aff6308e3ba9e71b26eef6aaa93692adfb6c4577e39b82dc57
+FROM /v0.1.6/demos/x11/Dollyfile-x11-build 4e05d49c4fbef58af1ce1fe39203aca6e1124f8b7107c24fb66b620bea423dff
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
