@@ -48,8 +48,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === "k
   for (const { name, client, requested } of hostManifests) if (client.length && !requested) console.log(`-ldolly-${name}`);
 } else if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const field = process.argv[2];
-  if (process.argv.length !== 3 || !["contracts", "process", "headers", "kernel", "client", "seed"].includes(field)) {
-    throw new Error("usage: host-modules.mjs contracts|process|headers|kernel|client|seed|packaged|links");
+  if (process.argv.length !== 3 || !["contracts", "process", "headers", "kernel", "client", "seed", "fixtures"].includes(field)) {
+    throw new Error("usage: host-modules.mjs contracts|process|headers|kernel|client|seed|fixtures|packaged|links");
   }
   for (const { name, file } of hostFiles(field)) console.log(field === "client" ? `${name} ${file}` : file);
 }

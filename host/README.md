@@ -36,6 +36,7 @@ a page of the site names those its route uses ([`site.mjs`](../src/site.mjs)).
 | `tools` | Process C a package builds from the module's directory: a program (`stack-wrap`) or a library over the module (http's `libcurl.c`, which the `curl` package builds); optional |
 | `seed` | A script the build runs in the toolchain container that writes `build/process-sysroot-parts/NAME/`, the module's part of the process sysroot, which the seed holds as `NAME/`: threads@0's is the threaded libc `cc -pthread` links, with the module's client; optional |
 | `package` | The package whose recipe installs the module's headers and clients, which the seed then leaves out; absent when the seed holds them |
+| `fixtures` | A Node script the build runs, given the toolchain container's command, once the contracts are assembled: it builds the module's contract fixtures into `build/` for its tests and checks them (dso@0's hosts and libraries); optional |
 | `requested` | `true` on a module whose client defines names of libc's (`sockets`, `pty`): `cc` links it only when a program asks (`-ldolly-NAME`); absent otherwise |
 
 The core (the kernel, the supervisor, the Workers, `boot()` and the registry)

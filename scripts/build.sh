@@ -265,11 +265,8 @@ node scripts/dolly-abi.mjs emit-digest-module \
   dist/dolly-process-abi.mjs \
   DOLLY_PROCESS_ABI_DIGEST
 
-node test/build-dso-fixtures.mjs "${container[@]}"
-node scripts/dolly-abi.mjs stamp-process build/dolly-process-0.wasm \
-  build/process-dso-host.wasm build/process-dso-bad-host.wasm
-node scripts/dolly-abi.mjs validate-process-dso \
-  build/dolly-process-0.wasm build/dolly-dso-0.wasm build/dso-types.wasm
+# Each module's contract fixtures (manifest `fixtures`), which its tests load.
+while read -r fixtures; do node "${fixtures}" "${container[@]}"; done < <(node scripts/host-modules.mjs fixtures)
 
 node scripts/host-modules.mjs kernel-modules > build/generated/dolly-kernel-modules.h.new
 replace_if_changed build/generated/dolly-kernel-modules.h.new build/generated/dolly-kernel-modules.h

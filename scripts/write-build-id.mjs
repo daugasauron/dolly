@@ -3,12 +3,15 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
+import { hostFiles } from "./host-modules.mjs";
 
-export const imageBuildInputs = Object.freeze([
-  "dolly.data", "dolly-process-0.wasm", "dolly-dso-0.wasm",
-  "dolly-kernel-plugin-0.wasm", "dolly-image-0.wasm",
-]);
+// What an image's programs are built for: the seed, the process-side contracts
+// of the modules (the process ABI, dso@0's loadable modules and the others'),
+// and the kernel plugin and image contracts.
+export const imageBuildInputs = Object.freeze(["dolly.data",
+  ...hostFiles("process").map(({ file }) => `${basename(file, ".wat")}.wasm`),
+  "dolly-kernel-plugin-0.wasm", "dolly-image-0.wasm"]);
 
 export async function buildIdentities(wasmPath, dataPath) {
   const directory = dirname(dataPath);

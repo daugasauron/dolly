@@ -12,5 +12,6 @@
   "process": ["dolly-dso-0.wat"],
   "headers": ["dso.h", "dso-abi.h"],
   "kernel": [],
-  "client": ["client.c", "ffi.c"]
+  "client": ["client.c", "ffi.c"],
+  "fixtures": "../../test/build-dso-fixtures.mjs"
 }
