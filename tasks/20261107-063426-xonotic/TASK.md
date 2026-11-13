@@ -24,6 +24,13 @@ screenshots of stormkeep with the image's starting settings show solid, textured
 `gpu@0` (Chrome 156, Vulkan, the NVIDIA adapter) and in the engine's software rasterizer (Chrome
 without a GPU); the page's own screenshots of the `xonotic` route behind its welcome dialog show
 the same. Asked the owner for a screenshot, the map and how they got there.
+Then at each preset that changes the world's drawing (`work/xonotic-repro/out-1113-*`, engine screenshots
+of stormkeep, `PRESET=` in `engine-shots-site.mjs`): high, ultra and ultimate on `gpu@0` (Chrome 156,
+the NVIDIA adapter) and ultra and ultimate in the software rasterizer (Chrome without a GPU) all draw
+solid, textured walls. Neither path can show the page through a wall: the GPU canvas is configured
+`alphaMode: "opaque"` and the display's 2D canvas has no alpha and every frame's alpha set to 255. So
+the owner's frames differ from these in something not yet known (browser profile, flags, a map or a
+menu setting): waiting for the screenshot.
 
 ## State (2026-11-12): the effects presets above high, in any browser
 
