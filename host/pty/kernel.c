@@ -1,4 +1,4 @@
-// pty@0 kernel side: openpty, a pseudo-terminal (src/pty.c) whose two ends
+// pty@0 kernel side: openpty, a pseudo-terminal (kernel/pty.c) whose two ends
 // become descriptors of the process that asks.
 #include "process-kernel.h"
 #include "pty-kernel.h"

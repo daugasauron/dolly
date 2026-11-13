@@ -1,6 +1,6 @@
 import { DOLLY_HOST_RECORD_BYTES as recordBytes, DOLLY_HOST_NAME_BYTES as nameBytes,
   DOLLY_HOST_DIGEST_BYTES as digestBytes, DOLLY_HOST_MAX_RECORDS as maxRecords } from "./abi.mjs";
-import { hex } from "../src/static-asset.mjs";
+import { hex } from "../page/static-asset.mjs";
 
 const pattern = /^([a-z][a-z0-9-]{0,30})@(0|[1-9][0-9]{0,4})$/;
 

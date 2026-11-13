@@ -9,7 +9,7 @@ import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 import { hostManifests } from "../host/manifests.mjs";
 import { DOLLY_NENA_GIVES_BYTES, DOLLY_NENA_REASON_BYTES } from "../host/nena/abi.mjs";
-import { siteReference } from "../src/static-asset.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 test("every image declares its complete host set itself", async () => {
   const root = new URL("../", import.meta.url).pathname;
   const load = createDollyfileGraphLoader(root);
@@ -109,7 +109,7 @@ test("nena@0 alone is given the registry's switches, and no module is switched o
   }
 });
 
-// Operation numbers are one space: module_for() in src/process-kernel.c hands a
+// Operation numbers are one space: module_for() in kernel/process-kernel.c hands a
 // number to the module whose dolly_NAME_kernel range holds it, before the core.
 test("no two contracts claim one process operation number", async () => {
   const text = (path, base = import.meta.url) => readFile(new URL(path, base), "utf8");
@@ -126,7 +126,7 @@ test("no two contracts claim one process operation number", async () => {
     claims.push({ name: `${name}@${first}`, first: abi[first], last: abi[last] });
   }
   // A module served inside the process Worker takes its operations there,
-  // before the kernel sees them (call() in src/process-worker.mjs).
+  // before the kernel sees them (call() in page/process-worker.mjs).
   for (const { name, url, processWorker } of hostManifests) {
     if (!processWorker) continue;
     const { serve } = await import(new URL(processWorker, url));

@@ -6,7 +6,7 @@
  */
 import { DOLLY_PROCESS_ABI_DIGEST } from "../../dist/dolly-process-abi.mjs";
 import { DOLLY_ERRNO } from "./abi.mjs";
-import { parseWasmInterface, Reader } from "../../src/wasm-interface.mjs";
+import { parseWasmInterface, Reader } from "../../page/wasm-interface.mjs";
 import { executableHostRequirements, checkHostAbi } from "../requirements.mjs";
 import { DOLLY_DSO_CLOSE, DOLLY_DSO_ERROR_CAPACITY, DOLLY_DSO_GLOBAL, DOLLY_DSO_LIMIT, DOLLY_DSO_OPEN,
   DOLLY_DSO_SYMBOL, DOLLY_DSO_THREADS_SIZE, DOLLY_DSO_WAIT, DOLLY_FFI_CALL, DOLLY_FFI_CLOSURE_FREE,

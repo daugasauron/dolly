@@ -4,8 +4,8 @@ import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
 import { discoverImageDefinitions } from "./image-definitions.mjs";
 import { imageDescriptions } from "./image-menu.mjs";
 import { runtimes } from "../host/manifests.mjs";
-import { unretainedPath } from "../src/image-names.mjs";
-import { PUBLIC_ORIGIN, siteReference, sitePath } from "../src/static-asset.mjs";
+import { unretainedPath } from "../page/image-names.mjs";
+import { PUBLIC_ORIGIN, siteReference, sitePath } from "../page/static-asset.mjs";
 
 const under = (root, path) => root === "/" || path === root || path.startsWith(`${root}/`);
 

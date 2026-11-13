@@ -572,7 +572,7 @@ static void display_release(int pid, int tid) {
   if (tid == 0) release_display_lease_for_pid(pid);
 }
 
-/* The terminal's output half (src/process-kernel.h). */
+/* The terminal's output half (kernel/process-kernel.h). */
 static const dolly_terminal_output terminal_output = {terminal_attached, terminal_render, terminal_replies};
 
 const dolly_kernel_module dolly_display_kernel = {

@@ -1,6 +1,6 @@
 # Slop and commands
 
-Slop ([`slop.c`](../src/slop.c)) is Dolly's shell: the POSIX shell command
+Slop ([`slop.c`](../programs/slop.c)) is Dolly's shell: the POSIX shell command
 language for scripts and `-c` commands, as far as upstream build scripts and
 agents use it. It is an ordinary process at `/bin/slop`,
 compiled in `system-build` by a `RUN` of the seed's compiler ([`Dollyfile-system-build`](../Dollyfile-system-build))
@@ -164,7 +164,7 @@ that run inside the shell stay serial.
   `-r`/`-w` that the path exists. `ls -l` is the POSIX long format: the fixed modes `stat`
   reports, numeric owner and group (there is no name database) and a `total`
   of the listed sizes in KiB (there are no disk blocks).
-- [`Dollyfile-system-tools`](../Dollyfile-system-tools) (sources in `src/commands/`) adds
+- [`Dollyfile-system-tools`](../Dollyfile-system-tools) (sources in `programs/commands/`) adds
   `command` and `env`, which `exec` the program they name, and `find`, `time`,
   `timeout`, `xargs` (`-P N` runs N commands at once), which run programs
   with Slop's descriptors, as the `git`

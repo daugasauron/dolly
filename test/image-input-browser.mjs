@@ -3,7 +3,7 @@ import { browserTest } from "./browser.mjs";
 import { buildTwice } from "./fixtures/image-build-browser.mjs";
 import { largePublishedInput, LARGE_INPUT_BYTES, LARGE_INPUT_PATH } from "./fixtures/large-published-input.mjs";
 import catalog from "../dist/dolly-images.json" with { type: "json" };
-import { siteReference } from "../src/static-asset.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 import systemMetadata from "../dist/dolly-system-system-snapshot.json" with { type: "json" };
 
 // A build whose input is a published image over 512 MB, as fd's is the 527 MB

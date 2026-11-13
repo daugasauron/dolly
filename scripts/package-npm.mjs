@@ -3,8 +3,8 @@
 //   node scripts/package-npm.mjs OUT [VERSION]
 // VERSION is the checkout's (package.json) or a prerelease of it, such as 0.1.4-rc.0,
 // which npm publishes beside the release without taking its number.
-// - @daugasauron/dolly, the runtime: what boot() (src/browser.mjs), the Worker and
-//   an image build in the page (src/image-builder.mjs) import, the kernel and the
+// - @daugasauron/dolly, the runtime: what boot() (page/browser.mjs), the Worker and
+//   an image build in the page (site/image-builder.mjs) import, the kernel and the
 //   contracts beside them, and the host modules that are the runtime's own machinery.
 // - @daugasauron/dolly-host-NAME, one device host module: its directory, which imports
 //   nothing outside it (host/README.md). download@0's is dolly-host-save: npm refuses a
@@ -27,7 +27,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { discoverImageDefinitions, imageRegistryJson, selectImageDefinitions } from "./image-definitions.mjs";
 import { amyIndex, heldPackages, indexSource, plainText } from "./image-directory.mjs";
 import { imageDescriptions } from "./image-menu.mjs";
-import { siteReference, sitePath } from "../src/static-asset.mjs";
+import { siteReference, sitePath } from "../page/static-asset.mjs";
 import { hostManifests } from "../host/manifests.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
@@ -77,8 +77,8 @@ async function writePackage(directory, files, packageJson, readme) {
   return execFileSync("npm", ["pack", "--silent", "--pack-destination", out], { cwd: directory, encoding: "utf8" }).trim();
 }
 
-const runtimeEntries = ["src/browser.mjs", "host/modules.mjs",
-  "src/image-builder.mjs", "src/image-build.mjs", "host/http/local-services.mjs"];
+const runtimeEntries = ["page/browser.mjs", "host/modules.mjs",
+  "site/image-builder.mjs", "site/image-build.mjs", "host/http/local-services.mjs"];
 for (const name of runtimeModules) {
   const { host } = await manifest(name);
   runtimeEntries.push(`host/${name}/module.json`, `host/${name}/${host}`);
@@ -90,7 +90,7 @@ const runtimeFiles = [...await closure(runtimeEntries), "dist/dolly.wasm", "dist
   "dist/dolly-process-dso.mjs", "dist/dolly-process-stack.mjs", "LICENSE", "coi-serviceworker.js",
   ...["process-gate", "process", "threads", "dso"].map(name => `dist/dolly-${name}-0.wasm`)];
 const tarballs = [await writePackage(join(out, "dolly"), runtimeFiles.map(file => [file, file]), {
-  name: `${scope}/dolly`, license: "MIT", exports: { ".": "./src/browser.mjs" },
+  name: `${scope}/dolly`, license: "MIT", exports: { ".": "./page/browser.mjs" },
   description: "Dolly's runtime: a POSIX-like userspace for wasm64 in a browser tab. Run images with boot().",
 }, await readFile(resolve(projectDir, "docs/embedding.md"), "utf8"))];
 
@@ -160,7 +160,7 @@ async function writeImageDirectory(image) {
       .map(dependency => [dependency, version])),
     description: `Dolly's ${image} ${record.role}: ${plainText(description)}`,
   }, bootable
-    ? `# ${scope}/${name}\n\nDolly's \`${image}\` image, for ${scope}/dolly's \`boot()\`. ${description}\nIt depends on the runtime alone: install it with the runtime and the host modules it\ndeclares, all at version ${version}:\n\n\`\`\`sh\nnpm install ${install}\n\`\`\`\n\n\`\`\`js\nimport { boot } from "./node_modules/${scope}/dolly/src/browser.mjs";\nimport { images, image, modules } from "./node_modules/${scope}/${name}/index.mjs";\nawait boot(document.querySelector("#dolly"), { images, image, modules });\n\`\`\`\n\n` +
+    ? `# ${scope}/${name}\n\nDolly's \`${image}\` image, for ${scope}/dolly's \`boot()\`. ${description}\nIt depends on the runtime alone: install it with the runtime and the host modules it\ndeclares, all at version ${version}:\n\n\`\`\`sh\nnpm install ${install}\n\`\`\`\n\n\`\`\`js\nimport { boot } from "./node_modules/${scope}/dolly/page/browser.mjs";\nimport { images, image, modules } from "./node_modules/${scope}/${name}/index.mjs";\nawait boot(document.querySelector("#dolly"), { images, image, modules });\n\`\`\`\n\n` +
       `\`dolly-build\` (${scope}/dolly's README, "Your own image") builds a recipe of your own on it, with this row:\n\n` +
       `\`\`\`text\nFROM ${siteReference(record.dollyfile)} ${record.sha256}\n\`\`\`\n\n${licensed}`
     : `# ${scope}/${name}\n\nDolly's \`${image}\` package, for an image of your own. ${description}\n\`dolly-build init NAME ${image}\` writes a recipe that \`INSTALL\`s it with Pi's packages\n(${scope}/dolly's README, "Your own image"); npm installs the packages it installs with it.\nInstall it with the runtime, the command and the host modules it declares,\nall at version ${version}:\n\n\`\`\`sh\nnpm install ${install}\n\`\`\`\n\n${licensed}`);

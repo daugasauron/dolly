@@ -1,7 +1,7 @@
-import { parseWasmInterface, appendCustomSection } from "../../src/wasm-interface.mjs";
-import { validateProcessInterface } from "../../src/process-abi.mjs";
+import { parseWasmInterface, appendCustomSection } from "../../page/wasm-interface.mjs";
+import { validateProcessInterface } from "../../page/process-abi.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../../dist/dolly-process-abi.mjs";
-import { DOLLY_ERRNO } from "../../src/process-constants.mjs";
+import { DOLLY_ERRNO } from "../../page/process-constants.mjs";
 
 function check(condition, message) {
   if (!condition) throw new Error(message);
@@ -18,7 +18,7 @@ let gateModule, kernelMemory;
 async function runWorker({ memory, ...configuration }) {
   gateModule ??= await WebAssembly.compile(await dist("dolly-process-gate-0.wasm"));
   kernelMemory ??= new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" });
-  const worker = new Worker(new URL("../../src/process-worker.mjs", import.meta.url), { type: "module" });
+  const worker = new Worker(new URL("../../page/process-worker.mjs", import.meta.url), { type: "module" });
   const channel = new MessageChannel();
   let timer;
   try {

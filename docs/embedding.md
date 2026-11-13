@@ -33,7 +33,7 @@ in `.yarnrc.yml`: Plug'n'Play leaves no files to serve.
 <meta charset="utf-8">
 <main id="dolly" style="position:fixed;inset:0"></main>
 <script type="module">
-  import { boot } from "./node_modules/@daugasauron/dolly/src/browser.mjs";
+  import { boot } from "./node_modules/@daugasauron/dolly/page/browser.mjs";
   import { images, image, modules } from "./node_modules/@daugasauron/dolly-image-default/index.mjs";
   const dolly = await boot(document.querySelector("#dolly"), { images, image, modules });
 </script>
@@ -50,7 +50,7 @@ the page's.
 
 | Option | Meaning |
 | --- | --- |
-| `images` | URL of an image directory: `dist/dolly-images.json`, the images' metadata and packs, their recipes, all data. `@daugasauron/dolly-image-default`'s `index.mjs` exports its own. A page has one image directory, which is also `amy`'s package server unless a session names another (`amy server URL`, [Dollyfile](dollyfile.md)). The packs an image reads stay in the origin's private storage, so it starts again without downloading them (`src/pack-store.mjs`) |
+| `images` | URL of an image directory: `dist/dolly-images.json`, the images' metadata and packs, their recipes, all data. `@daugasauron/dolly-image-default`'s `index.mjs` exports its own. A page has one image directory, which is also `amy`'s package server unless a session names another (`amy server URL`, [Dollyfile](dollyfile.md)). The packs an image reads stay in the origin's private storage, so it starts again without downloading them (`page/pack-store.mjs`) |
 | `image` | The image to run, by name |
 | `modules` | URLs of the `module.json` of each host module the page has. The registry loads these and no other; an image's `REQUIRES HOST` must be among them |
 | `site` | Optional: the URL of a site that serves Dolly's own pages (`session/`, `sessions/`, `docs/`), as Dolly's site does. Given, a saved session names itself in the tab's URL as the site's session route and modules link to those pages |
@@ -220,7 +220,7 @@ npx dolly-build Dollyfile-my-pi my-pi
   declares (`dolly-host-NAME/`), `coi-serviceworker.js` and `image/`, the image's
   directory as an image package lays it out (its catalog, metadata and packs, the
   recipes it was built from, its `amy-index.txt` and an `index.mjs`). The page
-  imports `./dolly/src/browser.mjs` and `./image/index.mjs`. An image this recipe
+  imports `./dolly/page/browser.mjs` and `./image/index.mjs`. An image this recipe
   built on this runtime is kept, so a change to `public/` alone takes seconds.
   `--browser chrome` (the default: your Chrome), `chromium` or `firefox`
   (Playwright's, after `npx playwright-core install chromium` or `firefox`).
@@ -255,7 +255,7 @@ npx dolly-build Dollyfile-my-pi my-pi
   package's README gives the `FROM` row. `FROM` carries the base's files, environment
   and exports but not its host modules or `ENTRY`, so the recipe repeats those (a FILE
   of the project's own script and a SLOP that runs it at build time, for example). `init` writes Pi's project only; the page in `public/` is then one
-  as in "A page" above that imports `./dolly/src/browser.mjs` and `./image/index.mjs`,
+  as in "A page" above that imports `./dolly/page/browser.mjs` and `./image/index.mjs`,
   with the lines of `init`'s `main.mjs` that register `coi-serviceworker.js` for a host
   without the headers.
 - An image is built for the installed versions: after the packages update, the

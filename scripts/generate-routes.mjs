@@ -20,13 +20,13 @@ import { imageDescriptions, menuBody, menuGroup, opens, pageRoutes } from "./ima
 import { bundleProcessWorker } from "./bundle-process-worker.mjs";
 import { renderLicencesPage, upstreamInventory } from "./upstreams.mjs";
 import { amyIndex } from "./image-directory.mjs";
-import { recipeRows } from "../src/dollyfile-view.mjs";
+import { recipeRows } from "../site/dollyfile-view.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 await bundleProcessWorker(projectDir);
 const loadGraph = createDollyfileGraphLoader(projectDir);
 const template = await readFile(resolve(projectDir, "terminal.html"), "utf8");
-// The modules a route imports first (src/route.mjs imports src/site.mjs), as
+// The modules a route imports first (site/route.mjs imports site/site.mjs), as
 // static imports name them: fetched together, not a round trip a level.
 async function moduleGraph(entry) {
   const seen = new Set(), queue = [entry];
@@ -40,7 +40,7 @@ async function moduleGraph(entry) {
   }
   return [...seen];
 }
-const preload = (await moduleGraph("src/site.mjs"))
+const preload = (await moduleGraph("site/site.mjs"))
   .map(path => `<link rel="modulepreload" href="{{DOLLY_BASE}}${path}">`).join("\n    ");
 const definitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
 const primaryImage = definitions.find(({ image }) => image === "default")?.image ??

@@ -104,7 +104,7 @@
   (func $collect (param i32) (result i32) i32.const 0)
   (func $parent (param i32) (result i32) i32.const 0)
   ;; The terminal mailbox, display or not: six atomic little-endian u32 words
-  ;; (src/dolly.c mirrors them). Wasm writes result_sequence (incremented and
+  ;; (kernel/dolly.c mirrors them). Wasm writes result_sequence (incremented and
   ;; notified after each shell result), result_status, foreground_pid and
   ;; foreground_interruptible (the terminal's interrupt character, termios VINTR,
   ;; while it has ISIG set, so that key interrupts the foreground rather than
@@ -117,7 +117,7 @@
   (global (export "DOLLY_TERMINAL_WORD_FOREGROUND_INTERRUPTIBLE") i32 (i32.const 3))
   (global (export "DOLLY_TERMINAL_WORD_INTERRUPT_SEQUENCE") i32 (i32.const 4))
   (global (export "DOLLY_TERMINAL_WORD_INTERRUPT_TARGET_PID") i32 (i32.const 5))
-  ;; A file's bytes lie in blocks of this size (src/file-blocks.cpp kBlockSize).
+  ;; A file's bytes lie in blocks of this size (kernel/file-blocks.cpp kBlockSize).
   (global (export "DOLLY_FS_BLOCK_SIZE") i32 (i32.const 1048576))
   (func $terminal_mailbox_address (result i64) i64.const 0)
 

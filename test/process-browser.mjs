@@ -4,7 +4,7 @@ import { gzipSync } from "node:zlib";
 import { browserTest, runSteps, shellQuote } from "./browser.mjs";
 import processCases from "./cases/process.json" with { type: "json" };
 import { tarArchive } from "./fixtures/tar.mjs";
-import { DOLLY_ERRNO } from "../src/process-constants.mjs";
+import { DOLLY_ERRNO } from "../page/process-constants.mjs";
 
 const scratch = "/tmp/dolly-process-test";
 const fixtures = Object.fromEntries(["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-dispositions.c", "process-interrupt.c", "process-exec.c"]

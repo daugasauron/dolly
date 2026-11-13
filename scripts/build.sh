@@ -144,7 +144,7 @@ process_link_flags=(
   startup_staging="$(mktemp -d build/.process-startup.XXXXXX)"
   trap 'rm -rf -- "${startup_staging}"' EXIT
   "${container[@]}" /emsdk/upstream/emscripten/emcc \
-    "${process_compile_flags[@]}" -c src/process/crt1.c \
+    "${process_compile_flags[@]}" -c process/crt1.c \
     -o "${startup_staging}/crt1.o"
   if ! cmp -s "${startup_staging}/crt1.o" build/process-crt1.o; then
     mv -- "${startup_staging}/crt1.o" build/process-crt1.o
@@ -156,15 +156,15 @@ checked="${emcc} -Wall -Werror"
 libc_internal="${process_libc_internal_flags[*]}"
 emscripten_libc=/emsdk/upstream/emscripten/system/lib
 in_container <<EOF
-${checked} -c src/process/libc-adapter.c -o build/process-libc-adapter.o
-${checked} -c src/process/mmap.c -o build/process-mmap.o
-${checked} -c src/process/time.c -o build/process-time.o
-${checked} -c src/process/poll.c -o build/process-poll.o
-${checked} -c src/process/signal.c -o build/process-signal.o
-${checked} -c src/process/abort.c -o build/process-abort.o
+${checked} -c process/libc-adapter.c -o build/process-libc-adapter.o
+${checked} -c process/mmap.c -o build/process-mmap.o
+${checked} -c process/time.c -o build/process-time.o
+${checked} -c process/poll.c -o build/process-poll.o
+${checked} -c process/signal.c -o build/process-signal.o
+${checked} -c process/abort.c -o build/process-abort.o
 ${emcc} ${libc_internal} -c ${emscripten_libc}/pthread/pthread_self_stub.c -o build/process-pthread-self.o
 ${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/default_attr.c -o build/process-default-attr.o
-${emcc} ${libc_internal} -c src/process/pthread-stubs.c -o build/process-pthread-stub.o
+${emcc} ${libc_internal} -c process/pthread-stubs.c -o build/process-pthread-stub.o
 ${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/pthread_mutexattr_init.c -o build/process-pthread_mutexattr_init.o
 ${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/pthread_mutexattr_settype.c -o build/process-pthread_mutexattr_settype.o
 ${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/pthread_mutexattr_destroy.c -o build/process-pthread_mutexattr_destroy.o
@@ -239,9 +239,9 @@ build_process_cxx() {
 rm -rf -- "${project_dir}/build/process-bin"
 mkdir -p "${project_dir}/build/process-bin" "${project_dir}/build/process-probes"
 
-build_process build/process-probes/process-check src/process/check.c
-build_process_cxx build/process-probes/process-cpp-check src/process/cpp-check.cpp
-build_process build/process-bin/bootstrap src/process/bootstrap.c
+build_process build/process-probes/process-check test/fixtures/process-check.c
+build_process_cxx build/process-probes/process-cpp-check test/fixtures/cpp-check.cpp
+build_process build/process-bin/bootstrap programs/bootstrap.c
 
 # Building the C++ process probe materializes the exact wasm64/native-EH libc++
 # profile. Publish only that closed runtime set for the compiler running inside

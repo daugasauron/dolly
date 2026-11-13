@@ -1,9 +1,9 @@
-import { DOLLY_IMAGES, imageBase, imageDefinition } from "./images.mjs";
+import { DOLLY_IMAGES, imageBase, imageDefinition } from "../page/images.mjs";
 import { loadRecipeGraph } from "./dollyfile-graph.mjs";
-import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
+import { imageInputs, imageInputsMatch } from "../page/image-inputs.mjs";
 import { describeImageArtifact, loadImageArtifactDescriptor, loadImageArtifact, saveImageArtifact } from "./image-artifact.mjs";
-import { loadPackagedSnapshotMetadata, packagedSystemSnapshot } from "./packaged-snapshot.mjs";
-import { siteReference, sitePath } from "./static-asset.mjs";
+import { loadPackagedSnapshotMetadata, packagedSystemSnapshot } from "../page/packaged-snapshot.mjs";
+import { siteReference, sitePath } from "../page/static-asset.mjs";
 
 
 // A custom recipe builds from this release's published recipes and sources.

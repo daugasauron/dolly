@@ -1,4 +1,4 @@
-// nena@0 kernel side: a device leased per process (src/device-lease.c). The
+// nena@0 kernel side: a device leased per process (kernel/device-lease.c). The
 // page answers every packet; nothing about a session's modules is kept here.
 #include "device-lease.h"
 #include "process-kernel.h"

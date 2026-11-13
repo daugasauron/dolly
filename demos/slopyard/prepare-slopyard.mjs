@@ -3,7 +3,7 @@ import {execFileSync} from "node:child_process";
 import {readFile,writeFile} from "node:fs/promises";
 import {createHash} from "node:crypto";
 import {resolve} from "node:path";
-import {siteReference} from "../../src/static-asset.mjs";
+import {siteReference} from "../../page/static-asset.mjs";
 const root=resolve(import.meta.dirname, "../..");
 const output=process.argv[2]??resolve(root,"dist/static/slopyard/source.tar");
 execFileSync(process.execPath,[resolve(root,"scripts/build-source-tar.mjs"),output,

@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdtemp, rm } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { resolve, relative } from "node:path";
-import { appendCustomSection } from "../src/wasm-interface.mjs";
+import { appendCustomSection } from "../page/wasm-interface.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
 
 // The build passes its pinned container command; one launch assembles every

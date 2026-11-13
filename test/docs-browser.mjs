@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { browserTest, composed } from "./browser.mjs";
-import { inspectDollyfile } from "../src/dollyfile-view.mjs";
+import { inspectDollyfile } from "../site/dollyfile-view.mjs";
 
 const { sources } = inspectDollyfile(await readFile(new URL("../Dollyfile-dolly-docs", import.meta.url), "utf8"), "Dollyfile-dolly-docs");
 await browserTest("docs", {}, async ({ open }) => {

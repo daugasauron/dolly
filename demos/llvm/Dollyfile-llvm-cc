@@ -12,8 +12,8 @@ REQUIRES HOST threads@0
 # the seed compiler and installed in its place: this image's cc is built by Dolly.
 # The archives come by COPY, so the rest of LLVM that llvm-build installed for
 # the llvm package stays out of this image.
-FROM /v0.1.6/demos/llvm/Dollyfile-llvm-tablegen e8ff1406891fee49f40184fd13147cb4228b32d53b20b09cca0413aa12ab0028
-COPY /v0.1.6/demos/llvm/Dollyfile-llvm-build 027faddcbca33f0341499db98457455ef9f4a5c145879484f2ceb3ea2f0b8ac9 /usr/lib/llvm-build /usr/lib/llvm-build
+FROM /v0.1.6/demos/llvm/Dollyfile-llvm-tablegen 78c3652d0763138ee8d986d7c770c45d02fdbd545484807d893c45ee46827301
+COPY /v0.1.6/demos/llvm/Dollyfile-llvm-build 6ff11ae5a3dfa7fdf2b6489306638d4b3bbcd5a0b2dcda4fcb4082b71a30c77b /usr/lib/llvm-build /usr/lib/llvm-build
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL gzip
@@ -31,7 +31,7 @@ REQUIRES TOOL rm
 SOURCE /v0.1.6/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
 SLOP slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
-# The driver the seed compiler is (src/compiler.cpp), with the two contract
+# The driver the seed compiler is (programs/compiler.cpp), with the two contract
 # digests the runtime build generates.
 SOURCE /v0.1.6/dist/static/llvm/compiler.cpp bdc2af6d9555b2411e2037421904d7126e824816495e6640148e5df58296dcfb /tmp/dolly-compiler/compiler.cpp
 SOURCE /v0.1.6/dist/static/llvm/compiler-main.c 104ebf5d2862d51f9a67d4e7dd6a71e0f5beb1898310f74d6b331e9f154a2f8c /tmp/dolly-compiler/compiler-main.c

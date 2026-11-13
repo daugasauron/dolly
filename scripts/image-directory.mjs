@@ -1,10 +1,10 @@
 import { sha256 } from "./sha256.mjs";
 import { recipeRecords } from "./dollyfile-graph.mjs";
-import { alphabetical } from "../src/alphabetical.mjs";
-import { siteReference } from "../src/static-asset.mjs";
-import { recipesDigest } from "../src/image-inputs.mjs";
+import { alphabetical } from "../site/alphabetical.mjs";
+import { siteReference } from "../page/static-asset.mjs";
+import { recipesDigest } from "../page/image-inputs.mjs";
 
-// The generated files of an image directory (src/images.mjs): its catalog,
+// The generated files of an image directory (page/images.mjs): its catalog,
 // dist/dolly-images.json, each image's metadata, dist/dolly-IMAGE-system-snapshot.json,
 // its package index amy-index.txt, and the index.mjs of a directory boot() loads.
 // The catalog's build, the npm packages and dolly-build (an npm user's image)

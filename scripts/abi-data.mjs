@@ -12,7 +12,7 @@ const digest = module => Object.entries(module).find(([name]) => name.endsWith("
 const imported = path => import(new URL(path, import.meta.url));
 
 export async function abiData() {
-  const process = await imported("../src/process-constants.mjs");
+  const process = await imported("../page/process-constants.mjs");
   return {
     process: {
       digest: (await imported("../dist/dolly-process-abi.mjs")).DOLLY_PROCESS_ABI_DIGEST,

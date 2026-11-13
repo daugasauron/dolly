@@ -3,7 +3,7 @@
 // (abi/dolly-image-0.wat) holding every file under each SOURCE at its PATH.
 // usage: pack-seed.mjs OUTPUT SOURCE@PATH...
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
-import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
+import { encodeSnapshotRecords } from "../page/snapshot-records.mjs";
 
 const [output, ...mappings] = process.argv.slice(2);
 if (!output || !mappings.length) throw new Error("usage: pack-seed.mjs OUTPUT SOURCE@PATH...");

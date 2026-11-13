@@ -1,8 +1,8 @@
 import { DOLLY_SESSION_MAX_BYTES, DOLLY_SESSION_METADATA_MAX_BYTES as metadataLimit,
   validateSessionRecord } from "./session-store.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
-import { sha256 } from "./static-asset.mjs";
-import { DOLLY_VERSION } from "./version.mjs";
+import { sha256 } from "../page/static-asset.mjs";
+import { DOLLY_VERSION } from "../page/version.mjs";
 
 const magic = new TextEncoder().encode("DOLLYSF1");
 const headerSize = magic.length + 4;

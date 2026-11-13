@@ -2,8 +2,8 @@
 // Assembles the directory one Cloudflare Pages deployment uploads: every
 // published version from the archive, the new version exported from its sealed
 // release, and the root files. Nothing is uploaded here.
-import { MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
-import { PARTS_MANIFEST_START, STATIC_PART_BYTES, staticMaxParts } from "../src/static-asset.mjs";
+import { MAX_SNAPSHOT_BYTES } from "../page/snapshot-records.mjs";
+import { PARTS_MANIFEST_START, STATIC_PART_BYTES, staticMaxParts } from "../page/static-asset.mjs";
 
 import { link, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve, sep } from "node:path";
@@ -156,7 +156,7 @@ export async function exportCloudflarePages(archive, output, site) {
       versions.set(name, paths);
     }
     if (site) {
-      const name = releaseVersion(await readFile(resolve(site, "src/version.mjs"), "utf8"));
+      const name = releaseVersion(await readFile(resolve(site, "page/version.mjs"), "utf8"));
       if (versions.has(name)) throw new Error(`${name} is already published, and a published version never changes`);
       versions.set(name, await exportVersion(site, resolve(destination, name)));
     }

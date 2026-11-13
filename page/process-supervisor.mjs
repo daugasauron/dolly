@@ -29,7 +29,7 @@ const interruptedSystemCall = -BigInt(DOLLY_ERRNO.EINTR);
 const processWorkerLimit = 56;
 const processMemoryBudgetBytes = 4 * 1024 * 1024 * 1024;
 // A spawn the count refuses waits as long as a Worker asks again for a memory
-// Chromium cannot reserve yet (src/process-worker.mjs), like any blocking
+// Chromium cannot reserve yet (page/process-worker.mjs), like any blocking
 // call, asked again whenever a process ends and at each service tick; then it
 // fails EAGAIN, a full process table's answer. A spawn the budget refuses
 // waits until a process ends, however long: make and Cargo end a build at a
@@ -229,7 +229,7 @@ export class DollyProcessSupervisor {
       // stack of its own. Chrome's holds about 950 KB where a Worker's holds
       // 500 KB, which Clang needs: an executable asks for it with a
       // dolly.process.stack section, and only the compiler carries one
-      // (src/process/compiler-main.c). Every other program is entered
+      // (programs/compiler-main.c). Every other program is entered
       // directly: a Codex build crashed Chrome's tab twice on that stack,
       // and Firefox 155 reports every
       // Worker terminated inside such a call as an uncaught exception that no
@@ -626,7 +626,7 @@ export class DollyProcessSupervisor {
       : new Worker(this.workerUrl, { type: "module", name });
     if (!worker) throw new Error("thread Worker capacity exhausted");
     // Words: the call sequence, the answered sequence, the result's two
-    // halves, the copy word (src/process-worker.mjs copyRequest) and a
+    // halves, the copy word (page/process-worker.mjs copyRequest) and a
     // thread's start word (#disposeThread).
     const control = new SharedArrayBuffer(32);
     thread.mailbox = Number(this.kernel.malloc(BigInt(packetLimit)));
@@ -641,7 +641,7 @@ export class DollyProcessSupervisor {
     thread.control = new Int32Array(control);
     thread.messageHandler = event => this.#message(process, event.data, thread);
     // Cancelled, or the browser reports the Worker's uncaught error again in
-    // this Worker, whose end it would be (src/browser.mjs).
+    // this Worker, whose end it would be (page/browser.mjs).
     thread.errorHandler = event => { event.preventDefault(); this.#fail(process, new Error(event.message || `${name} failed`)); };
     thread.messageErrorHandler = () => this.#fail(process, new Error(`${name} message could not be decoded`));
     worker.addEventListener("message", thread.messageHandler);
@@ -717,14 +717,14 @@ export class DollyProcessSupervisor {
       return;
     }
     // The size the budget counts: a threaded process keeps the one it reported
-    // before its memory took its maximum (src/process-worker.mjs).
+    // before its memory took its maximum (page/process-worker.mjs).
     if (!(process.threaded && message.memoryBytes >= process.maximumBytes)) process.memoryBytes = message.memoryBytes;
     let result;
     let threadArgument;
     let portTaken = false;
     try {
       // A deferred call is retried against the request still in the mailbox:
-      // a handler that defers has written nothing (src/process-kernel.h).
+      // a handler that defers has written nothing (kernel/process-kernel.h).
       const mailbox = () => new DataView(this.kernelMemory.buffer, thread.mailbox, 8);
       if (spawnsThread && message.requestSize === 8)
         threadArgument = mailbox().getBigUint64(0, true);
@@ -935,7 +935,7 @@ export class DollyProcessSupervisor {
       // Chrome keeps what was posted to a Worker terminated before it runs, the
       // memory a thread's Worker is sent among it, until this Worker collects
       // garbage. One that has not started (control word 5 still 0) is told so
-      // and ends itself (src/process-worker.mjs processMemory).
+      // and ends itself (page/process-worker.mjs processMemory).
       const unstarted = thread !== process && Atomics.compareExchange(thread.control, 5, 0, 2) === 0;
       if (unstarted) Atomics.notify(thread.control, 5);
       // threads@0 disabled since has already terminated its Workers.
@@ -943,7 +943,7 @@ export class DollyProcessSupervisor {
       else thread.worker.terminate();
     }
     // The Worker copies a request into its mailbox under control word 4
-    // (src/process-worker.mjs copyRequest); sealed, it copies no more, and the
+    // (page/process-worker.mjs copyRequest); sealed, it copies no more, and the
     // mailbox goes back to the kernel. Termination has no completion event: a
     // Worker ended inside a copy finishes it first.
     if (thread.mailbox) {

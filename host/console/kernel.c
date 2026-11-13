@@ -1,6 +1,6 @@
 // console@0 kernel side: the standard streams of a root process the host
 // starts (dolly-console-0.wat). A terminal console is a pseudo-terminal
-// (src/pty.c) whose master end the host holds in place of a process;
+// (kernel/pty.c) whose master end the host holds in place of a process;
 // its slave becomes descriptors 0, 1 and 2. A pipe console is three pipes:
 // the host writes the one that is descriptor 0 and reads descriptors 1 and 2.
 #include "process-kernel.h"

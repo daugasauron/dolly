@@ -1,6 +1,6 @@
 import { HttpError, isDollyCredentialHeader, stripDollyBrowserOwnedHeaders } from "./policy.mjs";
 import { DOLLY_ERRNO as errno } from "./abi.mjs";
-import { decodeStaticAsset, sitePath } from "../../src/static-asset.mjs";
+import { decodeStaticAsset, sitePath } from "../../page/static-asset.mjs";
 import { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_CHUNK_CAPACITY, DOLLY_HTTP_MAX_METHOD, DOLLY_HTTP_MAX_URL,
   DOLLY_HTTP_MAX_HEADERS, DOLLY_HTTP_MAX_BODY, DOLLY_HTTP_HEADER_SIZE, DOLLY_HTTP_WORD_SEQUENCE,
   DOLLY_HTTP_WORD_STATUS, DOLLY_HTTP_WORD_LENGTH, DOLLY_HTTP_WORD_EOF, DOLLY_HTTP_WORD_ERROR,

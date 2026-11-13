@@ -622,7 +622,7 @@ bool run_clang(const std::string &source, const std::string &language,
     arguments.insert(arguments.end(), {"-source-date-epoch", epoch});
   }
   // A kernel plugin is the sole resident dynamic object: its assertions reach
-  // the kernel's own reporter (dolly_assert_fail, src/dolly.c), not a process
+  // the kernel's own reporter (dolly_assert_fail, kernel/dolly.c), not a process
   // runtime's __assert_fail; ordinary output targets the private process
   // runtime and its process-local dynamic namespace.
   if (options.kernel_plugin) {

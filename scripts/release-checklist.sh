@@ -83,6 +83,6 @@ cat <<COMMANDS
    node scripts/published-version.mjs boot https://slopshare.dev ${versions}
    node scripts/published-version.mjs boot https://daugasauron.com ${versions}
 8  mv ${deployment}/${version} ${archive}/ && rm -rf ${deployment}
-   then move package.json and src/version.mjs to the next version
+   then move package.json and page/version.mjs to the next version
    ${version}'s list, for the release notes: $(sha256sum "${deployment}/${version}/deployment.sha256" | cut -d' ' -f1)
 COMMANDS

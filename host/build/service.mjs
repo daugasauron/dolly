@@ -1,4 +1,4 @@
-import { inspectDollyfile, MAX_DOLLYFILE_BYTES } from "../../src/dollyfile-view.mjs";
+import { inspectDollyfile, MAX_DOLLYFILE_BYTES } from "../../site/dollyfile-view.mjs";
 
 export const BUILD_ORIGIN = "https://build.dolly.invalid";
 export const BUILD_LIMITS = Object.freeze({

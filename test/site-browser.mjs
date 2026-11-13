@@ -5,10 +5,10 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import catalog from "../dist/dolly-images.json" with { type: "json" };
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
-import { DOLLY_VERSION } from "../src/version.mjs";
+import { DOLLY_VERSION } from "../page/version.mjs";
 import { browserTest } from "./browser.mjs";
-import { alphabetical } from "../src/alphabetical.mjs";
-import { siteReference } from "../src/static-asset.mjs";
+import { alphabetical } from "../site/alphabetical.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 
 const root = new URL("..", import.meta.url).pathname;
 // Two versions on one origin, as a deployment carries them: each under its own
@@ -30,7 +30,7 @@ async function handle(request, response, path, headers) {
     return true;
   }
   prefixed.push(path);
-  if (path === `${other}/src/version.mjs`) {
+  if (path === `${other}/page/version.mjs`) {
     response.writeHead(200, { "cache-control": "no-store", "content-type": "text/javascript" }).end('export const DOLLY_VERSION = "0.0.0";\n');
     return true;
   }

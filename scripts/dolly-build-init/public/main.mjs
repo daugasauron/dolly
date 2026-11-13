@@ -9,7 +9,7 @@ if (!crossOriginIsolated && navigator.serviceWorker && !sessionStorage.getItem("
   await new Promise(() => {});
 }
 sessionStorage.removeItem("dolly-isolation-retry");
-const { boot } = await import("./dolly/src/browser.mjs");
+const { boot } = await import("./dolly/page/browser.mjs");
 const { images, image, modules } = await import("./image/index.mjs");
 
 // The hosts the agent may reach, and nothing else: the model's provider here,

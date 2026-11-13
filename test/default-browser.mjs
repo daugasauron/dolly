@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { browserTest, composed, runSteps } from "./browser.mjs";
-import { inspectDollyfile } from "../src/dollyfile-view.mjs";
+import { inspectDollyfile } from "../site/dollyfile-view.mjs";
 import defaultCases from "./cases/default.json" with { type: "json" };
 import ccCases from "./cases/cc-package.json" with { type: "json" };
 import zigCases from "./cases/zig-package.json" with { type: "json" };

@@ -20,7 +20,7 @@
 import assert from "node:assert/strict";
 import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "./browser-server.mjs";
-import { siteReference } from "../src/static-asset.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 
 const projectDir = new URL("..", import.meta.url).pathname;
 export const shellQuote = value => `'${String(value).replaceAll("'", "'\\''")}'`;

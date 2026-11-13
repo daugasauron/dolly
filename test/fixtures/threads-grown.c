@@ -1,5 +1,5 @@
 /* A process's memory takes its maximum before a second thread starts
- * (src/process-supervisor.mjs): Chrome checks memory.fill against each
+ * (page/process-supervisor.mjs): Chrome checks memory.fill against each
  * thread's own record of the size, which another thread's growth updates
  * late. Here the thread that started the second fills the last page of the
  * maximum (8 GiB, cc's) at once, then grows the memory and hands each new page

@@ -3,12 +3,12 @@ import { readFile, mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { parseWasmInterface, appendCustomSection } from "../src/wasm-interface.mjs";
-import { validateProcessInterface } from "../src/process-abi.mjs";
+import { parseWasmInterface, appendCustomSection } from "../page/wasm-interface.mjs";
+import { validateProcessInterface } from "../page/process-abi.mjs";
 import { validateDsoInterface, validateDsoHost, requireDsoType } from "../host/dso/interface.mjs";
 import { validateProcess, validateProcessDso } from "../scripts/dolly-abi.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
-import { DOLLY_ERRNO } from "../src/process-constants.mjs";
+import { DOLLY_ERRNO } from "../page/process-constants.mjs";
 import { abiData } from "../scripts/abi-data.mjs";
 
 const fixture = name => new URL(`../build/process-${name}.wasm`, import.meta.url);

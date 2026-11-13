@@ -7,7 +7,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { updateRecipePins } from "../scripts/update-recipe-pins.mjs";
-import { siteReference } from "../src/static-asset.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 
 for (const extension of ["tar", "tar.gz"]) test(`${extension} source archives are deterministic, complete under short writes, and own their staging`, async t => {
   const scratch = await mkdtemp(join(tmpdir(), "dolly-source-tar-"));

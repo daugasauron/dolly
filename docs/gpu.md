@@ -69,7 +69,7 @@ with the name the browser gives, `Software adapter, not a GPU` for a fallback
 adapter, SwiftShader or llvmpipe, or `No GPU` with the reason and a link
 here, followed by whether the adapter has `shader-f16`. Guest frames cannot
 cover it, and it takes no clicks except on that link. Like the page's other
-indicators ([`page-indicators.mjs`](../src/page-indicators.mjs)) it shows for
+indicators ([`page-indicators.mjs`](../page/page-indicators.mjs)) it shows for
 ten seconds once the page is ready and again when the adapter state changes,
 `No GPU` stays, and `Ctrl+Shift+F` shows or hides it; no program can. A
 session without the module has no such indicator: `nena disable gpu` removes

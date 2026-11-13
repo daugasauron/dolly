@@ -1,8 +1,8 @@
 # Dollyfile 7
 
 A Dollyfile is an ordered recipe that `/bin/dollyfile`
-([`dollyfile.c`](../src/dollyfile.c)) executes inside Wasm to build an image.
-The page reads the recipe ([`dollyfile-view.mjs`](../src/dollyfile-view.mjs),
+([`dollyfile.c`](../programs/dollyfile.c)) executes inside Wasm to build an image.
+The page reads the recipe ([`dollyfile-view.mjs`](../site/dollyfile-view.mjs),
 the language's one parser) and gives the engine its rows, the words of each
 line, in `/etc/dolly/recipe.rows`: the engine parses no recipe text. The rows
 are the engine's input contract: NUL-terminated fields, first `DOLLY 7` and
@@ -48,7 +48,7 @@ ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
 
 Recipes name every image and file they read with its SHA-256. A file the
 site publishes is a site path, `/vX.Y.Z/PATH`: the site's version
-([`version.mjs`](../src/version.mjs), `package.json`), then the file's
+([`version.mjs`](../page/version.mjs), `package.json`), then the file's
 checkout path. Core recipes are at the top level, demo recipes in
 `demos/DEMO/` ([`recipe-files.mjs`](../scripts/recipe-files.mjs)), headers in
 `include/dolly/` and `host/MODULE/`, prepared sources in `dist/static/`. No
@@ -349,7 +349,7 @@ EXPORTS TOOL rg
   `` - `NAME`: … `` line of each README, the one description an image has
   (a recipe directive would put prose under the pin: editing a sentence would
   change the image's identity and rebuild what depends on it).
-- `amy` ([`amy.c`](../src/commands/amy.c)) takes packages from one server, an
+- `amy` ([`amy.c`](../programs/commands/amy.c)) takes packages from one server, an
   image directory: the one the page loads its images from (boot()'s `images`,
   the site for its own pages; a host names its own), which `packages@0` gives,
   unless `amy server URL` names another for the session in
@@ -407,7 +407,7 @@ flowchart TD
 ```
 
 - A root build (no `FROM`) loads the compiler seed and compiles
-  `/bin/dollyfile` first ([`bootstrap.c`](../src/process/bootstrap.c)); the
+  `/bin/dollyfile` first ([`bootstrap.c`](../programs/bootstrap.c)); the
   recipe builds everything else, Slop included. Other builds restore their
   base image.
 - Every image is cached. A cache identity is the image build ID, the recipe

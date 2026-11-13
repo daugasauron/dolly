@@ -1,7 +1,7 @@
 # Deployment
 
 Dolly deploys as static files: no server code, Functions or proxy. A release is
-a version `X.Y.Z` ([`version.mjs`](../src/version.mjs), equal to
+a version `X.Y.Z` ([`version.mjs`](../page/version.mjs), equal to
 `package.json`): the git tag `vX.Y.Z`, the GitHub release of that name and the
 site path `/vX.Y.Z/`. The Cloudflare Pages project `dolly` keeps every
 published version and serves one deployment at both of its domains,
@@ -156,7 +156,7 @@ pushes, uploads or deploys.
    `published-version.mjs verify SITE OUT vX.Y.Z` (every file of the new
    version, and every older version's list).
 8. Move the new version's directory from `OUT` into the archive; move
-   `package.json` and `src/version.mjs` to the next version.
+   `package.json` and `page/version.mjs` to the next version.
 
 ## Delivery contract
 
@@ -191,7 +191,7 @@ pushes, uploads or deploys.
 - The Cloudflare exporter splits oversized sources, packs and the compiler seed
   `dist/dolly.data` into verified 20 MiB parts, listed by a manifest at the
   file's path that the page knows by its first bytes
-  ([`static-asset.mjs`](../src/static-asset.mjs)), and Brotli-compresses large
+  ([`static-asset.mjs`](../page/static-asset.mjs)), and Brotli-compresses large
   downloads as `application/octet-stream`: the tested Pages runtime overwrites
   the encoding of Wasm MIME types. Do not substitute Workers Static Assets; its
   tested encoding behavior differs. Runtime JavaScript and Wasm are never

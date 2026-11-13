@@ -9,7 +9,7 @@ import { hostManifests } from "../host/manifests.mjs";
 // of an executable recording the module imports.
 export async function bundleProcessWorker(projectDir = resolve(import.meta.dirname, "..")) {
   const modules = hostManifests.filter(manifest => manifest.processWorker);
-  for (const [name, entry] of [["worker", "src/process-worker.mjs"],
+  for (const [name, entry] of [["worker", "page/process-worker.mjs"],
     ...modules.map(manifest => [manifest.name, `host/${manifest.name}/${manifest.processWorker}`])]) {
     const outfile = resolve(projectDir, `dist/dolly-process-${name}.mjs`);
     const result = await build({
@@ -29,10 +29,10 @@ export async function bundleProcessWorker(projectDir = resolve(import.meta.dirna
   // dist/dolly-runtime-worker.mjs: the runtime Worker's code in one file, fetched at once, not an
   // import level a round trip. The providers it imports by their manifests stay files of their own,
   // and so do the build's generated modules (the image build ID among them), which a later step of
-  // the build writes: from dist/ their ../dist/ paths name the same files as from src/.
+  // the build writes: from dist/ their ../dist/ paths name the same files as from page/.
   const runtime = resolve(projectDir, "dist/dolly-runtime-worker.mjs");
   const bundled = await build({
-    entryPoints: ["src/runtime-worker.mjs"], absWorkingDir: projectDir, write: false, external: ["../dist/*"],
+    entryPoints: ["page/runtime-worker.mjs"], absWorkingDir: projectDir, write: false, external: ["../dist/*"],
     // esnext keeps the JSON imports' attributes, which es2022 has not.
     bundle: true, platform: "browser", format: "esm", target: "esnext",
   });

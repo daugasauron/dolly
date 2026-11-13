@@ -15,7 +15,7 @@ export async function runClassiCubeMultiplayer({page, modelsFile, projectDir}) {
   };
   const probe = () => page.evaluate(async()=>{
     await __dolly.saveSession('multiplayer-probe');
-    const url=performance.getEntriesByType('resource').find(e=>e.name.endsWith('/src/browser.mjs')).name;
+    const url=performance.getEntriesByType('resource').find(e=>e.name.endsWith('/page/browser.mjs')).name;
     const store=await import(new URL('session-store.mjs',url));
     const buffer=(await store.decodeSessionSnapshot((await store.loadStoredSession('multiplayer-probe')).bytes)).slice(0);
     await store.deleteStoredSession('multiplayer-probe');

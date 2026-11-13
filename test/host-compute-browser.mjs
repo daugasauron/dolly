@@ -15,7 +15,7 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
     // The page's own published files through the HTTP broker, as builds use them.
     globalThis.headlessNetwork = async () => {
       // This page is an embedding of its own: its images are the site's.
-      const images = await import("/src/images.mjs");
+      const images = await import("/page/images.mjs");
       await images.loadImages(new URL("/", location.href));
       const { DollyHttpPolicy } = await import("/host/http/policy.mjs");
       const { localServicesTransport } = await import("/host/http/local-services.mjs");
@@ -29,12 +29,12 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       const registry = await hostRegistry(modules.map(value =>
         new URL(`/host/${value.split("@")[0]}/module.json`, location.href).href));
       let worker;
-      const { holdIndicators, showIndicators } = await import("/src/page-indicators.mjs");
+      const { holdIndicators, showIndicators } = await import("/page/page-indicators.mjs");
       const host = await registry.createHost("browser", modules, { send: message => worker.postMessage(message),
         resources: { applicationBase: new URL("/", location.href), indicators: { hold: holdIndicators, show: showIndicators } },
         configuration: { http: { network: await headlessNetwork() } } });
       try {
-        worker = new Worker("/src/build-worker.mjs", { type: "module" });
+        worker = new Worker("/site/build-worker.mjs", { type: "module" });
         const exited = new Promise((resolve, reject) => {
           worker.onerror = event => reject(Error(event.message));
           worker.onmessage = ({ data: message }) => {
@@ -55,10 +55,10 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
     // artifact and configuration.
     globalThis.buildCustom = async (name, rows, packages = []) => {
       const { default: catalog } = await import("/dist/dolly-images.json", { with: { type: "json" } });
-      const { buildImage } = await import("/src/image-builder.mjs");
+      const { buildImage } = await import("/site/image-builder.mjs");
       const { hostModuleUrls: modules } = await import("/host/manifests.mjs");
-      const { prepareImageArtifacts } = await import("/src/image-build.mjs");
-      const { siteReference } = await import("/src/static-asset.mjs");
+      const { prepareImageArtifacts } = await import("/site/image-build.mjs");
+      const { siteReference } = await import("/page/static-asset.mjs");
       const builders = { http: { network: await headlessNetwork() } };
       const base = catalog.images.find(d => d.image === "system-build");
       const hosts = rows.match(/^(?:REQUIRES HOST [^\n]*\n)*/)[0];

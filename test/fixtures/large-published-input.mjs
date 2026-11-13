@@ -6,7 +6,7 @@ import { sha256 as digest } from "../../scripts/sha256.mjs";
 import { readFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 import { metadataJson } from "../../scripts/image-directory.mjs";
-import { decodeSnapshotRecords, encodeSnapshotRecords } from "../../src/snapshot-records.mjs";
+import { decodeSnapshotRecords, encodeSnapshotRecords } from "../../page/snapshot-records.mjs";
 
 export const LARGE_INPUT_PATH = "/usr/share/large-input";
 export const LARGE_INPUT_BYTES = 520 * 1024 * 1024;

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { browserTest, shellQuote } from "./browser.mjs";
 import cases from "./cases/slop.json" with { type: "json" };
 
-// The shipped /bin/slop against the cases test/slop.test.mjs runs on src/slop.c natively.
+// The shipped /bin/slop against the cases test/slop.test.mjs runs on programs/slop.c natively.
 await browserTest("slop", { image: "system" }, async ({ open }) => {
   const { page, submit } = await open();
   // Ctrl+C stops a loop of builtins, which makes no system call, and the

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { worker } from "../host/microphone/microphone.mjs";
-import { DOLLY_ERRNO as E } from "../src/process-constants.mjs";
+import { DOLLY_ERRNO as E } from "../page/process-constants.mjs";
 import { createLeaseBridge } from "../host/runtime/lease-bridge.mjs";
 import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";

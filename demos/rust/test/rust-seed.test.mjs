@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { stageRustSeed } from "../prepare-rust-seed.mjs";
-import { siteReference } from "../../../src/static-asset.mjs";
+import { siteReference } from "../../../page/static-asset.mjs";
 
 test("seed staging verifies completed or pinned bytes and preserves previous files on failure", async t => {
   const project = await mkdtemp(join(tmpdir(), "dolly-seed-stage-"));

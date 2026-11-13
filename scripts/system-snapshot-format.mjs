@@ -1,8 +1,8 @@
 import { Buffer } from "node:buffer";
-import { parseWasmInterface } from "../src/wasm-interface.mjs";
-import { validateProcessInterface } from "../src/process-abi.mjs";
-import { decodeImageEntry } from "../src/image-entry.mjs";
-import { decodeSnapshotRecords } from "../src/snapshot-records.mjs";
+import { parseWasmInterface } from "../page/wasm-interface.mjs";
+import { validateProcessInterface } from "../page/process-abi.mjs";
+import { decodeImageEntry } from "../page/image-entry.mjs";
+import { decodeSnapshotRecords } from "../page/snapshot-records.mjs";
 
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 

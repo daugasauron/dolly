@@ -1,6 +1,6 @@
-import { DollyProcessSupervisor } from "../../src/process-supervisor.mjs";
+import { DollyProcessSupervisor } from "../../page/process-supervisor.mjs";
 import { createLeaseBridge } from "./lease-bridge.mjs";
-import { instantiateKernelPlugin } from "../../src/kernel-plugin.mjs";
+import { instantiateKernelPlugin } from "../../page/kernel-plugin.mjs";
 import { DOLLY_ERRNO as E } from "./abi.mjs";
 import { DOLLY_TERMINAL_WORD_RESULT_SEQUENCE, DOLLY_TERMINAL_WORD_RESULT_STATUS, DOLLY_TERMINAL_WORD_FOREGROUND_PID,
   DOLLY_TERMINAL_WORD_FOREGROUND_INTERRUPTIBLE, DOLLY_TERMINAL_WORD_INTERRUPT_SEQUENCE,
@@ -219,7 +219,7 @@ export function worker({ send, runtimeBase, abi, service }) {
     },
     // A resident library linked into the kernel (--dolly-kernel-plugin), such as the display's.
     kernelPlugin(bytes, kernel) { return instantiateKernelPlugin(bytes, kernel, memory); },
-    // The Worker side of a device a module leases per process (src/device-lease.c).
+    // The Worker side of a device a module leases per process (kernel/device-lease.c).
     leaseBridge(lease, mailbox, send) {
       return createLeaseBridge(lease, memory, mailbox, send, () => supervisor?.serviceDeferred());
     },

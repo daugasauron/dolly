@@ -13,7 +13,7 @@ const failed = text => {
 if (crossOriginIsolated) {
   sessionStorage.removeItem("dolly-isolation-retry");
   // The site is an embedding: its route names the host modules it uses
-  // (src/site.mjs), a test may name fewer before the page loads, and the
+  // (site/site.mjs), a test may name fewer before the page loads, and the
   // test's settings are taken once.
   const { image, mode, loadSession } = terminal.dataset;
   const route = { image, mode, loadSession: loadSession === "true" };

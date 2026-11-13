@@ -137,7 +137,7 @@ for (const [, name, expression] of header.matchAll(
 }
 constants.delete("UINT32_MAX");
 if (!constants.has("DOLLY_PROCESS_PACKET_LIMIT")) throw new Error("process.h has no packet contract");
-await write("src/process-constants.mjs", "// Generated from include/dolly/process.h.\n" +
+await write("page/process-constants.mjs", "// Generated from include/dolly/process.h.\n" +
   [...constants].map(([name, value]) => `export const ${name} = ${value};\n`).join("") +
   "export const DOLLY_ERRNO = Object.freeze({\n" +
   errors.map(([, name, value]) => `  ${name}: ${value},\n`).join("") + "});\n" +

@@ -190,7 +190,7 @@
       "status": 1
     },
     {
-      "why": "Clang recurses once per call of a chain, and LLVM's sources chain 635: more than a Chrome Worker's stack holds (about 420). The compiler asks for the larger stack Chrome has (src/process/compiler-main.c).",
+      "why": "Clang recurses once per call of a chain, and LLVM's sources chain 635: more than a Chrome Worker's stack holds (about 420). The compiler asks for the larger stack Chrome has (programs/compiler-main.c).",
       "script": "echo 'struct S { S &next(int); int end(); }; int chain(S &s) { return s' > chain.cpp && seq 640 | sed 's/.*/.next(&)/' >> chain.cpp && echo '.end(); }' >> chain.cpp && c++ -c chain.cpp -o chain.o",
       "status": 0
     },

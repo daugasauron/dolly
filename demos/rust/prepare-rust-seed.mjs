@@ -2,8 +2,8 @@
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { inspectDollyfile } from "../../src/dollyfile-view.mjs";
-import { siteReference } from "../../src/static-asset.mjs";
+import { inspectDollyfile } from "../../site/dollyfile-view.mjs";
+import { siteReference } from "../../page/static-asset.mjs";
 
 export async function stageRustSeed(project, destination) {
   let source = join(project, "build/rustc-port/rust-sdk.tar.gz"), expected, kind = "built";

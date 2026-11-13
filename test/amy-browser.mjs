@@ -4,9 +4,9 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { browserTest, runSteps } from "./browser.mjs";
-import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
-import { siteReference } from "../src/static-asset.mjs";
-import { inspectDollyfile, recipeRows } from "../src/dollyfile-view.mjs";
+import { encodeSnapshotRecords } from "../page/snapshot-records.mjs";
+import { siteReference } from "../page/static-asset.mjs";
+import { inspectDollyfile, recipeRows } from "../site/dollyfile-view.mjs";
 import catalog from "../dist/dolly-images.json" with { type: "json" };
 import programCases from "./cases/amy-programs.json" with { type: "json" };
 import toolCases from "./cases/amy-tools.json" with { type: "json" };
@@ -71,7 +71,7 @@ const needs = await sealed("needs", "top", [newer]), listens = await sealed("lis
 // building recipe does not declare, and a package that needs `newer` too.
 const library = await sealed("library", "lib", [newer], ["microphone@0"], { LIBRARY_BUILT: "used" });
 const shared = await sealed("shared", "also", [newer]);
-for (const name of ["dollyfile.c", "sha256.h", "fs-record.h"]) fixtures[name] = `src/${name}`;
+Object.assign(fixtures, { "dollyfile.c": "programs/dollyfile.c", "sha256.h": "programs/sha256.h", "fs-record.h": "kernel/fs-record.h" });
 const artifact = `/etc/dolly/artifacts/${connects.sha256}.snapshot`;
 const row = `INSTALL ${connects.url} ${connects.sha256}`;
 const check = ({ submit, text }) => async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);

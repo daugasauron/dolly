@@ -1,7 +1,7 @@
 export async function audioBoundaryProof() {
   const [{createAudioProvider}, {createLeaseBridge}, {lease}, {DOLLY_ERRNO: E}] = await Promise.all([
     import("../../host/audio/provider.mjs"), import("../../host/runtime/lease-bridge.mjs"), import("../../host/audio/audio.mjs"),
-    import("../../src/process-constants.mjs")]);
+    import("../../page/process-constants.mjs")]);
   const check = (ok, message) => { if (!ok) throw Error(message); };
   let sequence = 0;
   // A request as the lease bridge hands it on, and the packet a process writes.

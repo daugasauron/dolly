@@ -1,6 +1,6 @@
-import { formatWasmType, providerSatisfiesImport } from "../../src/wasm-interface.mjs";
-import { unique } from "../../src/process-abi.mjs";
-import { hex } from "../../src/static-asset.mjs";
+import { formatWasmType, providerSatisfiesImport } from "../../page/wasm-interface.mjs";
+import { unique } from "../../page/process-abi.mjs";
+import { hex } from "../../page/static-asset.mjs";
 
 // The side-module profile of dolly-dso-0.wat. Both the build tools and the
 // loader in the process Worker call these exact validators on parsed bytes.

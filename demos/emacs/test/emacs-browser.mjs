@@ -5,7 +5,7 @@
 // Usage: node demos/emacs/test/emacs-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { demoTest, recoveryPrompt, shellPrompt } from "../../browser.mjs";
-import { siteReference } from "../../../src/static-asset.mjs";
+import { siteReference } from "../../../page/static-asset.mjs";
 
 const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const file = "/tmp/dolly-emacs-test.txt";

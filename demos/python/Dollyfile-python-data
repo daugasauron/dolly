@@ -17,20 +17,20 @@ REQUIRES HOST threads@0
 # default's packages, Python and the packages of the libraries python-data-build
 # compiled: a session imports NumPy, pandas, Matplotlib and seaborn at once,
 # with nothing to build or fetch.
-INSTALL /v0.1.6/Dollyfile-core 3f0ed8f48580b1aea351749cdcfbeab4bfe452436abc50beca43dac3d12fd7a9
-INSTALL /v0.1.6/Dollyfile-posix 44897e45850c0eb09bd481984aed46ab099f11c4d37bdcfc05591df26746e60a
-INSTALL /v0.1.6/Dollyfile-display 717f83d872a97cfc876278574e3c44fb4b3995d9b3b09562f85c0c718b8baec6
-INSTALL /v0.1.6/Dollyfile-curl 3eb77e1dba42f6bdb9e60ea2602f0bab340513318a7196f18fee5baa3e4dc8e5
-INSTALL /v0.1.6/Dollyfile-amy b55b1d7e40e572fdd10b421cbd7f0c8c334e240b71fb8ecfc481486021f872d7
-INSTALL /v0.1.6/Dollyfile-nena 1be38135c5ed54d4d66cfc0b66a8d65c5602d3edc078e8a7ebb52587b7bbd805
-INSTALL /v0.1.6/Dollyfile-transfer 9ed7a8db24b6bc0df618d200cd62db25c09602714c53c8826746a4d6a65b9483
-INSTALL /v0.1.6/Dollyfile-html edb83d490ebc7ad481147685907dd7a1083032de246b703ac02d409962c6c393
+INSTALL /v0.1.6/Dollyfile-core 03ca90f448fb77376f87753c0402c50cd460bd775d64546578044971ed15e98d
+INSTALL /v0.1.6/Dollyfile-posix 170e7c2312195e2dc62a3c48d5e76f66b4a4859aff52a69b644f90c0e4e2f730
+INSTALL /v0.1.6/Dollyfile-display d6ed8ecc88fa129ae2543779a9c97cd99a94639bb75338af65915d0ec75ab24f
+INSTALL /v0.1.6/Dollyfile-curl 887fc8816011ea9c3acced514cf59ce447c6ad4cc8460dc31a7a9ec1be732441
+INSTALL /v0.1.6/Dollyfile-amy ab3b239149fbd75260fb6738176f1561cffabbf84ee4bf53bab617d59e0f85e1
+INSTALL /v0.1.6/Dollyfile-nena be678078578a4ba011216e15a872b421521de962ba3388d8ffc9676e6ee13db8
+INSTALL /v0.1.6/Dollyfile-transfer 765e6d7786d7ba602e2a4ff0da19ec94ee5e28c82f86d904d80bc29e847d1d9d
+INSTALL /v0.1.6/Dollyfile-html a8ac58abb4799a95a70e74cc69fc649f85494d5306b19d31fb30a3eda16a111f
 INSTALL /v0.1.6/Dollyfile-ps 39cdf2bfaa3fb52f3c161672634f9600381754e6f006971896d6f79b6b345b77
-INSTALL /v0.1.6/demos/python/Dollyfile-python a033ddf8f5a0636ea981cdc2c777c341fed0dca79a595d69e42aaf2b4387e85f
-INSTALL /v0.1.6/demos/python/Dollyfile-numpy fbb61b731133d83e2d3722c2acdda5109f6209fc01572e4400c638fa2aa07226
-INSTALL /v0.1.6/demos/python/Dollyfile-pandas 42cb66937187298503ddeaaeff0e39b1b6b77244e74b8addbddec74962e6349e
-INSTALL /v0.1.6/demos/python/Dollyfile-matplotlib a6fa64b34b5abb48ea5d8cedd1adc98311f108ad3cfe80cdcdbae742a90096e0
-INSTALL /v0.1.6/demos/python/Dollyfile-seaborn 4ff7e67569f737be9bd375c9bd7e5e9ec971b99bf7949c86a248f7e8dca264b6
+INSTALL /v0.1.6/demos/python/Dollyfile-python 38ce3ccc546e7ee7aa61de170d56f2c8b109204be53ce6a76065b34c7c0c0930
+INSTALL /v0.1.6/demos/python/Dollyfile-numpy 19821478ada324c69d9e8f02a33f701a3b5e0fcfed85e32529658f3a845f25f2
+INSTALL /v0.1.6/demos/python/Dollyfile-pandas 1956dc464e7b882450484f38ab4e6ab5b033634a3b962435b3fa8b5b3edf9a43
+INSTALL /v0.1.6/demos/python/Dollyfile-matplotlib 73f69892938057fab26c3ee426d9bb78c5d00de4ba5fae85bded6a19fcc15dcf
+INSTALL /v0.1.6/demos/python/Dollyfile-seaborn f2052a8e30fe85c584feb580ef6170df5d613d9e9435fb7a0fa107c414d9a24e
 REQUIRES TOOL python
 
 SLOP python -c 'import numpy, pandas, matplotlib.pyplot, seaborn, jinja2, openpyxl, tabulate'

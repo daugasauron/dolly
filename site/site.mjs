@@ -5,8 +5,8 @@
 // that only runs images: their code is imported by the routes that build or
 // run a custom image.
 import { buildHost, hostManifests, switching } from "../host/manifests.mjs";
-import { run } from "./browser.mjs";
-import { imageDefinition, loadImages } from "./images.mjs";
+import { run } from "../page/browser.mjs";
+import { imageDefinition, loadImages } from "../page/images.mjs";
 
 // The modules a route's page has (the registry loads those alone): an image of
 // the directory run from its packs has its own and what they depend on; a route

@@ -36,7 +36,7 @@ __wasi_errno_t __wasi_random_get(uint8_t *bytes, __wasi_size_t length) {
   return (__wasi_errno_t)-dolly_entropy(bytes, length);
 }
 
-// The kernel sets its own environment (src/dolly.c); the host supplies none.
+// The kernel sets its own environment (kernel/dolly.c); the host supplies none.
 __wasi_errno_t __wasi_environ_sizes_get(__wasi_size_t *count, __wasi_size_t *bytes) {
   *count = 0;
   *bytes = 0;

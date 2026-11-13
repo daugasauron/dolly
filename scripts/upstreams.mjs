@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { escapeHtml } from "./render-dollyfile-view.mjs";
-import { alphabetical } from "../src/alphabetical.mjs";
-import { siteReference, sitePath } from "../src/static-asset.mjs";
+import { alphabetical } from "../site/alphabetical.mjs";
+import { siteReference, sitePath } from "../page/static-asset.mjs";
 
 // config/upstreams.json names every upstream the catalog builds or bundles.
 // "sources" match recipe SOURCE references: paths of the site or full

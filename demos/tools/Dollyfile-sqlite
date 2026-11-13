@@ -14,8 +14,8 @@ REQUIRES HOST runtime@0
 #   copy. PRAGMA locking_mode = NORMAL is still there for rollback journals;
 # - zlib, for the shell's archives (.archive, sqlite3 -A, zip files as tables);
 # - linenoise (--with-linenoise): the shell edits its own lines, with history.
-FROM /v0.1.6/demos/tools/Dollyfile-tools-build ada6fcaccf692d60a63cd68cf8de8ee83015a72559ca1a124df357aa1b933524
-USE /v0.1.6/Dollyfile-zlib 07f1b848518d0c13f985f99b9001f7b679cf60bf404e8dac3112c2bde995fdd3
+FROM /v0.1.6/demos/tools/Dollyfile-tools-build 3dd71056e712c8b91cfe7bb07b0e7ab0a82c3336c9cbc42112f28ba07d23d93e
+USE /v0.1.6/Dollyfile-zlib efaf04d0d76135b3fb1ac67af08187bfb838b9161af86e64d5a8bee8d967b685
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib

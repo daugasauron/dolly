@@ -1,5 +1,5 @@
 import catalog from "../dist/dolly-images.json" with { type: "json" };
-import { boundedAssetBody, decodeStaticAsset, sha256 } from "./static-asset.mjs";
+import { boundedAssetBody, decodeStaticAsset, sha256 } from "../page/static-asset.mjs";
 
 const base = new URL("../", import.meta.url);
 const sources = new Map(catalog.staticSources.map(source => [new URL(source.path.slice(1), base).href, source]));

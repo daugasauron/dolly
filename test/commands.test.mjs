@@ -13,7 +13,7 @@ const scratch = await mkdtemp(join(tmpdir(), "dolly-commands-"));
 test.after(() => rm(scratch, { recursive: true, force: true }));
 
 function build(name, output = join(scratch, name)) {
-  execFileSync("cc", ["-std=c17", "-Wall", "-Wextra", "-Werror", `-I${includeDirectory}`, `src/commands/${name}.c`,
+  execFileSync("cc", ["-std=c17", "-Wall", "-Wextra", "-Werror", `-I${includeDirectory}`, `programs/commands/${name}.c`,
     "test/fixtures/native-spawn.c", "-o", output, "-lm"], { cwd: project, stdio: "pipe" });
   return output;
 }
@@ -193,7 +193,7 @@ test("cat writes a pipe's bytes as they arrive", async () => {
 
 const gzipTool = () => {
   const gzip = join(scratch, "gzip");
-  execFileSync("cc", ["-std=c17", "-Wall", "-Wextra", "-Werror", "src/commands/gzip.c", "-o", gzip, "-lz"], { cwd: project, stdio: "pipe" });
+  execFileSync("cc", ["-std=c17", "-Wall", "-Wextra", "-Werror", "programs/commands/gzip.c", "-o", gzip, "-lz"], { cwd: project, stdio: "pipe" });
   return gzip;
 };
 

@@ -43,12 +43,12 @@ before its Worker handles anything else.
 
 - When the supervisor starts, it measures how many calls a small recursive
   module nests before the stack ends, entered each way
-  ([`process-supervisor.mjs`](../src/process-supervisor.mjs)).
+  ([`process-supervisor.mjs`](../page/process-supervisor.mjs)).
 - An executable asks for the deeper stack with a `dolly.process.stack` custom
   section, and only the compiler carries one
-  ([`compiler-main.c`](../src/process/compiler-main.c)). It and its threads
+  ([`compiler-main.c`](../programs/compiler-main.c)). It and its threads
   enter through `promising` where that is at least half again as deep
-  ([`process-worker.mjs`](../src/process-worker.mjs)); every other program is
+  ([`process-worker.mjs`](../page/process-worker.mjs)); every other program is
   entered directly, in every browser.
 - Chrome measures 1.90 times and enters the compiler through `promising`.
   Firefox measures 1.01 and enters it directly. Both gave the same reading in

@@ -15,9 +15,9 @@ import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { contractDigest } from "./dolly-abi.mjs";
 import { parseWasmInterface, readWasmInterface } from "./wasm-interface.mjs";
-import { validateProcessInterface } from "../src/process-abi.mjs";
-import { hex } from "../src/static-asset.mjs";
-import { DOLLY_VERSION } from "../src/version.mjs";
+import { validateProcessInterface } from "../page/process-abi.mjs";
+import { hex } from "../page/static-asset.mjs";
+import { DOLLY_VERSION } from "../page/version.mjs";
 
 const project = resolve(import.meta.dirname, "..");
 const run = promisify(execFile);

@@ -3,7 +3,7 @@ import { sha256 } from "../scripts/sha256.mjs";
 import { readFile } from "node:fs/promises";
 import { browserTest } from "./browser.mjs";
 import { createHttpRedirectFixture } from "./fixtures/http-redirect-server.mjs";
-import { siteReference } from "../src/static-asset.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 
 // One source served the way the Pages export delivers oversized static assets:
 // a manifest, known by its content, plus fixed sibling .part-N files.

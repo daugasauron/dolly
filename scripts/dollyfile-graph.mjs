@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { loadRecipeGraph } from "../src/dollyfile-graph.mjs";
-import { recipeFileName } from "../src/dollyfile-view.mjs";
+import { loadRecipeGraph } from "../site/dollyfile-graph.mjs";
+import { recipeFileName } from "../site/dollyfile-view.mjs";
 import { recipeFiles } from "./recipe-files.mjs";
-import { siteReference } from "../src/static-asset.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 
 // Loads catalog recipe graphs from a project directory, sharing parsed recipes.
 export function createDollyfileGraphLoader(projectDir) {

@@ -253,7 +253,7 @@ static void input_release(int pid, int tid) {
   if (tid == 0) release_lease(pid);
 }
 
-/* The terminal's input half (src/process-kernel.h). */
+/* The terminal's input half (kernel/process-kernel.h). */
 static const dolly_terminal_input terminal_input = {terminal_read, terminal_service, terminal_discard};
 
 const dolly_kernel_module dolly_input_kernel = {

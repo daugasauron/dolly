@@ -1,5 +1,5 @@
 export async function buildLogProof() {
-  const {buildLog} = await import(new URL("../src/build-log.mjs", document.baseURI));
+  const {buildLog} = await import(new URL("../page/build-log.mjs", document.baseURI));
   const element = document.createElement("pre"), log = buildLog(element);
   log.append("\x1b[1;3");
   log.append("2mbuilding 日本語\x1b[0m\r");
@@ -41,8 +41,8 @@ export async function buildLogProof() {
 export async function buildInputReuse() {
   const base = new URL("../", document.baseURI);
   const [registry, policy, transport, builder, graph, artifactStore, { siteReference }, { hostModuleUrls: modules }] = await Promise.all([
-    "src/images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
-    "src/image-builder.mjs", "src/image-build.mjs", "src/image-artifact.mjs", "src/static-asset.mjs", "host/manifests.mjs",
+    "page/images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
+    "site/image-builder.mjs", "site/image-build.mjs", "site/image-artifact.mjs", "page/static-asset.mjs", "host/manifests.mjs",
   ].map(path => import(new URL(path, base).href)));
   await registry.loadImages(base);
   const definition = registry.DOLLY_IMAGES.find(image => image.image === "system-build");
@@ -82,8 +82,8 @@ export async function buildInputReuse() {
 export async function buildTwice(recipe) {
   const base = new URL("../", document.baseURI);
   const [registry, policy, transport, builder, graph, artifactStore, { hostModuleUrls: modules }] = await Promise.all([
-    "src/images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
-    "src/image-builder.mjs", "src/image-build.mjs", "src/image-artifact.mjs", "host/manifests.mjs",
+    "page/images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
+    "site/image-builder.mjs", "site/image-build.mjs", "site/image-artifact.mjs", "host/manifests.mjs",
   ].map(path => import(new URL(path, base).href)));
   await registry.loadImages(base);
   const network = { ...transport.localServicesTransport(new policy.DollyHttpPolicy(undefined, registry.bootstrapSources(), base)),

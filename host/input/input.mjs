@@ -250,7 +250,7 @@ const pointerEvent = event => ({ shiftKey: event.shiftKey, ctrlKey: event.ctrlKe
 // messages to the Worker, which writes them into the mailbox as bounded
 // records; interpretation stays in Wasm. This is the one listener that
 // decides which keys the guest reads: the page's own chords are taken before
-// it (src/page-chords.mjs) and module UIs claim theirs through it. Records
+// it (page/page-chords.mjs) and module UIs claim theirs through it. Records
 // flow once the Worker's side has started.
 export function browser({ mount, canvas, keyboard, showStatus, claimsKey, framePoint, send, ask, get }) {
   // selecting: the primary button's press went to the terminal; held: the
@@ -436,7 +436,7 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
   };
   // A program holding the lease has every button, and one that asks the
   // terminal for the mouse, which the terminal shows by the arrow
-  // (src/ghostty/display.c), the middle and secondary too. The browser's
+  // (programs/ghostty/display.c), the middle and secondary too. The browser's
   // menu and middle-button actions then give way; Shift keeps them.
   const programHasMouse = event => leased() || (!event.shiftKey && canvas.style.cursor === "default");
   canvas.addEventListener("pointerdown", (event) => {

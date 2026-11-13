@@ -1,5 +1,5 @@
 import { sha256 as digest } from "../../scripts/sha256.mjs";
-import { siteReference as site } from "../../src/static-asset.mjs";
+import { siteReference as site } from "../../page/static-asset.mjs";
 
 // Recipes the language accepts or rejects: the JavaScript recipe graph decides,
 // and /bin/dollyfile reads the rows of each accepted root. Each case maps paths

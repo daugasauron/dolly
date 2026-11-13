@@ -11,7 +11,7 @@ import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promise
 import { dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { decodeSystemSnapshot } from "../../scripts/system-snapshot-format.mjs";
-import { DOLLY_VERSION } from "../../src/version.mjs";
+import { DOLLY_VERSION } from "../../page/version.mjs";
 
 const project = resolve(import.meta.dirname, "../..");
 const compiler = "/usr/libexec/dolly/process-bin/compiler", resources = "/usr/lib/llvm-build/lib/clang/";

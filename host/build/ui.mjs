@@ -1,10 +1,10 @@
 import { ImageBuildService } from "./service.mjs";
-import { buildImage } from "../../src/image-builder.mjs";
+import { buildImage } from "../../site/image-builder.mjs";
 import { hostModuleUrls } from "../manifests.mjs";
-import { prepareImageArtifacts } from "../../src/image-build.mjs";
-import { loadImageArtifactDescriptor } from "../../src/image-artifact.mjs";
-import { openCustomImage } from "../../src/custom-image.mjs";
-import { buildLog } from "../../src/build-log.mjs";
+import { prepareImageArtifacts } from "../../site/image-build.mjs";
+import { loadImageArtifactDescriptor } from "../../site/image-artifact.mjs";
+import { openCustomImage } from "../../site/custom-image.mjs";
+import { buildLog } from "../../page/build-log.mjs";
 
 export function mountImageBuild(http, mount, keyboard) {
   const builders = { http: http.builder };

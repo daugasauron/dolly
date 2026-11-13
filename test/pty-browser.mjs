@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { browserTest, composed, runSteps } from "./browser.mjs";
 import pty from "./cases/pty.json" with { type: "json" };
-import { siteReference } from "../src/static-asset.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 import catalog from "../dist/dolly-images.json" with { type: "json" };
 
 const fixtures = { "pty.c": "test/fixtures/pty.c" };

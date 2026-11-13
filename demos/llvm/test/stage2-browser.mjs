@@ -5,8 +5,8 @@
 // and 7 GB in Chrome. Usage: node demos/llvm/test/stage2-browser.mjs
 import { readFile } from "node:fs/promises";
 import { demoTest, displayProbe } from "../../browser.mjs";
-import { inspectDollyfile } from "../../../src/dollyfile-view.mjs";
-import { sitePath } from "../../../src/static-asset.mjs";
+import { inspectDollyfile } from "../../../site/dollyfile-view.mjs";
+import { sitePath } from "../../../page/static-asset.mjs";
 
 const rows = async name => {
   const recipe = new URL(`../Dollyfile-${name}`, import.meta.url);

@@ -2,13 +2,13 @@ import { createHash } from "node:crypto";
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 
-import { inspectDollyfile, imageFileName } from "../src/dollyfile-view.mjs";
-import { validName } from "../src/image-names.mjs";
+import { inspectDollyfile, imageFileName } from "../site/dollyfile-view.mjs";
+import { validName } from "../page/image-names.mjs";
 import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
 import { catalogJson, catalogRecord } from "./image-directory.mjs";
 import { recipeFiles } from "./recipe-files.mjs";
 import { publishedHostFiles, publishedDocument } from "./host-modules.mjs";
-import { siteReference, sitePath } from "../src/static-asset.mjs";
+import { siteReference, sitePath } from "../page/static-asset.mjs";
 
 // `filename` is the recipe's checkout path, which is also its published path.
 export async function discoverImageDefinitions(projectDir) {

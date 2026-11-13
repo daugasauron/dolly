@@ -1,5 +1,5 @@
 import { open, rm } from "node:fs/promises";
-import { MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
+import { MAX_SNAPSHOT_BYTES } from "../page/snapshot-records.mjs";
 
 // Runs in a page (pass its source to page.evaluate): builds IMAGE of the image
 // directory at IMAGES, or "custom" from CUSTOM, after its missing dependencies,
@@ -18,8 +18,8 @@ export async function buildImageInPage(runtime, images, image, custom, modules, 
   }
   const log = text => void globalThis.dollyBuildLog(text);
   const [registry, policy, transport, builder, graph] = await Promise.all([
-    "src/images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
-    "src/image-builder.mjs", "src/image-build.mjs",
+    "page/images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
+    "site/image-builder.mjs", "site/image-build.mjs",
   ].map(path => import(new URL(path, runtime).href)));
   await registry.loadImages(images);
   // A relayed answer is from the URL the relay reached, after its redirects: a program

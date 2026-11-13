@@ -1,4 +1,4 @@
-import { DOLLY_ERRNO as errno } from "../../src/process-constants.mjs";
+import { DOLLY_ERRNO as errno } from "../../page/process-constants.mjs";
 import * as A from "./abi.mjs";
 
 const capacity = A.DOLLY_PACKAGES_CHUNK_CAPACITY;

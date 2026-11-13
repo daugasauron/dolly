@@ -29,7 +29,7 @@ if has_image zig-llvm-build; then
     "${project_dir}/.cache/emscripten/sysroot/include/emscripten" /usr/include/wasm64-emscripten/emscripten
   node scripts/build-source-tar.mjs "${static_dir}/zig-llvm/wamr.tar" \
     "${zig_llvm_wamr}/core" /tmp/wamr/core \
-    src/zig/zig1.c /tmp/wamr/zig1.c \
-    src/zig/wamr-platform.c /tmp/wamr/wamr-platform.c \
-    src/zig/platform_internal.h /tmp/wamr/platform_internal.h
+    programs/zig/zig1.c /tmp/wamr/zig1.c \
+    programs/zig/wamr-platform.c /tmp/wamr/wamr-platform.c \
+    programs/zig/platform_internal.h /tmp/wamr/platform_internal.h
 fi

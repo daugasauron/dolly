@@ -509,7 +509,7 @@ done:
   return status;
 }
 
-// The page compiles a recipe into rows (recipeRows in src/dollyfile-view.mjs,
+// The page compiles a recipe into rows (recipeRows in site/dollyfile-view.mjs,
 // the language's one parser) and writes them here: the engine reads fields,
 // not recipe text. Every field ends with NUL: "DOLLY 7 SHA256" of the recipe
 // text, then for each row "LINE COUNT" and that many fields, the directive

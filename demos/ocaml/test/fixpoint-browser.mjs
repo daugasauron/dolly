@@ -5,8 +5,8 @@
 // Usage: node demos/ocaml/test/fixpoint-browser.mjs [chromium|firefox ...]
 import { readFile } from "node:fs/promises";
 import { demoTest } from "../../browser.mjs";
-import { inspectDollyfile } from "../../../src/dollyfile-view.mjs";
-import { sitePath } from "../../../src/static-asset.mjs";
+import { inspectDollyfile } from "../../../site/dollyfile-view.mjs";
+import { sitePath } from "../../../page/static-asset.mjs";
 
 const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const recipe = new URL("../Dollyfile-ocaml", import.meta.url);

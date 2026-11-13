@@ -1,6 +1,6 @@
 import { inspectDollyfile, MAX_DOLLYFILE_BYTES } from "./dollyfile-view.mjs";
 import catalog from "../dist/dolly-images.json" with { type: "json" };
-import { siteReference } from "./static-asset.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 
 const form = document.querySelector("#custom-dollyfile");
 const source = document.querySelector("#source");

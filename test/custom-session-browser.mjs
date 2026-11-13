@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { browserTest } from "./browser.mjs";
-import { siteReference } from "../src/static-asset.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 
 const scratch = await mkdtemp(join(tmpdir(), "dolly-custom-session-"));
 const status = page => page.evaluate(() => document.documentElement.dataset.dollyStatus);
@@ -21,7 +21,7 @@ async function check(page, commands) {
 }
 // The saved IndexedDB record, with its payload reduced to a digest.
 const stored = (page, name) => page.evaluate(async name => {
-  const record = await (await import("/src/session-store.mjs")).loadStoredSession(name);
+  const record = await (await import("/site/session-store.mjs")).loadStoredSession(name);
   return record && { ...record, bytes: [...new Uint8Array(await crypto.subtle.digest("SHA-256", await record.bytes.arrayBuffer()))] };
 }, name);
 async function newPage(context, rules) {
@@ -95,7 +95,7 @@ ENTRY /bin/foreground -i /bin/slop
   const rebuildPage = page;
   const popupPromise = page.waitForEvent("popup");
   await page.evaluate(async (custom) => {
-    (await import("/src/custom-image.mjs")).openCustomImage(custom);
+    (await import("/site/custom-image.mjs")).openCustomImage(custom);
   }, { source: saved.customImage.source, artifact: saved.customImage.artifact, policies: saved.customImage.policies });
   page = await popupPromise;
   await boot(page);
@@ -145,7 +145,7 @@ ENTRY /bin/foreground -i /bin/slop
   assert.equal(await page.evaluate(() => performance.getEntriesByType("resource").some((entry) => entry.name.includes("/fixture/http.txt"))), false);
   assert.deepEqual(await stored(page, "custom-imported"), imported);
   await page.evaluate(async () => {
-    const store = await import("/src/session-store.mjs");
+    const store = await import("/site/session-store.mjs");
     const record = await store.loadStoredSession("custom-proof");
     record.name = "custom-wrong-source";
     record.customImage.source += "\n# changed source\n";
@@ -155,7 +155,7 @@ ENTRY /bin/foreground -i /bin/slop
   await rejected(page);
   assert.deepEqual(await stored(page, "custom-imported"), imported);
   await page.evaluate(async () => {
-    const record = await (await import("/src/session-store.mjs")).loadStoredSession("custom-proof");
+    const record = await (await import("/site/session-store.mjs")).loadStoredSession("custom-proof");
     const db = await new Promise((resolve, reject) => {
       const request = indexedDB.open("dolly-image-artifacts-v3", 3);
       request.onsuccess = () => resolve(request.result);
@@ -254,7 +254,7 @@ async function namedSessions(context, server, name) {
   assert.ok(await page.locator("#session-status").isVisible());
   assert.deepEqual(await stored(page, "browser-proof"), checkpoint);
   await page.evaluate(async () => {
-    const store = await import("/src/session-store.mjs");
+    const store = await import("/site/session-store.mjs");
     const good = await store.loadStoredSession("browser-proof");
     await store.saveStoredSession({ ...good, name: "wrong-base", buildId: "different-runtime" });
     await store.saveStoredSession({ ...good, name: "broken-data",

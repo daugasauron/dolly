@@ -11,10 +11,10 @@ import { createServer } from "node:http";
 import { extname, resolve } from "node:path";
 import { buildImageInPage } from "./page-image-build.mjs";
 import { isolationHeaders, mimeTypes, siteContentSecurityPolicy } from "./serve.mjs";
-import { siteReference } from "../src/static-asset.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 
 const inventory = (await readFile(new URL("./image-inventory.c", import.meta.url), "utf8"))
-  .replace('#include "sha256.h"', await readFile(new URL("../src/sha256.h", import.meta.url), "utf8"));
+  .replace('#include "sha256.h"', await readFile(new URL("../programs/sha256.h", import.meta.url), "utf8"));
 const seedRequested = requests => [...requests.keys()].some(path => /\/dist\/dolly(?:\.data|-seed\.mjs)$/.test(path));
 
 // SERVER is { origin, requests (path -> count) } and answers /__dolly_build_page.

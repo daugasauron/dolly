@@ -5,14 +5,14 @@
 // restores a custom image the site built before. Images cross to and from Wasm
 // memory a piece at a time: the page holds them as Blobs, never in a JS heap.
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
-import { imageBase, imageDefinition } from "./images.mjs";
-import { scanSnapshotRecords, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
+import { imageBase, imageDefinition } from "../page/images.mjs";
+import { scanSnapshotRecords, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "../page/snapshot-records.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256 } from "./image-artifact.mjs";
-import { imageInputs } from "./image-inputs.mjs";
+import { imageInputs } from "../page/image-inputs.mjs";
 import { imageFileName, inspectDollyfile, MAX_DOLLYFILE_BYTES, recipeFileName, recipeRows } from "./dollyfile-view.mjs";
 import { checkedCustomArtifact } from "./custom-image.mjs";
-import { siteReference, decodeStaticAsset } from "./static-asset.mjs";
-import { checkedMemoryRange, kernelArtifact, runImage } from "./worker-image.mjs";
+import { siteReference, decodeStaticAsset } from "../page/static-asset.mjs";
+import { checkedMemoryRange, kernelArtifact, runImage } from "../page/worker-image.mjs";
 
 const encoder = new TextEncoder();
 const PIECE = 8 * 1024 * 1024;

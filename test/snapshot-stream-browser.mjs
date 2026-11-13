@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 import { browserTest } from "./browser.mjs";
-import { decodeSnapshotRecords, encodeSnapshotRecords } from "../src/snapshot-records.mjs";
+import { decodeSnapshotRecords, encodeSnapshotRecords } from "../page/snapshot-records.mjs";
 import original from "../dist/dolly-default-system-snapshot.json" with { type: "json" };
 
 // Interleaved records and reversed parts require the canonical image hash, not

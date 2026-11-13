@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
 import test from "node:test";
-import { inspectDollyfile } from "../../../src/dollyfile-view.mjs";
+import { inspectDollyfile } from "../../../site/dollyfile-view.mjs";
 
 const names = ["plain", "$&", "$$", "$'", "$`", "東京"];
 

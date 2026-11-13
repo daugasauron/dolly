@@ -108,7 +108,7 @@ await browserTest("core", { image }, async ({ server, open }) => {
   for (let index = 0; index < 4; index++) await page.getByRole("button", { name: "Dismiss" }).first().click();
   assert.equal(await page.locator("#downloads").isHidden(), true);
   assert.deepEqual(await page.evaluate(async () => {
-    const { saveImageArtifact, loadImageArtifactDescriptor, IMAGE_CACHE_MAX_ENTRIES } = await import("/src/image-artifact.mjs");
+    const { saveImageArtifact, loadImageArtifactDescriptor, IMAGE_CACHE_MAX_ENTRIES } = await import("/site/image-artifact.mjs");
     const { DOLLY_IMAGE_BUILD_ID: buildId } = await import("/dist/dolly-image-build-id.mjs");
     const recipe = index => index.toString(16).padStart(64, "0"), kept = [];
     const save = index => saveImageArtifact({ buildId, recipeSha256: recipe(index), sha256: "a".repeat(64), inputs: [],

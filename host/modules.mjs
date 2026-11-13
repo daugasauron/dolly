@@ -1,5 +1,5 @@
 import { hostRequirement, hostRequirements } from "./requirements.mjs";
-import { DOLLY_ERRNO as E } from "../src/process-constants.mjs";
+import { DOLLY_ERRNO as E } from "../page/process-constants.mjs";
 
 // A page's host modules, from the URLs of their manifests. The embedding, trusted
 // code, names them; images select no JS or Worker URLs, and each module's provider

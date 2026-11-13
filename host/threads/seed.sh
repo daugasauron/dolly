@@ -30,7 +30,7 @@ internal=(-I/emsdk/upstream/emscripten/system/lib/libc/musl/arch/emscripten \
   -I/emsdk/upstream/emscripten/system/lib/libc \
   -I/emsdk/upstream/emscripten/system/lib/pthread)
 for source in libc-adapter runtime-adapter socket-refusals libc-stubs mmap time poll signal abort crt1; do
-  emcc "${flags[@]}" "${internal[@]}" -c "src/process/$source.c" -o "$target/$source.o"
+  emcc "${flags[@]}" "${internal[@]}" -c "process/$source.c" -o "$target/$source.o"
 done
 # libc's pthreads over threads@0 are the module's (host/threads/), and so is
 # their client: only a threaded program links it.

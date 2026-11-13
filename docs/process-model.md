@@ -1,7 +1,7 @@
 # Process model
 
 Every ordinary command runs in a fresh private wasm64 memory and Worker. The
-kernel ([`process-kernel.c`](../src/process-kernel.c)) owns files, open-file
+kernel ([`process-kernel.c`](../kernel/process-kernel.c)) owns files, open-file
 descriptions, pipes, local sockets, pseudo-terminals, process records, signals and the terminal; processes
 inherit handles and values, never another address space. The call path is in
 [architecture](architecture.md#system-calls); packet layouts are in
@@ -58,7 +58,7 @@ sequenceDiagram
   bootstrap whose headers test `__dolly__`; LLVM and Zig still generate
   code under its Emscripten name, which no program can test.
 - The compiler is itself a private process behind `cc`, `c++`, `ld` and `ar`
-  ([`compiler.cpp`](../src/compiler.cpp)). It defaults to Clang's `-std=gnu17` and
+  ([`compiler.cpp`](../programs/compiler.cpp)). It defaults to Clang's `-std=gnu17` and
   `-std=gnu++17` but to `-O2`, and follows Clang's suffix rules; objects are always position
   independent, `-m64` is the only target, `-lc -lm -ldl -lrt -lpthread -lutil`
   add nothing, and `-Wl,--no-undefined`, `--allow-shlib-undefined` and
@@ -92,13 +92,13 @@ sequenceDiagram
   the session does not have or whose layout differs, a thread client without
   `dolly_thread_start`) and a Worker that fails while running exit with status
   126 after one line on the process's own descriptor 2 that names the cause
-  ([`process-supervisor.mjs`](../src/process-supervisor.mjs)); unrelated
+  ([`process-supervisor.mjs`](../page/process-supervisor.mjs)); unrelated
   processes are unaffected. `cc` refuses to link a thread client without
   `-pthread`, so what it links the loader runs.
 - A malformed call returns an errno and the process keeps running: `EFAULT` for
   a packet outside its memory, `E2BIG` over 1 MiB, `ENOSYS` for an unknown
   operation, `EINVAL` for a wrong layout
-  ([`process-worker.mjs`](../src/process-worker.mjs)). FFI packets (`dso@0`) carry
+  ([`process-worker.mjs`](../page/process-worker.mjs)). FFI packets (`dso@0`) carry
   pointers of the process itself; a wild one is `EFAULT` too, while a trap in
   the function an FFI call reaches ends the process like any other trap.
 - Wasm calls nest on a browser stack that a page cannot size; a program that
@@ -110,7 +110,7 @@ sequenceDiagram
   instead of ending.
   `RLIMIT_STACK` describes only the stack inside the process's memory.
 - `cc`, `c++`, `ld` and `ar` retry status 126 up to twice
-  ([`runtime-adapter.c`](../src/process/runtime-adapter.c)), so long
+  ([`runtime-adapter.c`](../process/runtime-adapter.c)), so long
   source builds survive a transient browser Worker allocation failure without
   hiding deterministic source errors.
 
@@ -130,12 +130,12 @@ sequenceDiagram
   nonblocking; closing all writers gives EOF, also to a reader that was
   waiting. Writing with no reader, or waiting to write when the last reader
   closes, returns `EPIPE`, and libc raises `SIGPIPE` in the writer before
-  `write` returns ([`libc-adapter.c`](../src/process/libc-adapter.c)): the
+  `write` returns ([`libc-adapter.c`](../process/libc-adapter.c)): the
   process ends with that signal unless it ignores, handles or blocks it. A
   process's descriptors close when it exits, before it is waitable.
 - Opening `/dev/stdin`, `/dev/stdout` or `/dev/stderr` duplicates the caller's
   descriptor 0, 1 or 2.
-- The terminal is the boot terminal ([`dolly.c`](../src/dolly.c)): a
+- The terminal is the boot terminal ([`dolly.c`](../kernel/dolly.c)): a
   [pseudo-terminal](#pseudo-terminals) the kernel opens with its first write
   and holds the master of. The page's root processes start with its slave as
   descriptors 0, 1 and 2, one open file for all of them. What they write
@@ -182,13 +182,13 @@ sequenceDiagram
 - An image holds no times: at every boot each of its paths is dated
   1980-01-02 UTC, older than anything a session makes, so make never rebuilds
   for an image file, after a [session](sessions.md) restores its own times too
-  ([`system-snapshot.c`](../src/system-snapshot.c)).
+  ([`system-snapshot.c`](../kernel/system-snapshot.c)).
 - `statvfs` reports kernel memory: its maximum as capacity, unallocated memory
   as free, and no inode limit (zero files).
 - The cwd is an open directory handle: it follows renames, `getcwd` fails with
   `ENOENT` after unlink, `fchdir` works.
 - `mmap` makes private copies; `MAP_SHARED` writes back on `msync` and whole
-  `munmap` ([`mmap.c`](../src/process/mmap.c)). Mappings are not coherent with
+  `munmap` ([`mmap.c`](../process/mmap.c)). Mappings are not coherent with
   other writers, do not extend the file past EOF, and cannot trap there: Wasm
   cannot protect or revoke part of linear memory. So `mprotect` grants read
   and write, which memory always is (a shared mapping made without write then
@@ -265,7 +265,7 @@ that asked.
 [`host/pty/kernel.c`](../host/pty/kernel.c)): a terminal one program gives
 another, as a terminal multiplexer gives each of its panes. The bytes stay in
 kernel memory, as a pipe's do, and the module has no browser import. The
-pseudo-terminal itself is the kernel's ([`pty.c`](../src/pty.c)), which the
+pseudo-terminal itself is the kernel's ([`pty.c`](../kernel/pty.c)), which the
 boot terminal and `console@0`'s terminals are too: without `pty@0` they stay
 and programs cannot open one.
 
@@ -338,7 +338,7 @@ terminal into the session"); another host adds it to the images it runs.
   descriptors, then applies explicit parent-to-child mappings, all read from the
   parent at once. A spawn may set the child's cwd.
 - `posix_spawn` inherits all non-CLOEXEC descriptors and replays its file
-  actions in order ([`runtime-adapter.c`](../src/process/runtime-adapter.c)):
+  actions in order ([`runtime-adapter.c`](../process/runtime-adapter.c)):
   `adddup2` and `addclose` as mappings, a closed one keeping the child from
   inheriting the descriptor; `addchdir_np` chooses the child's directory, and
   `addopen` opens the file in the parent, from that directory, for the child.
@@ -351,7 +351,7 @@ terminal into the session"); another host adds it to the images it runs.
 - Each process is its own process group and its own session, which it leads:
   `getpgid`, `getpgrp` and `getsid` give its PID (the caller's for 0, `ESRCH`
   for none), `setpgid` of a process to itself succeeds and any other fails
-  `EPERM`, as `setsid` does ([`libc-adapter.c`](../src/process/libc-adapter.c)).
+  `EPERM`, as `setsid` does ([`libc-adapter.c`](../process/libc-adapter.c)).
   `kill(0)` signals the caller and `kill(-PID)` that one process, not its
   descendants; `kill(-1)` fails `ENOTSUP`.
 - `waitpid` accepts a child PID, `-1` or `0`, and `-PID` for the group the
@@ -419,7 +419,7 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   session has not) `ENOEXEC` after one line on the process's descriptor 2
   that names the cause. The kernel reads the program and the supervisor
   compiles and admits it while the old program waits in the call; only then
-  does the old program go ([`process-supervisor.mjs`](../src/process-supervisor.mjs)).
+  does the old program go ([`process-supervisor.mjs`](../page/process-supervisor.mjs)).
 - A signal delivered while the new program is prepared interrupts the call:
   the old program handles it, and libc calls `exec` again. Between the old
   Worker's end and the new one's start the process is `starting`, as a spawned
@@ -434,7 +434,7 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   `SIGALRM`, `SIGTERM`, `SIGCHLD`, `SIGWINCH`; others are rejected, and only
   the kernel sends another process `SIGCHLD` (`kill` with it fails with
   `ENOTSUP`).
-- Handlers run in Wasm at syscall boundaries ([`signal.c`](../src/process/signal.c))
+- Handlers run in Wasm at syscall boundaries ([`signal.c`](../process/signal.c))
   with masks, `SA_RESTART`, `SA_RESETHAND`, `SA_NODEFER` and `SA_SIGINFO`.
   Alternate stacks, `sigwait`, asynchronous preemption and `SA_NOCLDWAIT` are
   unsupported.
@@ -477,12 +477,12 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   kernel at least once per millisecond so signals arrive in clock-only loops.
   Linux's `CLOCK_MONOTONIC_RAW` and `CLOCK_MONOTONIC_COARSE` read the monotonic
   clock, which is never slewed, and `CLOCK_REALTIME_COARSE` the real-time one
-  ([`time.c`](../src/process/time.c)); other Linux clocks fail with `EINVAL`.
+  ([`time.c`](../process/time.c)); other Linux clocks fail with `EINVAL`.
 - CPU time is not accounted: `clock()`, `CLOCK_PROCESS_CPUTIME_ID`,
   `getrusage` and `times` report the monotonic time since the program started
   (since its `exec`, if it was exec'd) as its user time, an upper bound that is
   exact while it computes without blocking; system time and children's times,
-  `wait4`'s too, are zero ([`libc-adapter.c`](../src/process/libc-adapter.c)).
+  `wait4`'s too, are zero ([`libc-adapter.c`](../process/libc-adapter.c)).
 
 ## Threads, DSOs and FFI
 

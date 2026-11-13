@@ -6,8 +6,8 @@ import { join } from "node:path";
 import { browserTest } from "./browser.mjs";
 import { DOLLY_AUDIO_SLOTS } from "../host/audio/abi.mjs";
 import { hostManifests } from "../host/manifests.mjs";
-import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
-import { siteReference } from "../src/static-asset.mjs";
+import { encodeSnapshotRecords } from "../page/snapshot-records.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 import catalog from "../dist/dolly-images.json" with { type: "json" };
 
 // A sealed package that needs microphone@0, as the engine would build it: the

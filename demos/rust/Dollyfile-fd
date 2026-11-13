@@ -3,7 +3,7 @@ PACKAGE fd
 REQUIRES HOST runtime@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.6/demos/rust/Dollyfile-rust-build 3b0d77d2048d64599882d23bd7aebf8f205f2e659b1202d8520729319270d7b6
+FROM /v0.1.6/demos/rust/Dollyfile-rust-build 5f85b05599140fc19d492ce6f6e14410233cf2fd7433e03860b2d4ad03aacc29
 REQUIRES TOOL cargo
 REQUIRES TOOL gzip
 REQUIRES TOOL tar

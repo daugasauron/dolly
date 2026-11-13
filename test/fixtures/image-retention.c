@@ -1,7 +1,7 @@
 // Native diagnostic of the real Dollyfile collector. Unused runtime/HTTP
 // functions are discarded at link time; this is not a host runtime adapter.
 #define main dollyfile_main
-#include "../../src/dollyfile.c"
+#include "../../programs/dollyfile.c"
 #undef main
 
 int main(int argc, char **argv) {

@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { browserTest } from "./browser.mjs";
-import { siteReference } from "../src/static-asset.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 
 const { default: catalog } = await import("../dist/dolly-images.json", { with: { type: "json" } });
 const hosts = (await readFile(new URL("../Dollyfile-system", import.meta.url), "utf8")).match(/^REQUIRES HOST .*$/gm);

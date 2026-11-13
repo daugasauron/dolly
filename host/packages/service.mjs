@@ -1,5 +1,5 @@
-import { imageBase } from "../../src/images.mjs";
-import { MAX_SNAPSHOT_BYTES } from "../../src/snapshot-records.mjs";
+import { imageBase } from "../../page/images.mjs";
+import { MAX_SNAPSHOT_BYTES } from "../../page/snapshot-records.mjs";
 
 const PACKAGES_ORIGIN = "https://packages.dolly.invalid";
 const PACKAGE_LIMITS = Object.freeze({

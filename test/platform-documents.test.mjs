@@ -7,15 +7,15 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { dirname, join, normalize } from "node:path";
 import test from "node:test";
-import { inspectDollyfile } from "../src/dollyfile-view.mjs";
-import { sitePath } from "../src/static-asset.mjs";
+import { inspectDollyfile } from "../site/dollyfile-view.mjs";
+import { sitePath } from "../page/static-asset.mjs";
 import { documentationLinks } from "../scripts/package-documentation.mjs";
 import { publishedDocument } from "../scripts/host-modules.mjs";
 
 const project = new URL("..", import.meta.url).pathname;
 // About the checkout, its build or its deployment: not for an image.
 const repository = new Set(["AGENTS.md", "docs/deployment.md", "docs/licences.md", "docs/sources.md",
-  "src/ghostty/generated/README.md"]);
+  "programs/ghostty/generated/README.md"]);
 
 test("the docs package ships the linked documents and contracts of this checkout", async () => {
   const recipe = inspectDollyfile(await readFile(join(project, "Dollyfile-dolly-docs"), "utf8"), "Dollyfile-dolly-docs");

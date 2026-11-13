@@ -2,7 +2,7 @@
 // descriptor table, each holding the bytes the other wrote until they are
 // read. The slave also answers the terminal request, so a program that holds
 // it has a terminal. The boot terminal is one whose master the kernel holds
-// (src/dolly.c); console@0's terminal consoles and pty@0's openpty are others.
+// (kernel/dolly.c); console@0's terminal consoles and pty@0's openpty are others.
 #include "pty-kernel.h"
 
 #include <dolly/process.h>

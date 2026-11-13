@@ -53,9 +53,9 @@ flowchart LR
   ([`dolly-kernel-plugin-0.wat`](../abi/dolly-kernel-plugin-0.wat)) is built only
   by `cc --dolly-kernel-plugin -shared`; ordinary programs cannot target it.
 - Trusted boot code copies the plugin bytes from WasmFS and links them to an
-  explicit map of kernel exports ([`kernel-plugin.mjs`](../src/kernel-plugin.mjs)):
+  explicit map of kernel exports ([`kernel-plugin.mjs`](../page/kernel-plugin.mjs)):
   no URLs, dependency loading or JavaScript evaluation.
-- The driver ([`src/ghostty/display.c`](../src/ghostty/display.c)) renders
+- The driver ([`programs/ghostty/display.c`](../programs/ghostty/display.c)) renders
   libghostty-vt's grid with IosevkaTerm SemiBold through stb_truetype: 0.9 MB,
   the glyphs of the characters it maps and of its default features, out of
   the release's 7.7 MB ([`fetch-iosevka.sh`](../scripts/fetch-iosevka.sh)). The
@@ -135,9 +135,9 @@ package (input's from `libdolly-input`):
 
 - `zig-build` ([`Dollyfile-zig-build`](../Dollyfile-zig-build)) builds Zig 0.17 from its source archive with
   Dolly `cc`, as upstream `bootstrap.c` does with two substitutions. WAMR, built
-  by `cc` ([`zig1.c`](../src/zig/zig1.c)), interprets upstream `zig1.wasm`
+  by `cc` ([`zig1.c`](../programs/zig/zig1.c)), interprets upstream `zig1.wasm`
   because wasm2c's translation overflows a browser Worker's native stack. zig1
-  emits zig2 as C with only the C backend ([`config.zig`](../src/zig/config.zig)),
+  emits zig2 as C with only the C backend ([`config.zig`](../programs/zig/config.zig)),
   which `cc` compiles to `/usr/bin/zig`.
 - `ghostty-build` ([`Dollyfile-ghostty-build`](../Dollyfile-ghostty-build)) has that Zig emit Ghostty VT and
   compiler_rt as C, compiles them with `cc` and links `/usr/lib/libdisplay.so`.
@@ -148,7 +148,7 @@ package (input's from `libdolly-input`):
   ([`zig-0.17.0-dolly-native.patch`](../config/zig-0.17.0-dolly-native.patch));
   the SDK files are listed in [`zig-sdk-files.txt`](../config/zig-sdk-files.txt).
 - Ghostty's generated options and Wuffs bindings are checked-in source inputs
-  ([`src/ghostty/generated/`](../src/ghostty/generated/README.md)); its Unicode
+  ([`programs/ghostty/generated/`](../programs/ghostty/generated/README.md)); its Unicode
   tables are generated in the build, from uucode's UCD files, by programs of this Zig;
   [`ghostty-dolly.patch`](../config/ghostty-dolly.patch) zeroes page-pool buffers.
   [`ghostty-source-manifest.txt`](../config/ghostty-source-manifest.txt) lists

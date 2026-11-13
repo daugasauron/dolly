@@ -17,7 +17,7 @@ flowchart LR
   `A-Z a-z 0-9 . _ -` (not `.` or `..`). `/sessions/` lists saves with Export,
   Import, Delete and Recover files; `/session/?name=NAME` loads one.
 - The Save button is one of the page's indicators
-  ([`page-indicators.mjs`](../src/page-indicators.mjs)): it shows for ten
+  ([`page-indicators.mjs`](../page/page-indicators.mjs)): it shows for ten
   seconds once the page is ready and `Ctrl+Shift+F` shows or hides it, so a
   program's own controls in that corner stay reachable. `Ctrl+Shift+S` saves
   while it is hidden. A save in progress or a failed one shows it until the
@@ -29,7 +29,7 @@ flowchart LR
   descriptors, scrollback, environment, cwd, hard links, access times or modes;
   `/etc/dolly/environment` is a file, loaded after the restore, so installed
   variables apply when the session loads.
-- `/run`, `/dev` and `/proc` are excluded ([`session-records.h`](../src/session-records.h));
+- `/run`, `/dev` and `/proc` are excluded ([`session-records.h`](../kernel/session-records.h));
   a save is at most 8 GiB and 1,000,000 paths before compression, and
   exceeding either fails the save visibly. A failed save leaves the previous
   record intact.
@@ -48,7 +48,7 @@ flowchart LR
   its files. The image's host modules are the catalog's. Otherwise **Recover
   files** boots `system` and copies the regular files of `/workspace` and
   `/home` into `/workspace/recovered-NAME`
-  ([`session-recover.c`](../src/commands/session-recover.c)); saved startup
+  ([`session-recover.c`](../programs/commands/session-recover.c)); saved startup
   files and credentials stay in that folder for inspection without becoming
   live config. Recovery refuses an existing destination and leaves the save
   unchanged.
@@ -64,14 +64,14 @@ flowchart LR
   `.dolly-session` files, checksummed but not authenticated; imports never
   overwrite an existing name.
 - A save belongs to the version that made it
-  ([`version.mjs`](../src/version.mjs)): the database is
+  ([`version.mjs`](../page/version.mjs)): the database is
   `dolly-sessions-vX.Y.Z`, so the pages under `/vX.Y.Z/` list, load, export
   and import only their own saves. An exported file records its version, and
   another version refuses it, naming the version it belongs to.
 - A second start of an image reads its packs from the browser's pack store,
   which keeps every pack an image read, checked against its digest at each
   use, and removes what no image of this runtime names any more
-  ([`pack-store.mjs`](../src/pack-store.mjs)); a restore reads none. The
+  ([`pack-store.mjs`](../page/pack-store.mjs)); a restore reads none. The
   sessions page shows its size and clears it. A save asks the browser to keep
   the origin's storage, the saves and the packs, when it runs short of space
   (`navigator.storage.persist()`): Chrome answers from the site's engagement
@@ -85,9 +85,9 @@ flowchart LR
 
 Code: kernel [`host/snapshot/kernel.c`](../host/snapshot/kernel.c); page
 [`host/snapshot/transport.mjs`](../host/snapshot/transport.mjs),
-[`session-store.mjs`](../src/session-store.mjs),
-[`session-file.mjs`](../src/session-file.mjs), list page
-[`sessions.mjs`](../src/sessions.mjs).
+[`session-store.mjs`](../site/session-store.mjs),
+[`session-file.mjs`](../site/session-file.mjs), list page
+[`sessions.mjs`](../site/sessions.mjs).
 
 ## Upload and download
 

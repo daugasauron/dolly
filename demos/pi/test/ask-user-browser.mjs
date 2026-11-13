@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { delay, demoTest } from "../../browser.mjs";
-import { siteReference } from "../../../src/static-asset.mjs";
+import { siteReference } from "../../../page/static-asset.mjs";
 import catalog from "../../../dist/dolly-images.json" with { type: "json" };
 
 let pageOrigin;

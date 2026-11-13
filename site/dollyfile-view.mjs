@@ -1,5 +1,5 @@
 import { hostRequirement, hostRequirements } from "../host/requirements.mjs";
-import { unretainedPath, validName } from "./image-names.mjs";
+import { unretainedPath, validName } from "../page/image-names.mjs";
 
 export const MAX_DOLLYFILE_BYTES = 128 * 1024;
 

@@ -4,7 +4,7 @@
 // Usage: node demos/studio/test/studio-browser.mjs
 import assert from "node:assert/strict";
 import { delay, demoTest, recoveryPrompt, shellQuote, writeCommand } from "../../browser.mjs";
-import { siteReference } from "../../../src/static-asset.mjs";
+import { siteReference } from "../../../page/static-asset.mjs";
 
 await demoTest("studio", { image: "dollyfile-studio", timeout: 900_000,
   server: { fixtures: { "studio-nvim.lua": "demos/studio/test/fixtures/studio-nvim.lua" } } }, async ({ server, open }) => {

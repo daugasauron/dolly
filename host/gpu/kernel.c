@@ -1,4 +1,4 @@
-// gpu@0 kernel side: a device leased per process (src/device-lease.c).
+// gpu@0 kernel side: a device leased per process (kernel/device-lease.c).
 #include "device-lease.h"
 #include "process-kernel.h"
 

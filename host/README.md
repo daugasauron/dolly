@@ -6,7 +6,7 @@ the modules its embedding names, by the URLs of their manifests: the registry
 ([`modules.mjs`](modules.mjs), `hostRegistry`) loads those and no other, on the
 page and in the Worker. [`manifests.mjs`](manifests.mjs) lists the modules this
 repository builds; the build, packaging and ABI tests read those manifests, and
-a page of the site names those its route uses ([`site.mjs`](../src/site.mjs)).
+a page of the site names those its route uses ([`site.mjs`](../site/site.mjs)).
 
 ```json
 { "name": "http", "version": 0, "dependencies": ["runtime@0"], "phase": "kernel",
@@ -31,7 +31,7 @@ a page of the site names those its route uses ([`site.mjs`](../src/site.mjs)).
 | `contracts` | WAT of the kernel boundary: its exports are kernel exports, its imports the host's |
 | `process` | WAT of process-side ABIs, such as the threads entry point |
 | `headers` | C API and packets, installed as `<dolly/NAME.h>`; `NAME-abi.h` is generated from the WAT constants and carries the module's ABI digest |
-| `kernel` | Kernel C; defines `dolly_NAME_kernel`, the process operations it handles and its release hook ([`process-kernel.h`](../src/process-kernel.h)) |
+| `kernel` | Kernel C; defines `dolly_NAME_kernel`, the process operations it handles and its release hook ([`process-kernel.h`](../kernel/process-kernel.h)) |
 | `client` | Process C linked as `libdolly-NAME.a`; it records `DOLLY_HOST_REQUIRE(NAME, VERSION, DOLLY_NAME_ABI_DIGEST)` |
 | `tools` | Process C a package builds from the module's directory: a program (`stack-wrap`) or a library over the module (http's `libcurl.c`, which the `curl` package builds); optional |
 | `seed` | A script the build runs in the toolchain container that writes `build/process-sysroot-parts/NAME/`, the module's part of the process sysroot, which the seed holds as `NAME/`: threads@0's is the threaded libc `cc -pthread` links, with the module's client; optional |
@@ -44,7 +44,7 @@ names no module but `runtime@0`. A module attaches to it only at these points,
 each a field of its manifest or a member of its provider:
 
 - **Kernel side** (`kernel`): its entry in the kernel's module table
-  (`dolly_NAME_kernel`, [`process-kernel.h`](../src/process-kernel.h)): the
+  (`dolly_NAME_kernel`, [`process-kernel.h`](../kernel/process-kernel.h)): the
   process operations it answers and its release hook; `mailbox`, for a module
   that runs a process on several Workers (`threads`); `device`, for a device
   leased per process (`gpu`, `audio`, `microphone`, `nena`); `terminal_output`
@@ -158,7 +158,7 @@ answered in that process's own Worker. Its Worker side fetches the bundle
 once at boot and registers it with the runtime (`serveInProcess`); the
 supervisor puts it in the start message of exactly the executables that
 record the module, and their Worker imports it before `_start`
-([`process-worker.mjs`](../src/process-worker.mjs)). Every other Worker loads
+([`process-worker.mjs`](../page/process-worker.mjs)). Every other Worker loads
 none of it, in an image that declares the module too, so declaring it costs a
 program that does not record it nothing. An executable records `dso@0` when it
 links a member of `libdolly-dso.a`: `cc -rdynamic` selects the loader's client,
@@ -183,28 +183,28 @@ program using `threads@0`.
 
 `sockets@0` has no import, no page or Worker side and no browser authority.
 Its kernel side is a descriptor kind of the runtime's table
-([`process-kernel.h`](../src/process-kernel.h)). Its client defines the
+([`process-kernel.h`](../kernel/process-kernel.h)). Its client defines the
 libc's socket calls, which many programs reference for a network path they
 never take here, so `cc` does not link it with the other clients: a program
 asks with `-ldolly-sockets`
 ([process model](../docs/process-model.md#local-sockets)). That argument
 comes before the archives `cc` adds, and the linker takes each name from the
 first archive that defines it; every other program gets libc's refusals
-([`socket-refusals.c`](../src/process/socket-refusals.c), an object that
+([`socket-refusals.c`](../process/socket-refusals.c), an object that
 names the same functions and nothing else) and records nothing.
 
 ## Pseudo-terminals
 
 `pty@0` has no import and no page side either: its kernel side opens a
 pseudo-terminal for a program, a descriptor kind of the kernel's own
-([`src/pty.c`](../src/pty.c)), which the boot terminal is too, and the
+([`kernel/pty.c`](../kernel/pty.c)), which the boot terminal is too, and the
 supervisor delivers the signals one raises for the programs on its slave
 ([process model](../docs/process-model.md#pseudo-terminals)). Its client
 defines the libc's `openpty`, so a program asks with `-ldolly-pty` as one
 asks for sockets (the `libdolly-pty` package). The libc itself forwards `ioctl(TIOCSWINSZ)` on a master. `console@0` is a
 root process's standard streams that the host holds, a pseudo-terminal's
 master or three pipes: no program calls it, and its terminals are the
-kernel's, through `src/pty-kernel.h`.
+kernel's, through `kernel/pty-kernel.h`.
 
 ## Runtimes
 
@@ -245,6 +245,6 @@ a libc ([machine contracts](../abi/README.md)). An executable built for a
 runtime with another process contract is refused by that check; runtimes that
 implement the same contract run the same executables.
 
-[`worker-image.mjs`](../src/worker-image.mjs) and the process loader still
+[`worker-image.mjs`](../page/worker-image.mjs) and the process loader still
 load this runtime's kernel, seed and process contract by fixed path; a second
 runtime needs its provider to name them.

@@ -8,7 +8,7 @@ import { gunzipSync } from "node:zlib";
 import test from "node:test";
 import { promisify } from "node:util";
 import { ensureSnapshotPacks, shareSnapshots, splitSnapshotRecords } from "../scripts/share-pages-snapshots.mjs";
-import { decodeSnapshotRecords, encodeSnapshotRecords, mergeSnapshotRecords, scanSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
+import { decodeSnapshotRecords, encodeSnapshotRecords, mergeSnapshotRecords, scanSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../page/snapshot-records.mjs";
 const execFile = promisify(execFileCallback);
 const file = text => ({ kind: 2, data: new TextEncoder().encode(text) });
 test("development images reuse complete packs and repair missing delivery files", async () => {

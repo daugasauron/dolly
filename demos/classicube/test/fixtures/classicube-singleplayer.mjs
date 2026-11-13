@@ -115,7 +115,7 @@ export async function runClassiCubeProof({ send, evaluate, wait, key, snapshot, 
   assert.equal(await evaluate("__dolly.submit('echo CLASSICUBE-SURVIVED > classicube-proof.txt')"), 0);
   await evaluate("__dolly.saveSession('classicube-proof')");
   const maps = await evaluate(`(async () => {
-    const browser = performance.getEntriesByType('resource').find(e => e.name.endsWith('/src/browser.mjs')).name;
+    const browser = performance.getEntriesByType('resource').find(e => e.name.endsWith('/page/browser.mjs')).name;
     const store = await import(new URL('session-store.mjs', browser));
     const buffer = (await store.decodeSessionSnapshot((await store.loadStoredSession('classicube-proof')).bytes)).slice(0);
     const view = new DataView(buffer), bytes = new Uint8Array(buffer), result = {};

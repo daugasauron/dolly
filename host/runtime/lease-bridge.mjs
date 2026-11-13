@@ -2,7 +2,7 @@ import { DOLLY_DEVICE_REPLY_HEADER_BYTES as header, DOLLY_DEVICE_REPLY_PUBLISHED
   DOLLY_DEVICE_REPLY_WORD_LENGTH, DOLLY_DEVICE_REPLY_WORD_SCOPE, DOLLY_DEVICE_REPLY_WORD_SEQUENCE, DOLLY_DEVICE_REPLY_WORD_STATE,
   DOLLY_ERRNO as E } from "./abi.mjs";
 
-// The Worker side of a device leased per process (src/device-lease.c). Each
+// The Worker side of a device leased per process (kernel/device-lease.c). Each
 // packet a process submits (dolly_device_header, runtime.h, then the
 // operation's body) is checked whole here and goes to the page as
 // `TYPE-request` with its operation, scope, sequence and body; the page's

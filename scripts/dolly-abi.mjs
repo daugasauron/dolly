@@ -12,7 +12,7 @@ import {
   readWasmInterface,
   sameWasmType,
 } from "./wasm-interface.mjs";
-import { validateProcessInterface } from "../src/process-abi.mjs";
+import { validateProcessInterface } from "../page/process-abi.mjs";
 import { validateDsoInterface } from "../host/dso/interface.mjs";
 
 const relocationGlobals = new Set(["__memory_base", "__table_base"]);

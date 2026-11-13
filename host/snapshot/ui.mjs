@@ -1,5 +1,5 @@
 import { DOLLY_BUILD_ID } from "../../dist/dolly-build-id.mjs";
-import { DOLLY_IMAGES } from "../../src/images.mjs";
+import { DOLLY_IMAGES } from "../../page/images.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION,
   customSessionIdentity,
@@ -9,7 +9,7 @@ import {
   sessionImageIdentity,
   sessionLoadUrl,
   validSessionName,
-} from "../../src/session-store.mjs";
+} from "../../site/session-store.mjs";
 
 // An adopted style sheet, which a page's style-src without 'unsafe-inline' allows.
 const style = `
@@ -107,7 +107,7 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
   async function save(requestedName) {
     if (saving) return saving;
     // A save asks the browser to keep the origin's storage: the saves and the
-    // packs images start from (src/pack-store.mjs). Chrome answers from the
+    // packs images start from (page/pack-store.mjs). Chrome answers from the
     // site's engagement, Firefox asks the user; the save does not wait.
     navigator.storage.persist().catch(() => {});
     saving = (async () => {

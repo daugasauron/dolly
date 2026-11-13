@@ -4,8 +4,8 @@ import { dollyfileCases } from "./fixtures/dollyfile-cases.mjs";
 import { buildInputReuse, buildLogProof } from "./fixtures/image-build-browser.mjs";
 import catalog from "../dist/dolly-images.json" with { type: "json" };
 import { createHash } from "node:crypto";
-import { inspectDollyfile, recipeRows } from "../src/dollyfile-view.mjs";
-import { siteReference } from "../src/static-asset.mjs";
+import { inspectDollyfile, recipeRows } from "../site/dollyfile-view.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 import systemMetadata from "../dist/dolly-system-system-snapshot.json" with { type: "json" };
 
 // system is built FROM system-tools and installs packages: the base and child of the cache checks.
@@ -16,11 +16,11 @@ const packs = metadata => metadata.packs.map(({ sha256 }) => `/dist/packs/${sha2
 const inputMetadata = await Promise.all(system.artifacts.map(async ({ image }) =>
   (await import(`../dist/dolly-${image}-system-snapshot.json`, { with: { type: "json" } })).default));
 const systemPacks = packs(systemMetadata), buildPacks = [...new Set(packs({ packs: inputMetadata.flatMap(metadata => metadata.packs) }))];
-const sources = { "fs-record.h": "src/fs-record.h", "fs-record.c": "test/fixtures/fs-record.c",
-  "image-roundtrip.c": "test/fixtures/image-roundtrip.c", "system-snapshot.c": "src/system-snapshot.c",
-  "system-snapshot.h": "src/system-snapshot.h", "dollyfile.c": "src/dollyfile.c", "sha256.h": "src/sha256.h" };
-const fixtures = { ...sources, "parser-dollyfile.c": "src/dollyfile.c", "parser-fs-record.h": "src/fs-record.h",
-  "parser-sha256.h": "src/sha256.h" };
+const sources = { "fs-record.h": "kernel/fs-record.h", "fs-record.c": "test/fixtures/fs-record.c",
+  "image-roundtrip.c": "test/fixtures/image-roundtrip.c", "system-snapshot.c": "kernel/system-snapshot.c",
+  "system-snapshot.h": "kernel/system-snapshot.h", "dollyfile.c": "programs/dollyfile.c", "sha256.h": "programs/sha256.h" };
+const fixtures = { ...sources, "parser-dollyfile.c": "programs/dollyfile.c", "parser-fs-record.h": "kernel/fs-record.h",
+  "parser-sha256.h": "programs/sha256.h" };
 let hideSystemMetadata = false;
 let parserRecipes = new Map();
 // A recipe the engine built from this checkout runs, and its rows.
@@ -135,7 +135,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
     return target.evaluate(async ({ sha256, inputs }) => ({
       digest: __dolly.builtImage.sha256,
       payloadReads: artifactReads.splice(0),
-      cachedBase: (await (await import("/src/image-artifact.mjs")).loadImageArtifactDescriptor(sha256, inputs))?.file,
+      cachedBase: (await (await import("/site/image-artifact.mjs")).loadImageArtifactDescriptor(sha256, inputs))?.file,
       downloads: performance.getEntriesByType("resource").map(entry => new URL(entry.name).pathname)
         .filter(path => /\/dist\/packs\/|\.snapshot$/.test(path)).sort(),
     }), { sha256: system.sha256, inputs: systemMetadata.inputs });
@@ -155,11 +155,11 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
   // building on system rebuilds an image built FROM system-tools.
   const stale = await page.evaluate(async ({ system, child }) => {
     const { loadImageArtifactDescriptor, loadImageArtifact, describeImageArtifact, saveImageArtifact } =
-      await import("/src/image-artifact.mjs");
-    const { loadPackagedSnapshotMetadata, packagedSystemSnapshot } = await import("/src/packaged-snapshot.mjs");
-    const { decodeSnapshotRecords, encodeSnapshotRecords } = await import("/src/snapshot-records.mjs");
-    const { prepareImageArtifacts } = await import("/src/image-build.mjs");
-    const { siteReference } = await import("/src/static-asset.mjs");
+      await import("/site/image-artifact.mjs");
+    const { loadPackagedSnapshotMetadata, packagedSystemSnapshot } = await import("/page/packaged-snapshot.mjs");
+    const { decodeSnapshotRecords, encodeSnapshotRecords } = await import("/page/snapshot-records.mjs");
+    const { prepareImageArtifacts } = await import("/site/image-build.mjs");
+    const { siteReference } = await import("/page/static-asset.mjs");
     const prime = async definition => {
       const metadata = await loadPackagedSnapshotMetadata(definition.image);
       const artifact = await describeImageArtifact(await packagedSystemSnapshot(metadata),
@@ -196,11 +196,11 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
   // published base, and a schema upgrade that keeps named sessions.
   assert.deepEqual(await page.evaluate(async system => {
     const { loadImageArtifactDescriptor, loadImageArtifact, describeImageArtifact, saveImageArtifact, sha256 } =
-      await import("/src/image-artifact.mjs");
-    const { encodeSnapshotRecords } = await import("/src/snapshot-records.mjs");
-    const { prepareImageArtifacts } = await import("/src/image-build.mjs");
-    const { siteReference } = await import("/src/static-asset.mjs");
-    const { DOLLY_SESSION_FORMAT_VERSION, saveStoredSession, loadStoredSession } = await import("/src/session-store.mjs");
+      await import("/site/image-artifact.mjs");
+    const { encodeSnapshotRecords } = await import("/page/snapshot-records.mjs");
+    const { prepareImageArtifacts } = await import("/site/image-build.mjs");
+    const { siteReference } = await import("/page/static-asset.mjs");
+    const { DOLLY_SESSION_FORMAT_VERSION, saveStoredSession, loadStoredSession } = await import("/site/session-store.mjs");
     const { default: metadata } = await import("/dist/dolly-system-system-snapshot.json", { with: { type: "json" } });
     const make = async (name, value) => {
       const source = new TextEncoder().encode(`DOLLY 7\nAPPLICATION ${name}\nENTRY /bin/slop\n`);

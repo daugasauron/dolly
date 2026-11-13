@@ -6,7 +6,7 @@ import { mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "nod
 import { resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
-import { decodeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
+import { decodeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../page/snapshot-records.mjs";
 import { metadataJson } from "./image-directory.mjs";
 
 // A record is either decoded (`data`) or indexed in a snapshot file on disk

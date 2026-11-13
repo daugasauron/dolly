@@ -2,10 +2,10 @@
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { inspectDollyfile } from "../src/dollyfile-view.mjs";
+import { inspectDollyfile } from "../site/dollyfile-view.mjs";
 import { recipeFiles } from "./recipe-files.mjs";
 import { publishedHostFiles, publishedDocument } from "./host-modules.mjs";
-import { siteReference, sitePath } from "../src/static-asset.mjs";
+import { siteReference, sitePath } from "../page/static-asset.mjs";
 import { discoverImageDefinitions, selectImageDefinitions } from "./image-definitions.mjs";
 
 // Writes this version into every site reference, then the pins. SOURCES

@@ -271,7 +271,7 @@ static int list_files(const char *snapshot, FILE *list, Summary *summary) {
         fseeko(stream, (off_t)size, SEEK_CUR) == 0;
     if (!valid) break;
     path[length] = '\0';
-    // An environment record without names is its 16-byte header (src/dollyfile.c).
+    // An environment record without names is its 16-byte header (programs/dollyfile.c).
     if (strcmp(path, "/etc/dolly/environment") == 0) summary->environment = size > 16;
     if (kind == 1 /* a directory */ || strncmp(path, "/etc/dolly/", 11) == 0) continue;
     fprintf(list, "%llu %s\n", (unsigned long long)size, path);
@@ -336,7 +336,7 @@ static char *read_file(const char *path, size_t *size) {
 }
 
 // The host modules an engine receipt names, appended to `hosts` one a line.
-// A receipt (src/dollyfile.c, DOLLYART 5) holds the recipe chain, five texts
+// A receipt (programs/dollyfile.c, DOLLYART 5) holds the recipe chain, five texts
 // a recipe, then the modules; a text is its length and its bytes.
 static int receipt_hosts(const char *receipt, size_t size, char *hosts, size_t capacity) {
   const unsigned char *at = (const unsigned char *)receipt, *end = at + size;

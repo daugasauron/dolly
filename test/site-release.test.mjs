@@ -9,7 +9,7 @@ import { fileManifest, publishRelease, siteManifest, sourceManifest, verifyRelea
 import { createReleaseServer } from "../scripts/serve.mjs";
 import { sha256 } from "../scripts/sha256.mjs";
 import { packageDomain } from "../scripts/package-domain.mjs";
-import { DOLLY_VERSION } from "../src/version.mjs";
+import { DOLLY_VERSION } from "../page/version.mjs";
 
 test("domain packaging adds the showcase, with public navigation and pinned media", async t => {
   const root = await mkdtemp(resolve(tmpdir(), "dolly-domain-test-"));
@@ -82,13 +82,13 @@ test("the release server serves the current release as deployed: its files under
   t.after(() => rm(releases, { recursive: true, force: true }));
   async function publish(version, text) {
     const stage = resolve(releases, "candidate");
-    for (const path of ["release", "src", "docs", "default", "dist/packs"]) await mkdir(resolve(stage, path), { recursive: true });
+    for (const path of ["release", "page", "docs", "default", "dist/packs"]) await mkdir(resolve(stage, path), { recursive: true });
     for (const [path, contents] of Object.entries({
-      "src/version.mjs": `// The version.\nexport const DOLLY_VERSION = "${version}";\n`,
-      "src/browser.mjs": text, "docs/browser-boundary.md": "boundary", "Dollyfile-system": "DOLLY 6\n",
+      "page/version.mjs": `// The version.\nexport const DOLLY_VERSION = "${version}";\n`,
+      "page/browser.mjs": text, "docs/browser-boundary.md": "boundary", "Dollyfile-system": "DOLLY 6\n",
       "llms.txt": "# Dolly\n\n- [default](default/): a shell\n",
       [`dist/packs/${"a".repeat(64)}.snapshot.gz`]: "compressed bytes", "index.html": "<html>menu</html>",
-      "default/index.html": '<html><script src="../src/browser.mjs"></script><a href="../">menu</a></html>',
+      "default/index.html": '<html><script src="../page/browser.mjs"></script><a href="../">menu</a></html>',
     })) await writeFile(resolve(stage, path), contents);
     const manifest = await siteManifest(stage);
     const digest = sha256(manifest);
@@ -110,20 +110,20 @@ test("the release server serves the current release as deployed: its files under
   assert.deepEqual(await answer("/v1.2.3/default"), [308, "/v1.2.3/default/"]);
   // The pages are the release's own: relative links, no rewriting.
   assert.equal(await (await get("/v1.2.3/")).text(), "<html>menu</html>");
-  assert.match(await (await get("/v1.2.3/default/")).text(), /script src="\.\.\/src\/browser.mjs"/);
-  assert.equal(await (await get("/v1.2.3/src/browser.mjs")).text(), "old candidate");
+  assert.match(await (await get("/v1.2.3/default/")).text(), /script src="\.\.\/page\/browser.mjs"/);
+  assert.equal(await (await get("/v1.2.3/page/browser.mjs")).text(), "old candidate");
   assert.match((await get("/v1.2.3/Dollyfile-system")).headers.get("content-type"), /^text\/plain/);
   // The root speaks for the release's version, as a deployment's root does for its newest.
   assert.equal(await (await get("/robots.txt")).text(), "# Dolly\n#\n# - default /v1.2.3/default/: a shell\n\nUser-agent: *\nDisallow: /v1.2.3/dist/\n");
   assert.deepEqual(await answer("/llms.txt"), [302, "/v1.2.3/llms.txt"]);
   // Nothing is served outside the version or the release.
-  for (const path of ["/default/", "/src/browser.mjs", "/Dollyfile-system", "/v1.2.4/default/", "/v1.2.3/AGENTS.md", "/v1.2.3/src/compiler.cpp",
-    "/v1.2.3/docs/..%2fAGENTS.md", "/v1.2.3/docs/..%2fsrc%2fcompiler.cpp", "/v1.2.3/dist/..%2fAGENTS.md", "/v1.2.3/..%2f..%2fAGENTS.md"]) {
+  for (const path of ["/default/", "/page/browser.mjs", "/Dollyfile-system", "/v1.2.4/default/", "/v1.2.3/AGENTS.md", "/v1.2.3/programs/compiler.cpp",
+    "/v1.2.3/docs/..%2fAGENTS.md", "/v1.2.3/docs/..%2fprograms%2fcompiler.cpp", "/v1.2.3/dist/..%2fAGENTS.md", "/v1.2.3/..%2f..%2fAGENTS.md"]) {
     assert.equal((await get(path)).status, 404, path);
   }
   // A candidate keeps its version while it changes: a file is asked for again
   // each time and kept while its digest is the same; nothing else is kept.
-  for (const path of ["/v1.2.3/default/", "/v1.2.3/src/browser.mjs", `/v1.2.3/dist/packs/${"a".repeat(64)}.snapshot.gz`]) {
+  for (const path of ["/v1.2.3/default/", "/v1.2.3/page/browser.mjs", `/v1.2.3/dist/packs/${"a".repeat(64)}.snapshot.gz`]) {
     const { headers } = await get(path), etag = headers.get("etag");
     assert.equal(headers.get("cache-control"), "no-cache", path);
     assert.match(etag, /^"[0-9a-f]{64}"$/, path);
@@ -131,19 +131,19 @@ test("the release server serves the current release as deployed: its files under
   }
   assert.equal((await get("/nowhere")).headers.get("cache-control"), "no-store");
   // Ranges, which a video plays from.
-  const part = await fetch(`${origin}/v1.2.3/src/browser.mjs`, { headers: { range: "bytes=4-7" }, signal: AbortSignal.timeout(5000) });
+  const part = await fetch(`${origin}/v1.2.3/page/browser.mjs`, { headers: { range: "bytes=4-7" }, signal: AbortSignal.timeout(5000) });
   assert.deepEqual([part.status, part.headers.get("content-range"), part.headers.get("content-length"), await part.text()],
     [206, "bytes 4-7/13", "4", "cand"]);
-  const past = await fetch(`${origin}/v1.2.3/src/browser.mjs`, { headers: { range: "bytes=20-" }, signal: AbortSignal.timeout(5000) });
+  const past = await fetch(`${origin}/v1.2.3/page/browser.mjs`, { headers: { range: "bytes=20-" }, signal: AbortSignal.timeout(5000) });
   assert.equal(past.status, 416);
   const current = await publish("1.2.3", "new candidate");
-  assert.equal(await (await get("/v1.2.3/src/browser.mjs")).text(), "new candidate");
+  assert.equal(await (await get("/v1.2.3/page/browser.mjs")).text(), "new candidate");
   await publish("1.3.0", "next version");
   assert.deepEqual(await answer("/"), [302, "/v1.3.0/"]);
   assert.equal((await get("/v1.2.3/default/")).status, 404);
   const next = await readlink(resolve(releases, "current"));
-  await writeFile(resolve(releases, next, "src/browser.mjs"), "tampered");
-  assert.equal((await get("/v1.3.0/src/browser.mjs")).status, 404);
+  await writeFile(resolve(releases, next, "page/browser.mjs"), "tampered");
+  assert.equal((await get("/v1.3.0/page/browser.mjs")).status, 404);
   await assert.rejects(publishRelease(resolve(releases, next), releases), /file manifest mismatch/);
   assert.equal(await readlink(resolve(releases, "current")), next);
   assert.notEqual(current, next);

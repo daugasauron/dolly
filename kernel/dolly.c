@@ -80,7 +80,7 @@ int dolly_kernel_take_interrupt(void) {
                            memory_order_acquire) != 0 ? target : 0;
 }
 
-/* The boot terminal: a pseudo-terminal (src/pty.c) the kernel opens with its
+/* The boot terminal: a pseudo-terminal (kernel/pty.c) the kernel opens with its
  * first write and holds the master of. The page's root processes start on its
  * slave, and /dev/tty names it for a process on no other terminal. What its
  * programs write reaches the display's terminal (host/display/kernel.c) or,

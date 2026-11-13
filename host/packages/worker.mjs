@@ -2,8 +2,8 @@
 // packs into its snapshot, a chunk per request, off the page's thread: the page
 // must answer the guest's reads at once, since a guest that finds no record
 // waits 10 ms.
-import { DOLLY_IMAGES, loadImages } from "../../src/images.mjs";
-import { loadPackagedSnapshotMetadata, packagedSystemSnapshot } from "../../src/packaged-snapshot.mjs";
+import { DOLLY_IMAGES, loadImages } from "../../page/images.mjs";
+import { loadPackagedSnapshotMetadata, packagedSystemSnapshot } from "../../page/packaged-snapshot.mjs";
 
 let chunks;
 onmessage = async ({ data }) => {

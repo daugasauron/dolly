@@ -5,7 +5,7 @@
   ;; before either memory is touched outside its declared range.
   (import "process" "memory" (memory $process i64 1 131072 shared))
   (import "kernel" "memory" (memory $kernel i64 1024 131072 shared))
-  ;; The Worker's call (src/process-worker.mjs).
+  ;; The Worker's call (page/process-worker.mjs).
   (import "process" "call"
     (func $worker_call (param i32 i64 i64 i64 i64) (result i64)))
 

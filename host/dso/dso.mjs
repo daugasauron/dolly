@@ -1,4 +1,4 @@
-import { parseWasmInterface } from "../../src/wasm-interface.mjs";
+import { parseWasmInterface } from "../../page/wasm-interface.mjs";
 export { DOLLY_DSO_ABI_DIGEST as digest } from "./abi.mjs";
 
 // The loader and the FFI dispatcher (process.mjs) run inside the process Worker

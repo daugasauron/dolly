@@ -1,4 +1,4 @@
-import { DOLLY_SESSION_MAX_BYTES } from "../../src/session-store.mjs";
+import { DOLLY_SESSION_MAX_BYTES } from "../../site/session-store.mjs";
 import { DOLLY_ERRNO } from "./abi.mjs";
 import * as A from "./abi.mjs";
 

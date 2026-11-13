@@ -17,7 +17,7 @@ import { sha256 as digest } from "./sha256.mjs";
 import { verifySnapshotIdentity } from "./snapshot-identity.mjs";
 import { readWasmInterface } from "./wasm-interface.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
-import { imageInputs, imageInputsMatch } from "../src/image-inputs.mjs";
+import { imageInputs, imageInputsMatch } from "../page/image-inputs.mjs";
 import { metadataJson, snapshotMetadata } from "./image-directory.mjs";
 import { ensureSnapshotPacks } from "./share-pages-snapshots.mjs";
 

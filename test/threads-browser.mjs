@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { browserTest } from "./browser.mjs";
 import { DOLLY_THREADS_ABI_DIGEST } from "../host/threads/abi.mjs";
-import { siteReference } from "../src/static-asset.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 import catalog from "../dist/dolly-images.json" with { type: "json" };
 
 // The shell, its tools and curl without Git, whose asyncs are threads: an
@@ -48,7 +48,7 @@ await browserTest("threads", { image: "system", server: { fixtures, sourceOverri
   const threaded = "/tmp/threads-pthread.c.wasm";
   // Ending a process terminates the Workers of its remaining threads, and the
   // browser reports nothing for them (Firefox 155 does for a Worker inside a
-  // WebAssembly.promising call, src/process-supervisor.mjs).
+  // WebAssembly.promising call, page/process-supervisor.mjs).
   const reports = [];
   page.on("console", message => { if (message.type() === "error") reports.push(message.text()); });
   await run(`${threaded} --main-exit && test -f /tmp/last-thread`);

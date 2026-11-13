@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { alphabetical } from "../src/alphabetical.mjs";
+import { alphabetical } from "../site/alphabetical.mjs";
 
 // An image is described by one "- `IMAGE`: description" item of the README
 // beside its recipe: README.md for the core's, demos/DEMO/README.md for a

@@ -10,12 +10,12 @@
 // entry is replaced or evicted; a page that still holds the file then reads
 // nothing, so an entry's bytes are read only for a build the entry outlives.
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
-import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
+import { imageInputs, imageInputsMatch } from "../page/image-inputs.mjs";
 import { loadRecipeGraph } from "./dollyfile-graph.mjs";
 import { recipeFileName } from "./dollyfile-view.mjs";
-import { sha256 } from "./static-asset.mjs";
-import { Sha256 } from "./sha256.mjs";
-import { scanSnapshotRecords, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
+import { sha256 } from "../page/static-asset.mjs";
+import { Sha256 } from "../page/sha256.mjs";
+import { scanSnapshotRecords, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "../page/snapshot-records.mjs";
 export { sha256 };
 
 const STORE_DIRECTORY = "dolly-images";

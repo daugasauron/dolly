@@ -2,7 +2,7 @@
 // site paths from a fixture directory, as a page serves its own files, and
 // capture shell arguments; they never run host tools.
 #define main dollyfile_main
-#include "../../src/dollyfile.c"
+#include "../../programs/dollyfile.c"
 #undef main
 #include <sys/resource.h>
 

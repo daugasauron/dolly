@@ -136,7 +136,7 @@ async function processMemory() {
   }
 }
 // The program's module, or the channel its Worker sends it on
-// (src/process-supervisor.mjs heldModuleBytes).
+// (page/process-supervisor.mjs heldModuleBytes).
 async function programModule() {
   const { module } = configuration;
   if (module instanceof WebAssembly.Module) return module;
@@ -319,7 +319,7 @@ try {
   }));
   awaitHost = localModules.find(module => module.awaitHost)?.awaitHost ?? awaitHost;
   self.postMessage({ type: "started", pid: configuration.pid, tid: configuration.tid });
-  // Through JSPI where that stack is the larger one (src/process-supervisor.mjs).
+  // Through JSPI where that stack is the larger one (page/process-supervisor.mjs).
   const enter = configuration.promisingEntry ? WebAssembly.promising : entry => entry;
   if (configuration.argument !== undefined) {
     threadResult = await enter(instance.exports.dolly_thread_start)(configuration.tid, configuration.argument);

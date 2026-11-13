@@ -126,7 +126,7 @@ typedef struct {
 _Alignas(64) static unsigned char supervisor_mailbox[DOLLY_PROCESS_PACKET_LIMIT];
 /* The mailbox of the call in progress, DOLLY_PROCESS_PACKET_LIMIT bytes: the
  * one a process Worker fills with its request before the call and reads its
- * response from after it (src/process-worker.mjs), or the supervisor's. Each
+ * response from after it (page/process-worker.mjs), or the supervisor's. Each
  * entry sets it. */
 static unsigned char *process_mailbox = supervisor_mailbox;
 static dolly_kernel_process process_table[DOLLY_KERNEL_PROCESS_LIMIT];
@@ -727,7 +727,7 @@ static void place_stream(dolly_kernel_process *process, dolly_kernel_socket *soc
   process->fds[target].stream = socket;
 }
 
-/* A root process, which has no parent, maps the boot terminal (src/dolly.c)
+/* A root process, which has no parent, maps the boot terminal (kernel/dolly.c)
  * from the host's descriptors 0, 1 and 2. */
 static int copy_descriptor(dolly_kernel_process *process,
                             const dolly_kernel_process *parent,

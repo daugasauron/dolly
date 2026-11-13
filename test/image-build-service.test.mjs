@@ -3,9 +3,9 @@ import test from "node:test";
 import { ImageBuildService, BUILD_ORIGIN, BUILD_LIMITS } from "../host/build/service.mjs";
 import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
 import { localServicesTransport } from "../host/http/local-services.mjs";
-import { checkedCustomArtifact } from "../src/custom-image.mjs";
-import { describeImageArtifact, sha256 } from "../src/image-artifact.mjs";
-import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
+import { checkedCustomArtifact } from "../site/custom-image.mjs";
+import { describeImageArtifact, sha256 } from "../site/image-artifact.mjs";
+import { encodeSnapshotRecords } from "../page/snapshot-records.mjs";
 
 const encoder = new TextEncoder(), decoder = new TextDecoder();
 const source = "DOLLY 7\nAPPLICATION proof\nENTRY /bin/slop\n";

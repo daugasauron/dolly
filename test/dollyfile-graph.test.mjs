@@ -10,8 +10,8 @@ import { renderDollyfilePage } from "../scripts/render-dollyfile-view.mjs";
 import { updateRecipePins } from "../scripts/update-recipe-pins.mjs";
 import { lintDollyfiles } from "../scripts/lint-dollyfiles.mjs";
 import { recipeFiles } from "../scripts/recipe-files.mjs";
-import { DOLLY_VERSION } from "../src/version.mjs";
-import { PUBLIC_ORIGIN, siteReference } from "../src/static-asset.mjs";
+import { DOLLY_VERSION } from "../page/version.mjs";
+import { PUBLIC_ORIGIN, siteReference } from "../page/static-asset.mjs";
 
 const project = resolve(import.meta.dirname, "..");
 

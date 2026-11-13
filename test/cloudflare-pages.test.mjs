@@ -9,7 +9,7 @@ import test from "node:test";
 import { exportCloudflarePages, pagesAsset, pagesHeaders, versionHeaders } from "../scripts/export-cloudflare-pages.mjs";
 import { mirrorVersion, verifyDeployment } from "../scripts/published-version.mjs";
 import { fileManifest } from "../scripts/site-release.mjs";
-import { decodeStaticAsset } from "../src/static-asset.mjs";
+import { decodeStaticAsset } from "../page/static-asset.mjs";
 import { startPagesHost } from "./pages-host.mjs";
 
 test("Pages transport compresses source assets and splits incompressible files without changing decoded bytes", async () => {
@@ -55,7 +55,7 @@ test("a version's header rules name only its own compressed files", () => {
   assert.equal(versionHeaders(["dist/dolly.data", "dist/static/default/zig.wasm"]).split("\n\n").length, 2);
   assert.equal(versionHeaders([]), "");
   assert.throws(() => versionHeaders(["dist/static/a\n/*"]), /invalid Pages header path/);
-  assert.throws(() => versionHeaders(["src/browser.mjs"]), /invalid Pages header path/);
+  assert.throws(() => versionHeaders(["page/browser.mjs"]), /invalid Pages header path/);
   const version = { name: "v0.1.0", paths: [] };
   for (const forged of ["/*\n  Access-Control-Allow-Origin: any\n", "/:any/file\n  X-Dolly-Parts: 1\n", "/file\n"]) {
     assert.throws(() => pagesHeaders([{ ...version, headers: forged }]), /invalid deployment.headers/);
@@ -80,7 +80,7 @@ test("one deployment serves every published version under its path and nothing e
     [pack]: "{}", [`${pack}.part-0`]: "pack" }, versionHeaders(["dist/dolly.data", "dist/static/default/zig.tar"]) + "\n" + partsHeaders([pack]));
   await publish(archive, "v0.10.0", { "index.html": page, "default/index.html": page, "Dollyfile-system": recipe("v0.10.0"),
     "dist/static/system/main.c": source("v0.10.0"), "dist/dolly.data": manifest, "dist/dolly.data.part-0": seed[0], "dist/dolly.data.part-1": seed[1],
-    "dist/static/default/zig.tar": data, [pack]: "{}", [`${pack}.part-0`]: "pack", "src/browser.mjs": "export {};\n" },
+    "dist/static/default/zig.tar": data, [pack]: "{}", [`${pack}.part-0`]: "pack", "page/browser.mjs": "export {};\n" },
     versionHeaders(["dist/static/default/zig.tar"]));
   await publish(archive, "v0.2.0", { "index.html": page, "Dollyfile-system": recipe("v0.2.0"),
     "dist/static/system/main.c": source("v0.2.0"), "dist/dolly.data": "small seed" });
@@ -140,7 +140,7 @@ test("one deployment serves every published version under its path and nothing e
     assert.equal(await header(path, "cross-origin-embedder-policy"), "require-corp", path);
     assert.equal(await header(path, "cache-control"), "no-store", path);
   }
-  for (const path of ["/v0.1.0/Dollyfile-system", "/v0.1.0/dist/static/system/main.c", `/v0.1.0/${pack}`, "/v0.10.0/src/browser.mjs", "/v0.10.0/deployment.sha256"]) {
+  for (const path of ["/v0.1.0/Dollyfile-system", "/v0.1.0/dist/static/system/main.c", `/v0.1.0/${pack}`, "/v0.10.0/page/browser.mjs", "/v0.10.0/deployment.sha256"]) {
     assert.equal(await header(path, "cross-origin-resource-policy"), "same-origin", path);
     assert.equal(await header(path, "cache-control"), immutable, path);
   }
@@ -176,9 +176,9 @@ test("one deployment serves every published version under its path and nothing e
   await assert.rejects(mirrorVersion(host.origin, "v0.1.0", mirror), /already exists/);
   assert.deepEqual(await verifyDeployment(host.origin, output, "v0.10.0"), ["v0.1.0", "v0.2.0", "v0.10.0"]);
   // The archive and the deployment share their files, so the byte changes in both.
-  await writeFile(resolve(output, "v0.10.0/src/browser.mjs"), "export {};;");
-  await assert.rejects(verifyDeployment(host.origin, output, "v0.10.0"), /src\/browser\.mjs differs from deployment\.sha256/);
-  await assert.rejects(mirrorVersion(host.origin, "v0.10.0", mirror), /src\/browser\.mjs differs/);
+  await writeFile(resolve(output, "v0.10.0/page/browser.mjs"), "export {};;");
+  await assert.rejects(verifyDeployment(host.origin, output, "v0.10.0"), /page\/browser\.mjs differs from deployment\.sha256/);
+  await assert.rejects(mirrorVersion(host.origin, "v0.10.0", mirror), /page\/browser\.mjs differs/);
   assert.deepEqual(await readdir(mirror), ["v0.1.0"]);
   await assert.rejects(exportCloudflarePages(archive, resolve(root, "tampered")), /published v0\.10\.0 differs from its deployment\.sha256/);
 });
@@ -192,10 +192,10 @@ test("Pages export refuses what it cannot publish whole and leaves nothing behin
   await assert.rejects(exportCloudflarePages(archive, resolve(archive, "output")), /cannot modify its sources/);
   await assert.rejects(exportCloudflarePages(resolve(root, "missing"), resolve(root, "output")), /ENOENT/);
   // A version already published is never exported again.
-  await mkdir(resolve(root, "release/src"), { recursive: true });
-  await writeFile(resolve(root, "release/src/version.mjs"), 'export const DOLLY_VERSION = "0.1.0";\n');
+  await mkdir(resolve(root, "release/page"), { recursive: true });
+  await writeFile(resolve(root, "release/page/version.mjs"), 'export const DOLLY_VERSION = "0.1.0";\n');
   await assert.rejects(exportCloudflarePages(archive, resolve(root, "output"), resolve(root, "release")), /v0\.1\.0 is already published/);
-  await writeFile(resolve(root, "release/src/version.mjs"), 'export const DOLLY_VERSION = "0.2.0";\n');
+  await writeFile(resolve(root, "release/page/version.mjs"), 'export const DOLLY_VERSION = "0.2.0";\n');
   await assert.rejects(exportCloudflarePages(archive, resolve(root, "output"), resolve(root, "release")), /ENOENT/);
   await writeFile(resolve(archive, "notes.txt"), "not a version");
   await assert.rejects(exportCloudflarePages(archive, resolve(root, "output")), /not a version: notes\.txt/);

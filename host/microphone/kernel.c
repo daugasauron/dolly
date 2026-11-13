@@ -1,4 +1,4 @@
-// microphone@0 kernel side: a device leased to one process (src/device-lease.c).
+// microphone@0 kernel side: a device leased to one process (kernel/device-lease.c).
 #include "device-lease.h"
 #include "process-kernel.h"
 

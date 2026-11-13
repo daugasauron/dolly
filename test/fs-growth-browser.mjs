@@ -3,7 +3,7 @@
 // (test/cases/fs-growth.json).
 import assert from "node:assert/strict";
 import { browserTest, runSteps } from "./browser.mjs";
-import { DOLLY_ERRNO } from "../src/process-constants.mjs";
+import { DOLLY_ERRNO } from "../page/process-constants.mjs";
 import growthCases from "./cases/fs-growth.json" with { type: "json" };
 
 await browserTest("fs-growth", { image: growthCases.image, server: { fixtures: growthCases.fixtures }, timeout: 300_000 },

@@ -170,9 +170,9 @@ public:
   }
 };
 
-// A character device whose writes render on the terminal (src/dolly.c), which
+// A character device whose writes render on the terminal (kernel/dolly.c), which
 // has no position; reads are at end of file, since the kernel reads terminal
-// input for processes itself (src/process-kernel.c).
+// input for processes itself (kernel/process-kernel.c).
 class TerminalFile : public DataFile {
   int open(oflags_t) override { return 0; }
   int close() override { return 0; }

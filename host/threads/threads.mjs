@@ -1,4 +1,4 @@
-import { parseWasmInterface, sameWasmType } from "../../src/wasm-interface.mjs";
+import { parseWasmInterface, sameWasmType } from "../../page/wasm-interface.mjs";
 import { DOLLY_THREAD_EXIT, DOLLY_THREAD_SPAWN } from "./abi.mjs";
 export { DOLLY_THREADS_ABI_DIGEST as digest } from "./abi.mjs";
 

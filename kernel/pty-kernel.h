@@ -1,4 +1,4 @@
-/* Pseudo-terminals, src/pty.c: the boot terminal (src/dolly.c), console@0's
+/* Pseudo-terminals, kernel/pty.c: the boot terminal (kernel/dolly.c), console@0's
  * terminal consoles and pty@0's openpty. Kernel-private. */
 #pragma once
 #include "process-kernel.h"

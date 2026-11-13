@@ -292,7 +292,7 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
     "ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop", ""].join("\n"));
   await writeFile(join(dataApp, "index.html"), page.replace("./node_modules/@daugasauron/dolly-image-default/index.mjs",
     "./node_modules/@daugasauron/dolly-image-python-data/index.mjs"));
-  await writeFile(join(dataApp, "public/index.html"), page.replace("./node_modules/@daugasauron/dolly/src/browser.mjs", "./dolly/src/browser.mjs")
+  await writeFile(join(dataApp, "public/index.html"), page.replace("./node_modules/@daugasauron/dolly/page/browser.mjs", "./dolly/page/browser.mjs")
     .replace("./node_modules/@daugasauron/dolly-image-default/index.mjs", "./image/index.mjs"));
 
   const serve = (isolated, root = app) => listen(createServer(async (request, response) => {

@@ -17,7 +17,7 @@ import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "../test/browser-server.mjs";
 import { shellQuote } from "../test/browser.mjs";
 export { shellQuote, snapshotDisplay, waitForDisplay } from "../test/browser.mjs";
-import { siteReference } from "../src/static-asset.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 
 const projectDir = new URL("..", import.meta.url).pathname;
 export const shellPrompt = /dolly:[^\n]*\$\s*$/;

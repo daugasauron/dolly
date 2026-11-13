@@ -18,7 +18,7 @@ import { discoverImageDefinitions, selectImageDefinitions } from "./image-defini
 import { buildImageInPage, savePageSnapshot } from "./page-image-build.mjs";
 import { startCheckoutServer } from "./serve-checkout.mjs";
 import catalog from "../dist/dolly-images.json" with { type: "json" };
-import { sitePath } from "../src/static-asset.mjs";
+import { sitePath } from "../page/static-asset.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const { positionals: [image, outputArgument], values: { unpackaged } } = parseArgs({

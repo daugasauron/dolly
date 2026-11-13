@@ -76,7 +76,7 @@ EXPORTS TOOL slop
 EXPORTS ENV SHELL /bin/slop
 REQUIRES TOOL   cc
 
-# Dolly's own small commands, from src/commands. Each TOOL export names the
+# Dolly's own small commands, from programs/commands. Each TOOL export names the
 # compiled result.
 SOURCE /v0.1.6/dist/static/default/commands/path.h 3c15f00e77b9b788acf63ad78d48d61af68e69ce4d41e0ed2f348cb0c5fda8ae /tmp/core-tools/path.h
 SOURCE /v0.1.6/dist/static/default/commands/mkdir.c 0713179c0b44c92e30d2fd22c87a930ca23f5417b1b3392b3997547648617ad6 /tmp/core-tools/mkdir.c

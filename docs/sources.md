@@ -18,7 +18,7 @@ flowchart TD
 
 | Component | Built outside Dolly | Result |
 | --- | --- | --- |
-| Emscripten 6.0.8 | Digest-pinned container links the kernel, process sysroot, gate and seed ([`CMakeLists.txt`](../toolchain/CMakeLists.txt), [`build.sh`](../scripts/build.sh)) | Kernel plus process libc with its compiler-rt builtins, which the first link needs; the seed holds headers and the Dollyfile engine source, which [`bootstrap.c`](../src/process/bootstrap.c) compiles before the first recipe |
+| Emscripten 6.0.8 | Digest-pinned container links the kernel, process sysroot, gate and seed ([`CMakeLists.txt`](../toolchain/CMakeLists.txt), [`build.sh`](../scripts/build.sh)) | Kernel plus process libc with its compiler-rt builtins, which the first link needs; the seed holds headers and the Dollyfile engine source, which [`bootstrap.c`](../programs/bootstrap.c) compiles before the first recipe |
 
 libc++, libc++abi and libunwind are not among them: [`Dollyfile-system-build`](../Dollyfile-system-build)
 compiles Emscripten's pinned copy with the flags of Emscripten's own build,
@@ -40,7 +40,7 @@ compile the programs an image claims to build.
 ## The seed's compiler
 
 `cc`, `c++`, `ld` and `ar` spawn one executable, Clang and LLD of LLVM 24 with
-Dolly's driver ([`compiler.cpp`](../src/compiler.cpp)), as a private process.
+Dolly's driver ([`compiler.cpp`](../programs/compiler.cpp)), as a private process.
 It is built inside Dolly by the previous seed's compiler: the `llvm` demo's
 images compile LLVM from `DOLLY_LLVM_COMMIT` (`llvm-tablegen`, `llvm-build`)
 and link the compiler without its names (`llvm-cc`).

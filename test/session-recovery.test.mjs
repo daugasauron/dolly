@@ -25,7 +25,7 @@ test("file recovery preserves the source, excludes live configuration, and rejec
   const program = join(root, "recover"), input = join(root, "input"), output = join(root, "saved");
   const project = new URL("..", import.meta.url).pathname;
   await run("cc", ["-std=c11", "-Wall", "-Wextra", "-Werror", "-fsanitize=address,undefined",
-    "-Isrc", "src/commands/session-recover.c", "-o", program], { cwd: project });
+    "-Ikernel", "programs/commands/session-recover.c", "-o", program], { cwd: project });
   // A directory keeps its time with paths made in it; one before 1970 too.
   const directoryTime = -1_500_000_000n, fileTime = 1_000_000_000_123_456_789n;
   const saved = delta([[2, "/etc/system", "old system"], [2, "/home/dolly/.dollyrc", "old startup"],

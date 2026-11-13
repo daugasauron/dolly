@@ -12,12 +12,12 @@ REQUIRES HOST html@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-INSTALL /v0.1.6/Dollyfile-core 3f0ed8f48580b1aea351749cdcfbeab4bfe452436abc50beca43dac3d12fd7a9
-INSTALL /v0.1.6/Dollyfile-posix 44897e45850c0eb09bd481984aed46ab099f11c4d37bdcfc05591df26746e60a
-INSTALL /v0.1.6/Dollyfile-display 717f83d872a97cfc876278574e3c44fb4b3995d9b3b09562f85c0c718b8baec6
-INSTALL /v0.1.6/Dollyfile-transfer 9ed7a8db24b6bc0df618d200cd62db25c09602714c53c8826746a4d6a65b9483
-INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly b267afca32ab7523040f1e17fb5b9b080cb582c48ba093c1227dbc72dd07d5cb
-INSTALL /v0.1.6/demos/rts/Dollyfile-seven-kingdoms db02c6c45cbf6297ca22523036b7ed30783e9632974e162d9241ce8ba3a95a78
+INSTALL /v0.1.6/Dollyfile-core 03ca90f448fb77376f87753c0402c50cd460bd775d64546578044971ed15e98d
+INSTALL /v0.1.6/Dollyfile-posix 170e7c2312195e2dc62a3c48d5e76f66b4a4859aff52a69b644f90c0e4e2f730
+INSTALL /v0.1.6/Dollyfile-display d6ed8ecc88fa129ae2543779a9c97cd99a94639bb75338af65915d0ec75ab24f
+INSTALL /v0.1.6/Dollyfile-transfer 765e6d7786d7ba602e2a4ff0da19ec94ee5e28c82f86d904d80bc29e847d1d9d
+INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly 7bda6b374de87bcdeb76f80476ce640ce75db637f9c4988180ed36ffeeb29cf9
+INSTALL /v0.1.6/demos/rts/Dollyfile-seven-kingdoms af6e72dde1d1537544cdadea209bb1e705d6f85a19a09931372c024d57847f97
 REQUIRES TOOL pi
 REQUIRES TOOL upload
 REQUIRES TOOL rts-arena

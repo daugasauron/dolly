@@ -65,8 +65,8 @@ export function createReleaseServer(releases) {
           files.has(match[2])) throw new Error("invalid release file manifest");
       files.set(match[2], match[1]);
     }
-    const version = await readFile(resolve(releases, digest, "src/version.mjs"));
-    if (sha256(version) !== files.get("src/version.mjs")) throw new Error("published file changed");
+    const version = await readFile(resolve(releases, digest, "page/version.mjs"));
+    if (sha256(version) !== files.get("page/version.mjs")) throw new Error("published file changed");
     return current = { digest, files, base: `/${releaseVersion(version.toString())}/` };
   }
   return createServer(async (request, response) => {

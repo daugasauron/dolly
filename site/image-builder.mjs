@@ -1,6 +1,6 @@
 import { hostRegistry } from "../host/modules.mjs";
 import { hostRequirement } from "../host/requirements.mjs";
-import { imageBase, imageDefinition } from "./images.mjs";
+import { imageBase, imageDefinition } from "../page/images.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
 
 // Disposable Wasm userspace on the runtime the image declares, with the build

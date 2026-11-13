@@ -7,10 +7,10 @@ import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { shareSnapshots } from "../scripts/share-pages-snapshots.mjs";
-import { decodeSnapshotRecords, encodeSnapshotRecords } from "../src/snapshot-records.mjs";
-import { loadImages } from "../src/images.mjs";
-import { packagedSystemSnapshot } from "../src/packaged-snapshot.mjs";
-import { Sha256 } from "../src/sha256.mjs";
+import { decodeSnapshotRecords, encodeSnapshotRecords } from "../page/snapshot-records.mjs";
+import { loadImages } from "../page/images.mjs";
+import { packagedSystemSnapshot } from "../page/packaged-snapshot.mjs";
+import { Sha256 } from "../page/sha256.mjs";
 
 test("the incremental hash is SHA-256 however the bytes are split", () => {
   const bytes = Uint8Array.from({ length: 1000 }, (_, index) => index * 7919 >>> 3);

@@ -12,7 +12,7 @@
     "ffi-caller.c": "#include <dolly/dso.h>\nint main(void){dolly_ffi_call_request r={0};return dolly_ffi_call(&r)==0;}\n"
   },
   "fixtures": {
-    "nena.c": "src/commands/nena.c",
+    "nena.c": "programs/commands/nena.c",
     "gpu.h": "host/gpu/gpu.h",
     "gpu-abi.h": "host/gpu/gpu-abi.h",
     "gpu-client.c": "host/gpu/client.c",

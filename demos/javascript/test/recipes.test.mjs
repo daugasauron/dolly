@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { resolve } from "node:path";
 import test from "node:test";
 import { createDollyfileGraphLoader } from "../../../scripts/dollyfile-graph.mjs";
-import { siteReference } from "../../../src/static-asset.mjs";
+import { siteReference } from "../../../page/static-asset.mjs";
 
 const loadProjectGraph = createDollyfileGraphLoader(resolve(import.meta.dirname, "../../.."));
 const installs = recipe => recipe.artifactTargets.filter(({ reference }) => reference.operation === "install").map(({ target }) => target.name);

@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
-import { siteReference } from "../src/static-asset.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const loadProjectGraph = createDollyfileGraphLoader(projectDir);

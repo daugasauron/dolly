@@ -19,9 +19,9 @@ target_compile_definitions(dolly PRIVATE DOLLY_KERNEL_MEMORY_MAXIMUM=${DOLLY_KER
 target_include_directories(dolly PRIVATE
   ../build/include
   ../build/generated
-  ../src
+  ../kernel
   ../host
-  # src/file-blocks.cpp implements a WasmFS backend.
+  # kernel/file-blocks.cpp implements a WasmFS backend.
   ${EMSCRIPTEN_ROOT_PATH}/system/lib/wasmfs
 )
 target_compile_options(dolly PRIVATE
@@ -49,13 +49,13 @@ target_link_options(dolly PRIVATE
   "SHELL:-Wl,--export-table,--growable-table"
   -sWASMFS
   # The kernel is one Wasm module and no generated JavaScript: every import is
-  # one it declares (abi/dolly-browser-0.wat, src/libc-host.c).
+  # one it declares (abi/dolly-browser-0.wat, kernel/libc-host.c).
   -sSTANDALONE_WASM=1
   # The kernel never calls setjmp; Emscripten's JavaScript longjmp would
   # export two stack helpers no contract names.
   -sSUPPORT_LONGJMP=0
   -sALLOW_MEMORY_GROWTH=1
-  # Growth asks the runtime (src/libc-host.c).
+  # Growth asks the runtime (kernel/libc-host.c).
   "SHELL:-Wl,--wrap=emscripten_resize_heap"
   -sIMPORTED_MEMORY=1
   -sINITIAL_MEMORY=67108864
@@ -73,9 +73,9 @@ add_custom_target(dolly-seed
     /src/build/generated/libclang_rt.dolly.a@/usr/lib/libclang_rt.builtins.a
     /src/build/seed-compiler/usr/lib/clang@/usr/lib/clang
     /src/build/seed-include/dolly@/usr/include/dolly
-    /src/src/dollyfile.c@/usr/src/dolly/dollyfile.c
-    /src/src/sha256.h@/usr/src/dolly/sha256.h
-    /src/src/fs-record.h@/usr/src/dolly/fs-record.h
+    /src/programs/dollyfile.c@/usr/src/dolly/dollyfile.c
+    /src/programs/sha256.h@/usr/src/dolly/sha256.h
+    /src/kernel/fs-record.h@/usr/src/dolly/fs-record.h
     /src/build/dolly-kernel-plugin-0.wasm@/usr/lib/dolly/dolly-kernel-plugin-0.wasm
     ${DOLLY_PROCESS_SYSROOT_DIR}@/usr/lib/dolly/process
     /src/build/process-bin/bootstrap@/usr/libexec/dolly/process-bin/bootstrap

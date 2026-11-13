@@ -2,7 +2,7 @@
 // that holds only a program has none.
 import assert from "node:assert/strict";
 import { browserTest } from "./browser.mjs";
-import { siteReference } from "../src/static-asset.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 
 const { default: catalog } = await import("../dist/dolly-images.json", { with: { type: "json" } });
 const display = catalog.images.find(({ image }) => image === "display");

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { sha256 as digest } from "../../scripts/sha256.mjs";
-import { inspectDollyfile, recipeRows } from "../../src/dollyfile-view.mjs";
+import { inspectDollyfile, recipeRows } from "../../site/dollyfile-view.mjs";
 import { shellQuote } from "../browser.mjs";
 
 const scratch = "/workspace/dollyfile-parser-test";

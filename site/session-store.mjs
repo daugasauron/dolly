@@ -1,8 +1,8 @@
 import { alphabetical } from "./alphabetical.mjs";
-import { validName } from "./image-names.mjs";
-import { imageInputs } from "./image-inputs.mjs";
-import { MAX_SNAPSHOT_BYTES } from "./snapshot-records.mjs";
-import { DOLLY_VERSION } from "./version.mjs";
+import { validName } from "../page/image-names.mjs";
+import { imageInputs } from "../page/image-inputs.mjs";
+import { MAX_SNAPSHOT_BYTES } from "../page/snapshot-records.mjs";
+import { DOLLY_VERSION } from "../page/version.mjs";
 
 // A save is the whole filesystem but /dev, /proc and /run (host/snapshot/kernel.c),
 // at most 8 GiB before and after compression.

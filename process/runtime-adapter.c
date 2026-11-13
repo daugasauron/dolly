@@ -464,7 +464,7 @@ int dolly_write_file(const char *path, const void *bytes, size_t length) {
   return close(descriptor) == 0 ? 0 : -errno;
 }
 
-/* musl's private file-action record (src/process/fdop.h), built by the pinned
+/* musl's private file-action record (process/fdop.h), built by the pinned
  * libc's posix_spawn_file_actions_* functions; newest first. */
 struct fdop {
   struct fdop *next, *prev;

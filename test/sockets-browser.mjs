@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { browserTest, composed, runSteps } from "./browser.mjs";
-import { siteReference } from "../src/static-asset.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 import catalog from "../dist/dolly-images.json" with { type: "json" };
 import socketCases from "./cases/sockets.json" with { type: "json" };
 import undeclaredCases from "./cases/sockets-undeclared.json" with { type: "json" };

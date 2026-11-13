@@ -1,7 +1,7 @@
 #define _GNU_SOURCE
 #include "pthread_impl.h"
 #include "stdio_impl.h"
-#include "../../src/process/lock.h"
+#include "../../process/lock.h"
 #include <dolly/process.h>
 #include <dolly/threads.h>
 #include <stdlib.h>

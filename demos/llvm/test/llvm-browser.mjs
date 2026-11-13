@@ -76,8 +76,8 @@ for (const browser of ["chromium", "firefox"]) {
 // TableGen, configured as the llvm-tablegen recipe configures it, is linked
 // with the built runtime and reproduces the outputs the image kept.
 import { readFile } from "node:fs/promises";
-import { inspectDollyfile } from "../../../src/dollyfile-view.mjs";
-import { siteReference } from "../../../src/static-asset.mjs";
+import { inspectDollyfile } from "../../../site/dollyfile-view.mjs";
+import { siteReference } from "../../../page/static-asset.mjs";
 import catalog from "../../../dist/dolly-images.json" with { type: "json" };
 
 const pin = name => {

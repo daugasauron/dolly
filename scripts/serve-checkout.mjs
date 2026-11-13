@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Serves this checkout and its current dist/ on 127.0.0.1 to a browser, the
 // browser tests and the image builder: npm run dev [-- IMAGE] (DOLLY_PORT,
-// default 8080). Only what a page loads is served: src/*.{mjs,css,svg}, host modules,
+// default 8080). Only what a page loads is served: page/*.mjs, site/*.{mjs,css,svg}, host modules,
 // recipes and their sources, the runtime, snapshot packs and generated pages, and
 // /__dolly_build_page, a blank page for scripts that build images in it.
 import { createReadStream } from "node:fs";
@@ -14,8 +14,8 @@ import { bundleProcessWorker } from "./bundle-process-worker.mjs";
 import { opens, pageRoutes } from "./image-menu.mjs";
 import { isolationHeaders, mimeTypes } from "./serve.mjs";
 import { buildIdentities } from "./write-build-id.mjs";
-import { imageInputsMatch, recipesDigest } from "../src/image-inputs.mjs";
-import { siteReference, sitePath } from "../src/static-asset.mjs";
+import { imageInputsMatch, recipesDigest } from "../page/image-inputs.mjs";
+import { siteReference, sitePath } from "../page/static-asset.mjs";
 
 // IMAGE's current snapshot chain is required; null requires none (the builder,
 // whose image is being built). Options: port; files (URL path -> checkout
@@ -73,7 +73,8 @@ export async function startCheckoutServer(projectDir, image = "default",
   const listed = async (directory, pattern) => (await readdir(resolve(projectDir, directory), { recursive: true }))
     .filter(name => pattern.test(name)).map(name => `${directory}${name}`);
   const paths = new Set([
-    ...await listed("src/", /^[^/]+\.(?:mjs|css|svg)$/),
+    ...await listed("page/", /^[^/]+\.mjs$/),
+    ...await listed("site/", /^[^/]+\.(?:mjs|css|svg)$/),
     ...await listed("host/", /\.(?:mjs|json)$/),
     "coi-serviceworker.js", "llms.txt", "index.html", "licences/index.html", "custom/index.html", "sessions/index.html",
     "amy-index.txt",
@@ -145,5 +146,5 @@ if (process.argv[1] === import.meta.filename) {
   if (process.argv.length > 3) throw new Error("usage: npm run dev [-- IMAGE]");
   const image = process.argv[2] ?? "default";
   const server = await startCheckoutServer(resolve(import.meta.dirname, ".."), image, { port: Number(process.env.DOLLY_PORT ?? 8080) });
-  console.log(`dolly: ${server.origin}/${image}/ serves this checkout; restart after editing src/process-worker.mjs`);
+  console.log(`dolly: ${server.origin}/${image}/ serves this checkout; restart after editing page/process-worker.mjs`);
 }

@@ -23,7 +23,7 @@
  * mailbox(), which a module that runs a process on several threads defines,
  * keeps the mailbox of each thread's Worker (dolly_process_worker_mailbox):
  * zero, or -ESRCH for a thread it does not know. A device leased per process
- * (src/device-lease.c) is a module with a device in place of call and release. */
+ * (kernel/device-lease.c) is a module with a device in place of call and release. */
 struct dolly_leased_device;
 typedef struct {
   uint32_t first_operation, last_operation;
@@ -64,7 +64,7 @@ int64_t dolly_kernel_request_path(int pid, uintptr_t request_size,
                                   char *path, size_t capacity);
 
 /* A stream: the open description its descriptors name, a pipe's end, a
- * pseudo-terminal's (src/pty.c) or one a host module implements
+ * pseudo-terminal's (kernel/pty.c) or one a host module implements
  * (host/sockets/kernel.c). The kernel counts them, keeps the description's
  * O_NONBLOCK, closes the stream with its last descriptor and passes on reads,
  * writes and polls; `wait` is whether an empty read or a full write may be
@@ -148,7 +148,7 @@ typedef struct dolly_terminal_input {
 const dolly_terminal_output *dolly_kernel_terminal_output_device(void);
 const dolly_terminal_input *dolly_kernel_terminal_input_device(void);
 
-/* The boot terminal and the page's terminal mailbox, src/dolly.c. */
+/* The boot terminal and the page's terminal mailbox, kernel/dolly.c. */
 /* The boot terminal's slave, the page's terminal: its programs' standard
  * streams; NULL without memory. */
 dolly_kernel_socket *dolly_kernel_boot_terminal(void);
@@ -165,7 +165,7 @@ int dolly_bootstrap_write_bytes(const unsigned char *bytes, uintptr_t length);
  * a refused boot text write. */
 int dolly_kernel_terminal_write(const unsigned char *bytes, uintptr_t length);
 int dolly_terminal_write_bytes(int pid, const unsigned char *bytes, uintptr_t length);
-/* The version of the bytes a kernel descriptor reads, src/file-blocks.cpp. */
+/* The version of the bytes a kernel descriptor reads, kernel/file-blocks.cpp. */
 uint64_t dolly_fs_version(int descriptor);
 /* The address of block `index` of those bytes (DOLLY_FS_BLOCK_SIZE each, the
  * last short), or 0 past them or for no regular file. */
@@ -173,7 +173,7 @@ uintptr_t dolly_fs_block(int descriptor, uintptr_t index);
 /* Makes PATH, whose parents exist, the build's input image INPUT of SIZE
  * bytes, which the Worker holds: 0 or a negative errno. */
 int dolly_fs_input_file(const char *path, uint32_t input, uint64_t size);
-/* The supervisor's words about the executable it prepares, src/process-kernel.c. */
+/* The supervisor's words about the executable it prepares, kernel/process-kernel.c. */
 void dolly_kernel_launch_diagnostic(int pid, const unsigned char *bytes, size_t size);
 void dolly_terminal_publish_result(int status);
 void dolly_kernel_foreground_publish(int pid, unsigned interrupt);

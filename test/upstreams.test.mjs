@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 import { sourcePins, upstreamRows } from "../scripts/upstreams.mjs";
-import { siteReference } from "../src/static-asset.mjs";
+import { siteReference } from "../page/static-asset.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const spdxExpression = /^\(?[A-Za-z0-9.+-]+\)?(?: (?:AND|OR|WITH) \(?[A-Za-z0-9.+-]+\)?)*$/;

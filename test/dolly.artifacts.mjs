@@ -22,7 +22,7 @@ import {
   inspectStaticSources,
 } from "../scripts/image-definitions.mjs";
 import { loadDollyfileGraph, recipeRecords } from "../scripts/dollyfile-graph.mjs";
-import { siteReference, sitePath } from "../src/static-asset.mjs";
+import { siteReference, sitePath } from "../page/static-asset.mjs";
 
 const artifact = (name) => new URL(`../dist/${name}`, import.meta.url);
 const json = async name => JSON.parse(await readFile(artifact(name), "utf8"));
@@ -87,7 +87,7 @@ test("a statically linked process executable satisfies dolly-process-0", async (
 });
 
 test("the production seed contains only bootstrap and compiler executables, not acceptance probes", async () => {
-  const { decodeSnapshotRecords } = await import("../src/snapshot-records.mjs");
+  const { decodeSnapshotRecords } = await import("../page/snapshot-records.mjs");
   const files = decodeSnapshotRecords(await readFile(artifact("dolly.data")));
   const prefix = "/usr/libexec/dolly/process-bin/";
   assert.deepEqual([...files.keys()].filter(path => path.startsWith(prefix))
@@ -122,7 +122,7 @@ test("the production seed contains only bootstrap and compiler executables, not 
 // The seed lists what an -rdynamic host exports from the container's build of
 // the C++ runtime; programs link the one the root recipe compiles.
 test("the C++ runtime built by system-build defines the names the seed lists for hosts", async () => {
-  const { decodeSnapshotRecords } = await import("../src/snapshot-records.mjs");
+  const { decodeSnapshotRecords } = await import("../page/snapshot-records.mjs");
   const files = decodeSnapshotRecords(await readFile(artifact("dolly-system-build-system.snapshot")));
   const sdk = "/usr/lib/dolly/process/";
   const listed = new Set(Buffer.from(files.get(sdk + "dynamic-provider.symbols").data).toString().split("\n"));
@@ -222,7 +222,7 @@ test("the runtime implements every host module contract its manifest names", asy
 test("the kernel contains no general dynamic loader or dynamic JavaScript execution", async () => {
   const kernel = await readWasmInterface(artifact("dolly.wasm"));
   assert.equal(kernel.customSections.includes("dylink.0"), false);
-  const plugin = await readFile(new URL("../src/kernel-plugin.mjs", import.meta.url), "utf8");
+  const plugin = await readFile(new URL("../page/kernel-plugin.mjs", import.meta.url), "utf8");
   assert.doesNotMatch(plugin, /\bfetch\s*\(|XMLHttpRequest|\b(?:eval|Function)\s*\(/);
 });
 

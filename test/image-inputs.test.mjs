@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { imageInputs, imageInputsMatch } from "../src/image-inputs.mjs";
+import { imageInputs, imageInputsMatch } from "../page/image-inputs.mjs";
 
 test("image reuse binds actual upstream bytes, independent of repeated COPY order", () => {
   const first = { recipeSha256: "a".repeat(64), sha256: "1".repeat(64) };

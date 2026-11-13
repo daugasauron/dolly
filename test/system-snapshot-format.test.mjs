@@ -4,8 +4,8 @@ import test from "node:test";
 import { decodeSystemSnapshot, decodeSnapshotEnvironment, resolveSnapshotFile, validateSnapshotEntry } from "../scripts/system-snapshot-format.mjs";
 import { readWasmInterface } from "../scripts/wasm-interface.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
-import { decodeImageEntry } from "../src/image-entry.mjs";
-import { decodeSnapshotRecords } from "../src/snapshot-records.mjs";
+import { decodeImageEntry } from "../page/image-entry.mjs";
+import { decodeSnapshotRecords } from "../page/snapshot-records.mjs";
 
 function snapshot(records) {
   const header = Buffer.alloc(16);

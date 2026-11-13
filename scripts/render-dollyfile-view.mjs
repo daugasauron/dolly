@@ -1,5 +1,5 @@
-import { sitePath } from "../src/static-asset.mjs";
-import { recipeFileName } from "../src/dollyfile-view.mjs";
+import { sitePath } from "../page/static-asset.mjs";
+import { recipeFileName } from "../site/dollyfile-view.mjs";
 
 export function escapeHtml(value) {
   return String(value)
@@ -127,7 +127,7 @@ export function renderDollyfilePage(record, graph) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <title>${escapeHtml(title)} · Dollyfile</title>
-  <script type="module" src="${appBase}src/source-download.mjs"></script>
+  <script type="module" src="${appBase}site/source-download.mjs"></script>
   <style>
     @font-face { font-family: Dolly; src: url("${appBase}dist/IosevkaTerm-SemiBold.woff2"); font-weight: 600; }
     :root { color: #e8e3d7; background: #262626; font: 600 15px/1.5 Dolly, monospace; }

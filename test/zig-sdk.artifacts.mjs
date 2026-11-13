@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { decodeSystemSnapshot, decodeSnapshotEnvironment } from "../scripts/system-snapshot-format.mjs";
 import { readWasmInterface } from "../scripts/wasm-interface.mjs";
-import { validateProcessInterface } from "../src/process-abi.mjs";
+import { validateProcessInterface } from "../page/process-abi.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
 import catalog from "../dist/dolly-images.json" with { type: "json" };
 

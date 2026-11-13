@@ -13,7 +13,7 @@ test("shared filesystem restoration handles kinds, replacements and invalid pare
   const scratch = await mkdtemp(resolve(tmpdir(), "dolly-fs-record-test-"));
   try {
     const program = resolve(scratch, "restore");
-    execFileSync("cc", ["-std=c11", "-Wall", "-Wextra", "-Werror", "-I", resolve(project, "src"),
+    execFileSync("cc", ["-std=c11", "-Wall", "-Wextra", "-Werror", "-I", resolve(project, "kernel"),
       resolve(project, "test/fixtures/fs-record.c"), "-o", program]);
     assert.match(execFileSync(program, [scratch], { encoding: "utf8" }), /FS-RECORD-OK/);
   } finally {
@@ -26,7 +26,7 @@ test("Dollyfile retention records directories and symlinks without traversing li
   try {
     const program = resolve(scratch, "collector");
     execFileSync("cc", ["-std=c11", "-O1", "-ffunction-sections", "-fdata-sections",
-      "-Wl,--gc-sections", "-I", includeDirectory,
+      "-Wl,--gc-sections", "-I", includeDirectory, "-I", resolve(project, "kernel"),
       resolve(project, "test/fixtures/image-retention.c"), "-o", program]);
     await mkdir(resolve(scratch, "tree/empty"), { recursive: true });
     await writeFile(resolve(scratch, "tree/file"), "retained");

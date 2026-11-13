@@ -1,7 +1,7 @@
 // A published version's directory and public path: /vX.Y.Z/.
 export const versionName = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 
-// The version a packaged site carries in its src/version.mjs, read as data.
+// The version a packaged site carries in its page/version.mjs, read as data.
 export function releaseVersion(source) {
   const name = `v${/^export const DOLLY_VERSION = "([^"]*)";$/m.exec(source)?.[1]}`;
   if (!versionName.test(name)) throw new Error("the release carries no version");

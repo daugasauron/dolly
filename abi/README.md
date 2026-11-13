@@ -112,7 +112,7 @@ beyond the page's, one `NAME@VERSION` a line, which the page enables when the
 session loads again.
 
 A session file, what the sessions page exports and imports
-([`session-file.mjs`](../src/session-file.mjs)): `DOLLYSF1`, a u32 length of its
+([`session-file.mjs`](../site/session-file.mjs)): `DOLLYSF1`, a u32 length of its
 metadata (at most 1 MiB), the metadata, UTF-8 JSON, then the session's bytes
 (at most 8 GiB). The metadata: `version` (the Dolly release, which alone imports
 it), `name`, `formatVersion` (4), `buildId`, `image`, `imageIdentity`,
@@ -134,8 +134,8 @@ node scripts/dolly-abi.mjs validate-browser build/dolly-browser-0.wasm dist/doll
 ```
 
 The browser repeats the executable checks before instantiation with the same
-parser and validator ([`wasm-interface.mjs`](../src/wasm-interface.mjs),
-[`process-abi.mjs`](../src/process-abi.mjs)). The compiled WAT contract supplies
+parser and validator ([`wasm-interface.mjs`](../page/wasm-interface.mjs),
+[`process-abi.mjs`](../page/process-abi.mjs)). The compiled WAT contract supplies
 the expected types; a digest stamp alone does not establish compatibility. This
 is defense in depth; host containment rests on the kernel's outer imports.
 

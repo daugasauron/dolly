@@ -64,7 +64,7 @@ if has_image ghostty-build; then
   uucode_dir="$("${project_dir}/scripts/fetch-uucode.sh")"
   stb_header="$("${project_dir}/scripts/fetch-stb.sh")"
   # Kitty graphics take Wuffs, and translate-c's support files for its
-  # bindings (src/ghostty/generated/wuffs-c.zig), at Ghostty's pins.
+  # bindings (programs/ghostty/generated/wuffs-c.zig), at Ghostty's pins.
   vendor_dir="${staging}/ghostty-vendor"
   mkdir -p "${vendor_dir}/wuffs" "${vendor_dir}/translate_c"
   tar -xzf "$(bash "${project_dir}/scripts/fetch-pinned-archive.sh" wuffs)" -C "${vendor_dir}/wuffs" \
@@ -77,16 +77,16 @@ if has_image ghostty-build; then
   droid_font="$(bash "${project_dir}/scripts/fetch-pinned-archive.sh" droid)"
   droid_notice="$(bash "${project_dir}/scripts/fetch-pinned-archive.sh" droid_notice)"
 fi
-has_image system-build && copy_static src/slop.c default/slop.c
+has_image system-build && copy_static programs/slop.c default/slop.c
 has_image mandoc && copy_static "$(bash scripts/fetch-pinned-archive.sh mandoc)" default/mandoc-1.14.6.tar.gz
 # Dolly's own commands: each recipe takes the ones it builds by a SOURCE row.
-for source in src/commands/*.[ch]; do
+for source in programs/commands/*.[ch]; do
   copy_static "${source}" "default/commands/${source##*/}"
 done
 if has_image session-recover; then
-  copy_static src/commands/session-recover.c session-recovery/session-recover.c
+  copy_static programs/commands/session-recover.c session-recovery/session-recover.c
   for header in session-records.h fs-record.h; do
-    copy_static "src/${header}" "session-recovery/${header}"
+    copy_static "kernel/${header}" "session-recovery/${header}"
   done
 fi
 if has_image system-build; then
@@ -114,7 +114,7 @@ if has_image system-build; then
   copy_static "${staging}/musl-COPYRIGHT" default/licenses/musl
 fi
 if has_image ghostty-build; then
-  copy_static "${project_dir}/src/ghostty/display.c" default/ghostty/display.c
+  copy_static "${project_dir}/programs/ghostty/display.c" default/ghostty/display.c
   copy_static "${stb_header}" default/stb_truetype.h
   copy_static "${stb_image_header}" default/stb_image.h
   copy_static "${runtime_font}" default/IosevkaTerm-SemiBold.ttf
@@ -199,14 +199,14 @@ if has_image zig-build; then
     "${zig_dir}/stage1/zig1.wasm" /tmp/zig/stage1/zig1.wasm \
     "${zig_dir}/stage1/wasi.c" /tmp/zig/stage1/wasi.c \
     "${zig_dir}/stage1/panic.h" /tmp/zig/stage1/panic.h \
-    src/zig/config.zig /tmp/zig/config.zig \
+    programs/zig/config.zig /tmp/zig/config.zig \
     "${zig_dir}/LICENSE" /usr/share/licenses/zig/LICENSE
   node scripts/build-source-tar.mjs "${static_dir}/default/wamr.tar" \
     "${wamr_dir}/core" /tmp/wamr/core \
     "${wamr_dir}/LICENSE" /tmp/wamr/LICENSE \
-    src/zig/zig1.c /tmp/wamr/zig1.c \
-    src/zig/wamr-platform.c /tmp/wamr/wamr-platform.c \
-    src/zig/platform_internal.h /tmp/wamr/platform_internal.h
+    programs/zig/zig1.c /tmp/wamr/zig1.c \
+    programs/zig/wamr-platform.c /tmp/wamr/wamr-platform.c \
+    programs/zig/platform_internal.h /tmp/wamr/platform_internal.h
 fi
 if has_image ghostty-build; then
 node scripts/build-source-tar.mjs "${static_dir}/default/ghostty.tar" \
@@ -214,7 +214,7 @@ node scripts/build-source-tar.mjs "${static_dir}/default/ghostty.tar" \
   "${ghostty_dir}/include/ghostty" /usr/include/ghostty \
   "${ghostty_dir}/include/ghostty.h" /usr/include/ghostty.h \
   "${ghostty_dir}/LICENSE" /usr/share/licenses/ghostty/LICENSE \
-  "${project_dir}/src/ghostty/generated" /usr/src/ghostty/generated \
+  "${project_dir}/programs/ghostty/generated" /usr/src/ghostty/generated \
   "${ghostty_dir}/pkg/wuffs/src" /usr/src/ghostty/pkg/wuffs/src \
   "${vendor_dir}/wuffs/release/c/wuffs-v0.4.c" /usr/src/wuffs/wuffs-v0.4.c \
   "${vendor_dir}/wuffs/LICENSE-APACHE" /usr/share/licenses/wuffs/LICENSE-APACHE \

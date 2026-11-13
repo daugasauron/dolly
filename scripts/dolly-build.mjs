@@ -28,11 +28,11 @@ import { ensureSnapshotPacks } from "./share-pages-snapshots.mjs";
 import { verifySnapshotIdentity } from "./snapshot-identity.mjs";
 import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
 import { readWasmInterface } from "./wasm-interface.mjs";
-import { loadRecipeGraph } from "../src/dollyfile-graph.mjs";
-import { imageFileName, inspectDollyfile, recipeFileName } from "../src/dollyfile-view.mjs";
-import { imageInputs } from "../src/image-inputs.mjs";
-import { validName } from "../src/image-names.mjs";
-import { siteReference, sitePath } from "../src/static-asset.mjs";
+import { loadRecipeGraph } from "../site/dollyfile-graph.mjs";
+import { imageFileName, inspectDollyfile, recipeFileName } from "../site/dollyfile-view.mjs";
+import { imageInputs } from "../page/image-inputs.mjs";
+import { validName } from "../page/image-names.mjs";
+import { siteReference, sitePath } from "../page/static-asset.mjs";
 
 // A build reaches the network through Node (relay below), and through the proxy the
 // environment names, as a CI runner's often does, which Node's fetch takes only with

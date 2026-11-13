@@ -1,5 +1,5 @@
 import { inspectDollyfile, recipeFileName, imageFileName } from "./dollyfile-view.mjs";
-import { sha256 } from "./static-asset.mjs";
+import { sha256 } from "../page/static-asset.mjs";
 
 const key = object => `${object.type}:${object.name}`;
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });

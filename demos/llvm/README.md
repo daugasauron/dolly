@@ -19,7 +19,7 @@ seed's own `cc`.
   compiler's archives are kept before, so this leaves the compiler as it is.
 - `llvm-cc`: a shell whose `cc` and `c++` are the compiler built in Dolly.
   On `llvm-tablegen`, with `llvm-build`'s `/usr/lib/llvm-build` copied, it
-  compiles the seed's driver (`src/compiler.cpp`), links the compiler from
+  compiles the seed's driver (`programs/compiler.cpp`), links the compiler from
   those archives without its names (`-Wl,--strip-all`), requires the same
   bytes from it as from the seed compiler for two programs and a sample of
   LLVM's sources, and installs it for `cc`, `c++`, `ld` and `ar`.
@@ -75,7 +75,7 @@ second stage.
 ## Limits
 
 Clang recurses on the browser's stack, which a page cannot size (Chrome
-gives a process about 950 KB, `src/process-supervisor.mjs`). Two of LLVM's own
+gives a process about 950 KB, `page/process-supervisor.mjs`). Two of LLVM's own
 sources come close. `MSP430.cpp` chains 635 member calls: about 760 fit in
 Chrome and 700 in Firefox 155. `SemaARM.cpp` includes 6,020 consecutive `case`
 labels, which `-Wimplicit-fallthrough` walks recursively: under 4,000 fit, so

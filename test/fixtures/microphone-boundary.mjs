@@ -1,7 +1,7 @@
 // What a hostile guest can reach through microphone@0, tried at the page's provider.
 export async function microphoneBoundaryProof() {
   const [{createMicrophoneProvider}, M, {DOLLY_ERRNO: E}] = await Promise.all([
-    import("../../host/microphone/provider.mjs"), import("../../host/microphone/abi.mjs"), import("../../src/process-constants.mjs")]);
+    import("../../host/microphone/provider.mjs"), import("../../host/microphone/abi.mjs"), import("../../page/process-constants.mjs")]);
   const check = (ok, message) => { if (!ok) throw Error(message); };
   let sequence = 0, asked = 0;
   // A valid open asks the browser once the capture's consent is given, a turn later.

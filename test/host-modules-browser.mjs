@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { browserTest, composed, runSteps } from "./browser.mjs";
-import { parseWasmInterface } from "../src/wasm-interface.mjs";
+import { parseWasmInterface } from "../page/wasm-interface.mjs";
 import { executableHostRequirements } from "../host/requirements.mjs";
 import hostCases from "./cases/host-modules.json" with { type: "json" };
 

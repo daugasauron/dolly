@@ -11,7 +11,7 @@ test("tar extracts paths and stdin, preserves block padding, and rejects damaged
   try {
     const binary = join(directory, "tar"), archivePath = join(directory, "input.tar");
     const compilation = spawnSync("cc", ["-std=c17", "-D_DEFAULT_SOURCE", "-Wall", "-Wextra", "-Werror",
-      new URL("../src/commands/tar.c", import.meta.url).pathname, "-o", binary], { encoding: "utf8" });
+      new URL("../programs/commands/tar.c", import.meta.url).pathname, "-o", binary], { encoding: "utf8" });
     assert.equal(compilation.status, 0, compilation.stderr);
     for (const size of [0, 511, 512, 513]) {
       const contents = Buffer.from(Array.from({ length: size }, (_, index) => index % 256));

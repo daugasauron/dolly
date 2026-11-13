@@ -2,10 +2,10 @@ import { SessionTransport } from "./transport.mjs";
 import { DOLLY_SESSION_TRANSFER_CAPACITY } from "./abi.mjs";
 import { mountSessionSave } from "./ui.mjs";
 import { DOLLY_BUILD_ID } from "../../dist/dolly-build-id.mjs";
-import { DOLLY_IMAGES } from "../../src/images.mjs";
-import { sha256 } from "../../src/static-asset.mjs";
+import { DOLLY_IMAGES } from "../../page/images.mjs";
+import { sha256 } from "../../page/static-asset.mjs";
 import { DOLLY_SESSION_FORMAT_VERSION, decodeSessionSnapshot, loadStoredSession, sessionCompatible,
-  sessionLoadUrl, validSessionName, DOLLY_SESSION_MAX_BYTES } from "../../src/session-store.mjs";
+  sessionLoadUrl, validSessionName, DOLLY_SESSION_MAX_BYTES } from "../../site/session-store.mjs";
 
 // A session route (/session/?name=NAME), or boot()'s session option on a page
 // of one's own, boots the saved session's image from the save, which is its whole

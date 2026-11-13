@@ -1,4 +1,4 @@
-// The packs an image reads stay in the browser (src/pack-store.mjs). The server
+// The packs an image reads stay in the browser (page/pack-store.mjs). The server
 // answers for packs itself, uncacheable, so no start reads one from the HTTP
 // cache, and counts them:
 // - a second start downloads none, and removes what no image of this runtime
