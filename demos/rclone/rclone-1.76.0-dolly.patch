@@ -1,0 +1,136 @@
+--- a/backend/local/lchmod.go
++++ b/backend/local/lchmod.go
+@@ -1,4 +1,4 @@
+-//go:build windows || plan9 || js || linux
++//go:build windows || plan9 || js || linux || dolly
+ 
+ package local
+ 
+--- a/backend/local/lchmod_unix.go
++++ b/backend/local/lchmod_unix.go
+@@ -1,4 +1,4 @@
+-//go:build !windows && !plan9 && !js && !linux
++//go:build !windows && !plan9 && !js && !linux && !dolly
+ 
+ package local
+ 
+--- a/backend/local/lchtimes.go
++++ b/backend/local/lchtimes.go
+@@ -1,4 +1,4 @@
+-//go:build plan9 || js
++//go:build plan9 || js || dolly
+ 
+ package local
+ 
+--- a/backend/local/lchtimes_unix.go
++++ b/backend/local/lchtimes_unix.go
+@@ -1,4 +1,4 @@
+-//go:build !windows && !plan9 && !js
++//go:build !windows && !plan9 && !js && !dolly
+ 
+ package local
+ 
+--- a/backend/local/metadata_other.go
++++ b/backend/local/metadata_other.go
+@@ -1,4 +1,4 @@
+-//go:build dragonfly || plan9 || js || aix
++//go:build dragonfly || plan9 || js || aix || dolly
+ 
+ package local
+ 
+--- a/fs/fserrors/retriable_errors.go
++++ b/fs/fserrors/retriable_errors.go
+@@ -1,4 +1,4 @@
+-//go:build !plan9
++//go:build !plan9 && !dolly
+ 
+ package fserrors
+ 
+--- a/fs/fshttp/http.go
++++ b/fs/fshttp/http.go
+@@ -17,6 +17,7 @@
+ 	"net/textproto"
+ 	"net/url"
+ 	"os"
++	"runtime"
+ 	"slices"
+ 	"strings"
+ 	"sync"
+@@ -274,8 +275,12 @@
+ 	}
+ 
+ 	t.DisableCompression = ci.NoGzip
+-	t.DialContext = func(reqCtx context.Context, network, addr string) (net.Conn, error) {
+-		return NewDialer(ctx).DialContext(reqCtx, network, addr)
++	// Dolly's Transport fetches through the page's HTTP broker unless it is
++	// given a dialer, which would reach no network there.
++	if runtime.GOOS != "dolly" {
++		t.DialContext = func(reqCtx context.Context, network, addr string) (net.Conn, error) {
++			return NewDialer(ctx).DialContext(reqCtx, network, addr)
++		}
+ 	}
+ 	t.IdleConnTimeout = 60 * time.Second
+ 	t.ExpectContinueTimeout = time.Duration(ci.ExpectContinueTimeout)
+--- a/fs/log/redirect_stderr_unix.go
++++ b/fs/log/redirect_stderr_unix.go
+@@ -1,6 +1,6 @@
+ // Log the panic under unix to the log file
+ 
+-//go:build !windows && !solaris && !plan9 && !js
++//go:build !windows && !solaris && !plan9 && !js && !dolly
+ 
+ package log
+ 
+--- a/lib/diskusage/diskusage_unsupported.go
++++ b/lib/diskusage/diskusage_unsupported.go
+@@ -1,4 +1,4 @@
+-//go:build illumos || js || plan9 || solaris
++//go:build illumos || js || plan9 || solaris || dolly
+ 
+ package diskusage
+ 
+--- a/lib/mmap/mmap_unix.go
++++ b/lib/mmap/mmap_unix.go
+@@ -1,7 +1,7 @@
+ // Package mmap implements a large block memory allocator using
+ // anonymous memory maps.
+ 
+-//go:build !plan9 && !windows && !js
++//go:build !plan9 && !windows && !js && !dolly
+ 
+ package mmap
+ 
+--- a/lib/mmap/mmap_unsupported.go
++++ b/lib/mmap/mmap_unsupported.go
+@@ -1,6 +1,6 @@
+ // Fallback Alloc and Free for unsupported OSes
+ 
+-//go:build plan9 || js
++//go:build plan9 || js || dolly
+ 
+ package mmap
+ 
+--- a/vendor/github.com/adrg/xdg/internal/pathutil/pathutil_unix.go
++++ b/vendor/github.com/adrg/xdg/internal/pathutil/pathutil_unix.go
+@@ -1,4 +1,4 @@
+-//go:build aix || darwin || dragonfly || freebsd || (js && wasm) || nacl || linux || netbsd || openbsd || solaris
++//go:build aix || darwin || dragonfly || freebsd || (js && wasm) || nacl || linux || netbsd || openbsd || solaris || dolly
+ 
+ package pathutil
+ 
+--- a/vendor/github.com/adrg/xdg/internal/userdirs/config_unix.go
++++ b/vendor/github.com/adrg/xdg/internal/userdirs/config_unix.go
+@@ -1,4 +1,4 @@
+-//go:build aix || dragonfly || freebsd || (js && wasm) || nacl || linux || netbsd || openbsd || solaris
++//go:build aix || dragonfly || freebsd || (js && wasm) || nacl || linux || netbsd || openbsd || solaris || dolly
+ 
+ package userdirs
+ 
+--- a/vendor/github.com/adrg/xdg/paths_unix.go
++++ b/vendor/github.com/adrg/xdg/paths_unix.go
+@@ -1,4 +1,4 @@
+-//go:build aix || dragonfly || freebsd || (js && wasm) || nacl || linux || netbsd || openbsd || solaris
++//go:build aix || dragonfly || freebsd || (js && wasm) || nacl || linux || netbsd || openbsd || solaris || dolly
+ 
+ package xdg
+ 

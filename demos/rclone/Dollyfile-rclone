@@ -1,0 +1,46 @@
+DOLLY 7
+PACKAGE rclone
+REQUIRES HOST runtime@0
+REQUIRES HOST http@0
+
+# rclone, built by go-build's toolchain from its release, the modules it
+# vendors, the Dolly patch and a main with the local and WebDAV backends.
+FROM /v0.1.6/demos/go/Dollyfile-go-build c68420ccdb6b33d2f0b25dab813d1c6d69cc8b8985af38046b0215aba3762129
+REQUIRES TOOL go
+SOURCE /v0.1.6/dist/static/rclone/rclone.tar edc7653d9c63d14a09df8438e751ab4b46e61174f353ccfc252bad16d3737b44 /tmp/rclone.tar
+SLOP tar -xf /tmp/rclone.tar -C /
+SLOP CWD /tmp/rclone GOCACHE=/tmp/go-cache GOFLAGS='-mod=vendor -p=4' go build -trimpath \
+  -ldflags '-s -X github.com/rclone/rclone/fs.Version=v1.76.0' -o /usr/bin/rclone ./dolly
+FOLDER /usr/share/licenses/rclone
+EXPORTS TOOL rclone
+SLOP mkdir -p /tmp/check/a && echo checked > /tmp/check/a/file && rclone copy /tmp/check/a /tmp/check/b && \
+  test "$(cat /tmp/check/b/file)" = checked && rclone version
+FILE /usr/share/man/cat1/rclone.1
+    rclone: rclone 1.76.0 with its local and WebDAV backends, built inside Dolly
+    by the go package. It keeps a folder of the session in step with a folder a
+    WebDAV server holds, through the page's HTTP broker; nothing is mounted.
+    
+      rclone config create host webdav url=http://127.0.0.1:8090/TOKEN vendor=rclone
+      mkdir -p /workspace/host
+      rclone bisync /workspace/host host: --resync    the first time
+      rclone bisync /workspace/host host:             after changes on either side
+    
+    Every ten seconds, in the background:
+    
+      slop -c 'while :; do rclone bisync /workspace/host host: --resilient --recover --max-lock 2m -q; sleep 10; done' &
+    
+    The server, on the machine whose folder it is, by rclone 1.75 or later, with
+    ORIGIN the page's (such as http://localhost:9045) and TOKEN a random word
+    only this session knows:
+    
+      rclone serve webdav ~/dolly-share --addr 127.0.0.1:8090 --baseurl TOKEN \
+        --dir-cache-time 0s \
+        --response-header 'Access-Control-Allow-Origin: ORIGIN' \
+        --response-header 'Access-Control-Allow-Methods: GET, HEAD, PUT, DELETE, PROPFIND, MKCOL, MOVE, COPY' \
+        --response-header 'Access-Control-Allow-Headers: Content-Type, Depth, Destination, Overwrite, X-OC-Mtime'
+    
+    Commands: about, bisync, cat, check, config, copy, copyto, delete,
+    deletefile, listremotes, ls, lsd, lsf, lsjson, lsl, mkdir, move, moveto,
+    obscure, purge, rcat, rmdir, size, sync, touch, tree, version. A file
+    uploads if it is at most 64 MiB. Upstream's documentation:
+    https://rclone.org/docs/
