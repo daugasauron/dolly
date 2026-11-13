@@ -85,9 +85,10 @@ exports of [`dolly-image-0.wat`](dolly-image-0.wat):
   `sha256` names the image; `byteLength` is its size.
 - `dist/packs/SHA256.snapshot.gz`, the metadata's `packs` in order: each a gzip
   of one snapshot part, `DOLLYSNP`, a u32 version (2) and a u32 record count,
-  then records in path order, each a u32 kind (1 a directory, 2 a file, 3 a
-  symbolic link, whose data is its target), a u32 path length, a u64 data
-  length, the path and the data; its `sha256` that of the decompressed part,
+  then records in path order, each a u32 kind (1 a directory, whose data is
+  empty, 2 a file, 3 a symbolic link, whose data is its target of 1 to 4,095
+  bytes), a u32 path length (2 to 4,095 bytes, an absolute normalized path), a
+  u64 data length, the path and the data; its `sha256` that of the decompressed part,
   which the host checks before ending the part. The parts hold the manifest's
   paths once each: at most 100,000, and 2 GiB in all. Integers are little-endian.
 
