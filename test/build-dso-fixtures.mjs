@@ -2,6 +2,8 @@ import { readFile, writeFile, mkdtemp, rm } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { resolve, relative } from "node:path";
 import { appendCustomSection } from "../page/wasm-interface.mjs";
+import { readWasmInterface } from "../scripts/wasm-interface.mjs";
+import { validateDsoInterface } from "../host/dso/interface.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
 
 // The build passes its pinned container command; one launch assembles every
@@ -56,7 +58,9 @@ try {
     await writeFile(`build/${name}.wasm`, bytes);
   }
 } finally { await rm(staging, { recursive: true, force: true }); }
-// The hosts carry the process contract's stamp; the library satisfies dolly-dso-0.
-const abi = (...words) => execFileSync(process.execPath, ["scripts/dolly-abi.mjs", ...words], { stdio: "inherit" });
-abi("stamp-process", "build/dolly-process-0.wasm", "build/process-dso-host.wasm", "build/process-dso-bad-host.wasm");
-abi("validate-process-dso", "build/dolly-process-0.wasm", "build/dolly-dso-0.wasm", "build/dso-types.wasm");
+// The hosts carry the process contract's stamp; the library satisfies dolly-dso-0,
+// as the process Worker's loader checks it (provider symbols are checked at load).
+execFileSync(process.execPath, ["scripts/dolly-abi.mjs", "stamp-process", "build/dolly-process-0.wasm",
+  "build/process-dso-host.wasm", "build/process-dso-bad-host.wasm"], { stdio: "inherit" });
+validateDsoInterface(await readWasmInterface("build/dolly-dso-0.wasm"), await readWasmInterface("build/dso-types.wasm"),
+  DOLLY_PROCESS_ABI_DIGEST);

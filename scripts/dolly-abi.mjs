@@ -13,7 +13,6 @@ import {
   sameWasmType,
 } from "./wasm-interface.mjs";
 import { validateProcessInterface } from "../page/process-abi.mjs";
-import { validateDsoInterface } from "../host/dso/interface.mjs";
 
 const relocationGlobals = new Set(["__memory_base", "__table_base"]);
 function importKey(entry) {
@@ -190,15 +189,6 @@ export async function validateProcess(contractPath, processPaths) {
   }
 }
 
-export async function validateProcessDso(processContractPath, dsoContractPath, paths) {
-  const digest = hex(contractDigest(await readWasmInterface(processContractPath)));
-  const contract = await readWasmInterface(dsoContractPath);
-  for (const path of paths) {
-    validateDsoInterface(contract, await readWasmInterface(path), digest);
-    console.log(`dolly-abi: ${path} satisfies dolly-dso-0 (provider symbols checked at load)`);
-  }
-}
-
 async function stampModules(contractPath, modulePaths) {
   const contract = await readWasmInterface(contractPath);
   const digest = contractDigest(contract);
@@ -366,7 +356,6 @@ function usage() {
   dolly-abi.mjs stamp CONTRACT.wasm MODULE.wasm...
   dolly-abi.mjs stamp-process CONTRACT.wasm PROCESS.wasm...
   dolly-abi.mjs validate-process CONTRACT.wasm PROCESS.wasm...
-  dolly-abi.mjs validate-process-dso PROCESS-CONTRACT.wasm DSO-CONTRACT.wasm LIBRARY.wasm...
   dolly-abi.mjs validate-runtime CONTRACT.wasm RUNTIME.wasm
   dolly-abi.mjs validate-browser CONTRACT.wasm RUNTIME.wasm
   dolly-abi.mjs emit-digest-header CONTRACT.wasm OUTPUT.h [SYMBOL]
@@ -389,8 +378,6 @@ async function main() {
       await stampProcesses(args[0], args.slice(1));
     } else if (command === "validate-process" && args.length >= 2) {
       await validateProcess(args[0], args.slice(1));
-    } else if (command === "validate-process-dso" && args.length >= 3) {
-      await validateProcessDso(args[0], args[1], args.slice(2));
     } else if (command === "validate-runtime" && args.length === 2) {
       await validateRuntime(args[0], args[1]);
     } else if (command === "emit-emscripten-exports" && args.length >= 3) {

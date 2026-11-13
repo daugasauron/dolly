@@ -6,7 +6,7 @@ import test from "node:test";
 import { parseWasmInterface, appendCustomSection } from "../page/wasm-interface.mjs";
 import { validateProcessInterface } from "../page/process-abi.mjs";
 import { validateDsoInterface, validateDsoHost, requireDsoType } from "../host/dso/interface.mjs";
-import { validateProcess, validateProcessDso } from "../scripts/dolly-abi.mjs";
+import { validateProcess } from "../scripts/dolly-abi.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
 import { DOLLY_ERRNO } from "../page/process-constants.mjs";
 import { abiData } from "../scripts/abi-data.mjs";
@@ -116,13 +116,10 @@ const dsoContract = parseWasmInterface(await readFile(dsoContractPath));
 const dso = async name => parseWasmInterface(await readFile(new URL(`../build/dso-${name}.wasm`, import.meta.url)));
 
 test("the optional DSO profile checks infrastructure and hooks at build and browser admission", async () => {
-  await validateProcessDso(contractPath, dsoContractPath, [new URL("../build/dso-types.wasm", import.meta.url)]);
   for (const name of ["types", "local", "start"]) validateDsoInterface(dsoContract, await dso(name), DOLLY_PROCESS_ABI_DIGEST);
   for (const name of ["stack", "table", "memory", "got", "hook"]) {
     const library = await dso(`wrong-${name}`);
     assert.throws(() => validateDsoInterface(dsoContract, library, DOLLY_PROCESS_ABI_DIGEST), /DSO /);
-    await assert.rejects(validateProcessDso(contractPath, dsoContractPath,
-      [new URL(`../build/dso-wrong-${name}.wasm`, import.meta.url)]), /DSO /);
   }
 });
 
