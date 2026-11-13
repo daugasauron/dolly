@@ -7,6 +7,41 @@
 From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, A3). `AGENTS.md`: "The core interface must remain small, typed,
 inspectable, and versioned."
 
+## State (2026-11-13, seed round)
+
+On `round/0.1.6-seed` (8075755b5, the fixture cdae6a2bd): a snapshot part's and the entry's
+numbers are globals of `abi/dolly-image-0.wat`: `DOLLY_SNAPSHOT_VERSION` 2,
+`DOLLY_SNAPSHOT_HEADER_BYTES` and `_RECORD_HEADER_BYTES` 16, `_RECORD_DIRECTORY` 1, `_FILE` 2,
+`_SYMLINK` 3, `_DELETED` 4 (sessions only), `_MAX_PATHS` 100,000, `_MAX_MEBIBYTES` 2,048,
+`_PATH_MIN_BYTES` 2 and `_PATH_MAX_BYTES` 4,095, `_SYMLINK_MIN_BYTES` 1 and `_SYMLINK_MAX_BYTES`
+4,095; `DOLLY_ENTRY_VERSION` 1, `_HEADER_BYTES` 16, `_MAX_ARGUMENTS` 256, `_ARGUMENT_MAX_BYTES`
+4,096, `_MAX_BYTES` 65,536. Decided: the size bound is in MiB, since an i32 global holds no 2^31
+(`i32.const 2147483648` assembles and reads back as -2147483648, measured with the pinned wasm-as);
+no constant for the counts' minimum of one (zero is no entry, no image).
+Where they reach: `include/dolly/image-abi.h`, generated and listed by the runtime's manifest, so
+also in the seed's `/usr/include/dolly`; `kernel/fs-record.h` includes it, so the kernel's restore,
+stream and capture (`kernel/system-snapshot.c`, its own enum gone) and the Dollyfile engine's
+layer reader and entry writer (`programs/dollyfile.c`) take them, and session-recover builds with
+it in the image. `host/runtime/abi.mjs` and `dist/dolly-abi.json` (`modules.runtime.constants`)
+carry them for JavaScript: `page/snapshot-records.mjs` (now the one encoder and decoder of both
+headers; `page/packaged-snapshot.mjs` and `scripts/share-pages-snapshots.mjs` had copies),
+`page/image-entry.mjs`, `scripts/pack-seed.mjs`, `scripts/system-snapshot-format.mjs`,
+`site/image-artifact.mjs`. `abi/README.md` names the constants where it gave the numbers.
+
+Image inputs: `98bc4c57…` with the hygiene merge, `e855bf8c…` after the layout move, `79275cdf…`
+with these constants (runtime `0ffd0fea…`); `DOLLY_BUILD_IMAGES=default,system` built on it in
+901 s (`build/seedbatch-image-1.log`), dolly-docs and libdolly-pty added for the site and pty
+suites. Evidence under the tree's `build/`: `npm run -s test:source` 467 of 467
+(`seedbatch-source-abi-2.log`); artifact tests all but "dist registers every image", for the
+narrowed catalog (`seedbatch-artifacts.log`); the npm runtime package's 88 files resolve every
+import inside it (`seedbatch-npm-closure.log`; the one URL outside is the site's `custom/run/`
+route, as before the move). Browser suites, Chromium and Firefox, all passed: process, shell,
+slop, console, threads, core, terminal, cpp, host-modules, display, upload, embedding,
+custom-session, site, boundary (`seedbatch-suites-1/`, `-1b/`, `-1c/`), pty and image
+(`seedbatch-suites-2/`; pty needs libdolly-pty in the catalog now, image needed the fixture's
+name). default stops at its first check for the catalog alone: its welcome names `amy install
+python`, which this catalog does not build. Left: Donna reading them from `dolly-abi.json`.
+
 ## State (2026-11-13)
 
 Donna's answer (2026-11-13): it reads every mailbox word, packet size, errno and process constant

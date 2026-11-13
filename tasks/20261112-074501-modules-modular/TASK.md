@@ -10,6 +10,25 @@ fine, but it definitely seems the current implementation is broken from an archi
 view." Earlier: 2026-10-01 "If the core is slop it will be impossible to extend it"; 2026-11-04 "I
 feel like the modularity of the host modules have been lost somewhere along the way".
 
+## State (2026-11-13, seed round)
+
+`fix/seed-hygiene` is merged with main on `round/0.1.6-seed` (65de9b568): x11-window, which main
+added, includes display@0's and input@0's headers and now uses their packages, as godot and
+photocraft do. The ABI tool needs no module's file (7ff68cc32): `validate-process-dso` was
+`scripts/dolly-abi.mjs`'s one use of `host/dso/interface.mjs` and dso's fixtures hook its one
+caller, which now calls the loader's validator itself; nothing in `scripts/`, `page/`, `site/`,
+`kernel/` or `process/` imports from `host/dso/` (grep).
+
+Left, for a compiler round: the seed compiler (`programs/compiler.cpp`) still names modules:
+`host_client_libraries` skips `libdolly-sockets.a` and `libdolly-pty.a` (844-845), `-rdynamic`
+adds `--export=__dolly_dso_allocate` (893-894), `-pthread` links the `/threads` part and exports
+`dolly_thread_start` (861, 889, 928). Decided for that round: a `requested` module's package
+installs its archive in `/usr/lib`, which `-L/usr/lib` finds and the auto-linked
+`/usr/lib/dolly/process` does not hold, so the scan names nothing; the `-rdynamic` and `-pthread`
+exports come from files in the process sysroot that `scripts/build.sh` writes from the dso and
+threads manifests, as `-rdynamic` reads its provider symbols from a file already. It takes the
+compiler rebuilt in Dolly from `demos/llvm`, restamped and pinned (`docs/sources.md`).
+
 ## State (2026-11-13)
 
 Done on `fix/modular`, measured in Chromium and Firefox (threads, console, pty, terminal,
