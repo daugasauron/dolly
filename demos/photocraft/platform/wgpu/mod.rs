@@ -53,7 +53,13 @@ pub(crate) mod ffi {
         pub fn dolly_gpu_continue(g: *mut Gpu) -> i32;
     }
 
-    // <x11-window.h> (demos/x11), which the window's platform (winit's) links.
+    // <x11-window.h> (demos/x11) and the libraries under it, as winit's platform links them: a
+    // program without a window (photocraft-cli) links them too.
+    #[link(name = "x11-window")]
+    #[link(name = "X11")]
+    #[link(name = "xcb")]
+    #[link(name = "Xau")]
+    #[link(name = "dolly-sockets")]
     extern "C" {
         pub fn x11_window_present(
             window: *mut core::ffi::c_void,
