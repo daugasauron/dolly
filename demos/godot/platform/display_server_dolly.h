@@ -10,15 +10,28 @@ class NativeMenu;
 class RenderingContextDriver;
 class RenderingDevice;
 
+struct x11_window;
+
 // One window: the page's canvas through display@0, with the keys and pointer
-// of input@0. Godot's Mobile and Forward+ renderers draw on gpu@0's surface
-// (the webgpu driver); its Compatibility renderer draws with Mesa's OpenGL into
-// a pbuffer of the window's size, and each frame is read back and presented.
+// of input@0, or, where DISPLAY names an X server, a window of its own there
+// (x11-window.h), whose records are input@0's. Godot's Mobile and Forward+
+// renderers draw on gpu@0's surface (the webgpu driver), or into a texture
+// read back for the X window; its Compatibility renderer draws with Mesa's
+// OpenGL into a pbuffer of the window's size, and each frame is read back and
+// presented. The clipboard is clipboard@0's, held with the window; without it
+// the program's own.
 class DisplayServerDolly : public DisplayServer {
 	GDSOFTCLASS(DisplayServerDolly, DisplayServer);
 
 	uint64_t display = 0;
 	uint64_t input = 0;
+	uint64_t clipboard_lease = 0;
+	String clipboard;
+	// The editor's terminal and its modes as the editor found them, which it gives back (-1:
+	// unchanged).
+	int terminal = -1;
+	int terminal_lflag = -1;
+	x11_window *x11 = nullptr;
 	Size2i size;
 	DisplayServerEnums::VSyncMode vsync_mode = DisplayServerEnums::VSYNC_ENABLED;
 	uint32_t frame_sequence = 0;
@@ -34,6 +47,7 @@ class DisplayServerDolly : public DisplayServer {
 	Callable input_event_callback;
 	Callable input_text_callback;
 	Callable window_event_callback;
+	Callable rect_changed_callback;
 	Point2i mouse_position;
 	// MOUSE_MODE_CAPTURED asks input@0 for relative motion, and the page captures the pointer
 	// at the next click: the mode is CAPTURED while the page has it (POINTER_CAPTURE), and the
@@ -57,6 +71,10 @@ class DisplayServerDolly : public DisplayServer {
 	Error create_gl_surface();
 	void send_window_event(DisplayServerEnums::WindowEvent p_event) const;
 	void read_event(const dolly_input_event &p_event);
+	int next_event(dolly_input_event &r_event, double p_timeout_milliseconds);
+	void resized(const Size2i &p_size);
+	void present(const uint8_t *p_pixels, uint32_t p_width, uint32_t p_height, size_t p_stride, bool p_rgba);
+	static void present_frame(const uint8_t *p_pixels, uint32_t p_width, uint32_t p_height, uint32_t p_stride);
 
 public:
 	static void register_dolly_driver();
@@ -82,12 +100,12 @@ public:
 
 	void window_attach_instance_id(ObjectID p_instance, DisplayServerEnums::WindowID p_window = DisplayServerEnums::MAIN_WINDOW_ID) override { instance_id = p_instance; }
 	ObjectID window_get_attached_instance_id(DisplayServerEnums::WindowID p_window = DisplayServerEnums::MAIN_WINDOW_ID) const override { return instance_id; }
-	void window_set_rect_changed_callback(const Callable &p_callable, DisplayServerEnums::WindowID p_window = DisplayServerEnums::MAIN_WINDOW_ID) override {}
+	void window_set_rect_changed_callback(const Callable &p_callable, DisplayServerEnums::WindowID p_window = DisplayServerEnums::MAIN_WINDOW_ID) override { rect_changed_callback = p_callable; }
 	void window_set_window_event_callback(const Callable &p_callable, DisplayServerEnums::WindowID p_window = DisplayServerEnums::MAIN_WINDOW_ID) override { window_event_callback = p_callable; }
 	void window_set_input_event_callback(const Callable &p_callable, DisplayServerEnums::WindowID p_window = DisplayServerEnums::MAIN_WINDOW_ID) override { input_event_callback = p_callable; }
 	void window_set_input_text_callback(const Callable &p_callable, DisplayServerEnums::WindowID p_window = DisplayServerEnums::MAIN_WINDOW_ID) override { input_text_callback = p_callable; }
 	void window_set_drop_files_callback(const Callable &p_callable, DisplayServerEnums::WindowID p_window = DisplayServerEnums::MAIN_WINDOW_ID) override {}
-	void window_set_title(const String &p_title, DisplayServerEnums::WindowID p_window = DisplayServerEnums::MAIN_WINDOW_ID) override {}
+	void window_set_title(const String &p_title, DisplayServerEnums::WindowID p_window = DisplayServerEnums::MAIN_WINDOW_ID) override;
 
 	int window_get_current_screen(DisplayServerEnums::WindowID p_window = DisplayServerEnums::MAIN_WINDOW_ID) const override { return 0; }
 	void window_set_current_screen(int p_screen, DisplayServerEnums::WindowID p_window = DisplayServerEnums::MAIN_WINDOW_ID) override {}
@@ -114,6 +132,12 @@ public:
 	bool can_any_window_draw() const override { return true; }
 	void window_set_vsync_mode(DisplayServerEnums::VSyncMode p_vsync_mode, DisplayServerEnums::WindowID p_window = DisplayServerEnums::MAIN_WINDOW_ID) override { vsync_mode = p_vsync_mode; }
 	DisplayServerEnums::VSyncMode window_get_vsync_mode(DisplayServerEnums::WindowID p_window = DisplayServerEnums::MAIN_WINDOW_ID) const override { return vsync_mode; }
+
+	// The page cannot keep the screen on, as Godot's web platform cannot.
+	void screen_set_keep_on(bool p_enable) override {}
+
+	void clipboard_set(const String &p_text) override;
+	String clipboard_get() const override;
 
 	Point2i mouse_get_position() const override { return mouse_position; }
 	void mouse_set_mode(DisplayServerEnums::MouseMode p_mode) override;

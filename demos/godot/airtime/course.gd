@@ -1,6 +1,7 @@
 # Airtime's Foundry course (bhop-course.h): 33 pads in four sections of eight, a safe
 # checkpoint deck at every eighth; any other pad drops PAD_DELAY ticks after a landing and
 # comes back PAD_RETURN ticks later.
+@tool
 class_name Course
 
 const PADS := 33

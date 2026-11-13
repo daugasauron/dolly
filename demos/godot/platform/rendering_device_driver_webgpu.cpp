@@ -421,12 +421,14 @@ RenderingDeviceDriverWebGPU::~RenderingDeviceDriverWebGPU() {
 Error RenderingDeviceDriverWebGPU::initialize(uint32_t p_device_index, uint32_t p_frame_count) {
 	frame_count = p_frame_count;
 	gpu = memnew(dolly_gpu);
-	// The surface takes the size of the passes that draw on it.
-	ERR_FAIL_COND_V_MSG(dolly_gpu_open(gpu, 64, 64) < 0, ERR_CANT_CREATE, vformat("gpu@0 did not open (errno %d).", errno));
+	// The surface takes the size of the passes that draw on it. Frames read back (an X window's)
+	// need none: they are drawn into a texture, in the order an X server's pixels take.
+	const bool offscreen = context_driver->present;
+	ERR_FAIL_COND_V_MSG(dolly_gpu_open(gpu, offscreen ? 0 : 64, offscreen ? 0 : 64) < 0, ERR_CANT_CREATE, vformat("gpu@0 did not open (errno %d).", errno));
 	ERR_FAIL_COND_V(dolly_gpu_capabilities(gpu) != 128, ERR_CANT_CREATE);
 	uint32_t capability_bits;
 	memcpy(&capability_bits, gpu->reply, 4);
-	surface_format = (capability_bits & DOLLY_GPU_FEATURE_SURFACE_BGRA) ? 28 : 1;
+	surface_format = offscreen || (capability_bits & DOLLY_GPU_FEATURE_SURFACE_BGRA) ? 28 : 1;
 	ERR_FAIL_COND_V(dolly_gpu_limits(gpu) != 280, ERR_CANT_CREATE);
 	memcpy(limits, gpu->reply, sizeof(limits));
 	features = limits[0];
@@ -1875,8 +1877,8 @@ RDD::PipelineID RenderingDeviceDriverWebGPU::compute_pipeline_create(ShaderID p_
 		// Godot's release builds dispatch the pipeline they asked for and divide by its workgroup
 		// size (compute_list_dispatch_threads): a variant that cannot run here gets one that binds
 		// nothing and whose dispatches do nothing, so the effect is absent rather than the game. Godot
-		// makes some of these at startup, used or not (SDFGI's, and Firefox's tier-less effects).
-		WARN_PRINT(vformat("%s Its dispatches do nothing here.", shader->unavailable));
+		// makes some of these at startup, used or not (SDFGI's, and Firefox's tier-less effects): the
+		// warning waits for the first dispatch (idle_dispatched).
 		if (!idle_module) {
 			const CharString wgsl = String("@compute @workgroup_size(1) fn main() {}").utf8();
 			Record m(DOLLY_GPU_CREATE_SHADER, 24 + wgsl.length());
@@ -2012,6 +2014,12 @@ struct SwapChainInfo {
 	RDD::RenderPassID render_pass;
 	RenderingDeviceDriverWebGPU::TextureInfo image;
 	RenderingDeviceDriverWebGPU::FramebufferInfo framebuffer;
+	// Frames read back (RenderingContextDriverWebGPU::present): the texture drawn into, the buffer
+	// it is copied to, rows of row_pitch bytes, and the frame as read.
+	RDD::TextureID offscreen;
+	RenderingDeviceDriverWebGPU::BufferInfo readback;
+	uint32_t row_pitch = 0;
+	LocalVector<uint8_t> pixels;
 };
 
 RDD::SwapChainID RenderingDeviceDriverWebGPU::swap_chain_create(RenderingContextDriver::SurfaceID p_surface) {
@@ -2042,7 +2050,55 @@ Error RenderingDeviceDriverWebGPU::swap_chain_resize(CommandQueueID p_cmd_queue,
 	swap_chain->framebuffer.width = swap_chain->image.width;
 	swap_chain->framebuffer.height = swap_chain->image.height;
 	context_driver->surface_set_needs_resize(swap_chain->surface, false);
+	if (context_driver->present) {
+		free_offscreen(swap_chain);
+		TextureFormat format;
+		format.format = DATA_FORMAT_B8G8R8A8_UNORM;
+		format.width = swap_chain->image.width;
+		format.height = swap_chain->image.height;
+		format.usage_bits = TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | TEXTURE_USAGE_CAN_COPY_FROM_BIT | TEXTURE_USAGE_SAMPLING_BIT;
+		TextureView view;
+		view.format = format.format;
+		swap_chain->offscreen = texture_create(format, view);
+		ERR_FAIL_COND_V(!swap_chain->offscreen, ERR_CANT_CREATE);
+		swap_chain->framebuffer.attachments[0] = (TextureInfo *)swap_chain->offscreen.id;
+		swap_chain->row_pitch = STEPIFY(swap_chain->image.width * 4, 256u);
+		swap_chain->readback.size = uint64_t(swap_chain->row_pitch) * swap_chain->image.height;
+		Record r(DOLLY_GPU_CREATE_BUFFER, 32);
+		put64(r.p(), 16, swap_chain->readback.size);
+		put32(r.p(), 24, GPU_MAP_READ | GPU_COPY_DST);
+		swap_chain->readback.handle = CREATE(r);
+	}
 	return OK;
+}
+
+void RenderingDeviceDriverWebGPU::free_offscreen(SwapChainInfo *p_swap_chain) {
+	if (p_swap_chain->offscreen) {
+		texture_free(p_swap_chain->offscreen);
+		release(p_swap_chain->readback.handle);
+		p_swap_chain->offscreen = TextureID();
+		p_swap_chain->framebuffer.attachments[0] = &p_swap_chain->image;
+	}
+}
+
+// Each frame drawn for present, copied out of its texture and read: gpu@0 maps the copy and
+// reads it 64 KiB a call, after the GPU drew it.
+void RenderingDeviceDriverWebGPU::read_back(SwapChainInfo *p_swap_chain) {
+	const TextureInfo *texture = (const TextureInfo *)p_swap_chain->offscreen.id;
+	bool sent = false;
+	uint8_t *p = packet_record(DOLLY_GPU_COPY_TEXTURE_TO_BUFFER, 72, sent);
+	put64(p, 8, p_swap_chain->readback.handle);
+	put32(p, 24, p_swap_chain->row_pitch);
+	put32(p, 28, texture->height);
+	put64(p, 32, texture->texture);
+	put32(p, 60, texture->width);
+	put32(p, 64, texture->height);
+	put32(p, 68, 1);
+	packet_record(DOLLY_GPU_SUBMIT, 8, sent);
+	ERR_FAIL_COND(!send(false));
+	p_swap_chain->pixels.resize(p_swap_chain->readback.size);
+	ERR_FAIL_COND(!read_buffer(&p_swap_chain->readback, 0, p_swap_chain->readback.size, p_swap_chain->pixels.ptr()));
+	context_driver->present(p_swap_chain->pixels.ptr(), texture->width, texture->height, p_swap_chain->row_pitch);
 }
 
 RDD::FramebufferID RenderingDeviceDriverWebGPU::swap_chain_acquire_framebuffer(CommandQueueID p_cmd_queue, SwapChainID p_swap_chain, bool &r_resize_required) {
@@ -2062,6 +2118,7 @@ RDD::DataFormat RenderingDeviceDriverWebGPU::swap_chain_get_format(SwapChainID p
 
 void RenderingDeviceDriverWebGPU::swap_chain_free(SwapChainID p_swap_chain) {
 	SwapChainInfo *swap_chain = (SwapChainInfo *)p_swap_chain.id;
+	free_offscreen(swap_chain);
 	render_pass_free(swap_chain->render_pass);
 	memdelete(swap_chain);
 }
@@ -2598,7 +2655,17 @@ static bool samples_stored(const RenderingDeviceDriverWebGPU::CommandBufferInfo 
 	return false;
 }
 
+// The first dispatch of an effect this browser cannot run says which and why, once.
+static void idle_dispatched(RenderingDeviceDriverWebGPU::CommandBufferInfo *p_cb) {
+	RenderingDeviceDriverWebGPU::ShaderInfo *shader = p_cb->pipeline ? p_cb->pipeline->shader : nullptr;
+	if (shader && !shader->unavailable.is_empty() && !shader->warned) {
+		shader->warned = true;
+		WARN_PRINT(vformat("%s Its dispatches do nothing here.", shader->unavailable));
+	}
+}
+
 void RenderingDeviceDriverWebGPU::command_compute_dispatch(CommandBufferID p_cmd_buffer, uint32_t p_x_groups, uint32_t p_y_groups, uint32_t p_z_groups) {
+	idle_dispatched((CommandBufferInfo *)p_cmd_buffer.id);
 	if (samples_stored((CommandBufferInfo *)p_cmd_buffer.id)) end_passes(p_cmd_buffer);
 	compute_pass(p_cmd_buffer);
 	refill_shadows(p_cmd_buffer);
@@ -2610,6 +2677,7 @@ void RenderingDeviceDriverWebGPU::command_compute_dispatch(CommandBufferID p_cmd
 }
 
 void RenderingDeviceDriverWebGPU::command_compute_dispatch_indirect(CommandBufferID p_cmd_buffer, BufferID p_indirect_buffer, uint64_t p_offset) {
+	idle_dispatched((CommandBufferInfo *)p_cmd_buffer.id);
 	if (samples_stored((CommandBufferInfo *)p_cmd_buffer.id)) end_passes(p_cmd_buffer);
 	compute_pass(p_cmd_buffer);
 	refill_shadows(p_cmd_buffer);
@@ -3015,7 +3083,16 @@ Error RenderingDeviceDriverWebGPU::command_queue_execute_and_present(CommandQueu
 		}
 	}
 	if (encoder) packet_record(DOLLY_GPU_SUBMIT, 8, sent);
-	return send(false) ? OK : ERR_CANT_CREATE;
+	if (!send(false)) {
+		return ERR_CANT_CREATE;
+	}
+	for (uint32_t i = 0; i < p_swap_chains.size(); i++) {
+		SwapChainInfo *swap_chain = (SwapChainInfo *)p_swap_chains[i].id;
+		if (swap_chain->offscreen) {
+			read_back(swap_chain);
+		}
+	}
+	return OK;
 }
 
 /**************/

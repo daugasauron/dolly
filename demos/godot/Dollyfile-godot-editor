@@ -7,13 +7,16 @@ REQUIRES HOST input@0
 REQUIRES HOST threads@0
 REQUIRES HOST sockets@0
 REQUIRES HOST gpu@0
+REQUIRES HOST clipboard@0
 
 # Godot's editor from the same release on the same platform: it imports a
 # project's assets and exports its pack (--headless --import, --export-pack),
-# and draws its own window on the page. Without Basis Universal, whose encoder
-# names a header of Linux's that Emscripten's libc and Dolly's leave out
-# (sys/timex.h), and Jolt Physics, which knows WebAssembly only as Emscripten:
-# 3D physics is Godot's own.
+# and draws its own window on the page, or on the X server DISPLAY names.
+# Without Basis Universal, whose encoder names a header of Linux's that
+# Emscripten's libc and Dolly's leave out (sys/timex.h), Jolt Physics, which
+# knows WebAssembly only as Emscripten (3D physics is Godot's own), and the
+# JSON-RPC module, whose one user is the GDScript language server: it listens
+# on TCP, which Dolly does not have.
 FROM /v0.1.6/demos/ghostty-gtk/Dollyfile-mesa-build b9f0e2ba283973866d1c640f71c6d27f5ee3603328fa66d12790628539cd1372
 USE /v0.1.6/demos/tools/Dollyfile-scons 1f8bf3e0c9dfc8defe80910ed0aede4c185740297ce2edab64dbe956cd2134a3
 USE /v0.1.6/Dollyfile-mandoc 662e1e227c145339f7d7e54bdcecc523bb9b3fc80902720fbb3e179cf82324d8
@@ -21,6 +24,8 @@ USE /v0.1.6/Dollyfile-libdolly-gpu cd9aa3833517983394b056238013d9dde703ac50678c0
 USE /v0.1.6/Dollyfile-libdolly-sockets 443718e31849e2212effd848a41f8998faccf2c98a11af46f7669840f0f74d41
 USE /v0.1.6/demos/godot/Dollyfile-spirv-wgsl 091b819e04fde21dea17e191e5952a812d115b0410f98cc21eb9aa571252ac0a
 USE /v0.1.6/Dollyfile-libdolly-audio 0f949b8e81e54389e2ea64fb25254096bc0222c04ea0c5462a40a93d3732d315
+USE /v0.1.6/Dollyfile-libdolly-clipboard 6db73c67beaaab52deaefa8dffe7a60149aecc0240b4008d49aca499561e0275
+USE /v0.1.6/demos/x11/Dollyfile-x11-window 1d64ba056f9c2360177678e5ddc1b7e7e988848ef7d38ba2124ea17c81f20895
 
 REQUIRES TOOL cp
 REQUIRES TOOL grep
@@ -33,13 +38,13 @@ REQUIRES TOOL tar
 REQUIRES TOOL test
 REQUIRES TOOL text-page
 
-SOURCE /v0.1.6/dist/static/godot/source.tar.gz 3b134af660c6ed3501a54e530b3af0209a694e073c523a8831069c55bedc54be /tmp/godot-source.tar.gz
+SOURCE /v0.1.6/dist/static/godot/source.tar.gz c59dd4007153553366d2312587dbf4243c0af7a25ff613a7ce90a86133f57b98 /tmp/godot-source.tar.gz
 SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
 # Godot's modern renderers take only the drivers main.cpp names; glslang builds beside them;
 # Forward+ starts SDFGI only on a device with image atomics, which its voxelization takes.
 SLOP CWD /usr/src/godot patch -p1 -i platform/dolly/godot-dolly.patch
 SLOP CWD /usr/src/godot scons -j4 platform=dolly target=editor module_basis_universal_enabled=no \
-  module_jolt_physics_enabled=no
+  module_jolt_physics_enabled=no module_jsonrpc_enabled=no
 SLOP cp /usr/src/godot/bin/godot.dolly.editor.wasm64 /usr/bin/godot-editor
 SLOP mkdir -p /usr/share/licenses/godot-editor
 SLOP cp /usr/src/godot/LICENSE.txt /usr/src/godot/COPYRIGHT.txt /usr/share/licenses/godot-editor

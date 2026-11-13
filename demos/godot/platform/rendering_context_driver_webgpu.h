@@ -1,11 +1,15 @@
 // Godot's RenderingContextDriver on gpu@0: one device, the browser's WebGPU adapter as gpu@0
-// grants it, and one surface, the page's frame.
+// grants it, and one surface, the page's frame, or, with present set, a texture read back after
+// each frame and handed to present (an X window): rows of stride bytes, blue first.
 #pragma once
 
 #include "servers/rendering/rendering_context_driver.h"
 
 class RenderingContextDriverWebGPU : public RenderingContextDriver {
 public:
+	typedef void (*Present)(const uint8_t *p_pixels, uint32_t p_width, uint32_t p_height, uint32_t p_stride);
+	Present present = nullptr;
+
 	struct Surface {
 		uint32_t width = 0, height = 0;
 		DisplayServerEnums::VSyncMode vsync = DisplayServerEnums::VSYNC_ENABLED;

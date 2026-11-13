@@ -1,6 +1,7 @@
 # The foundry at night around the course: a sea of molten metal under it, haze lit from below,
 # embers, and each section's scenery: the loading yard's containers and gantry, the turbine
 # hall, the reactor, the silos and the finish gate.
+@tool
 class_name Foundry
 extends Node3D
 
@@ -47,6 +48,13 @@ func cylinder(radius: float, height: float, at: Vector3, surface: Material, pare
 	node.position = at
 	parent.add_child(node)
 	return node
+
+
+# In the editor the foundry stands as the game builds it (main.gd), so the scene shows the level;
+# what is built here is not the scene's and is not saved with it.
+func _ready() -> void:
+	if Engine.is_editor_hint():
+		build(Course.new(), 0.025)
 
 
 func build(course: Course, metres: float) -> void:

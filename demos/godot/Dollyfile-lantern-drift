@@ -7,6 +7,7 @@ REQUIRES HOST input@0
 REQUIRES HOST threads@0
 REQUIRES HOST sockets@0
 REQUIRES HOST gpu@0
+REQUIRES HOST clipboard@0
 
 # Lantern Drift, Dolly's showcase for Godot: glide a paper lantern through rings of light over a
 # sky archipelago from sunset into night, drawn by Godot's Forward+ renderer on gpu@0 with
@@ -14,8 +15,8 @@ REQUIRES HOST gpu@0
 # (demos/godot/lantern-drift) is imported and exported here by Godot's editor, and lantern-drift
 # plays the pack with godot, which installs with it. The project installs too, for the editor.
 FROM /v0.1.6/Dollyfile-system 37a435d6491838bf1e1e0d7209f20501e5262de298701a9b571b4053f7fbfdc2
-INSTALL /v0.1.6/demos/godot/Dollyfile-godot 22107ea99bacd9f4d585a5e41d08b24c1e36f5e5d4a3db69ebd6b11a426ef2e4
-USE /v0.1.6/demos/godot/Dollyfile-godot-editor 7568d021a6bd0950770fd04ae5b6e1b2a7f70be86ebf198a4d1a750f8cb39794
+INSTALL /v0.1.6/demos/godot/Dollyfile-godot 6b2481c8e057df7910a4840a9f7a30c4bc5748c8f9d791c5f9b5136e4be2d8e4
+USE /v0.1.6/demos/godot/Dollyfile-godot-editor 60192d8fdbb30c7299eb9c4819261769c4752181983b99712d4295a466e05093
 
 REQUIRES TOOL cp
 REQUIRES TOOL godot-editor
@@ -23,7 +24,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.6/dist/static/godot/lantern-drift.tar 5e6bd354a3a3b253c40fea6032e4c8ba2b3a47a754de64b1399fe4f494fe4464 /tmp/lantern-drift.tar
+SOURCE /v0.1.6/dist/static/godot/lantern-drift.tar 48d6b38d8862f7a56372f5dbaf26f38d255cfd6c949b2b3c216aee122eeb6f13 /tmp/lantern-drift.tar
 SLOP CWD / tar -xf /tmp/lantern-drift.tar
 SLOP mkdir -p /usr/share/lantern-drift
 SLOP cp -r /usr/src/lantern-drift /usr/share/lantern-drift/project

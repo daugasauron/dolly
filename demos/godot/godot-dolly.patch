@@ -22,6 +22,21 @@
  	}
  	EditorDebuggerNode::get_singleton()->start(uri);
  	Error error = editor_run.run(run_filename, write_movie_file, args);
+--- a/editor/register_editor_types.cpp
++++ b/editor/register_editor_types.cpp
+@@ -231,9 +231,12 @@
+ 	EditorPlugins::add_by_type<ControlEditorPlugin>();
+ 	EditorPlugins::add_by_type<CPUParticles3DEditorPlugin>();
+ 	EditorPlugins::add_by_type<CurveEditorPlugin>();
++#ifndef DOLLY_ENABLED
++	// Dolly has no TCP for the Debug Adapter Protocol's port: no program could reach it.
+ 	if (!Engine::get_singleton()->is_recovery_mode_hint()) {
+ 		EditorPlugins::add_by_type<DebugAdapterServer>();
+ 	}
++#endif
+ 	EditorPlugins::add_by_type<EditorScriptPlugin>();
+ 	EditorPlugins::add_by_type<FontEditorPlugin>();
+ 	EditorPlugins::add_by_type<GPUParticles3DEditorPlugin>();
 --- a/main/main.cpp
 +++ b/main/main.cpp
 @@ -2392,6 +2392,7 @@

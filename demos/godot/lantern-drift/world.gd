@@ -1,3 +1,4 @@
+@tool
 extends Node3D
 ## The sky archipelago, built in slices ahead of the glider and cleared behind it. Rings follow a
 ## meandering course; islands crowd around it, some close enough to thread between.
@@ -24,6 +25,14 @@ var rings: Array[Area3D] = []
 static func course(distance: float) -> Vector3:
 	return Vector3(sin(distance * 0.0042) * 75.0 + sin(distance * 0.0125 + 1.3) * 24.0,
 		26.0 + sin(distance * 0.0075) * 13.0, -distance)
+
+
+## In the editor the first stretch of the course stands as a run starts it (main.gd), so the scene
+## shows the islands and rings; what is built here is not the scene's and is not saved with it.
+func _ready() -> void:
+	if Engine.is_editor_hint():
+		reset(7919)
+		advance(0.0)
 
 
 func reset(seed_value: int) -> void:

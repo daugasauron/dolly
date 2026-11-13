@@ -16,8 +16,8 @@ INSTALL /v0.1.6/Dollyfile-core d69d0e16a3e1a7813171966d23fcf5a44d488a6bcf2723a3d
 INSTALL /v0.1.6/Dollyfile-posix 9773acc9cc5cdbe7b4d9a355092dcf3bed9a77de6f1da50eb925d1d9690c68ba
 INSTALL /v0.1.6/Dollyfile-display e1328f1decb7f81e8b508cf5f03c18246fdac37d39d259021ea69882d59f4d9f
 INSTALL /v0.1.6/Dollyfile-transfer 420ed424bcd0127a54789d4958d128b40fc0a679bd202c664f1b3632f2fa4309
-INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly e2da03873f4f057974276e8bdb370caedc4523caba2d294c9a41df879e310c05
-INSTALL /v0.1.6/demos/rts/Dollyfile-seven-kingdoms 9012daf224020b04a95effe19013acfe05c1c9255cc597e045e4c4493dd84c2b
+INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly ac288d170d35f4847b6130d168fbea2e8780a9f74e830f7f6b32743185d080ee
+INSTALL /v0.1.6/demos/rts/Dollyfile-seven-kingdoms b422dfb81be221f822eca317cbb7088ac36ca0a0d41146dc9788a37dc8917dad
 REQUIRES TOOL pi
 REQUIRES TOOL upload
 REQUIRES TOOL rts-arena

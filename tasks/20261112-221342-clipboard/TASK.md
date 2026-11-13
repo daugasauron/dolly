@@ -9,17 +9,33 @@ as well."
 
 ## State (2026-11-13)
 
-Filed. What there is today:
+Decided and built on `feature/x11-apps` (`1abe5a768` and after):
 
-- The page pastes into a program as typed text: Ctrl+V and the Paste button read the browser's
-  clipboard inside the user's gesture and push the text to the program's input
-  (`host/input/input.mjs`, `docs/input.md`). Nothing lets a program read the clipboard when it
-  asks, or write it.
-- Godot asks its display server, `clipboard_get` and `clipboard_set`: Dolly's says "Clipboard is
-  not supported by this display server" (the owner's log, `20261112-221342-godot-editor`), so
-  neither Ctrl+C nor Ctrl+V works in the editor's fields, script editor or inspector.
-- PhotoCraft's clipboard is arboard, which on Dolly reports that it has none (`arboard.patch`,
-  `demos/photocraft/README.md`); a paste reaches the app as text.
+- `clipboard@0` is a module of its own, not `input@0`: writing the browser's clipboard is a new
+  authority an embedding may leave out, and a new module changes no digest of the seed. A mailbox
+  without an import: the kernel keeps the text (256 KiB); the program holding the clipboard (the
+  foreground command or a descendant, nesting as the input lease does, so a game the editor runs
+  takes it over) writes and reads it. The page writes the browser's clipboard only while it has the
+  focus and the user's activation (`navigator.userActivation.isActive`), which the copy's own key
+  press or menu click gives, and reads nothing but the user's own paste: `input@0` hands each paste
+  to the module, it becomes the clipboard's text, and a program holding the clipboard and the input
+  lease gets the chord the user pasted with (Ctrl+V, Cmd+V, Shift+Insert), not text records, so it
+  pastes as on a desktop. Contract `host/clipboard/dolly-clipboard-0.wat`, row in
+  `docs/browser-boundary.md`, section in `docs/input.md`, package `libdolly-clipboard`.
+- Ctrl+C reaching a program: under `ISIG` the page's Ctrl+C interrupts the foreground program,
+  which killed the first test's fixture. A program that owns the keyboard clears `ISIG` on its
+  terminal, as a full-screen terminal program does and as Xsdl does on the workbench branch: Godot's
+  editor and Project Manager (not games, whose Ctrl+C still quits them) and PhotoCraft's window do
+  so while they have the page.
+- `test/clipboard-browser.mjs` passed in Chromium and Firefox (25 s each): refusals, a process
+  beside the foreground refused, a child taking the clipboard over, Ctrl+C into the browser's
+  clipboard, the browser's text read at Ctrl+V with no text records, and a copy made eight seconds
+  after the last key press kept in Dolly (`inactive`).
+- Godot: `display_server_dolly.cpp` reports `FEATURE_CLIPBOARD` and implements `clipboard_get`
+  and `clipboard_set` on it (the program's own clipboard without the module). PhotoCraft: arboard's
+  Dolly platform holds the clipboard for the process (`config/patches/arboard.patch`).
+
+Left: the Godot and PhotoCraft builds with these, and their browser tests.
 
 ## Do
 

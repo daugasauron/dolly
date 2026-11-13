@@ -15,7 +15,7 @@ build, and zenity in 5 more. The update check finds no network, as Dolly gives p
 
 ## Images
 
-- `photocraft`: PhotoCraft, its command line `photocraft-cli` (convert, inspect and batch images and
+- `photocraft`: PhotoCraft, with Hokusai's Great Wave to open (`/usr/share/photocraft/pictures`), its command line `photocraft-cli` (convert, inspect and batch images and
   PSD files, run its commands, serve them to agents over MCP) and `zenity`, the dialogs it opens.
 - `photocraft-photos`: PhotoCraft on the page with Hokusai's Great Wave open; quitting it leaves a
   shell.
@@ -26,14 +26,20 @@ build, and zenity in 5 more. The update check finds no network, as Dolly gives p
   canvas, through the `display@0` and `input@0` leases. Records name keys as a browser's
   KeyboardEvent does, so the web platform's key tables read them; composed and pasted text is
   committed as an input method's. A thread of the window's own waits for each record, so the
-  loop waits on one condition for records, other threads' events and its deadline.
+  loop waits on one condition for records, other threads' events and its deadline. While the
+  window has the page its Ctrl+C is Copy, not the terminal's interrupt key (`ISIG` off). Where
+  `DISPLAY` names an X server (`x11-desktop`), the window is one of its windows instead, through
+  [`x11-window`](../x11/README.md), whose records are `input@0`'s: the window manager moves,
+  resizes and closes it.
 - wgpu ([`platform/wgpu`](platform/wgpu), installed in its `backend/dolly` by `wgpu.patch`): the
   browser's WebGPU through `gpu@0`'s explicit records, which keep WebGPU's object model as wgpu's
   API does, as a custom backend that `Instance::new` takes for `BROWSER_WEBGPU`. Creations and queue
   writes go to the scope's packet as they are made; a command buffer's records, and the objects
   they name, wait until it is submitted, and SUBMIT presents the surface it drew on. Shaders are
   WGSL; there are no automatic pipeline layouts, mapped writes are writes from a copy on unmap, and
-  WebGPU's validation errors arrive with the next WAIT (`docs/gpu.md`).
+  WebGPU's validation errors arrive with the next WAIT (`docs/gpu.md`). An X window's surface
+  is a texture of its own: at each present it is copied to a buffer, read back and put in the
+  window.
 - raw-window-handle names the window between them (`raw-window-handle.patch`).
 - File › Open is the browser's file picker (`upload@0`), as in PhotoCraft's own web build: the
   page keeps the file's name, so the document is `upload` with the extension its bytes show. Each
@@ -43,9 +49,10 @@ build, and zenity in 5 more. The update check finds no network, as Dolly gives p
 - rfd's other dialogs are the `zenity` command, as its Linux backend's are without a desktop portal
   (`rfd.patch`); [`zenity`](zenity) is an egui program on the same platforms, which takes the page
   from PhotoCraft and gives it back when it exits.
-- A program on Dolly has no clipboard to write: arboard says so (`arboard.patch`), and a paste
-  reaches the app as text. `open` uses a Unix desktop's openers, which Dolly does not have
-  (`open.patch`).
+- Copy and paste are the page's clipboard (`clipboard@0`, [input](../../docs/input.md#clipboard)):
+  arboard holds it for the process (`arboard.patch`), so egui's Ctrl+C and Ctrl+X reach the
+  browser's clipboard and its Ctrl+V reads what the user pasted. `open` uses a Unix desktop's
+  openers, which Dolly does not have (`open.patch`).
 
 ## Sources
 

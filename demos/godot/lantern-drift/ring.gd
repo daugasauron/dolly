@@ -1,3 +1,4 @@
+@tool
 extends Area3D
 ## A ring of light. The glider flying through it refills its lantern; the ring bursts into sparks.
 

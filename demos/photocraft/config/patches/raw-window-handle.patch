@@ -1,6 +1,6 @@
 --- a/src/dolly.rs
 +++ b/src/dolly.rs
-@@ -0,0 +1,26 @@
+@@ -0,0 +1,29 @@
 +/// Raw display handle for Dolly, whose programs draw on one page.
 +#[non_exhaustive]
 +#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -13,18 +13,21 @@
 +    }
 +}
 +
-+/// Raw window handle for Dolly: the page's canvas, held by a display@0 lease.
++/// Raw window handle for Dolly: the page's canvas, held by a display@0 lease, or a window on
++/// Dolly's X server.
 +#[non_exhaustive]
 +#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 +pub struct DollyWindowHandle {
 +    /// The display lease's generation.
 +    pub generation: u64,
++    /// The X window's `x11_window` (demos/x11's x11-window.h), or zero on the page.
++    pub x11: usize,
 +}
 +
 +impl DollyWindowHandle {
 +    /// Create a new handle for the display lease `generation`.
 +    pub fn new(generation: u64) -> Self {
-+        Self { generation }
++        Self { generation, x11: 0 }
 +    }
 +}
 --- a/src/lib.rs
