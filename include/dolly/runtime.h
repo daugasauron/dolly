@@ -49,6 +49,17 @@ static inline int64_t dolly_device_request(uint32_t process_operation, uint32_t 
   return dolly_process_call(process_operation, packet, bytes, reply, reply_capacity);
 }
 
+// The monotonic deadline in nanoseconds of a timeout in milliseconds, as the
+// process contract's deadlines are: 0 for a timeout of zero, which polls,
+// UINT64_MAX for a negative one, which never expires. Returns 0, or -EINVAL
+// for NaN or a deadline past the clock's range.
+int dolly_deadline(double milliseconds, uint64_t *deadline);
+
+// A process operation whose packet is a dolly_process_path_request for path,
+// relative to the working directory, and nothing else (a module's operation
+// on a file). Returns the reply's length or a negative errno.
+int64_t dolly_path_call(uint32_t operation, const char *path, void *reply, size_t reply_capacity);
+
 // Starts a filesystem-resident Dolly command with explicitly routed standard
 // descriptors. It returns a positive in-Wasm pid once the kernel accepts the
 // child; dolly_wait() collects its eventual status. Errors are negative errno.
