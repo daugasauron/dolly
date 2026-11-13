@@ -24,7 +24,7 @@ FROM /v0.1.6/demos/rust/Dollyfile-rust-build 4a314d3d4ef75781f9927ca4400039f7ce5
 USE /v0.1.6/Dollyfile-libdolly-gpu cd9aa3833517983394b056238013d9dde703ac50678c090a1b4b04a9cec6cd46
 USE /v0.1.6/Dollyfile-libdolly-clipboard 6db73c67beaaab52deaefa8dffe7a60149aecc0240b4008d49aca499561e0275
 USE /v0.1.6/Dollyfile-libdolly-sockets 443718e31849e2212effd848a41f8998faccf2c98a11af46f7669840f0f74d41
-USE /v0.1.6/demos/x11/Dollyfile-x11-window 1d64ba056f9c2360177678e5ddc1b7e7e988848ef7d38ba2124ea17c81f20895
+USE /v0.1.6/demos/x11/Dollyfile-x11-window 3556aa1c04415ba70027ada09dc8e8cc915ca9f85b70a420451ef32d3c589af7
 # The X client libraries x11-window links, for the link alone, and their licences.
 COPY /v0.1.6/demos/x11/Dollyfile-x11-build 62537a51803060aff6308e3ba9e71b26eef6aaa93692adfb6c4577e39b82dc57 /usr/lib/libX11.a /usr/lib/libX11.a
 COPY /v0.1.6/demos/x11/Dollyfile-x11-build 62537a51803060aff6308e3ba9e71b26eef6aaa93692adfb6c4577e39b82dc57 /usr/lib/libxcb.a /usr/lib/libxcb.a
@@ -41,14 +41,14 @@ REQUIRES TOOL mv
 REQUIRES TOOL cp
 REQUIRES TOOL rm
 
-SOURCE /v0.1.6/dist/static/photocraft/sources-00.part 9f773773713db4f06ff313fda73e98847e25e492ed784842430a274cb18853d2 /tmp/photocraft-sources-00.part
-SOURCE /v0.1.6/dist/static/photocraft/sources-01.part 6a13476224ed996f7b79360f4f8c43ca27775c3055ae5171248bf0ef3afc21c1 /tmp/photocraft-sources-01.part
-SOURCE /v0.1.6/dist/static/photocraft/sources-02.part a4e362e12d3d8d7e7fd3101ab84dfa047d3671cad031181206108916e831f51d /tmp/photocraft-sources-02.part
-SOURCE /v0.1.6/dist/static/photocraft/sources-03.part 3e5c4841f7b9eea7134436c898d9beeb739fd48e585f08acec7bc6d5c6d2eba5 /tmp/photocraft-sources-03.part
+SOURCE /v0.1.6/dist/static/photocraft/sources-00.part 3f32c54cab652036edba83d84948cf2ad26e19d860b48d65a5f75c1ffebadc99 /tmp/photocraft-sources-00.part
+SOURCE /v0.1.6/dist/static/photocraft/sources-01.part eb3f05957db1181a74c4ba311b383250c926da0de07bc36c06d8f9b28b2bacfb /tmp/photocraft-sources-01.part
+SOURCE /v0.1.6/dist/static/photocraft/sources-02.part 844b2c4c03acf56fbe26b3ce4d2844239ba9e7312b149ad600e47d9adfffdee8 /tmp/photocraft-sources-02.part
+SOURCE /v0.1.6/dist/static/photocraft/sources-03.part 2f1f6c5ac84b11165a069534c592ae5312db3e1cf2c9321eecbb27416790fdc9 /tmp/photocraft-sources-03.part
 SLOP cat /tmp/photocraft-sources-00.part /tmp/photocraft-sources-01.part /tmp/photocraft-sources-02.part /tmp/photocraft-sources-03.part | gzip -dc - | tar -xf - -C /
 SLOP rm /tmp/photocraft-sources-00.part /tmp/photocraft-sources-01.part /tmp/photocraft-sources-02.part /tmp/photocraft-sources-03.part 
-SLOP CWD /tmp/photocraft-sources/photocraft cargo build -j 4 --offline -p photocraft -p photocraft-cli --target-dir /tmp/photocraft-build
-SLOP CWD /tmp/photocraft-sources/photocraft cargo build -j 4 --offline -p zenity --target-dir /tmp/photocraft-build
+SLOP CWD /tmp/photocraft-sources/photocraft cargo build -j 2 --offline -p photocraft -p photocraft-cli --target-dir /tmp/photocraft-build
+SLOP CWD /tmp/photocraft-sources/photocraft cargo build -j 2 --offline -p zenity --target-dir /tmp/photocraft-build
 SLOP mkdir -p /usr/share/licenses/photocraft /usr/share/dolly/builds
 SLOP mv /tmp/photocraft-build/debug/photocraft /tmp/photocraft-build/debug/photocraft-cli /tmp/photocraft-build/debug/zenity /usr/bin
 SLOP mkdir -p /usr/share/man/cat1

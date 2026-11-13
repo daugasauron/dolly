@@ -14,8 +14,8 @@ REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.6/dist/static/x11/x11-window.h 23a77c70877cbb24d219f8c29d09b971cdc3958b7d05da2e6234249dfa40db6a /usr/include/x11-window.h
-SOURCE /v0.1.6/dist/static/x11/x11-window.c 6de7c6444d0645ac9f9d73af5d4c714f3c9b673487e47d74a55d7d5d825df095 /tmp/x11-window/x11-window.c
+SOURCE /v0.1.6/dist/static/x11/x11-window.h e9101346f695e029fc06bd81b24a615958c262bffeaa781ec6343cf839d3b28f /usr/include/x11-window.h
+SOURCE /v0.1.6/dist/static/x11/x11-window.c b83baae42a180c5d00880097ce14ca64ba8700a037d8e5b021522a6379f12b27 /tmp/x11-window/x11-window.c
 SLOP cc -O2 -c /tmp/x11-window/x11-window.c -o /tmp/x11-window/x11-window.o
 SLOP ar rcs /usr/lib/libx11-window.a /tmp/x11-window/x11-window.o
 SLOP rm -rf /tmp/x11-window

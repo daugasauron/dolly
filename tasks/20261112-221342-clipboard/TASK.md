@@ -38,7 +38,14 @@ Decided and built on `feature/x11-apps` (`1abe5a768` and after):
   and `clipboard_set` on it (the program's own clipboard without the module). PhotoCraft: arboard's
   Dolly platform holds the clipboard for the process (`config/patches/arboard.patch`).
 
-Left: the Godot and PhotoCraft builds with these, and their browser tests.
+Godot, on the build of 11:57: `demos/godot/test/godot-projects-browser.mjs` passed in Chrome and
+Firefox for both games' projects: a node's name copied (Ctrl+C) in its rename field in the editor
+was the browser's clipboard's, pasted (Ctrl+V) into another node's rename field, and text the test
+wrote to the browser's clipboard pasted as a third node's name; the saved scene holds both names
+(`build/godot-projects-{chromium,firefox}.log`).
+
+Left: PhotoCraft's (`demos/photocraft/test/photocraft-gpu-browser.mjs`: text copied outside pastes
+into the New Layer dialog's name, and its Ctrl+C gives it back to the browser).
 
 ## Do
 
