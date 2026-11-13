@@ -78,7 +78,7 @@ REQUIRES TOOL   cc
 
 # Dolly's own small commands, from programs/commands. Each TOOL export names the
 # compiled result.
-SOURCE /v0.1.6/dist/static/default/commands/path.h 3c15f00e77b9b788acf63ad78d48d61af68e69ce4d41e0ed2f348cb0c5fda8ae /tmp/core-tools/path.h
+SOURCE /v0.1.6/dist/static/default/commands/path.h 48c3a1e853aa273106234c8cdbbcae7d54c2f68f477373e0712d5e4748a9b788 /tmp/core-tools/path.h
 SOURCE /v0.1.6/dist/static/default/commands/mkdir.c 0713179c0b44c92e30d2fd22c87a930ca23f5417b1b3392b3997547648617ad6 /tmp/core-tools/mkdir.c
 SOURCE /v0.1.6/dist/static/default/commands/rm.c 2adb95ed560a55f22b91eda217fdbfc4108bd14ebe71b143ef706869d88a1997 /tmp/core-tools/rm.c
 SOURCE /v0.1.6/dist/static/default/commands/foreground.c e926c3c87764e44064744fc1d3cba008c46666ed7a06d351824ce67792bcdd76 /tmp/core-tools/foreground.c
@@ -95,7 +95,7 @@ SOURCE /v0.1.6/dist/static/default/commands/stat.c 716e40d4db491a766b738e21c780d
 SOURCE /v0.1.6/dist/static/default/commands/file.c 3fd871ab9da0233ab738683f3ae45ab8cac3b37df3be92359575448137b4ec37 /tmp/core-tools/file.c
 SOURCE /v0.1.6/dist/static/default/commands/test.c f8c6d9618f2f78a85eb8c177df0bb565e9f611f849cbc05401a4a888ce98c5f9 /tmp/core-tools/test.c
 SOURCE /v0.1.6/dist/static/default/commands/mv.c 9c14fbc337cd41f6d7733fb3a36346d845e14223e6207d427a74123a00ea6504 /tmp/core-tools/mv.c
-SOURCE /v0.1.6/dist/static/default/commands/cp.c 1a83e347a694183b45569f43de365bf691ae3482c371809af715a2e11894cc8c /tmp/core-tools/cp.c
+SOURCE /v0.1.6/dist/static/default/commands/cp.c 97eaeb0da4d284fa222de163bb99b86086398c4c76cdb6a77d0a06c699e7d2e9 /tmp/core-tools/cp.c
 SOURCE /v0.1.6/dist/static/default/commands/sleep.c 7723af4c2a4feb4a3393482fe3e58beaba36b2b0d83fcc67787b339a87e031e6 /tmp/core-tools/sleep.c
 SLOP cc \
   -O2 \

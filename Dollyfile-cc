@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # The C/C++ toolchain as system-build bootstraps it: the compiler and its
 # drivers, the C and C++ headers and libraries, the host clients and Make.
-FROM /v0.1.6/Dollyfile-system-build e5a21697f70bb414f5c90aa96938c62f8de4c5923f14e443b57c1e841388fb45
+FROM /v0.1.6/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
 
 EXPORTS FILE   compiler      /usr/libexec/dolly/process-bin/compiler
 EXPORTS FOLDER process-sdk   /usr/lib/dolly/process

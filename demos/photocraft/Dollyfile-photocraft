@@ -20,22 +20,22 @@ REQUIRES HOST sockets@0
 # dialogs, on the same platforms. Where DISPLAY names an X server (x11-desktop) the app and zenity
 # are windows of it (x11-window, over Xlib), their frames read back from gpu@0; copy and paste
 # are the page's clipboard (clipboard@0) on the page and there.
-FROM /v0.1.6/demos/rust/Dollyfile-rust-build eb6b1b4502024318c0af14cb4c774d70b84872c117b30c3765f6c0f2d0fd7f68
-USE /v0.1.6/Dollyfile-libdolly-gpu 4348f3cead8788ccc723b8a4aead34cf5a18679ff81bbfd5e66d57d014276226
-USE /v0.1.6/Dollyfile-libdolly-clipboard 1a1522978d2071f4b19a4608cdf40a77f3af3060d883a3008eb586f28c6cfc3b
-USE /v0.1.6/Dollyfile-libdolly-sockets 86c59b51b1563f57ee34fd9fd434707a584b467f4f20ae2c798cb57cd7decedc
-USE /v0.1.6/demos/x11/Dollyfile-x11-window 01c529428db1f587714a83494ff27a5040d3c8e4eb2567302ff11be075cab10e
+FROM /v0.1.6/demos/rust/Dollyfile-rust-build 0d0955a4402bf312465c6abcda74943eeaec07a5e859c733d3db305b3c6d93ee
+USE /v0.1.6/Dollyfile-libdolly-gpu 4e414e02d7bdbdb758df4be150f49ff2223d992b07249a67da2fca57b291ad88
+USE /v0.1.6/Dollyfile-libdolly-clipboard 53492e99b75778f54a6230da7b8394654d28cbc3092bedfe591f51f61b882b71
+USE /v0.1.6/Dollyfile-libdolly-sockets 9b3cbc49070172a0a59f972bcbc6d66d54dd0910226495118782acdfeaf220ec
+USE /v0.1.6/demos/x11/Dollyfile-x11-window c100e6bef86565975734bdc5f3331e1b4557e04f28c38ba004bcb6166dee3100
 # The X client libraries x11-window links, for the link alone, and their licences.
-COPY /v0.1.6/demos/x11/Dollyfile-x11-build 86198995909854f949456768c55a9876a7957e4661202c2904cde17d18114acc /usr/lib/libX11.a /usr/lib/libX11.a
-COPY /v0.1.6/demos/x11/Dollyfile-x11-build 86198995909854f949456768c55a9876a7957e4661202c2904cde17d18114acc /usr/lib/libxcb.a /usr/lib/libxcb.a
-COPY /v0.1.6/demos/x11/Dollyfile-x11-build 86198995909854f949456768c55a9876a7957e4661202c2904cde17d18114acc /usr/lib/libXau.a /usr/lib/libXau.a
-COPY /v0.1.6/demos/x11/Dollyfile-x11-build 86198995909854f949456768c55a9876a7957e4661202c2904cde17d18114acc /usr/share/licenses/libX11 /usr/share/licenses/libX11
-COPY /v0.1.6/demos/x11/Dollyfile-x11-build 86198995909854f949456768c55a9876a7957e4661202c2904cde17d18114acc /usr/share/licenses/libxcb /usr/share/licenses/libxcb
-COPY /v0.1.6/demos/x11/Dollyfile-x11-build 86198995909854f949456768c55a9876a7957e4661202c2904cde17d18114acc /usr/share/licenses/libXau /usr/share/licenses/libXau
-USE /v0.1.6/Dollyfile-libdolly-display d198d5f8c20780f4b010d2f53b2108b7b282a70d935bb81050aaa197e5c6af5b
-USE /v0.1.6/Dollyfile-libdolly-input 261c06d25b94a1db12f6123c291dd8b221f5e777b884c6156083b025cafd3587
-USE /v0.1.6/Dollyfile-libdolly-upload 57622467c33a8e0925168252d23ff2834be53cf7338c55b935895cdef13a3dd5
-USE /v0.1.6/Dollyfile-libdolly-download 992715e882f515628400d5f978f8ed4ac32e516e226b5ea49f9f5667e0c95c53
+COPY /v0.1.6/demos/x11/Dollyfile-x11-build 2e1ffb7380529613c47a0c45b68d733efb3c36aae3c0dc4d9610800f6797ad68 /usr/lib/libX11.a /usr/lib/libX11.a
+COPY /v0.1.6/demos/x11/Dollyfile-x11-build 2e1ffb7380529613c47a0c45b68d733efb3c36aae3c0dc4d9610800f6797ad68 /usr/lib/libxcb.a /usr/lib/libxcb.a
+COPY /v0.1.6/demos/x11/Dollyfile-x11-build 2e1ffb7380529613c47a0c45b68d733efb3c36aae3c0dc4d9610800f6797ad68 /usr/lib/libXau.a /usr/lib/libXau.a
+COPY /v0.1.6/demos/x11/Dollyfile-x11-build 2e1ffb7380529613c47a0c45b68d733efb3c36aae3c0dc4d9610800f6797ad68 /usr/share/licenses/libX11 /usr/share/licenses/libX11
+COPY /v0.1.6/demos/x11/Dollyfile-x11-build 2e1ffb7380529613c47a0c45b68d733efb3c36aae3c0dc4d9610800f6797ad68 /usr/share/licenses/libxcb /usr/share/licenses/libxcb
+COPY /v0.1.6/demos/x11/Dollyfile-x11-build 2e1ffb7380529613c47a0c45b68d733efb3c36aae3c0dc4d9610800f6797ad68 /usr/share/licenses/libXau /usr/share/licenses/libXau
+USE /v0.1.6/Dollyfile-libdolly-display c4f8ea64af9ad51300b9b48369558e17493bccb9be1b7db853cda0e1d7d66a48
+USE /v0.1.6/Dollyfile-libdolly-input 45202588e489298ba6fe352129e992fca0c7a45e13bf45cde85976c931a981e4
+USE /v0.1.6/Dollyfile-libdolly-upload 1fe7e77466c74fd2d961fda7b2fefd33065e6a638e12e07dedf954894832fcd3
+USE /v0.1.6/Dollyfile-libdolly-download 95c2cc70e0449df33d18e0315becc264b3166b75e93ca0b8e998cb99d26a8a89
 REQUIRES TOOL cargo
 REQUIRES TOOL cat
 REQUIRES TOOL gzip

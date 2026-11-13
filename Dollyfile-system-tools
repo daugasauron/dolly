@@ -6,7 +6,7 @@ REQUIRES HOST input@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.6/Dollyfile-system-build e5a21697f70bb414f5c90aa96938c62f8de4c5923f14e443b57c1e841388fb45
+FROM /v0.1.6/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -113,10 +113,10 @@ SLOP rm \
   -rf \
   /tmp/ninja
 # zlib, gzip and curl for builds, and Git, which Dolly's patch and diff run.
-INSTALL /v0.1.6/Dollyfile-zlib efaf04d0d76135b3fb1ac67af08187bfb838b9161af86e64d5a8bee8d967b685
-INSTALL /v0.1.6/Dollyfile-gzip 299f2c550211d974cdb926552c92f1e4b148e6f08d861798b05f10c43291db30
-INSTALL /v0.1.6/Dollyfile-curl 887fc8816011ea9c3acced514cf59ce447c6ad4cc8460dc31a7a9ec1be732441
-INSTALL /v0.1.6/Dollyfile-git ace3ed7642c9f01d62fa37deadc38cc2d6254bb2f6f1beae60d63495d259238a
+INSTALL /v0.1.6/Dollyfile-zlib 48ee0a5552eada81c0324749ba5ce9a7d2a2505a91f3ffcaf51f81c36a641f82
+INSTALL /v0.1.6/Dollyfile-gzip afb9abb2b9a78e4c82811af6f5695f814ac322f538655f733ba6813895be13ae
+INSTALL /v0.1.6/Dollyfile-curl 084ff066ff997321eb771ee8a29503b8e5eb6ff877cb6407df761bcb5173655b
+INSTALL /v0.1.6/Dollyfile-git 3393aa9b0bb67b91dd2195bfc5be7477d276e9522ae2ada7041abc1d21cb1e1c
 SOURCE /v0.1.6/dist/static/default/awk.tar f28cae177fa60793a70066d10667e8d06775d979f2262be1c48f8eb941090015 /tmp/awk.tar
 SLOP tar \
   -xf /tmp/awk.tar \
@@ -149,8 +149,8 @@ SLOP rm \
   /usr/src/awk
 # Dolly's own commands beside sbase's, from programs/commands.
 SOURCE /v0.1.6/dist/static/default/commands/run-program.h e73415ba149e8dcb9944313c36d8d2319202d699c810e02a26d5a94caa8f3a9f /tmp/agent-tools/run-program.h
-SOURCE /v0.1.6/dist/static/default/commands/path.h        3c15f00e77b9b788acf63ad78d48d61af68e69ce4d41e0ed2f348cb0c5fda8ae /tmp/agent-tools/path.h
-SOURCE /v0.1.6/dist/static/default/commands/install.c     74c7aef144a42873d86044c04d569d5f08693668fafeab7bfb811acaccc66aee /tmp/agent-tools/install.c
+SOURCE /v0.1.6/dist/static/default/commands/path.h        48c3a1e853aa273106234c8cdbbcae7d54c2f68f477373e0712d5e4748a9b788 /tmp/agent-tools/path.h
+SOURCE /v0.1.6/dist/static/default/commands/install.c     3948856ced1cb979eba94360d8b726b0a4ab785f21fc6508181e6fddce6d861e /tmp/agent-tools/install.c
 SOURCE /v0.1.6/dist/static/default/commands/du.c          e2c54482b13af2a7af18c5a7ff9695816443e8fd9197c8b2e4891a645cd2723a /tmp/agent-tools/du.c
 SOURCE /v0.1.6/dist/static/default/commands/rev.c         3539529d49f26629a6518437dc76631f113bcc5822ff5dbc8aa26481933f3d05 /tmp/agent-tools/rev.c
 SOURCE /v0.1.6/dist/static/default/commands/command.c     a84673243407a37f42b1a82a47fab4123c165b383761642874ba2ec081938bd3 /tmp/agent-tools/command.c
@@ -199,6 +199,6 @@ SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
 SLOP cp /usr/share/man/cat1/slop.1 /usr/share/man/cat1/sh.1
 FOLDER /usr/share/man
-INSTALL /v0.1.6/Dollyfile-display d6ed8ecc88fa129ae2543779a9c97cd99a94639bb75338af65915d0ec75ab24f
+INSTALL /v0.1.6/Dollyfile-display 9516e36ef9c8566c9f0590546e1474db96ca02ddc75028e562e92af71fdbdeef
 
 ENTRY /bin/foreground -i /bin/slop

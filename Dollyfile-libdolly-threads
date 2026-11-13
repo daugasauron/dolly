@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # The threads@0 module's header, for a program that calls the thread interface
 # itself. Its client is in the threaded libc that cc -pthread links, which the
 # seed holds (host/threads/seed.sh), as libc's pthreads over it are.
-FROM /v0.1.6/Dollyfile-system-build e5a21697f70bb414f5c90aa96938c62f8de4c5923f14e443b57c1e841388fb45
+FROM /v0.1.6/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
 REQUIRES HEADER libc
 
 SOURCE /v0.1.6/host/threads/threads.h ec223fbc34ff65f173f4b15e338cb25bf34d8bf01b699418f4598d7fc4626394 /usr/include/dolly/threads.h
