@@ -40,7 +40,9 @@ slop, console, threads, core, terminal, cpp, host-modules, display, upload, embe
 custom-session, site, boundary (`seedbatch-suites-1/`, `-1b/`, `-1c/`), pty and image
 (`seedbatch-suites-2/`; pty needs libdolly-pty in the catalog now, image needed the fixture's
 name). default stops at its first check for the catalog alone: its welcome names `amy install
-python`, which this catalog does not build. Left: Donna reading them from `dolly-abi.json`.
+python`, which this catalog does not build. The seed is reproducible: a second checkout of
+15c5fa3ef with an empty Emscripten cache and no process sysroot builds the same runtime and image
+inputs (`build/seedbatch-repro-runtime.log`). Left: Donna reading them from `dolly-abi.json`.
 
 ## State (2026-11-13)
 
