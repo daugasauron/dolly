@@ -1,4 +1,4 @@
-import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
+import { DOLLY_PROCESS_ABI_DIGEST } from "./generated.mjs";
 import { DOLLY_ERRNO } from "./process-constants.mjs";
 import { parseWasmInterface } from "./wasm-interface.mjs";
 import { validateProcessInterface } from "./process-abi.mjs";

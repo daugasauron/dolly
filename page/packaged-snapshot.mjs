@@ -2,7 +2,7 @@
 // one's metadata, checked against the catalog and the recipes the directory
 // serves, and its packs: streamed into a booting kernel, or merged in path
 // order into the image's canonical snapshot.
-import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
+import { DOLLY_IMAGE_BUILD_ID } from "./generated.mjs";
 import { DOLLY_IMAGES, imageBase } from "./images.mjs";
 import { imageInputs, imageInputsMatch, recipesDigest } from "./image-inputs.mjs";
 import { hostRequirements } from "../host/requirements.mjs";

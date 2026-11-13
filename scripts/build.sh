@@ -320,5 +320,5 @@ for contract in "${contracts[@]}"; do
 done
 cp "${web_font}" dist/IosevkaTerm-SemiBold.woff2
 cp "${page_font}" dist/IosevkaTerm-SemiBold-page.woff
-node scripts/bundle-process-worker.mjs
 node scripts/write-build-id.mjs dist/dolly.wasm dist/dolly.data dist/dolly-build-id.mjs
+node scripts/bundle-process-worker.mjs

@@ -1,8 +1,9 @@
-import catalog from "../dist/dolly-images.json" with { type: "json" };
+import { DOLLY_STATIC_SOURCES, loadImages } from "../page/images.mjs";
 import { boundedAssetBody, decodeStaticAsset, sha256 } from "../page/static-asset.mjs";
 
 const base = new URL("../", import.meta.url);
-const sources = new Map(catalog.staticSources.map(source => [new URL(source.path.slice(1), base).href, source]));
+await loadImages(base);
+const sources = new Map(DOLLY_STATIC_SOURCES.map(source => [new URL(source.path.slice(1), base).href, source]));
 document.addEventListener("click", async event => {
   const link = event.target.closest("a.source"), source = sources.get(link?.href);
   if (event.button !== 0 || !source || source.byteLength <= 25 * 1024 * 1024) return;

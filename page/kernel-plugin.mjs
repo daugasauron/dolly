@@ -1,4 +1,4 @@
-import { DOLLY_KERNEL_PLUGIN_ABI_DIGEST, DOLLY_KERNEL_PLUGIN_IMPORTS } from "../dist/dolly-kernel-plugin-abi.mjs";
+import { DOLLY_KERNEL_PLUGIN_ABI_DIGEST, DOLLY_KERNEL_PLUGIN_IMPORTS } from "./generated.mjs";
 import { hex } from "./static-asset.mjs";
 import { Reader } from "./wasm-interface.mjs";
 

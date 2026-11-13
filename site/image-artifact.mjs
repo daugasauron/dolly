@@ -9,7 +9,7 @@
 // starting, whatever the machine), a file is not. A file is deleted when its
 // entry is replaced or evicted; a page that still holds the file then reads
 // nothing, so an entry's bytes are read only for a build the entry outlives.
-import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
+import { DOLLY_IMAGE_BUILD_ID } from "../page/generated.mjs";
 import { imageInputs, imageInputsMatch } from "../page/image-inputs.mjs";
 import { loadRecipeGraph } from "./dollyfile-graph.mjs";
 import { recipeFileName } from "./dollyfile-view.mjs";

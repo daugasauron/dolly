@@ -1,4 +1,4 @@
-import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
+import { DOLLY_IMAGE_BUILD_ID } from "../page/generated.mjs";
 import { describeImageArtifact, loadImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
 

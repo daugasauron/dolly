@@ -7,7 +7,7 @@
 // being read on the origin, what the records of this runtime's images do not
 // name is removed. Only the page and its Workers write here, from an image's
 // trusted metadata; nothing of the guest reaches it.
-import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
+import { DOLLY_IMAGE_BUILD_ID } from "./generated.mjs";
 import { imageBase, imageDefinition } from "./images.mjs";
 import { sha256 } from "./static-asset.mjs";
 

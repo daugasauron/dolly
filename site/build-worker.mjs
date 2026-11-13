@@ -4,7 +4,7 @@
 // for the image builder, hands the page the cached artifact (buildOnly); or it
 // restores a custom image the site built before. Images cross to and from Wasm
 // memory a piece at a time: the page holds them as Blobs, never in a JS heap.
-import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
+import { DOLLY_IMAGE_BUILD_ID } from "../page/generated.mjs";
 import { imageBase, imageDefinition } from "../page/images.mjs";
 import { scanSnapshotRecords, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "../page/snapshot-records.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256 } from "./image-artifact.mjs";

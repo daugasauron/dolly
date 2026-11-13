@@ -1,4 +1,4 @@
-import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
+import { DOLLY_BUILD_ID } from "../page/generated.mjs";
 import { DOLLY_IMAGES, loadImages } from "../page/images.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION, listStoredSessions, sessionCompatible,

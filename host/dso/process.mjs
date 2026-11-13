@@ -4,7 +4,7 @@
  * It sees one process's private memory, instance and function table, and adds
  * no browser capability or import to the executable.
  */
-import { DOLLY_PROCESS_ABI_DIGEST } from "../../dist/dolly-process-abi.mjs";
+import { DOLLY_PROCESS_ABI_DIGEST } from "../../page/generated.mjs";
 import { DOLLY_ERRNO } from "./abi.mjs";
 import { parseWasmInterface, Reader } from "../../page/wasm-interface.mjs";
 import { executableHostRequirements, checkHostAbi } from "../requirements.mjs";
