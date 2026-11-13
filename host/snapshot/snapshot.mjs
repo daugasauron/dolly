@@ -79,6 +79,12 @@ export function browser(page) {
 
 export function worker({ get, ask, send, configuration: { save, recover } }) {
   let kernel, transport, cancelled, changed = false;
+  // One step of a save, and word to the page when processes have changed what
+  // the last save holds, or no longer have (the kernel publishes its count here).
+  const service = () => {
+    kernel?.dolly_session_service();
+    if (transport && transport.changed !== changed) send({ type: "snapshot-changed", changed: changed = transport.changed });
+  };
   if (save !== undefined && (!(save instanceof Blob) || save.size === 0 || save.size > DOLLY_SESSION_MAX_BYTES)) {
     throw new Error("invalid Dolly session snapshot");
   }
@@ -133,14 +139,11 @@ export function worker({ get, ask, send, configuration: { save, recover } }) {
       if (kernel.dolly_session_recover_begin(BigInt(names.length)) !== 0) throw failed();
       await stream(context, "recovering saved files", failed);
     },
-    // One step of a save, and word to the page when processes have changed
-    // what the last save holds, or no longer have.
-    service() {
-      kernel?.dolly_session_service();
-      if (transport && transport.changed !== changed) send({ type: "snapshot-changed", changed: changed = transport.changed });
-    },
+    service,
     messages: {
       "snapshot-capture"() {
+        // The count before the capture clears it, so the page has it ahead of the reply.
+        service();
         const controller = cancelled = new AbortController();
         return transport.capture({ signal: controller.signal,
           onChunk: chunk => ask({ type: "snapshot-chunk", bytes: chunk }, [chunk.buffer]) });
