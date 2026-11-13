@@ -5,7 +5,7 @@
 
 #include <dolly/nena-abi.h>
 
-static _Alignas(64) unsigned char replies[DOLLY_NENA_SLOTS * (64 + DOLLY_NENA_REPLY_BYTES)];
+static _Alignas(64) unsigned char replies[DOLLY_NENA_SLOTS * (DOLLY_DEVICE_REPLY_HEADER_BYTES + DOLLY_NENA_REPLY_BYTES)];
 static dolly_device_lease leases[DOLLY_NENA_SLOTS];
 
 DOLLY_BROWSER_IMPORT(dolly_nena_dispatch)

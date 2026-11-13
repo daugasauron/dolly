@@ -84,19 +84,35 @@ exports of [`dolly-image-0.wat`](dolly-image-0.wat):
   with `/etc/dolly/Dollyfile`, `environment`, `image` and `recipes.lock`).
   `sha256` names the image; `byteLength` is its size.
 - `dist/packs/SHA256.snapshot.gz`, the metadata's `packs` in order: each a gzip
-  of one snapshot part (`DOLLYSNP`, version 2, its record count, then records
-  in path order: kind, path bytes, data bytes, path, data), its `sha256` that of
-  the decompressed part, which the host checks before ending the part. The
-  parts hold the manifest's paths once each.
+  of one snapshot part, `DOLLYSNP`, a u32 version (2) and a u32 record count,
+  then records in path order, each a u32 kind (1 a directory, 2 a file, 3 a
+  symbolic link, whose data is its target), a u32 path length, a u64 data
+  length, the path and the data; its `sha256` that of the decompressed part,
+  which the host checks before ending the part. The parts hold the manifest's
+  paths once each: at most 100,000, and 2 GiB in all. Integers are little-endian.
 
 The host writes, under `/etc/dolly/` before a start or a build:
 `image.manifest` (the metadata's manifest, a path a line), `recipe.locator`
-(the recipe's site path), and for a build `recipe.rows` ([Dollyfile](../docs/dollyfile.md)),
+(the recipe's site path, or `FILE:/etc/dolly/upload.Dollyfile` for a recipe
+the host writes there), and for a build `recipe.rows` ([Dollyfile](../docs/dollyfile.md)),
 `upload.Dollyfile` (a custom recipe's text) and `artifacts/RECIPE_SHA256.snapshot`
 (each input image). It reads, after the restore, `image` (the image's name)
-and `entry`: `DOLLYENT`, version 1, an argument count, then each argument's
-length and bytes, the first an absolute path. A session's `enabled` is
-nena@0's ([`nena.mjs`](../host/nena/nena.mjs)).
+and `entry`: `DOLLYENT`, a u32 version (1) and a u32 argument count (1 to 256),
+then each argument as a u32 length (at most 4,096) and its UTF-8 bytes without a
+NUL, the first an absolute path; 64 KiB at most. A session's `enabled`
+([`nena.mjs`](../host/nena/nena.mjs)) lists the modules the session enabled
+beyond the page's, one `NAME@VERSION` a line, which the page enables when the
+session loads again.
+
+A session file, what the sessions page exports and imports
+([`session-file.mjs`](../src/session-file.mjs)): `DOLLYSF1`, a u32 length of its
+metadata (at most 1 MiB), the metadata, UTF-8 JSON, then the session's bytes
+(at most 8 GiB). The metadata: `version` (the Dolly release, which alone imports
+it), `name`, `formatVersion` (4), `buildId`, `image`, `imageIdentity`,
+`updatedAt`, `encoding` (`gzip`), `customImage` for a custom image's session,
+and `byteLength` and `sha256` of the bytes that follow. The event a host takes
+from `dolly_process_next_event` and a leased device's reply slot are constants
+of [`dolly-supervisor-0.wat`](dolly-supervisor-0.wat).
 
 ## Enforcement
 

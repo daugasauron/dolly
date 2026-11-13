@@ -1,13 +1,15 @@
 #ifndef DOLLY_DEVICE_LEASE_H
 #define DOLLY_DEVICE_LEASE_H
 
+#include "dolly-kernel-contracts.h"
+
 #include <stdatomic.h>
 #include <stddef.h>
 #include <stdint.h>
 
 /* A host device leased to one process at a time (gpu@0, audio@0, microphone@0, nena@0). Each process
- * call is one packet the page answers in the lease's reply slot, a 64-byte
- * header followed by reply_bytes. */
+ * call is one packet the page answers in the lease's reply slot, a header of
+ * DOLLY_DEVICE_REPLY_HEADER_BYTES (abi/dolly-supervisor-0.wat) followed by reply_bytes. */
 typedef struct {
   _Atomic uint32_t state, scope, sequence, error, length;
   unsigned char reserved[44];
@@ -25,7 +27,7 @@ typedef struct dolly_leased_device {
   size_t packet_bytes, reply_bytes;
   int reopen_busy; /* OPEN on an open, idle lease fails with EBUSY. */
   int (*dispatch)(const void *packet, uintptr_t bytes);
-  unsigned char *replies; /* slots * (64 + reply_bytes), 64-byte aligned. */
+  unsigned char *replies; /* slots * (DOLLY_DEVICE_REPLY_HEADER_BYTES + reply_bytes), 64-byte aligned. */
   dolly_device_lease *leases;
   /* Optional: whether a process may open what its OPEN packet asks (0 or a
    * negative errno), before the page sees it; and that a process's lease

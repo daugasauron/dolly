@@ -3173,8 +3173,12 @@ static void service(void) {
   }
 }
 
-/* The host's next task, kind << 48 | value << 32 | pid, or zero for none
- * (abi/dolly-supervisor-0.wat). */
+/* The host's next task, its kind, a value and a pid packed at the contract's
+ * shifts, or zero for none (abi/dolly-supervisor-0.wat). */
+static int64_t event(uint32_t kind, uint32_t value, int pid) {
+  return (int64_t)kind << DOLLY_PROCESS_EVENT_KIND_SHIFT | (int64_t)value << DOLLY_PROCESS_EVENT_VALUE_SHIFT | (uint32_t)pid;
+}
+
 int64_t dolly_process_next_event(void) {
   service();
   const int64_t none = 0;
@@ -3182,7 +3186,7 @@ int64_t dolly_process_next_event(void) {
     dolly_kernel_process *process = &process_table[index];
     if (process->state == DOLLY_KERNEL_PROCESS_FREE || !process->terminate_pending) continue;
     process->terminate_pending = 0;
-    return (int64_t)DOLLY_PROCESS_EVENT_TERMINATE << 48 | (uint32_t)process->pid;
+    return event(DOLLY_PROCESS_EVENT_TERMINATE, 0, process->pid);
   }
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
     dolly_kernel_process *process = &process_table[index];
@@ -3192,19 +3196,19 @@ int64_t dolly_process_next_event(void) {
     if (process->state != DOLLY_KERNEL_PROCESS_RUNNING) continue;
     /* A resize interrupts the call alone; any other signal also an exec. */
     const uint32_t ending = signals & ~(1u << DOLLY_PROCESS_SIGWINCH);
-    const int64_t number = __builtin_ctz(ending ? ending : signals);
-    return (int64_t)DOLLY_PROCESS_EVENT_INTERRUPT << 48 | number << 32 | (uint32_t)process->pid;
+    const int number = __builtin_ctz(ending ? ending : signals);
+    return event(DOLLY_PROCESS_EVENT_INTERRUPT, (uint32_t)number, process->pid);
   }
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
     dolly_kernel_process *process = &process_table[index];
     if (process->state != DOLLY_KERNEL_PROCESS_PENDING || process->program.image_descriptor < 0 ||
         process->launch_announced) continue;
     process->launch_announced = 1;
-    return (int64_t)DOLLY_PROCESS_EVENT_LAUNCH << 48 | (uint32_t)process->pid;
+    return event(DOLLY_PROCESS_EVENT_LAUNCH, 0, process->pid);
   }
   if (wakeup_pending) {
     wakeup_pending = 0;
-    return (int64_t)DOLLY_PROCESS_EVENT_WAKE << 48;
+    return event(DOLLY_PROCESS_EVENT_WAKE, 0, 0);
   }
   return none;
 }

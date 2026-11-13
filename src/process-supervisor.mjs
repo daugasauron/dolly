@@ -10,7 +10,7 @@ import {
   DOLLY_PROCESS_SPAWN_INTERACTIVE,
 } from "./process-constants.mjs";
 import { hex } from "./static-asset.mjs";
-import { DOLLY_FS_BLOCK_SIZE, DOLLY_PROCESS_EVENT_LAUNCH, DOLLY_PROCESS_EVENT_INTERRUPT,
+import { DOLLY_FS_BLOCK_SIZE, DOLLY_PROCESS_EVENT_KIND_SHIFT, DOLLY_PROCESS_EVENT_VALUE_SHIFT, DOLLY_PROCESS_EVENT_LAUNCH, DOLLY_PROCESS_EVENT_INTERRUPT,
   DOLLY_PROCESS_EVENT_TERMINATE, DOLLY_PROCESS_EVENT_WAKE } from "../host/runtime/abi.mjs";
 
 const encoder = new TextEncoder();
@@ -323,7 +323,8 @@ export class DollyProcessSupervisor {
   // ending, at each tick and when what the kernel has due comes due.
   #serviceEvents() {
     for (let event; (event = this.kernel.dolly_process_next_event()) !== 0n;) {
-      const kind = Number(event >> 48n), value = Number((event >> 32n) & 0xffffn), pid = Number(event & 0xffffffffn);
+      const kind = Number(event >> BigInt(DOLLY_PROCESS_EVENT_KIND_SHIFT)),
+        value = Number((event >> BigInt(DOLLY_PROCESS_EVENT_VALUE_SHIFT)) & 0xffffn), pid = Number(event & 0xffffffffn);
       if (kind === DOLLY_PROCESS_EVENT_LAUNCH) this.#announced(pid);
       else if (kind === DOLLY_PROCESS_EVENT_INTERRUPT) this.#interrupt(this.processes.get(pid), value);
       else if (kind === DOLLY_PROCESS_EVENT_TERMINATE) this.#terminated(pid);

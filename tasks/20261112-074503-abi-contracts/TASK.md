@@ -7,6 +7,25 @@
 From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, A3). `AGENTS.md`: "The core interface must remain small, typed,
 inspectable, and versioned."
 
+## State (2026-11-13)
+
+Donna's answer (2026-11-13): it reads every mailbox word, packet size, errno and process constant
+from `dolly-abi.json`; it typed by hand, from `abi/README.md`, the boot files, the image directory's
+paths and fields, and it had to read from code what the contract left out. Now in the contract
+(`fix/audit-0.1.6`):
+- `abi/dolly-supervisor-0.wat`: the event's packing (`DOLLY_PROCESS_EVENT_KIND_SHIFT` 48,
+  `_VALUE_SHIFT` 32, a 16-bit value) and a leased device's reply slot (`DOLLY_DEVICE_HEADER_BYTES`,
+  `DOLLY_DEVICE_REPLY_HEADER_BYTES`, the five words, `DOLLY_DEVICE_REPLY_PUBLISHED`); the kernel
+  packs events with them and asserts its reply struct against them, the lease bridge and the
+  supervisor use them. The kernel built from it is byte for byte the one before (`9707352e…`); image
+  inputs unchanged (the supervisor contract is not one).
+- `abi/README.md`: a snapshot part's record kinds, widths and limits (100,000 paths, 2 GiB), the
+  entry's widths and limits, `recipe.locator`'s `FILE:` form, `enabled`'s lines, and the session
+  file (`DOLLYSF1`, its metadata's fields, limits and format 4). `dist/rows/` came with
+  `fix/catalog-rows`.
+The snapshot's and entry's numbers belong in `abi/dolly-image-0.wat`, an image input: they go there
+with the next seed round. Left: Donna switching to them (told).
+
 ## State (2026-11-12)
 
 On `fix/batch`, for the pass after the batch round (a contract WAT is a pinned document):
