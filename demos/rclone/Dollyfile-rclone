@@ -21,6 +21,7 @@ FILE /usr/share/man/cat1/rclone.1
     WebDAV server holds, through the page's HTTP broker; nothing is mounted.
     
       rclone config create host webdav url=http://127.0.0.1:8090/TOKEN vendor=rclone
+      mkdir -p /workspace/host
       rclone bisync /workspace/host host: --resync    the first time
       rclone bisync /workspace/host host:             after changes on either side
     
@@ -28,8 +29,9 @@ FILE /usr/share/man/cat1/rclone.1
     
       slop -c 'while :; do rclone bisync /workspace/host host: --resilient --recover --max-lock 2m -q; sleep 10; done' &
     
-    The server, on the machine whose folder it is, with ORIGIN the page's (such
-    as http://localhost:9045) and TOKEN a random word only this session knows:
+    The server, on the machine whose folder it is, by rclone 1.75 or later, with
+    ORIGIN the page's (such as http://localhost:9045) and TOKEN a random word
+    only this session knows:
     
       rclone serve webdav ~/dolly-share --addr 127.0.0.1:8090 --baseurl TOKEN \
         --dir-cache-time 0s \

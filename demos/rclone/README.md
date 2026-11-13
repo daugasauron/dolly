@@ -12,7 +12,9 @@ rclone serves the folder over WebDAV on the machine.
 
 ## The server
 
-On the machine whose folder it is, with [upstream's rclone](https://rclone.org/downloads/):
+On the machine whose folder it is, with [upstream's rclone](https://rclone.org/downloads/)
+1.75 or later, which added `--response-header` (a distribution's package
+may be older):
 
 ```sh
 token="$(openssl rand -hex 16)"; echo "$token"
