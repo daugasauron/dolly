@@ -33,9 +33,11 @@ INSTALL /v0.1.6/demos/python/Dollyfile-matplotlib 8b6ea474838193852b92589927cc86
 INSTALL /v0.1.6/demos/python/Dollyfile-seaborn 8b5432f4e5cbe434809c734395d681cbca4c869c00665624ff1c0487fb864381
 REQUIRES TOOL python
 
-SLOP python -c 'import numpy, pandas, matplotlib.pyplot, seaborn, jinja2, openpyxl, tabulate'
 # The font list Matplotlib writes on its first import, which takes 6 s, kept
-# for every session.
+# for every session. It lists the fonts in the order of a set of their paths,
+# which follows Python's string hash: a fixed seed makes the image the same on
+# every build.
+SLOP env PYTHONHASHSEED=0 python -c 'import numpy, pandas, matplotlib.pyplot, seaborn, jinja2, openpyxl, tabulate'
 FOLDER /home/dolly/.matplotlib
 
 FILE /etc/dolly/init.slop
