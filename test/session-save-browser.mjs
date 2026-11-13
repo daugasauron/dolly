@@ -1,6 +1,7 @@
 // What a person meets when saving goes other than plainly: a session open in
-// two tabs is not replaced by the other tab's save unasked, and a save the
-// browser refuses says why and leaves the previous one to open.
+// two tabs is not replaced by the other tab's save unasked, the sessions page
+// renames a save, and a save the browser refuses says why and leaves the
+// previous one to open.
 import assert from "node:assert/strict";
 import { browserTest } from "./browser.mjs";
 
@@ -15,10 +16,11 @@ const submit = (page, command) => page.evaluate(command => __dolly.submit(comman
 
 await browserTest("session save", { image: "system", timeout: 240_000 }, async ({ browser, server }) => {
   const name = `save-${Date.now()}`, context = await browser.newContext();
-  const asked = [], tabs = [await context.newPage(), await context.newPage()];
+  // Each tab's dialogs are counted and dismissed, or given the answer set for them.
+  const asked = [], answers = [], tabs = [await context.newPage(), await context.newPage()];
   for (const [index, tab] of tabs.entries()) {
     tab.setDefaultTimeout(30000);
-    tab.on("dialog", dialog => { asked.push(index); void dialog.dismiss(); });
+    tab.on("dialog", dialog => { asked.push(index); void (answers[index] === undefined ? dialog.dismiss() : dialog.accept(answers[index])); });
   }
   const [first, second] = tabs;
   await shell(first, `${server.origin}/system/`);
@@ -34,6 +36,24 @@ await browserTest("session save", { image: "system", timeout: 240_000 }, async (
   assert.deepEqual(asked, [0]);
   await shell(first);
   assert.equal(await submit(first, "test -e /workspace/second"), 0);
+
+  // The sessions page renames a save: it opens under the new name alone, and a taken name is refused.
+  const other = `${name}-other`, renamed = `${name}-renamed`;
+  assert.equal(await second.evaluate(other => __dolly.saveSession(other), other), other);
+  await second.goto(`${server.origin}/sessions/`);
+  const row = text => second.locator("#sessions li").filter({ has: second.getByText(text, { exact: true }) });
+  for (const [answer, names] of [[other, [name, other]], [renamed, [other, renamed]]]) {
+    answers[1] = answer;
+    await row(name).getByRole("button", { name: "Rename" }).click();
+    await second.waitForFunction(() => !document.querySelector("#import-session").disabled);
+    assert.deepEqual(await second.locator("#sessions li > :first-child").allTextContents(), names);
+  }
+  await shell(second, new URL(await row(renamed).locator("a").getAttribute("href"), second.url()).href);
+  assert.equal(await submit(second, "test -e /workspace/second"), 0);
+  await second.goto(`${server.origin}/session/?name=${name}`);
+  await second.waitForFunction(() => document.documentElement.dataset.dollyStatus === "failed");
+  // The first tab still names the save it opened; saving there makes it again.
+  assert.equal(await first.evaluate(() => __dolly.saveSession()), name);
 
   // The browser's store is full: the save fails with a reason, and the previous one is whole.
   await first.evaluate(() => {

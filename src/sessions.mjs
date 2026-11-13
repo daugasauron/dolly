@@ -14,6 +14,7 @@ const site = new URL("../", import.meta.url);
 // The sessions page is the site's own: its images are the site's.
 await loadImages(new URL("../", import.meta.url));
 
+const invalidName = "Names use 1–64 letters, numbers, '.', '_' or '-'.";
 const status = document.querySelector("#status");
 const input = document.querySelector("#import-session");
 let busy = false;
@@ -24,7 +25,7 @@ async function operation(action) {
   document.querySelectorAll("button").forEach(button => { button.disabled = true; });
   try { await action(); }
   catch (error) {
-    status.textContent = error.name === "ConstraintError" ? "That name already exists. Import again with another name." : error.message;
+    status.textContent = error.name === "ConstraintError" ? "That name already exists. Try again with another name." : error.message;
   } finally {
     busy = false;
     input.disabled = false;
@@ -65,6 +66,17 @@ async function refresh() {
         document.body.append(link); link.click(); link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
         status.textContent = `Exported ${record.name}. The file contains credentials and is not encrypted.`;
+      }],
+      // The save under its new name first, then the old one removed: an interruption leaves both.
+      ["Rename", async () => {
+        const name = window.prompt(`Rename '${record.name}' to:`, record.name)?.trim();
+        if (!name || name === record.name) return;
+        if (!validSessionName(name)) throw new Error(invalidName);
+        const saved = await loadStoredSession(record.name);
+        if (!saved) throw new Error("Session no longer exists. Reload the list.");
+        await saveStoredSession({ ...saved, name }, { overwrite: false });
+        await deleteStoredSession(record.name);
+        await refresh();
       }],
       ["Delete", async () => {
         if (!window.confirm(`Delete the local save '${record.name}'? This cannot be undone. Export it first if you need a backup.`)) return;
@@ -114,7 +126,7 @@ input.addEventListener("change", () => {
       `${modules?.join(", ") ?? "host modules this release does not list"}):`, record.name);
     if (name === null) { await refresh(); return; }
     record.name = name.trim();
-    if (!validSessionName(record.name)) throw new Error("Names use 1–64 letters, numbers, '.', '_' or '-'.");
+    if (!validSessionName(record.name)) throw new Error(invalidName);
     await saveStoredSession(record, { overwrite: false });
     await keepRuntime(site).catch(() => {});
     await refresh();
