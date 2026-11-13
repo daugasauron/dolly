@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // The files of a site that open a saved session without a network: the pages of
 // a session and of the list of saves, the page's and the Workers' code, the host
-// modules and the kernel; no image, since a save is its whole filesystem. The
+// modules and the kernel; no image, since a save is its whole filesystem, and
+// not the compiler seed a root build starts from (dist/dolly.data). The
 // page keeps them when a session is saved (src/offline.mjs), each checked
 // against its SHA-256 here. Usage: offline-files.mjs SITE > SITE/dist/dolly-offline.json
 import { createHash } from "node:crypto";
@@ -10,7 +11,7 @@ import { relative, resolve } from "node:path";
 
 const kept = path => /^sessions?\/index\.html$/.test(path) || /^src\/[^/]+\.(?:mjs|css|svg)$/.test(path) ||
   /^host\/.+\.(?:mjs|json)$/.test(path) || /^dist\/(?:dolly-images\.json|IosevkaTerm-SemiBold(?:\.woff2|-page\.woff))$/.test(path) ||
-  (/^dist\/dolly(?:-[a-z0-9-]+)?\.(?:wasm|mjs|data)$/.test(path) && !path.endsWith("-system-snapshot.mjs"));
+  (/^dist\/dolly(?:-[a-z0-9-]+)?\.(?:wasm|mjs)$/.test(path) && !path.endsWith("-system-snapshot.mjs"));
 
 // The list of SITE's files among PATHS (by default every file under SITE), as
 // the JSON the site serves at dist/dolly-offline.json: [[path, sha256]...], a
