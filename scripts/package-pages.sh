@@ -79,6 +79,13 @@ for image_name in "${image_names[@]}"; do
     "${project_dir}/dist/dolly-${image_name}-system-snapshot.json" \
     "${staging}/site/dist/"
 done
+# Each published recipe's rows (abi/README.md): a host builds from them without parsing it.
+mkdir -p "${staging}/site/dist/rows"
+node -e 'const { images } = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")), names = new Set(process.argv.slice(2));
+  for (const { image, sha256 } of images) if (names.has(image)) console.log(sha256);' \
+  "${project_dir}/dist/dolly-images.json" "${image_names[@]}" | while read -r sha256; do
+  cp "${project_dir}/dist/rows/${sha256}.rows" "${staging}/site/dist/rows/"
+done
 node "${project_dir}/scripts/share-pages-snapshots.mjs" "${staging}/site/dist" "${project_dir}/dist"
 touch "${staging}/site/.nojekyll"
 site_bytes="$(du -sb "${staging}/site" | cut -f1)"
