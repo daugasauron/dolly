@@ -5,13 +5,16 @@
   ;; callable browser import and therefore no escape capability.
   (import "env" "memory" (memory i64 1024 131072 shared))
 
-  ;; Ten atomic little-endian u32 words in a 64-byte header (snapshot.h
+  ;; Eleven atomic little-endian u32 words in a 64-byte header (snapshot.h
   ;; mirrors them): the page writes request_sequence, the session's name being
   ;; the page's own; the kernel publishes total_size, chunk_length and
   ;; chunk_eof under chunk_sequence (notified), the page acknowledges with
   ;; chunk_consumed_sequence, and the kernel ends the request with status
   ;; and completed_sequence (notified). The page writes cancelled_sequence
-  ;; to abandon a request.
+  ;; to abandon a request. changes is the kernel's count, published at each
+  ;; service, of the changes processes made to files, directories and links
+  ;; since the last capture began (it stops at its largest value): zero says a
+  ;; save would hold what the last one does.
   (global (export "DOLLY_SESSION_MAILBOX_HEADER_SIZE") i32 (i32.const 64))
   (global (export "DOLLY_SESSION_TRANSFER_CAPACITY") i32 (i32.const 1048576))
   (global (export "DOLLY_SESSION_WORD_REQUEST_SEQUENCE") i32 (i32.const 0))
@@ -24,6 +27,7 @@
   (global (export "DOLLY_SESSION_WORD_TOTAL_SIZE_LOW") i32 (i32.const 7))
   (global (export "DOLLY_SESSION_WORD_TOTAL_SIZE_HIGH") i32 (i32.const 8))
   (global (export "DOLLY_SESSION_WORD_CANCELLED_SEQUENCE") i32 (i32.const 9))
+  (global (export "DOLLY_SESSION_WORD_CHANGES") i32 (i32.const 10))
   (func (export "dolly_session_mailbox_address") (result i64)
     i64.const 0)
   ;; One step of a save: starts a requested capture or publishes the next
@@ -36,6 +40,15 @@
   ;; decompressed save from the transfer range, at most its capacity, and
   ;; last=1 ends it, every record arrived. Nonzero fails the boot.
   (func (export "dolly_session_restore_begin") (result i32)
+    i32.const 0)
+  ;; A recovery takes a save into a new directory of the booted filesystem,
+  ;; which stays as it is otherwise: the transfer range holds the directory's
+  ;; path and then each path to take, every one NUL-terminated, the parameter
+  ;; their bytes in all. The save follows through dolly_session_restore_write;
+  ;; of its records the regular files and directories at or under a path to
+  ;; take are made below the directory, and the rest is passed over. A failure
+  ;; removes the directory.
+  (func (export "dolly_session_recover_begin") (param i64) (result i32)
     i32.const 0)
   (func (export "dolly_session_restore_write") (param i64 i32) (result i32)
     i32.const 0)

@@ -115,6 +115,9 @@ void dolly_kernel_hold_calls(int held);
 /* 1 while a change to `descriptor`'s bytes or times must wait, a regular
  * file's; -1 names a path's removal, rename or truncation. */
 int dolly_kernel_change_waits(int descriptor);
+/* How many changes processes made to files, directories and links since the
+ * count was last cleared; CLEAR clears it. */
+uint32_t dolly_kernel_changes(int clear);
 void dolly_kernel_wake(void);
 /* Raises `number` for `pid`, which the supervisor delivers as it delivers a
  * kill: what a module's device decides, as a pseudo-terminal's interrupt key. */

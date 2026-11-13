@@ -30,6 +30,20 @@ test("session files round-trip their bytes and literal metadata", async () => {
   assert.deepEqual(await decodeSessionSnapshot(restored.bytes), bytes);
 });
 
+test("a session file is checked without its save in one buffer, which a browser refuses past 2 GiB", async t => {
+  // A save larger than the file's metadata, which is read whole.
+  const large = { ...record, ...await encodeSessionSnapshot(new Uint8Array(randomBytes(65536)).buffer) };
+  const whole = Blob.prototype.arrayBuffer;
+  Blob.prototype.arrayBuffer = function () {
+    if (this.size >= large.bytes.size) throw new RangeError("Array buffer allocation failed");
+    return whole.call(this);
+  };
+  t.after(() => { Blob.prototype.arrayBuffer = whole; });
+  const restored = await importSessionFile(await exportSessionFile(large));
+  Blob.prototype.arrayBuffer = whole;
+  assert.deepEqual(await plain(restored), await plain(large));
+});
+
 test("streamed compression preserves bytes across chunks and rejects an incomplete producer", async () => {
   const encoded = await encodeSessionStream(async write => {
     for (let at = 0; at < bytes.byteLength; at += 7) await write(new Uint8Array(bytes.slice(at, at + 7)));
