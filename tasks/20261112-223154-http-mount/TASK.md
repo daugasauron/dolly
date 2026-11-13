@@ -90,27 +90,27 @@ broker: C through libcurl, Go through `net/http`.
 - Sources: the release archive and upstream's vendor archive, both in upstream's signed
   `SHA256SUMS`; the vendor archive is byte for byte what `go mod vendor` writes from the release's
   `go.sum` (compared, 10215 entries), so staging downloads no module. Staging keeps only the files
-  the Dolly build compiles, by the seed's `go list -deps` for dolly/wasm64 (go files and embedded
-  files of 462 packages), and the licence files of the 46 modules: an 8.7 MB tar against 114 MB
-  of vendor. It fails if a module has no licence file.
+  the Dolly build compiles, by the seed's `go list -deps` for dolly/wasm64 (the go and embedded
+  files of 224 packages, 990 files), and the licence files of the 46 modules: an 8.7 MB tar
+  against 114 MB of vendor. It fails if a module has no licence file.
 - `demos/rclone/rclone.go`: upstream's `rclone.go` with two backends (local, webdav) and 27
   commands, not `backend/all` and `cmd/all`: mount and serve cannot run here, and every other
   backend only grows a 40 MB executable.
-- The patch (14 build-constraint lines, one dialer): rclone treats every GOOS that is not windows,
+- The patch (13 build constraints, one dialer): rclone treats every GOOS that is not windows,
   plan9 or js as unix, and `GOOS=dolly` is not unix (`demos/go`). Where rclone or `adrg/xdg` has a
   js file, dolly takes it; the unix files that build stay (symlinks, the daemon check).
   `fs/fserrors` names `EHOSTDOWN` and `EWOULDBLOCK`, which Dolly's error numbers lack. rclone's
   transport sets `DialContext`, and the Go port then uses the fake network of js and wasip1, as
   upstream's js port does: on dolly rclone leaves it unset. Changing the port's rule instead would
-  change every Go program and rebuild the Go seed.
+  change it for every Go program that dials for itself, an in-process listener's tests included.
 - The server: upstream's `rclone serve webdav`, the same program. CORS by `--response-header`, not
   `--allow-origin`: under `--allow-origin` rclone answers the preflight itself with a list of
   headers without `X-OC-Mtime`, and every upload fails (measured). `--dir-cache-time 0s`: by
   default the server lists a directory from a five-minute cache, and a file written on the
   machine did not reach the session (measured). No password: a browser sends none with a
-  preflight, and rclone's basic auth answers it 401, so a random `--baseurl` token stands in
-  (`/` and other paths are 404, measured); it keeps out a page that reaches the port by DNS
-  rebinding, which CORS does not stop.
+  preflight, and rclone's basic auth answers it 401 (measured), so a random `--baseurl` token
+  stands in (`/` and other paths are 404, measured); it keeps out a page that reaches the port by
+  DNS rebinding, which CORS does not stop.
 - No broker change: a rule's `methods` and header names admit WebDAV as they are.
   `docs/browser-boundary.md` is unchanged.
 - Go's transport held a request body to 8 MiB (`dollyHTTPMaxBody` in the Go patch), from before

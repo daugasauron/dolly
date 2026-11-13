@@ -24,8 +24,9 @@ rclone serve webdav ~/dolly-share --addr 127.0.0.1:8090 --baseurl "$token" \
   --response-header 'Access-Control-Allow-Headers: Content-Type, Depth, Destination, Overwrite, X-OC-Mtime'
 ```
 
-- `Access-Control-Allow-Origin` is the origin of the page that runs Dolly
-  (`http://localhost:9045` above); the browser reads no answer without it.
+- `Access-Control-Allow-Origin` is the origin of the page that runs Dolly,
+  as its address bar shows it (`http://localhost:9045` above); the browser
+  reads no answer without it.
   Only that page may write: WebDAV's methods and headers make every write a
   CORS preflight, which another origin fails.
 - The headers are set with `--response-header` and not `--allow-origin`:
@@ -44,17 +45,21 @@ rclone serve webdav ~/dolly-share --addr 127.0.0.1:8090 --baseurl "$token" \
 ```sh
 amy install rclone
 rclone config create host webdav url=http://127.0.0.1:8090/TOKEN vendor=rclone
+mkdir -p /workspace/host
 rclone bisync /workspace/host host: --resync      # the first time: each side gets the other's files
 rclone bisync /workspace/host host:               # after changes on either side
 slop -c 'while :; do rclone bisync /workspace/host host: --resilient --recover --max-lock 2m -q; sleep 10; done' &
 ```
 
-TOKEN is the word the server's command printed. The loop carries changes
-every ten seconds; `--recover` and `--max-lock`
-let a run that a closed tab interrupted pick up where it stopped.
-`vendor=rclone` tells rclone that the server is rclone's, which keeps
-modification times. The configuration and bisync's listings are files of
-the session (`~/.config/rclone`, `~/.cache/rclone`) and are saved with it.
+TOKEN is the word the server's command printed. `vendor=rclone` tells
+rclone that the server is rclone's, which keeps modification times. The
+loop carries changes every ten seconds until the tab closes, and a loaded
+session starts it by the same line; `--recover` and `--max-lock` let a run
+that the closed tab interrupted pick up where it stopped. A file changed on
+both sides between two runs becomes `NAME.conflict1`, the session's, and
+`NAME.conflict2`, the server's, on both sides. The configuration and
+bisync's listings are files of the session (`~/.config/rclone`,
+`~/.cache/rclone`), which a save holds.
 
 ## HTTP policy
 

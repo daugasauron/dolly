@@ -50,7 +50,7 @@ try {
             methods: ["GET", "HEAD", "PUT", "DELETE", "PROPFIND", "MKCOL", "MOVE", "COPY"],
             credentialHeaders: ["depth", "destination", "overwrite", "x-oc-mtime"] }] };
         const { run } = await open({ policy });
-        await run("amy install rclone");
+        await run("amy install rclone && man rclone > /dev/null");
         await run(`rclone config create host webdav url=${url} vendor=rclone`);
         await run("mkdir -p /workspace/host && echo d from dolly > /workspace/host/d.txt");
         await run("rclone bisync /workspace/host host: --resync");
