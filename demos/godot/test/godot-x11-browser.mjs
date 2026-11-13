@@ -13,7 +13,7 @@ import { snapshotDisplay, waitForDisplay } from "../../browser.mjs";
 const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 // Types text as a person does on a US keyboard: X maps keys, not characters.
-const shifted = { ">": "Period", "$": "Digit4", "(": "Digit9", ")": "Digit0", "&": "Digit7", "|": "Backslash", "_": "Minus" };
+const shifted = { ">": "Period", "$": "Digit4", "(": "Digit9", ")": "Digit0", "&": "Digit7", "|": "Backslash", "_": "Minus", "?": "Slash" };
 async function type(page, text) {
   for (const character of text) {
     if (shifted[character]) await page.keyboard.press(`Shift+${shifted[character]}`);
@@ -84,7 +84,8 @@ for (const name of browsers) {
       await sleep(2000);
     }
     console.log(`godot-x11: ${name}: Lantern Drift's window drew ${((performance.now() - started) / 1000).toFixed(0)} s after the command`);
-    await sleep(10_000);
+    // Its boot splash first, then the title over the islands.
+    await sleep(60_000);
     const frames = () => page.evaluate(() => Number(document.documentElement.dataset.frameSequence ?? 0));
     const before = await frames();
     await sleep(5000);
@@ -94,7 +95,8 @@ for (const name of browsers) {
     // Keys reach it under the pointer: Enter starts the flight from the title.
     await page.mouse.move(...await at(page, 800, 450));
     await page.keyboard.press("Enter");
-    await sleep(5000);
+    await sleep(10_000);
+    if (name === "chromium") await page.screenshot({ path: `build/godot-x11-flight-${name}.png` });
     await twmDelete(page, 800, 450);
     await sleep(10_000);
 

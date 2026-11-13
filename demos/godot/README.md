@@ -174,3 +174,13 @@ RenderingDevice on `gpu@0` (`platform/rendering_device_driver_webgpu.cpp`) on
 a hardware adapter, in Chrome and the installed Firefox on a display: a 2D
 scene on the Mobile renderer, a 3D scene with a sky, light and shadow, and
 the editor, each reading its own frame back.
+
+[`test/godot-projects-browser.mjs`](test/godot-projects-browser.mjs) opens each game's project
+in the editor as a newcomer does, on a hardware adapter, in Chrome and Firefox: a probe plugin
+counts the meshes the scene shows and the colours of the 3D view; the HUD is hidden with its eye,
+the game runs with F5 and the scene is saved; a node's name copied in its rename field is the
+browser's clipboard's and pastes into another's, and the browser's text pastes as a third's.
+
+[`test/godot-x11-browser.mjs`](test/godot-x11-browser.mjs) installs the editor and Lantern Drift
+with amy in `x11-desktop`'s xterm: the game and then the editor open windows of their own on the
+X server, take keys and the pointer, and close at twm's Delete.

@@ -12,7 +12,8 @@ use super::event_loop::{read_input, read_x11, Leases, Shared};
 use super::{ffi, ActiveEventLoop, MonitorHandle, OsError, WindowId};
 
 /// The page's canvas: Dolly has one, so a second window is refused while it is open. Where DISPLAY
-/// names an X server the window is one of its windows instead, as on a Unix desktop.
+/// names an X server (x11_window_display) the window is one of its windows instead, as on a Unix
+/// desktop.
 pub struct Window {
     leases: Leases,
     shared: Arc<Shared>,
@@ -87,7 +88,8 @@ impl Window {
         if window.is_some() {
             return Err(os_error("display", -EBUSY));
         }
-        if std::env::var_os("DISPLAY").is_some() {
+        // SAFETY: a function of the environment.
+        if !unsafe { ffi::x11_window_display() }.is_null() {
             return Self::new_x11(el, attrs, &mut window);
         }
         let mut surface = ffi::Surface::default();

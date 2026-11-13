@@ -481,7 +481,12 @@ static bool fills_screen(DisplayServerEnums::WindowMode p_mode) {
 			p_mode == DisplayServerEnums::WINDOW_MODE_EXCLUSIVE_FULLSCREEN;
 }
 
+// A maximized or fullscreen window fills the page's canvas; an X window's size and place are the
+// window manager's (twm has no maximized state): it stays a window.
 void DisplayServerDolly::window_set_mode(DisplayServerEnums::WindowMode p_mode, DisplayServerEnums::WindowID p_window) {
+	if (x11) {
+		return;
+	}
 	mode = p_mode;
 	if (fills_screen(p_mode)) {
 		window_set_size(screen, p_window);
@@ -496,10 +501,10 @@ DisplayServerDolly::DisplayServerDolly(const String &p_rendering_driver, Display
 	mode = p_mode;
 	// A window on the X server DISPLAY names, as a program on a Unix desktop opens one; the
 	// page's own canvas otherwise.
-	if (getenv("DISPLAY")) {
+	if (x11_window_display()) {
 		const String name = GLOBAL_GET("application/config/name");
 		x11 = x11_window_open(name.is_empty() ? "Godot" : name.utf8().get_data(), p_size.width, p_size.height);
-		ERR_FAIL_NULL_MSG(x11, vformat("No window on the X server %s: %s.", getenv("DISPLAY"), strerror(errno)));
+		ERR_FAIL_NULL_MSG(x11, vformat("No window on the X server %s: %s.", x11_window_display(), strerror(errno)));
 		uint32_t width, height;
 		x11_window_screen_size(x11, &width, &height);
 		screen = Size2i(width, height);

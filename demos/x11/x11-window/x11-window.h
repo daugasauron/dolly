@@ -22,8 +22,11 @@ extern "C" {
 
 typedef struct x11_window x11_window;
 
+// The X display DISPLAY names ([host]:display[.screen]), or NULL: Dolly's own
+// DISPLAY, the terminal's display library (an absolute path), names none.
+const char *x11_window_display(void);
 // Opens and maps a window of width by height pixels; NULL with errno set when
-// there is no X server (DISPLAY unset: ENOENT).
+// there is no X server (DISPLAY names none: ENOENT).
 x11_window *x11_window_open(const char *title, uint32_t width, uint32_t height);
 void x11_window_close(x11_window *window);
 // The next record, waiting at most timeout milliseconds (a negative timeout

@@ -13,7 +13,7 @@ import { snapshotDisplay, waitForDisplay } from "../../browser.mjs";
 const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 // Types text as a person does on a US keyboard: X maps keys, not characters.
-const shifted = { ">": "Period", "$": "Digit4", "(": "Digit9", ")": "Digit0", "&": "Digit7", "|": "Backslash", "_": "Minus" };
+const shifted = { ">": "Period", "$": "Digit4", "(": "Digit9", ")": "Digit0", "&": "Digit7", "|": "Backslash", "_": "Minus", "?": "Slash" };
 async function type(page, text) {
   for (const character of text) {
     if (shifted[character]) await page.keyboard.press(`Shift+${shifted[character]}`);
@@ -123,7 +123,7 @@ for (const name of browsers) {
     await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
     const run = async command => assert.equal(await page.evaluate(text => __dolly.submit(text), command), 0, command);
     await run("grep -q 'photocraft installed' /tmp/amy && tail -n 1 /tmp/amy | grep -qx 0");
-    await run("! pidof photocraft");
+    await run("! grep -q panicked /tmp/photocraft");
     assert.deepEqual(errors, [], `${name}: no WebGPU or page errors`);
     console.log(`photocraft-x11: ${name} passed`);
   } finally {

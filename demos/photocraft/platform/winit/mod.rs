@@ -241,6 +241,7 @@ mod ffi {
     #[link(name = "Xau")]
     #[link(name = "dolly-sockets")]
     extern "C" {
+        pub fn x11_window_display() -> *const c_char;
         pub fn x11_window_open(title: *const c_char, width: u32, height: u32) -> *mut c_void;
         pub fn x11_window_close(window: *mut c_void);
         pub fn x11_window_next_event(window: *mut c_void, event: *mut InputEvent, timeout_milliseconds: f64) -> c_int;
