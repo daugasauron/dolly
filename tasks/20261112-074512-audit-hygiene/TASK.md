@@ -57,9 +57,14 @@ the default closure rebuilt on them (`build/seedbatch-image-4.log`) and the suit
 - 25, closed: the seven musl include paths of `scripts/build.sh` and `host/threads/seed.sh` in a
   file both source save 3 lines net (its header and a `source` in each), and the compile flags
   differ (`-matomics -mbulk-memory` serial, `-pthread` threaded).
-Left: 8 (the commands' option loops to `getopt`, which changes their messages and, in the native
-command tests, glibc's argument order), 12 (fetch-make, fetch-uucode and fetch-zig keep their own
-pins and cache paths, which the shared `.cache` holds for every tree).
+- 12, partly done (50b8c9166): fetch-make.sh's extraction was never read (prepare-make extracts the
+  archive into its configure tree): prepare-make fetches the archive itself and the script is gone,
+  −21 +1; the prepared tree is identical and every image a cache hit
+  (`build/seedbatch-image-5.log`). fetch-uucode and fetch-zig stay: as rows of
+  `fetch-pinned-source.sh` their archives get other cache names, which every tree's `.cache` (and
+  an offline one) would fetch again, and Zig's is xz, which it does not extract.
+Left: 8, the commands' option loops to `getopt`, which changes their messages and, in the native
+command tests, glibc's argument order.
 
 ## State (2026-11-13)
 
