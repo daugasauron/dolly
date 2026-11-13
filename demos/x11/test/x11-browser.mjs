@@ -2,7 +2,7 @@
 // xeyes and xterm in windows of their own. The page's pointer reaches them
 // (xeyes' pupils follow it, a drag of a title bar moves the clock's window,
 // twm's menu starts another xterm) and its keyboard reaches the shell in
-// xterm, which starts Dear ImGui's
+// xterm, where Ctrl+C interrupts a command and not the server, which starts Dear ImGui's
 // example in a window of its own (SDL2's X11 driver), installs tmux with amy
 // and runs a command in its pane, writes a file and ends the server; the
 // terminal's shell then reads them and finds tmux's server. Prints the time to
@@ -154,6 +154,12 @@ for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", ti
   }, null, { timeout: 30_000, polling: 50 });
   await page.mouse.move(...await at(page, 1100, 650));
   await delay(300);
+  // The interrupt key is a client's while the server has the keyboard: it
+  // ends the sleep in xterm's shell, and the server and its session go on.
+  await type(page, "sleep 600\n");
+  await delay(1000);
+  await page.keyboard.press("Control+c");
+  await delay(500);
   await type(page, "echo from the menu > /tmp/menu-xterm\n");
   await page.screenshot({ path: `${evidence}${browser}-menu-xterm.png` });
 

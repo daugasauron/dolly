@@ -1,8 +1,8 @@
 // The ghostty-x11 image: Xsdl takes Dolly's display and Ghostty's GTK window
 // opens on it with Slop in its terminal, drawn by Mesa. The page's keyboard
 // reaches that shell through the X server, GTK and Ghostty's pseudo-terminal:
-// it writes a file and ends the server, and the terminal's shell reads it
-// and finds amy, which installs packages into the session.
+// it writes a file, colours cells and ends the server, and the terminal's
+// shell reads the file and finds amy, which installs packages into the session.
 // Usage: node demos/ghostty-gtk/test/ghostty-x11-browser.mjs [chromium|firefox ...]
 import { mkdir } from "node:fs/promises";
 import { delay, demoTest, framePoint, shellPrompt, snapshotDisplay, waitForDisplay } from "../../browser.mjs";
@@ -20,7 +20,7 @@ const bright = async (page, x, y, w, h) => { await snapshotDisplay(page); return
 // Where the page shows the middle of the X frame's pixel (x, y).
 const at = (page, x, y) => framePoint(page, x + 0.5, y + 0.5);
 // X maps keys, not characters: a shifted character is Shift and its key.
-const shifted = { ">": "Period", "$": "Digit4", "(": "Digit9", ")": "Digit0", "*": "Digit8" };
+const shifted = { ">": "Period", "$": "Digit4", "(": "Digit9", ")": "Digit0", "*": "Digit8", "%": "Digit5" };
 async function type(page, text) {
   for (const character of text) {
     if (shifted[character]) await page.keyboard.press(`Shift+${shifted[character]}`);
@@ -63,6 +63,28 @@ for (const browser of browsers) await demoTest("ghostty-x11", { image: "ghostty-
     await delay(500);
   }
   await page.screenshot({ path: `${evidence}${browser}-typed.png` });
+  // A cell's background is drawn over its cell: twenty cells of one colour
+  // in the third row, the frame's rows 95-115. Ghostty draws only the rows
+  // that changed: a command that erases that row from two rows below leaves
+  // the first row as it was.
+  const barred = async () => { await snapshotDisplay(page); return page.evaluate(() => {
+    const data = displaySnapshot.getContext("2d").getImageData(8, 95, 400, 21).data;
+    let count = 0;
+    for (let i = 0; i < data.length; i += 4) count += Math.abs(data[i] - 200) + Math.abs(data[i + 1] - 30) + Math.abs(data[i + 2] - 40) < 12;
+    return count;
+  }); };
+  await type(page, "printf '\\033[48;2;200;30;40m%20s\\033[0m\\n'\n");
+  for (let tries = 0; await barred() < 3000; tries++) {
+    if (tries > 60) throw new Error(`the cells' background covers ${await barred()} pixels`);
+    await delay(500);
+  }
+  const firstRow = await bright(page, 8, 52, 960, 22);
+  await type(page, "printf '\\033[3;1H\\033[K\\033[5;1H'\n");
+  for (let tries = 0; await barred() > 0; tries++) {
+    if (tries > 60) throw new Error(`${await barred()} pixels of an erased row are still drawn`);
+    await delay(500);
+  }
+  if (await bright(page, 8, 52, 960, 22) !== firstRow) throw new Error("a row that did not change was drawn differently");
   await type(page, "kill $(cat /tmp/.X0-pid)\n");
   await prompt(shellPrompt);
   await run("grep -qx ghostty-42 /tmp/ghostty-typed && command -v amy");

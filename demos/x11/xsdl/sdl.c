@@ -31,6 +31,8 @@
 #include "kdrive.h"
 #include "damage.h"
 #include <SDL.h>
+#include <fcntl.h>
+#include <termios.h>
 #include <unistd.h>
 
 int dix_main(int argc, char *argv[], char *envp[]);
@@ -288,11 +290,40 @@ sdlKeyboardInit(KdKeyboardInfo *ki)
     return Success;
 }
 
-/* kdrive enables a device only through its driver; SDL's are always on. */
+/* The terminal the server was started at reads no key while SDL has the
+ * keyboard, yet its interrupt key would still signal the server and its
+ * clients: the key is a client's, so the terminal makes no signal of it
+ * until the keyboard is its own again, as kdrive's Linux keyboard sets its
+ * console raw. */
+static struct termios sdlTerminalMode;
+static int sdlTerminal = -1;
+
 static Status
 sdlKeyboardEnable(KdKeyboardInfo *ki)
 {
+    struct termios mode;
+
+    if (sdlTerminal < 0 && (sdlTerminal = open("/dev/tty", O_RDWR | O_NOCTTY)) >= 0) {
+        if (tcgetattr(sdlTerminal, &sdlTerminalMode) == 0) {
+            mode = sdlTerminalMode;
+            mode.c_lflag &= ~ISIG;
+            tcsetattr(sdlTerminal, TCSANOW, &mode);
+        } else {
+            close(sdlTerminal);
+            sdlTerminal = -1;
+        }
+    }
     return Success;
+}
+
+static void
+sdlKeyboardDisable(KdKeyboardInfo *ki)
+{
+    if (sdlTerminal >= 0) {
+        tcsetattr(sdlTerminal, TCSANOW, &sdlTerminalMode);
+        close(sdlTerminal);
+        sdlTerminal = -1;
+    }
 }
 
 static void
@@ -305,6 +336,7 @@ static KdKeyboardDriver sdlKeyboardDriver = {
     .name = "sdl",
     .Init = sdlKeyboardInit,
     .Enable = sdlKeyboardEnable,
+    .Disable = sdlKeyboardDisable,
     .Fini = sdlKeyboardFini,
 };
 

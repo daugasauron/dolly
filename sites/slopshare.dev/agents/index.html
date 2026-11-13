@@ -28,7 +28,8 @@
   <a href="../">← Dolly</a>
   <h1>Demos</h1>
   <p class="lead">Dolly in Chrome: Godot playing one of its demos on the GPU, recorded on 8 November 2026, a game
-    changed in Godot's editor and a C compiler at work on Wine's desktop, recorded on 12 November 2026, and Claude
+    changed in Godot's editor and a C compiler at work on Wine's desktop, recorded on 12 November 2026, a terminal
+    workbench installed on an X desktop, recorded on 13 November 2026, and Claude
     Opus 5.5 at high effort working in Dolly, recorded on 1 and 2 November 2026. Each video's caption bar names its
     speed-ups.</p>
   <h2>Godot: its Forward+ renderer on WebGPU</h2>
@@ -67,6 +68,20 @@
       <div>
         <h3>Plasma by TinyCC</h3>
         <p>notepad plasma.c, tcc plasma.c, plasma: an old-school plasma with a bouncing DOLLY in a window on Wine's desktop, drawn by interpreted x86-64 code about 20 times a second · 1:18</p>
+      </div>
+    </article>
+  </div>
+  <h2><a href="../x11-desktop/">X11</a>: a terminal workbench, installed as it goes</h2>
+  <p class="lead">The x11-desktop image is an X session in the tab: X.Org's server, twm and three clients. From
+    its xterm, amy installs Ghostty's GTK application; in Ghostty, zsh, tmux, Neovim and Modular's Mojo compiler,
+    each a package built from source inside Dolly. A Mojo program typed into Neovim is compiled in the pane beside
+    it and draws a Julia set with the terminal's cells.</p>
+  <div class="grid">
+    <article>
+      <video controls playsinline preload="none" poster="posters/x11-workbench.jpg" aria-label="X11 workbench recording"><source src="videos/x11-workbench.mp4" type="video/mp4"></video>
+      <div>
+        <h3>A Julia set in Ghostty</h3>
+        <p>amy install ghostty-gtk, zsh, tmux, nvim and mojo; julia.mojo in Neovim, mojo build, and the program on 514 by 155 cells of Ghostty, drawn by Mesa's software OpenGL at 24 frames a second while recorded · 2:30</p>
       </div>
     </article>
   </div>

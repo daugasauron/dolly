@@ -38,7 +38,7 @@ REQUIRES TOOL xz
 SOURCE /v0.1.6/dist/static/x11/libmd-1.3.0.tar.xz fc0f1eb6b6766470326f2c014693809190e67dba84274a6fbae9d4912d066706 /tmp/xorg/libmd.tar.xz
 SOURCE /v0.1.6/dist/static/x11/libXfont2-2.0.9.tar.gz 8564b4df365bc5a6cb0c15900dc688f6e8f47b00a8571c6708c916dfb85066ba /tmp/xorg/libXfont2.tar.gz
 SOURCE /v0.1.6/dist/static/x11/xorg-server-21.1.25.tar.gz fdb5ec9b4ab7371745b182b68c7054ed72fc4d13e185fc369cfc45e0c3a174e7 /tmp/xorg/xorg-server.tar.gz
-SOURCE /v0.1.6/dist/static/x11/xsdl.tar f0933a4d8392135d00fafd6fb1739494e077db5d3f3b58a28e5adb8f99ca1e6f /tmp/xorg/xsdl.tar
+SOURCE /v0.1.6/dist/static/x11/xsdl.tar 716a2caef59413b92415a0f2f6c141071e07782f709a814862adb8b745646ce0 /tmp/xorg/xsdl.tar
 SLOP CWD /tmp/xorg for archive in *.tar.gz; do gzip -dc "$archive" | tar -xf -; done
 SLOP CWD /tmp/xorg for archive in *.tar.xz; do xz -dc "$archive" | tar -xf -; done
 SLOP tar -xf /tmp/xorg/xsdl.tar -C /
