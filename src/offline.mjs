@@ -30,14 +30,19 @@ export async function keepRuntime(site) {
   const list = await listed.clone().text(), name = prefix(site) + await sha256(new TextEncoder().encode(list));
   const cache = await caches.open(name);
   if (!await cache.match(listUrl(site))) {
-    await Promise.all(JSON.parse(list).map(async ([path, digest]) => {
-      const url = new URL(path, site).href;
-      if (await cache.match(url)) return;
-      const response = await fetch(url, { cache: "no-cache" }), copy = response.clone();
-      if (!response.ok || await sha256(await response.arrayBuffer()) !== digest) throw new Error(`${path} is not the file this site lists`);
-      await cache.put(url, copy);
-    }));
-    await cache.put(listUrl(site), listed);
+    try {
+      await Promise.all(JSON.parse(list).map(async ([path, digest]) => {
+        const url = new URL(path, site).href;
+        const response = await fetch(url, { cache: "no-cache" }), copy = response.clone();
+        if (!response.ok || await sha256(await response.arrayBuffer()) !== digest) throw new Error(`${path} is not the file this site lists`);
+        await cache.put(url, copy);
+      }));
+      await cache.put(listUrl(site), listed);
+    } catch (error) {
+      // A part of a runtime opens nothing and takes room the saves may need.
+      await caches.delete(name);
+      throw error;
+    }
   }
   for (const other of await keptCaches(site)) if (other !== name) await caches.delete(other);
 }
