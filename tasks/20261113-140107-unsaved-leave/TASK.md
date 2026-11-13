@@ -1,14 +1,10 @@
 # Reloading or closing a tab loses the changes since the last save without a word
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
-- TAGS: sessions,ux,owner,0.1.6
+- TAGS: sessions,ux,0.1.6
 
 Found by `20261113-221000-session-audit` (user testing).
-
-## State (2026-11-13)
-
-Filed; a decision for the owner. Nothing done.
 
 A saved session's tab is at `/session/?name=NAME`. A person works on, presses F5 (or closes the
 tab, or follows "Reload to start again"), and the tab opens the last save: everything since is
@@ -22,16 +18,22 @@ tab takes the other tab's save.
 Open `/system/`, `echo a > /workspace/a`, Ctrl+Shift+S, save as `work`. `echo b > /workspace/b`.
 Press F5. `/workspace/b` is gone.
 
-## Options
+## Closed (2026-11-14)
 
-1. A `beforeunload` prompt once the session has been saved or restored and a program has run
-   since (the page sees input, not file changes): the browser's own "Leave site?" dialog. It asks
-   also when nothing changed.
-2. The kernel counts changes to files since the last capture (one counter beside
-   `dolly_kernel_hold_calls`) and the page asks only when it is not zero.
-3. Leave it and say it where it is seen: the Save button shows the changes are unsaved
-   ("Save · unsaved changes") from the first key after a save.
+Decided by the coordinator: the kernel counts. `src/process-kernel.c` counts every change a
+process makes to what a save holds (a regular file's bytes, size or times; a file made, emptied,
+removed or renamed; a directory, link or symlink made), `host/snapshot/kernel.c` clears the count
+when a capture begins and publishes it at each service in the mailbox's new `changes` word
+(`dolly-snapshot-0.wat`), and the Worker tells the page when it becomes or stops being zero. A tab
+of the site whose session was saved or restored cancels `beforeunload` while the count is not
+zero, or a failed save left such changes unsaved; the browser shows its own prompt. A tab never
+saved and an embedding's page ask nothing.
 
-## Done when
+What counts is what a save would hold: a line typed at the shell is a change (its history file),
+and so is a command substitution (Slop's temporary file); a program that only reads, or writes
+the terminal or `/dev/null`, is none.
 
-The owner has chosen and the steps above either ask or show that `b` is unsaved.
+Evidence: `test/session-unsaved-browser.mjs`, in Chromium and Firefox: no prompt in a tab never
+saved; none after a save, nor after a script that only reads ran; the browser's `beforeunload`
+dialog after `echo b > /workspace/b`, which keeps the tab when dismissed; none after the next
+save, and the tab closes; a restored tab is quiet until `rm`.

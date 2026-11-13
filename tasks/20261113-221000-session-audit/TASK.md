@@ -30,6 +30,8 @@ Fixed, each with a test that fails without it:
 | More than 1,000,000 paths: "capture failed with status -1" | E2BIG was not named | `45f707268`, `session-transport.test` |
 | A session file with damaged metadata: the text decoder's own message | uncaught | `f8af7f699` |
 | No way to rename a save | none existed | `a1f3585e3`, `session-save-browser` |
+| F5 or a closed tab dropped everything since the last save, unasked | no prompt, and nothing knew whether a file had changed | `337ab0fde`, `session-unsaved-browser`, `tasks/20261113-140107-unsaved-leave` |
+| Recover files on a save over 2 GiB: "exceeds its size limit" | recovery decoded the whole save in one buffer | `337ab0fde`, `session-large-file-browser`, `tasks/20261113-140028-recover-large` |
 | A running page's fetches stalled 20 s and more in Firefox once a service worker claimed it | `clients.claim()` on a page whose Workers wait in `Atomics.wait` | `2603f4835` (the worker claims nothing) |
 
 Restore from local storage (`2603f4835`, `e93e4c5de`, `42284c948`; `docs/sessions.md`,
@@ -53,11 +55,10 @@ moments of a restore; modules enabled with `nena` (enabled again); a private win
 browsers; a truncated, damaged, other-version or foreign file on import (refused, or imported and
 refused at restore); a damaged stored save (the boot fails, nothing is half restored).
 
-Left: `20261113-140028-recover-large` (Recover files over 2 GiB, a seed change),
-`20261113-140107-unsaved-leave` (a reload loses unsaved changes without a word; the owner's
-choice), `20261113-140107-unverified-cases` (a hidden tab's save, Firefox's storage prompt).
-`0ef07a157` changes two documents of the docs package: `dolly-docs` and the twelve images that
-install it need a rebuild.
+Left: `20261113-140107-unverified-cases` (a hidden tab's save, Firefox's storage prompt).
+`session-recover` is no longer run by the page and goes at the next seed round
+(`20261113-140028-recover-large`). `0ef07a157` and `4991edd9c` change documents and a contract of
+the docs package: `dolly-docs` and the twelve images that install it need a rebuild.
 
 ## Found before the audit (2026-11-13)
 
