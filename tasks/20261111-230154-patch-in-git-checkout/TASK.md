@@ -1,6 +1,6 @@
 # patch in a subdirectory of a git checkout patches nothing
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 220
 - TAGS: commands,git
 
@@ -25,3 +25,7 @@ itself applies from there anyway). The test's work directory is a repository now
 the old `patch.c` (the file stayed `one\ntwo\n`) and passes with the new, natively. Left: the same in Dolly, with the `git` package
 rebuilt in the next round; then close.
 
+## Closed (2026-11-13)
+
+On the 0.1.6 candidate round's images (main `e6ad7707c`), with the git package rebuilt: in a
+subdirectory of a git checkout `patch -p1` changes the file there, in Chromium and Firefox.

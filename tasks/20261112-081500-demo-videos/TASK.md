@@ -1,6 +1,6 @@
 # The demos page of 0.1.6: two new videos, and every earlier one actually in the release
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 330
 - TAGS: 0.1.6,demo,recording,release,site
 
@@ -48,3 +48,10 @@ way: a double click does not register in Godot in Dolly (`display_server_dolly.c
 `bash scripts/package-pages.sh build/domain-releases slopshare.dev` produces `/agents/` with all
 of them, each plays in Chromium and Firefox from the local release, and the release checklist in
 `docs/deployment.md` names the media step.
+
+## Closed (2026-11-13)
+
+The release 9045 serves from main `e6ad7707c` (`5d718da3…`, packaged by `scripts/package-pages.sh`) holds
+39 videos under `/v0.1.6/agents/`, Wine's, Godot Airtime's and the x11 workbench's among them; each
+plays a second in Chrome 156 and Firefox from it (`work/evidence-2026-11-13/videos/play-all-5d718da3.log`),
+through the release server's ranges. `docs/deployment.md` names the media step.

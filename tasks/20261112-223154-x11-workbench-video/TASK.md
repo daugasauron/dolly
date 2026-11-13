@@ -1,6 +1,6 @@
 # The x11 workbench as a demo video
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 410
 - TAGS: x11,demo,recording,0.1.6,owner
 
@@ -31,3 +31,9 @@ Recorded, cut and on the demos page; left: the release of 0.1.6 carries it.
 - The machine's load was 25 on 16 cores during the take: the installs and `mojo build` took two
   to five times what they took in the rehearsals (28 s against 9 s for the build), which the
   captions say. A take on a quiet machine would be shorter; `record.mjs` makes one.
+
+## Closed (2026-11-13)
+
+`sites/slopshare.dev/agents/videos/x11-workbench.mp4` (2:30, 7.4 MiB) is in the release 9045 serves
+(`5d718da3…`, main `e6ad7707c`) and plays in Chrome and Firefox from it
+(`work/evidence-2026-11-13/videos/play-all-5d718da3.log`).
