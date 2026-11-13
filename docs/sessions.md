@@ -14,8 +14,11 @@ flowchart LR
 ## Save and load
 
 - **Save** or `Ctrl+Shift+S` stores a checkpoint named with 1–64 of
-  `A-Z a-z 0-9 . _ -` (not `.` or `..`). `/sessions/` lists saves with Export,
-  Import, Delete and Recover files; `/session/?name=NAME` loads one.
+  `A-Z a-z 0-9 . _ -` (not `.` or `..`). `/sessions/` lists saves with Rename,
+  Export, Import, Delete and Recover files; `/session/?name=NAME` loads one.
+- A tab asks before its save replaces one stored since it opened or last
+  saved the session, another tab's. A reload opens the last save: what a tab
+  changed after it is gone.
 - The Save button is one of the page's indicators
   ([`page-indicators.mjs`](../src/page-indicators.mjs)): it shows for ten
   seconds once the page is ready and `Ctrl+Shift+F` shows or hides it, so a
@@ -43,9 +46,11 @@ flowchart LR
   same (an upload landing) fails the save, naming it: save again.
   IndexedDB stores the compressed save as a Blob of its parts, and a restore
   decompresses it as it goes, a chunk at a time into the kernel.
-- Loading needs the runtime build that made the save; the image's recipe may
-  have changed since (a `dolly-build` project built again), as the save holds
-  its files. The image's host modules are the catalog's. Otherwise **Recover
+- Loading needs a runtime with the image build ID of the one that made the
+  save (`dist/dolly-image-build-id.mjs`: the seed and the process contracts,
+  which a rebuilt kernel keeps while the images stay valid); the image's
+  recipe may have changed since (a `dolly-build` project built again), as the
+  save holds its files. The image's host modules are the catalog's. Otherwise **Recover
   files** boots `system` and copies the regular files of `/workspace` and
   `/home` into `/workspace/recovered-NAME`
   ([`session-recover.c`](../src/commands/session-recover.c)); saved startup
@@ -76,6 +81,24 @@ flowchart LR
   the origin's storage, the saves and the packs, when it runs short of space
   (`navigator.storage.persist()`): Chrome answers from the site's engagement
   without asking, Firefox asks the user.
+- A saved session opens without a network. A save, or an import, keeps the
+  site's runtime in the browser's Cache Storage
+  ([`offline.mjs`](../src/offline.mjs)): the files `dist/dolly-offline.json`
+  lists (the session and sessions pages, the page's and the Workers' code, the
+  host modules and the kernel, about 4 MB; not the compiler seed a root build
+  starts from), each checked against the
+  SHA-256 the list gives. Where a request fails, the site's service worker
+  ([`coi-serviceworker.js`](../coi-serviceworker.js)) answers it from there,
+  so `/session/?name=NAME` loads its page, starts the runtime and restores the
+  filesystem with the server away; while the server answers, its answer is
+  used. The worker controls the pages loaded after the first save, not the
+  tab that saved. The kept runtime is the site's as it was at the last
+  save. It is storage of the origin
+  like the saves, so the browser keeps or clears them together; the sessions
+  page says whether it is kept and clears it with the downloads. Where the
+  browser refuses the page a service worker or a cache, nothing is kept and
+  the save is as it was. What a session fetches while it runs (`http@0`,
+  `amy`) still needs the network.
 - The image cache is one database for every version on the origin. It holds
   rebuildable images only, never a save: an entry is keyed by the runtime's
   image build ID and the recipe's SHA-256, and its bytes are checked against
@@ -86,7 +109,8 @@ flowchart LR
 Code: kernel [`host/snapshot/kernel.c`](../host/snapshot/kernel.c); page
 [`host/snapshot/transport.mjs`](../host/snapshot/transport.mjs),
 [`session-store.mjs`](../src/session-store.mjs),
-[`session-file.mjs`](../src/session-file.mjs), list page
+[`session-file.mjs`](../src/session-file.mjs),
+[`offline.mjs`](../src/offline.mjs), list page
 [`sessions.mjs`](../src/sessions.mjs).
 
 ## Upload and download
