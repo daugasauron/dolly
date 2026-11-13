@@ -31,8 +31,11 @@ export async function importSessionFile(file) {
   if (!magic.every((byte, index) => byte === header[index])) throw new Error("Not a supported Dolly session file");
   const length = new DataView(header.buffer).getUint32(magic.length, true);
   if (length === 0 || length > metadataLimit || headerSize + length >= file.size) throw new Error("Invalid session file header");
-  const metadata = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(
-    await file.slice(headerSize, headerSize + length).arrayBuffer()));
+  let metadata;
+  try {
+    metadata = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(
+      await file.slice(headerSize, headerSize + length).arrayBuffer()));
+  } catch {}
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata) ||
       metadata.byteLength !== file.size - headerSize - length ||
       !/^[0-9a-f]{64}$/.test(metadata.sha256) ||

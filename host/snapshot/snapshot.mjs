@@ -37,7 +37,7 @@ export async function boot(route) {
     throw new Error(`This save's Dollyfile is not the one its image was built from.${listed}`);
   }
   return { image, label: `${recovering ? "RECOVER FILES FROM" : "RESTORE SESSION"} ${name}`,
-    custom: image === "custom" ? record.customImage : undefined, configuration: { save: record.bytes, name, recovering } };
+    custom: image === "custom" ? record.customImage : undefined, configuration: { save: record.bytes, name, recovering, updatedAt: record.updatedAt } };
 }
 
 // The page's capture: the Worker reads the session's chunks out of the mailbox
@@ -62,8 +62,8 @@ function sessionCapture({ send, ask }) {
 }
 
 export function browser(page) {
-  const { save, name, recovering } = page.configuration, capture = sessionCapture(page);
-  const session = mountSessionSave(page, () => capture, name === undefined ? null : { name, recovering });
+  const { save, name, recovering, updatedAt } = page.configuration, capture = sessionCapture(page);
+  const session = mountSessionSave(page, () => capture, name === undefined ? null : { name, recovering, updatedAt });
   return {
     configuration: save === undefined ? {} : { save, ...(recovering ? { recover: name } : {}) },
     page: { get sessionName() { return session.name; }, saveSession: session.save },

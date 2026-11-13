@@ -68,6 +68,8 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
   const dataset = document.documentElement.dataset;
   let base, sessionName = null, lastSave = null, saveError = "";
   let saving = null, controller = null;
+  // When the save this tab restored or last made was stored: a later one is another tab's.
+  let knownSave = null;
 
   function update(message) {
     const failed = dataset.sessionStatus === "failed";
@@ -121,10 +123,16 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
       if (!validSessionName(name)) {
         throw new Error("Session names use 1-64 letters, numbers, '.', '_' or '-'");
       }
-      if (name !== sessionName && await loadStoredSession(name) !== null &&
-          !window.confirm(`Replace the saved session '${name}'?`)) return null;
-      showStatus(`Saving ${name}…`, true);
+      const before = dataset.sessionStatus;
       dataset.sessionStatus = "capturing";
+      const stored = await loadStoredSession(name);
+      if (stored !== null && (name !== sessionName ? !window.confirm(`Replace the saved session '${name}'?`)
+        : stored.updatedAt !== knownSave && !window.confirm(`'${name}' was saved from another tab at ` +
+          `${new Date(stored.updatedAt).toLocaleTimeString()}. Replace that save with this tab's files?`))) {
+        if (before === undefined) delete dataset.sessionStatus; else dataset.sessionStatus = before;
+        return null;
+      }
+      showStatus(`Saving ${name}…`, true);
       indicators.hold("session", true);
       update(`Saving ${name}…`);
       button.disabled = nameField.disabled = saveButton.disabled = true;
@@ -137,7 +145,7 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
       };
       const encoded = await encodeSessionStream(capture);
       dataset.sessionStatus = "storing";
-      const encodedSize = encoded.bytes.size;
+      const encodedSize = encoded.bytes.size, updatedAt = Date.now();
       await saveStoredSession({
         name,
         formatVersion: DOLLY_SESSION_FORMAT_VERSION,
@@ -145,10 +153,11 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
         image: base.image,
         imageIdentity: base.identity,
         ...(base.custom ? { customImage: base.custom } : {}),
-        updatedAt: Date.now(),
+        updatedAt,
         encoding: encoded.encoding,
         bytes: encoded.bytes,
       });
+      knownSave = updatedAt;
       sessionName = name;
       lastSave = new Date();
       dataset.session = name;
@@ -165,7 +174,10 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
       return name;
     })().catch((error) => {
       dataset.sessionStatus = "failed";
-      saveError = error instanceof Error ? error.message : String(error);
+      // Chrome's error for a full store has no text.
+      saveError = error?.name === "QuotaExceededError"
+        ? "this browser has no room left for the site. Delete saves or clear downloads on the sessions page; the previous save is unchanged"
+        : error instanceof Error ? error.message : String(error);
       showStatus(`Save failed: ${saveError}`, true);
       indicators.hold("session", true);
       update(`Save failed: ${saveError}`);
@@ -205,6 +217,7 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
         showStatus(`Recovered files in /workspace/recovered-${restored.name}. Ctrl+Shift+S saves this as a new session.`, true);
       } else if (restored) {
         sessionName = restored.name;
+        knownSave = restored.updatedAt;
         dataset.session = restored.name;
         dataset.sessionStatus = "restored";
       }
