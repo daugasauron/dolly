@@ -61,8 +61,13 @@ Dolly's Xsdl draws on the page's RGBA surface, so its visual has red in the low 
 `x11-window` put frames in blue first. It now follows the visual's masks, and the test checks
 that the game's sunset has more red than blue.
 
-Left: both tests on the build with that fix, in Chrome and Firefox
-(`demos/godot/test/godot-x11-browser.mjs`, `demos/photocraft/test/photocraft-x11-browser.mjs`).
+On the build of 11:57 with that fix the Godot test passed in Chrome and Firefox: the game's
+window drew 12 and 14 s after the command, with twice as much red as blue (2.03, 1.98), the X
+server showed 28.2 and 49.0 frames a second of it, and the editor's window drew 53 s after its
+command, its colours its own (`build/godot-x11-editor-chromium.png`). Logs
+`build/godot-x11-chromium.log`, `build/godot-x11-firefox.log`.
+
+Left: PhotoCraft in Chrome and Firefox (`demos/photocraft/test/photocraft-x11-browser.mjs`).
 
 ## Do
 

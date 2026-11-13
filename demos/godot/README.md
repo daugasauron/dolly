@@ -180,7 +180,10 @@ in the editor as a newcomer does, on a hardware adapter, in Chrome and Firefox: 
 counts the meshes the scene shows and the colours of the 3D view; the HUD is hidden with its eye,
 the game runs with F5 and the scene is saved; a node's name copied in its rename field is the
 browser's clipboard's and pastes into another's, and the browser's text pastes as a third's.
+Both games passed in both browsers on 2026-11-13, the editor's log without an error.
 
 [`test/godot-x11-browser.mjs`](test/godot-x11-browser.mjs) installs the editor and Lantern Drift
 with amy in `x11-desktop`'s xterm: the game and then the editor open windows of their own on the
-X server, take keys and the pointer, and close at twm's Delete.
+X server, take keys and the pointer, and close at twm's Delete. On 2026-11-13 (NVIDIA RTX 5070)
+the game's window drew 12 to 14 s after its command and the X server showed 28.2 frames a second
+of it in Chrome and 49.0 in Firefox; the editor's window drew 53 s after its command.

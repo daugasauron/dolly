@@ -1,6 +1,6 @@
 # Godot's editor is usable on both Godot games: their projects open and show, and its errors are gone or explained
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 390
 - TAGS: godot,editor,gpu,owner,0.1.6
 
@@ -90,3 +90,14 @@ in each image's description, so a person who does not know Godot finds the game 
 
 In both browsers, for both games: the editor opens the project with its main scene shown, an edit
 runs in the game from the editor and is saved, and the log has no error that a step needs.
+
+## Closed (2026-11-13, `feature/x11-apps`)
+
+`demos/godot/test/godot-projects-browser.mjs` passed in Chrome and Firefox on the build of 11:57
+(with the `gl_PointCoord` fix, `a1ffd4e04`), its log check asserted: for both games the editor
+opened `res://main.tscn` with the world standing in it (Airtime 418 meshes, 2067 colours in Chrome
+and 2394 in Firefox; Lantern Drift 360 meshes, 777 and 747 colours), the HUD's eye hid it, F5 ran
+the game so, Q gave the editor back, Ctrl+S saved `visible = false`, a node's name copied and
+pasted renamed two nodes, and the editor's log had no error, TCP failure, keep-screen-on or
+clipboard warning. Logs `build/godot-projects-chromium.log`, `build/godot-projects-firefox.log`;
+screenshots `build/godot-{airtime,lantern-drift}-chromium-{run,renamed}.png`.
