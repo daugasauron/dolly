@@ -434,7 +434,7 @@ static int restore_take(const unsigned char *bytes, size_t length) {
           restore.path_length == 0 || restore.path_length >= PATH_MAX ||
           (restore.kind == DOLLY_SESSION_DIRECTORY && restore.data_left != 0) ||
           (restore.kind == DOLLY_SESSION_SYMLINK && (restore.data_left == 0 || restore.data_left >= PATH_MAX)) ||
-          restore.data_left > DOLLY_SNAPSHOT_MAX_SIZE) return -1;
+          restore.data_left > DOLLY_SESSION_MAX_SIZE) return -1;
     } else if (restore.path_used < restore.path_length) {
       size_t count = restore.path_length - restore.path_used;
       if (count > length) count = length;
