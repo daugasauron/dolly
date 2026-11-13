@@ -275,8 +275,9 @@ for (const name of browsers) {
       await new Promise(resolve => setTimeout(resolve, 3000));
     }
     await page.waitForFunction(width => __dolly.gpu.active && __dolly.gpu.width === width, editorWidth, { polling: 200, timeout: 180_000 });
-    await page.keyboard.press("Control+c");
-    assert.equal(await editing, 130);
+    // The editor's Ctrl+C is Copy (it clears ISIG while it has the page); Ctrl+Q quits it.
+    await page.keyboard.press("Control+q");
+    assert.equal(await editing, 0);
     const ran = await output("/tmp/run.out | grep -E '^(ADAPTER|LABEL|DEBUGGER) '");
     assert.match(ran, /^ADAPTER WebGPU$/m, `the game the editor ran printed: ${ran}`);
     assert.match(ran, /^DEBUGGER true$/m, `the game the editor ran reached its debugger: ${ran}`);

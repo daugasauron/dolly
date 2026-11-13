@@ -84,7 +84,8 @@ for (const browser of browsers) {
         if (attempt === 12) throw error;
       }
     }
-    await page.keyboard.press("Control+c");
-    assert.equal(await editor.done, 130);
+    // The editor's Ctrl+C is Copy (it clears ISIG while it has the page); Ctrl+Q quits it.
+    await page.keyboard.press("Control+q");
+    assert.equal(await editor.done, 0);
   });
 }
