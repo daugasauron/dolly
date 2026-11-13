@@ -1,30 +1,32 @@
 # A folder a server holds, mounted in Dolly over the HTTP broker
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 380
 - TAGS: http,filesystem,packages,0.1.6,owner
 
-## State (2026-11-13, `feature/http-mount`)
+## Closed (2026-11-13, `feature/http-mount`)
 
 The package is `rclone` ([`demos/rclone`](../../demos/rclone/README.md)): rclone 1.76.0 built by
 the `go` package with its local and WebDAV backends; `rclone bisync` keeps a session folder in
 step with a folder upstream's `rclone serve webdav` serves on the machine. The README has the
 server's command, the session's commands (a loop in the background keeps the folders in step) and
-the policy rule.
+the policy rule; `man rclone` in the session has the first two. Commits `24f72dceb` (Go's request
+body), `ef0cb8a42` (the package), `79b3e372a`.
 
-- Built in the domain catalog's round (`DOLLY_IMAGE_JOBS=1`, bigbuild slot): `go build` of rclone
-  in Dolly took under a minute; the package is a 40.6 MB snapshot, its executable 40.4 MB.
-- `demos/rclone/test/rclone-browser.mjs` passes in Chrome 156.0.8078.47 (4.2 s, 8.3 s) and
-  Firefox 155.0 (5.2 s, 4.5 s): upstream's linux/amd64 rclone serves a folder on a loopback port
-  with the README's flags; `default` runs `amy install rclone` under a policy of the README's rule
-  and amy's index alone; bisync carries what each side wrote, changed and removed, a 16 MiB file
-  and a new directory among them, and both sides list the same modification times; the README's
-  loop brings a file of each side to the other.
+- Built in the domain catalog's round in the 9 GB slot with `DOLLY_IMAGE_JOBS=1`: two builds side
+  by side (rclone on go-build, and pi-dolly) crashed their renderers at the 6 GB cap. `go build`
+  of rclone in Dolly took under a minute; the package is a 40.6 MB snapshot, its executable
+  40.4 MB. The staged tar and the Go seed are the same bytes from a second checkout at another
+  path (edc7653d…, 88296c30…).
+- `demos/rclone/test/rclone-browser.mjs` (`npm run test:demos -- rclone`) passes in Chrome
+  156.0.8078.47 and Firefox 155.0, 4 to 8 s each, four runs: upstream's linux/amd64 rclone serves
+  a folder on a loopback port with the README's flags; `default` runs `amy install rclone` and
+  `man rclone` under a policy of the README's rule and amy's index alone; bisync carries what each
+  side wrote, changed and removed, a 16 MiB file and a new directory among them, and both sides
+  list the same modification times; the README's loop brings a file of each side to the other.
 - Measured in Chrome: a bisync without changes over three directories is three `PROPFIND`s, about
-  0.1 s; preflights are cached by the browser. The Go demo test passes in both browsers on the
-  rebuilt seed.
-
-Left: the owner's own run from `default` on this machine with the README's server command.
+  0.1 s; the browser caches the preflights. The Go demo test passes in both browsers on the
+  rebuilt seed (58 s, 53 s); `npm run test:source` passes.
 
 Owner (2026-11-13): "I want to compile and provide some package that can "mount" a filesystem over
 the dolly http broker through a server. I did some research and there seems to be available
