@@ -8,19 +8,22 @@ From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, K1, K2).
 
 ## State (2026-11-13, `fix/terminal-pty`)
 
-3, measured (release candidate's `default`, Slop prompt; the base runtime saved and served beside
-this branch's, two pages or windows, keys alternating between them so the machine's load, 16 to 25
-from a catalog round and an agent run, is common to both; `work/termpty/build/echo/`):
+3, measured (`default`, Slop prompt; the base runtime saved and served beside this branch's, two
+pages or windows, keys alternating between them so the machine's load is common to both;
+`work/termpty/build/echo/`). On the final build, load 9 to 13:
 
-| Method | Before (base) | After (pseudo-terminal) |
+| Method, 100 keys each | Before (base) | After (pseudo-terminal) |
 | --- | --- | --- |
-| keydown dispatched in headless Chrome, `__dolly.frame()` polled (the 2026-11-12 method), 100 keys | median 23.4 ms, mean 24.8, p10 13.4, p90 36.5 | median 22.5 ms, mean 24.4, p10 13.4, p90 38.2 |
-| XTEST key press into headed Chrome on Xvfb :148, ffmpeg x11grab of the cursor's row at 500 frames a second, 100 keys | median 17.4 ms, mean 17.5, p10 9.0, p90 25.5 | median 15.8 ms, mean 16.9, p10 8.8, p90 26.0 |
+| keydown dispatched in headless Chrome, `__dolly.frame()` polled (the 2026-11-12 method) | median 21.2 ms, mean 22.6, p10 12.1, p90 33.5 | median 20.9 ms, mean 22.1, p10 10.3, p90 34.0 |
+| XTEST key press into headed Chrome on Xvfb :148, ffmpeg x11grab of the cursor's row at 500 frames a second, wall-clock stamped | median 13.4 ms, mean 12.9, p10 6.4, p90 19.2 | median 11.9 ms, mean 12.3, p10 5.9, p90 19.1 |
 
-The same runtime on both sides (A/A, 40 and 30 keys) differed by up to 3.6 ms in the median: the
-change is within the noise. Screen echo is 5 to 43 ms, a 16 ms service tick and a 16.7 ms frame
-apart. Scripts `ab.mjs` (headless), `x11.mjs` and `xkeys.c` (XTEST), logs `ab-*-100.log`,
-`aa-*.log`.
+On the first build of the change, load 16 to 25 (a catalog round and an agent run): headless
+23.4 against 22.5 ms, X 17.4 against 15.8 ms. The same runtime on both sides (A/A, 40 and 30 keys)
+differed by up to 3.6 ms in the median: the change is within the noise. On screen a key echoes in
+4 to 26 ms: the echo is drawn when a reader takes the key, presented at the next 16 ms service
+tick (`dolly_terminal_present_pending`) and shown at the page's next frame. That is the number an
+emulator run as an ordinary program would have to meet, with a process hop more. Scripts `ab.mjs`
+(headless), `x11.mjs` and `xkeys.c` (XTEST), logs `final-*-100.log`, `ab-*-100.log`, `aa-*.log`.
 
 2, done on the branch: the display's terminal is the boot terminal, a pseudo-terminal the kernel
 opens with its first write and holds the master of (`src/dolly.c`). `terminal_descriptors[]`, the
@@ -52,13 +55,26 @@ request are gone; the terminal is a stream like any other. Decided:
   its line when polled, as the display's did.
 - Image inputs unchanged (`46de2b9c…`): kernel-only, no contract or seed change.
 
-Tests (`work/termpty/build/logs/r1-SUITE-BROWSER.log`): terminal, pty, console, shell, shell-env,
-display, display-cursor, slop, process (the lifecycle suite), core, ending, image-input and
-threads pass in Chromium and Firefox; ended-worker, touch and pager fail in both before or apart
-from the terminal, for images this catalog lacks (`composed`'s `pin`, `amy install less`). The
-source tests pass but `platform-documents`: `Dollyfile-dolly-docs`'s pins are the round's to renew
-(five were stale on `fix/audit-0.1.6`; this branch's four documents join them, and renewing them
-repins 13 demo recipes).
+Output through the extra copy (`bulk.mjs`, `seq 1 200000` at the prompt, 1.3 MB, interleaved, 10
+each): before median 2582 ms, after 2476 ms, once runs and ring spans are copied whole (copied a
+byte at a time it was 2440 against 2526).
+
+Tests, on the final build (`work/termpty/build/logs/r6-SUITE-BROWSER.log`): terminal, pty,
+console, shell, shell-env, display, display-cursor, slop, process (the lifecycle suite), core,
+ending, ended-worker, touch, pager, image-input, threads and default pass in Chromium and Firefox,
+and so do the demos tmux (panes, Ctrl+C in a pane, resize, vi, the package) and Neovim (raw mode,
+paste, resize, Ctrl+C restored and as input); CPython's REPL, `input()`'s edited line and Ctrl+C
+passed on the first build (`r3-python-chromium.log`). The catalog held only default and system:
+tmux-panes, neovim, vi, python, less, zig, libdolly-touch and stack-wrap were registered from
+their existing artifacts (`DOLLY_BUILD_IMAGES=...`, all reused). The source tests pass but
+`platform-documents`: `Dollyfile-dolly-docs`'s pins are the round's to renew (five were stale on
+`fix/audit-0.1.6`; this branch's four documents join them, and renewing them repins 13 demo
+recipes).
+
+"Done when" holds on the branch: `process_dispatch` has no per-kind branch; what remains of the
+terminal in it is the page's terminal by identity, `tcgetpgrp`'s foreground owner rule and the
+shell's published result for the boot terminal's slave, and a root process's spawn mapping it.
+Close once it lands.
 
 ## State (2026-11-13)
 

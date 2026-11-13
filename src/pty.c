@@ -51,13 +51,22 @@ static void put(pty_end *end, unsigned char byte) {
   end->unread[(end->offset + end->size++) % end->capacity] = byte;
 }
 
+/* Bytes that fit, as put() puts each. */
+static void put_bytes(pty_end *end, const unsigned char *bytes, size_t size) {
+  const size_t tail = (end->offset + end->size) % end->capacity;
+  const size_t first = size < end->capacity - tail ? size : end->capacity - tail;
+  memcpy(end->unread + tail, bytes, first);
+  memcpy(end->unread, bytes + first, size - first);
+  end->size += size;
+}
+
 /* A writer waiting for room may go on; a held pair's other side is the kernel,
  * which waits for none. */
 static size_t take(pty_end *end, unsigned char *bytes, size_t size) {
   if (size > end->size) size = end->size;
-  for (size_t index = 0; index < size; ++index) {
-    bytes[index] = end->unread[(end->offset + index) % end->capacity];
-  }
+  const size_t first = size < end->capacity - end->offset ? size : end->capacity - end->offset;
+  memcpy(bytes, end->unread + end->offset, first);
+  memcpy(bytes + first, end->unread, size - first);
   end->offset = (end->offset + size) % end->capacity;
   end->size -= size;
   if (size != 0 && end->pty->holder == NULL) dolly_kernel_wake();
@@ -83,6 +92,26 @@ static int show(dolly_pty *pty, unsigned char byte) {
   if (carriage_return) put(&pty->master, '\r');
   put(&pty->master, byte);
   return 1;
+}
+
+/* The slave's output for the master, as show() shows each byte: the count
+ * taken, which stops where the master is full. */
+static size_t show_bytes(dolly_pty *pty, const unsigned char *bytes, size_t size) {
+  const uint32_t newline = DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR;
+  const int carriage_returns = (pty->mode & newline) == newline;
+  pty_end *master = &pty->master;
+  size_t taken = 0;
+  while (taken < size) {
+    const unsigned char *found = carriage_returns ? memchr(bytes + taken, '\n', size - taken) : NULL;
+    const size_t end = found != NULL ? (size_t)(found - bytes) : size;
+    const size_t room = master->capacity - master->size;
+    const size_t run = end - taken < room ? end - taken : room;
+    put_bytes(master, bytes + taken, run);
+    taken += run;
+    if (taken < end || found == NULL || !show(pty, '\n')) break;
+    ++taken;
+  }
+  return taken;
 }
 
 /* What an echoing slave displays is its output; what does not fit is not shown. */
@@ -244,10 +273,10 @@ static int64_t pty_send(dolly_kernel_socket *shared, const unsigned char *bytes,
   if (end == &pty->master) {
     taken = dolly_pty_type(pty, bytes, size);
   } else {
-    for (; taken < size; ++taken) {
-      if (show(pty, bytes[taken])) continue;
+    taken = show_bytes(pty, bytes, size);
+    for (size_t more = 1; taken < size && pty->holder != NULL && more != 0; taken += more) {
       shown(pty);
-      if (!show(pty, bytes[taken])) break;
+      more = show_bytes(pty, bytes + taken, size - taken);
     }
     shown(pty);
   }
