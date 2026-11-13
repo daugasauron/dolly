@@ -10,6 +10,7 @@ pi
 secretenv
 html
 dolly-docs
+libdolly-download
 janis
 janis-install
 quickjs
