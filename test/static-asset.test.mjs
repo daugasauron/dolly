@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { sha256 as digest } from "../scripts/sha256.mjs";
 import test from "node:test";
 import { decodeStaticAsset } from "../src/static-asset.mjs";
-
-const digest = bytes => createHash("sha256").update(bytes).digest("hex");
 const parts = [Buffer.from("part one"), Buffer.from(" and part two")];
 const bytes = Buffer.concat(parts);
 const manifest = () => ({ byteLength: bytes.length, sha256: digest(bytes),

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { sha256 as digest } from "../scripts/sha256.mjs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -11,8 +11,6 @@ import { decodeSnapshotRecords, encodeSnapshotRecords } from "../src/snapshot-re
 import { loadImages } from "../src/images.mjs";
 import { packagedSystemSnapshot } from "../src/packaged-snapshot.mjs";
 import { Sha256 } from "../src/sha256.mjs";
-
-const digest = bytes => createHash("sha256").update(bytes).digest("hex");
 
 test("the incremental hash is SHA-256 however the bytes are split", () => {
   const bytes = Uint8Array.from({ length: 1000 }, (_, index) => index * 7919 >>> 3);

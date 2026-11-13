@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { sha256 as digest } from "../scripts/sha256.mjs";
 import test from "node:test";
 import { HttpMailbox, NetworkTransport, DOLLY_HTTP_LIMITS } from "../host/http/broker.mjs";
 import { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_HEADER_SIZE, DOLLY_HTTP_WORD_EOF, DOLLY_HTTP_WORD_ERROR, DOLLY_HTTP_WORD_KIND, DOLLY_HTTP_WORD_LENGTH, DOLLY_HTTP_WORD_SEQUENCE, DOLLY_HTTP_WORD_STATE } from "../host/http/abi.mjs";
@@ -102,7 +102,6 @@ test("HTTP authorization happens before any fetch", async () => {
 
 test("multipart delivery is restricted to embedding-selected sources, including inherited policy", async () => {
   const parts = [Buffer.from("first"), Buffer.from("second")], bytes = Buffer.concat(parts);
-  const digest = value => createHash("sha256").update(value).digest("hex");
   const manifest = JSON.stringify({ byteLength: bytes.length, sha256: digest(bytes),
     parts: parts.map(part => ({ byteLength: part.length, sha256: digest(part) })) });
   const sources = [{ path: "/allowed", byteLength: bytes.length }];

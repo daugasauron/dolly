@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { sha256 as digest } from "../scripts/sha256.mjs";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -14,7 +14,6 @@ import { DOLLY_VERSION } from "../src/version.mjs";
 import { PUBLIC_ORIGIN, siteReference } from "../src/static-asset.mjs";
 
 const project = resolve(import.meta.dirname, "..");
-const digest = source => createHash("sha256").update(source).digest("hex");
 
 test("every catalog recipe graph lints", () => lintDollyfiles(project));
 

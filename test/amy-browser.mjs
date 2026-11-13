@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { sha256 } from "../scripts/sha256.mjs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -22,7 +22,6 @@ const pin = name => {
   const { dollyfile, sha256 } = catalog.images.find(definition => definition.image === name);
   return `${siteReference(dollyfile)} ${sha256}`;
 };
-const sha256 = text => createHash("sha256").update(text).digest("hex");
 
 // A sealed package that needs sockets@0, as the engine would build it: the
 // retained recipe plus its receipt (recipe chain, host requirements, exports).

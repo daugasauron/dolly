@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { sha256 } from "../scripts/sha256.mjs";
 import { readFile } from "node:fs/promises";
 import { browserTest } from "./browser.mjs";
 import { createHttpRedirectFixture } from "./fixtures/http-redirect-server.mjs";
@@ -10,7 +10,6 @@ import { siteReference } from "../src/static-asset.mjs";
 const source = "/dist/static/default/commands/curl.c";
 const bytes = await readFile(new URL(`..${source}`, import.meta.url));
 const half = Math.ceil(bytes.length / 2), parts = [bytes.subarray(0, half), bytes.subarray(half)];
-const sha256 = value => createHash("sha256").update(value).digest("hex");
 const manifest = JSON.stringify({ byteLength: bytes.length, sha256: sha256(bytes),
   parts: parts.map(part => ({ byteLength: part.length, sha256: sha256(part) })) });
 const partRequests = [];

@@ -18,7 +18,7 @@ import { pathToFileURL } from "node:url";
 import { refuseExisting } from "./export-cloudflare-pages.mjs";
 import { compareVersions, versionName } from "./release-layout.mjs";
 import { safePath } from "./site-release.mjs";
-import { sha256 } from "./snapshot-identity.mjs";
+import { sha256 } from "./sha256.mjs";
 
 // The bytes the site stores at URL. A file stored compressed arrives as stored
 // only when its encoding is asked for: Cloudflare decodes it for a request

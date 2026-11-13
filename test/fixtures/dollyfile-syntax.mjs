@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256 as digest } from "../../scripts/sha256.mjs";
 import { siteReference as site } from "../../src/static-asset.mjs";
 
 // Recipes the language accepts or rejects: the JavaScript recipe graph decides,
@@ -240,8 +240,6 @@ export const syntaxCases = [
   [false, probe(`SOURCE https://example.com/probe.tar ${zeros} tmp/probe.tar`)],
   [false, probe("SOURCE https://example.com/probe.tar /tmp/probe.tar")],
 ];
-
-const digest = text => createHash("sha256").update(text).digest("hex");
 
 export function resolvePins(files) {
   const resolved = new Map();
