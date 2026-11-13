@@ -5,7 +5,14 @@ project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${project_dir}/config/source-pins.sh"
 image="${DOLLY_EMSDK_IMAGE}"
 
-container_mounts=(-v "${project_dir}:/src" -v "${project_dir}:${project_dir}")
+mkdir -p \
+  "${project_dir}/build" \
+  "${project_dir}/build/generated" \
+  "${project_dir}/dist" \
+  "${project_dir}/.cache/emscripten"
+
+container_mounts=(-v "${project_dir}:/src" -v "${project_dir}:${project_dir}"
+  -v "${project_dir}/.cache/emscripten:/emsdk/upstream/emscripten/cache")
 for cached in "${project_dir}"/.cache/*; do
   if [[ -L "${cached}" && -d "${cached}" ]]; then
     resolved="$(readlink -f -- "${cached}")"
@@ -33,12 +40,6 @@ replace_if_changed() {
   if cmp -s -- "$1" "$2"; then rm -f -- "$1"; else mv -- "$1" "$2"; fi
 }
 
-mkdir -p \
-  "${project_dir}/build" \
-  "${project_dir}/build/generated" \
-  "${project_dir}/dist" \
-  "${project_dir}/.cache/emscripten"
-
 # The seed's compiler, built inside Dolly (docs/sources.md): the pinned archive
 # holds it and Clang's resource headers at their seed paths.
 seed_compiler="$(bash "${project_dir}/scripts/fetch-verified-file.sh" "${DOLLY_SEED_COMPILER_URL}" \
@@ -49,17 +50,6 @@ tar -xf "${seed_compiler}" -C "${project_dir}/build/seed-compiler"
 mapfile -t font_paths < <(bash "${project_dir}/scripts/fetch-iosevka.sh")
 web_font="${font_paths[0]}" page_font="${font_paths[2]}"
 
-if [[ "${container[0]}" == "podman" ]]; then
-  container=(podman run --rm --userns=keep-id \
-    "${container_mounts[@]}" \
-    -v "${project_dir}/.cache/emscripten:/emsdk/upstream/emscripten/cache" \
-    -w /src "${image}")
-else
-  container=(docker run --rm -u "$(id -u):$(id -g)" \
-    "${container_mounts[@]}" \
-    -v "${project_dir}/.cache/emscripten:/emsdk/upstream/emscripten/cache" \
-    -w /src "${image}")
-fi
 
 rm -f \
   "${project_dir}/dist/dolly.data" \
