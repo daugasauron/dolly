@@ -7,6 +7,16 @@
 The owner's question: "is everything I see on the network tab in chrome inspector during
 startup necessary? Does it download more stuff than it needs to launch?"
 
+## State (2026-11-13)
+
+The runtime Worker's bundle (`fix/worker-bundle`) broke `amy list` in `default` ("the page's image
+directory: I/O error"), found by the seed-hygiene work: the bundle holds its own `src/images.mjs`,
+which `loadImages` fills, and packages@0's transport, loaded by URL, imported a second copy whose
+`imageBase` nobody set. The Worker now hands its providers the image directory as a resource, as it
+does the runtime's base, and the transport imports nothing of the page (`fix/packages-images`,
+`696810c1a`, in the 0.1.6 round): `amy list` passes in Chromium and Firefox and fails without it.
+Other providers the Worker loads import only constants and functions from `src/`.
+
 ## State (2026-11-12)
 
 Owner (2026-11-12): fix these after the modularity work (`20261112-074501-modules-modular`), before
