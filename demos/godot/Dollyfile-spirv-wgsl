@@ -8,7 +8,7 @@ REQUIRES HOST threads@0
 # CMake, under Dolly's passes (spirv-wgsl/spirv_wgsl.cpp), in one static library.
 FROM /v0.1.6/demos/cmake/Dollyfile-cmake-build 76b6318b726277d353a225bcfa31a690e3cd5d72c5693cf19af54444674862be
 # Dawn's CMake requires a Python 3 interpreter.
-USE /v0.1.6/demos/python/Dollyfile-python 38ce3ccc546e7ee7aa61de170d56f2c8b109204be53ce6a76065b34c7c0c0930
+USE /v0.1.6/demos/python/Dollyfile-python 3e2f5f335db6fe738fe6e281cc87ae17285a16c785b75dc99cb85f236ecea2b2
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python

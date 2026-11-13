@@ -12,7 +12,7 @@ REQUIRES HOST threads@0
 FROM /v0.1.6/Dollyfile-system-tools ef2022e96a6698e96db9fe6a57ea865ff755bd3a5923da502b5855a4065282f7
 # The page's file exchange, here and in the images built on this one.
 INSTALL /v0.1.6/Dollyfile-transfer 765e6d7786d7ba602e2a4ff0da19ec94ee5e28c82f86d904d80bc29e847d1d9d
-INSTALL /v0.1.6/Dollyfile-session-recover 6c76f0c487bafa610de9623e261d0525ced6bcd62cea67a75a5afcd652563db3
+INSTALL /v0.1.6/Dollyfile-session-recover 097d4bdf9010710b8cec5f919eb54234c93a4e199235f256fac62b243660179f
 # The packages made of what system-build and system-tools built: this image
 # holds their files, and its record says so, as it does for every INSTALL.
 INSTALL /v0.1.6/Dollyfile-core 03ca90f448fb77376f87753c0402c50cd460bd775d64546578044971ed15e98d

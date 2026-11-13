@@ -15,9 +15,9 @@ REQUIRES HOST clipboard@0
 INSTALL /v0.1.6/Dollyfile-core 03ca90f448fb77376f87753c0402c50cd460bd775d64546578044971ed15e98d
 INSTALL /v0.1.6/Dollyfile-posix 170e7c2312195e2dc62a3c48d5e76f66b4a4859aff52a69b644f90c0e4e2f730
 INSTALL /v0.1.6/Dollyfile-display d6ed8ecc88fa129ae2543779a9c97cd99a94639bb75338af65915d0ec75ab24f
-INSTALL /v0.1.6/demos/godot/Dollyfile-lantern-drift c8981f6415c8e560eb7cd90b6b9ab7cd457b963b148fdebe20672236ef8545b3
-INSTALL /v0.1.6/demos/godot/Dollyfile-godot-editor 5ed23a00d374b74d7c68bdf43f953fa6a87157409aad3acc1645f5acd9974cf7
-COPY /v0.1.6/demos/godot/Dollyfile-lantern-drift c8981f6415c8e560eb7cd90b6b9ab7cd457b963b148fdebe20672236ef8545b3 /usr/share/lantern-drift/project /home/dolly/lantern-drift
+INSTALL /v0.1.6/demos/godot/Dollyfile-lantern-drift 7d4e0de55b1edb0133c39e1831cf05d086cf286876c36129ea60ad2a9c6eabf7
+INSTALL /v0.1.6/demos/godot/Dollyfile-godot-editor 19e443b7d61abc14ae2a27ceed14d23c5db97ae72bb4602096b0de8a1072807f
+COPY /v0.1.6/demos/godot/Dollyfile-lantern-drift 7d4e0de55b1edb0133c39e1831cf05d086cf286876c36129ea60ad2a9c6eabf7 /usr/share/lantern-drift/project /home/dolly/lantern-drift
 REQUIRES TOOL lantern-drift
 REQUIRES TOOL godot-editor
 

@@ -22,12 +22,12 @@ INSTALL /v0.1.6/Dollyfile-git ace3ed7642c9f01d62fa37deadc38cc2d6254bb2f6f1beae60
 INSTALL /v0.1.6/Dollyfile-curl 887fc8816011ea9c3acced514cf59ce447c6ad4cc8460dc31a7a9ec1be732441
 # download and upload, which Pi's prompt teaches (transfer).
 INSTALL /v0.1.6/Dollyfile-transfer 765e6d7786d7ba602e2a4ff0da19ec94ee5e28c82f86d904d80bc29e847d1d9d
-INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly a7df2dff36af88d5dd42fe44c5b8581f4260304fa4c721d014d3d94c18b6c637
-INSTALL /v0.1.6/Dollyfile-amy ab3b239149fbd75260fb6738176f1561cffabbf84ee4bf53bab617d59e0f85e1
+INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly 8f97e5fe938c4dd513f95d82753842276deff36b398aa761ed9fb3df1e15c3d5
+INSTALL /v0.1.6/Dollyfile-amy bd051322f30bcbaaa9c9834fd01717ba481e03284309cdc458f010dbb5833f57
 # nena enables the host modules a package needs beyond these.
 INSTALL /v0.1.6/Dollyfile-nena be678078578a4ba011216e15a872b421521de962ba3388d8ffc9676e6ee13db8
 # A model Pi runs in the tab: the provider, dolly-llama and Qwen3.5-2B.
-INSTALL /v0.1.6/demos/local-llm/Dollyfile-pi-llm 5b960210fea3dea459c04be7c42850f355f70d18703e6a44dd53368342a3ad44
+INSTALL /v0.1.6/demos/local-llm/Dollyfile-pi-llm cdd3f969e35b5c375e199512520c5850d46d070256e76f444fe235ba84f60131
 
 FILE /etc/dolly/init.slop
     if test -f "$HOME/.dollyrc"; then

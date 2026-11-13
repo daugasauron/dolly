@@ -10,7 +10,7 @@ REQUIRES HOST threads@0
 INSTALL /v0.1.6/Dollyfile-core 03ca90f448fb77376f87753c0402c50cd460bd775d64546578044971ed15e98d
 INSTALL /v0.1.6/Dollyfile-posix 170e7c2312195e2dc62a3c48d5e76f66b4a4859aff52a69b644f90c0e4e2f730
 INSTALL /v0.1.6/Dollyfile-display d6ed8ecc88fa129ae2543779a9c97cd99a94639bb75338af65915d0ec75ab24f
-INSTALL /v0.1.6/demos/speech/Dollyfile-speech-to-text b9b6d9d3b802fd857afdccdde611267064e0652a630e1576cc2bc29190e0d5d5
+INSTALL /v0.1.6/demos/speech/Dollyfile-speech-to-text a1063a061ea29476068463d63bdb75ed9f72988afde77af8ae9f9112a724fc2c
 
 FILE /etc/dolly/init.slop
     /bin/foreground -i /usr/bin/speech-to-text
