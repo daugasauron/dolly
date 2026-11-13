@@ -20,7 +20,7 @@ INSTALL /v0.1.6/demos/zero-ad/Dollyfile-freetype c13f77169bbbcaf7a75f0cf5cd94b45
 INSTALL /v0.1.6/demos/xonotic/Dollyfile-gmqcc 7ff976fba60b3724c4bf0dd430f8ebecdb8c58a4d4d77c2306e072d45ffad6b5
 # The gpu@0 client the render path draws with, and its shaders.
 INSTALL /v0.1.6/Dollyfile-libdolly-gpu cd9aa3833517983394b056238013d9dde703ac50678c090a1b4b04a9cec6cd46
-INSTALL /v0.1.6/demos/xonotic/Dollyfile-xonotic-shaders 6aad9d703f9e2cf4a8efefe5804f9d31b5c1cfedf8a07628e4e2dd61654360ea
+INSTALL /v0.1.6/demos/xonotic/Dollyfile-xonotic-shaders e9dd32ddcb3ebbd9d1cfd5e0b37c577dc26dcdce945285c973f51eb089bbf41a
 REQUIRES HEADER cpp
 REQUIRES HEADER gpu
 REQUIRES HEADER sdl2
@@ -37,7 +37,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL gzip
 REQUIRES TOOL rm
 
-SOURCE /v0.1.6/dist/static/xonotic/source.tar.gz b4827bafe0b1cf8c70bd89aa0f408afb4fcd9819541d2fcfd28bb036d813a0fe /tmp/xonotic/source.tar.gz
+SOURCE /v0.1.6/dist/static/xonotic/source.tar.gz d7ebe696610cbf8c235c3b4bdb6b062efa9c2cc85beb0a952117aa529f71e534 /tmp/xonotic/source.tar.gz
 SLOP gzip -dc /tmp/xonotic/source.tar.gz | tar -xf - -C /
 # __DATE__ and __TIME__ are the newest file time of Xonotic 0.8.6's source release, for reproducible builds.
 SLOP SOURCE_DATE_EPOCH=1687230584 make -f /usr/src/dolly/xonotic/Makefile

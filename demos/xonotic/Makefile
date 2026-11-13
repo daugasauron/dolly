@@ -72,26 +72,38 @@ $(BUILD)/client/dpgpurast.o: $(PORT)/dpgpurast.c
 	mkdir -p $(@D)
 	$(CC) $(CLIENT_CFLAGS) -I$(ENGINE) -c $< -o $@
 
-# The shader permutations the normal preset draws with (MODE:PERMUTATION, as
-# dpgpurast.c logs each with developer 1), rewritten by dpshaders, translated
-# by naga. Measured on stormkeep (the timedemo and a match), afterslime and
-# glowplant: for the lit modes 7, 11 and 12, every combination of the bits
-# they used there (diffuse 1, colormapping 8, glow 2048, specular 8192,
-# alpha kill 4194304, reflectcube 8388608), each also with offset mapping
-# (65536, the ultra preset's, asked for on space-elevator) and with relief
-# mapping over it (196608, the ultimate preset's). And 0:8388621, the generic mode
+# The shader permutations (MODE:PERMUTATION, as dpgpurast.c logs each with
+# developer 1), rewritten by dpshaders, translated by naga. The world's
+# surfaces take theirs from gl_rmain.c's R_SetupShader_Surface: the
+# vertex-colour mode 4 without lightmaps (the low preset, and vertex-lit
+# surfaces at every preset), the lightmap mode 5 with them (medium) and the
+# model-space deluxemap mode 7, always with diffuse 1, with deluxemapping
+# (normal and up); each with any of the bits a material sets (glow 2048, alpha
+# kill 4194304, alphagen vertex 536870912; specular 8192 for mode 7), and with
+# vertex texture blend 2 or reflectcube 8388608: the second layer shares its
+# texture unit with reflectcube's mask and the pants' colormap (dpsoftrast.h's
+# GL20TU_), so no permutation has both, and the world has no colormapping.
+# The models' mode 11 and the realtime lights' mode 12 with every combination
+# of the bits measured on stormkeep, afterslime and glowplant (diffuse 1,
+# colormapping 8, glow 2048, specular 8192, alpha kill, reflectcube). Each
+# also with offset mapping (65536, the ultra preset's) and with relief mapping
+# over it (196608, the ultimate preset's). And 0:8388621, the generic mode
 # with the texture's alpha suppressed, which draws a copy of the frame (the
 # loading screen's backdrop, bloom); for the postprocess mode 1, every
 # combination of view tint 4, bloom 4096 and the HUD's postprocessing 16384
-# (bloom asked for 4096, with the HUD's blur 20480). The water mode 14 at the
-# high preset (r_water 1), with and without the vertex's alpha (536870912), and
-# the vertex-colour mode with it and reflectcube (545259520), asked for on
-# glowplant, solarium, afterslime and bromine.
-LIGHTING_PERMUTATIONS := $(shell awk 'BEGIN { split("1 8 2048 8192 4194304 8388608", bit, " "); split("0 65536 196608", mapping, " "); \
-  for (m = 1; m <= 3; m++) for (set = 0; set < 64; set++) { p = mapping[m]; for (i = 0; i < 6; i++) if (int(set / 2 ^ i) % 2) p += bit[i + 1]; printf "%d ", p } }')
-SHADER_PAIRS := 0:0 0:1 0:4 0:12 0:13 0:8388621 1:0 1:4 1:4096 1:4100 1:16384 1:16388 1:20480 1:20484 2:0 4:0 4:2048 4:4194304 \
-  4:545259520 13:0 14:0 14:536870912 \
-  $(foreach mode,7 11 12,$(foreach permutation,$(LIGHTING_PERMUTATIONS),$(mode):$(permutation)))
+# (bloom asked for 4096, with the HUD's blur 20480); the water mode 14 at the
+# high preset (r_water 1), with and without the vertex's alpha (536870912),
+# asked for on glowplant, solarium, afterslime and bromine. dpgpurast.c draws
+# any other permutation (fog, on courtfun and warfare) as gl_rmain.c draws one
+# that does not compile: with its highest bits removed until one is here.
+combinations = $(shell awk 'BEGIN { n = split("$(2)", bit, " "); split("0 65536 196608", mapping, " "); \
+  for (m = 1; m <= 3; m++) for (set = 0; set < 2 ^ n; set++) { p = $(1) + mapping[m]; \
+  for (i = 0; i < n; i++) if (int(set / 2 ^ i) % 2) p += bit[i + 1]; printf "%d ", p } }')
+world = $(foreach layer,0 2 8388608,$(call combinations,$(1) + $(layer),$(2) 2048 4194304 536870912))
+SHADER_PAIRS := 0:0 0:1 0:4 0:12 0:13 0:8388621 1:0 1:4 1:4096 1:4100 1:16384 1:16388 1:20480 1:20484 2:0 13:0 14:0 14:536870912 \
+  $(foreach permutation,$(call world,0),4:$(permutation) 5:$(permutation)) \
+  $(foreach permutation,$(call world,1,8192),7:$(permutation)) \
+  $(foreach mode,11 12,$(foreach permutation,$(call combinations,0,1 8 2048 8192 4194304 8388608),$(mode):$(permutation)))
 SHADERS := /usr/share/xonotic/shaders
 GLSL := $(BUILD)/glsl
 SHADER_NAMES := $(subst :,-,$(SHADER_PAIRS))

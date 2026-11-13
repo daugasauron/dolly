@@ -64,7 +64,7 @@ gpu_texture_t;
 typedef struct pair_s
 {
 	int mode, loaded;
-	dpuint64 permutation;
+	dpuint64 permutation, drawn; // drawn: the permutation whose WGSL draws it
 	uint64_t vertex, fragment, clipped; // clipped: the fragment stage that discards behind the clip plane
 	int inputs[ATTRIBUTES]; // the vertex inputs the vertex stage reads
 	int units, cubes; // bit u: texture unit u (binding 2u, sampler 2u+1); the cube ones
@@ -373,6 +373,26 @@ static void ReadInterface(pair_t *pair, const char *vertex, const char *fragment
 	}
 }
 
+static qboolean Translated(int mode, dpuint64 permutation)
+{
+	char path[256];
+	dpsnprintf(path, sizeof(path), SHADER_DIRECTORY "/%d-%llu.uniforms", mode, (unsigned long long)permutation);
+	FILE *f = fopen(path, "rb");
+	if (f)
+		fclose(f);
+	return f != NULL;
+}
+
+// The permutation that draws PERMUTATION: itself when it has WGSL, else the first with WGSL as its
+// bits are removed from the highest down, as R_SetupShader_SetPermutationGLSL (gl_rmain.c) draws a
+// permutation that does not compile; 0 when none has.
+static dpuint64 Drawn(int mode, dpuint64 permutation)
+{
+	while (permutation && !Translated(mode, permutation))
+		permutation &= ~(1ull << (63 - __builtin_clzll(permutation)));
+	return permutation;
+}
+
 static pair_t *LoadPair(int mode, dpuint64 permutation)
 {
 	for (int i = 0; i < pairs_count; i++)
@@ -387,12 +407,16 @@ static pair_t *LoadPair(int mode, dpuint64 permutation)
 	Con_DPrintf("dpgpurast: shader mode %d permutation %llu\n", mode, (unsigned long long)permutation);
 	if (!gpu_open)
 		return pair;
+	pair->drawn = Drawn(mode, permutation);
+	if (pair->drawn != permutation)
+		Con_Printf("dpgpurast: no WGSL for shader mode %d permutation %llu, drawn as permutation %llu\n", mode,
+			(unsigned long long)permutation, (unsigned long long)pair->drawn);
 	char path[256], *vertex, *fragment, *uniforms;
-	dpsnprintf(path, sizeof(path), SHADER_DIRECTORY "/%d-%llu.vert.wgsl", mode, (unsigned long long)permutation);
+	dpsnprintf(path, sizeof(path), SHADER_DIRECTORY "/%d-%llu.vert.wgsl", mode, (unsigned long long)pair->drawn);
 	vertex = ReadFile(path);
-	dpsnprintf(path, sizeof(path), SHADER_DIRECTORY "/%d-%llu.frag.wgsl", mode, (unsigned long long)permutation);
+	dpsnprintf(path, sizeof(path), SHADER_DIRECTORY "/%d-%llu.frag.wgsl", mode, (unsigned long long)pair->drawn);
 	fragment = ReadFile(path);
-	dpsnprintf(path, sizeof(path), SHADER_DIRECTORY "/%d-%llu.uniforms", mode, (unsigned long long)permutation);
+	dpsnprintf(path, sizeof(path), SHADER_DIRECTORY "/%d-%llu.uniforms", mode, (unsigned long long)pair->drawn);
 	uniforms = ReadFile(path);
 	if (vertex && fragment && uniforms)
 	{
@@ -415,7 +439,7 @@ static uint64_t ClippedFragment(pair_t *pair)
 	if (!pair->clipped)
 	{
 		char path[256];
-		dpsnprintf(path, sizeof(path), SHADER_DIRECTORY "/%d-%llu.clip.wgsl", pair->mode, (unsigned long long)pair->permutation);
+		dpsnprintf(path, sizeof(path), SHADER_DIRECTORY "/%d-%llu.clip.wgsl", pair->mode, (unsigned long long)pair->drawn);
 		char *fragment = ReadFile(path);
 		if (!fragment)
 			Sys_Error("dpgpurast: no %s", path);
