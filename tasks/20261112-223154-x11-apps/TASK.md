@@ -1,6 +1,6 @@
 # PhotoCraft and Godot install with amy and run on x11-desktop
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 400
 - TAGS: x11,godot,photocraft,amy,0.1.6,owner
 
@@ -67,7 +67,16 @@ server showed 28.2 and 49.0 frames a second of it, and the editor's window drew 
 command, its colours its own (`build/godot-x11-editor-chromium.png`). Logs
 `build/godot-x11-chromium.log`, `build/godot-x11-firefox.log`.
 
-Left: PhotoCraft in Chrome and Firefox (`demos/photocraft/test/photocraft-x11-browser.mjs`).
+PhotoCraft, on its build of 13:37 (`photocraft-cli` now links x11-window through wgpu's backend,
+which presents to an X window): `demos/photocraft/test/photocraft-x11-browser.mjs` passed in
+Chrome and Firefox: `amy install photocraft` and `photocraft` on the Great Wave drew its window 21
+and 23 s after the command, in its own colours (`build/photocraft-x11-chromium.png`); Ctrl+I's
+inverted picture showed within a frame, a drag of the title bar moved it 200 pixels
+(`build/photocraft-x11-moved-chromium.png`), and twm's Delete closed it after PhotoCraft asked to
+save, with no panic in its log. Logs `build/photocraft-x11-{chromium,firefox}.log`.
+
+Not done: twm shows PhotoCraft's title with its em dash as other characters (x11-window sets
+`WM_NAME` as Latin-1 text); resizing with the window manager was not tried.
 
 ## Do
 
@@ -82,3 +91,10 @@ it is usable, and keep the page-canvas images as they are.
 In Chrome and Firefox: from a fresh `x11-desktop`, `amy install` and the program's command open a
 window of Godot's editor, a Godot game, and PhotoCraft with a photo; each takes input and closes;
 a browser test for each.
+
+## Closed (2026-11-13, `feature/x11-apps`)
+
+Done when holds: from a fresh `x11-desktop`, `amy install` and the command open windows of
+Godot's editor and Lantern Drift (`godot-x11-browser.mjs`) and PhotoCraft with the Great Wave
+(`photocraft-x11-browser.mjs`), each takes keys or the pointer and closes at twm's Delete, in
+Chrome and Firefox. The title's em dash is left above.

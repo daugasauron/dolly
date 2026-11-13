@@ -1,6 +1,6 @@
 # Copy and paste in Godot and PhotoCraft: a program reads and writes the page's clipboard
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 370
 - TAGS: input,clipboard,godot,photocraft,owner,0.1.6
 
@@ -44,8 +44,13 @@ was the browser's clipboard's, pasted (Ctrl+V) into another node's rename field,
 wrote to the browser's clipboard pasted as a third node's name; the saved scene holds both names
 (`build/godot-projects-{chromium,firefox}.log`).
 
-Left: PhotoCraft's (`demos/photocraft/test/photocraft-gpu-browser.mjs`: text copied outside pastes
-into the New Layer dialog's name, and its Ctrl+C gives it back to the browser).
+PhotoCraft, on its build of 13:37: `demos/photocraft/test/photocraft-gpu-browser.mjs` passed in
+Chrome and Firefox: text the test wrote to the browser's clipboard pasted (Ctrl+V) into the New
+Layer dialog's name, and the field's Ctrl+A, Ctrl+C put it back in the browser's clipboard
+(`build/photocraft-gpu-{chromium,firefox}.log`). One Chrome run failed first: egui takes a frame's
+events together, and the test's Ctrl+C came in the frame of its Ctrl+A, before the selection; the
+test now waits half a second between them, as between the click that focuses the field and its
+first key.
 
 ## Do
 
@@ -62,3 +67,11 @@ in `docs/browser-boundary.md`, then implement it in Godot's display server (`cli
 In Chrome and Firefox: text copied in Godot's editor (a node's name, a script line) pastes into
 another field there and into the browser outside the page, and text copied outside pastes into
 Godot; the same in PhotoCraft (a layer name or another text field); a browser test for each.
+
+## Closed (2026-11-13, `feature/x11-apps`)
+
+Done when holds: copy and paste between the browser and Godot's editor (both games' projects) and
+PhotoCraft, in Chrome and Firefox, each by its browser test (`godot-projects-browser.mjs`,
+`photocraft-gpu-browser.mjs`), and the module's own (`test/clipboard-browser.mjs`). A script line
+was not copied: the editor's script editor takes the same `clipboard_get` and `clipboard_set` as
+its rename field.

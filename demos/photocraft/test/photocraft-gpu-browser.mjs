@@ -84,12 +84,16 @@ for (const name of browsers) {
     await sleep(1000);
     await page.mouse.click(1396, 87);
     await sleep(2000);
+    // egui takes a frame's events together: a key pressed in the frame of the click that focuses
+    // the field, or of the Ctrl+A before a copy, would act before them.
     await page.mouse.click(750, 462);
+    await sleep(500);
     await page.keyboard.press("Control+a");
     await page.keyboard.press("Control+v");
     await sleep(1000);
     await page.keyboard.press("Control+a");
     await page.evaluate(() => { delete document.documentElement.dataset.clipboardCopy; });
+    await sleep(500);
     await page.keyboard.press("Control+c");
     await page.waitForFunction(() => document.documentElement.dataset.clipboardCopy === "copied", null, { timeout: 10_000 });
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), "Copied outside");

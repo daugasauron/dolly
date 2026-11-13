@@ -12,6 +12,14 @@ through zenity's dialog and PhotoCraft's JPEG options
 ([test](test/photocraft-gpu-browser.mjs)); a frame follows a move of the pointer over its menus
 in 14 ms at the median, 16 at the 90th percentile (30 moves). Cargo compiles the package in 28 minutes in the image
 build, and zenity in 5 more. The update check finds no network, as Dolly gives programs none.
+Text copied outside the page pastes into the New Layer dialog's name, and the field's Ctrl+C
+gives it back to the browser's clipboard (the same test, Chrome and Firefox, 2026-11-13).
+
+On `x11-desktop` (2026-11-13, [test](test/photocraft-x11-browser.mjs)), `amy install photocraft`
+and `photocraft` with the Great Wave open its window 21 to 23 s after the command, in Chrome and
+Firefox; Ctrl+I's inverted picture shows within a frame, a drag of the title bar moves it, and
+twm's Delete closes it after PhotoCraft asks to save. Its title shows the em dash as other
+characters: twm reads `WM_NAME`, which x11-window sets as Latin-1.
 
 ## Images
 
