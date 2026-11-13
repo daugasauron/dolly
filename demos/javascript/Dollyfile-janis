@@ -10,7 +10,7 @@ REQUIRES HOST http@0
 # links -ldolly-js -lquickjs and reads the two scripts kept here when it starts.
 FROM /v0.1.6/Dollyfile-system-tools 69127104c12ae52e00d0e0a8787c3c99ece25f59a2c382fc9c811d66a090e5ec
 INSTALL /v0.1.6/demos/javascript/Dollyfile-quickjs 2d85a9830a2414ac566579a0f54f4f8a8106e0a88e293f24e35395278cb7741b
-USE /v0.1.6/Dollyfile-libdolly-download 95c2cc70e0449df33d18e0315becc264b3166b75e93ca0b8e998cb99d26a8a89
+INSTALL /v0.1.6/Dollyfile-libdolly-download 95c2cc70e0449df33d18e0315becc264b3166b75e93ca0b8e998cb99d26a8a89
 
 REQUIRES HEADER libc
 REQUIRES HEADER runtime

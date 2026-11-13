@@ -19,7 +19,7 @@ SLOP tar \
   -xf /tmp/libffi.tar \
   -C /
 
-SOURCE /v0.1.6/dist/static/python/runtimes/libffi-dolly.c d5a180a210d829268b9686620fbfa2e5a5e439a2b0fe46ca55b12555f4b6f0d8 /usr/src/libffi/kernel/dolly.c
+SOURCE /v0.1.6/dist/static/python/runtimes/libffi-dolly.c d5a180a210d829268b9686620fbfa2e5a5e439a2b0fe46ca55b12555f4b6f0d8 /usr/src/libffi/src/dolly.c
 
 FILE /tmp/libffi/Makefile
     .RECIPEPREFIX := >
