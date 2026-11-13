@@ -115,11 +115,12 @@ export function createReleaseServer(releases) {
           response.writeHead(416, { ...isolationHeaders, "content-range": `bytes */${body.length}` }).end();
           return;
         }
-        response.writeHead(206, { ...headers, "content-range": `bytes ${start}-${end}/${body.length}` });
+        response.writeHead(206, { ...headers, "content-range": `bytes ${start}-${end}/${body.length}`,
+          "content-length": end + 1 - start });
         response.end(request.method === "HEAD" ? undefined : body.subarray(start, end + 1));
         return;
       }
-      response.writeHead(200, headers);
+      response.writeHead(200, { ...headers, "content-length": body.length });
       response.end(request.method === "HEAD" ? undefined : body);
     } catch {
       response.writeHead(404, isolationHeaders).end("not found");

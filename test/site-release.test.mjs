@@ -132,7 +132,8 @@ test("the release server serves the current release as deployed: its files under
   assert.equal((await get("/nowhere")).headers.get("cache-control"), "no-store");
   // Ranges, which a video plays from.
   const part = await fetch(`${origin}/v1.2.3/src/browser.mjs`, { headers: { range: "bytes=4-7" }, signal: AbortSignal.timeout(5000) });
-  assert.deepEqual([part.status, part.headers.get("content-range"), await part.text()], [206, "bytes 4-7/13", "cand"]);
+  assert.deepEqual([part.status, part.headers.get("content-range"), part.headers.get("content-length"), await part.text()],
+    [206, "bytes 4-7/13", "4", "cand"]);
   const past = await fetch(`${origin}/v1.2.3/src/browser.mjs`, { headers: { range: "bytes=20-" }, signal: AbortSignal.timeout(5000) });
   assert.equal(past.status, 416);
   const current = await publish("1.2.3", "new candidate");

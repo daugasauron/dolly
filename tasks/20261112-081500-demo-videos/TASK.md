@@ -8,6 +8,17 @@ Owner (2026-11-12): "I want 2 new demo videos. One video that showcases the c co
 create some fun program, and one video that creates the bhop game in godot (the one that becomes an
 image). Make sure they are not forgotten to be included in the release."
 
+## State (2026-11-13)
+
+The packaged release on 9045 (`973b3ad4…`) holds 39 videos under `/v0.1.6/agents/`; each plays a
+second in Chrome 156 and Firefox from the packaged files (`work/evidence-2026-11-13/videos/`,
+`play-all.mjs`, `play-all-file.log`). Through the local release server Chrome stalled at the first
+frame of 27 of them: it answered every request whole and chunked, without ranges or a length.
+`scripts/serve.mjs` answers ranges and lengths now (`81ffda9ab` and after), and through it all 39
+play in both browsers (`play-all-9046-length.log` for Chrome; Firefox with each video's load
+ended before the next). `docs/deployment.md` names the media step. Left: the x11 workbench's video
+(`feature/x11-workbench`) in tonight's packaged release, played the same way; then closed.
+
 ## State (2026-11-12)
 
 Owner (2026-11-12): "Just add all the videos to git ?" Done in `92d7d3aa4`:
