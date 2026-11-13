@@ -1,11 +1,22 @@
 import { DOLLY_SESSION_MAX_BYTES, DOLLY_SESSION_METADATA_MAX_BYTES as metadataLimit,
   validateSessionRecord } from "./session-store.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
-import { sha256 } from "./static-asset.mjs";
+import { Sha256 } from "./sha256.mjs";
 import { DOLLY_VERSION } from "./version.mjs";
 
 const magic = new TextEncoder().encode("DOLLYSF1");
 const headerSize = magic.length + 4;
+
+// A save's checksum, a chunk at a time: past 2 GiB a browser gives no buffer
+// of a Blob, or one of the wrong length.
+async function sha256(blob) {
+  const hash = new Sha256(), reader = blob.stream().getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) return hash.hex();
+    hash.update(value);
+  }
+}
 
 export async function exportSessionFile(record) {
   validateSessionRecord(record);
@@ -13,7 +24,7 @@ export async function exportSessionFile(record) {
   const metadata = new TextEncoder().encode(JSON.stringify({
     version: DOLLY_VERSION, name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding,
     ...(customImage === undefined ? {} : { customImage }),
-    byteLength: bytes.size, sha256: await sha256(await bytes.arrayBuffer()),
+    byteLength: bytes.size, sha256: await sha256(bytes),
   }));
   if (metadata.byteLength > metadataLimit) throw new Error("Session metadata is too large");
   const header = new Uint8Array(headerSize);
@@ -50,6 +61,6 @@ export async function importSessionFile(file) {
     ...(customImage === undefined ? {} : { customImage }) };
   validateSessionRecord(record);
   if (record.customImage) inspectDollyfile(record.customImage.source);
-  if (await sha256(await bytes.arrayBuffer()) !== metadata.sha256) throw new Error("Session file checksum failed; the file is damaged");
+  if (await sha256(bytes) !== metadata.sha256) throw new Error("Session file checksum failed; the file is damaged");
   return record;
 }
