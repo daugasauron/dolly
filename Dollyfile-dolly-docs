@@ -17,11 +17,11 @@ SOURCE /v0.1.6/docs/dollyfile.md 14016f98ac90e9010c465bce7ad8cd5120140ce1cd9f614
 SOURCE /v0.1.6/docs/architecture.md 9d461fc72052abbf479231991c6f34adc43b35b71d3ae3049d00fc9b853e15dd /usr/share/doc/dolly/docs/architecture.md
 SOURCE /v0.1.6/docs/browser-boundary.md 83d6fbd904c0b431f97bbf603600759ae70f3effa50802657aa9c0856881f6c5 /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE /v0.1.6/docs/image-build-service.md 048b9f975a26a65438f411c2140b023d8553fd8cd1d288cec683473d9161875d /usr/share/doc/dolly/docs/image-build-service.md
-SOURCE /v0.1.6/abi/README.md 90b9fed7471fdc8c587b92c0ea6bc0701497a86ffd3bd5236447140c1428a4aa /usr/share/doc/dolly/abi/README.md
+SOURCE /v0.1.6/abi/README.md 5d16f231b42602bf07813fdfd181255124d29bdc5e0d61cc2be2518dc02b3183 /usr/share/doc/dolly/abi/README.md
 SOURCE /v0.1.6/host/README.md e59f8eecc44240c90e20730fd4ea45206fc4a1e3795dbe8d95524533c153c151 /usr/share/doc/dolly/host/README.md
 SOURCE /v0.1.6/abi/dolly-browser-0.wat 7bea6213b5ba9daebb36b0844501406f3ad97a26784621bc99f52c46ae64c79c /usr/share/doc/dolly/abi/dolly-browser-0.wat
 SOURCE /v0.1.6/abi/dolly-host-0.wat 7d1a02e3317086c06ca022e917d6d8537d9a005e9804e5ffdf256dc7d70c8671 /usr/share/doc/dolly/abi/dolly-host-0.wat
-SOURCE /v0.1.6/abi/dolly-image-0.wat 7c51564f3550e3428ffa49e4cdbca6d4a573585de0c03dd09e83e2a16599dedf /usr/share/doc/dolly/abi/dolly-image-0.wat
+SOURCE /v0.1.6/abi/dolly-image-0.wat 809c999d3c7fce4c4bc0f29b6587a17f6a53a8f815ec9b7564c79d866ae7e4d7 /usr/share/doc/dolly/abi/dolly-image-0.wat
 SOURCE /v0.1.6/abi/dolly-kernel-plugin-0.wat 8ed18bd8b9221ac11e077bba609db2e161b34f90f3ab1adc088a5597bb409d36 /usr/share/doc/dolly/abi/dolly-kernel-plugin-0.wat
 SOURCE /v0.1.6/docs/input.md fde2e1ac6194f0fe47e3b827507dcd9de0e8fa282fac9bb13a753369544cad84 /usr/share/doc/dolly/docs/input.md
 SOURCE /v0.1.6/abi/dolly-process-0.wat f2e58c46f0267e1cf6a727d6ca7cbdc1b04b8f42fce0659bcf13707a47f4e85a /usr/share/doc/dolly/abi/dolly-process-0.wat

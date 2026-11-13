@@ -11,9 +11,6 @@
 #include <unistd.h>
 
 enum {
-  DOLLY_SNAPSHOT_VERSION = 2,
-  DOLLY_SNAPSHOT_HEADER_SIZE = 16,
-  DOLLY_SNAPSHOT_MAX_FILES = 100000,
   DOLLY_SNAPSHOT_MAX_MANIFEST_SIZE = 8 * 1024 * 1024,
 };
 
@@ -63,7 +60,7 @@ static int load_manifest(dolly_snapshot_manifest *manifest) {
   for (size_t index = 0; index < size; ++index) {
     if (manifest->storage[index] == '\n') manifest->count++;
   }
-  if (manifest->count == 0 || manifest->count > DOLLY_SNAPSHOT_MAX_FILES) {
+  if (manifest->count == 0 || manifest->count > DOLLY_SNAPSHOT_MAX_PATHS) {
     fprintf(stderr, "dolly: invalid image manifest count: %zu\n", manifest->count);
     dispose_manifest(manifest);
     errno = E2BIG;
@@ -172,7 +169,7 @@ uint32_t dolly_snapshot_format_version(void) {
 }
 
 uintptr_t dolly_snapshot_restore_address(uintptr_t size) {
-  if (size < DOLLY_SNAPSHOT_HEADER_SIZE || size > DOLLY_SNAPSHOT_MAX_SIZE) {
+  if (size < DOLLY_SNAPSHOT_HEADER_BYTES || size > DOLLY_SNAPSHOT_MAX_SIZE) {
     return 0;
   }
   if (size > restore_capacity) {
@@ -191,7 +188,7 @@ static int restore_staged(uintptr_t size, const char *only_path) {
     return -1;
   }
   const size_t manifest_count = manifest.count;
-  if (restore_bytes == NULL || size < DOLLY_SNAPSHOT_HEADER_SIZE ||
+  if (restore_bytes == NULL || size < DOLLY_SNAPSHOT_HEADER_BYTES ||
       size > restore_capacity) {
     dispose_manifest(&manifest);
     errno = EINVAL;
@@ -222,8 +219,8 @@ static int restore_staged(uintptr_t size, const char *only_path) {
     const unsigned char *data;
     if (dolly_fs_take_u32(&cursor, end, &records[record].kind) != 0 ||
         records[record].kind < DOLLY_FS_DIRECTORY || records[record].kind > DOLLY_FS_SYMLINK ||
-        dolly_fs_take_u32(&cursor, end, &path_length) != 0 || path_length == 0 ||
-        path_length > 4096 ||
+        dolly_fs_take_u32(&cursor, end, &path_length) != 0 ||
+        path_length < DOLLY_SNAPSHOT_PATH_MIN_BYTES || path_length > DOLLY_SNAPSHOT_PATH_MAX_BYTES ||
         dolly_fs_take_u64(&cursor, end, &data_length_64) != 0 ||
         data_length_64 > DOLLY_SNAPSHOT_MAX_SIZE ||
         dolly_fs_take_bytes(&cursor, end, path_length, &path) != 0 ||
@@ -279,7 +276,7 @@ int dolly_snapshot_restore_staged(uintptr_t size, const char *only_path) {
 static struct {
   dolly_snapshot_manifest manifest;
   unsigned char *seen;
-  unsigned char scratch[4096];
+  unsigned char scratch[DOLLY_SNAPSHOT_PATH_MAX_BYTES + 1];
   uintptr_t expected_size, total, data_left;
   size_t used, need, index, previous, restored;
   uint32_t phase, count, remaining;
@@ -301,7 +298,7 @@ static int stream_dispose(int result) {
 }
 
 int dolly_snapshot_stream_begin(uintptr_t size) {
-  if (stream.active || restore_capacity == 0 || size < 16 || size > DOLLY_SNAPSHOT_MAX_SIZE) {
+  if (stream.active || restore_capacity == 0 || size < DOLLY_SNAPSHOT_HEADER_BYTES || size > DOLLY_SNAPSHOT_MAX_SIZE) {
     errno = EINVAL;
     return stream_dispose(-1);
   }
@@ -309,8 +306,8 @@ int dolly_snapshot_stream_begin(uintptr_t size) {
   stream.seen = calloc(stream.manifest.count, 1);
   if (stream.seen == NULL) return stream_dispose(-1);
   stream.expected_size = size;
-  stream.total = 16;
-  stream.need = 16;
+  stream.total = DOLLY_SNAPSHOT_HEADER_BYTES;
+  stream.need = DOLLY_SNAPSHOT_HEADER_BYTES;
   stream.descriptor = -1;
   stream.active = 1;
   return 0;
@@ -330,7 +327,7 @@ static int stream_record_done(void) {
   stream.previous = stream.index;
   stream.phase = --stream.remaining ? 1 : 4;
   stream.used = 0;
-  stream.need = 16;
+  stream.need = DOLLY_SNAPSHOT_RECORD_HEADER_BYTES;
   return 0;
 }
 
@@ -351,10 +348,11 @@ static int stream_field(void) {
     if (dolly_fs_take_u32(&cursor, end, &stream.record.kind) != 0 ||
         dolly_fs_take_u32(&cursor, end, &path_size) != 0 || dolly_fs_take_u64(&cursor, end, &size) != 0 ||
         stream.record.kind < DOLLY_FS_DIRECTORY || stream.record.kind > DOLLY_FS_SYMLINK ||
-        path_size < 2 || path_size >= sizeof(stream.scratch) || size > DOLLY_SNAPSHOT_MAX_SIZE ||
-        (stream.record.kind == DOLLY_FS_DIRECTORY && size != 0) ||
-        (stream.record.kind == DOLLY_FS_SYMLINK && (size == 0 || size >= sizeof(stream.scratch))) ||
-        checked_add(&stream.total, 16 + path_size) != 0 ||
+        path_size < DOLLY_SNAPSHOT_PATH_MIN_BYTES || path_size > DOLLY_SNAPSHOT_PATH_MAX_BYTES ||
+        size > DOLLY_SNAPSHOT_MAX_SIZE || (stream.record.kind == DOLLY_FS_DIRECTORY && size != 0) ||
+        (stream.record.kind == DOLLY_FS_SYMLINK &&
+         (size < DOLLY_SNAPSHOT_SYMLINK_MIN_BYTES || size > DOLLY_SNAPSHOT_SYMLINK_MAX_BYTES)) ||
+        checked_add(&stream.total, DOLLY_SNAPSHOT_RECORD_HEADER_BYTES + path_size) != 0 ||
         checked_add(&stream.total, size) != 0 || stream.total > stream.expected_size) return -1;
     stream.record.size = size;
     stream.data_left = size;
@@ -420,7 +418,7 @@ int dolly_snapshot_stream_write(uintptr_t size, uint32_t end_part) {
     if (stream.phase != 4) goto invalid;
     stream.phase = 0;
     stream.used = 0;
-    stream.need = 16;
+    stream.need = DOLLY_SNAPSHOT_HEADER_BYTES;
   }
   return 0;
 invalid:
@@ -466,7 +464,7 @@ uintptr_t dolly_snapshot_capture_begin(void) {
     return 0;
   }
   const size_t count = capture.manifest.count;
-  uintptr_t total = DOLLY_SNAPSHOT_HEADER_SIZE;
+  uintptr_t total = DOLLY_SNAPSHOT_HEADER_BYTES;
   capture.metadata = calloc(count, sizeof(*capture.metadata));
   if (capture.metadata == NULL) {
     fprintf(stderr, "dolly: snapshot metadata allocation failed: %s\n", strerror(errno));
@@ -481,7 +479,7 @@ uintptr_t dolly_snapshot_capture_begin(void) {
       capture_dispose();
       return 0;
     }
-    if (record->size > DOLLY_SNAPSHOT_MAX_SIZE || checked_add(&total, 16) != 0 ||
+    if (record->size > DOLLY_SNAPSHOT_MAX_SIZE || checked_add(&total, DOLLY_SNAPSHOT_RECORD_HEADER_BYTES) != 0 ||
         checked_add(&total, strlen(record->path)) != 0 || checked_add(&total, record->size) != 0) {
       fprintf(stderr, "dolly: system snapshot exceeds its size limit\n");
       capture_dispose();
@@ -493,7 +491,7 @@ uintptr_t dolly_snapshot_capture_begin(void) {
   cursor += sizeof(DOLLY_SNAPSHOT_MAGIC);
   dolly_fs_put_u32(&cursor, DOLLY_SNAPSHOT_VERSION);
   dolly_fs_put_u32(&cursor, (uint32_t)count);
-  capture.pending_size = DOLLY_SNAPSHOT_HEADER_SIZE;
+  capture.pending_size = DOLLY_SNAPSHOT_HEADER_BYTES;
   capture.descriptor = -1;
   capture.active = 1;
   return total;

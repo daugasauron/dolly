@@ -7,7 +7,8 @@ import { DOLLY_IMAGES, imageBase } from "./images.mjs";
 import { imageInputs, imageInputsMatch, recipesDigest } from "./image-inputs.mjs";
 import { hostRequirements } from "../host/requirements.mjs";
 import { siteReference, decodeStaticAsset, hex } from "./static-asset.mjs";
-import { scanSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
+import { scanSnapshotRecords, validateSnapshotPacks, snapshotHeader, recordHeader, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
+import { DOLLY_SNAPSHOT_MAX_PATHS } from "../host/runtime/abi.mjs";
 import { unretainedPath } from "./image-names.mjs";
 import { openPackStore } from "./pack-store.mjs";
 import { Sha256 } from "./sha256.mjs";
@@ -78,7 +79,7 @@ function checkedMetadata(image, metadata, checked) {
       metadata.byteLength > snapshotSizeLimit || metadata.encoding !== "packs" ||
       !/^[0-9a-f]{64}$/.test(metadata.sha256) ||
       !Array.isArray(metadata.manifest) || metadata.manifest.length === 0 ||
-      metadata.manifest.length > 100_000) {
+      metadata.manifest.length > DOLLY_SNAPSHOT_MAX_PATHS) {
     throw new Error("The packaged system snapshot metadata does not match this Dolly build");
   }
   validateSnapshotPacks(metadata);
@@ -245,22 +246,6 @@ export async function streamPackagedSystemSnapshot(metadata, write, endPart, sig
   }
 }
 
-function snapshotHeader(count) {
-  const bytes = new Uint8Array(16), view = new DataView(bytes.buffer);
-  bytes.set(encoder.encode("DOLLYSNP"));
-  view.setUint32(8, 2, true);
-  view.setUint32(12, count, true);
-  return bytes;
-}
-
-function recordHeader(kind, path, size) {
-  const bytes = new Uint8Array(16 + path.length), view = new DataView(bytes.buffer);
-  view.setUint32(0, kind, true);
-  view.setUint32(4, path.length, true);
-  view.setBigUint64(8, BigInt(size), true);
-  bytes.set(path, 16);
-  return bytes;
-}
 
 function compareBytes(left, right) {
   for (let index = 0; index < Math.min(left.length, right.length); index += 1) {

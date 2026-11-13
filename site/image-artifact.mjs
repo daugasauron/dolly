@@ -16,6 +16,7 @@ import { recipeFileName } from "./dollyfile-view.mjs";
 import { sha256 } from "../page/static-asset.mjs";
 import { Sha256 } from "../page/sha256.mjs";
 import { scanSnapshotRecords, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "../page/snapshot-records.mjs";
+import { DOLLY_SNAPSHOT_RECORD_FILE } from "../host/runtime/abi.mjs";
 export { sha256 };
 
 const STORE_DIRECTORY = "dolly-images";
@@ -75,14 +76,14 @@ export async function describeImageArtifact(source, recipeSha256, inputs = []) {
   try {
     const { records, byteLength } = await scanSnapshotRecords(pieces, path => path.startsWith("/etc/dolly/"));
     const recipe = records.get("/etc/dolly/Dollyfile");
-    if (recipe?.kind !== 2 || await sha256(recipe.data) !== recipeSha256 ||
-        records.get("/etc/dolly/artifact")?.kind !== 2) throw new Error("artifact recipe identity mismatch");
+    if (recipe?.kind !== DOLLY_SNAPSHOT_RECORD_FILE || await sha256(recipe.data) !== recipeSha256 ||
+        records.get("/etc/dolly/artifact")?.kind !== DOLLY_SNAPSHOT_RECORD_FILE) throw new Error("artifact recipe identity mismatch");
     // The artifact retains every recipe it was built from, by file name.
     const graph = await loadRecipeGraph(reference => {
       if (reference === "Dollyfile") return recipe.data;
       const path = `/etc/dolly/recipes/${recipeFileName(reference)}`;
       const record = records.get(path);
-      if (record?.kind !== 2) throw new Error(`artifact does not retain recipe ${reference}`);
+      if (record?.kind !== DOLLY_SNAPSHOT_RECORD_FILE) throw new Error(`artifact does not retain recipe ${reference}`);
       return record.data;
     }, "Dollyfile");
     return { buildId: DOLLY_IMAGE_BUILD_ID, recipeSha256, sha256: hash.hex(),

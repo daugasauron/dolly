@@ -1,6 +1,7 @@
 #ifndef DOLLY_FS_RECORD_H
 #define DOLLY_FS_RECORD_H
 
+#include <dolly/image-abi.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -12,14 +13,15 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-// Shared path kinds for images, cached modules, and session deltas. Their
-// versioned envelopes carry kind:u32, path_bytes:u32, data_bytes:u64, path and
-// data; a session's adds each path's time (session-records.h).
+// Shared path kinds for images, cached modules, and session deltas: a
+// snapshot's (abi/dolly-image-0.wat). Their versioned envelopes carry
+// kind:u32, path_bytes:u32, data_bytes:u64, path and data; a session's adds
+// each path's time (session-records.h).
 enum {
-  DOLLY_FS_DIRECTORY = 1,
-  DOLLY_FS_FILE = 2,
-  DOLLY_FS_SYMLINK = 3,
-  DOLLY_FS_DELETED = 4,
+  DOLLY_FS_DIRECTORY = DOLLY_SNAPSHOT_RECORD_DIRECTORY,
+  DOLLY_FS_FILE = DOLLY_SNAPSHOT_RECORD_FILE,
+  DOLLY_FS_SYMLINK = DOLLY_SNAPSHOT_RECORD_SYMLINK,
+  DOLLY_FS_DELETED = DOLLY_SNAPSHOT_RECORD_DELETED,
 };
 
 typedef struct {
@@ -30,7 +32,7 @@ typedef struct {
 } dolly_fs_record;
 
 // Bounds a system snapshot and therefore every file in an image or artifact.
-static const uintptr_t DOLLY_SNAPSHOT_MAX_SIZE = (uintptr_t)2 * 1024 * 1024 * 1024;
+static const uintptr_t DOLLY_SNAPSHOT_MAX_SIZE = (uintptr_t)DOLLY_SNAPSHOT_MAX_MEBIBYTES * 1024 * 1024;
 
 static inline int dolly_fs_read_exact(int descriptor, unsigned char *bytes, uintptr_t size) {
   while (size != 0) {

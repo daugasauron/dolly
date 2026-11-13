@@ -22,7 +22,6 @@
 enum {
   MAX_RECIPE_BYTES = 128 * 1024,
   MAX_SOURCE_BYTES = 1024 * 1024 * 1024,
-  MAX_MANIFEST_FILES = 100000,
 };
 
 
@@ -687,7 +686,7 @@ static int collect_paths(char ***paths, size_t *count, size_t *capacity,
   if (lstat(path, &metadata) != 0) return -errno;
   if (!S_ISREG(metadata.st_mode) && !S_ISDIR(metadata.st_mode) &&
       !S_ISLNK(metadata.st_mode)) return -EINVAL;
-  if (*count >= MAX_MANIFEST_FILES) return -E2BIG;
+  if (*count >= DOLLY_SNAPSHOT_MAX_PATHS) return -E2BIG;
   const int retained = append_string(paths, count, capacity, path);
   if (retained != 0 || !S_ISDIR(metadata.st_mode)) return retained;
   DIR *directory = opendir(path);
@@ -875,11 +874,11 @@ static int write_inline_file(const char *path, const unsigned char *body,
 }
 
 static int set_entry(Engine *engine, char **words, size_t count) {
-  size_t size = 16;
-  if (count == 0 || count > 256) return 2;
+  size_t size = DOLLY_ENTRY_HEADER_BYTES;
+  if (count == 0 || count > DOLLY_ENTRY_MAX_ARGUMENTS) return 2;
   for (size_t index = 0; index < count; ++index) {
     const size_t length = strlen(words[index]);
-    if (length > 4096 || size + 4 + length > 64 * 1024) return 2;
+    if (length > DOLLY_ENTRY_ARGUMENT_MAX_BYTES || size + 4 + length > DOLLY_ENTRY_MAX_BYTES) return 2;
     size += 4 + length;
   }
   for (size_t index = 0; index < engine->entry_count; ++index) free(engine->entry[index]);
@@ -1038,7 +1037,7 @@ static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
     uint32_t members = 0;
     if (take_text(&cursor, end, &object.type) != 0 || take_text(&cursor, end, &object.name) != 0 ||
         take_text(&cursor, end, &object.detail) != 0 ||
-        take_layer_u32(&cursor, end, &members) != 0 || members > MAX_MANIFEST_FILES) result = -EINVAL;
+        take_layer_u32(&cursor, end, &members) != 0 || members > DOLLY_SNAPSHOT_MAX_PATHS) result = -EINVAL;
     if (result == 0 && (!valid_object_type(object.type) ||
         (strcmp(object.type, "ENV") == 0 ? !valid_environment_name(object.name) : !valid_object_name(object.name)))) result = -EINVAL;
     if (result == 0) {
@@ -1148,7 +1147,7 @@ static int read_artifact(Artifact *artifact, const char *path, const char *expec
   if (artifact->stream == NULL) return -errno;
   struct stat metadata;
   if (fstat(fileno(artifact->stream), &metadata) != 0) return -errno;
-  if (!S_ISREG(metadata.st_mode) || metadata.st_size < 16) return -EINVAL;
+  if (!S_ISREG(metadata.st_mode) || metadata.st_size < DOLLY_SNAPSHOT_HEADER_BYTES) return -EINVAL;
   if ((uint64_t)metadata.st_size > DOLLY_SNAPSHOT_MAX_SIZE) return -EFBIG;
   unsigned char header[16];
   int result = read_stream(artifact->stream, header, sizeof(header));
@@ -1156,9 +1155,9 @@ static int read_artifact(Artifact *artifact, const char *path, const char *expec
   const unsigned char *cursor = header, *end = header + sizeof(header), *magic;
   uint32_t version;
   if (take_layer_bytes(&cursor, end, 8, &magic) != 0 || memcmp(magic, "DOLLYSNP", 8) != 0 ||
-      take_layer_u32(&cursor, end, &version) != 0 || version != 2 ||
+      take_layer_u32(&cursor, end, &version) != 0 || version != DOLLY_SNAPSHOT_VERSION ||
       take_layer_u32(&cursor, end, &artifact->count) != 0 ||
-      artifact->count == 0 || artifact->count > MAX_MANIFEST_FILES) return -EINVAL;
+      artifact->count == 0 || artifact->count > DOLLY_SNAPSHOT_MAX_PATHS) return -EINVAL;
   artifact->records = calloc(artifact->count, sizeof(*artifact->records));
   artifact->offsets = calloc(artifact->count, sizeof(*artifact->offsets));
   if (artifact->records == NULL || artifact->offsets == NULL) return -ENOMEM;
@@ -1171,10 +1170,12 @@ static int read_artifact(Artifact *artifact, const char *path, const char *expec
     uint64_t size;
     if (take_layer_u32(&cursor, end, &record->kind) != 0 ||
         record->kind < DOLLY_FS_DIRECTORY || record->kind > DOLLY_FS_SYMLINK ||
-        take_layer_u32(&cursor, end, &path_length) != 0 || path_length == 0 || path_length >= PATH_MAX ||
+        take_layer_u32(&cursor, end, &path_length) != 0 ||
+        path_length < DOLLY_SNAPSHOT_PATH_MIN_BYTES || path_length > DOLLY_SNAPSHOT_PATH_MAX_BYTES ||
         take_layer_u64(&cursor, end, &size) != 0 || size > DOLLY_SNAPSHOT_MAX_SIZE ||
         (record->kind == DOLLY_FS_DIRECTORY && size != 0) ||
-        (record->kind == DOLLY_FS_SYMLINK && (size == 0 || size >= PATH_MAX))) return -EINVAL;
+        (record->kind == DOLLY_FS_SYMLINK &&
+         (size < DOLLY_SNAPSHOT_SYMLINK_MIN_BYTES || size > DOLLY_SNAPSHOT_SYMLINK_MAX_BYTES))) return -EINVAL;
     record->path = malloc(path_length + 1);
     if (record->path == NULL) return -ENOMEM;
     result = read_stream(artifact->stream, record->path, path_length);
@@ -1783,7 +1784,7 @@ static int write_control_files(Engine *engine) {
     return 1;
   }
   if (engine->entry_count == 0) return 0;
-  size_t entry_size = 16;
+  size_t entry_size = DOLLY_ENTRY_HEADER_BYTES;
   for (size_t index = 0; index < engine->entry_count; ++index) {
     if (strlen(engine->entry[index]) > UINT32_MAX ||
         entry_size > SIZE_MAX - 4 - strlen(engine->entry[index])) return 1;
@@ -1794,7 +1795,7 @@ static int write_control_files(Engine *engine) {
   unsigned char *entry_cursor = entry;
   memcpy(entry_cursor, "DOLLYENT", 8);
   entry_cursor += 8;
-  put_u32(&entry_cursor, 1);
+  put_u32(&entry_cursor, DOLLY_ENTRY_VERSION);
   put_u32(&entry_cursor, (uint32_t)engine->entry_count);
   for (size_t index = 0; index < engine->entry_count; ++index) {
     const uint32_t length = (uint32_t)strlen(engine->entry[index]);

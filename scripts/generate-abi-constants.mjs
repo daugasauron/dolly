@@ -54,6 +54,10 @@ async function emitConstants(sources, module, header, suffix, digest, errno = fa
   await write(module, `// Generated from ${origin}${errno ? ", include/dolly/process.h" : ""}.\n${js.join("")}`);
 }
 await emitConstants(["abi/dolly-host-0.wat"], "host/abi.mjs", "include/dolly/host-abi.h", "");
+// The image contract's numbers, for the C that reads and writes snapshots and
+// entries: the kernel's and the seed's (kernel/fs-record.h).
+await write("include/dolly/image-abi.h", "/* Generated from abi/dolly-image-0.wat. */\n#pragma once\n" +
+  (await constantDefines(["abi/dolly-image-0.wat"], "u")).map(([, , define]) => define).join(""));
 // A module with NAME-abi.h also gets DOLLY_NAME_ABI_DIGEST, the SHA-256 of what
 // an executable compiles against: the exact bytes of its process WAT and other
 // headers, and the constants its kernel-boundary contracts give NAME-abi.h. Its

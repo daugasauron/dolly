@@ -6,7 +6,9 @@ import { mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "nod
 import { resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
-import { decodeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../page/snapshot-records.mjs";
+import { decodeSnapshotRecords, decodeSnapshotHeader, decodeRecordHeader, snapshotHeader, recordHeader,
+  validateSnapshotPacks } from "../page/snapshot-records.mjs";
+import { DOLLY_SNAPSHOT_HEADER_BYTES, DOLLY_SNAPSHOT_RECORD_HEADER_BYTES } from "../host/runtime/abi.mjs";
 import { metadataJson } from "./image-directory.mjs";
 
 // A record is either decoded (`data`) or indexed in a snapshot file on disk
@@ -20,13 +22,13 @@ export function splitSnapshotRecords(records) {
   const entries = [...records].map(([path, record]) => ({ path, record, encodedPath: Buffer.from(path) }))
     .sort((left, right) => Buffer.compare(left.encodedPath, right.encodedPath));
   const parts = [];
-  let part = new Map(), size = 16;
+  let part = new Map(), size = DOLLY_SNAPSHOT_HEADER_BYTES;
   const finish = () => {
     if (part.size) parts.push(part);
-    part = new Map(); size = 16;
+    part = new Map(); size = DOLLY_SNAPSHOT_HEADER_BYTES;
   };
   for (const { path, record, encodedPath } of entries) {
-    const length = 16 + encodedPath.length + recordLength(record);
+    const length = DOLLY_SNAPSHOT_RECORD_HEADER_BYTES + encodedPath.length + recordLength(record);
     if (size + length > 4 * 1024 * 1024) finish();
     part.set(path, record);
     size += length;
@@ -37,22 +39,6 @@ export function splitSnapshotRecords(records) {
   }
   finish();
   return parts;
-}
-
-function snapshotHeader(count) {
-  const header = Buffer.alloc(16, "DOLLYSNP", "latin1");
-  header.writeUInt32LE(2, 8);
-  header.writeUInt32LE(count, 12);
-  return header;
-}
-
-function recordHeader(kind, encodedPath, byteLength) {
-  const header = Buffer.alloc(16 + encodedPath.length);
-  header.writeUInt32LE(kind, 0);
-  header.writeUInt32LE(encodedPath.length, 4);
-  header.writeBigUInt64LE(BigInt(byteLength), 8);
-  header.set(encodedPath, 16);
-  return header;
 }
 
 async function readExact(handle, buffer, position, length) {
@@ -148,16 +134,10 @@ async function indexSnapshot(source) {
     position += length;
     return bytes;
   };
-  const header = await read(16);
-  const count = header.readUInt32LE(12);
-  if (header.toString("latin1", 0, 8) !== "DOLLYSNP" || header.readUInt32LE(8) !== 2 || count === 0 || count > 100_000) {
-    throw new Error(`${source.name}: invalid Dolly snapshot header`);
-  }
+  const count = decodeSnapshotHeader(await read(DOLLY_SNAPSHOT_HEADER_BYTES));
   for (let index = 0; index < count; index += 1) {
-    const head = await read(16);
-    const kind = head.readUInt32LE(0), pathLength = head.readUInt32LE(4), byteLength = Number(head.readBigUInt64LE(8));
-    if (kind < 1 || kind > 3 || pathLength < 2 || pathLength >= 4096 || byteLength > MAX_SNAPSHOT_BYTES ||
-        position > metadata.byteLength - pathLength - byteLength) throw new Error(`${source.name}: invalid snapshot record size`);
+    const { kind, pathLength, size: byteLength } = decodeRecordHeader(await read(DOLLY_SNAPSHOT_RECORD_HEADER_BYTES));
+    if (position > metadata.byteLength - pathLength - byteLength) throw new Error(`${source.name}: invalid snapshot record size`);
     const path = decoder.decode(await read(pathLength)), hash = recordKey(kind, path), offset = position;
     for (let done = 0; done < byteLength; done += Math.min(CHUNK_BYTES, byteLength - done)) await read(Math.min(CHUNK_BYTES, byteLength - done), hash);
     records.push({ key: hash.digest("hex"), path, kind, byteLength, source, offset });

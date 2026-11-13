@@ -7,6 +7,37 @@
   (func (export "dolly_snapshot_format_version") (result i32)
     i32.const 2)
 
+  ;; A snapshot part: DOLLYSNP, its version and its record count (u32 each,
+  ;; little-endian), then the records in path order, each a header of its
+  ;; kind (u32), path length (u32) and data length (u64), its path and its
+  ;; data. A directory's data is empty, a symbolic link's is its target. A
+  ;; session's save uses the same kinds and adds deleted paths. The parts of an
+  ;; image hold its paths once each, within the count and size given here; the
+  ;; size bounds every file of an image too.
+  (global (export "DOLLY_SNAPSHOT_VERSION") i32 (i32.const 2))
+  (global (export "DOLLY_SNAPSHOT_HEADER_BYTES") i32 (i32.const 16))
+  (global (export "DOLLY_SNAPSHOT_RECORD_HEADER_BYTES") i32 (i32.const 16))
+  (global (export "DOLLY_SNAPSHOT_RECORD_DIRECTORY") i32 (i32.const 1))
+  (global (export "DOLLY_SNAPSHOT_RECORD_FILE") i32 (i32.const 2))
+  (global (export "DOLLY_SNAPSHOT_RECORD_SYMLINK") i32 (i32.const 3))
+  (global (export "DOLLY_SNAPSHOT_RECORD_DELETED") i32 (i32.const 4))
+  (global (export "DOLLY_SNAPSHOT_MAX_PATHS") i32 (i32.const 100000))
+  ;; 2 GiB, in MiB: an i32 holds no 2^31.
+  (global (export "DOLLY_SNAPSHOT_MAX_MEBIBYTES") i32 (i32.const 2048))
+  (global (export "DOLLY_SNAPSHOT_PATH_MIN_BYTES") i32 (i32.const 2))
+  (global (export "DOLLY_SNAPSHOT_PATH_MAX_BYTES") i32 (i32.const 4095))
+  (global (export "DOLLY_SNAPSHOT_SYMLINK_MIN_BYTES") i32 (i32.const 1))
+  (global (export "DOLLY_SNAPSHOT_SYMLINK_MAX_BYTES") i32 (i32.const 4095))
+
+  ;; /etc/dolly/entry: DOLLYENT, its version and its argument count (u32
+  ;; each), then each argument as its length (u32) and its UTF-8 bytes without
+  ;; a NUL, the first an absolute path.
+  (global (export "DOLLY_ENTRY_VERSION") i32 (i32.const 1))
+  (global (export "DOLLY_ENTRY_HEADER_BYTES") i32 (i32.const 16))
+  (global (export "DOLLY_ENTRY_MAX_ARGUMENTS") i32 (i32.const 256))
+  (global (export "DOLLY_ENTRY_ARGUMENT_MAX_BYTES") i32 (i32.const 4096))
+  (global (export "DOLLY_ENTRY_MAX_BYTES") i32 (i32.const 65536))
+
   ;; Allocate a bounded staging region in Wasm memory. The worker may only copy
   ;; the verified packaged snapshot into this checked region before asking Wasm
   ;; to restore it. A restore attempt consumes the staging allocation, including

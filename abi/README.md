@@ -19,7 +19,7 @@ WAT file document its semantics.
 | [`dolly-kernel-plugin-0.wat`](dolly-kernel-plugin-0.wat) | The resident display plugin and its registration as the terminal's input decoder; never an ordinary program target |
 | [`dolly-browser-0.wat`](dolly-browser-0.wat) | The complete typed outer import allowlist of the kernel |
 | [`dolly-supervisor-0.wat`](dolly-supervisor-0.wat) | Kernel exports the trusted supervisor uses, and the page's terminal mailbox (foreground, results, Ctrl+C) |
-| [`dolly-image-0.wat`](dolly-image-0.wat) | Kernel exports that boot, restore, capture and stream system images |
+| [`dolly-image-0.wat`](dolly-image-0.wat) | Kernel exports that boot, restore, capture and stream system images; the snapshot and entry formats' numbers |
 | [`host/display/dolly-display-0.wat`](../host/display/dolly-display-0.wat), [`host/input/dolly-input-0.wat`](../host/input/dolly-input-0.wat), [`host/touch/dolly-touch-0.wat`](../host/touch/dolly-touch-0.wat), [`host/http/dolly-http-0.wat`](../host/http/dolly-http-0.wat), [`host/download/dolly-download-0.wat`](../host/download/dolly-download-0.wat), [`host/upload/dolly-upload-0.wat`](../host/upload/dolly-upload-0.wat), [`host/html/dolly-html-0.wat`](../host/html/dolly-html-0.wat), [`host/snapshot/dolly-snapshot-0.wat`](../host/snapshot/dolly-snapshot-0.wat) | Browser-facing mailboxes, dispatch imports, the modules' process operations and the session mailbox |
 
 A contract makes a boundary reviewable and lets the build derive retained exports
@@ -90,13 +90,12 @@ exports of [`dolly-image-0.wat`](dolly-image-0.wat):
   with `/etc/dolly/Dollyfile`, `environment`, `image` and `recipes.lock`).
   `sha256` names the image; `byteLength` is its size.
 - `dist/packs/SHA256.snapshot.gz`, the metadata's `packs` in order: each a gzip
-  of one snapshot part, `DOLLYSNP`, a u32 version (2) and a u32 record count,
-  then records in path order, each a u32 kind (1 a directory, whose data is
-  empty, 2 a file, 3 a symbolic link, whose data is its target of 1 to 4,095
-  bytes), a u32 path length (2 to 4,095 bytes, an absolute normalized path), a
-  u64 data length, the path and the data; its `sha256` that of the decompressed part,
-  which the host checks before ending the part. The parts hold the manifest's
-  paths once each: at most 100,000, and 2 GiB in all. Integers are little-endian.
+  of one snapshot part, laid out as [`dolly-image-0.wat`](dolly-image-0.wat)
+  says, with its record kinds and limits (`DOLLY_SNAPSHOT_*`): `DOLLYSNP`, a
+  version and a record count, then records in path order, each a kind, a path
+  length, a data length, the path (absolute and normalized) and the data; its
+  `sha256` that of the decompressed part, which the host checks before ending
+  the part. The parts hold the manifest's paths once each.
 
 The host writes, under `/etc/dolly/` before a start or a build:
 `image.manifest` (the metadata's manifest, a path a line), `recipe.locator`
@@ -104,9 +103,8 @@ The host writes, under `/etc/dolly/` before a start or a build:
 the host writes there), and for a build `recipe.rows` ([Dollyfile](../docs/dollyfile.md)),
 `upload.Dollyfile` (a custom recipe's text) and `artifacts/RECIPE_SHA256.snapshot`
 (each input image). It reads, after the restore, `image` (the image's name)
-and `entry`: `DOLLYENT`, a u32 version (1) and a u32 argument count (1 to 256),
-then each argument as a u32 length (at most 4,096) and its UTF-8 bytes without a
-NUL, the first an absolute path; 64 KiB at most. A session's `enabled`
+and `entry`, the program the image runs (`DOLLY_ENTRY_*` of
+[`dolly-image-0.wat`](dolly-image-0.wat)). A session's `enabled`
 ([`nena.mjs`](../host/nena/nena.mjs)) lists the modules the session enabled
 beyond the page's, one `NAME@VERSION` a line, which the page enables when the
 session loads again.

@@ -13,7 +13,7 @@ test("shared filesystem restoration handles kinds, replacements and invalid pare
   const scratch = await mkdtemp(resolve(tmpdir(), "dolly-fs-record-test-"));
   try {
     const program = resolve(scratch, "restore");
-    execFileSync("cc", ["-std=c11", "-Wall", "-Wextra", "-Werror", "-I", resolve(project, "kernel"),
+    execFileSync("cc", ["-std=c11", "-Wall", "-Wextra", "-Werror", "-I", resolve(project, "kernel"), "-I", resolve(project, "include"),
       resolve(project, "test/fixtures/fs-record.c"), "-o", program]);
     assert.match(execFileSync(program, [scratch], { encoding: "utf8" }), /FS-RECORD-OK/);
   } finally {

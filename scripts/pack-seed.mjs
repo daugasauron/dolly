@@ -4,6 +4,7 @@
 // usage: pack-seed.mjs OUTPUT SOURCE@PATH...
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { encodeSnapshotRecords } from "../page/snapshot-records.mjs";
+import { DOLLY_SNAPSHOT_RECORD_FILE } from "../host/runtime/abi.mjs";
 
 const [output, ...mappings] = process.argv.slice(2);
 if (!output || !mappings.length) throw new Error("usage: pack-seed.mjs OUTPUT SOURCE@PATH...");
@@ -12,7 +13,7 @@ async function add(source, path) {
   if ((await stat(source)).isDirectory()) {
     for (const name of await readdir(source)) await add(`${source}/${name}`, `${path}/${name}`);
   // libc++'s headers are their own archive, installed by Dollyfile-system-build.
-  } else if (!path.includes("/c++/v1/")) records.set(path, { kind: 2, data: await readFile(source) });
+  } else if (!path.includes("/c++/v1/")) records.set(path, { kind: DOLLY_SNAPSHOT_RECORD_FILE, data: await readFile(source) });
 }
 for (const mapping of mappings) await add(...mapping.split("@"));
 await writeFile(output, encodeSnapshotRecords(records));

@@ -3,6 +3,8 @@ import { parseWasmInterface } from "../page/wasm-interface.mjs";
 import { validateProcessInterface } from "../page/process-abi.mjs";
 import { decodeImageEntry } from "../page/image-entry.mjs";
 import { decodeSnapshotRecords } from "../page/snapshot-records.mjs";
+import { DOLLY_SNAPSHOT_RECORD_DIRECTORY as DIRECTORY, DOLLY_SNAPSHOT_RECORD_FILE as FILE,
+  DOLLY_SNAPSHOT_RECORD_SYMLINK as SYMLINK } from "../host/runtime/abi.mjs";
 
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
@@ -12,8 +14,8 @@ export function decodeSystemSnapshot(input) {
   const files = new Map();
   const directories = new Set(["/"]);
   for (const [path, { kind, data }] of entries) {
-    if (kind === 2) files.set(path, data);
-    if (kind === 1) directories.add(path);
+    if (kind === FILE) files.set(path, data);
+    if (kind === DIRECTORY) directories.add(path);
     for (let slash = path.indexOf("/", 1); slash !== -1; slash = path.indexOf("/", slash + 1)) {
       directories.add(path.slice(0, slash));
     }
@@ -33,7 +35,7 @@ export function resolveSnapshotFile(snapshot, path) {
     if (part === "..") { resolved.pop(); continue; }
     const current = "/" + [...resolved, part].join("/");
     const record = snapshot.entries.get(current);
-    if (record?.kind === 3) {
+    if (record?.kind === SYMLINK) {
       if (++links > 40) throw new Error(`snapshot symlink loop: ${path}`);
       const target = decoder.decode(record.data);
       if (target.startsWith("/")) resolved.length = 0;
@@ -43,13 +45,13 @@ export function resolveSnapshotFile(snapshot, path) {
     if (pending.length && !snapshot.directories.has(current)) {
       throw new Error(`snapshot parent is missing or not a directory: ${current}`);
     }
-    if (!pending.length && record?.kind !== 2) {
+    if (!pending.length && record?.kind !== FILE) {
       throw new Error(`snapshot file is not retained: ${current}`);
     }
     resolved.push(part);
   }
   const record = snapshot.entries.get("/" + resolved.join("/"));
-  if (record?.kind !== 2) throw new Error(`snapshot file is not retained: ${path}`);
+  if (record?.kind !== FILE) throw new Error(`snapshot file is not retained: ${path}`);
   return record.data;
 }
 
