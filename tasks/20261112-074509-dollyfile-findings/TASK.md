@@ -1,6 +1,6 @@
 # Dollyfile: one parser for every host, a line for files no row keeps, init without FROM, clearer docs
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 260
 - TAGS: dollyfile,syntax,donna,docs,audit,0.1.6
 
@@ -63,3 +63,9 @@ On `fix/batch`:
 
 1 is decided and done, 2 prints in the pip case, 3's project passes the lint and
 `test/npm-browser.mjs`, 4 is in the text.
+
+## Closed (2026-11-13)
+
+In the 0.1.6 candidate round (`work/round1113/build/round-1113c-evidence`): `test/npm-browser.mjs` passes in Chromium and Firefox with
+dolly-build init's INSTALL rows and the packages dolly-build depends on, and default's "composed with
+the engine" passes; 1 to 4 are done.

@@ -1,6 +1,6 @@
 # The kernel decides, the host executes: one event export in place of the supervisor's policy
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 380
 - TAGS: processes,architecture,abi,lifecycle,audit,0.1.6
 
@@ -50,3 +50,10 @@ constants; the host keeps compiling, starting and ending Workers and sleeping. A
 
 The supervisor holds no lifecycle constant but the browser's own (Worker count, memory budget),
 the lifecycle suites pass in Chromium and Firefox, and Donna's supervisor shrinks accordingly.
+
+## Closed (2026-11-13)
+
+In the 0.1.6 candidate round (`work/round1113/build/round-1113c-evidence`): the lifecycle suites (process, console, pty, ending,
+ended-worker, threads) pass in Chromium and Firefox with the kernel's events, and src/process/signal.c
+and pty@0's contract say the kernel decides. Donna reads the events from dolly-abi.json
+(DOLLY_PROCESS_EVENT_*, and the packing shifts once main moves, its task 20261110-230234-abi).
