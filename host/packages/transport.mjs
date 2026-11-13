@@ -1,4 +1,3 @@
-import { imageBase } from "../../src/images.mjs";
 import { DOLLY_ERRNO as errno } from "../../src/process-constants.mjs";
 import * as A from "./abi.mjs";
 
@@ -12,10 +11,11 @@ const maxIndexBytes = capacity;
 
 // The Worker's end of packages@0's mailbox (dolly-packages-0.wat): it answers
 // each request the kernel reports, one chunk at a time, from the page's own
-// image directory; another directory is refused until the page's HTTP policy
-// judges it here.
+// image directory, `imageBase`; another directory is refused until the page's
+// HTTP policy judges it here.
 export class PackagesTransport {
-  constructor(buffer, address) {
+  constructor(buffer, address, imageBase) {
+    this.imageBase = imageBase;
     if (!(buffer instanceof SharedArrayBuffer) || !Number.isSafeInteger(address) || address <= 0 || address % 4 ||
         address > buffer.byteLength - A.DOLLY_PACKAGES_CHUNK_OFFSET - capacity) throw new TypeError("invalid packages mailbox");
     this.words = new Int32Array(buffer, address, 16);
@@ -74,10 +74,10 @@ export class PackagesTransport {
     try {
       const kind = Atomics.load(words, A.DOLLY_PACKAGES_WORD_KIND);
       const directory = decoder.decode(this.directory.slice(0, Atomics.load(words, A.DOLLY_PACKAGES_WORD_DIRECTORY_LENGTH)));
-      if (kind === A.DOLLY_PACKAGES_KIND_DIRECTORY) return await whole(encoder.encode(imageBase.href));
-      if (directory !== imageBase.href) return await refuse(errno.EACCES);
+      if (kind === A.DOLLY_PACKAGES_KIND_DIRECTORY) return await whole(encoder.encode(this.imageBase.href));
+      if (directory !== this.imageBase.href) return await refuse(errno.EACCES);
       if (kind === A.DOLLY_PACKAGES_KIND_INDEX) {
-        const response = await fetch(new URL("amy-index.txt", imageBase), { credentials: "same-origin", redirect: "error" });
+        const response = await fetch(new URL("amy-index.txt", this.imageBase), { credentials: "same-origin", redirect: "error" });
         const length = Number(response.headers.get("content-length") ?? 0);
         if (!response.ok || length > maxIndexBytes) return await refuse(response.ok ? errno.EFBIG : errno.ENOENT);
         const bytes = new Uint8Array(await response.arrayBuffer());

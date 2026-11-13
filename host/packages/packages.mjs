@@ -18,11 +18,11 @@ export function browser({ get }) {
 }
 
 // The kernel's mailbox reports each request at the service tick.
-export function worker() {
+export function worker({ images }) {
   let transport;
   return {
     start({ kernel, memory }) {
-      transport = new PackagesTransport(memory.buffer, Number(kernel.dolly_packages_mailbox_address()));
+      transport = new PackagesTransport(memory.buffer, Number(kernel.dolly_packages_mailbox_address()), images);
     },
     service() { transport?.service(); },
     dispose() { transport?.close(); },

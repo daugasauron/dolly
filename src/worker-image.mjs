@@ -88,7 +88,8 @@ export async function runImage(image) {
     host = await (await hostRegistry(config.modules)).createHost("worker", config.hostModules, {
       send: (message, transfers = []) => self.postMessage(message, transfers),
       configuration: config.hostConfiguration,
-      resources: { runtimeBase },
+      // The image directory reaches the modules here: one the bundle holds is not theirs.
+      resources: { runtimeBase, images: new URL(config.images) },
     });
     const steps = await image(config, host);
     stage("creating wasm64 userspace kernel...");
