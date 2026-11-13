@@ -1,4 +1,4 @@
-import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
+import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES, loadImages } from "./images.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION, listStoredSessions, sessionCompatible,
@@ -39,7 +39,7 @@ async function refresh() {
   list.replaceChildren();
   for (const record of sessions) {
     const item = document.createElement("li");
-    const compatible = sessionCompatible(record, DOLLY_IMAGES, DOLLY_BUILD_ID);
+    const compatible = sessionCompatible(record, DOLLY_IMAGES, DOLLY_IMAGE_BUILD_ID);
     const recoverable = !compatible && validSessionName(record.name) &&
       record.formatVersion === DOLLY_SESSION_FORMAT_VERSION && DOLLY_IMAGES.some(({ image }) => image === "system");
     const name = document.createElement(validSessionName(record.name) && compatible ? "a" : "span");
@@ -48,7 +48,7 @@ async function refresh() {
     const detail = document.createElement("small");
     detail.textContent = `${record.image} · ${new Date(record.updatedAt).toLocaleString()} · ` +
       `${(record.byteLength / 1024 / 1024).toFixed(1)} MiB` +
-      (compatible ? "" : " · Older runtime; saved data retained.");
+      (compatible ? "" : " · Made on another build of this version; saved data retained.");
     const actions = document.createElement("div");
     for (const [label, action] of [
       ...(recoverable ? [["Recover files", () => {

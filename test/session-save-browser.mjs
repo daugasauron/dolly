@@ -26,6 +26,9 @@ await browserTest("session save", { image: "system", timeout: 240_000 }, async (
   await shell(first, `${server.origin}/system/`);
   assert.equal(await submit(first, "echo first > /workspace/first"), 0);
   assert.equal(await first.evaluate(name => __dolly.saveSession(name), name), name);
+  // The save names the image build, which a rebuilt kernel keeps, so it opens on that kernel too.
+  assert.equal(await first.evaluate(async name => (await (await import("/src/session-store.mjs")).loadStoredSession(name)).buildId ===
+    (await import("/dist/dolly-image-build-id.mjs")).DOLLY_IMAGE_BUILD_ID, name), true);
 
   // The same session in a second tab: its save goes in unasked, the first
   // tab's then asks, and a refusal keeps the second tab's.

@@ -1,7 +1,7 @@
 import { SessionTransport } from "./transport.mjs";
 import { DOLLY_SESSION_TRANSFER_CAPACITY } from "./abi.mjs";
 import { mountSessionSave } from "./ui.mjs";
-import { DOLLY_BUILD_ID } from "../../dist/dolly-build-id.mjs";
+import { DOLLY_IMAGE_BUILD_ID } from "../../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES } from "../../src/images.mjs";
 import { sha256 } from "../../src/static-asset.mjs";
 import { DOLLY_SESSION_FORMAT_VERSION, decodeSessionSnapshot, loadStoredSession, sessionCompatible,
@@ -27,8 +27,8 @@ export async function boot(route) {
     if (record.formatVersion !== DOLLY_SESSION_FORMAT_VERSION) throw new Error("This save uses an unsupported recovery format");
     if (!DOLLY_IMAGES.some(definition => definition.image === "system")) throw new Error("File recovery needs the system image in this distribution");
     image = "system";
-  } else if (!sessionCompatible(record, DOLLY_IMAGES, DOLLY_BUILD_ID)) {
-    throw new Error(`This save belongs to an older runtime. It has not been deleted or overwritten.${listed}`);
+  } else if (!sessionCompatible(record, DOLLY_IMAGES, DOLLY_IMAGE_BUILD_ID)) {
+    throw new Error(`This save was made on another build of this version. It has not been deleted or overwritten.${listed}`);
   } else if (image === "custom" &&
       await sha256(new TextEncoder().encode(record.customImage.source)) !== record.customImage.artifact.recipeSha256) {
     // A custom save's Dollyfile names the boot's host modules. The record carries both the file

@@ -45,9 +45,11 @@ export function customSessionIdentity(custom) {
   return `custom:${artifact.recipeSha256}:${artifact.sha256}`;
 }
 
-// A save holds its whole filesystem, so it opens on the runtime that made it
-// whatever became of its image's recipe: the image need only still be named
-// (its host modules are the catalog's), a custom one by the recipe it carries.
+// A save holds its whole filesystem, so it opens wherever its programs run: on
+// a runtime with the image build ID of the one that made it (buildId; a rebuilt
+// kernel keeps it while the images stay valid), whatever became of its image's
+// recipe. The image need only still be named (its host modules are the
+// catalog's), a custom one by the recipe it carries.
 export function sessionCompatible(record, definitions, buildId) {
   if (record.formatVersion !== DOLLY_SESSION_FORMAT_VERSION || record.buildId !== buildId) return false;
   if (record.image === "custom") {

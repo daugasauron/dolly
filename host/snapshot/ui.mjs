@@ -1,4 +1,4 @@
-import { DOLLY_BUILD_ID } from "../../dist/dolly-build-id.mjs";
+import { DOLLY_IMAGE_BUILD_ID } from "../../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES } from "../../src/images.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION,
@@ -150,7 +150,7 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
       await saveStoredSession({
         name,
         formatVersion: DOLLY_SESSION_FORMAT_VERSION,
-        buildId: DOLLY_BUILD_ID,
+        buildId: DOLLY_IMAGE_BUILD_ID,
         image: base.image,
         imageIdentity: base.identity,
         ...(base.custom ? { customImage: base.custom } : {}),
