@@ -11,6 +11,6 @@ REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM /v0.1.6/Dollyfile-system bfba59e4dc5a81a86ce706e3f8eb47d1980ba19cf4a3012c16ea2e3fc1af011d
-INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly e92aabed88179af3575c9dac42f125b57939602bd5423215a628e0b91a08554e
+INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly a9ca7579829f2621af9f7d5411d9925ab7c48c0cd50dc79b538da6b914cf857f
 
 ENTRY /bin/foreground -i /bin/slop

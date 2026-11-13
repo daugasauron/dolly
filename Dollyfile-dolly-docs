@@ -30,6 +30,7 @@ SOURCE /v0.1.6/abi/dolly-supervisor-0.wat 0626cc775e2fd13f00e271a748d2b94d198c13
 SOURCE /v0.1.6/host/audio/dolly-audio-0.wat 11af30193a705efb16820bdd96ef139af0ebce6b04811070828f0bde4a5884e0 /usr/share/doc/dolly/host/audio/dolly-audio-0.wat
 SOURCE /v0.1.6/host/microphone/dolly-microphone-0.wat 308f1b09702e2d7033e32500f3d8753f54c808e9ffa91459ee75ddf6c0295d9a /usr/share/doc/dolly/host/microphone/dolly-microphone-0.wat
 SOURCE /v0.1.6/host/nena/dolly-nena-0.wat 16ede7792fa857525f06c2b5834203e085c28e82b78b5e08f22be30c17f62c08 /usr/share/doc/dolly/host/nena/dolly-nena-0.wat
+SOURCE /v0.1.6/host/packages/dolly-packages-0.wat d2ef60bf5a6ce28c9548bb3865df690015ea65d01bcfcf5683767ce74ad91d5f /usr/share/doc/dolly/host/packages/dolly-packages-0.wat
 SOURCE /v0.1.6/host/clipboard/dolly-clipboard-0.wat 469c7eb570a0249c4287fc18108cad8f3f5bd276e42798d72d8bd4132f2eabd4 /usr/share/doc/dolly/host/clipboard/dolly-clipboard-0.wat
 SOURCE /v0.1.6/host/input/dolly-input-0.wat 15209f808975fbb3cdde3dff14b445d1162964589be99503387dd2ad0d535534 /usr/share/doc/dolly/host/input/dolly-input-0.wat
 SOURCE /v0.1.6/host/display/dolly-display-0.wat a412d96d2f445e89b6a62dc3d2e9c2fcbffe1d4717dbe3cc9fdca7e36f85ee9b /usr/share/doc/dolly/host/display/dolly-display-0.wat

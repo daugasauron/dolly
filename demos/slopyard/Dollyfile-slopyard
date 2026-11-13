@@ -17,7 +17,7 @@ INSTALL /v0.1.6/Dollyfile-posix 3f1e6b15fe6a98d19c9a4d53aa9fd9d0a3e543f0098f61f4
 INSTALL /v0.1.6/Dollyfile-display 04c5a260eb25a1f21c877baef97fb57fe930a637af40ad6dfa530f66709f2a7e
 # download and upload, which the game runs to export and import designs (transfer).
 INSTALL /v0.1.6/Dollyfile-transfer 420ed424bcd0127a54789d4958d128b40fc0a679bd202c664f1b3632f2fa4309
-INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly e92aabed88179af3575c9dac42f125b57939602bd5423215a628e0b91a08554e
+INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly a9ca7579829f2621af9f7d5411d9925ab7c48c0cd50dc79b538da6b914cf857f
 INSTALL /v0.1.6/demos/slopyard/Dollyfile-slopyard-game 6c14288db5c51c19f4777675558e546afd1a05b12f834e363e9ac6e3989370a7
 
 FILE /etc/dolly/init.slop
