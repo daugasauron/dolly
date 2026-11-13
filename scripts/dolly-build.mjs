@@ -1,9 +1,8 @@
 #!/usr/bin/env node
-// An npm user's image: builds a Dollyfile FROM an installed image package, with
-// the packages it INSTALLs from their packages, in a browser with that browser's
-// Dolly runtime, into a site a static host serves as it lies (docs/embedding.md,
-// "Your own image").
-//   npx dolly-build init NAME [PACKAGE…]   writes Dollyfile-NAME FROM pi-minimal and public/ (the page)
+// An npm user's image: builds a Dollyfile that INSTALLs installed packages, or starts
+// FROM an installed image, in a browser with that browser's Dolly runtime, into a
+// site a static host serves as it lies (docs/embedding.md, "Your own image").
+//   npx dolly-build init NAME [PACKAGE…]   writes Dollyfile-NAME, Pi's project, and public/ (the page)
 //   npx dolly-build Dollyfile-NAME OUT [--browser chrome|chromium|firefox]
 // OUT is the files of public/, workspace.json listing public/workspace/, the runtime
 // (dolly/), the host modules the image declares (dolly-host-NAME/),
@@ -30,7 +29,7 @@ import { verifySnapshotIdentity } from "./snapshot-identity.mjs";
 import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
 import { readWasmInterface } from "./wasm-interface.mjs";
 import { loadRecipeGraph } from "../src/dollyfile-graph.mjs";
-import { imageFileName, inspectDollyfile } from "../src/dollyfile-view.mjs";
+import { imageFileName, inspectDollyfile, recipeFileName } from "../src/dollyfile-view.mjs";
 import { imageInputs } from "../src/image-inputs.mjs";
 import { validName } from "../src/image-names.mjs";
 import { siteReference, sitePath } from "../src/static-asset.mjs";
@@ -66,9 +65,9 @@ if (!browsers[browserName] || (init ? positionals.length < 2 : positionals.lengt
 // The installed image and package directories (dolly-image-NAME, dolly-package-NAME):
 // each holds its own image's packs, and the catalog and metadata of that image's
 // closure. npm installs the packages a package installs beside it, pnpm beside its
-// real path.
+// real path, and those dolly-build depends on beside dolly-build's.
 const directories = [];
-for (const pending = [scope]; pending.length;) {
+for (const pending = [scope, resolve(import.meta.dirname, "../..")]; pending.length;) {
   const parent = pending.pop();
   for (const name of (await readdir(parent)).filter(name => /^dolly-(image|package)-/.test(name))) {
     const directory = await realpath(join(parent, name));
@@ -97,21 +96,24 @@ for (const name of (await readdir(scope)).filter(name => name.startsWith("dolly-
 const hostPackage = name => `@daugasauron/dolly-host-${name === "download" ? "save" : name}`;
 
 
-// A project: the recipe (FROM pi-minimal at its pin, INSTALL of each PACKAGE,
-// the template's rows, the base's ENTRY) and public/, the page's files: the page,
+// Pi's packages, which init's recipe installs: those dolly-build depends on, pi-minimal's
+// (scripts/package-npm.mjs), in its order.
+const piPackages = Object.keys(JSON.parse(await readFile(join(import.meta.dirname, "../package.json"), "utf8")).dependencies ?? {})
+  .filter(dependency => dependency.startsWith("@daugasauron/dolly-package-")).map(dependency => dependency.replace("@daugasauron/dolly-package-", ""));
+// A project: the recipe (INSTALL of Pi's packages and of each PACKAGE at the installed
+// pins, then the template's rows and ENTRY) and public/, the page's files: the page,
 // its theme and the workspace.
 async function scaffold(name, packages) {
   if (!validName(name)) fail(`${name}: a name is lowercase letters, digits and dashes, at most 32 bytes`);
-  const base = definitionOf(installed("pi-minimal", "image"));
-  const installs = packages.map(image => definitionOf(installed(image, "package")));
-  // snapshot@0 is the page's Save: a save is kept in the browser, and the page opens it again.
-  const hosts = [...new Set([base, ...installs].flatMap(definition => definition.hostRequirements).concat("snapshot@0"))].sort();
-  const row = (operation, definition) => `${operation} ${siteReference(definition.dollyfile)} ${definition.sha256}\n`;
+  const installs = [...new Set([...piPackages, ...packages])].map(image => definitionOf(installed(image, "package")));
+  // input@0 is the terminal's keyboard; snapshot@0 the page's Save: a save is kept in the
+  // browser, and the page opens it again.
+  const hosts = [...new Set(installs.flatMap(definition => definition.hostRequirements).concat("input@0", "snapshot@0"))].sort();
+  const row = definition => `INSTALL ${siteReference(definition.dollyfile)} ${definition.sha256}\n`;
   const template = async file => (await readFile(join(import.meta.dirname, "dolly-build-init", file), "utf8")).replaceAll("__NAME__", name);
   const files = {
     [`Dollyfile-${name}`]: `DOLLY 7\nAPPLICATION ${name}\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}\n` +
-      row("FROM", base) + installs.map(definition => row("INSTALL", definition)).join("") + "\n" + await template("Dollyfile") +
-      `\nENTRY ${base.entry.join(" ")}\n`,
+      installs.map(row).join("") + "\n" + await template("Dollyfile"),
     "public/index.html": await template("public/index.html"),
     "public/main.mjs": await template("public/main.mjs"),
     "public/page.css": await template("public/page.css"),
@@ -136,7 +138,10 @@ async function build(recipePath, outArgument) {
   const filename = basename(recipePath), source = await readFile(recipePath, "utf8");
   const parsed = inspectDollyfile(source, filename), image = parsed.image;
   if (imageFileName(filename) !== image) fail(`${filename}: name it Dollyfile-${image}`);
-  if (!parsed.from) fail(`${filename}: FROM an installed image`);
+  // The build runs the recipe engine of its base, or of the dollyfile package it installs.
+  const engine = parsed.artifacts.some(({ operation, location }) => operation === "install" &&
+    imageFileName(recipeFileName(location)) === "dollyfile");
+  if (!parsed.from && !engine) fail(`${filename}: FROM an installed image, or INSTALL the dollyfile package`);
   if (!existsSync("public/index.html")) fail("public/index.html: the page of the site (dolly-build init writes one)");
   // A rebuild replaces the site it wrote before, and nothing else.
   const previous = join(outArgument, "image");

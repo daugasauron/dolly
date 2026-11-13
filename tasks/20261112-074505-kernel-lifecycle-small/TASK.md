@@ -23,7 +23,13 @@ On `fix/batch`, waiting for its rebuild round:
   lists `/tmp`, so a concurrent upload made it fail. mmap writes back through FD_PWRITE, which
   waits already. The page's own boot-file writes (nena's `/etc/dolly/enabled`) are synchronous
   exports and cannot wait; a save they race fails with its "save again" line.
-- `process_dispatch`'s split waits for `20261112-074504-kernel-streams`.
+- `process_dispatch` is split (2026-11-13, `fix/audit-0.1.6`): 133 lines, the table of every
+  operation, each one's packet a function with only the parameters it uses. kernel-streams' descriptor
+  record had landed (`2320b1a06`), so no operation branches on a descriptor kind there. A script moved
+  the 41 bodies unchanged (no body retyped); image inputs unchanged (`46de2b9c…`). Passed in Chromium and
+  Firefox: process, process budget, list and memory, shell, Slop, pty, console, threads, core,
+  ending, terminal, cpp, host modules, boundary, session times, snapshot stream, upload. The suites
+  that need the full catalog run in the round; close after them.
 
 ## Do
 

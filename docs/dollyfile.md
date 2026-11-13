@@ -144,8 +144,10 @@ mounted, and reads no other version's.
 
 - `RUN` spawns the program with the following words as its arguments, in `/`
   or `CWD`, with stdin `/dev/null`: no shell and no expansion. The words follow
-  the ENTRY limits. The program must exist by then: a root build has only the
-  seed compiler, `/usr/libexec/dolly/process-bin/compiler
+  the ENTRY limits. The program must exist by then. A root build that
+  `INSTALL`s the `dollyfile` package runs that package's engine, as a `FROM`
+  build runs its base's, and has what its rows installed; any other has only
+  the seed compiler, `/usr/libexec/dolly/process-bin/compiler
   --dolly-toolchain-mode=c`, until it compiles Slop and the compiler front ends
   ([`Dollyfile-system-build`](../Dollyfile-system-build)).
 - `SLOP` runs `/bin/slop -e -c COMMAND`, keeping the command's quoting. Each

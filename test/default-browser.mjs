@@ -39,6 +39,15 @@ await browserTest("composed toolchain", {}, async ({ server, open }) => {
   await runSteps(session.submit, server.origin, ccCases);
 });
 
+// A root recipe that installs the dollyfile package builds with that package's
+// engine, as a FROM build with its base's: the page never fetches the compiler seed.
+await browserTest("composed with the engine", {}, async ({ open, server }) => {
+  server.requests.clear();
+  const run = check(await open(await composed(["runtime", "display", "input", "http"], ["core", "dollyfile", "display"])));
+  await run("test -x /bin/dollyfile && ! test -e /usr/libexec/dolly/process-bin/compiler");
+  assert.ok(![...server.requests.keys()].some(path => path.startsWith("/dist/dolly.data")), "the build fetched the compiler seed");
+});
+
 // A package's recorded dependency (test/cases/zig-package.json).
 await browserTest("composed dependency", {}, async ({ server, open }) => {
   const session = await open(await composed(zigCases.hosts, zigCases.packages));

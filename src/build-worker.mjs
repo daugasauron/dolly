@@ -1,15 +1,15 @@
 // The site's runtime Worker (worker-image.mjs): it builds an image from its
-// recipe, from the compiler seed or the base image the page hands it, caches
-// it and runs it, telling the page its identity, or, for the image builder,
-// hands the page the cached artifact (buildOnly); or it restores a custom
-// image the site built before. Images cross to and from Wasm memory a piece
-// at a time: the page holds them as Blobs, never in a JS heap.
+// recipe, from the base image or the engine package the page hands it or from
+// the compiler seed, caches it and runs it, telling the page its identity, or,
+// for the image builder, hands the page the cached artifact (buildOnly); or it
+// restores a custom image the site built before. Images cross to and from Wasm
+// memory a piece at a time: the page holds them as Blobs, never in a JS heap.
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { imageBase, imageDefinition } from "./images.mjs";
 import { scanSnapshotRecords, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256 } from "./image-artifact.mjs";
 import { imageInputs } from "./image-inputs.mjs";
-import { inspectDollyfile, MAX_DOLLYFILE_BYTES, recipeRows } from "./dollyfile-view.mjs";
+import { imageFileName, inspectDollyfile, MAX_DOLLYFILE_BYTES, recipeFileName, recipeRows } from "./dollyfile-view.mjs";
 import { checkedCustomArtifact } from "./custom-image.mjs";
 import { siteReference, decodeStaticAsset } from "./static-asset.mjs";
 import { checkedMemoryRange, kernelArtifact, runImage } from "./worker-image.mjs";
@@ -97,6 +97,10 @@ await runImage(async (config, host) => {
   // /bin/dollyfile executes the rows this page's parser compiles.
   const rows = recipeRows(custom ? recipe : await catalogRecipe(definition), recipeSha256);
   const baseReference = custom ? recipe.from : definition.artifacts.find(reference => reference.operation === "from");
+  // A root build that installs the recipe engine's package starts from that package's
+  // /bin/dollyfile, as a FROM build starts from its base's; any other from the compiler seed.
+  const engineReference = baseReference ? null : (custom ? recipe : definition).artifacts.find(reference =>
+    reference.operation === "install" && imageFileName(recipeFileName(reference.location)) === "dollyfile");
   const artifacts = new Map();
   if (config.artifacts !== undefined && (!Array.isArray(config.artifacts) || config.artifacts.length > 256)) {
     throw new Error("invalid build artifacts");
@@ -116,12 +120,15 @@ await runImage(async (config, host) => {
   const inputs = imageInputs([...artifacts.values()]);
   const base = baseReference ? artifacts.get(baseReference.sha256) : null;
   if (baseReference && !base) throw new Error("base image artifact was not provided");
+  const engine = engineReference ? artifacts.get(engineReference.sha256) : null;
+  if (engineReference && !engine) throw new Error("dollyfile package artifact was not provided");
+  const builder = base ?? engine, builderReference = baseReference ?? engineReference;
   let seed = null, built = false;
   return {
     name: image,
     async prepare({ files, stage }) {
-      // A root build starts from the compiler seed, a snapshot like any image.
-      if (!base) {
+      // A root build without the engine starts from the compiler seed, a snapshot like any image.
+      if (!builder) {
         stage("loading root compiler seed...");
         // Static hosts may serve the seed as verified parts.
         const url = kernelArtifact("dolly.data");
@@ -133,15 +140,15 @@ await runImage(async (config, host) => {
       [...artifacts.values()].forEach((artifact, input) =>
         files.input(`/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`, input, artifact.bytes.size));
       // The kernel restores a snapshot against the list of its paths.
-      const manifest = base?.manifest ?? [...(await scanSnapshotRecords(seed.stream(), () => false)).records.keys()];
+      const manifest = builder?.manifest ?? [...(await scanSnapshotRecords(seed.stream(), () => false)).records.keys()];
       files.write("/etc/dolly/image.manifest", `${manifest.join("\n")}\n`);
     },
     async restore({ kernel, memory, files, stage }) {
       stage("building userspace from the Dollyfile...");
       let status;
-      if (base) {
-        stage(`loading builder from ${baseReference.location}...`);
-        status = kernel.dolly_process_bootstrap_resume_prepare(BigInt(await stageSnapshot(kernel, memory, base.bytes)), 1);
+      if (builder) {
+        stage(`loading builder from ${builderReference.location}...`);
+        status = kernel.dolly_process_bootstrap_resume_prepare(BigInt(await stageSnapshot(kernel, memory, builder.bytes)), 1);
       } else {
         status = kernel.dolly_process_bootstrap_prepare(BigInt(await stageSnapshot(kernel, memory, seed)));
         seed = null;
@@ -149,7 +156,7 @@ await runImage(async (config, host) => {
       let supervisor;
       if (status === 0) {
         supervisor = await host.kernel.supervisor(kernel);
-        status = (await supervisor.spawn(base ? ["/bin/dollyfile", locator] : ["/usr/libexec/dolly/process-bin/bootstrap"])).status;
+        status = (await supervisor.spawn(builder ? ["/bin/dollyfile", locator] : ["/usr/libexec/dolly/process-bin/bootstrap"])).status;
       }
       for (const artifact of artifacts.values()) files.remove(`/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`);
       artifacts.clear();

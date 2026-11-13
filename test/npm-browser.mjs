@@ -145,7 +145,7 @@ try {
   }
   // The packages' own rule: the runtime depends on nothing, every other package on the runtime,
   // at its version; a Dolly package also on the packages it installs, and dolly-build on the
-  // playwright-core it starts browsers with.
+  // playwright-core it starts browsers with and the packages its init's recipe installs.
   for (const { manifest } of published.values()) {
     if (manifest.name === "playwright-core") continue;
     assert.equal(manifest.peerDependencies, undefined, manifest.name);
@@ -154,7 +154,8 @@ try {
     assert.equal(runtime, manifest.version, manifest.name);
     for (const [name, version] of Object.entries(others)) {
       if (manifest.name === "@daugasauron/dolly-build" && name === "playwright-core") continue;
-      assert.ok(manifest.name.startsWith("@daugasauron/dolly-package-") && name.startsWith("@daugasauron/dolly-package-") &&
+      assert.ok((manifest.name.startsWith("@daugasauron/dolly-package-") || manifest.name === "@daugasauron/dolly-build") &&
+        name.startsWith("@daugasauron/dolly-package-") &&
         published.has(name) && version === manifest.version, `${manifest.name} depends on ${name}@${version}`);
     }
   }

@@ -1,21 +1,26 @@
-import { DOLLY_ERRNO as E } from "./abi.mjs";
+import { DOLLY_DEVICE_REPLY_HEADER_BYTES as header, DOLLY_DEVICE_REPLY_PUBLISHED, DOLLY_DEVICE_REPLY_WORD_ERRNO,
+  DOLLY_DEVICE_REPLY_WORD_LENGTH, DOLLY_DEVICE_REPLY_WORD_SCOPE, DOLLY_DEVICE_REPLY_WORD_SEQUENCE, DOLLY_DEVICE_REPLY_WORD_STATE,
+  DOLLY_ERRNO as E } from "./abi.mjs";
 
 // The Worker side of a device leased per process (src/device-lease.c). Each
 // packet a process submits (dolly_device_header, runtime.h, then the
 // operation's body) is checked whole here and goes to the page as
 // `TYPE-request` with its operation, scope, sequence and body; the page's
-// `TYPE-complete` is published in the lease's reply slot, a 64-byte header and
+// `TYPE-complete` is published in the lease's reply slot, a header and
 // `replyBytes`. `version`, `open` and `close` are the device's.
 export function createLeaseBridge({ type, version, slots: count, packetBytes, replyBytes, open, close }, memory, mailbox, send, complete) {
-  const slots = new Array(count), stride = 64 + replyBytes;
+  const slots = new Array(count), stride = header + replyBytes;
   if (!Number.isSafeInteger(mailbox) || mailbox <= 0 || mailbox % 4 ||
       mailbox > memory.buffer.byteLength - count * stride) throw new Error(`Invalid ${type} mailbox`);
   // The reply to the call a slot's lease waits for; its state is published last.
   function publish(slot, entry, error, bytes) {
-    const words = new Int32Array(memory.buffer, mailbox + slot * stride, 16);
-    new Uint8Array(memory.buffer, mailbox + slot * stride + 64, bytes.length).set(bytes);
-    Atomics.store(words, 1, entry.scope); Atomics.store(words, 2, entry.sequence);
-    Atomics.store(words, 3, error); Atomics.store(words, 4, bytes.length); Atomics.store(words, 0, 1);
+    const words = new Int32Array(memory.buffer, mailbox + slot * stride, header / 4);
+    new Uint8Array(memory.buffer, mailbox + slot * stride + header, bytes.length).set(bytes);
+    Atomics.store(words, DOLLY_DEVICE_REPLY_WORD_SCOPE, entry.scope);
+    Atomics.store(words, DOLLY_DEVICE_REPLY_WORD_SEQUENCE, entry.sequence);
+    Atomics.store(words, DOLLY_DEVICE_REPLY_WORD_ERRNO, error);
+    Atomics.store(words, DOLLY_DEVICE_REPLY_WORD_LENGTH, bytes.length);
+    Atomics.store(words, DOLLY_DEVICE_REPLY_WORD_STATE, DOLLY_DEVICE_REPLY_PUBLISHED);
     entry.pending = false;
   }
   function acknowledge(message) {

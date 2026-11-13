@@ -5,10 +5,17 @@
 #include <errno.h>
 #include <string.h>
 
-_Static_assert(offsetof(dolly_device_reply, bytes) == 64, "device reply header");
+_Static_assert(sizeof(dolly_device_header) == DOLLY_DEVICE_HEADER_BYTES &&
+    offsetof(dolly_device_reply, state) == 4 * DOLLY_DEVICE_REPLY_WORD_STATE &&
+    offsetof(dolly_device_reply, scope) == 4 * DOLLY_DEVICE_REPLY_WORD_SCOPE &&
+    offsetof(dolly_device_reply, sequence) == 4 * DOLLY_DEVICE_REPLY_WORD_SEQUENCE &&
+    offsetof(dolly_device_reply, error) == 4 * DOLLY_DEVICE_REPLY_WORD_ERRNO &&
+    offsetof(dolly_device_reply, length) == 4 * DOLLY_DEVICE_REPLY_WORD_LENGTH &&
+    offsetof(dolly_device_reply, bytes) == DOLLY_DEVICE_REPLY_HEADER_BYTES,
+    "device reply slot differs from dolly-supervisor-0.wat");
 
 static dolly_device_reply *reply_at(const dolly_leased_device *device, unsigned index) {
-  return (dolly_device_reply *)(device->replies + index * (64 + device->reply_bytes));
+  return (dolly_device_reply *)(device->replies + index * (DOLLY_DEVICE_REPLY_HEADER_BYTES + device->reply_bytes));
 }
 
 void dolly_device_release(const dolly_leased_device *device, int pid) {
@@ -74,7 +81,7 @@ int64_t dolly_device_call(const dolly_leased_device *device, int pid, unsigned c
     lease->operation = h.operation;
     lease->pending = 1;
   } else if (h.sequence != lease->sequence || h.operation != lease->operation) return -EBUSY;
-  if (atomic_load_explicit(&reply->state, memory_order_acquire) != 1 ||
+  if (atomic_load_explicit(&reply->state, memory_order_acquire) != DOLLY_DEVICE_REPLY_PUBLISHED ||
       atomic_load(&reply->scope) != lease->scope ||
       atomic_load(&reply->sequence) != lease->sequence) return DOLLY_PROCESS_DISPATCH_DEFERRED;
   uint32_t length = atomic_load(&reply->length), error = atomic_load(&reply->error);

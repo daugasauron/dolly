@@ -1975,6 +1975,684 @@ int dolly_process_spawn_serialized(uintptr_t request_size) {
   return spawn_packet(0, (size_t)request_size);
 }
 
+/* The operations whose packets need more than a line, one function each; process_dispatch
+ * below is the table of every operation. */
+static int64_t argument_sizes_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != 0) return -EINVAL;
+  return vector_sizes(process->program.arguments, process->program.argument_count,
+                      response_capacity);
+}
+
+static int64_t arguments_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != 0) return -EINVAL;
+  return vector_bytes(process->program.arguments, process->program.argument_count,
+                      response_capacity);
+}
+
+static int64_t environment_sizes_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != 0) return -EINVAL;
+  return vector_sizes(process->program.environment, process->program.environment_count,
+                      response_capacity);
+}
+
+static int64_t environment_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != 0) return -EINVAL;
+  return vector_bytes(process->program.environment, process->program.environment_count,
+                      response_capacity);
+}
+
+static int64_t fd_close_packet(dolly_kernel_process *process, uintptr_t request_size) {
+  uint32_t guest;
+  const int result = decode_fd_request(process, request_size, &guest);
+  if (result == 0) release_descriptor(process, guest);
+  return result;
+}
+
+static int64_t fd_seek_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != sizeof(dolly_process_fd_seek_request) ||
+      response_capacity < sizeof(dolly_process_fd_seek_response)) return -EINVAL;
+  dolly_process_fd_seek_request request;
+  memcpy(&request, process_mailbox, sizeof(request));
+  int descriptor = descriptor_for(process, request.descriptor);
+  if (descriptor < 0) return descriptor;
+  static const int whence[] = {
+      [DOLLY_PROCESS_SEEK_SET] = SEEK_SET,
+      [DOLLY_PROCESS_SEEK_CURRENT] = SEEK_CUR,
+      [DOLLY_PROCESS_SEEK_END] = SEEK_END,
+  };
+  if (request.whence > DOLLY_PROCESS_SEEK_END) return -EINVAL;
+  off_t offset = lseek(descriptor, (off_t)request.offset, whence[request.whence]);
+  if (offset < 0) return -errno;
+  /* A directory set to a position (rewinddir, seekdir) is read on from
+   * there, not from the entries the kernel's reader holds. */
+  if (request.whence == DOLLY_PROCESS_SEEK_SET && process->fds[request.descriptor].directory != NULL) {
+    closedir(process->fds[request.descriptor].directory);
+    process->fds[request.descriptor].directory = NULL;
+  }
+  dolly_process_fd_seek_response response = {(uint64_t)offset};
+  return respond(&response, sizeof(response));
+}
+
+static int64_t fd_sync_packet(dolly_kernel_process *process, uintptr_t request_size) {
+  uint32_t guest;
+  int descriptor = decode_fd_request(process, request_size, &guest);
+  if (descriptor == 0) descriptor = descriptor_for(process, guest);
+  /* A pipe or a socket has nothing to sync or truncate (POSIX: EINVAL). */
+  if (descriptor < 0) return descriptor == -ESPIPE ? -EINVAL : descriptor;
+  return fsync(descriptor) == 0 ? 0 : -errno;
+}
+
+static int64_t fd_truncate_packet(dolly_kernel_process *process, uintptr_t request_size) {
+  if (request_size != sizeof(dolly_process_fd_truncate_request)) return -EINVAL;
+  dolly_process_fd_truncate_request request;
+  memcpy(&request, process_mailbox, sizeof(request));
+  if (request.reserved != 0 || request.size > INT64_MAX) return -EINVAL;
+  int descriptor = descriptor_for(process, request.descriptor);
+  if (descriptor < 0) return descriptor == -ESPIPE ? -EINVAL : descriptor;
+  if (dolly_kernel_change_waits(descriptor)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
+  /* POSIX: a descriptor open for writing; WasmFS truncates through any. */
+  const int access = fcntl(descriptor, F_GETFL);
+  if (access < 0) return -errno;
+  if ((access & O_ACCMODE) == O_RDONLY) return -EINVAL;
+  if (ftruncate(descriptor, (off_t)request.size) != 0) return -errno;
+  mark_truncated(descriptor);
+  return 0;
+}
+
+static int64_t fd_stat_filesystem_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (response_capacity < sizeof(dolly_process_filesystem_stat_response)) return -EINVAL;
+  uint32_t guest;
+  int descriptor = decode_fd_request(process, request_size, &guest);
+  if (descriptor == 0) descriptor = descriptor_for(process, guest);
+  if (descriptor < 0) return descriptor;
+  struct stat metadata;
+  if (fstat(descriptor, &metadata) != 0) return -errno;
+  dolly_process_filesystem_stat_response response;
+  encode_filesystem_stat(&response);
+  return respond(&response, sizeof(response));
+}
+
+static int64_t fd_set_times_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != sizeof(dolly_process_fd_times_request) ||
+      response_capacity != 0) return -EINVAL;
+  dolly_process_fd_times_request request;
+  memcpy(&request, process_mailbox, sizeof(request));
+  if (request.reserved != 0) return -EINVAL;
+  int descriptor = descriptor_for(process, request.descriptor);
+  if (descriptor < 0) return descriptor;
+  if (dolly_kernel_change_waits(descriptor)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
+  struct timespec times[2];
+  int result = decode_timestamps(
+      &request.access, &request.modification, times);
+  if (result == 0 && futimens(descriptor, times) != 0) result = -errno;
+  return result;
+}
+
+static int64_t fd_dup_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != sizeof(dolly_process_fd_dup_request) ||
+      response_capacity < sizeof(dolly_process_fd_dup_response)) return -EINVAL;
+  dolly_process_fd_dup_request request;
+  memcpy(&request, process_mailbox, sizeof(request));
+  if ((request.flags & ~(DOLLY_PROCESS_FD_DUP_MINIMUM | DOLLY_PROCESS_FD_DUP_CLOEXEC)) != 0 ||
+      request.reserved != 0) return -EINVAL;
+  if (!descriptor_is_open(process, request.source_descriptor)) return -EBADF;
+  const int minimum = (request.flags & DOLLY_PROCESS_FD_DUP_MINIMUM) != 0;
+  if (minimum && request.target_descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT) {
+    return -EINVAL;
+  }
+  if (!minimum && request.target_descriptor == request.source_descriptor) {
+    if (request.flags != 0) return -EINVAL;
+    const int target = (int)request.target_descriptor;
+    dolly_process_fd_dup_response response = {(uint32_t)target, 0};
+    return respond(&response, sizeof(response));
+  }
+  int target;
+  if (minimum) {
+    target = unused_descriptor(process, request.target_descriptor);
+  } else if (request.target_descriptor == UINT32_MAX) {
+    target = unused_descriptor(process, 0);
+  } else if (request.target_descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT) {
+    return -EBADF;
+  } else {
+    target = (int)request.target_descriptor;
+  }
+  if (target < 0) return target;
+  const int result = copy_descriptor(process, process, request.source_descriptor, (uint32_t)target);
+  if (result != 0) return result;
+  process->fds[target].flags = (request.flags & DOLLY_PROCESS_FD_DUP_CLOEXEC)
+      ? DOLLY_PROCESS_FD_CLOEXEC : 0;
+  dolly_process_fd_dup_response response = {(uint32_t)target, 0};
+  return respond(&response, sizeof(response));
+}
+
+static int64_t fd_get_descriptor_flags_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (response_capacity < sizeof(dolly_process_fd_flags)) return -EINVAL;
+  uint32_t guest;
+  const int result = decode_fd_request(process, request_size, &guest);
+  if (result != 0) return result;
+  const dolly_process_fd_flags response = {guest, process->fds[guest].flags};
+  return respond(&response, sizeof(response));
+}
+
+static int64_t fd_set_descriptor_flags_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != sizeof(dolly_process_fd_flags) || response_capacity != 0) return -EINVAL;
+  dolly_process_fd_flags request;
+  memcpy(&request, process_mailbox, sizeof(request));
+  if (!descriptor_is_open(process, request.descriptor)) return -EBADF;
+  if (request.flags & ~(DOLLY_PROCESS_FD_CLOEXEC | DOLLY_PROCESS_FD_KEEP_LOCKS)) return -EINVAL;
+  process->fds[request.descriptor].flags = (unsigned char)request.flags;
+  return 0;
+}
+
+static int64_t fd_get_flags_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (response_capacity < sizeof(dolly_process_fd_flags)) return -EINVAL;
+  uint32_t guest;
+  const int result = decode_fd_request(process, request_size, &guest);
+  if (result != 0) return result;
+  uint32_t flags;
+  if (process->fds[guest].stream != NULL) {
+    flags = process->fds[guest].stream->kind->access |
+        (process->fds[guest].stream->nonblocking ? DOLLY_PROCESS_FD_STATUS_NONBLOCK : 0);
+  } else {
+    const int descriptor = descriptor_for(process, guest);
+    if (descriptor < 0) return descriptor;
+    const int status = fcntl(descriptor, F_GETFL);
+    if (status < 0) return -errno;
+    const int access = status & O_ACCMODE;
+    flags = (access != O_WRONLY ? DOLLY_PROCESS_FD_STATUS_READ : 0) |
+        (access != O_RDONLY ? DOLLY_PROCESS_FD_STATUS_WRITE : 0) |
+        (status & O_APPEND ? DOLLY_PROCESS_FD_STATUS_APPEND : 0) |
+        (status & O_NONBLOCK ? DOLLY_PROCESS_FD_STATUS_NONBLOCK : 0);
+  }
+  const dolly_process_fd_flags response = {guest, flags};
+  return respond(&response, sizeof(response));
+}
+
+static int64_t fd_set_flags_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != sizeof(dolly_process_fd_flags) ||
+      response_capacity != 0) return -EINVAL;
+  dolly_process_fd_flags request;
+  memcpy(&request, process_mailbox, sizeof(request));
+  if (!descriptor_is_open(process, request.descriptor)) return -EBADF;
+  if (request.flags & ~(DOLLY_PROCESS_FD_STATUS_APPEND | DOLLY_PROCESS_FD_STATUS_NONBLOCK)) {
+    return -EINVAL;
+  }
+  const int nonblocking = (request.flags & DOLLY_PROCESS_FD_STATUS_NONBLOCK) != 0;
+  if (process->fds[request.descriptor].file < 0) {
+    if (request.flags & DOLLY_PROCESS_FD_STATUS_APPEND) return -ENOTSUP;
+    process->fds[request.descriptor].stream->nonblocking = (unsigned char)nonblocking;
+    return 0;
+  }
+  const int descriptor = descriptor_for(process, request.descriptor);
+  if (descriptor < 0) return descriptor;
+  int status = fcntl(descriptor, F_GETFL);
+  if (status < 0) return -errno;
+  status &= ~(O_APPEND | O_NONBLOCK);
+  if (request.flags & DOLLY_PROCESS_FD_STATUS_APPEND) status |= O_APPEND;
+  if (nonblocking) status |= O_NONBLOCK;
+  return fcntl(descriptor, F_SETFL, status) == 0 ? 0 : -errno;
+}
+
+static int64_t fd_pipe_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != sizeof(dolly_process_pipe_request) ||
+      response_capacity < sizeof(dolly_process_pipe_response)) return -EINVAL;
+  dolly_process_pipe_request request;
+  memcpy(&request, process_mailbox, sizeof(request));
+  if (request.reserved != 0 || (request.flags & ~DOLLY_PROCESS_FD_CLOEXEC)) return -EINVAL;
+  dolly_kernel_socket *ends[2];
+  const int made = dolly_kernel_pipe_open(ends);
+  if (made != 0) return made;
+  uint32_t descriptors[2];
+  const int placed = place_streams(process, ends, 2, (unsigned char)request.flags, descriptors);
+  dolly_kernel_socket_release(ends[0]);
+  dolly_kernel_socket_release(ends[1]);
+  if (placed != 0) return placed;
+  dolly_process_pipe_response response = {descriptors[0], descriptors[1]};
+  return respond(&response, sizeof(response));
+}
+
+static int64_t fd_stat_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (response_capacity < sizeof(dolly_process_stat_response)) return -EINVAL;
+  uint32_t guest;
+  const int result = decode_fd_request(process, request_size, &guest);
+  if (result != 0) return result;
+  dolly_process_stat_response response = {.mode = 0600, .link_count = 1, .block_size = 4096};
+  if (process->fds[guest].stream != NULL) {
+    response.file_type = process->fds[guest].stream->kind->file_type;
+  } else {
+    struct stat metadata;
+    if (fstat(process->fds[guest].file, &metadata) != 0) return -errno;
+    encode_stat(&metadata, &response);
+  }
+  return respond(&response, sizeof(response));
+}
+
+static int64_t path_open_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (response_capacity < sizeof(dolly_process_path_open_response)) return -ENOBUFS;
+  dolly_process_path_request request;
+  char *path = NULL;
+  int directory = AT_FDCWD;
+  int result = decode_path_request(process, request_size, UINT32_MAX,
+                                   &request, &path, &directory);
+  int flags = result == 0 ? open_flags(request.flags) : result;
+  if (flags >= 0 && (flags & O_TRUNC) != 0 && dolly_kernel_change_waits(-1)) {
+    free(path);
+    return DOLLY_PROCESS_DISPATCH_DEFERRED;
+  }
+  if (flags < 0) result = flags;
+  /* What a slash names is a directory, which open does not create. */
+  else if ((request.flags & DOLLY_PROCESS_OPEN_CREATE) != 0 && path[request.path_size - 1] == '/')
+    result = -EISDIR;
+  int guest_fd = result == 0 ? unused_descriptor(process, 0) : -1;
+  if (result == 0 && guest_fd < 0) result = guest_fd;
+  int kernel_fd = -1;
+  if (result == 0) {
+    kernel_fd = openat(directory, path, flags, 0666);
+    if (kernel_fd < 0 && errno == ENOENT && (flags & O_CREAT) != 0)
+      kernel_fd = create_through_link(directory, path, flags, 40);
+    else if (kernel_fd < 0) kernel_fd = -errno;
+    if (kernel_fd < 0) result = kernel_fd;
+    else if ((flags & O_TRUNC) != 0) mark_truncated(kernel_fd);
+  }
+  free(path);
+  if (result != 0) return result;
+  if (process_list_file(kernel_fd)) {
+    close(kernel_fd);
+    return open_process_list(process, request.flags);
+  }
+  int stream = standard_stream(kernel_fd);
+  if (stream < 0 && controlling_terminal(kernel_fd)) stream = terminal_stream(process);
+  if (stream >= 0) {
+    close(kernel_fd);
+    result = copy_descriptor(process, process, (uint32_t)stream, (uint32_t)guest_fd);
+    if (result != 0) return result;
+  } else {
+    process->fds[guest_fd].file = kernel_fd;
+    process->fds[guest_fd].description = ++last_description;
+    process->fds[guest_fd].terminal = controlling_terminal(kernel_fd);
+  }
+  process->fds[guest_fd].flags = (request.flags & DOLLY_PROCESS_OPEN_CLOEXEC)
+      ? DOLLY_PROCESS_FD_CLOEXEC : 0;
+  dolly_process_path_open_response response = {(uint32_t)guest_fd, 0};
+  return respond(&response, sizeof(response));
+}
+
+static int64_t path_stat_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (response_capacity < sizeof(dolly_process_stat_response)) return -ENOBUFS;
+  dolly_process_path_request request;
+  char *path = NULL;
+  int directory = AT_FDCWD;
+  int result = decode_path_request(process, request_size,
+                                   DOLLY_PROCESS_PATH_NOFOLLOW,
+                                   &request, &path, &directory);
+  struct stat metadata;
+  if (result == 0 &&
+      fstatat(directory, path, &metadata,
+              (request.flags & DOLLY_PROCESS_PATH_NOFOLLOW) != 0
+                  ? AT_SYMLINK_NOFOLLOW : 0) != 0) result = -errno;
+  free(path);
+  if (result != 0) return result;
+  dolly_process_stat_response response;
+  encode_stat(&metadata, &response);
+  return respond(&response, sizeof(response));
+}
+
+static int64_t path_create_directory_packet(dolly_kernel_process *process, uintptr_t request_size) {
+  dolly_process_path_request request;
+  char *path = NULL;
+  int directory = AT_FDCWD;
+  int result = decode_path_request(process, request_size, 0, &request,
+                                   &path, &directory);
+  if (result == 0 && mkdirat(directory, path, 0777) != 0) result = -errno;
+  free(path);
+  return result;
+}
+
+static int64_t path_remove_packet(dolly_kernel_process *process, uintptr_t request_size) {
+  if (dolly_kernel_change_waits(-1)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
+  dolly_process_path_request request;
+  char *path = NULL;
+  int directory = AT_FDCWD;
+  int result = decode_path_request(process, request_size,
+                                   DOLLY_PROCESS_PATH_DIRECTORY,
+                                   &request, &path, &directory);
+  if (result == 0 && unlinkat(
+      directory, path,
+      (request.flags & DOLLY_PROCESS_PATH_DIRECTORY) != 0 ? AT_REMOVEDIR : 0) != 0) {
+    result = -errno;
+  }
+  free(path);
+  return result;
+}
+
+static int64_t path_rename_packet(dolly_kernel_process *process, uint32_t operation, uintptr_t request_size) {
+  if (operation == DOLLY_PROCESS_PATH_RENAME && dolly_kernel_change_waits(-1)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
+  dolly_process_two_path_request request;
+  const int invalid = decode_two_path_request(request_size, &request);
+  if (invalid != 0) return invalid;
+  char *old_path = NULL;
+  char *new_path = NULL;
+  int old_directory = AT_FDCWD;
+  int new_directory = AT_FDCWD;
+  int result = path_from_packet(
+      process, request.old_directory_descriptor,
+      process_mailbox + sizeof(request), request.old_path_size,
+      &old_path, &old_directory);
+  if (result == 0) result = path_from_packet(
+      process, request.new_directory_descriptor,
+      process_mailbox + sizeof(request) + request.old_path_size,
+      request.new_path_size, &new_path, &new_directory);
+  /* WasmFS renames the directory "dir/." names; POSIX refuses a dot. */
+  if (result == 0 && operation == DOLLY_PROCESS_PATH_RENAME &&
+      (ends_in_dot(old_path) || ends_in_dot(new_path))) result = -EINVAL;
+  if (result == 0) {
+    const int call_result = operation == DOLLY_PROCESS_PATH_RENAME
+        ? renameat(old_directory, old_path, new_directory, new_path)
+        : linkat(old_directory, old_path, new_directory, new_path, 0);
+    /* WasmFS has no hard links and says EMLINK; Linux says EPERM for a
+     * filesystem without them, and programs fall back to a copy on it. */
+    if (call_result != 0) result = errno == EMLINK && operation == DOLLY_PROCESS_PATH_LINK ? -EPERM : -errno;
+  }
+  free(old_path);
+  free(new_path);
+  return result;
+}
+
+static int64_t path_symlink_packet(dolly_kernel_process *process, uintptr_t request_size) {
+  dolly_process_two_path_request request;
+  const int invalid = decode_two_path_request(request_size, &request);
+  if (invalid != 0) return invalid;
+  if (request.old_directory_descriptor != UINT32_MAX) return -EINVAL;
+  const unsigned char *target_bytes = process_mailbox + sizeof(request);
+  if (memchr(target_bytes, 0, request.old_path_size) != NULL) return -EINVAL;
+  char *target = malloc((size_t)request.old_path_size + 1);
+  if (target == NULL) return -ENOMEM;
+  memcpy(target, target_bytes, request.old_path_size);
+  target[request.old_path_size] = 0;
+  char *link_path = NULL;
+  int directory = AT_FDCWD;
+  int result = path_from_packet(
+      process, request.new_directory_descriptor,
+      target_bytes + request.old_path_size, request.new_path_size,
+      &link_path, &directory);
+  if (result == 0 && symlinkat(target, directory, link_path) != 0) result = -errno;
+  free(target);
+  free(link_path);
+  return result;
+}
+
+static int64_t path_readlink_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  dolly_process_path_request request;
+  char *path = NULL;
+  int directory = AT_FDCWD;
+  int result = decode_path_request(process, request_size, 0, &request,
+                                   &path, &directory);
+  char target[PATH_MAX];
+  const int link = result == 0 ? kernel_link(process, path, target, sizeof(target)) : 1;
+  if (result == 0 && link <= 0) {
+    if (link < 0) result = link;
+    else if (response_capacity == 0) result = -EINVAL;
+    else {
+      size_t count = strlen(target);
+      if (count > response_capacity) count = response_capacity;
+      memcpy(process_mailbox, target, count);
+      result = (int)count;
+    }
+  } else if (result == 0) {
+    ssize_t count = readlinkat(directory, path, (char *)process_mailbox,
+                               response_capacity);
+    result = count < 0 ? -errno : (int)count;
+  }
+  free(path);
+  return result;
+}
+
+static int64_t path_get_current_directory_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != 0) return -EINVAL;
+  if (response_capacity == 0) return -ENOBUFS;
+  const int result = directory_path(process->current_directory,
+      (char *)process_mailbox, response_capacity);
+  return result < 0 ? result : (int64_t)strlen((char *)process_mailbox) + 1;
+}
+
+static int64_t path_set_current_directory_packet(dolly_kernel_process *process, uintptr_t request_size) {
+  dolly_process_path_request request;
+  char *path = NULL;
+  int directory = AT_FDCWD;
+  int result = decode_path_request(process, request_size, 0, &request,
+                                   &path, &directory);
+  int descriptor = -1;
+  if (result == 0) {
+    descriptor = openat(directory, path, O_RDONLY | O_DIRECTORY);
+    if (descriptor < 0) result = -errno;
+  }
+  free(path);
+  if (result != 0) return result;
+  close(process->current_directory);
+  process->current_directory = descriptor;
+  return 0;
+}
+
+static int64_t path_stat_filesystem_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (response_capacity < sizeof(dolly_process_filesystem_stat_response)) {
+    return -ENOBUFS;
+  }
+  dolly_process_path_request request;
+  char *path = NULL;
+  int directory = AT_FDCWD;
+  int result = decode_path_request(process, request_size, 0, &request,
+                                   &path, &directory);
+  struct stat metadata;
+  if (result == 0 && fstatat(directory, path, &metadata, 0) != 0) {
+    result = -errno;
+  }
+  free(path);
+  if (result != 0) return result;
+  dolly_process_filesystem_stat_response response;
+  encode_filesystem_stat(&response);
+  return respond(&response, sizeof(response));
+}
+
+static int64_t path_set_times_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if (dolly_kernel_change_waits(-1)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
+  if (request_size < sizeof(dolly_process_path_times_request) ||
+      response_capacity != 0) return -EINVAL;
+  dolly_process_path_times_request request;
+  memcpy(&request, process_mailbox, sizeof(request));
+  if (request.reserved != 0 || request.path_size == 0 ||
+      request.path_size != request_size - sizeof(request) ||
+      (request.flags & ~DOLLY_PROCESS_PATH_NOFOLLOW) != 0) return -EINVAL;
+  char *path = NULL;
+  int directory = AT_FDCWD;
+  int result = path_from_packet(
+      process, request.directory_descriptor,
+      process_mailbox + sizeof(request), request.path_size,
+      &path, &directory);
+  struct timespec times[2];
+  if (result == 0) result = decode_timestamps(
+      &request.access, &request.modification, times);
+  if (result == 0 && utimensat(
+      directory, path, times,
+      (request.flags & DOLLY_PROCESS_PATH_NOFOLLOW) != 0
+          ? AT_SYMLINK_NOFOLLOW : 0) != 0) result = -errno;
+  free(path);
+  return result;
+}
+
+static int64_t spawn_call(int pid, uintptr_t request_size, uintptr_t response_capacity) {
+  if (response_capacity < sizeof(dolly_process_spawn_response)) return -ENOBUFS;
+  int child = spawn_packet(pid, (size_t)request_size);
+  if (child < 0) return child;
+  dolly_process_spawn_response response = {(uint32_t)child, 0};
+  return respond(&response, sizeof(response));
+}
+
+static int64_t wait_packet(int pid, uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != sizeof(dolly_process_wait_request) ||
+      response_capacity < sizeof(dolly_process_wait_response)) return -EINVAL;
+  dolly_process_wait_request request;
+  memcpy(&request, process_mailbox, sizeof(request));
+  if ((request.flags & ~DOLLY_PROCESS_WAIT_NONBLOCK) != 0) return -EINVAL;
+  int children = 0;
+  dolly_kernel_process *child = NULL;
+  for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT && child == NULL; ++index) {
+    dolly_kernel_process *candidate = &process_table[index];
+    if (candidate->state == DOLLY_KERNEL_PROCESS_FREE || candidate->parent_pid != pid ||
+        (request.pid != 0 && (uint32_t)candidate->pid != request.pid)) continue;
+    ++children;
+    if (candidate->state == DOLLY_KERNEL_PROCESS_EXITED && candidate->worker_retired) {
+      child = candidate;
+    }
+  }
+  if (children == 0) return -ECHILD;
+  if (child == NULL) {
+    return (request.flags & DOLLY_PROCESS_WAIT_NONBLOCK) != 0
+        ? -EAGAIN : DOLLY_PROCESS_DISPATCH_DEFERRED;
+  }
+  const dolly_process_wait_response response = {
+      (uint32_t)child->pid, (uint32_t)child->status, (uint32_t)child->exit_signal, 0,
+  };
+  dispose_process(child);
+  return respond(&response, sizeof(response));
+}
+
+static int64_t info_packet(dolly_kernel_process *process, int pid, uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != 0 || response_capacity < sizeof(dolly_process_info_response)) return -EINVAL;
+  const dolly_process_info_response response = {
+      (uint32_t)process->pid, (uint32_t)process->parent_pid,
+  };
+  return respond(&response, sizeof(response));
+}
+
+static int64_t signal_packet(int pid, uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != sizeof(dolly_process_signal_request) ||
+      response_capacity < sizeof(dolly_process_signal_request)) return -EINVAL;
+  dolly_process_signal_request request;
+  memcpy(&request, process_mailbox, sizeof(request));
+  if (request.pid == 0 || request.pid > INT32_MAX ||
+      !supported_signal(request.signal_number)) return -ENOTSUP;
+  const int result = dolly_process_signal((int)request.pid, (int)request.signal_number);
+  if (result < 0) return result;
+  return respond(&request, sizeof(request));
+}
+
+static int64_t interrupt_poll_packet(dolly_kernel_process *process, int takes_signals, uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != 0 || response_capacity < sizeof(int32_t)) return -EINVAL;
+  const int32_t response = process->handling_signal || !takes_signals ? 0 : next_signal(process);
+  if (response) {
+    process->pending_signals &= ~(1u << response);
+    process->handling_signal = response;
+  }
+  return respond(&response, sizeof(response));
+}
+
+static int64_t signal_acknowledge_packet(dolly_kernel_process *process, int takes_signals, uintptr_t request_size, uintptr_t response_capacity) {
+  if (!takes_signals) return -EPERM;
+  if (request_size != sizeof(int32_t) || response_capacity < sizeof(int32_t)) return -EINVAL;
+  int32_t number;
+  memcpy(&number, process_mailbox, sizeof(number));
+  if (!number || number != process->handling_signal) return -EINVAL;
+  process->handling_signal = 0;
+  const int32_t remaining = next_signal(process);
+  if (remaining == 0) process->grace_deadline = 0;
+  return respond(&remaining, sizeof(remaining));
+}
+
+static int64_t alarm_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  if ((request_size != 0 && request_size != sizeof(dolly_process_alarm)) ||
+      response_capacity < sizeof(dolly_process_alarm)) return -EINVAL;
+  const uint64_t now = clock_nanoseconds(CLOCK_MONOTONIC);
+  /* A due timer reports time left until the supervisor raises it. */
+  const dolly_process_alarm previous = {
+      process->alarm_deadline == 0 ? 0
+          : process->alarm_deadline > now ? process->alarm_deadline - now : 1,
+      process->alarm_interval,
+  };
+  if (request_size != 0) {
+    dolly_process_alarm request;
+    memcpy(&request, process_mailbox, sizeof(request));
+    const int armed = request.value_nanoseconds != 0;
+    process->alarm_deadline = armed ? saturating_add(now, request.value_nanoseconds) : 0;
+    process->alarm_interval = armed ? request.interval_nanoseconds : 0;
+  }
+  return respond(&previous, sizeof(previous));
+}
+
+static int64_t signal_dispositions_packet(dolly_kernel_process *process, uintptr_t request_size, uintptr_t response_capacity) {
+  dolly_process_signal_dispositions request;
+  if (request_size != sizeof(request) || response_capacity != 0) return -EINVAL;
+  memcpy(&request, process_mailbox, sizeof(request));
+  if (((request.ignored_signals | request.handled_signals) & 1u) != 0 ||
+      (request.ignored_signals & request.handled_signals) != 0) return -EINVAL;
+  process->ignored_signals = request.ignored_signals;
+  process->handled_signals = request.handled_signals;
+  return 0;
+}
+
+static int64_t clock_time_packet(uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != sizeof(dolly_process_clock_request) ||
+      response_capacity < sizeof(dolly_process_clock_response)) return -EINVAL;
+  dolly_process_clock_request request;
+  memcpy(&request, process_mailbox, sizeof(request));
+  clockid_t clock;
+  if (request.reserved != 0 || process_clock(request.clock_id, &clock) != 0) return -EINVAL;
+  const dolly_process_clock_response response = {clock_nanoseconds(clock)};
+  return respond(&response, sizeof(response));
+}
+
+static int64_t clock_resolution_packet(uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != sizeof(dolly_process_clock_request) ||
+      response_capacity < sizeof(dolly_process_clock_response)) return -EINVAL;
+  dolly_process_clock_request request;
+  memcpy(&request, process_mailbox, sizeof(request));
+  clockid_t clock;
+  if (request.reserved != 0 || process_clock(request.clock_id, &clock) != 0 ||
+      request.precision_nanoseconds != 0) return -EINVAL;
+  struct timespec value;
+  if (clock_getres(clock, &value) != 0) return -errno;
+  dolly_process_clock_response response = {
+      (uint64_t)value.tv_sec * 1000000000u + (uint64_t)value.tv_nsec,
+  };
+  return respond(&response, sizeof(response));
+}
+
+static int64_t clock_sleep_packet(uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != sizeof(dolly_process_clock_sleep_request) ||
+      response_capacity != 0) return -EINVAL;
+  dolly_process_clock_sleep_request request;
+  memcpy(&request, process_mailbox, sizeof(request));
+  clockid_t clock;
+  if (request.flags != 0 || process_clock(request.clock_id, &clock) != 0) return -EINVAL;
+  const uint64_t now = clock_nanoseconds(clock);
+  if (now >= request.deadline_nanoseconds) return 0;
+  deferred_milliseconds = (double)(request.deadline_nanoseconds - now) / 1000000.0;
+  return DOLLY_PROCESS_DISPATCH_DEFERRED;
+}
+
+static int64_t random_packet(uintptr_t request_size, uintptr_t response_capacity) {
+  if (request_size != 0) return -EINVAL;
+  size_t offset = 0;
+  while (offset < response_capacity) {
+    const size_t chunk = response_capacity - offset > 256
+        ? 256 : response_capacity - offset;
+    if (getentropy(process_mailbox + offset, chunk) != 0) return -errno;
+    offset += chunk;
+  }
+  return (int64_t)response_capacity;
+}
+
+static int64_t exit_packet(dolly_kernel_process *process, uintptr_t request_size) {
+  if (request_size != sizeof(dolly_process_exit_request)) return -EINVAL;
+  dolly_process_exit_request request;
+  memcpy(&request, process_mailbox, sizeof(request));
+  if (request.status > 255 || !supported_signal(request.signal_number) ||
+      (request.signal_number != 0 && request.status != 128 + request.signal_number)) return -EINVAL;
+  /* The program's word: a signal still pending was not taken, and one it
+   * ignores or blocks must not turn its exit into a death. */
+  mark_process_exited(process, (int)request.status, (int)request.signal_number);
+  return 0;
+}
+
 static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t operation,
                                uintptr_t mailbox, uintptr_t request_size,
                                uintptr_t response_capacity) {
@@ -2004,21 +2682,13 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
   if (module) return module->call(pid, tid, operation, process_mailbox, request_size, response_capacity);
   switch (operation) {
     case DOLLY_PROCESS_ARGUMENT_SIZES:
-      if (request_size != 0) return -EINVAL;
-      return vector_sizes(process->program.arguments, process->program.argument_count,
-                          response_capacity);
+      return argument_sizes_packet(process, request_size, response_capacity);
     case DOLLY_PROCESS_ARGUMENTS:
-      if (request_size != 0) return -EINVAL;
-      return vector_bytes(process->program.arguments, process->program.argument_count,
-                          response_capacity);
+      return arguments_packet(process, request_size, response_capacity);
     case DOLLY_PROCESS_ENVIRONMENT_SIZES:
-      if (request_size != 0) return -EINVAL;
-      return vector_sizes(process->program.environment, process->program.environment_count,
-                          response_capacity);
+      return environment_sizes_packet(process, request_size, response_capacity);
     case DOLLY_PROCESS_ENVIRONMENT:
-      if (request_size != 0) return -EINVAL;
-      return vector_bytes(process->program.environment, process->program.environment_count,
-                          response_capacity);
+      return environment_packet(process, request_size, response_capacity);
     case DOLLY_PROCESS_FD_READ:
       return fd_read_packet(process, request_size, response_capacity);
     case DOLLY_PROCESS_FD_PREAD:
@@ -2027,632 +2697,91 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       return fd_pwrite_packet(process, request_size, response_capacity);
     case DOLLY_PROCESS_FD_WRITE:
       return fd_write_packet(process, request_size, response_capacity);
-    case DOLLY_PROCESS_FD_CLOSE: {
-      uint32_t guest;
-      const int result = decode_fd_request(process, request_size, &guest);
-      if (result == 0) release_descriptor(process, guest);
-      return result;
-    }
-    case DOLLY_PROCESS_FD_SEEK: {
-      if (request_size != sizeof(dolly_process_fd_seek_request) ||
-          response_capacity < sizeof(dolly_process_fd_seek_response)) return -EINVAL;
-      dolly_process_fd_seek_request request;
-      memcpy(&request, process_mailbox, sizeof(request));
-      int descriptor = descriptor_for(process, request.descriptor);
-      if (descriptor < 0) return descriptor;
-      static const int whence[] = {
-          [DOLLY_PROCESS_SEEK_SET] = SEEK_SET,
-          [DOLLY_PROCESS_SEEK_CURRENT] = SEEK_CUR,
-          [DOLLY_PROCESS_SEEK_END] = SEEK_END,
-      };
-      if (request.whence > DOLLY_PROCESS_SEEK_END) return -EINVAL;
-      off_t offset = lseek(descriptor, (off_t)request.offset, whence[request.whence]);
-      if (offset < 0) return -errno;
-      /* A directory set to a position (rewinddir, seekdir) is read on from
-       * there, not from the entries the kernel's reader holds. */
-      if (request.whence == DOLLY_PROCESS_SEEK_SET && process->fds[request.descriptor].directory != NULL) {
-        closedir(process->fds[request.descriptor].directory);
-        process->fds[request.descriptor].directory = NULL;
-      }
-      dolly_process_fd_seek_response response = {(uint64_t)offset};
-      return respond(&response, sizeof(response));
-    }
-    case DOLLY_PROCESS_FD_SYNC: {
-      uint32_t guest;
-      int descriptor = decode_fd_request(process, request_size, &guest);
-      if (descriptor == 0) descriptor = descriptor_for(process, guest);
-      /* A pipe or a socket has nothing to sync or truncate (POSIX: EINVAL). */
-      if (descriptor < 0) return descriptor == -ESPIPE ? -EINVAL : descriptor;
-      return fsync(descriptor) == 0 ? 0 : -errno;
-    }
-    case DOLLY_PROCESS_FD_TRUNCATE: {
-      if (request_size != sizeof(dolly_process_fd_truncate_request)) return -EINVAL;
-      dolly_process_fd_truncate_request request;
-      memcpy(&request, process_mailbox, sizeof(request));
-      if (request.reserved != 0 || request.size > INT64_MAX) return -EINVAL;
-      int descriptor = descriptor_for(process, request.descriptor);
-      if (descriptor < 0) return descriptor == -ESPIPE ? -EINVAL : descriptor;
-      if (dolly_kernel_change_waits(descriptor)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
-      /* POSIX: a descriptor open for writing; WasmFS truncates through any. */
-      const int access = fcntl(descriptor, F_GETFL);
-      if (access < 0) return -errno;
-      if ((access & O_ACCMODE) == O_RDONLY) return -EINVAL;
-      if (ftruncate(descriptor, (off_t)request.size) != 0) return -errno;
-      mark_truncated(descriptor);
-      return 0;
-    }
-    case DOLLY_PROCESS_FD_STAT_FILESYSTEM: {
-      if (response_capacity < sizeof(dolly_process_filesystem_stat_response)) return -EINVAL;
-      uint32_t guest;
-      int descriptor = decode_fd_request(process, request_size, &guest);
-      if (descriptor == 0) descriptor = descriptor_for(process, guest);
-      if (descriptor < 0) return descriptor;
-      struct stat metadata;
-      if (fstat(descriptor, &metadata) != 0) return -errno;
-      dolly_process_filesystem_stat_response response;
-      encode_filesystem_stat(&response);
-      return respond(&response, sizeof(response));
-    }
-    case DOLLY_PROCESS_FD_SET_TIMES: {
-      if (request_size != sizeof(dolly_process_fd_times_request) ||
-          response_capacity != 0) return -EINVAL;
-      dolly_process_fd_times_request request;
-      memcpy(&request, process_mailbox, sizeof(request));
-      if (request.reserved != 0) return -EINVAL;
-      int descriptor = descriptor_for(process, request.descriptor);
-      if (descriptor < 0) return descriptor;
-      if (dolly_kernel_change_waits(descriptor)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
-      struct timespec times[2];
-      int result = decode_timestamps(
-          &request.access, &request.modification, times);
-      if (result == 0 && futimens(descriptor, times) != 0) result = -errno;
-      return result;
-    }
-    case DOLLY_PROCESS_FD_DUP: {
-      if (request_size != sizeof(dolly_process_fd_dup_request) ||
-          response_capacity < sizeof(dolly_process_fd_dup_response)) return -EINVAL;
-      dolly_process_fd_dup_request request;
-      memcpy(&request, process_mailbox, sizeof(request));
-      if ((request.flags & ~(DOLLY_PROCESS_FD_DUP_MINIMUM | DOLLY_PROCESS_FD_DUP_CLOEXEC)) != 0 ||
-          request.reserved != 0) return -EINVAL;
-      if (!descriptor_is_open(process, request.source_descriptor)) return -EBADF;
-      const int minimum = (request.flags & DOLLY_PROCESS_FD_DUP_MINIMUM) != 0;
-      if (minimum && request.target_descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT) {
-        return -EINVAL;
-      }
-      if (!minimum && request.target_descriptor == request.source_descriptor) {
-        if (request.flags != 0) return -EINVAL;
-        const int target = (int)request.target_descriptor;
-        dolly_process_fd_dup_response response = {(uint32_t)target, 0};
-        return respond(&response, sizeof(response));
-      }
-      int target;
-      if (minimum) {
-        target = unused_descriptor(process, request.target_descriptor);
-      } else if (request.target_descriptor == UINT32_MAX) {
-        target = unused_descriptor(process, 0);
-      } else if (request.target_descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT) {
-        return -EBADF;
-      } else {
-        target = (int)request.target_descriptor;
-      }
-      if (target < 0) return target;
-      const int result = copy_descriptor(process, process, request.source_descriptor, (uint32_t)target);
-      if (result != 0) return result;
-      process->fds[target].flags = (request.flags & DOLLY_PROCESS_FD_DUP_CLOEXEC)
-          ? DOLLY_PROCESS_FD_CLOEXEC : 0;
-      dolly_process_fd_dup_response response = {(uint32_t)target, 0};
-      return respond(&response, sizeof(response));
-    }
-    case DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS: {
-      if (response_capacity < sizeof(dolly_process_fd_flags)) return -EINVAL;
-      uint32_t guest;
-      const int result = decode_fd_request(process, request_size, &guest);
-      if (result != 0) return result;
-      const dolly_process_fd_flags response = {guest, process->fds[guest].flags};
-      return respond(&response, sizeof(response));
-    }
-    case DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS: {
-      if (request_size != sizeof(dolly_process_fd_flags) || response_capacity != 0) return -EINVAL;
-      dolly_process_fd_flags request;
-      memcpy(&request, process_mailbox, sizeof(request));
-      if (!descriptor_is_open(process, request.descriptor)) return -EBADF;
-      if (request.flags & ~(DOLLY_PROCESS_FD_CLOEXEC | DOLLY_PROCESS_FD_KEEP_LOCKS)) return -EINVAL;
-      process->fds[request.descriptor].flags = (unsigned char)request.flags;
-      return 0;
-    }
-    case DOLLY_PROCESS_FD_GET_FLAGS: {
-      if (response_capacity < sizeof(dolly_process_fd_flags)) return -EINVAL;
-      uint32_t guest;
-      const int result = decode_fd_request(process, request_size, &guest);
-      if (result != 0) return result;
-      uint32_t flags;
-      if (process->fds[guest].stream != NULL) {
-        flags = process->fds[guest].stream->kind->access |
-            (process->fds[guest].stream->nonblocking ? DOLLY_PROCESS_FD_STATUS_NONBLOCK : 0);
-      } else {
-        const int descriptor = descriptor_for(process, guest);
-        if (descriptor < 0) return descriptor;
-        const int status = fcntl(descriptor, F_GETFL);
-        if (status < 0) return -errno;
-        const int access = status & O_ACCMODE;
-        flags = (access != O_WRONLY ? DOLLY_PROCESS_FD_STATUS_READ : 0) |
-            (access != O_RDONLY ? DOLLY_PROCESS_FD_STATUS_WRITE : 0) |
-            (status & O_APPEND ? DOLLY_PROCESS_FD_STATUS_APPEND : 0) |
-            (status & O_NONBLOCK ? DOLLY_PROCESS_FD_STATUS_NONBLOCK : 0);
-      }
-      const dolly_process_fd_flags response = {guest, flags};
-      return respond(&response, sizeof(response));
-    }
-    case DOLLY_PROCESS_FD_SET_FLAGS: {
-      if (request_size != sizeof(dolly_process_fd_flags) ||
-          response_capacity != 0) return -EINVAL;
-      dolly_process_fd_flags request;
-      memcpy(&request, process_mailbox, sizeof(request));
-      if (!descriptor_is_open(process, request.descriptor)) return -EBADF;
-      if (request.flags & ~(DOLLY_PROCESS_FD_STATUS_APPEND | DOLLY_PROCESS_FD_STATUS_NONBLOCK)) {
-        return -EINVAL;
-      }
-      const int nonblocking = (request.flags & DOLLY_PROCESS_FD_STATUS_NONBLOCK) != 0;
-      if (process->fds[request.descriptor].file < 0) {
-        if (request.flags & DOLLY_PROCESS_FD_STATUS_APPEND) return -ENOTSUP;
-        process->fds[request.descriptor].stream->nonblocking = (unsigned char)nonblocking;
-        return 0;
-      }
-      const int descriptor = descriptor_for(process, request.descriptor);
-      if (descriptor < 0) return descriptor;
-      int status = fcntl(descriptor, F_GETFL);
-      if (status < 0) return -errno;
-      status &= ~(O_APPEND | O_NONBLOCK);
-      if (request.flags & DOLLY_PROCESS_FD_STATUS_APPEND) status |= O_APPEND;
-      if (nonblocking) status |= O_NONBLOCK;
-      return fcntl(descriptor, F_SETFL, status) == 0 ? 0 : -errno;
-    }
-    case DOLLY_PROCESS_FD_PIPE: {
-      if (request_size != sizeof(dolly_process_pipe_request) ||
-          response_capacity < sizeof(dolly_process_pipe_response)) return -EINVAL;
-      dolly_process_pipe_request request;
-      memcpy(&request, process_mailbox, sizeof(request));
-      if (request.reserved != 0 || (request.flags & ~DOLLY_PROCESS_FD_CLOEXEC)) return -EINVAL;
-      dolly_kernel_socket *ends[2];
-      const int made = dolly_kernel_pipe_open(ends);
-      if (made != 0) return made;
-      uint32_t descriptors[2];
-      const int placed = place_streams(process, ends, 2, (unsigned char)request.flags, descriptors);
-      dolly_kernel_socket_release(ends[0]);
-      dolly_kernel_socket_release(ends[1]);
-      if (placed != 0) return placed;
-      dolly_process_pipe_response response = {descriptors[0], descriptors[1]};
-      return respond(&response, sizeof(response));
-    }
+    case DOLLY_PROCESS_FD_CLOSE:
+      return fd_close_packet(process, request_size);
+    case DOLLY_PROCESS_FD_SEEK:
+      return fd_seek_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_FD_SYNC:
+      return fd_sync_packet(process, request_size);
+    case DOLLY_PROCESS_FD_TRUNCATE:
+      return fd_truncate_packet(process, request_size);
+    case DOLLY_PROCESS_FD_STAT_FILESYSTEM:
+      return fd_stat_filesystem_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_FD_SET_TIMES:
+      return fd_set_times_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_FD_DUP:
+      return fd_dup_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS:
+      return fd_get_descriptor_flags_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS:
+      return fd_set_descriptor_flags_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_FD_GET_FLAGS:
+      return fd_get_flags_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_FD_SET_FLAGS:
+      return fd_set_flags_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_FD_PIPE:
+      return fd_pipe_packet(process, request_size, response_capacity);
     case DOLLY_PROCESS_FD_READ_DIRECTORY:
       return fd_read_directory_packet(process, request_size, response_capacity);
-    case DOLLY_PROCESS_FD_STAT: {
-      if (response_capacity < sizeof(dolly_process_stat_response)) return -EINVAL;
-      uint32_t guest;
-      const int result = decode_fd_request(process, request_size, &guest);
-      if (result != 0) return result;
-      dolly_process_stat_response response = {.mode = 0600, .link_count = 1, .block_size = 4096};
-      if (process->fds[guest].stream != NULL) {
-        response.file_type = process->fds[guest].stream->kind->file_type;
-      } else {
-        struct stat metadata;
-        if (fstat(process->fds[guest].file, &metadata) != 0) return -errno;
-        encode_stat(&metadata, &response);
-      }
-      return respond(&response, sizeof(response));
-    }
-    case DOLLY_PROCESS_PATH_OPEN: {
-      if (response_capacity < sizeof(dolly_process_path_open_response)) return -ENOBUFS;
-      dolly_process_path_request request;
-      char *path = NULL;
-      int directory = AT_FDCWD;
-      int result = decode_path_request(process, request_size, UINT32_MAX,
-                                       &request, &path, &directory);
-      int flags = result == 0 ? open_flags(request.flags) : result;
-      if (flags >= 0 && (flags & O_TRUNC) != 0 && dolly_kernel_change_waits(-1)) {
-        free(path);
-        return DOLLY_PROCESS_DISPATCH_DEFERRED;
-      }
-      if (flags < 0) result = flags;
-      /* What a slash names is a directory, which open does not create. */
-      else if ((request.flags & DOLLY_PROCESS_OPEN_CREATE) != 0 && path[request.path_size - 1] == '/')
-        result = -EISDIR;
-      int guest_fd = result == 0 ? unused_descriptor(process, 0) : -1;
-      if (result == 0 && guest_fd < 0) result = guest_fd;
-      int kernel_fd = -1;
-      if (result == 0) {
-        kernel_fd = openat(directory, path, flags, 0666);
-        if (kernel_fd < 0 && errno == ENOENT && (flags & O_CREAT) != 0)
-          kernel_fd = create_through_link(directory, path, flags, 40);
-        else if (kernel_fd < 0) kernel_fd = -errno;
-        if (kernel_fd < 0) result = kernel_fd;
-        else if ((flags & O_TRUNC) != 0) mark_truncated(kernel_fd);
-      }
-      free(path);
-      if (result != 0) return result;
-      if (process_list_file(kernel_fd)) {
-        close(kernel_fd);
-        return open_process_list(process, request.flags);
-      }
-      int stream = standard_stream(kernel_fd);
-      if (stream < 0 && controlling_terminal(kernel_fd)) stream = terminal_stream(process);
-      if (stream >= 0) {
-        close(kernel_fd);
-        result = copy_descriptor(process, process, (uint32_t)stream, (uint32_t)guest_fd);
-        if (result != 0) return result;
-      } else {
-        process->fds[guest_fd].file = kernel_fd;
-        process->fds[guest_fd].description = ++last_description;
-        process->fds[guest_fd].terminal = controlling_terminal(kernel_fd);
-      }
-      process->fds[guest_fd].flags = (request.flags & DOLLY_PROCESS_OPEN_CLOEXEC)
-          ? DOLLY_PROCESS_FD_CLOEXEC : 0;
-      dolly_process_path_open_response response = {(uint32_t)guest_fd, 0};
-      return respond(&response, sizeof(response));
-    }
-    case DOLLY_PROCESS_PATH_STAT: {
-      if (response_capacity < sizeof(dolly_process_stat_response)) return -ENOBUFS;
-      dolly_process_path_request request;
-      char *path = NULL;
-      int directory = AT_FDCWD;
-      int result = decode_path_request(process, request_size,
-                                       DOLLY_PROCESS_PATH_NOFOLLOW,
-                                       &request, &path, &directory);
-      struct stat metadata;
-      if (result == 0 &&
-          fstatat(directory, path, &metadata,
-                  (request.flags & DOLLY_PROCESS_PATH_NOFOLLOW) != 0
-                      ? AT_SYMLINK_NOFOLLOW : 0) != 0) result = -errno;
-      free(path);
-      if (result != 0) return result;
-      dolly_process_stat_response response;
-      encode_stat(&metadata, &response);
-      return respond(&response, sizeof(response));
-    }
-    case DOLLY_PROCESS_PATH_CREATE_DIRECTORY: {
-      dolly_process_path_request request;
-      char *path = NULL;
-      int directory = AT_FDCWD;
-      int result = decode_path_request(process, request_size, 0, &request,
-                                       &path, &directory);
-      if (result == 0 && mkdirat(directory, path, 0777) != 0) result = -errno;
-      free(path);
-      return result;
-    }
-    case DOLLY_PROCESS_PATH_REMOVE: {
-      if (dolly_kernel_change_waits(-1)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
-      dolly_process_path_request request;
-      char *path = NULL;
-      int directory = AT_FDCWD;
-      int result = decode_path_request(process, request_size,
-                                       DOLLY_PROCESS_PATH_DIRECTORY,
-                                       &request, &path, &directory);
-      if (result == 0 && unlinkat(
-          directory, path,
-          (request.flags & DOLLY_PROCESS_PATH_DIRECTORY) != 0 ? AT_REMOVEDIR : 0) != 0) {
-        result = -errno;
-      }
-      free(path);
-      return result;
-    }
+    case DOLLY_PROCESS_FD_STAT:
+      return fd_stat_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_PATH_OPEN:
+      return path_open_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_PATH_STAT:
+      return path_stat_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_PATH_CREATE_DIRECTORY:
+      return path_create_directory_packet(process, request_size);
+    case DOLLY_PROCESS_PATH_REMOVE:
+      return path_remove_packet(process, request_size);
     case DOLLY_PROCESS_PATH_RENAME:
-    case DOLLY_PROCESS_PATH_LINK: {
-      if (operation == DOLLY_PROCESS_PATH_RENAME && dolly_kernel_change_waits(-1)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
-      dolly_process_two_path_request request;
-      const int invalid = decode_two_path_request(request_size, &request);
-      if (invalid != 0) return invalid;
-      char *old_path = NULL;
-      char *new_path = NULL;
-      int old_directory = AT_FDCWD;
-      int new_directory = AT_FDCWD;
-      int result = path_from_packet(
-          process, request.old_directory_descriptor,
-          process_mailbox + sizeof(request), request.old_path_size,
-          &old_path, &old_directory);
-      if (result == 0) result = path_from_packet(
-          process, request.new_directory_descriptor,
-          process_mailbox + sizeof(request) + request.old_path_size,
-          request.new_path_size, &new_path, &new_directory);
-      /* WasmFS renames the directory "dir/." names; POSIX refuses a dot. */
-      if (result == 0 && operation == DOLLY_PROCESS_PATH_RENAME &&
-          (ends_in_dot(old_path) || ends_in_dot(new_path))) result = -EINVAL;
-      if (result == 0) {
-        const int call_result = operation == DOLLY_PROCESS_PATH_RENAME
-            ? renameat(old_directory, old_path, new_directory, new_path)
-            : linkat(old_directory, old_path, new_directory, new_path, 0);
-        /* WasmFS has no hard links and says EMLINK; Linux says EPERM for a
-         * filesystem without them, and programs fall back to a copy on it. */
-        if (call_result != 0) result = errno == EMLINK && operation == DOLLY_PROCESS_PATH_LINK ? -EPERM : -errno;
-      }
-      free(old_path);
-      free(new_path);
-      return result;
-    }
-    case DOLLY_PROCESS_PATH_SYMLINK: {
-      dolly_process_two_path_request request;
-      const int invalid = decode_two_path_request(request_size, &request);
-      if (invalid != 0) return invalid;
-      if (request.old_directory_descriptor != UINT32_MAX) return -EINVAL;
-      const unsigned char *target_bytes = process_mailbox + sizeof(request);
-      if (memchr(target_bytes, 0, request.old_path_size) != NULL) return -EINVAL;
-      char *target = malloc((size_t)request.old_path_size + 1);
-      if (target == NULL) return -ENOMEM;
-      memcpy(target, target_bytes, request.old_path_size);
-      target[request.old_path_size] = 0;
-      char *link_path = NULL;
-      int directory = AT_FDCWD;
-      int result = path_from_packet(
-          process, request.new_directory_descriptor,
-          target_bytes + request.old_path_size, request.new_path_size,
-          &link_path, &directory);
-      if (result == 0 && symlinkat(target, directory, link_path) != 0) result = -errno;
-      free(target);
-      free(link_path);
-      return result;
-    }
-    case DOLLY_PROCESS_PATH_READLINK: {
-      dolly_process_path_request request;
-      char *path = NULL;
-      int directory = AT_FDCWD;
-      int result = decode_path_request(process, request_size, 0, &request,
-                                       &path, &directory);
-      char target[PATH_MAX];
-      const int link = result == 0 ? kernel_link(process, path, target, sizeof(target)) : 1;
-      if (result == 0 && link <= 0) {
-        if (link < 0) result = link;
-        else if (response_capacity == 0) result = -EINVAL;
-        else {
-          size_t count = strlen(target);
-          if (count > response_capacity) count = response_capacity;
-          memcpy(process_mailbox, target, count);
-          result = (int)count;
-        }
-      } else if (result == 0) {
-        ssize_t count = readlinkat(directory, path, (char *)process_mailbox,
-                                   response_capacity);
-        result = count < 0 ? -errno : (int)count;
-      }
-      free(path);
-      return result;
-    }
-    case DOLLY_PROCESS_PATH_GET_CURRENT_DIRECTORY: {
-      if (request_size != 0) return -EINVAL;
-      if (response_capacity == 0) return -ENOBUFS;
-      const int result = directory_path(process->current_directory,
-          (char *)process_mailbox, response_capacity);
-      return result < 0 ? result : (int64_t)strlen((char *)process_mailbox) + 1;
-    }
-    case DOLLY_PROCESS_PATH_SET_CURRENT_DIRECTORY: {
-      dolly_process_path_request request;
-      char *path = NULL;
-      int directory = AT_FDCWD;
-      int result = decode_path_request(process, request_size, 0, &request,
-                                       &path, &directory);
-      int descriptor = -1;
-      if (result == 0) {
-        descriptor = openat(directory, path, O_RDONLY | O_DIRECTORY);
-        if (descriptor < 0) result = -errno;
-      }
-      free(path);
-      if (result != 0) return result;
-      close(process->current_directory);
-      process->current_directory = descriptor;
-      return 0;
-    }
-    case DOLLY_PROCESS_PATH_STAT_FILESYSTEM: {
-      if (response_capacity < sizeof(dolly_process_filesystem_stat_response)) {
-        return -ENOBUFS;
-      }
-      dolly_process_path_request request;
-      char *path = NULL;
-      int directory = AT_FDCWD;
-      int result = decode_path_request(process, request_size, 0, &request,
-                                       &path, &directory);
-      struct stat metadata;
-      if (result == 0 && fstatat(directory, path, &metadata, 0) != 0) {
-        result = -errno;
-      }
-      free(path);
-      if (result != 0) return result;
-      dolly_process_filesystem_stat_response response;
-      encode_filesystem_stat(&response);
-      return respond(&response, sizeof(response));
-    }
-    case DOLLY_PROCESS_PATH_SET_TIMES: {
-      if (dolly_kernel_change_waits(-1)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
-      if (request_size < sizeof(dolly_process_path_times_request) ||
-          response_capacity != 0) return -EINVAL;
-      dolly_process_path_times_request request;
-      memcpy(&request, process_mailbox, sizeof(request));
-      if (request.reserved != 0 || request.path_size == 0 ||
-          request.path_size != request_size - sizeof(request) ||
-          (request.flags & ~DOLLY_PROCESS_PATH_NOFOLLOW) != 0) return -EINVAL;
-      char *path = NULL;
-      int directory = AT_FDCWD;
-      int result = path_from_packet(
-          process, request.directory_descriptor,
-          process_mailbox + sizeof(request), request.path_size,
-          &path, &directory);
-      struct timespec times[2];
-      if (result == 0) result = decode_timestamps(
-          &request.access, &request.modification, times);
-      if (result == 0 && utimensat(
-          directory, path, times,
-          (request.flags & DOLLY_PROCESS_PATH_NOFOLLOW) != 0
-              ? AT_SYMLINK_NOFOLLOW : 0) != 0) result = -errno;
-      free(path);
-      return result;
-    }
-    case DOLLY_PROCESS_SPAWN: {
-      if (response_capacity < sizeof(dolly_process_spawn_response)) return -ENOBUFS;
-      int child = spawn_packet(pid, (size_t)request_size);
-      if (child < 0) return child;
-      dolly_process_spawn_response response = {(uint32_t)child, 0};
-      return respond(&response, sizeof(response));
-    }
+    case DOLLY_PROCESS_PATH_LINK:
+      return path_rename_packet(process, operation, request_size);
+    case DOLLY_PROCESS_PATH_SYMLINK:
+      return path_symlink_packet(process, request_size);
+    case DOLLY_PROCESS_PATH_READLINK:
+      return path_readlink_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_PATH_GET_CURRENT_DIRECTORY:
+      return path_get_current_directory_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_PATH_SET_CURRENT_DIRECTORY:
+      return path_set_current_directory_packet(process, request_size);
+    case DOLLY_PROCESS_PATH_STAT_FILESYSTEM:
+      return path_stat_filesystem_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_PATH_SET_TIMES:
+      return path_set_times_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_SPAWN:
+      return spawn_call(pid, request_size, response_capacity);
     case DOLLY_PROCESS_EXEC:
       return exec_packet(process, (size_t)request_size, response_capacity);
-    case DOLLY_PROCESS_WAIT: {
-      if (request_size != sizeof(dolly_process_wait_request) ||
-          response_capacity < sizeof(dolly_process_wait_response)) return -EINVAL;
-      dolly_process_wait_request request;
-      memcpy(&request, process_mailbox, sizeof(request));
-      if ((request.flags & ~DOLLY_PROCESS_WAIT_NONBLOCK) != 0) return -EINVAL;
-      int children = 0;
-      dolly_kernel_process *child = NULL;
-      for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT && child == NULL; ++index) {
-        dolly_kernel_process *candidate = &process_table[index];
-        if (candidate->state == DOLLY_KERNEL_PROCESS_FREE || candidate->parent_pid != pid ||
-            (request.pid != 0 && (uint32_t)candidate->pid != request.pid)) continue;
-        ++children;
-        if (candidate->state == DOLLY_KERNEL_PROCESS_EXITED && candidate->worker_retired) {
-          child = candidate;
-        }
-      }
-      if (children == 0) return -ECHILD;
-      if (child == NULL) {
-        return (request.flags & DOLLY_PROCESS_WAIT_NONBLOCK) != 0
-            ? -EAGAIN : DOLLY_PROCESS_DISPATCH_DEFERRED;
-      }
-      const dolly_process_wait_response response = {
-          (uint32_t)child->pid, (uint32_t)child->status, (uint32_t)child->exit_signal, 0,
-      };
-      dispose_process(child);
-      return respond(&response, sizeof(response));
-    }
-    case DOLLY_PROCESS_INFO: {
-      if (request_size != 0 || response_capacity < sizeof(dolly_process_info_response)) return -EINVAL;
-      const dolly_process_info_response response = {
-          (uint32_t)process->pid, (uint32_t)process->parent_pid,
-      };
-      return respond(&response, sizeof(response));
-    }
-    case DOLLY_PROCESS_SIGNAL: {
-      if (request_size != sizeof(dolly_process_signal_request) ||
-          response_capacity < sizeof(dolly_process_signal_request)) return -EINVAL;
-      dolly_process_signal_request request;
-      memcpy(&request, process_mailbox, sizeof(request));
-      if (request.pid == 0 || request.pid > INT32_MAX ||
-          !supported_signal(request.signal_number)) return -ENOTSUP;
-      const int result = dolly_process_signal((int)request.pid, (int)request.signal_number);
-      if (result < 0) return result;
-      return respond(&request, sizeof(request));
-    }
-    case DOLLY_PROCESS_INTERRUPT_POLL: {
-      if (request_size != 0 || response_capacity < sizeof(int32_t)) return -EINVAL;
-      const int32_t response = process->handling_signal || !takes_signals ? 0 : next_signal(process);
-      if (response) {
-        process->pending_signals &= ~(1u << response);
-        process->handling_signal = response;
-      }
-      return respond(&response, sizeof(response));
-    }
-    case DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE: {
-      if (!takes_signals) return -EPERM;
-      if (request_size != sizeof(int32_t) || response_capacity < sizeof(int32_t)) return -EINVAL;
-      int32_t number;
-      memcpy(&number, process_mailbox, sizeof(number));
-      if (!number || number != process->handling_signal) return -EINVAL;
-      process->handling_signal = 0;
-      const int32_t remaining = next_signal(process);
-      if (remaining == 0) process->grace_deadline = 0;
-      return respond(&remaining, sizeof(remaining));
-    }
-    case DOLLY_PROCESS_ALARM: {
-      if ((request_size != 0 && request_size != sizeof(dolly_process_alarm)) ||
-          response_capacity < sizeof(dolly_process_alarm)) return -EINVAL;
-      const uint64_t now = clock_nanoseconds(CLOCK_MONOTONIC);
-      /* A due timer reports time left until the supervisor raises it. */
-      const dolly_process_alarm previous = {
-          process->alarm_deadline == 0 ? 0
-              : process->alarm_deadline > now ? process->alarm_deadline - now : 1,
-          process->alarm_interval,
-      };
-      if (request_size != 0) {
-        dolly_process_alarm request;
-        memcpy(&request, process_mailbox, sizeof(request));
-        const int armed = request.value_nanoseconds != 0;
-        process->alarm_deadline = armed ? saturating_add(now, request.value_nanoseconds) : 0;
-        process->alarm_interval = armed ? request.interval_nanoseconds : 0;
-      }
-      return respond(&previous, sizeof(previous));
-    }
-    case DOLLY_PROCESS_SIGNAL_DISPOSITIONS: {
-      dolly_process_signal_dispositions request;
-      if (request_size != sizeof(request) || response_capacity != 0) return -EINVAL;
-      memcpy(&request, process_mailbox, sizeof(request));
-      if (((request.ignored_signals | request.handled_signals) & 1u) != 0 ||
-          (request.ignored_signals & request.handled_signals) != 0) return -EINVAL;
-      process->ignored_signals = request.ignored_signals;
-      process->handled_signals = request.handled_signals;
-      return 0;
-    }
+    case DOLLY_PROCESS_WAIT:
+      return wait_packet(pid, request_size, response_capacity);
+    case DOLLY_PROCESS_INFO:
+      return info_packet(process, pid, request_size, response_capacity);
+    case DOLLY_PROCESS_SIGNAL:
+      return signal_packet(pid, request_size, response_capacity);
+    case DOLLY_PROCESS_INTERRUPT_POLL:
+      return interrupt_poll_packet(process, takes_signals, request_size, response_capacity);
+    case DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE:
+      return signal_acknowledge_packet(process, takes_signals, request_size, response_capacity);
+    case DOLLY_PROCESS_ALARM:
+      return alarm_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_SIGNAL_DISPOSITIONS:
+      return signal_dispositions_packet(process, request_size, response_capacity);
     case DOLLY_PROCESS_TERMINAL:
       return terminal_packet(process, request_size, response_capacity);
-    case DOLLY_PROCESS_CLOCK_TIME: {
-      if (request_size != sizeof(dolly_process_clock_request) ||
-          response_capacity < sizeof(dolly_process_clock_response)) return -EINVAL;
-      dolly_process_clock_request request;
-      memcpy(&request, process_mailbox, sizeof(request));
-      clockid_t clock;
-      if (request.reserved != 0 || process_clock(request.clock_id, &clock) != 0) return -EINVAL;
-      const dolly_process_clock_response response = {clock_nanoseconds(clock)};
-      return respond(&response, sizeof(response));
-    }
-    case DOLLY_PROCESS_CLOCK_RESOLUTION: {
-      if (request_size != sizeof(dolly_process_clock_request) ||
-          response_capacity < sizeof(dolly_process_clock_response)) return -EINVAL;
-      dolly_process_clock_request request;
-      memcpy(&request, process_mailbox, sizeof(request));
-      clockid_t clock;
-      if (request.reserved != 0 || process_clock(request.clock_id, &clock) != 0 ||
-          request.precision_nanoseconds != 0) return -EINVAL;
-      struct timespec value;
-      if (clock_getres(clock, &value) != 0) return -errno;
-      dolly_process_clock_response response = {
-          (uint64_t)value.tv_sec * 1000000000u + (uint64_t)value.tv_nsec,
-      };
-      return respond(&response, sizeof(response));
-    }
-    case DOLLY_PROCESS_CLOCK_SLEEP: {
-      if (request_size != sizeof(dolly_process_clock_sleep_request) ||
-          response_capacity != 0) return -EINVAL;
-      dolly_process_clock_sleep_request request;
-      memcpy(&request, process_mailbox, sizeof(request));
-      clockid_t clock;
-      if (request.flags != 0 || process_clock(request.clock_id, &clock) != 0) return -EINVAL;
-      const uint64_t now = clock_nanoseconds(clock);
-      if (now >= request.deadline_nanoseconds) return 0;
-      deferred_milliseconds = (double)(request.deadline_nanoseconds - now) / 1000000.0;
-      return DOLLY_PROCESS_DISPATCH_DEFERRED;
-    }
+    case DOLLY_PROCESS_CLOCK_TIME:
+      return clock_time_packet(request_size, response_capacity);
+    case DOLLY_PROCESS_CLOCK_RESOLUTION:
+      return clock_resolution_packet(request_size, response_capacity);
+    case DOLLY_PROCESS_CLOCK_SLEEP:
+      return clock_sleep_packet(request_size, response_capacity);
     case DOLLY_PROCESS_FD_POLL:
       return fd_poll_packet(process, request_size, response_capacity);
     case DOLLY_PROCESS_FD_LOCK:
       return fd_lock_packet(process, request_size, response_capacity);
-    case DOLLY_PROCESS_RANDOM: {
-      if (request_size != 0) return -EINVAL;
-      size_t offset = 0;
-      while (offset < response_capacity) {
-        const size_t chunk = response_capacity - offset > 256
-            ? 256 : response_capacity - offset;
-        if (getentropy(process_mailbox + offset, chunk) != 0) return -errno;
-        offset += chunk;
-      }
-      return (int64_t)response_capacity;
-    }
-    case DOLLY_PROCESS_EXIT: {
-      if (request_size != sizeof(dolly_process_exit_request)) return -EINVAL;
-      dolly_process_exit_request request;
-      memcpy(&request, process_mailbox, sizeof(request));
-      if (request.status > 255 || !supported_signal(request.signal_number) ||
-          (request.signal_number != 0 && request.status != 128 + request.signal_number)) return -EINVAL;
-      /* The program's word: a signal still pending was not taken, and one it
-       * ignores or blocks must not turn its exit into a death. */
-      mark_process_exited(process, (int)request.status, (int)request.signal_number);
-      return 0;
-    }
+    case DOLLY_PROCESS_RANDOM:
+      return random_packet(request_size, response_capacity);
+    case DOLLY_PROCESS_EXIT:
+      return exit_packet(process, request_size);
     default:
       return -ENOSYS;
   }
@@ -3044,8 +3173,12 @@ static void service(void) {
   }
 }
 
-/* The host's next task, kind << 48 | value << 32 | pid, or zero for none
- * (abi/dolly-supervisor-0.wat). */
+/* The host's next task, its kind, a value and a pid packed at the contract's
+ * shifts, or zero for none (abi/dolly-supervisor-0.wat). */
+static int64_t event(uint32_t kind, uint32_t value, int pid) {
+  return (int64_t)kind << DOLLY_PROCESS_EVENT_KIND_SHIFT | (int64_t)value << DOLLY_PROCESS_EVENT_VALUE_SHIFT | (uint32_t)pid;
+}
+
 int64_t dolly_process_next_event(void) {
   service();
   const int64_t none = 0;
@@ -3053,7 +3186,7 @@ int64_t dolly_process_next_event(void) {
     dolly_kernel_process *process = &process_table[index];
     if (process->state == DOLLY_KERNEL_PROCESS_FREE || !process->terminate_pending) continue;
     process->terminate_pending = 0;
-    return (int64_t)DOLLY_PROCESS_EVENT_TERMINATE << 48 | (uint32_t)process->pid;
+    return event(DOLLY_PROCESS_EVENT_TERMINATE, 0, process->pid);
   }
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
     dolly_kernel_process *process = &process_table[index];
@@ -3063,19 +3196,19 @@ int64_t dolly_process_next_event(void) {
     if (process->state != DOLLY_KERNEL_PROCESS_RUNNING) continue;
     /* A resize interrupts the call alone; any other signal also an exec. */
     const uint32_t ending = signals & ~(1u << DOLLY_PROCESS_SIGWINCH);
-    const int64_t number = __builtin_ctz(ending ? ending : signals);
-    return (int64_t)DOLLY_PROCESS_EVENT_INTERRUPT << 48 | number << 32 | (uint32_t)process->pid;
+    const int number = __builtin_ctz(ending ? ending : signals);
+    return event(DOLLY_PROCESS_EVENT_INTERRUPT, (uint32_t)number, process->pid);
   }
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
     dolly_kernel_process *process = &process_table[index];
     if (process->state != DOLLY_KERNEL_PROCESS_PENDING || process->program.image_descriptor < 0 ||
         process->launch_announced) continue;
     process->launch_announced = 1;
-    return (int64_t)DOLLY_PROCESS_EVENT_LAUNCH << 48 | (uint32_t)process->pid;
+    return event(DOLLY_PROCESS_EVENT_LAUNCH, 0, process->pid);
   }
   if (wakeup_pending) {
     wakeup_pending = 0;
-    return (int64_t)DOLLY_PROCESS_EVENT_WAKE << 48;
+    return event(DOLLY_PROCESS_EVENT_WAKE, 0, 0);
   }
   return none;
 }

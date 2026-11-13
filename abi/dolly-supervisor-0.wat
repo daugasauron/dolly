@@ -58,6 +58,10 @@
   (global (export "DOLLY_PROCESS_EVENT_INTERRUPT") i32 (i32.const 2))
   (global (export "DOLLY_PROCESS_EVENT_TERMINATE") i32 (i32.const 3))
   (global (export "DOLLY_PROCESS_EVENT_WAKE") i32 (i32.const 4))
+  ;; An event's kind from this bit, a 16-bit value (INTERRUPT's signal) from
+  ;; the next, the PID in the low 32 bits.
+  (global (export "DOLLY_PROCESS_EVENT_KIND_SHIFT") i32 (i32.const 48))
+  (global (export "DOLLY_PROCESS_EVENT_VALUE_SHIFT") i32 (i32.const 32))
   ;; The kernel opens the executable of a process to launch and shows its
   ;; bytes only when asked. image_version is the version of those bytes as
   ;; they are now, which every write of the file renews, or zero: a module
@@ -157,4 +161,12 @@
   ;; u32 words (state, scope, sequence, errno, length) and padding, then the
   ;; device's reply bytes; it writes them and publishes state 1 last, and the
   ;; kernel reads them only for the lease and sequence it waits for.
+  (global (export "DOLLY_DEVICE_HEADER_BYTES") i32 (i32.const 32))
+  (global (export "DOLLY_DEVICE_REPLY_HEADER_BYTES") i32 (i32.const 64))
+  (global (export "DOLLY_DEVICE_REPLY_WORD_STATE") i32 (i32.const 0))
+  (global (export "DOLLY_DEVICE_REPLY_WORD_SCOPE") i32 (i32.const 1))
+  (global (export "DOLLY_DEVICE_REPLY_WORD_SEQUENCE") i32 (i32.const 2))
+  (global (export "DOLLY_DEVICE_REPLY_WORD_ERRNO") i32 (i32.const 3))
+  (global (export "DOLLY_DEVICE_REPLY_WORD_LENGTH") i32 (i32.const 4))
+  (global (export "DOLLY_DEVICE_REPLY_PUBLISHED") i32 (i32.const 1))
 )

@@ -6,7 +6,7 @@
 #include <errno.h>
 #include <string.h>
 
-static _Alignas(64) unsigned char replies[DOLLY_GPU_SLOTS * (64 + DOLLY_GPU_REPLY_BYTES)];
+static _Alignas(64) unsigned char replies[DOLLY_GPU_SLOTS * (DOLLY_DEVICE_REPLY_HEADER_BYTES + DOLLY_GPU_REPLY_BYTES)];
 static dolly_device_lease leases[DOLLY_GPU_SLOTS];
 
 DOLLY_BROWSER_IMPORT(dolly_gpu_dispatch)

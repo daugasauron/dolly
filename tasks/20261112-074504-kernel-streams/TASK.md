@@ -6,6 +6,19 @@
 
 From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, K1, K2).
 
+## State (2026-11-13)
+
+- 1 is on main: the pipe as a stream kind (`74e1d2bb6`) and one descriptor record per descriptor
+  (`2320b1a06`, `dolly_kernel_descriptor` in `process->fds[]`). `process_dispatch` is the table of
+  every operation, each one's packet a function (`fix/audit-0.1.6`, kernel-lifecycle-small).
+- 2 and 3 are open: the display's terminal is still its own line discipline. Not in tonight's
+  candidate, decided: 2 changes what Ctrl+C reaches (the display's rule, the interactive owner's
+  commands in its place, else it and its descendants, against a pty's SIGINT to every holder of the
+  slave), moves the display's input from a pull to a ring and its output through a second copy, and
+  touches every interactive program; the task orders 3's latency measurement on a quiet machine
+  before it, and today's machine runs a seed round and three agents. Both stay in 0.1.6, for the
+  round after tonight's.
+
 ## State (2026-11-12)
 
 On `fix/streams` (b7f90f722, from the events test branch): a pipe is a stream kind, two ends

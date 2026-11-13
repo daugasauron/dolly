@@ -1,10 +1,22 @@
 # Page providers: console backpressure, html limits, packages quota, display frame, session wording, review map
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 240
 - TAGS: host-modules,security,docs,browser-boundary,audit,0.1.6
 
 From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, S4, S6, S7, S8, section 6 items 1-3, 2026-11-07 F15).
+
+## State (2026-11-13)
+
+Autofill, measured in a headed Chrome 156 on the private display, with an address saved through its
+own settings page (`work/evidence-2026-11-13/autofill/`: the script and two screenshots). Chrome offers
+it on an email field in the page, and on the same field in html@0's popup: choosing it would fill every
+address field of the program's form, seen or not. Under `autocomplete="off"` Chrome still offers it in
+the popup; under a token it does not know it offers nothing. So the popup's forms say `off` and its
+controls an unknown token, which by the HTML standard defers to the form's `off` (Firefox's rule).
+DevTools' `Autofill.setAddresses` reached no field, not even the page's, so it measures nothing.
+`test/html-browser.mjs` passes in Chromium and Firefox. Firefox's address autofill was not measured:
+the installed Firefox does not start in a unit here, and Playwright's keeps no addresses. Closed.
 
 ## State (2026-11-12)
 
@@ -21,7 +33,11 @@ Not done, decided: the quiet period after an answer. An agent asks its next ques
 (Pi's ask-user: a form, then the report), which two seconds of refusal would end as if the user
 had closed it. A click meant for the last popup landing on the next is better met by the new
 popup ignoring activation for a moment than by refusing it; not measured as a problem yet.
-Left: the autofill measurement on `email`, `tel` and `cc-number` fields.
+Left: the autofill measurement on `email`, `tel` and `cc-number` fields. Tried (2026-11-13): Chrome's
+`--show-autofill-type-predictions` writes no prediction into any field in headless Chrome 156, not
+even on a plain top-level form, so it measures nothing there. The popup's sanitizer passes no
+`autocomplete` attribute and no password field. Next: a headed Chrome and Firefox with a profile
+that holds an address and a card, offering on a field in the popup or not.
 
 ## Do
 

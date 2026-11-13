@@ -93,6 +93,7 @@ function build(frame, { source, theme, font }, answer) {
   // one, and a plain button does nothing without a script.
   const types = { input: new Set(("text search email url tel number range date month week time datetime-local " +
     "color checkbox radio hidden submit reset").split(" ")), button: new Set(["submit", "reset"]) };
+  const autofilled = new Set(["input", "select", "textarea"]);
   const copy = (from, to) => {
     for (const node of from.childNodes) {
       if (node.nodeType === Node.TEXT_NODE) to.append(node.data);
@@ -105,6 +106,12 @@ function build(frame, { source, theme, font }, answer) {
       for (const name of [...attributes["*"], ...attributes[node.localName] ?? []]) {
         if (node.hasAttribute(name)) element.setAttribute(name, node.getAttribute(name));
       }
+      // The browser offers none of the user's saved addresses, cards or past entries: one chosen
+      // would fill every field of the program's form, seen or not. Chrome offers a saved address
+      // under "off" and none under a token it does not know; a control's unknown token defers to
+      // its form's "off", which Firefox takes (measured: tasks/20261112-074507-page-providers).
+      if (node.localName === "form") element.setAttribute("autocomplete", "off");
+      else if (autofilled.has(node.localName)) element.setAttribute("autocomplete", "dolly-program-field");
       copy(node, element);
       to.append(element);
     }

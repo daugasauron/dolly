@@ -46,8 +46,19 @@ framing. http@0 stays one too (bulk, streamed), so moving one of the three onto 
 removes no kind of mechanism and adds lease bookkeeping to its client; download@0 moves bulk
 bytes as upload@0 does the other way. The kinds are listed in `host/README.md`.
 
-Left: the drop test after the round, for pty, console (whose kernel part is built on pty's) and
-threads: a kernel and runtime built without them boot images that do not declare them.
+The drop test (2026-11-13, on main's code with the console id fix, `work/audit`): with pty@0 and
+console@0 out of `host/manifests.mjs`, the runtime builds (image inputs `63a92c02…`: their headers
+leave the seed), `default`'s closure builds on that seed (18 images), and `default` boots in
+Chromium and Firefox with its shell, pipelines and files working and neither module among the
+page's (`runtime display download http input nena packages snapshot upload`). With threads@0 out
+as well, the image build stops: `Dollyfile-system-build` sources `host/threads/threads.h` and its
+ABI header, which are then no trusted input. system-build installs and exports by name the headers
+of the modules whose clients are in the seed (http, display, input, download, upload, threads,
+dso), and fifteen recipes assert them by name (`REQUIRES HEADER http`, ...); `scripts/build.sh`
+also names sockets and pty when it lists the clients the runtime library links.
+Left: the core recipe without module names: each such module's headers in a package of its own
+(as gpu@0's are in libdolly-gpu), which the recipes that compile against them install, so a module
+leaves the repository with its package; and build.sh's client list from the manifests.
 
 ## Found
 

@@ -4,7 +4,7 @@
 
 #include <dolly/microphone-abi.h>
 
-static _Alignas(64) unsigned char replies[DOLLY_MICROPHONE_SLOTS * (64 + DOLLY_MICROPHONE_REPLY_BYTES)];
+static _Alignas(64) unsigned char replies[DOLLY_MICROPHONE_SLOTS * (DOLLY_DEVICE_REPLY_HEADER_BYTES + DOLLY_MICROPHONE_REPLY_BYTES)];
 static dolly_device_lease leases[DOLLY_MICROPHONE_SLOTS];
 
 DOLLY_BROWSER_IMPORT(dolly_microphone_dispatch)

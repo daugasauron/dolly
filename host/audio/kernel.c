@@ -4,7 +4,7 @@
 
 #include <dolly/audio-abi.h>
 
-static _Alignas(64) unsigned char replies[DOLLY_AUDIO_SLOTS * (64 + DOLLY_AUDIO_REPLY_BYTES)];
+static _Alignas(64) unsigned char replies[DOLLY_AUDIO_SLOTS * (DOLLY_DEVICE_REPLY_HEADER_BYTES + DOLLY_AUDIO_REPLY_BYTES)];
 static dolly_device_lease leases[DOLLY_AUDIO_SLOTS];
 
 DOLLY_BROWSER_IMPORT(dolly_audio_dispatch)
