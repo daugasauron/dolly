@@ -11,9 +11,9 @@ REQUIRES HOST threads@0
 # C++ runtime and the C the release before emitted, compiled inside Dolly
 # (lean-dolly.mk, lean-dolly.patch) and rewritten by stack-wrap; lean-std,
 # lean-meta and lean compile the release with it.
-FROM /v0.1.6/Dollyfile-system-tools ec2173d41592d7ecdc825db884a8dfeb3acebb13dcdcd678cd00c237c78b6052
-INSTALL /v0.1.6/Dollyfile-stack-wrap 9964be342119cd7cb6996d91a77ff02e81d47dbafbdf8b3c02e11728bec9f0a8
-INSTALL /v0.1.6/demos/cmake/Dollyfile-libuv 2d5c5b744690466fc985c4c3f7060f4b8fd745a723750f3f36ba4854b02342e7
+FROM /v0.1.6/Dollyfile-system-tools 74a8a0978b4172fc724da53c2e9be9cdff894a2cd5a05098077ad4c889a599c3
+INSTALL /v0.1.6/Dollyfile-stack-wrap 3e2583099b67abfbc529ae7e76150d1690c7263d25ff5d3ac783be761792b671
+INSTALL /v0.1.6/demos/cmake/Dollyfile-libuv 8410351c9732be5f299495409643d0a0b499d49024088043fb15c5ab28a9b7ca
 
 REQUIRES HEADER libc
 REQUIRES HEADER uv

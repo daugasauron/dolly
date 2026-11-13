@@ -7,12 +7,12 @@ REQUIRES HOST runtime@0
 # CPython, Cargo, cbindgen and c++, from 0 A.D.'s pinned tarball and patches.
 # The tools serve the build and are not installed with it; a program links
 # -ljs_static -ljsrust -lz.
-FROM /v0.1.6/Dollyfile-system-tools ec2173d41592d7ecdc825db884a8dfeb3acebb13dcdcd678cd00c237c78b6052
-INSTALL /v0.1.6/Dollyfile-zlib eb62165a59a9599efdb69a5a1296988e6a6e760ec6dc8a2138a756543f1c09c5
-USE /v0.1.6/demos/python/Dollyfile-python d36534b38272ec06cff3f3e49f48f9d652f1714e44ffa9f6ed1b01d9cf91fee3
-USE /v0.1.6/demos/rust/Dollyfile-cargo f41d74dc6626244235682343fc38c85dbe0434d4efb9e3326dcbc643cb76c4ec
-USE /v0.1.6/demos/rust/Dollyfile-cbindgen 335367287f9fdb543ad7b8f2b7848efee90675d3b6e7951ca66c44aebdd3bec3
-USE /v0.1.6/demos/zero-ad/Dollyfile-pkgconf ca7c31dd0cd12e19fe38e04992126a00a5525c8c361b90a140ee6982e735db45
+FROM /v0.1.6/Dollyfile-system-tools 74a8a0978b4172fc724da53c2e9be9cdff894a2cd5a05098077ad4c889a599c3
+INSTALL /v0.1.6/Dollyfile-zlib 07f1b848518d0c13f985f99b9001f7b679cf60bf404e8dac3112c2bde995fdd3
+USE /v0.1.6/demos/python/Dollyfile-python a033ddf8f5a0636ea981cdc2c777c341fed0dca79a595d69e42aaf2b4387e85f
+USE /v0.1.6/demos/rust/Dollyfile-cargo de58253b7791dae6038cb26edafc5b1cdac49ba9829abd1ef8d6afedeb2bef11
+USE /v0.1.6/demos/rust/Dollyfile-cbindgen 4fb57f562d968f8ebb8e915d75cae2bcfb9d7e0c35882c420bbc4b6d64e59eb4
+USE /v0.1.6/demos/zero-ad/Dollyfile-pkgconf 93068718fbc864b09c42f0f357f341560578129e0f101b73636fa660595c3cc3
 REQUIRES HEADER zlib
 REQUIRES LIB z
 REQUIRES TOOL cc

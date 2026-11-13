@@ -14,20 +14,20 @@ REQUIRES HOST nena@0
 REQUIRES HOST dso@0
 REQUIRES HOST build@0
 
-INSTALL /v0.1.6/Dollyfile-core d69d0e16a3e1a7813171966d23fcf5a44d488a6bcf2723a3d32f689fa162fc5c
-INSTALL /v0.1.6/Dollyfile-posix 9773acc9cc5cdbe7b4d9a355092dcf3bed9a77de6f1da50eb925d1d9690c68ba
-INSTALL /v0.1.6/Dollyfile-display e1328f1decb7f81e8b508cf5f03c18246fdac37d39d259021ea69882d59f4d9f
+INSTALL /v0.1.6/Dollyfile-core 3f0ed8f48580b1aea351749cdcfbeab4bfe452436abc50beca43dac3d12fd7a9
+INSTALL /v0.1.6/Dollyfile-posix 44897e45850c0eb09bd481984aed46ab099f11c4d37bdcfc05591df26746e60a
+INSTALL /v0.1.6/Dollyfile-display 717f83d872a97cfc876278574e3c44fb4b3995d9b3b09562f85c0c718b8baec6
 # The tools Pi's dolly skill teaches: cc and make, Git, curl.
-INSTALL /v0.1.6/Dollyfile-cc a6f96b01bf8368add739d79a57ed2829615fcfb85461b50bb28c02bede8e6b6a
-INSTALL /v0.1.6/Dollyfile-git 8cbfa062857c8b1b0de60c71ae5a585c6956990ee55f516128d22196b019f3e8
-INSTALL /v0.1.6/Dollyfile-curl 50830dca6325422d1b1d76d882d1ec4daf856abb9d8c296e6e4459f429486dbf
+INSTALL /v0.1.6/Dollyfile-cc 024eaa93969a7c35ab35b90968d09f9926cc4ab8ca4452b96c7bb7567b255e32
+INSTALL /v0.1.6/Dollyfile-git 55dc67f79ac8cc2638cd2ca0bc7a9794a34cd14ca8403836e304866723ed037c
+INSTALL /v0.1.6/Dollyfile-curl 3eb77e1dba42f6bdb9e60ea2602f0bab340513318a7196f18fee5baa3e4dc8e5
 # download and upload, which Pi's prompt teaches (transfer).
-INSTALL /v0.1.6/Dollyfile-transfer 420ed424bcd0127a54789d4958d128b40fc0a679bd202c664f1b3632f2fa4309
-INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly e2da03873f4f057974276e8bdb370caedc4523caba2d294c9a41df879e310c05
-INSTALL /v0.1.6/Dollyfile-amy c928fd1990becf977dfc3c6b6accf920d448c25f8e031c5868b0f73837f6191d
+INSTALL /v0.1.6/Dollyfile-transfer 9ed7a8db24b6bc0df618d200cd62db25c09602714c53c8826746a4d6a65b9483
+INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly 07a0385a1c356c41cbf0f060f1fe55b6b3e222912fc3dce98ca473cd1d475f4b
+INSTALL /v0.1.6/Dollyfile-amy b288f32c261ac884099819035a4f99e0eebac26505aafb323fe422df286433c2
 # nena enables the host modules a package needs beyond these.
-INSTALL /v0.1.6/Dollyfile-nena c93355eba59f5cb1f469f498be983f563c60aa753e8da3172363c5935d0e0f66
-INSTALL /v0.1.6/demos/neovim/Dollyfile-nvim 9e2a99cfc43e2c7f65f7cd8a0fd92d0dc4ed68ce7210452a90a34fc3cc90d305
+INSTALL /v0.1.6/Dollyfile-nena 0d69173143b8a614b00fab87ce9302c212656a049503765801693f4455f6dc6c
+INSTALL /v0.1.6/demos/neovim/Dollyfile-nvim c11092144bc5a83b0a049eb1c948775968517d6e809769839ff356dc01debea0
 REQUIRES TOOL pi
 REQUIRES TOOL nvim
 REQUIRES TOOL janis
