@@ -23,7 +23,7 @@ REQUIRES TOOL mkdir
 
 # The external seed: rustc and its standard library, linked, and Cargo as one
 # object. The linker adapter is compiled inside Dolly.
-SOURCE /v0.1.6/dist/static/rust/rust-sdk.tar.gz 38a48649e61f3763dd595a63635afed9bed488d6e917d4214b6c471199095e85 /tmp/rust-sdk.tar.gz
+SOURCE /v0.1.6/dist/static/rust/rust-sdk.tar.gz 3383439c43b55ee28dcea3d0a578c9c24ae8f2f99685a862c07477cb73b327de /tmp/rust-sdk.tar.gz
 SLOP mkdir -p /opt
 SLOP gzip -dc /tmp/rust-sdk.tar.gz | tar -xf - -C /opt
 SOURCE /v0.1.6/dist/static/rust/rustc.sh 03589f0b44268b0bb22c1d5db37aa58cd882a8d2dae81902a23ab2385c3dde6e /opt/rust-sdk/bin/rustc
@@ -55,6 +55,6 @@ EXPORTS FOLDER rust-sdk /opt/rust-sdk
 EXPORTS FOLDER rust-licenses /usr/share/licenses/rust
 SLOP rustc --version --verbose
 SLOP cargo --version
-INSTALL /v0.1.6/Dollyfile-display e1328f1decb7f81e8b508cf5f03c18246fdac37d39d259021ea69882d59f4d9f
+INSTALL /v0.1.6/Dollyfile-display 04c5a260eb25a1f21c877baef97fb57fe930a637af40ad6dfa530f66709f2a7e
 
 ENTRY /bin/foreground -i /bin/slop

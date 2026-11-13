@@ -6,8 +6,8 @@ REQUIRES HOST gpu@0
 # Pi's provider for the models dolly-llama runs in the tab on gpu@0, with the
 # bundled Qwen3.5-2B, which Pi's settings choose: /local installs and switches models.
 FROM /v0.1.6/Dollyfile-system-build 47fc8a7a105ecc1b7de1859851073c27fe52d8d446cef744dc78ccf6ad9575a9
-INSTALL /v0.1.6/demos/local-llm/Dollyfile-llama cc4f6298641d3897d0fd9e1ad0df7a41a9a50c04d2351e6c6d80d57e85dcc370
-INSTALL /v0.1.6/demos/local-llm/Dollyfile-qwen3.5-2b ea277f62ac9c9b4a52f2e49ef078c295552e26092d01740764b1cc00db298a3d
+INSTALL /v0.1.6/demos/local-llm/Dollyfile-llama af719e6c438866702d8aaf421967f5b06dd9dd6993b18f2fc6696dc49f9cb03b
+INSTALL /v0.1.6/demos/local-llm/Dollyfile-qwen3.5-2b fd45a870f2e0ffbfb097c97ea6f5414338087aeadb72eddc55ee6fb269ca477f
 
 REQUIRES TOOL tar
 REQUIRES TOOL dolly-llama
