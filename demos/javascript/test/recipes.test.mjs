@@ -11,7 +11,7 @@ test("quickjs, janis and typescript are packages, each built on the one before",
   const [quickjs, janis, typescript] = await Promise.all(["quickjs", "janis", "typescript"]
     .map(async name => (await loadProjectGraph(`demos/javascript/Dollyfile-${name}`)).root));
   for (const recipe of [quickjs, janis, typescript]) assert.equal(recipe.role, "package");
-  assert.deepEqual([quickjs, janis, typescript].map(installs), [[], ["quickjs"], ["janis"]]);
+  assert.deepEqual([quickjs, janis, typescript].map(installs), [[], ["quickjs", "libdolly-download"], ["janis"]]);
   const exported = recipe => recipe.exports.map(({ type, name }) => `${type}:${name}`).sort();
   assert.deepEqual(exported(quickjs), ["HEADER:quickjs", "LIB:quickjs", "TOOL:qjs"]);
   assert.deepEqual(exported(janis), ["HEADER:quickjs-runner", "LIB:dolly-js", "TOOL:janis"]);
