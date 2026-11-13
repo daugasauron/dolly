@@ -27,6 +27,11 @@ body), `ef0cb8a42` (the package), `79b3e372a`.
 - Measured in Chrome: a bisync without changes over three directories is three `PROPFIND`s, about
   0.1 s; the browser caches the preflights. The Go demo test passes in both browsers on the
   rebuilt seed (58 s, 53 s); `npm run test:source` passes.
+- A page whose address the browser takes for a public one (`--ip-address-space-overrides` in
+  Chrome, `network.lna.address_space.public.override` in Firefox) reaches the loopback server
+  only with the local network access permission: Chrome 156 fails the `PROPFIND` (it answers 207
+  once the permission is granted), Firefox 155 holds it past 20 s. So on the public site the user
+  allows the browser's prompt first; the README says so.
 
 Owner (2026-11-13): "I want to compile and provide some package that can "mount" a filesystem over
 the dolly http broker through a server. I did some research and there seems to be available

@@ -39,6 +39,11 @@ rclone serve webdav ~/dolly-share --addr 127.0.0.1:8090 --baseurl "$token" \
 - `--dir-cache-time 0s`: rclone keeps a listing for five minutes by
   default, so a file written into the folder on the machine would wait that
   long.
+- A page served from another machine, such as the public site, reaches the
+  server only once the user allows the browser's prompt for local network
+  access: until then Chrome 156 fails each request as unreachable and
+  Firefox 155 holds it (measured with the page's address taken for a public
+  one).
 
 ## In the session
 
