@@ -8,6 +8,6 @@
 typedef struct {
   _Atomic uint32_t request_sequence, completed_sequence, status;
   _Atomic uint32_t chunk_sequence, chunk_consumed_sequence, chunk_length, chunk_eof;
-  _Atomic uint32_t total_size_low, total_size_high, cancelled_sequence;
-  unsigned char reserved[24];
+  _Atomic uint32_t total_size_low, total_size_high, cancelled_sequence, changes;
+  unsigned char reserved[20];
 } dolly_session_mailbox;

@@ -28,7 +28,8 @@ _Static_assert(sizeof(dolly_session_mailbox) == DOLLY_SESSION_MAILBOX_HEADER_SIZ
     offsetof(dolly_session_mailbox, chunk_eof) == 4 * DOLLY_SESSION_WORD_CHUNK_EOF &&
     offsetof(dolly_session_mailbox, total_size_low) == 4 * DOLLY_SESSION_WORD_TOTAL_SIZE_LOW &&
     offsetof(dolly_session_mailbox, total_size_high) == 4 * DOLLY_SESSION_WORD_TOTAL_SIZE_HIGH &&
-    offsetof(dolly_session_mailbox, cancelled_sequence) == 4 * DOLLY_SESSION_WORD_CANCELLED_SEQUENCE,
+    offsetof(dolly_session_mailbox, cancelled_sequence) == 4 * DOLLY_SESSION_WORD_CANCELLED_SEQUENCE &&
+    offsetof(dolly_session_mailbox, changes) == 4 * DOLLY_SESSION_WORD_CHANGES,
     "session mailbox layout differs from dolly-snapshot-0.wat");
 
 typedef struct {
@@ -211,6 +212,8 @@ static void save_dispose(void) {
 static int save_begin(void) {
   save_dispose();
   dolly_kernel_hold_calls(1);
+  // What changes from here on, this save does not hold.
+  dolly_kernel_changes(1);
   if (collect_tree("/", &save.records) != 0) return -1;
   qsort(save.records.records, save.records.count, sizeof(*save.records.records), compare_records);
   uintptr_t total = DOLLY_SESSION_HEADER_SIZE;
@@ -318,13 +321,28 @@ static struct {
   size_t path_used, target_used;
   int descriptor;
   dolly_session_records directories;
+  // A recovery: the new directory and then the paths to take, each
+  // NUL-terminated, and whether the record in hand is passed over.
+  char *recovery;
+  size_t recovery_size;
+  int skipped;
 } restore = {.descriptor = -1};
 
 static void restore_dispose(void) {
   if (restore.descriptor >= 0) close(restore.descriptor);
   dispose_records(&restore.directories);
+  free(restore.recovery);
   memset(&restore, 0, sizeof(restore));
   restore.descriptor = -1;
+}
+
+// A failed recovery leaves nothing of its directory.
+static int restore_fail(void) {
+  if (restore.descriptor >= 0) close(restore.descriptor);
+  restore.descriptor = -1;
+  if (restore.recovery != NULL) dolly_fs_remove_tree(restore.recovery);
+  restore_dispose();
+  return 1;
 }
 
 static int set_time(const char *path, int64_t modified) {
@@ -360,6 +378,22 @@ int dolly_session_restore_begin(void) {
   return 0;
 }
 
+// Whether a recovery takes the record in hand, a regular file or a directory
+// at or under one of its paths; its path then becomes the one in the new directory.
+static int recovery_takes(void) {
+  if (restore.kind == DOLLY_SESSION_SYMLINK) return 0;
+  const char *end = restore.recovery + restore.recovery_size;
+  for (const char *taken = restore.recovery + strlen(restore.recovery) + 1; taken < end; taken += strlen(taken) + 1) {
+    const size_t length = strlen(taken);
+    if (strncmp(restore.path, taken, length) != 0 || (restore.path[length] != '\0' && restore.path[length] != '/')) continue;
+    char path[PATH_MAX];
+    if (snprintf(path, sizeof(path), "%s%s", restore.recovery, restore.path) >= (int)sizeof(path)) return -1;
+    strcpy(restore.path, path);
+    return 1;
+  }
+  return 0;
+}
+
 // A record whose header and path have arrived: a directory is made at once, a
 // file is opened for its data, a symlink waits for its target.
 static int restore_open_record(void) {
@@ -368,6 +402,12 @@ static int restore_open_record(void) {
       dolly_session_excluded_path(restore.path) ||
       (restore.seen != 0 && strcmp(restore.previous, restore.path) >= 0)) return -1;
   memcpy(restore.previous, restore.path, restore.path_length + 1);
+  if (restore.recovery != NULL) {
+    const int taken = recovery_takes();
+    if (taken < 0) return -1;
+    restore.skipped = !taken;
+    if (restore.skipped) return 0;
+  }
   if (restore.kind == DOLLY_SESSION_DIRECTORY) {
     struct stat metadata;
     if (mkdir(restore.path, 0755) != 0 && (errno != EEXIST || lstat(restore.path, &metadata) != 0 ||
@@ -383,7 +423,8 @@ static int restore_open_record(void) {
 }
 
 static int restore_close_record(void) {
-  if (restore.kind == DOLLY_SESSION_FILE) {
+  if (restore.skipped) {
+  } else if (restore.kind == DOLLY_SESSION_FILE) {
     const int descriptor = restore.descriptor;
     restore.descriptor = -1;
     if (close(descriptor) != 0) return -1;
@@ -392,7 +433,7 @@ static int restore_close_record(void) {
     if (memchr(restore.target, 0, restore.target_used) != NULL ||
         symlink(restore.target, restore.path) != 0) return -1;
   }
-  if (restore.kind != DOLLY_SESSION_DIRECTORY && set_time(restore.path, restore.modified) != 0) return -1;
+  if (!restore.skipped && restore.kind != DOLLY_SESSION_DIRECTORY && set_time(restore.path, restore.modified) != 0) return -1;
   ++restore.seen;
   restore.fixed_used = 0;
   restore.path_used = 0;
@@ -446,7 +487,8 @@ static int restore_take(const unsigned char *bytes, size_t length) {
       }
     } else {
       size_t count = restore.data_left < length ? (size_t)restore.data_left : length;
-      if (restore.kind == DOLLY_SESSION_FILE) {
+      if (restore.skipped) {
+      } else if (restore.kind == DOLLY_SESSION_FILE) {
         if (dolly_fs_write_exact(restore.descriptor, bytes, count) != 0) return -1;
       } else {
         memcpy(restore.target + restore.target_used, bytes, count);
@@ -463,18 +505,38 @@ static int restore_take(const unsigned char *bytes, size_t length) {
 // then every record must have arrived. A failed restore leaves the boot to fail.
 int dolly_session_restore_write(uintptr_t length, int last) {
   if (!restore.active || length > DOLLY_SESSION_TRANSFER_CAPACITY ||
-      restore_take(session_transfer, length) != 0) {
-    restore_dispose();
-    return 1;
-  }
+      restore_take(session_transfer, length) != 0) return restore_fail();
   if (!last) return 0;
-  int result = restore.header_done && restore.seen == restore.count && restore.fixed_used == 0 ? 0 : 1;
-  for (size_t index = 0; result == 0 && index < restore.directories.count; ++index) {
+  if (!restore.header_done || restore.seen != restore.count || restore.fixed_used != 0) return restore_fail();
+  for (size_t index = 0; index < restore.directories.count; ++index) {
     const dolly_session_record *directory = &restore.directories.records[index];
-    if (set_time(directory->path, directory->modified) != 0) result = 1;
+    if (set_time(directory->path, directory->modified) != 0) return restore_fail();
   }
   restore_dispose();
-  return result;
+  return 0;
+}
+
+// Takes a save into a new directory: the transfer range holds its path and the
+// paths to take (dolly-snapshot-0.wat). The directory's parent is there and it
+// is not.
+int dolly_session_recover_begin(uintptr_t length) {
+  restore_dispose();
+  struct stat metadata;
+  const char *names = (const char *)session_transfer;
+  if (length < 4 || length > 2 * PATH_MAX || names[length - 1] != '\0' || strlen(names) + 1 == length) return 1;
+  for (const char *name = names; name < names + length; name += strlen(name) + 1) {
+    if (!dolly_fs_valid_path(name)) return 1;
+  }
+  if (lstat(names, &metadata) == 0 || errno != ENOENT || dolly_fs_parents(names, 0) != 0 || mkdir(names, 0755) != 0) return 1;
+  restore.recovery = malloc(length);
+  if (restore.recovery == NULL) {
+    rmdir(names);
+    return 1;
+  }
+  memcpy(restore.recovery, names, length);
+  restore.recovery_size = length;
+  restore.active = 1;
+  return 0;
 }
 
 uintptr_t dolly_session_mailbox_address(void) {
@@ -537,6 +599,7 @@ static void publish_chunk(void) {
 // mailbox: starts a requested capture, publishes the next chunk once the page
 // consumed the previous one, and finishes after the last acknowledgement.
 void dolly_session_service(void) {
+  atomic_store_explicit(&session_mailbox.changes, dolly_kernel_changes(0), memory_order_relaxed);
   if (transfer.active) {
     if (atomic_load_explicit(&session_mailbox.cancelled_sequence,
                              memory_order_acquire) == transfer.request) {

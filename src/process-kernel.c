@@ -137,9 +137,26 @@ static uint32_t live_pipe_count;
 static int wakeup_pending;
 /* While a save runs, changes to files wait (dolly_kernel_hold_calls). */
 static int calls_held;
-int dolly_kernel_change_waits(int descriptor) {
+/* The changes processes made to what a save holds since the last one
+ * (dolly_kernel_changes): a count that stops at its largest value. */
+static uint32_t changes;
+/* A change to the regular file DESCRIPTOR names, or with -1 to a path. */
+static int changes_file(int descriptor) {
   struct stat metadata;
-  return calls_held && (descriptor < 0 || (fstat(descriptor, &metadata) == 0 && S_ISREG(metadata.st_mode)));
+  return descriptor < 0 || (fstat(descriptor, &metadata) == 0 && S_ISREG(metadata.st_mode));
+}
+static void changed(int descriptor) {
+  if (changes != UINT32_MAX && changes_file(descriptor)) ++changes;
+}
+int dolly_kernel_change_waits(int descriptor) {
+  if (!changes_file(descriptor)) return 0;
+  if (!calls_held) changed(-1);
+  return calls_held;
+}
+uint32_t dolly_kernel_changes(int clear) {
+  const uint32_t count = changes;
+  if (clear) changes = 0;
+  return count;
 }
 static int foreground_pid;
 
@@ -2172,7 +2189,7 @@ static int64_t path_open_packet(dolly_kernel_process *process, uintptr_t request
   int result = decode_path_request(process, request_size, UINT32_MAX,
                                    &request, &path, &directory);
   int flags = result == 0 ? open_flags(request.flags) : result;
-  if (flags >= 0 && (flags & O_TRUNC) != 0 && dolly_kernel_change_waits(-1)) {
+  if (flags >= 0 && (flags & O_TRUNC) != 0 && calls_held) {
     free(path);
     return DOLLY_PROCESS_DISPATCH_DEFERRED;
   }
@@ -2190,6 +2207,8 @@ static int64_t path_open_packet(dolly_kernel_process *process, uintptr_t request
     else if (kernel_fd < 0) kernel_fd = -errno;
     if (kernel_fd < 0) result = kernel_fd;
     else if ((flags & O_TRUNC) != 0) mark_truncated(kernel_fd);
+    /* A file made or emptied; one that was there and is only opened counts too. */
+    if (kernel_fd >= 0 && (flags & (O_CREAT | O_TRUNC)) != 0) changed(kernel_fd);
   }
   free(path);
   if (result != 0) return result;
@@ -2249,6 +2268,7 @@ static int64_t path_create_directory_packet(dolly_kernel_process *process, uintp
   int result = decode_path_request(process, request_size, 0, &request,
                                    &path, &directory);
   if (result == 0 && mkdirat(directory, path, 0777) != 0) result = -errno;
+  if (result == 0) changed(-1);
   free(path);
   return result;
 }
@@ -2297,6 +2317,7 @@ static int64_t path_rename_packet(dolly_kernel_process *process, uint32_t operat
     /* WasmFS has no hard links and says EMLINK; Linux says EPERM for a
      * filesystem without them, and programs fall back to a copy on it. */
     if (call_result != 0) result = errno == EMLINK && operation == DOLLY_PROCESS_PATH_LINK ? -EPERM : -errno;
+    else if (operation == DOLLY_PROCESS_PATH_LINK) changed(-1);
   }
   free(old_path);
   free(new_path);
@@ -2321,6 +2342,7 @@ static int64_t path_symlink_packet(dolly_kernel_process *process, uintptr_t requ
       target_bytes + request.old_path_size, request.new_path_size,
       &link_path, &directory);
   if (result == 0 && symlinkat(target, directory, link_path) != 0) result = -errno;
+  if (result == 0) changed(-1);
   free(target);
   free(link_path);
   return result;

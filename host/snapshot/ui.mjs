@@ -71,6 +71,12 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
   let saving = null, controller = null;
   // When the save this tab restored or last made was stored: a later one is another tab's.
   let knownSave = null;
+  // Whether processes changed files since the last capture began (the kernel's
+  // count, snapshot.mjs), and whether a save that failed left such changes unsaved.
+  let changed = false, unsaved = false;
+  // A tab of the site whose session was saved or restored asks, with the
+  // browser's own prompt, before it is left with changes no save holds.
+  if (site) addEventListener("beforeunload", event => { if (sessionName !== null && (changed || unsaved)) event.preventDefault(); });
 
   function update(message) {
     const failed = dataset.sessionStatus === "failed";
@@ -138,6 +144,7 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
       update(`Saving ${name}…`);
       button.disabled = nameField.disabled = saveButton.disabled = true;
       controller = new AbortController();
+      unsaved ||= changed;
       const capture = async onChunk => {
         const result = await transport().capture({ signal: controller.signal, onChunk });
         dataset.sessionUncompressedBytes = String(onChunk ? result : result.byteLength);
@@ -159,6 +166,7 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
         bytes: encoded.bytes,
       });
       knownSave = updatedAt;
+      unsaved = false;
       sessionName = name;
       lastSave = new Date();
       dataset.session = name;
@@ -197,6 +205,7 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
   return {
     get name() { return sessionName; },
     save,
+    changed(value) { changed = value; },
     // The dialog and the Save button keep their keys; Ctrl+Shift+S saves, the
     // first time through the dialog.
     claimsKey(event) {

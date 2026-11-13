@@ -4,7 +4,7 @@ import { mountSessionSave } from "./ui.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES } from "../../src/images.mjs";
 import { sha256 } from "../../src/static-asset.mjs";
-import { DOLLY_SESSION_FORMAT_VERSION, decodeSessionSnapshot, loadStoredSession, sessionCompatible,
+import { DOLLY_SESSION_FORMAT_VERSION, loadStoredSession, sessionCompatible,
   sessionLoadUrl, validSessionName, DOLLY_SESSION_MAX_BYTES } from "../../src/session-store.mjs";
 
 // A session route (/session/?name=NAME), or boot()'s session option on a page
@@ -72,69 +72,73 @@ export function browser(page) {
     // An ended image leaves the session this tab saved or restored to open again.
     ended: () => session.name && page.site ? [{ text: `Open saved session ${session.name}`,
       href: sessionLoadUrl(session.name, page.site).href }] : [],
-    messages: { "snapshot-chunk": capture.chunk },
+    messages: { "snapshot-chunk": capture.chunk, "snapshot-changed": ({ changed }) => session.changed(changed) },
     dispose() { session.abort(); },
   };
 }
 
-export function worker({ get, ask, configuration: { save, recover } }) {
-  let kernel, transport, cancelled;
+export function worker({ get, ask, send, configuration: { save, recover } }) {
+  let kernel, transport, cancelled, changed = false;
   if (save !== undefined && (!(save instanceof Blob) || save.size === 0 || save.size > DOLLY_SESSION_MAX_BYTES)) {
     throw new Error("invalid Dolly session snapshot");
   }
   if (recover !== undefined && (!validSessionName(recover) || save === undefined)) {
     throw new Error("invalid Dolly file recovery request");
   }
-  async function recoverFiles({ supervisor, stage, files }) {
-    const path = "/tmp/dolly-session-recovery.delta", destination = `/workspace/recovered-${recover}`;
-    stage(`recovering saved files into ${destination}...`);
-    files.write(path, new Uint8Array(await decodeSessionSnapshot(save)));
-    try {
-      const program = "/usr/bin/session-recover";
-      if ((await supervisor.spawn([program, path, destination])).status !== 0) {
-        throw new Error("File recovery failed; the original saved session is unchanged");
+  // Hands the kernel the save a transfer range at a time, as it is decompressed.
+  async function stream({ kernel, memory, stage }, doing, failed) {
+    const address = Number(kernel.dolly_session_transfer_address());
+    const reader = save.stream().pipeThrough(new DecompressionStream("gzip")).getReader();
+    let taken = 0, reported = performance.now();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      for (let offset = 0; offset < value.length; offset += DOLLY_SESSION_TRANSFER_CAPACITY) {
+        const piece = value.subarray(offset, offset + DOLLY_SESSION_TRANSFER_CAPACITY);
+        new Uint8Array(memory.buffer, address, piece.length).set(piece);
+        if (kernel.dolly_session_restore_write(BigInt(piece.length), 0) !== 0) throw failed();
       }
-    } finally { files.remove(path); }
+      taken += value.length;
+      if (performance.now() - reported >= 1000) {
+        stage(`${doing}: ${Math.floor(taken / 1024 / 1024)} MiB`);
+        reported = performance.now();
+      }
+    }
+    if (kernel.dolly_session_restore_write(0n, 1) !== 0) throw failed();
+    save = undefined;
   }
   const restores = () => save !== undefined && recover === undefined;
   return {
     restoresFilesystem: restores,
-    // The save is the whole filesystem: the kernel empties the boot's and takes
-    // it a transfer range at a time as it is decompressed.
-    async restoreFilesystem({ kernel, memory, stage }) {
+    // The save is the whole filesystem: the kernel empties the boot's and takes it.
+    async restoreFilesystem(context) {
       if (!restores()) return false;
-      stage("restoring the saved session...");
-      const address = Number(kernel.dolly_session_transfer_address());
-      if (kernel.dolly_session_restore_begin() !== 0) throw new Error("Dolly could not empty the filesystem for the saved session");
-      const failed = () => new Error("Dolly session filesystem restore failed; the saved copy is unchanged");
-      const reader = save.stream().pipeThrough(new DecompressionStream("gzip")).getReader();
-      let restored = 0, reported = performance.now();
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        for (let offset = 0; offset < value.length; offset += DOLLY_SESSION_TRANSFER_CAPACITY) {
-          const piece = value.subarray(offset, offset + DOLLY_SESSION_TRANSFER_CAPACITY);
-          new Uint8Array(memory.buffer, address, piece.length).set(piece);
-          if (kernel.dolly_session_restore_write(BigInt(piece.length), 0) !== 0) throw failed();
-        }
-        restored += value.length;
-        if (performance.now() - reported >= 1000) {
-          stage(`restoring the saved session: ${Math.floor(restored / 1024 / 1024)} MiB`);
-          reported = performance.now();
-        }
-      }
-      if (kernel.dolly_session_restore_write(0n, 1) !== 0) throw failed();
-      save = undefined;
-      stage("saved session restored");
+      context.stage("restoring the saved session...");
+      if (context.kernel.dolly_session_restore_begin() !== 0) throw new Error("Dolly could not empty the filesystem for the saved session");
+      await stream(context, "restoring the saved session",
+        () => new Error("Dolly session filesystem restore failed; the saved copy is unchanged"));
+      context.stage("saved session restored");
       return true;
     },
+    // File recovery: the kernel takes the save's files and directories under
+    // /home and /workspace into a new directory of the system image.
     async imageRestored(context) {
       if (recover === undefined) return;
       if (context.image !== "system") throw new Error("invalid Dolly file recovery request");
-      await recoverFiles(context);
-      save = undefined;
+      const destination = `/workspace/recovered-${recover}`, { kernel, memory, stage } = context;
+      stage(`recovering saved files into ${destination}...`);
+      const failed = () => new Error("File recovery failed; the original saved session is unchanged");
+      const names = new TextEncoder().encode(`${destination}\0/home\0/workspace\0`);
+      new Uint8Array(memory.buffer, Number(kernel.dolly_session_transfer_address()), names.length).set(names);
+      if (kernel.dolly_session_recover_begin(BigInt(names.length)) !== 0) throw failed();
+      await stream(context, "recovering saved files", failed);
     },
-    service() { kernel?.dolly_session_service(); },
+    // One step of a save, and word to the page when processes have changed
+    // what the last save holds, or no longer have.
+    service() {
+      kernel?.dolly_session_service();
+      if (transport && transport.changed !== changed) send({ type: "snapshot-changed", changed: changed = transport.changed });
+    },
     messages: {
       "snapshot-capture"() {
         const controller = cancelled = new AbortController();

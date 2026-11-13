@@ -132,7 +132,7 @@ export async function encodeSessionStream(produce) {
   }
 }
 
-// A whole save in one buffer, which file recovery reads: at most 2 GiB.
+// A whole save in one buffer, for a test that reads its records: at most 2 GiB.
 export async function decodeSessionSnapshot(bytes) {
   if (!(bytes instanceof Blob) || bytes.size === 0) throw new Error("Stored Dolly session is invalid");
   return collectStream(bytes.stream().pipeThrough(new DecompressionStream("gzip")), 2 * 1024 * 1024 * 1024);

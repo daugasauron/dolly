@@ -17,6 +17,7 @@ export class SessionTransport {
   static totalSizeLow = A.DOLLY_SESSION_WORD_TOTAL_SIZE_LOW;
   static totalSizeHigh = A.DOLLY_SESSION_WORD_TOTAL_SIZE_HIGH;
   static cancelledSequence = A.DOLLY_SESSION_WORD_CANCELLED_SEQUENCE;
+  static changes = A.DOLLY_SESSION_WORD_CHANGES;
 
   constructor(buffer, address, transferAddress, wake) {
     const range = (start, size) => Number.isSafeInteger(start) && start > 0 && start <= buffer.byteLength - size;
@@ -124,5 +125,7 @@ export class SessionTransport {
       this.cancel = null;
     }
   }
+  // Whether processes changed what a save holds since the last capture began.
+  get changed() { return Atomics.load(this.words, SessionTransport.changes) !== 0; }
   close() { this.closed = true; this.cancel?.(); }
 }
