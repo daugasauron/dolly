@@ -18,8 +18,8 @@ INSTALL /v0.1.6/demos/zero-ad/Dollyfile-premake 165f4281212bf2d6b9fc49fbd1fa3fa6
 INSTALL /v0.1.6/Dollyfile-libdolly-gpu 4e414e02d7bdbdb758df4be150f49ff2223d992b07249a67da2fca57b291ad88
 INSTALL /v0.1.6/Dollyfile-libdolly-audio 171473b51fcbf13f55dcfa4f7500f097db53a6c25c7d5063f02deff905a382a2
 INSTALL /v0.1.6/Dollyfile-libdolly-touch 3c23d1f22584166c434123c76bbc1be95ffe3738cbef0382e672e768a934f8d7
-INSTALL /v0.1.6/Dollyfile-libdolly-display 0000000000000000000000000000000000000000000000000000000000000000
-INSTALL /v0.1.6/Dollyfile-libdolly-input 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL /v0.1.6/Dollyfile-libdolly-display c4f8ea64af9ad51300b9b48369558e17493bccb9be1b7db853cda0e1d7d66a48
+INSTALL /v0.1.6/Dollyfile-libdolly-input 45202588e489298ba6fe352129e992fca0c7a45e13bf45cde85976c931a981e4
 # download, which the engine's test takes its logs out with.
 INSTALL /v0.1.6/Dollyfile-transfer 4fa648be8267a2f66c4d29ab3c9e31c8832d7c6245ed3c227619fed030dd6953
 REQUIRES TOOL cc
