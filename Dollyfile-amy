@@ -9,6 +9,7 @@ REQUIRES HOST packages@0
 # default the one the page loads its images from.
 FROM /v0.1.6/Dollyfile-system-build 4b8e830aebe0f008b8a30e50a42a2f3b8fbc268b8e0ee6d8c85c7bcaee936cd6
 INSTALL /v0.1.6/Dollyfile-dollyfile 259a517f266afb6eb581d4d7e11a23f2b459bc421bec05f873a855dd11e4b677
+USE /v0.1.6/Dollyfile-libdolly-packages c8ff148dc79df16db1fca9084d60ef87813d5f6833f38dfe2dc9e700be6c4714
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL rm

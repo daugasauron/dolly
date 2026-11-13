@@ -10,7 +10,7 @@ const fixtures = { "pty.c": "test/fixtures/pty.c" };
 // line more (test/cases/pty.json).
 await browserTest("pty", { image: "system", server: { fixtures } }, async ({ server, open }) => {
   const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
-  const { page, submit } = await open({ policy, ...await composed(pty.hosts, [], { base: pty.image }) });
+  const { page, submit } = await open({ policy, ...await composed(pty.hosts, pty.packages, { base: pty.image }) });
   await runSteps(submit, server.origin, pty);
 
   // The module adds no kernel import: nothing of a pseudo-terminal leaves Wasm.
@@ -23,16 +23,17 @@ await browserTest("pty", { image: "system", server: { fixtures } }, async ({ ser
 // one without declaring the module does not seal.
 await browserTest("pty not declared", { image: "system", server: { fixtures } }, async ({ server, open }) => {
   const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
-  const { submit, text } = await open({ policy });
+  const { submit, text } = await open({ policy, ...await composed([], pty.packages, { base: pty.image }) });
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
   await run(`curl -fsS ${server.origin}/fixture/pty.c -o /tmp/pty.c && cc -O1 /tmp/pty.c -o /tmp/unlinked && /tmp/unlinked unlinked`);
   await run("cc -O1 /tmp/pty.c -ldolly-pty -o /tmp/pty");
   assert.equal(await submit("/tmp/pty pair 2> /tmp/refused"), 126);
   await run("grep -q 'pty@0' /tmp/refused");
 
-  const { dollyfile, sha256, hostRequirements } = catalog.images.find(({ image }) => image === "system");
+  const pin = name => { const { dollyfile, sha256 } = catalog.images.find(({ image }) => image === name); return `${siteReference(dollyfile)} ${sha256}`; };
+  const { hostRequirements } = catalog.images.find(({ image }) => image === "system");
   const recipe = ["DOLLY 7", "APPLICATION unsealed", ...hostRequirements.map(module => `REQUIRES HOST ${module}`),
-    `FROM ${siteReference(dollyfile)} ${sha256}`, "REQUIRES TOOL cc", "FILE /tmp/asked.c", "    #include <pty.h>",
+    `FROM ${pin("system")}`, `INSTALL ${pin("libdolly-pty")}`, "REQUIRES TOOL cc", "FILE /tmp/asked.c", "    #include <pty.h>",
     "    int main(void) { int master, slave; return openpty(&master, &slave, 0, 0, 0); }",
     "SLOP cc /tmp/asked.c -ldolly-pty -o /usr/bin/asked", "EXPORTS TOOL asked", "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
   await open({ prompt: null, path: "/custom/rebuild/",

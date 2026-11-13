@@ -10,5 +10,6 @@
   "headers": ["pty.h", "pty-abi.h"],
   "kernel": ["kernel.c"],
   "client": ["client.c"],
-  "requested": true
+  "requested": true,
+  "package": "libdolly-pty"
 }

@@ -13,6 +13,7 @@ INSTALL /v0.1.6/demos/speech/Dollyfile-parakeet 5eebe209f7c64d1c88e661f3389e7280
 USE /v0.1.6/demos/speech/Dollyfile-transcribe e7b018d6c706572a3cba85a981f119dba7a88962c41ce79ef6478ce565554774
 USE /v0.1.6/Dollyfile-libdolly-microphone d19fe26e43c79222b0ab716d0aad9b00c09ccd35ed0d01e2710580b0ab7ad6dc
 USE /v0.1.6/Dollyfile-libdolly-touch 202cb3093c71cef9e0959385fc602e68e934766009ccff6d894863dbd0b64fd0
+USE /v0.1.6/Dollyfile-libdolly-pty b08526546a111ace9e033cd25c1aa7dc181c2cbcaed68fdfa1529d9f05d392c3
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL tar

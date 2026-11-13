@@ -15,12 +15,15 @@
     "nena.c": "src/commands/nena.c",
     "gpu.h": "host/gpu/gpu.h",
     "gpu-abi.h": "host/gpu/gpu-abi.h",
-    "gpu-client.c": "host/gpu/client.c"
+    "gpu-client.c": "host/gpu/client.c",
+    "nena.h": "host/nena/nena.h",
+    "nena-abi.h": "host/nena/nena-abi.h",
+    "nena-client.c": "host/nena/client.c"
   },
   "steps": [
     {
-      "why": "gpu@0's header and client, as the libdolly-gpu package installs them.",
-      "script": "cp gpu.h gpu-abi.h /usr/include/dolly/ && cc -O1 -c gpu-client.c -o gpu-client.o && ar rcs /usr/lib/dolly/process/libdolly-gpu.a gpu-client.o",
+      "why": "gpu@0's and nena@0's headers and clients, as the libdolly-gpu and libdolly-nena packages install them.",
+      "script": "cp gpu.h gpu-abi.h nena.h nena-abi.h /usr/include/dolly/ && cc -O1 -c gpu-client.c -o gpu-client.o && ar rcs /usr/lib/dolly/process/libdolly-gpu.a gpu-client.o && cc -O1 -c nena-client.c -o nena-client.o && ar rcs /usr/lib/dolly/process/libdolly-nena.a nena-client.o",
       "status": 0
     },
     { "script": "cc -O1 gpu-probe.c -ldolly-gpu -o /tmp/gpu-client", "status": 0 },

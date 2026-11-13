@@ -284,6 +284,7 @@ const elsewhere = {
   "libdolly-touch": "touch-browser.mjs", "stack-wrap": "stack-browser.mjs",
   "libdolly-display": "system installs it", "libdolly-input": "system installs it", "libdolly-download": "system installs it",
   "libdolly-upload": "system installs it", "libdolly-threads": "system installs it",
+  "libdolly-nena": "nena's build uses it", "libdolly-packages": "amy's build uses it", "libdolly-pty": "pty-browser.mjs",
   openblas: "demos/python", numpy: "demos/python", pandas: "demos/python: python-data installs it",
   matplotlib: "demos/python: python-data installs it", seaborn: "demos/python: python-data installs it",
   "python-dateutil": "demos/python: pandas and matplotlib install it", libjpeg: "demos/xonotic", "xonotic-shaders": "demos/xonotic: xonotic-build installs it", spidermonkey: "demos/zero-ad",

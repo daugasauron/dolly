@@ -11,6 +11,7 @@ REQUIRES HOST sockets@0
 # slave. It is installed as xterm; upstream's program is /usr/libexec/xterm.
 FROM /v0.1.6/demos/x11/Dollyfile-x11-build 2767326d192e65410db8a3fcdd81a34c51cced71ad043eeed4133c4939a53164
 USE /v0.1.6/demos/tmux/Dollyfile-libterminfo 89f5b4931ef746bdfe0b61eddff45299d09a76c2fce7c12710f4a23239c0fee5
+USE /v0.1.6/Dollyfile-libdolly-pty b08526546a111ace9e033cd25c1aa7dc181c2cbcaed68fdfa1529d9f05d392c3
 
 REQUIRES HEADER term
 REQUIRES LIB terminfo

@@ -259,7 +259,7 @@ another, as a terminal multiplexer gives each of its panes. The bytes stay in
 kernel memory, as a pipe's do, and the module has no browser import.
 
 A program asks when it links: `cc ... -ldolly-pty` takes `openpty` from the
-module's client, which records `pty@0`, and the image that keeps the program
+module's client (the `libdolly-pty` package), which records `pty@0`, and the image that keeps the program
 declares `REQUIRES HOST pty@0`. Without it `openpty` is libc's, which finds
 no `/dev/ptmx` and fails with `ENOENT`. The program on the slave links
 nothing and declares nothing: any program built for Dolly runs on one.

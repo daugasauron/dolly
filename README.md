@@ -82,6 +82,9 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `libdolly-download`: the `download@0` module's header and client library, for programs the `cc` package builds.
 - `libdolly-upload`: the `upload@0` module's header and client library, for programs the `cc` package builds.
 - `libdolly-threads`: the `threads@0` module's header, for a program that calls the thread interface itself; `cc -pthread` links its client.
+- `libdolly-nena`: the `nena@0` module's header and client library, for programs the `cc` package builds.
+- `libdolly-packages`: the `packages@0` module's header and client library, for programs the `cc` package builds.
+- `libdolly-pty`: the `pty@0` module's header and client library, for programs the `cc` package builds; a program links it with `-ldolly-pty`.
 - `stack-wrap`: rewrites a program the `cc` package built so that it recurses deeper than one browser stack, with `stack@0`.
 - `ps`: `ps`, which lists the processes: PID, parent, state and command line.
 - `session-recover`: `session-recover`, which copies the files of a saved session file into a new directory.

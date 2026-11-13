@@ -1,6 +1,7 @@
 {
   "image": "system",
   "hosts": ["pty"],
+  "packages": ["libdolly-pty"],
   "directory": "/tmp/pty-test",
   "fixtures": {
     "pty.c": "test/fixtures/pty.c"
