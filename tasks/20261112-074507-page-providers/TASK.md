@@ -21,7 +21,11 @@ Not done, decided: the quiet period after an answer. An agent asks its next ques
 (Pi's ask-user: a form, then the report), which two seconds of refusal would end as if the user
 had closed it. A click meant for the last popup landing on the next is better met by the new
 popup ignoring activation for a moment than by refusing it; not measured as a problem yet.
-Left: the autofill measurement on `email`, `tel` and `cc-number` fields.
+Left: the autofill measurement on `email`, `tel` and `cc-number` fields. Tried (2026-11-13): Chrome's
+`--show-autofill-type-predictions` writes no prediction into any field in headless Chrome 156, not
+even on a plain top-level form, so it measures nothing there. The popup's sanitizer passes no
+`autocomplete` attribute and no password field. Next: a headed Chrome and Firefox with a profile
+that holds an address and a card, offering on a field in the popup or not.
 
 ## Do
 

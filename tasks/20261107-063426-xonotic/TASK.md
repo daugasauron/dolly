@@ -19,8 +19,11 @@ main `2b8036055`); not recorded: the preset, the map, and whether the frames cam
 the engine's software rasterizer. The test's check (lit pixels above 0.2 at ultimate on
 space-elevator) passes on such frames, so it does not see this.
 
-Next: the owner's flow on 9045 in both browsers, a screenshot of a wall, and the preset and path
-it used; then a check that a wall hides what is behind it.
+Not reproduced (2026-11-13, release `973b3ad4…` on 9045, `work/xonotic-repro`): the engine's own
+screenshots of stormkeep with the image's starting settings show solid, textured walls on
+`gpu@0` (Chrome 156, Vulkan, the NVIDIA adapter) and in the engine's software rasterizer (Chrome
+without a GPU); the page's own screenshots of the `xonotic` route behind its welcome dialog show
+the same. Asked the owner for a screenshot, the map and how they got there.
 
 ## State (2026-11-12): the effects presets above high, in any browser
 
