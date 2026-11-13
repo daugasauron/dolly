@@ -23,11 +23,11 @@ INSTALL /v0.1.6/demos/x11/Dollyfile-xorg-server 648e6dc2b6c179bb4ff7c486b465d6b5
 INSTALL /v0.1.6/demos/x11/Dollyfile-twm d70144656356e1d4bd33f7782ec397c69bc82fa5680f49d5d184b730fbdf15ab
 INSTALL /v0.1.6/demos/x11/Dollyfile-xclock 71ee1d7d43994f42bef8b4035e17cd535fb65a4e6be25d17c0e6df484e20c70c
 INSTALL /v0.1.6/demos/x11/Dollyfile-xeyes 8a57e044156b60109d909a01014885bd793ba8c8bbe5aef3f6fc1e85e610bd5d
-INSTALL /v0.1.6/demos/x11/Dollyfile-xterm af17f0086f0a6e5185eab84570c2640c32f1bd621594ce6757c89e70ce617b84
+INSTALL /v0.1.6/demos/x11/Dollyfile-xterm f68ef70c813a70c2e174f07dbea7be63e88aa3bb02cd90b4fd4b56db77630c0f
 # amy installs packages into the session (tmux, nvim and the rest); nena
 # enables the host modules they need.
-INSTALL /v0.1.6/Dollyfile-amy b288f32c261ac884099819035a4f99e0eebac26505aafb323fe422df286433c2
-INSTALL /v0.1.6/Dollyfile-nena 0d69173143b8a614b00fab87ce9302c212656a049503765801693f4455f6dc6c
+INSTALL /v0.1.6/Dollyfile-amy b55b1d7e40e572fdd10b421cbd7f0c8c334e240b71fb8ecfc481486021f872d7
+INSTALL /v0.1.6/Dollyfile-nena 1be38135c5ed54d4d66cfc0b66a8d65c5602d3edc078e8a7ebb52587b7bbd805
 INSTALL /v0.1.6/demos/sdl2/Dollyfile-imgui-x11 fecfeaa8e9b0efe444688800768ba3f9f9ab06d3cf4940b3f86034d275c6f4cc
 
 # The server takes the display, the keyboard and the pointer until it ends

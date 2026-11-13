@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # The platform as a program sees it: the documents and machine contracts of
 # this release at their repository paths, so their links to each other work.
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
-SOURCE /v0.1.6/docs/process-model.md 8bddaa38fd05305731309022922141add317eec7c2cc717e8a346a37ecc04d6f /usr/share/doc/dolly/docs/process-model.md
+SOURCE /v0.1.6/docs/process-model.md 5ad00cf652e021c8bf4ffabd528193d5d57964245d38487c5e1792b9a93eff7f /usr/share/doc/dolly/docs/process-model.md
 SOURCE /v0.1.6/docs/browser-stack.md 06764e5acb8c5a13ec19ff69c318cbdcc0a91324269f88700e6c0ea8be4f21e1 /usr/share/doc/dolly/docs/browser-stack.md
 SOURCE /v0.1.6/docs/slop.md 8bc24dafb4b07151ec6f5189bea4168e2b30281cf5809f0bae6a00380ccff061 /usr/share/doc/dolly/docs/slop.md
 SOURCE /v0.1.6/docs/display.md 15a8493d58da89ed588a5dbaea2f145a46d6c02004a9ab4aa78fad92cd1f5bd6 /usr/share/doc/dolly/docs/display.md
@@ -18,7 +18,7 @@ SOURCE /v0.1.6/docs/architecture.md d52698ca472e5bd7635fea86a7e35e670f68d6dd0d1e
 SOURCE /v0.1.6/docs/browser-boundary.md 154eac4ce868ae583250524ca0d0e8dc4ed1d58a06b6a2364bbfc4cc4d5672e7 /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE /v0.1.6/docs/image-build-service.md 658d9961bf2af518506d8dc00a6c7ed7445cd15c783c5ce63a409816a4b3a201 /usr/share/doc/dolly/docs/image-build-service.md
 SOURCE /v0.1.6/abi/README.md 9ca5d67e4579d7343cd68b08ff11a821ec1a161c17f7b4ea97280976c60b4962 /usr/share/doc/dolly/abi/README.md
-SOURCE /v0.1.6/host/README.md 7d20fa3f3afa69db1024aad1aa231caa67723bfad2da45f7a036e4861a901e8e /usr/share/doc/dolly/host/README.md
+SOURCE /v0.1.6/host/README.md 5b4806bc13ad00f4c88bd2cd13b05b1b186e07c1361951f473c254208aeef944 /usr/share/doc/dolly/host/README.md
 SOURCE /v0.1.6/abi/dolly-browser-0.wat 7bea6213b5ba9daebb36b0844501406f3ad97a26784621bc99f52c46ae64c79c /usr/share/doc/dolly/abi/dolly-browser-0.wat
 SOURCE /v0.1.6/abi/dolly-host-0.wat 7d1a02e3317086c06ca022e917d6d8537d9a005e9804e5ffdf256dc7d70c8671 /usr/share/doc/dolly/abi/dolly-host-0.wat
 SOURCE /v0.1.6/abi/dolly-image-0.wat 7c51564f3550e3428ffa49e4cdbca6d4a573585de0c03dd09e83e2a16599dedf /usr/share/doc/dolly/abi/dolly-image-0.wat
