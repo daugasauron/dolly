@@ -32,8 +32,11 @@ On `fix/batch`:
   core, dollyfile, posix, display, curl, pi-dolly), which `dolly-build` depends on, then the named
   packages, the template's rows and `ENTRY`; `dolly-build` builds a recipe `FROM` an image or one
   that installs `dollyfile`. `config/npm-images.txt` lists `pi-dolly`'s closure (17 packages more).
-  Left: `test/npm-browser.mjs` in the round, which packs the full catalog; `pi-minimal` built this way
-  matches the seed-built one file for file.
+  The same image either way, measured: a root recipe installing core, dollyfile and display built
+  from the engine package and again with that path switched off (the seed compiling the engine)
+  gives one image, `82f7caca…`, 8,874,672 bytes, in 1.0 s against 3.4 s
+  (`work/evidence-2026-11-13/engine-start/`). Left: `test/npm-browser.mjs` in the round, which packs
+  the full catalog.
 
 ## Do
 
