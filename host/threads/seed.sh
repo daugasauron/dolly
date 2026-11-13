@@ -32,11 +32,13 @@ internal=(-I/emsdk/upstream/emscripten/system/lib/libc/musl/arch/emscripten \
 for source in libc-adapter runtime-adapter socket-refusals libc-stubs mmap time poll signal abort crt1; do
   emcc "${flags[@]}" "${internal[@]}" -c "src/process/$source.c" -o "$target/$source.o"
 done
-# libc's pthreads over threads@0 are the module's (host/threads/).
+# libc's pthreads over threads@0 are the module's (host/threads/), and so is
+# their client: only a threaded program links it.
 emcc "${flags[@]}" "${internal[@]}" -c host/threads/pthreads.c -o "$target/threads.o"
 emcc "${flags[@]}" -c host/threads/pthreads-start.S -o "$target/threads-start.o"
+emcc "${flags[@]}" -Wall -Werror -c host/threads/client.c -o "$target/threads-client.o"
 rm -f "$target/libdolly-process.a" "$target/libdolly-runtime.a"
-emar rcsD "$target/libdolly-process.a" "$target"/{libc-adapter,mmap,time,poll,signal,abort,threads,threads-start}.o
+emar rcsD "$target/libdolly-process.a" "$target"/{libc-adapter,mmap,time,poll,signal,abort,threads,threads-start,threads-client}.o
 for source in time/getdate legacy/getpass; do
   emcc "${flags[@]}" -c "/emsdk/upstream/emscripten/system/lib/libc/musl/src/$source.c" -o "$target/${source#*/}.o"
 done

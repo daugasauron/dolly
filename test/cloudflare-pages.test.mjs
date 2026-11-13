@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
+import { sha256 as pin } from "../scripts/sha256.mjs";
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
@@ -34,7 +35,6 @@ test("Pages transport compresses source assets and splits incompressible files w
 });
 
 const pack = `dist/packs/${"c".repeat(64)}.snapshot.gz`;
-const pin = bytes => createHash("sha256").update(bytes).digest("hex");
 // The rule a version before v0.1.5 listed for each file it stores in parts.
 const partsHeaders = paths => paths.map(path => `/${path}\n  X-Dolly-Parts: 1\n  Content-Type: application/octet-stream\n`).join("\n");
 

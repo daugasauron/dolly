@@ -7,13 +7,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
-static char *base_name_copy(const char *path) {
-  size_t length = strlen(path);
-  while (length > 1 && path[length - 1] == '/') length--;
-  size_t start = length;
-  while (start > 0 && path[start - 1] != '/') start--;
-  return strndup(path + start, length - start);
-}
+#include "path.h"
 
 static int move_one(const char *source, const char *destination,
                     int destination_is_directory) {
@@ -24,24 +18,12 @@ static int move_one(const char *source, const char *destination,
       fputs("mv: out of memory\n", stderr);
       return 1;
     }
-    const size_t destination_length = strlen(destination);
-    const size_t name_length = strlen(name);
-    const int slash = destination_length != 0 &&
-                      destination[destination_length - 1] != '/';
-    if (destination_length > SIZE_MAX - name_length - (size_t)slash - 1) {
-      fprintf(stderr, "mv: %s/%s: path is too long\n", destination, name);
-      free(name);
-      return 1;
-    }
-    target = malloc(destination_length + (size_t)slash + name_length + 1);
+    target = join_path(destination, name);
     if (target == NULL) {
-      fputs("mv: out of memory\n", stderr);
+      fprintf(stderr, "mv: %s/%s: %s\n", destination, name, strerror(errno));
       free(name);
       return 1;
     }
-    memcpy(target, destination, destination_length);
-    if (slash) target[destination_length] = '/';
-    memcpy(target + destination_length + (size_t)slash, name, name_length + 1);
     free(name);
   }
   const char *resolved = target == NULL ? destination : target;

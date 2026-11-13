@@ -2,7 +2,7 @@
 // LARGE_INPUT_PATH, 520 MiB of zeros in a pack of its own. files maps each
 // URL path the page fetches (the metadata, the new pack) to what to
 // serve; the image's other packs are the ones in dist/.
-import { createHash } from "node:crypto";
+import { sha256 as digest } from "../../scripts/sha256.mjs";
 import { readFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 import { metadataJson } from "../../scripts/image-directory.mjs";
@@ -10,7 +10,6 @@ import { decodeSnapshotRecords, encodeSnapshotRecords } from "../../src/snapshot
 
 export const LARGE_INPUT_PATH = "/usr/share/large-input";
 export const LARGE_INPUT_BYTES = 520 * 1024 * 1024;
-const digest = bytes => createHash("sha256").update(bytes).digest("hex");
 
 export async function largePublishedInput(image) {
   const metadata = JSON.parse(await readFile(new URL(`../../dist/dolly-${image}-system-snapshot.json`, import.meta.url), "utf8"));

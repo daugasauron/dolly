@@ -13,7 +13,8 @@ import {
 } from "./image-definitions.mjs";
 import { createDollyfileGraphLoader, recipeRecords } from "./dollyfile-graph.mjs";
 import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
-import { sha256 as digest, verifySnapshotIdentity } from "./snapshot-identity.mjs";
+import { sha256 as digest } from "./sha256.mjs";
+import { verifySnapshotIdentity } from "./snapshot-identity.mjs";
 import { readWasmInterface } from "./wasm-interface.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
 import { imageInputs, imageInputsMatch } from "../src/image-inputs.mjs";

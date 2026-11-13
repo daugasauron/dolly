@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 
-// Slop includes this file and runs the same code itself for the echo that PATH
+// Slop links this file and runs the same code itself for the echo that PATH
 // finds in /bin (DOLLY_SHELL_UTILITY).
-static int echo_utility(int argc, char **argv) {
+int echo_utility(int argc, char **argv) {
   int newline = 1;
   int first = 1;
   // POSIX: echo takes no options but -n, so `echo --help` prints --help.

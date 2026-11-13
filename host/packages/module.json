@@ -10,5 +10,6 @@
   "process": [],
   "headers": ["packages.h", "packages-abi.h"],
   "kernel": ["kernel.c"],
-  "client": ["client.c"]
+  "client": ["client.c"],
+  "package": "libdolly-packages"
 }

@@ -10,7 +10,7 @@ fine, but it definitely seems the current implementation is broken from an archi
 view." Earlier: 2026-10-01 "If the core is slop it will be impossible to extend it"; 2026-11-04 "I
 feel like the modularity of the host modules have been lost somewhere along the way".
 
-## State (2026-11-12)
+## State (2026-11-13)
 
 Done on `fix/modular`, measured in Chromium and Firefox (threads, console, pty, terminal,
 process, nena, host-modules, ended-worker, stack, dso, sockets, display, default, shell, core all
@@ -59,6 +59,46 @@ also names sockets and pty when it lists the clients the runtime library links.
 Left: the core recipe without module names: each such module's headers in a package of its own
 (as gpu@0's are in libdolly-gpu), which the recipes that compile against them install, so a module
 leaves the repository with its package; and build.sh's client list from the manifests.
+On `fix/seed-hygiene` (2026-11-13, work/seedwork: e0528e0e2, 570f670a5, c566ac0a4, 5a855d797;
+image inputs `2ee43eaf…` before, `98bc4c57…` after; the suites of the hygiene task pass on it):
+- A module's header and client reach programs through its package, as gpu@0's do:
+  `Dollyfile-libdolly-{display,input,download,upload,nena,packages,pty}` are new; threads@0's
+  header is `Dollyfile-libdolly-threads` and its client went into its part of the seed
+  (`host/threads/seed.sh`), the threaded libc that `cc -pthread` links and the one place it is
+  linked. `Dollyfile-system-build` sources and exports no module's header. The seed holds two
+  modules' headers and clients, by the manifests (no `package`): http@0's, with which the recipe
+  engine downloads before any recipe runs, and dso@0's, whose loader `cc -rdynamic` exports
+  (`--export=__dolly_dso_allocate` in `src/compiler.cpp`, the pinned seed compiler).
+- The recipes that compile against them install them: `system` (display, input, download, upload,
+  threads: the modules it declares, so what is built FROM it has them, the suites' fixtures among
+  it), `ghostty-build` (display, input), `sdl2` and `wine-build`; `transfer`, `nena`, `amy`,
+  `godot`, `godot-editor`, `photocraft`, `janis`, `tmux`, `xterm`, `voice` and `ghostty-gtk`
+  `USE` theirs. Nothing exports `HEADER http` or `dso` now, so the rows requiring them went (amy,
+  curl, python, libffi, janis). The demo recipes are edited, not built here.
+- `scripts/build.sh` takes the clients `cc` links unasked from the manifests: `requested` on
+  sockets and pty (`host-modules.mjs links`); the unused `DOLLY_CLIENT_LIBRARIES` is gone.
+  Still naming modules, in the seed compiler (a compiler round, `docs/sources.md`):
+  `src/compiler.cpp:844-845` (`libdolly-sockets.a`, `libdolly-pty.a`), `-rdynamic`'s dso export
+  and `-pthread`'s `threads/` part and `dolly_thread_start` export.
+- dso@0's contract fixtures are its manifest's `fixtures` (`test/build-dso-fixtures.mjs`, which
+  now stamps and validates them too), which build.sh runs for every module, and the image build ID
+  covers the process-side contracts the manifests name (`write-build-id.mjs`), where both named
+  dso: with dso out of the manifests the runtime build stopped at `validate-process-dso`
+  (`ENOENT build/dolly-dso-0.wasm`, `build/seedwork-drop-dso-before.log`).
+- No contract changed (the kernel's and the process ABI are as they were): Donna needs nothing.
+
+The drop test, measured (`build/seedwork-drop*.log`): console, pty, dso, stack and sockets out of
+`host/manifests.mjs`, the runtime builds (its kernel module table without pty, sockets and console,
+`dist/` without their contracts, the seed's `/usr/include/dolly` with http's alone, image inputs
+`6a7e498d…`), and default's and system's closures build from it. default boots: the default suite
+passes but its `amy list` step, which fails without the drop too (the runtime Worker bundle's
+`src/images.mjs`, `20261112-090000-audit-startup`); the core, shell, threads and terminal suites
+pass in Chromium and Firefox; the process suite stops at its dso checks (`dist/dolly-dso-0.wasm`),
+which test the dropped module. threads@0 is not droppable from default's closure: git, in
+system-tools, links `-pthread` and declares it.
+
+Left: the seed compiler's names (above), for its next round; `scripts/dolly-abi.mjs` imports
+`host/dso/interface.mjs`, so the dso directory cannot leave before that check moves with it.
 
 ## Found
 

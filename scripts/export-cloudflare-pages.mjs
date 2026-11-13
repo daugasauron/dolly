@@ -12,7 +12,7 @@ import { promisify } from "node:util";
 import { brotliCompress, constants } from "node:zlib";
 import { compareVersions, releaseVersion, robotsText, versionName } from "./release-layout.mjs";
 import { fileManifest, releaseFiles } from "./site-release.mjs";
-import { sha256 } from "./snapshot-identity.mjs";
+import { sha256 } from "./sha256.mjs";
 import { siteContentSecurityPolicy } from "./serve.mjs";
 
 const compress = promisify(brotliCompress);

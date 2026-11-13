@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile as execFileCallback } from "node:child_process";
-import { createHash } from "node:crypto";
+import { sha256 as digest } from "../scripts/sha256.mjs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -9,8 +9,6 @@ import test from "node:test";
 import { promisify } from "node:util";
 import { ensureSnapshotPacks, shareSnapshots, splitSnapshotRecords } from "../scripts/share-pages-snapshots.mjs";
 import { decodeSnapshotRecords, encodeSnapshotRecords, mergeSnapshotRecords, scanSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
-
-const digest = value => createHash("sha256").update(value).digest("hex");
 const execFile = promisify(execFileCallback);
 const file = text => ({ kind: 2, data: new TextEncoder().encode(text) });
 test("development images reuse complete packs and repair missing delivery files", async () => {

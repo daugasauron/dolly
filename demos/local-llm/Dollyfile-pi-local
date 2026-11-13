@@ -13,21 +13,21 @@ REQUIRES HOST packages@0
 REQUIRES HOST nena@0
 REQUIRES HOST gpu@0
 
-INSTALL /v0.1.6/Dollyfile-core d69d0e16a3e1a7813171966d23fcf5a44d488a6bcf2723a3d32f689fa162fc5c
-INSTALL /v0.1.6/Dollyfile-posix 3f1e6b15fe6a98d19c9a4d53aa9fd9d0a3e543f0098f61f4b28cfa690d095c5f
-INSTALL /v0.1.6/Dollyfile-display 04c5a260eb25a1f21c877baef97fb57fe930a637af40ad6dfa530f66709f2a7e
+INSTALL /v0.1.6/Dollyfile-core 3f0ed8f48580b1aea351749cdcfbeab4bfe452436abc50beca43dac3d12fd7a9
+INSTALL /v0.1.6/Dollyfile-posix 44897e45850c0eb09bd481984aed46ab099f11c4d37bdcfc05591df26746e60a
+INSTALL /v0.1.6/Dollyfile-display 717f83d872a97cfc876278574e3c44fb4b3995d9b3b09562f85c0c718b8baec6
 # The tools Pi's dolly skill teaches: cc and make, Git, curl.
-INSTALL /v0.1.6/Dollyfile-cc a6f96b01bf8368add739d79a57ed2829615fcfb85461b50bb28c02bede8e6b6a
-INSTALL /v0.1.6/Dollyfile-git 8cbfa062857c8b1b0de60c71ae5a585c6956990ee55f516128d22196b019f3e8
-INSTALL /v0.1.6/Dollyfile-curl 50830dca6325422d1b1d76d882d1ec4daf856abb9d8c296e6e4459f429486dbf
+INSTALL /v0.1.6/Dollyfile-cc 024eaa93969a7c35ab35b90968d09f9926cc4ab8ca4452b96c7bb7567b255e32
+INSTALL /v0.1.6/Dollyfile-git 55dc67f79ac8cc2638cd2ca0bc7a9794a34cd14ca8403836e304866723ed037c
+INSTALL /v0.1.6/Dollyfile-curl 3eb77e1dba42f6bdb9e60ea2602f0bab340513318a7196f18fee5baa3e4dc8e5
 # download and upload, which Pi's prompt teaches (transfer).
-INSTALL /v0.1.6/Dollyfile-transfer 420ed424bcd0127a54789d4958d128b40fc0a679bd202c664f1b3632f2fa4309
-INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly a9ca7579829f2621af9f7d5411d9925ab7c48c0cd50dc79b538da6b914cf857f
-INSTALL /v0.1.6/Dollyfile-amy 8e88b8db5980836df040c8e76874cddf12a7b7b88672cdd7598a68389182f448
+INSTALL /v0.1.6/Dollyfile-transfer 9ed7a8db24b6bc0df618d200cd62db25c09602714c53c8826746a4d6a65b9483
+INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly b267afca32ab7523040f1e17fb5b9b080cb582c48ba093c1227dbc72dd07d5cb
+INSTALL /v0.1.6/Dollyfile-amy b55b1d7e40e572fdd10b421cbd7f0c8c334e240b71fb8ecfc481486021f872d7
 # nena enables the host modules a package needs beyond these.
-INSTALL /v0.1.6/Dollyfile-nena c93355eba59f5cb1f469f498be983f563c60aa753e8da3172363c5935d0e0f66
+INSTALL /v0.1.6/Dollyfile-nena 1be38135c5ed54d4d66cfc0b66a8d65c5602d3edc078e8a7ebb52587b7bbd805
 # A model Pi runs in the tab: the provider, dolly-llama and Qwen3.5-2B.
-INSTALL /v0.1.6/demos/local-llm/Dollyfile-pi-llm 96b95a1fd337bbc54f26d3e7eda92c3dc594e48e62ab774ec488bf8779d4db81
+INSTALL /v0.1.6/demos/local-llm/Dollyfile-pi-llm 2b483fe24902f33c03e2768ba3b144cfd5ceccbd3adad983493462d6352dc8b5
 
 FILE /etc/dolly/init.slop
     if test -f "$HOME/.dollyrc"; then

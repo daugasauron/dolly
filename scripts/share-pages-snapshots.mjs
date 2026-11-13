@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash, randomUUID } from "node:crypto";
+import { sha256 as digest } from "./sha256.mjs";
 import { createWriteStream } from "node:fs";
 import { mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -12,7 +13,6 @@ import { metadataJson } from "./image-directory.mjs";
 // (`byteLength`, `source`, `offset`); the catalog is never held in memory.
 const CHUNK_BYTES = 4 * 1024 * 1024;
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
-const digest = bytes => createHash("sha256").update(bytes).digest("hex");
 const recordLength = record => record.byteLength ?? record.data.length;
 const recordKey = (kind, path) => createHash("sha256").update(`${kind}\0${path}\0`);
 

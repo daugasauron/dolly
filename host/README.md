@@ -34,8 +34,10 @@ a page of the site names those its route uses ([`site.mjs`](../src/site.mjs)).
 | `kernel` | Kernel C; defines `dolly_NAME_kernel`, the process operations it handles and its release hook ([`process-kernel.h`](../src/process-kernel.h)) |
 | `client` | Process C linked as `libdolly-NAME.a`; it records `DOLLY_HOST_REQUIRE(NAME, VERSION, DOLLY_NAME_ABI_DIGEST)` |
 | `tools` | Process C a package builds from the module's directory: a program (`stack-wrap`) or a library over the module (http's `libcurl.c`, which the `curl` package builds); optional |
-| `seed` | A script the build runs in the toolchain container that writes `build/process-sysroot-parts/NAME/`, the module's part of the process sysroot, which the seed holds as `NAME/`: threads@0's is the threaded libc `cc -pthread` links; optional |
+| `seed` | A script the build runs in the toolchain container that writes `build/process-sysroot-parts/NAME/`, the module's part of the process sysroot, which the seed holds as `NAME/`: threads@0's is the threaded libc `cc -pthread` links, with the module's client; optional |
 | `package` | The package whose recipe installs the module's headers and clients, which the seed then leaves out; absent when the seed holds them |
+| `fixtures` | A Node script the build runs, given the toolchain container's command, once the contracts are assembled: it builds the module's contract fixtures into `build/` for its tests and checks them (dso@0's hosts and libraries); optional |
+| `requested` | `true` on a module whose client defines names of libc's (`sockets`, `pty`): `cc` links it only when a program asks (`-ldolly-NAME`); absent otherwise |
 
 The core (the kernel, the supervisor, the Workers, `boot()` and the registry)
 names no module but `runtime@0`. A module attaches to it only at these points,
@@ -121,9 +123,13 @@ in `abi/dolly-browser-0.wat` and its row in
 [browser boundary](../docs/browser-boundary.md); the last two are where a human
 reviews the authority it adds. Its header and client reach programs through a
 package, `Dollyfile-libdolly-NAME` named as the manifest's `package`, which
-`scripts/build.sh` then leaves out of the seed, as for gpu, audio, microphone,
-sockets, touch and clipboard (stack's is `stack-wrap`, html's `html`, which holds its command too); a module that a
-core source includes stays in the seed. A module without imports may instead own a
+`scripts/build.sh` then leaves out of the seed, and a recipe that compiles
+against them installs (a package `USE`s) it, as `ghostty-build` does display's
+and input's (stack's is `stack-wrap`, html's `html`, which holds its command
+too). The seed holds the headers and clients of the two modules without one:
+http@0's, with which the recipe engine downloads before any recipe runs, and
+dso@0's, whose loader the seed compiler exports for `cc -rdynamic`; threads@0's
+client is in its part, the threaded libc `cc -pthread` links. A module without imports may instead own a
 reserved origin of the HTTP broker ([`http/local-services.mjs`](http/local-services.mjs)),
 as `build` does, and `packages` for a directory other than the page's: its service admits
 each request itself.
@@ -195,7 +201,7 @@ pseudo-terminal for a program, a descriptor kind of the kernel's own
 supervisor delivers the signals one raises for the programs on its slave
 ([process model](../docs/process-model.md#pseudo-terminals)). Its client
 defines the libc's `openpty`, so a program asks with `-ldolly-pty` as one
-asks for sockets. The libc itself forwards `ioctl(TIOCSWINSZ)` on a master. `console@0` is a
+asks for sockets (the `libdolly-pty` package). The libc itself forwards `ioctl(TIOCSWINSZ)` on a master. `console@0` is a
 root process's standard streams that the host holds, a pseudo-terminal's
 master or three pipes: no program calls it, and its terminals are the
 kernel's, through `src/pty-kernel.h`.

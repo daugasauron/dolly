@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { sha256 as digest } from "../scripts/sha256.mjs";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -14,7 +14,6 @@ import { DOLLY_VERSION } from "../src/version.mjs";
 import { PUBLIC_ORIGIN, siteReference } from "../src/static-asset.mjs";
 
 const project = resolve(import.meta.dirname, "..");
-const digest = source => createHash("sha256").update(source).digest("hex");
 
 test("every catalog recipe graph lints", () => lintDollyfiles(project));
 
@@ -139,9 +138,10 @@ ENTRY /bin/slop
 test("images separate reusable toolchains and packages from applications", async () => {
   const core = {
     "system-build": [], zlib: ["system-build"], curl: ["system-build"], gzip: ["system-build", "zlib"],
-    "zig-build": ["system-build"], "ghostty-build": ["zig-build"], display: ["ghostty-build"],
+    "zig-build": ["system-build"], "ghostty-build": ["zig-build", "libdolly-display", "libdolly-input"], display: ["ghostty-build"],
     git: ["system-build", "zlib", "curl"], "system-tools": ["system-build", "zlib", "gzip", "curl", "git", "display"],
-    system: ["system-tools", "transfer", "session-recover", "core", "cc", "make", "posix", "ninja"],
+    system: ["system-tools", "transfer", "session-recover", "core", "cc", "make", "posix", "ninja",
+      "libdolly-display", "libdolly-input", "libdolly-download", "libdolly-upload", "libdolly-threads"],
     default: ["core", "posix", "display", "curl", "dollyfile", "amy", "nena", "transfer", "ps"],
   };
   const files = await recipeFiles(project);

@@ -91,7 +91,8 @@ flowchart LR
 ## Graphics processes
 
 [`host/display/display.h`](../host/display/display.h) exposes these operations over
-`dolly_process_0.call`:
+`dolly_process_0.call`; it and `libdolly-display.a` come from the `libdolly-display`
+package (input's from `libdolly-input`):
 
 | Operation | Purpose |
 | --- | --- |

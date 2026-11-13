@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { sha256 as digest } from "../../scripts/sha256.mjs";
 import { inspectDollyfile, recipeRows } from "../../src/dollyfile-view.mjs";
 import { shellQuote } from "../browser.mjs";
 
 const scratch = "/workspace/dollyfile-parser-test";
 const outputs = "/usr/share/dollyfile-parser-test";
-const digest = value => createHash("sha256").update(value).digest("hex");
 // Recipes the in-sandbox executor runs against the live filesystem, with the
 // rows the page would give it; sources come from the test server's origin,
 // which serves `recipes` by path.

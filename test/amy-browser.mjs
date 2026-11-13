@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { sha256 } from "../scripts/sha256.mjs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -22,7 +22,6 @@ const pin = name => {
   const { dollyfile, sha256 } = catalog.images.find(definition => definition.image === name);
   return `${siteReference(dollyfile)} ${sha256}`;
 };
-const sha256 = text => createHash("sha256").update(text).digest("hex");
 
 // A sealed package that needs sockets@0, as the engine would build it: the
 // retained recipe plus its receipt (recipe chain, host requirements, exports).
@@ -283,6 +282,9 @@ const elsewhere = {
   "libdolly-audio": "audio-browser.mjs", "libdolly-gpu": "gpu-render-browser.mjs",
   "libdolly-microphone": "microphone-browser.mjs", "libdolly-sockets": "sockets-browser.mjs",
   "libdolly-touch": "touch-browser.mjs", "libdolly-clipboard": "clipboard-browser.mjs", "stack-wrap": "stack-browser.mjs",
+  "libdolly-display": "system installs it", "libdolly-input": "system installs it", "libdolly-download": "system installs it",
+  "libdolly-upload": "system installs it", "libdolly-threads": "system installs it",
+  "libdolly-nena": "nena's build uses it", "libdolly-packages": "amy's build uses it", "libdolly-pty": "pty-browser.mjs",
   openblas: "demos/python", numpy: "demos/python", pandas: "demos/python: python-data installs it",
   matplotlib: "demos/python: python-data installs it", seaborn: "demos/python: python-data installs it",
   "python-dateutil": "demos/python: pandas and matplotlib install it", libjpeg: "demos/xonotic", "xonotic-shaders": "demos/xonotic: xonotic-build installs it", spidermonkey: "demos/zero-ad",

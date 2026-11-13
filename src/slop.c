@@ -20,12 +20,11 @@
 
 #include <dolly/runtime.h>
 
-// test, [, echo and printf: the system's own commands, whose code the shell
-// holds too (shell_utility).
-#define DOLLY_SHELL_UTILITY
-#include "commands/echo.c"
-#include "commands/printf.c"
-#include "commands/test.c"
+// test, [, echo and printf: the system's own commands, which the shell links
+// with -DDOLLY_SHELL_UTILITY to run their code itself (shell_utility).
+int echo_utility(int argc, char **argv);
+int printf_utility(int argc, char **argv);
+int test_utility(int argc, char **argv);
 
 #define SLOP_MAX_LINE 65536
 #define SLOP_MAX_HISTORY 1000

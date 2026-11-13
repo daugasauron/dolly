@@ -9,6 +9,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "path.h"
+
 static int verbose, preserve_times;
 
 static void usage(FILE *stream) {
@@ -74,20 +76,6 @@ static const char *base_name(const char *path) {
   const char *base = end;
   while (base > path && base[-1] != '/') base--;
   return base;
-}
-
-static char *join_path(const char *directory_path, const char *name) {
-  const size_t directory_length = strlen(directory_path);
-  const size_t name_length = strlen(name);
-  const int slash = directory_length != 0 && directory_path[directory_length - 1] != '/';
-  if (directory_length > SIZE_MAX - name_length - (size_t)slash - 1) return NULL;
-  char *path = malloc(directory_length + name_length + (size_t)slash + 1);
-  if (path == NULL) return NULL;
-  memcpy(path, directory_path, directory_length);
-  size_t offset = directory_length;
-  if (slash) path[offset++] = '/';
-  memcpy(path + offset, name, name_length + 1);
-  return path;
 }
 
 static int copy_file(const char *source, const char *destination,

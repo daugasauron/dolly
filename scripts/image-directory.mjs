@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256 } from "./sha256.mjs";
 import { recipeRecords } from "./dollyfile-graph.mjs";
 import { alphabetical } from "../src/alphabetical.mjs";
 import { siteReference } from "../src/static-asset.mjs";
@@ -9,8 +9,6 @@ import { recipesDigest } from "../src/image-inputs.mjs";
 // its package index amy-index.txt, and the index.mjs of a directory boot() loads.
 // The catalog's build, the npm packages and dolly-build (an npm user's image)
 // write them here.
-
-const sha256 = bytes => createHash("sha256").update(bytes).digest("hex");
 
 // An image's catalog record: its recipe, at FILENAME in the directory, and the
 // recipe graph it roots.

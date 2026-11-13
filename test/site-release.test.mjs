@@ -7,7 +7,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import { fileManifest, publishRelease, siteManifest, sourceManifest, verifyRelease } from "../scripts/site-release.mjs";
 import { createReleaseServer } from "../scripts/serve.mjs";
-import { sha256 } from "../scripts/snapshot-identity.mjs";
+import { sha256 } from "../scripts/sha256.mjs";
 import { packageDomain } from "../scripts/package-domain.mjs";
 import { DOLLY_VERSION } from "../src/version.mjs";
 

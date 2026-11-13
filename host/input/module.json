@@ -11,5 +11,6 @@
   "process": [],
   "headers": ["input.h", "input-abi.h"],
   "kernel": ["kernel.c", "ring.c"],
-  "client": ["client.c"]
+  "client": ["client.c"],
+  "package": "libdolly-input"
 }

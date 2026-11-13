@@ -104,7 +104,7 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides, 
   // client, and the terminal reads no key however many are pressed.
   const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/report/", methods: ["GET"] }] };
   const report = new Promise(resolve => { reported = resolve; });
-  const drawing = await open({ prompt: null, policy, ...await composed(["runtime", "display", "http"], ["core", "posix", "display", "cc", "curl"], {
+  const drawing = await open({ prompt: null, policy, ...await composed(["runtime", "display", "http"], ["core", "posix", "display", "cc", "curl", "libdolly-input"], {
     entry: "/bin/slop /usr/share/probe/entry",
     files: {
       "/usr/share/probe/leases.c": "#include <dolly/input.h>\nint main(void) { uint64_t lease; return dolly_input_acquire(&lease) != 0; }",
@@ -133,7 +133,7 @@ sleep 60`,
 
   // An image with input@0 and no display: a program that takes the input
   // lease reads the keys; its output is the page's plain log.
-  const headless = await open({ prompt: null, ...await composed(["runtime", "input"], ["core", "cc"], {
+  const headless = await open({ prompt: null, ...await composed(["runtime", "input"], ["core", "cc", "libdolly-input"], {
     entry: "/bin/slop /usr/share/probe/entry",
     files: {
       "/usr/share/probe/keys.c": `

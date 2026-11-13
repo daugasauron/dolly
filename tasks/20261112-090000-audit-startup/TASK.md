@@ -81,6 +81,10 @@ threads; the source suite):
   starts its own (`hostRegistry`'s `load`). Same proxy, the batch round's build with its preload
   links: Chrome 1,833 to 1,684 ms, Firefox 1,717 ms; `prepare` alone 1,816 ms, since the Worker's
   6 import levels end about when the page configures it. On `fix/worker-bundle`.
+  Found 2026-11-13 in `work/seedwork` (base `62442d2d9`): the bundle holds its own copy of
+  `src/images.mjs`, and a provider the Worker imports by its URL gets another, whose `imageBase`
+  nothing sets: `host/packages/transport.mjs:77` throws reading `href`, so `amy list` in default
+  says "the page's image directory: I/O error" (the default suite's `amy list` step).
 Left: 2 (image contents, the owner's call per image).
 Measured: release 0.1.6 as served on `127.0.0.1:9045` (release `a73ad906…`, 211 images,
 catalog 2,056,929 B), Chrome 156, images default, pi-agent, bhop, neovim, python-data

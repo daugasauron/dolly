@@ -1,9 +1,8 @@
-import { createHash } from "node:crypto";
 import { recipeRecords } from "./dollyfile-graph.mjs";
 import { decodeSnapshotEnvironment, validateSnapshotEntry } from "./system-snapshot-format.mjs";
+import { sha256 } from "./sha256.mjs";
 
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
-export const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 export function verifySnapshotIdentity(definition, graph, parsed, processContract, processAbiDigest) {
   const image = definition.image;

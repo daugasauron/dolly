@@ -10,6 +10,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "path.h"
+
 typedef struct { char *name; struct timespec modified; } entry;
 typedef struct { entry *items; size_t length; size_t capacity; } name_list;
 typedef struct {
@@ -58,18 +60,6 @@ static void sort_names(name_list *names, const options *option) {
 // -L describes what a symbolic link names, the link itself when that is missing.
 static int entry_stat(const char *path, struct stat *metadata, const options *option) {
   return option->follow && stat(path, metadata) == 0 ? 0 : lstat(path, metadata);
-}
-
-static char *join_path(const char *directory, const char *name) {
-  const size_t directory_length = strlen(directory), name_length = strlen(name);
-  const int slash = directory_length != 0 && directory[directory_length - 1] != '/';
-  if (directory_length > SIZE_MAX - name_length - (size_t)slash - 1) return NULL;
-  char *path = malloc(directory_length + (size_t)slash + name_length + 1);
-  if (path == NULL) return NULL;
-  memcpy(path, directory, directory_length);
-  if (slash) path[directory_length] = '/';
-  memcpy(path + directory_length + (size_t)slash, name, name_length + 1);
-  return path;
 }
 
 static void format_size(char output[32], off_t size, int human) {

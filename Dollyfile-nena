@@ -5,7 +5,8 @@ REQUIRES HOST nena@0
 
 # nena lists the host modules of a session and enables or disables them. It
 # works where the image declares nena@0, as default does.
-FROM /v0.1.6/Dollyfile-system-build 47fc8a7a105ecc1b7de1859851073c27fe52d8d446cef744dc78ccf6ad9575a9
+FROM /v0.1.6/Dollyfile-system-build 4b8e830aebe0f008b8a30e50a42a2f3b8fbc268b8e0ee6d8c85c7bcaee936cd6
+USE /v0.1.6/Dollyfile-libdolly-nena 108c2164b32d1f4db2b6000a8faa109d4bd6443a66079e8868ad876ebb56e2e7
 
 REQUIRES HEADER libc
 REQUIRES TOOL cc

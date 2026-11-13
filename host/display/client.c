@@ -1,19 +1,13 @@
 #include <dolly/display.h>
 #include <dolly/process.h>
 #include <dolly/host.h>
+#include <dolly/runtime.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 DOLLY_HOST_REQUIRE(display, 0, DOLLY_DISPLAY_ABI_DIGEST);
-
-static uint64_t monotonic_nanoseconds(void) {
-  struct timespec value;
-  return clock_gettime(CLOCK_MONOTONIC, &value) == 0
-      ? (uint64_t)value.tv_sec * 1000000000u + (uint64_t)value.tv_nsec : 0;
-}
 
 static unsigned char *display_pixels;
 static size_t display_pixels_capacity;
@@ -42,27 +36,6 @@ static int decode_display_surface(
       .stride = response->stride,
       .pixel_format = response->pixel_format,
   };
-  return 0;
-}
-
-static int display_deadline(double timeout_milliseconds, uint64_t *deadline) {
-  if (deadline == NULL || timeout_milliseconds != timeout_milliseconds) {
-    return -EINVAL;
-  }
-  if (timeout_milliseconds < 0) {
-    *deadline = UINT64_MAX;
-    return 0;
-  }
-  if (timeout_milliseconds == 0) {
-    *deadline = 0;
-    return 0;
-  }
-  const uint64_t now = monotonic_nanoseconds();
-  const double delta = timeout_milliseconds * 1000000.0;
-  if (now == 0 || delta < 0 || delta > (double)(UINT64_MAX - now)) {
-    return -EINVAL;
-  }
-  *deadline = now + (uint64_t)delta;
   return 0;
 }
 
@@ -177,7 +150,7 @@ int dolly_display_wait_frame(uint64_t generation, uint32_t *sequence,
                              double timeout_milliseconds) {
   if (generation == 0 || sequence == NULL) return -EINVAL;
   uint64_t deadline;
-  int status = display_deadline(timeout_milliseconds, &deadline);
+  int status = dolly_deadline(timeout_milliseconds, &deadline);
   if (status != 0) return status;
   const dolly_display_wait_request request = {
       generation, deadline, *sequence, 0,

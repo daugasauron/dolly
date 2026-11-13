@@ -1,0 +1,15 @@
+DOLLY 7
+PACKAGE libdolly-threads
+REQUIRES HOST runtime@0
+
+# The threads@0 module's header, for a program that calls the thread interface
+# itself. Its client is in the threaded libc that cc -pthread links, which the
+# seed holds (host/threads/seed.sh), as libc's pthreads over it are.
+FROM /v0.1.6/Dollyfile-system-build 4b8e830aebe0f008b8a30e50a42a2f3b8fbc268b8e0ee6d8c85c7bcaee936cd6
+REQUIRES HEADER libc
+
+SOURCE /v0.1.6/host/threads/threads.h ec223fbc34ff65f173f4b15e338cb25bf34d8bf01b699418f4598d7fc4626394 /usr/include/dolly/threads.h
+SOURCE /v0.1.6/host/threads/threads-abi.h cda45054bc2ec6b021302cc1c840c3d3c18871e735998e9710a743aba4128173 /usr/include/dolly/threads-abi.h
+
+EXPORTS HEADER threads     /usr/include/dolly/threads.h
+EXPORTS HEADER threads-abi /usr/include/dolly/threads-abi.h

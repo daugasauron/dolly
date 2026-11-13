@@ -270,7 +270,7 @@ boot terminal and `console@0`'s terminals are too: without `pty@0` they stay
 and programs cannot open one.
 
 A program asks when it links: `cc ... -ldolly-pty` takes `openpty` from the
-module's client, which records `pty@0`, and the image that keeps the program
+module's client (the `libdolly-pty` package), which records `pty@0`, and the image that keeps the program
 declares `REQUIRES HOST pty@0`. Without it `openpty` is libc's, which finds
 no `/dev/ptmx` and fails with `ENOENT`. The program on the slave links
 nothing and declares nothing: any program built for Dolly runs on one.

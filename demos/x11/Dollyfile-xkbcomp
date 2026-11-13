@@ -7,11 +7,11 @@ REQUIRES HOST sockets@0
 # xkbcomp, X.Org's XKB keymap compiler, which the X server runs for its
 # keymap: from its release archive, built by its Meson project against the
 # libxkbfile package, which it links statically.
-FROM /v0.1.6/demos/x11/Dollyfile-x11-build 4e05d49c4fbef58af1ce1fe39203aca6e1124f8b7107c24fb66b620bea423dff
-USE /v0.1.6/demos/tools/Dollyfile-meson 20d4a93fd1460ae3fb932d8b03b26f1bbe317eeba8cba026b724f91c3d790be1
-USE /v0.1.6/demos/zero-ad/Dollyfile-pkgconf 51c23b3f5ab78496a0ee9462dc5984bf9959e01a0a03b1577be7732e2c421dce
-USE /v0.1.6/demos/x11/Dollyfile-libxkbfile 822e5d303ddbf05fd6098b3ae399688830f27a808dd929b1b2cedae383c93687
-USE /v0.1.6/demos/tools/Dollyfile-yacc 26bfb4136b0659b902e7f034fcec59f111591171cddb5b10d2d833d7ac1646eb
+FROM /v0.1.6/demos/x11/Dollyfile-x11-build 2767326d192e65410db8a3fcdd81a34c51cced71ad043eeed4133c4939a53164
+USE /v0.1.6/demos/tools/Dollyfile-meson 16fe231c1f08c5c100ab74fec097c4f0065fa5117373f86afc97b1e8f511f498
+USE /v0.1.6/demos/zero-ad/Dollyfile-pkgconf 93068718fbc864b09c42f0f357f341560578129e0f101b73636fa660595c3cc3
+USE /v0.1.6/demos/x11/Dollyfile-libxkbfile 58a9874728b28532960f6b8d4242b8424f84119877303d32fff9c87e9d05f9ed
+USE /v0.1.6/demos/tools/Dollyfile-yacc f541acf90f8d0a61616488278059485f8e62bf27f269409d075e614ce3d944b5
 REQUIRES TOOL meson
 REQUIRES TOOL byacc
 REQUIRES TOOL gzip

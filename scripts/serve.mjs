@@ -4,7 +4,7 @@ import { readFile, readlink } from "node:fs/promises";
 import { createServer } from "node:http";
 import { basename, extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { sha256 } from "./snapshot-identity.mjs";
+import { sha256 } from "./sha256.mjs";
 import { releaseVersion, robotsText } from "./release-layout.mjs";
 
 export const mimeTypes = new Map([

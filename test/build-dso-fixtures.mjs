@@ -56,3 +56,7 @@ try {
     await writeFile(`build/${name}.wasm`, bytes);
   }
 } finally { await rm(staging, { recursive: true, force: true }); }
+// The hosts carry the process contract's stamp; the library satisfies dolly-dso-0.
+const abi = (...words) => execFileSync(process.execPath, ["scripts/dolly-abi.mjs", ...words], { stdio: "inherit" });
+abi("stamp-process", "build/dolly-process-0.wasm", "build/process-dso-host.wasm", "build/process-dso-bad-host.wasm");
+abi("validate-process-dso", "build/dolly-process-0.wasm", "build/dolly-dso-0.wasm", "build/dso-types.wasm");

@@ -10,5 +10,6 @@
   "headers": ["sockets.h", "sockets-abi.h"],
   "kernel": ["kernel.c"],
   "client": ["client.c"],
+  "requested": true,
   "package": "libdolly-sockets"
 }

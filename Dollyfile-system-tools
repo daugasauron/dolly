@@ -6,7 +6,7 @@ REQUIRES HOST input@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.6/Dollyfile-system-build 47fc8a7a105ecc1b7de1859851073c27fe52d8d446cef744dc78ccf6ad9575a9
+FROM /v0.1.6/Dollyfile-system-build 4b8e830aebe0f008b8a30e50a42a2f3b8fbc268b8e0ee6d8c85c7bcaee936cd6
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -113,10 +113,10 @@ SLOP rm \
   -rf \
   /tmp/ninja
 # zlib, gzip and curl for builds, and Git, which Dolly's patch and diff run.
-INSTALL /v0.1.6/Dollyfile-zlib eb62165a59a9599efdb69a5a1296988e6a6e760ec6dc8a2138a756543f1c09c5
-INSTALL /v0.1.6/Dollyfile-gzip 366928611d0b4c8c8e071ea92ff7c00c8e130b2368df21b089bfc2c75b8717de
-INSTALL /v0.1.6/Dollyfile-curl 50830dca6325422d1b1d76d882d1ec4daf856abb9d8c296e6e4459f429486dbf
-INSTALL /v0.1.6/Dollyfile-git 8cbfa062857c8b1b0de60c71ae5a585c6956990ee55f516128d22196b019f3e8
+INSTALL /v0.1.6/Dollyfile-zlib 07f1b848518d0c13f985f99b9001f7b679cf60bf404e8dac3112c2bde995fdd3
+INSTALL /v0.1.6/Dollyfile-gzip 4133e8ba95eda2837db718752890e7ec43d45ab4cc47a3852d50287c2b451726
+INSTALL /v0.1.6/Dollyfile-curl 3eb77e1dba42f6bdb9e60ea2602f0bab340513318a7196f18fee5baa3e4dc8e5
+INSTALL /v0.1.6/Dollyfile-git 55dc67f79ac8cc2638cd2ca0bc7a9794a34cd14ca8403836e304866723ed037c
 SOURCE /v0.1.6/dist/static/default/awk.tar f28cae177fa60793a70066d10667e8d06775d979f2262be1c48f8eb941090015 /tmp/awk.tar
 SLOP tar \
   -xf /tmp/awk.tar \
@@ -149,12 +149,13 @@ SLOP rm \
   /usr/src/awk
 # Dolly's own commands beside sbase's, from src/commands.
 SOURCE /v0.1.6/dist/static/default/commands/run-program.h e73415ba149e8dcb9944313c36d8d2319202d699c810e02a26d5a94caa8f3a9f /tmp/agent-tools/run-program.h
-SOURCE /v0.1.6/dist/static/default/commands/install.c     c65b5d737e8db898e44856df2924c155595296933ca3f79c0c16ef08bee360f5 /tmp/agent-tools/install.c
-SOURCE /v0.1.6/dist/static/default/commands/du.c          79c39241876af8a479c8afe3383dca43d002b560adbd6b773fb8f0d223f2ab4a /tmp/agent-tools/du.c
+SOURCE /v0.1.6/dist/static/default/commands/path.h        3c15f00e77b9b788acf63ad78d48d61af68e69ce4d41e0ed2f348cb0c5fda8ae /tmp/agent-tools/path.h
+SOURCE /v0.1.6/dist/static/default/commands/install.c     74c7aef144a42873d86044c04d569d5f08693668fafeab7bfb811acaccc66aee /tmp/agent-tools/install.c
+SOURCE /v0.1.6/dist/static/default/commands/du.c          e2c54482b13af2a7af18c5a7ff9695816443e8fd9197c8b2e4891a645cd2723a /tmp/agent-tools/du.c
 SOURCE /v0.1.6/dist/static/default/commands/rev.c         3539529d49f26629a6518437dc76631f113bcc5822ff5dbc8aa26481933f3d05 /tmp/agent-tools/rev.c
 SOURCE /v0.1.6/dist/static/default/commands/command.c     a84673243407a37f42b1a82a47fab4123c165b383761642874ba2ec081938bd3 /tmp/agent-tools/command.c
 SOURCE /v0.1.6/dist/static/default/commands/xargs.c       13a9340a4f6539e2434ef257bb2d4c5d871f4b33deeb2627002fca6752d29034 /tmp/agent-tools/xargs.c
-SOURCE /v0.1.6/dist/static/default/commands/find.c        5a4fc1a643caf82a3d0d7aa9b5343136294cac3d9d2c73e95f637d1261a23675 /tmp/agent-tools/find.c
+SOURCE /v0.1.6/dist/static/default/commands/find.c        737d431d57cd50f769cbc1a4e36076af1033590a8cc51053bcc5672f48545f59 /tmp/agent-tools/find.c
 SOURCE /v0.1.6/dist/static/default/commands/env.c         62c71b67f4623f7b2f253c5474ff8745ed335325ed0392b992e4adc8653a6902 /tmp/agent-tools/env.c
 SOURCE /v0.1.6/dist/static/default/commands/time.c        bb49a29e708e9e32716e2d5bf4b4b4e662b07093d0e3731588ef7d41a53ad733 /tmp/agent-tools/time.c
 SOURCE /v0.1.6/dist/static/default/commands/timeout.c     29469d957ff5fb2e2f0deb5a62c8cbe84aa46a9e7afbb964690f5a9819cb9b83 /tmp/agent-tools/timeout.c
@@ -168,7 +169,7 @@ FILE /tmp/agent-tools/Makefile
     NAMES := install du rev command xargs find env time timeout realpath hostname tty nproc
     TOOLS := $(addprefix /bin/,$(NAMES))
     all: $(TOOLS) $(NAMES:%=/usr/share/man/cat1/%.1)
-    /bin/%: /tmp/agent-tools/%.c /tmp/agent-tools/run-program.h
+    /bin/%: /tmp/agent-tools/%.c /tmp/agent-tools/run-program.h /tmp/agent-tools/path.h
     >cc -O2 $< -o $@
     /usr/share/man/cat1/%.1: /bin/%
     >$< --help > $@
@@ -198,6 +199,6 @@ SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
 SLOP cp /usr/share/man/cat1/slop.1 /usr/share/man/cat1/sh.1
 FOLDER /usr/share/man
-INSTALL /v0.1.6/Dollyfile-display 04c5a260eb25a1f21c877baef97fb57fe930a637af40ad6dfa530f66709f2a7e
+INSTALL /v0.1.6/Dollyfile-display 717f83d872a97cfc876278574e3c44fb4b3995d9b3b09562f85c0c718b8baec6
 
 ENTRY /bin/foreground -i /bin/slop

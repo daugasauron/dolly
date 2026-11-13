@@ -26,10 +26,17 @@
 
 extern char **environ;
 
-static uint64_t monotonic_nanoseconds(void) {
+int dolly_deadline(double milliseconds, uint64_t *deadline) {
+  if (milliseconds != milliseconds) return -EINVAL;
+  *deadline = milliseconds < 0 ? UINT64_MAX : 0;
+  if (milliseconds <= 0) return 0;
   struct timespec value;
-  return clock_gettime(CLOCK_MONOTONIC, &value) == 0
-      ? (uint64_t)value.tv_sec * 1000000000u + (uint64_t)value.tv_nsec : 0;
+  if (clock_gettime(CLOCK_MONOTONIC, &value) != 0) return -EINVAL;
+  const uint64_t now = (uint64_t)value.tv_sec * 1000000000u + (uint64_t)value.tv_nsec;
+  const double delta = milliseconds * 1000000.0;
+  if (delta > (double)(UINT64_MAX - now)) return -EINVAL;
+  *deadline = now + (uint64_t)delta;
+  return 0;
 }
 
 static int spawn_mapped(const char *path, int argc, char **argv,
@@ -74,15 +81,10 @@ static int spawn_mapped(const char *path, int argc, char **argv,
   if (packet_size > DOLLY_PROCESS_PACKET_LIMIT) return -E2BIG;
   unsigned char *packet = malloc(packet_size);
   if (packet == NULL) return -ENOMEM;
-  uint64_t deadline = UINT64_MAX;
-  if (timeout_milliseconds >= 0) {
-    const uint64_t now = monotonic_nanoseconds();
-    const double delta = timeout_milliseconds * 1000000.0;
-    if (now == 0 || delta < 0 || delta > (double)(UINT64_MAX - now)) {
-      free(packet);
-      return -EINVAL;
-    }
-    deadline = now + (uint64_t)delta;
+  uint64_t deadline;
+  if (dolly_deadline(timeout_milliseconds, &deadline) != 0) {
+    free(packet);
+    return -EINVAL;
   }
   const dolly_process_spawn_request request = {
       flags,
@@ -366,14 +368,8 @@ static int terminal_call(uint32_t operation, int descriptor, uint32_t flags,
 }
 
 int dolly_terminal_read_raw_timeout(double milliseconds) {
-  uint64_t deadline = UINT64_MAX;
-  if (milliseconds == 0) deadline = 0;
-  else if (milliseconds > 0) {
-    const uint64_t now = monotonic_nanoseconds();
-    const double delta = milliseconds * 1000000.0;
-    if (now == 0 || delta > (double)(UINT64_MAX - now)) return -1;
-    deadline = now + (uint64_t)delta;
-  }
+  uint64_t deadline;
+  if (dolly_deadline(milliseconds, &deadline) != 0) return -1;
   dolly_process_terminal_response response = {0};
   return terminal_call(DOLLY_PROCESS_TERMINAL_READ, STDIN_FILENO, 0,
                        deadline, &response) == 0 ? (int)response.value : -1;

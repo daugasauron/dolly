@@ -1,0 +1,24 @@
+DOLLY 7
+PACKAGE libdolly-download
+REQUIRES HOST runtime@0
+
+# The download@0 module's header and client (offer a file to save), for
+# programs the cc package builds: cc links every client archive in
+# /usr/lib/dolly/process, and a program records download@0 only when it calls
+# the client.
+FROM /v0.1.6/Dollyfile-system-build 4b8e830aebe0f008b8a30e50a42a2f3b8fbc268b8e0ee6d8c85c7bcaee936cd6
+REQUIRES HEADER libc
+REQUIRES TOOL ar
+REQUIRES TOOL cc
+REQUIRES TOOL rm
+
+SOURCE /v0.1.6/host/download/download.h 666bca4fba5da7bf1e998c6486f56dce24cdbc82f1126f9be59067eb03b03bfa /usr/include/dolly/download.h
+SOURCE /v0.1.6/host/download/download-abi.h 6252f84477c990f9df2ffc5905c0717a94c9f4e557fccccbbf593ac02198dbc2 /usr/include/dolly/download-abi.h
+SOURCE /v0.1.6/host/download/client.c 420b5ae0b6d2108a5e991cdf156f8b9781f1260cf5a748f38336066a7343a16e /tmp/libdolly-download/client.c
+SLOP cc -O1 -c /tmp/libdolly-download/client.c -o /tmp/libdolly-download/client.o
+SLOP ar rcs /usr/lib/dolly/process/libdolly-download.a /tmp/libdolly-download/client.o
+
+EXPORTS HEADER download     /usr/include/dolly/download.h
+EXPORTS HEADER download-abi /usr/include/dolly/download-abi.h
+EXPORTS LIB    dolly-download /usr/lib/dolly/process/libdolly-download.a
+SLOP rm -rf /tmp/libdolly-download

@@ -549,6 +549,10 @@ static int64_t path_call(uint32_t operation, int directory, uint32_t flags,
                         response, response_capacity);
 }
 
+int64_t dolly_path_call(uint32_t operation, const char *path, void *reply, size_t reply_capacity) {
+  return path_call(operation, AT_FDCWD, 0, path, reply, reply_capacity);
+}
+
 static uint32_t translate_open_flags(int flags) {
   uint32_t result = 0;
   switch (flags & O_ACCMODE) {

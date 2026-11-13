@@ -9,5 +9,6 @@
   "process": [],
   "headers": ["download.h", "download-abi.h"],
   "kernel": ["kernel.c"],
-  "client": ["client.c"]
+  "client": ["client.c"],
+  "package": "libdolly-download"
 }
