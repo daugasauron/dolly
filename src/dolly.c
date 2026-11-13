@@ -17,9 +17,8 @@
 #include "dolly-kernel-contracts.h"
 #include "fs-record.h"
 #include "process-kernel.h"
+#include "pty-kernel.h"
 #include "system-snapshot.h"
-
-static uint32_t terminal_mode_flags = DOLLY_KERNEL_TERMINAL_INITIAL_MODE;
 
 // The page's terminal mailbox (abi/dolly-supervisor-0.wat), with or without a
 // display. The process kernel owns foreground policy: the page only reads it
@@ -81,165 +80,89 @@ int dolly_kernel_take_interrupt(void) {
                            memory_order_acquire) != 0 ? target : 0;
 }
 
-uint32_t dolly_kernel_terminal_mode(void) {
-  return terminal_mode_flags;
-}
+/* The boot terminal: a pseudo-terminal (src/pty.c) the kernel opens with its
+ * first write and holds the master of. The page's root processes start on its
+ * slave, and /dev/tty names it for a process on no other terminal. What its
+ * programs write reaches the display's terminal (host/display/kernel.c) or,
+ * while no display is attached, the bootstrap log; what the input module
+ * decodes (host/input/kernel.c) is typed into it when a reader asks, so a
+ * program reading records under the input lease races no terminal reader.
+ * Its interrupt key interrupts the foreground as the page's Ctrl+C does. */
+static dolly_pty *boot_terminal;
 
-int dolly_kernel_terminal_set_mode(uint32_t flags) {
-  if ((flags & ~DOLLY_TERMINAL_MODE_BITS) != 0) return -EINVAL;
-  terminal_mode_flags = flags;
-  return 0;
-}
-
-static void erase_character(dolly_kernel_line *line,
-                            void (*show)(void *terminal, const unsigned char *bytes, size_t length),
-                            void *terminal) {
-  size_t start = line->size - 1;
-  while (start > line->ready && (line->bytes[start] & 0xc0) == 0x80) --start;
-  /* A control character was shown as two: ^X. A tab is erased as one cell. */
-  const int shown = line->bytes[start] < ' ' && line->bytes[start] != '\t' ? 2 : 1;
-  line->size = start;
-  if (show != NULL) show(terminal, (const unsigned char *)"\b \b\b \b", 3 * (size_t)shown);
-}
-
-void dolly_kernel_line_type(dolly_kernel_line *line, unsigned char byte,
-                            void (*show)(void *terminal, const unsigned char *bytes, size_t length),
-                            void *terminal) {
-  if (byte == 0x7f || byte == '\b' || byte == 0x15) {
-    while (line->size > line->ready) {
-      erase_character(line, show, terminal);
-      if (byte != 0x15) break;
-    }
-    return;
-  }
-  if (byte == 4) {
-    if (line->size == line->ready) line->end = 1;
-    line->ready = line->size;
-    return;
-  }
-  const int newline = byte == '\r' || byte == '\n';
-  if (newline) byte = '\n';
-  /* A full line takes nothing but the newline that ends it. */
-  if (line->size + !newline >= sizeof(line->bytes)) return;
-  line->bytes[line->size++] = byte;
-  if (newline) line->ready = line->size;
-  if (show == NULL) return;
-  if (byte < ' ' && byte != '\n' && byte != '\t') {
-    const unsigned char caret[2] = {'^', (unsigned char)(byte + '@')};
-    show(terminal, caret, sizeof(caret));
-  } else {
-    show(terminal, &byte, 1);
-  }
-}
-
-unsigned char dolly_kernel_terminal_input(uint32_t mode, unsigned char byte) {
-  if (byte == '\r' && (mode & DOLLY_TERMINAL_ICRNL) != 0) return '\n';
-  if (byte == '\n' && (mode & DOLLY_TERMINAL_INLCR) != 0) return '\r';
-  return byte;
-}
-
-size_t dolly_kernel_line_take(dolly_kernel_line *line, unsigned char *bytes, size_t size, int raw) {
-  size_t count = raw ? line->size : line->ready;
-  const unsigned char *newline = raw ? NULL : memchr(line->bytes, '\n', count);
-  if (newline != NULL) count = (size_t)(newline - line->bytes) + 1;
-  if (raw) line->end = 0;
-  if (count > size) count = size;
-  memcpy(bytes, line->bytes, count);
-  memmove(line->bytes, line->bytes + count, line->size - count);
-  line->size -= count;
-  line->ready -= count < line->ready ? count : line->ready;
-  return count;
-}
-
-/* The display's line. Its input is decoded when a reader asks, so the line is
- * typed then too: a read or a poll under the canonical mode edits and echoes. */
-static dolly_kernel_line terminal_line;
-
-static void terminal_echo(void *terminal, const unsigned char *bytes, size_t length) {
-  (void)terminal;
-  dolly_kernel_terminal_write(bytes, length);
-}
-
-/* The terminal's halves, as modules give them (src/process-kernel.h). */
-static int terminal_attached(void) {
+static void boot_output(dolly_pty *pty) {
   const dolly_terminal_output *output = dolly_kernel_terminal_output_device();
-  return output != NULL && output->attached();
+  const int attached = output != NULL && output->attached();
+  unsigned char bytes[4096];
+  for (size_t count; (count = dolly_pty_take_output(pty, bytes, sizeof(bytes))) != 0;) {
+    if (attached) output->render(bytes, count);
+    else (void)dolly_bootstrap_write_bytes(bytes, count);
+  }
 }
 
-static void terminal_render(const unsigned char *bytes, size_t length) {
-  dolly_kernel_terminal_output_device()->render(bytes, length);
-}
-
-static int terminal_ready(void) {
+static void boot_input(dolly_pty *pty) {
   const dolly_terminal_input *input = dolly_kernel_terminal_input_device();
-  return input != NULL && input->ready();
-}
-
-static int terminal_read(void) {
-  const dolly_terminal_input *input = dolly_kernel_terminal_input_device();
-  return input != NULL ? input->read() : -1;
-}
-
-int dolly_kernel_terminal_readable(void) {
-  if ((terminal_mode_flags & DOLLY_TERMINAL_CANONICAL) == 0) {
-    return terminal_line.size != 0 || terminal_ready();
+  for (int byte; input != NULL && dolly_pty_input_room(pty) != 0 && (byte = input->read()) >= 0;) {
+    const unsigned char typed = (unsigned char)byte;
+    dolly_pty_type(pty, &typed, 1);
   }
-  for (int byte; terminal_line.ready == 0 && !terminal_line.end &&
-       (byte = terminal_read()) >= 0;) {
-    dolly_kernel_line_type(&terminal_line, dolly_kernel_terminal_input(terminal_mode_flags, (unsigned char)byte),
-        (terminal_mode_flags & DOLLY_TERMINAL_ECHO) != 0 ? terminal_echo : NULL, NULL);
-  }
-  return terminal_line.ready != 0 || terminal_line.end;
 }
 
-int64_t dolly_kernel_terminal_receive(unsigned char *bytes, size_t size) {
-  if (!dolly_kernel_terminal_readable()) return -EAGAIN;
-  const int raw = (terminal_mode_flags & DOLLY_TERMINAL_CANONICAL) == 0;
-  size_t count = dolly_kernel_line_take(&terminal_line, bytes, size, raw);
-  if (!raw && count == 0) terminal_line.end = 0;
-  for (int byte; raw && count < size && (byte = terminal_read()) >= 0;) {
-    bytes[count++] = dolly_kernel_terminal_input(terminal_mode_flags, (unsigned char)byte);
-  }
-  return (int64_t)count;
+static void boot_interrupt(dolly_pty *pty) {
+  (void)pty;
+  const int foreground = dolly_kernel_foreground();
+  if (foreground > 0) dolly_kernel_interrupt_tree(foreground);
 }
 
-int dolly_kernel_terminal_key(void) {
-  unsigned char byte;
-  if (dolly_kernel_line_take(&terminal_line, &byte, 1, 1) == 1) return byte;
-  const int read = terminal_read();
-  return read < 0 ? read : dolly_kernel_terminal_input(terminal_mode_flags, (unsigned char)read);
+static const dolly_pty_holder boot_holder = {boot_output, boot_input, boot_interrupt};
+
+static dolly_pty *boot(void) {
+  if (boot_terminal == NULL) boot_terminal = dolly_pty_held(&boot_holder);
+  return boot_terminal;
+}
+
+dolly_kernel_socket *dolly_kernel_boot_terminal(void) {
+  dolly_pty *pty = boot();
+  return pty != NULL ? dolly_pty_slave(pty) : NULL;
+}
+
+uint32_t dolly_kernel_terminal_mode(void) {
+  dolly_pty *pty = boot();
+  return pty != NULL ? dolly_pty_mode(pty) : 0;
+}
+
+void dolly_kernel_terminal_resized(uint32_t columns, uint32_t rows) {
+  dolly_pty *pty = boot();
+  if (pty != NULL) (void)dolly_pty_resize(pty, rows, columns);
 }
 
 void dolly_kernel_terminal_discard(void) {
   const dolly_terminal_input *input = dolly_kernel_terminal_input_device();
   if (input != NULL) input->discard();
-  terminal_line.size = terminal_line.ready = 0;
-  terminal_line.end = 0;
+  if (boot_terminal != NULL) dolly_pty_discard_input(boot_terminal);
 }
 
 /* The supervisor's words (abi/dolly-supervisor-0.wat): about the executable it
  * prepares, for the terminal of the process that waits for it. */
 int dolly_terminal_write_bytes(int pid, const unsigned char *bytes, uintptr_t length) {
-  if (terminal_attached() && !dolly_kernel_launch_diagnostic(pid, bytes, (size_t)length)) return 0;
-  return dolly_kernel_terminal_write(bytes, length);
+  const dolly_terminal_output *output = dolly_kernel_terminal_output_device();
+  if (output == NULL || !output->attached()) return dolly_kernel_terminal_write(bytes, length);
+  dolly_kernel_launch_diagnostic(pid, bytes, (size_t)length);
+  return 0;
 }
 
 int dolly_kernel_terminal_write(const unsigned char *bytes, uintptr_t length) {
   if (bytes == NULL || length == 0) return 0;
-  if (!terminal_attached()) return dolly_bootstrap_write_bytes(bytes, length);
-  const uint32_t newline = DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR;
-  if ((terminal_mode_flags & newline) == newline) {
-    uintptr_t start = 0;
-    for (uintptr_t index = 0; index < length; ++index) {
-      if (bytes[index] != '\n') continue;
-      if (index > start) terminal_render(bytes + start, index - start);
-      terminal_render((const unsigned char *)"\r\n", 2);
-      start = index + 1;
-    }
-    bytes += start;
-    length -= start;
+  dolly_pty *pty = boot();
+  if (pty == NULL) return dolly_bootstrap_write_bytes(bytes, length);
+  dolly_kernel_socket *slave = dolly_pty_slave(pty);
+  while (length != 0) {
+    /* The kernel's holder takes what the slave writes as it comes: it never waits. */
+    const int64_t sent = slave->kind->send(slave, bytes, (size_t)length, 0);
+    if (sent <= 0) return sent < 0 ? (int)sent : -EIO;
+    bytes += sent;
+    length -= (uintptr_t)sent;
   }
-  terminal_render(bytes, (size_t)length);
   return 0;
 }
 

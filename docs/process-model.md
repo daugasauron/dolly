@@ -135,8 +135,16 @@ sequenceDiagram
   process's descriptors close when it exits, before it is waitable.
 - Opening `/dev/stdin`, `/dev/stdout` or `/dev/stderr` duplicates the caller's
   descriptor 0, 1 or 2.
-- `/dev/tty` opens the terminal for reading and writing, for every process
-  but one on a [pseudo-terminal](#pseudo-terminals), which opens that.
+- The terminal is the boot terminal ([`dolly.c`](../src/dolly.c)): a
+  [pseudo-terminal](#pseudo-terminals) the kernel opens with its first write
+  and holds the master of. The page's root processes start with its slave as
+  descriptors 0, 1 and 2, one open file for all of them. What they write
+  reaches the [display](display.md#terminal), or the bootstrap log while no
+  display is attached; what the input module decodes is typed into it when a
+  reader asks. Its size is the display's: `TIOCSWINSZ` on it fails with
+  `EPERM`, and a new grid is `SIGWINCH` for the processes that hold it.
+- `/dev/tty` opens the terminal a process stands on, the first of its
+  descriptors 0, 1 and 2 that is one, or else the boot terminal.
   `ttyname` fails: a terminal has no name of its own. Every process is its
   own group: `tcgetpgrp` on a terminal gives the caller's PID while it is in
   the terminal's foreground (the foreground owner and what descends from it,
@@ -256,7 +264,10 @@ that asked.
 `pty@0` ([`host/pty/dolly-pty-0.wat`](../host/pty/dolly-pty-0.wat),
 [`host/pty/kernel.c`](../host/pty/kernel.c)): a terminal one program gives
 another, as a terminal multiplexer gives each of its panes. The bytes stay in
-kernel memory, as a pipe's do, and the module has no browser import.
+kernel memory, as a pipe's do, and the module has no browser import. The
+pseudo-terminal itself is the kernel's ([`pty.c`](../src/pty.c)), which the
+boot terminal and `console@0`'s terminals are too: without `pty@0` they stay
+and programs cannot open one.
 
 A program asks when it links: `cc ... -ldolly-pty` takes `openpty` from the
 module's client, which records `pty@0`, and the image that keeps the program
@@ -272,8 +283,11 @@ nothing and declares nothing: any program built for Dolly runs on one.
   `EAGAIN` for the rest.
 - The slave is a terminal to the program that holds it, with a mode and a
   size of its own: `isatty`, termios and `TIOCGWINSZ` answer as for the
-  display's terminal, with the same discipline (`ICANON`, `ECHO` to the
-  master, `OPOST` with `ONLCR`, `ISIG`, `ICRNL` and `INLCR`). A process whose descriptor 0, 1 or 2 is a
+  boot terminal, with the same discipline (`ICANON`, `ECHO` to the
+  master, `OPOST` with `ONLCR`, `ISIG`, `ICRNL` and `INLCR`). Input is typed
+  into the line, edited and echoed, when a read or a poll asks under
+  `ICANON`, so a program that clears it first reads what was typed before
+  unedited. A process whose descriptor 0, 1 or 2 is a
   slave opens it as `/dev/tty`: the same open file again, so `O_NONBLOCK` set
   there is set for every process that holds the slave. The master is not a
   terminal, but termios and `TIOCGWINSZ` on it reach the slave's mode and
@@ -293,11 +307,12 @@ nothing and declares nothing: any program built for Dolly runs on one.
   (`dolly_process_next_event`, [`dolly-supervisor-0.wat`](../abi/dolly-supervisor-0.wat)):
   a program that does not answer `SIGINT` or `SIGHUP` within 500 ms is ended,
   unless it ignores the signal.
-- The kernel holds at most 32 pseudo-terminals; one more fails with `ENFILE`.
+- The kernel holds at most 32 pseudo-terminals besides the boot terminal; one
+  more fails with `ENFILE`.
   One goes with the last descriptor of its two ends, so exit, a kill and a
   failed Worker release what a process held.
 - A shell on a slave publishes no command result to the page: the page
-  follows the shell at the display's terminal.
+  follows the shell at the boot terminal.
 
 `console@0` ([`host/console/dolly-console-0.wat`](../host/console/dolly-console-0.wat),
 [`host/console/kernel.c`](../host/console/kernel.c)) gives the host the
@@ -353,7 +368,9 @@ terminal into the session"); another host adds it to the images it runs.
   descendants first by SIGKILL.
 - `SPAWN_FOREGROUND` and `SPAWN_INTERACTIVE` are explicit roles. Ctrl+C with
   `ISIG` set sends SIGINT to the foreground tree; like a job-control shell, an
-  interactive owner with running children is spared. Slop clears `ISIG` while
+  interactive owner with running children is spared. The page asks for it
+  through its terminal mailbox; the boot terminal's `VINTR` typed under
+  `ISIG` is the same. Slop clears `ISIG` while
   it reads a line, so Ctrl+C at its prompt is input. Image scripts
   use `/bin/foreground`; the browser knows no command names. Only the
   foreground tree can pass the role on; retirement returns it to the nearest

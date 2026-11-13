@@ -120,10 +120,6 @@ static int fill_terminal_input(void) {
   }
 }
 
-static int terminal_ready(void) {
-  return fill_terminal_input() > 0;
-}
-
 static int terminal_read(void) {
   if (fill_terminal_input() <= 0) return -1;
   return encoded_input[encoded_input_cursor++];
@@ -258,8 +254,7 @@ static void input_release(int pid, int tid) {
 }
 
 /* The terminal's input half (src/process-kernel.h). */
-static const dolly_terminal_input terminal_input = {
-    terminal_read, terminal_ready, terminal_service, terminal_discard};
+static const dolly_terminal_input terminal_input = {terminal_read, terminal_service, terminal_discard};
 
 const dolly_kernel_module dolly_input_kernel = {
     .first_operation = DOLLY_INPUT_ACQUIRE, .last_operation = DOLLY_INPUT_RELEASE,

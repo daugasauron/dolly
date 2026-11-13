@@ -47,8 +47,8 @@ typedef struct {
   unsigned char bytes[DOLLY_KERNEL_PIPE_CAPACITY];
 } dolly_kernel_pipe;
 
-/* A descriptor: a file's kernel descriptor, or a stream, the display's
- * terminal (`terminal`), and the descriptor's DOLLY_PROCESS_FD_* flags. */
+/* A descriptor: a file's kernel descriptor or a stream, and the descriptor's
+ * DOLLY_PROCESS_FD_* flags. */
 typedef struct {
   int file;                    /* -1 for none. */
   dolly_kernel_socket *stream;
@@ -57,7 +57,6 @@ typedef struct {
    * share its number. Zero for a stream or none. */
   uint64_t description;
   unsigned char flags;
-  unsigned char terminal;
 } dolly_kernel_descriptor;
 
 /* What a process runs: the executable, its arguments and its environment.
@@ -441,7 +440,6 @@ static void release_descriptor(dolly_kernel_process *process,
     process->fds[descriptor].stream = NULL;
     dolly_kernel_socket_release(socket);
   }
-  process->fds[descriptor].terminal = 0;
   process->fds[descriptor].flags = 0;
 }
 
@@ -470,16 +468,6 @@ static int supported_signal(uint32_t signal_number) {
 static uint32_t notification_signals(const dolly_kernel_process *process) {
   return 1u << DOLLY_PROCESS_SIGCHLD | 1u << DOLLY_PROCESS_SIGWINCH |
       process->ignored_signals | process->handled_signals;
-}
-
-void dolly_kernel_terminal_resized(void) {
-  if (!foreground_pid) return;
-  for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; index++) {
-    dolly_kernel_process *process = &process_table[index];
-    if (process->state == DOLLY_KERNEL_PROCESS_RUNNING &&
-        dolly_process_descends_from(process->pid, foreground_pid))
-      process->pending_signals |= 1u << DOLLY_PROCESS_SIGWINCH;
-  }
 }
 
 static int next_signal(const dolly_kernel_process *process) {
@@ -733,28 +721,30 @@ static int copy_current_environment(dolly_kernel_process *process) {
   return 0;
 }
 
+static void place_stream(dolly_kernel_process *process, dolly_kernel_socket *socket, uint32_t target) {
+  ++socket->descriptors;
+  release_descriptor(process, target);
+  process->fds[target].stream = socket;
+}
+
+/* A root process, which has no parent, maps the boot terminal (src/dolly.c)
+ * from the host's descriptors 0, 1 and 2. */
 static int copy_descriptor(dolly_kernel_process *process,
                             const dolly_kernel_process *parent,
                             uint32_t source, uint32_t target) {
-  if (source > INT_MAX || target >= DOLLY_KERNEL_DESCRIPTOR_LIMIT ||
-      (parent != NULL && !descriptor_is_open(parent, source))) return -EBADF;
-  if (parent != NULL && parent->fds[source].stream != NULL) {
-    dolly_kernel_socket *socket = parent->fds[source].stream;
-    ++socket->descriptors;
-    release_descriptor(process, target);
-    process->fds[target].stream = socket;
-  } else {
-    const int kernel_fd = parent != NULL ? parent->fds[source].file : (int)source;
-    const int duplicate = dup(kernel_fd);
-    if (duplicate < 0) return -errno;
-    release_descriptor(process, target);
-    process->fds[target].file = duplicate;
-    process->fds[target].description = parent != NULL
-        ? parent->fds[source].description : ++last_description;
-    process->fds[target].terminal = parent != NULL
-        ? parent->fds[source].terminal
-        : (source <= STDERR_FILENO);
+  if (target >= DOLLY_KERNEL_DESCRIPTOR_LIMIT ||
+      (parent != NULL ? !descriptor_is_open(parent, source) : source > STDERR_FILENO)) return -EBADF;
+  dolly_kernel_socket *socket = parent != NULL ? parent->fds[source].stream : dolly_kernel_boot_terminal();
+  if (parent == NULL && socket == NULL) return -ENOMEM;
+  if (socket != NULL) {
+    place_stream(process, socket, target);
+    return 0;
   }
+  const int duplicate = dup(parent->fds[source].file);
+  if (duplicate < 0) return -errno;
+  release_descriptor(process, target);
+  process->fds[target].file = duplicate;
+  process->fds[target].description = parent->fds[source].description;
   return 0;
 }
 
@@ -772,8 +762,8 @@ static int standard_stream(int kernel_fd) {
   return -1;
 }
 
-/* /dev/tty names the display's terminal, which every Dolly process shares:
- * there are no sessions. A process on a terminal stream opens that instead. */
+/* /dev/tty names the terminal a process stands on (terminal_stream), or the
+ * boot terminal: there are no sessions. */
 static int controlling_terminal(int kernel_fd) {
   struct stat opened, terminal;
   return fstat(kernel_fd, &opened) == 0 && stat("/dev/tty", &terminal) == 0 &&
@@ -792,14 +782,12 @@ static dolly_kernel_program *program_to_launch(dolly_kernel_process *process) {
 
 /* What the supervisor says about that executable is for whoever reads the
  * process's complaints: it goes to the process's descriptor 2 where that is
- * a terminal, the display's or a stream, and nowhere otherwise. Never into a
- * file or a pipe, and not onto the display from a process that is not on it:
- * a program that draws the display (tmux) does not know of the lines.
- * 1 when the display's terminal is the one to show it. */
-int dolly_kernel_launch_diagnostic(int pid, const unsigned char *bytes, size_t size) {
+ * a terminal and nowhere otherwise. Never into a file or a pipe, and not onto
+ * the display from a process that is not on it: a program that draws the
+ * display (tmux) does not know of the lines. */
+void dolly_kernel_launch_diagnostic(int pid, const unsigned char *bytes, size_t size) {
   dolly_kernel_process *process = find_process(pid);
-  if (program_to_launch(process) == NULL) return 0;
-  if (process->fds[STDERR_FILENO].terminal) return 1;
+  if (program_to_launch(process) == NULL) return;
   dolly_kernel_socket *stream = process->fds[STDERR_FILENO].stream;
   const dolly_process_terminal_request request = {DOLLY_PROCESS_TERMINAL_ISATTY, 0, 0, 0, 0};
   dolly_process_terminal_response response = {0};
@@ -808,11 +796,10 @@ int dolly_kernel_launch_diagnostic(int pid, const unsigned char *bytes, size_t s
     /* A terminal that takes no more loses the line. */
     (void)stream->kind->send(stream, bytes, size, 0);
   }
-  return 0;
 }
 
-/* The terminal a process stands on when it is not the display's: the first
- * of its descriptors 0, 1 and 2 that is a terminal stream, or -1. */
+/* The terminal a process stands on: the first of its descriptors 0, 1 and 2
+ * that is a terminal stream, or -1. */
 static int terminal_stream(const dolly_kernel_process *process) {
   const dolly_process_terminal_request request = {DOLLY_PROCESS_TERMINAL_ISATTY, 0, 0, 0, 0};
   for (int descriptor = 0; descriptor <= STDERR_FILENO; ++descriptor) {
@@ -842,12 +829,8 @@ static int configure_descriptors(dolly_kernel_process *process,
     if (mapped[mapping.target_descriptor]) return -EINVAL;
     mapped[mapping.target_descriptor] = 1;
     if (closed) continue;
-    if (parent != NULL) {
-      if (!descriptor_is_open(parent, mapping.source_descriptor)) return -EBADF;
-    } else {
-      struct stat metadata;
-      if (fstat((int)mapping.source_descriptor, &metadata) != 0) return -errno;
-    }
+    if (parent != NULL ? !descriptor_is_open(parent, mapping.source_descriptor)
+                       : mapping.source_descriptor > STDERR_FILENO) return -EBADF;
   }
   for (uint32_t index = 0; index < request->mapping_count; ++index) {
     dolly_process_fd_mapping mapping;
@@ -1485,15 +1468,6 @@ static int64_t fd_read_packet(dolly_kernel_process *process,
   }
   int descriptor = descriptor_for(process, request.descriptor);
   if (descriptor < 0) return descriptor;
-  if (process->fds[request.descriptor].terminal) {
-    if (request.size == 0) return 0;
-    const int64_t count = dolly_kernel_terminal_receive(process_mailbox, (size_t)request.size);
-    if (count != -EAGAIN) return terminal_read_ended(process, count);
-    const int flags = fcntl(descriptor, F_GETFL);
-    if (flags < 0) return -errno;
-    if (flags & O_NONBLOCK) return terminal_read_ended(process, -EAGAIN);
-    return terminal_read_waits(process, dolly_kernel_terminal_mode());
-  }
   for (;;) {
     ssize_t count = read(descriptor, process_mailbox, (size_t)request.size);
     if (count < 0 && errno == EINTR) continue;
@@ -1789,21 +1763,19 @@ static double deferred_milliseconds = -1;
 
 /* tcgetpgrp: every process is its own group. A pseudo-terminal's slave is
  * the foreground of the processes that hold it, as its interrupt key is. The
- * display's terminal is that of its foreground owner and the processes that
+ * boot terminal is that of its foreground owner and the processes that
  * descend from it, or of every process while it has none; any other is told
  * the owner's. */
 static int64_t terminal_foreground(const dolly_kernel_process *process,
                                    dolly_kernel_socket *stream, uint32_t descriptor) {
   if (!descriptor_is_open(process, descriptor)) return -EBADF;
-  if (stream != NULL) {
-    const dolly_process_terminal_request request = {DOLLY_PROCESS_TERMINAL_ISATTY, descriptor, 0, 0, 0};
-    dolly_process_terminal_response response = {0};
-    const int64_t result = stream->kind->terminal(stream, &request, &response);
-    return result < 0 ? result : response.value == 1 ? process->pid : -ENOTTY;
-  }
-  if (!process->fds[descriptor].terminal) return -ENOTTY;
-  return foreground_pid == 0 || dolly_process_descends_from(process->pid, foreground_pid)
-      ? process->pid : foreground_pid;
+  if (stream == NULL) return -ENOTTY;
+  const dolly_process_terminal_request request = {DOLLY_PROCESS_TERMINAL_ISATTY, descriptor, 0, 0, 0};
+  dolly_process_terminal_response response = {0};
+  const int64_t result = stream->kind->terminal(stream, &request, &response);
+  if (result < 0 || response.value != 1) return result < 0 ? result : -ENOTTY;
+  return stream != dolly_kernel_boot_terminal() || foreground_pid == 0 ||
+      dolly_process_descends_from(process->pid, foreground_pid) ? process->pid : foreground_pid;
 }
 
 static int64_t terminal_packet(dolly_kernel_process *process,
@@ -1819,8 +1791,8 @@ static int64_t terminal_packet(dolly_kernel_process *process,
       ? process->fds[request.descriptor].stream : NULL;
   if (stream != NULL && stream->kind->terminal == NULL) stream = NULL;
   if (request.operation == DOLLY_PROCESS_TERMINAL_PUBLISH_RESULT) {
-    /* The page follows the shell at the display's terminal, not one at a stream. */
-    if (stream == NULL) dolly_terminal_publish_result((int)request.flags);
+    /* The page follows the shell at the boot terminal, not one at another. */
+    if (stream != NULL && stream == dolly_kernel_boot_terminal()) dolly_terminal_publish_result((int)request.flags);
     return respond(&response, sizeof(response));
   }
   if (request.operation == DOLLY_PROCESS_TERMINAL_FOREGROUND) {
@@ -1835,33 +1807,13 @@ static int64_t terminal_packet(dolly_kernel_process *process,
       request.operation != DOLLY_PROCESS_TERMINAL_SIZE_SET) return -EINVAL;
   if (stream != NULL) {
     const int64_t result = stream->kind->terminal(stream, &request, &response);
-    return result < 0 ? result : respond(&response, sizeof(response));
+    if (result < 0) return result;
+    /* The page reads the boot terminal's interrupt key with its foreground. */
+    if (request.operation == DOLLY_PROCESS_TERMINAL_MODE_SET) refresh_foreground();
+    return respond(&response, sizeof(response));
   }
   if (!descriptor_is_open(process, request.descriptor)) return -EBADF;
-  const int terminal = process->fds[request.descriptor].terminal != 0;
-  if (request.operation == DOLLY_PROCESS_TERMINAL_ISATTY) {
-    response.value = terminal;
-  } else if (!terminal) {
-    return -ENOTTY;
-  } else if (request.operation == DOLLY_PROCESS_TERMINAL_READ) {
-    const int byte = dolly_kernel_terminal_key();
-    if (byte < 0 && dolly_kernel_deadline_pending(request.deadline_nanoseconds)) {
-      return DOLLY_PROCESS_DISPATCH_DEFERRED;
-    }
-    response.value = byte;
-  } else if (request.operation == DOLLY_PROCESS_TERMINAL_SIZE_SET) {
-    return -EPERM;
-  } else if (request.operation == DOLLY_PROCESS_TERMINAL_MODE_GET) {
-    response.value = dolly_kernel_terminal_mode();
-  } else if (request.operation == DOLLY_PROCESS_TERMINAL_MODE_SET) {
-    const int result = dolly_kernel_terminal_set_mode(request.flags);
-    if (result < 0) return result;
-    refresh_foreground();
-  } else {
-    const dolly_terminal_output *output = dolly_kernel_terminal_output_device();
-    response.columns = output != NULL ? output->columns() : 0;
-    response.rows = output != NULL ? output->rows() : 0;
-  }
+  if (request.operation != DOLLY_PROCESS_TERMINAL_ISATTY) return -ENOTTY;
   return respond(&response, sizeof(response));
 }
 
@@ -1888,24 +1840,9 @@ static uint16_t fd_poll_events(dolly_kernel_process *process,
     return socket->kind->poll(socket, requested);
   }
 
-  const int descriptor = descriptor_for(process, query->descriptor);
-  if (descriptor < 0) return DOLLY_PROCESS_POLL_INVALID;
   /* POSIX: regular files always poll true for reading and writing, as do the
    * kernel's other files; their next read or write completes at once. */
-  if (!process->fds[query->descriptor].terminal)
-    return requested & (DOLLY_PROCESS_POLL_READ | DOLLY_PROCESS_POLL_WRITE);
-  int access = fcntl(descriptor, F_GETFL);
-  if (access < 0) return DOLLY_PROCESS_POLL_ERROR;
-  access &= O_ACCMODE;
-  uint16_t result = 0;
-  if ((requested & DOLLY_PROCESS_POLL_READ) != 0 && access != O_WRONLY &&
-      dolly_kernel_terminal_readable()) {
-    result |= DOLLY_PROCESS_POLL_READ;
-  }
-  if ((requested & DOLLY_PROCESS_POLL_WRITE) != 0 && access != O_RDONLY) {
-    result |= DOLLY_PROCESS_POLL_WRITE;
-  }
-  return result;
+  return requested & (DOLLY_PROCESS_POLL_READ | DOLLY_PROCESS_POLL_WRITE);
 }
 
 static int64_t fd_poll_packet(dolly_kernel_process *process,
@@ -2261,15 +2198,23 @@ static int64_t path_open_packet(dolly_kernel_process *process, uintptr_t request
     return open_process_list(process, request.flags);
   }
   int stream = standard_stream(kernel_fd);
-  if (stream < 0 && controlling_terminal(kernel_fd)) stream = terminal_stream(process);
+  dolly_kernel_socket *terminal = NULL;
+  if (stream < 0 && controlling_terminal(kernel_fd)) {
+    stream = terminal_stream(process);
+    if (stream < 0 && (terminal = dolly_kernel_boot_terminal()) == NULL) {
+      close(kernel_fd);
+      return -ENOMEM;
+    }
+  }
+  if (stream >= 0 || terminal != NULL) close(kernel_fd);
   if (stream >= 0) {
-    close(kernel_fd);
     result = copy_descriptor(process, process, (uint32_t)stream, (uint32_t)guest_fd);
     if (result != 0) return result;
+  } else if (terminal != NULL) {
+    place_stream(process, terminal, (uint32_t)guest_fd);
   } else {
     process->fds[guest_fd].file = kernel_fd;
     process->fds[guest_fd].description = ++last_description;
-    process->fds[guest_fd].terminal = controlling_terminal(kernel_fd);
   }
   process->fds[guest_fd].flags = (request.flags & DOLLY_PROCESS_OPEN_CLOEXEC)
       ? DOLLY_PROCESS_FD_CLOEXEC : 0;

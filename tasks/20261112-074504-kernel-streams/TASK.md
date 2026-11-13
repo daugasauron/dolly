@@ -6,6 +6,60 @@
 
 From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, K1, K2).
 
+## State (2026-11-13, `fix/terminal-pty`)
+
+3, measured (release candidate's `default`, Slop prompt; the base runtime saved and served beside
+this branch's, two pages or windows, keys alternating between them so the machine's load, 16 to 25
+from a catalog round and an agent run, is common to both; `work/termpty/build/echo/`):
+
+| Method | Before (base) | After (pseudo-terminal) |
+| --- | --- | --- |
+| keydown dispatched in headless Chrome, `__dolly.frame()` polled (the 2026-11-12 method), 100 keys | median 23.4 ms, mean 24.8, p10 13.4, p90 36.5 | median 22.5 ms, mean 24.4, p10 13.4, p90 38.2 |
+| XTEST key press into headed Chrome on Xvfb :148, ffmpeg x11grab of the cursor's row at 500 frames a second, 100 keys | median 17.4 ms, mean 17.5, p10 9.0, p90 25.5 | median 15.8 ms, mean 16.9, p10 8.8, p90 26.0 |
+
+The same runtime on both sides (A/A, 40 and 30 keys) differed by up to 3.6 ms in the median: the
+change is within the noise. Screen echo is 5 to 43 ms, a 16 ms service tick and a 16.7 ms frame
+apart. Scripts `ab.mjs` (headless), `x11.mjs` and `xkeys.c` (XTEST), logs `ab-*-100.log`,
+`aa-*.log`.
+
+2, done on the branch: the display's terminal is the boot terminal, a pseudo-terminal the kernel
+opens with its first write and holds the master of (`src/dolly.c`). `terminal_descriptors[]`, the
+display's line discipline and every terminal branch of reads, polls, opens, spawns and the terminal
+request are gone; the terminal is a stream like any other. Decided:
+- The pseudo-terminal moves into the core (`src/pty.c`, `src/pty-kernel.h`); `pty@0` keeps openpty
+  (its OPEN, contract, client and headers) and `console@0` uses the core's. With both dropped from
+  `host/manifests.mjs` the runtime builds (image inputs `63a92c02…`, as the drop test found);
+  booting it needs that seed's images.
+- A kernel holder of a master (`dolly_pty_holder`): told when the slave wrote (the display renders
+  it then, or the bootstrap log takes it), asked for input when a reader of the slave finds none
+  (input stays a pull: a push would wait for the 16 ms tick or need an input@0 export), and given
+  the interrupt key typed at the master. Its slave's size request is `EPERM`, as the display's was.
+- Ctrl+C reaches what it reached: the page's mailbox interrupt, the interactive owner's commands in
+  its place, else it and its descendants. A `VINTR` byte that reaches the boot terminal under
+  `ISIG` (a paste, a key the page did not take) is the same interrupt; it was input before.
+  Other pseudo-terminals keep SIGINT to the slave's holders.
+- The terminal mailbox and its contract are unchanged: the foreground words are published as
+  before, from the boot terminal's mode (a mode set on any terminal republishes); a result is
+  published from the boot terminal only. `dolly_terminal_write_bytes` is unchanged: before a
+  display attaches its line reaches the bootstrap log, after it the process's descriptor 2 when
+  that is a terminal.
+- Without a display the boot terminal's output goes to the bootstrap log, now with `ONLCR`'s CRLF,
+  which the page's log and the build log show as LF. Its size stays 0 by 0 there.
+- What programs see: a root process's 0, 1 and 2 are one read-write open file (were the kernel's
+  stdin and two write-only files); a resize is `SIGWINCH` for the processes that hold the boot
+  terminal, delivered as a raised signal (a blocked call's handler runs at once), where it was
+  marked pending for the foreground owner's tree; a pseudo-terminal under `ICANON` types and echoes
+  its line when polled, as the display's did.
+- Image inputs unchanged (`46de2b9c…`): kernel-only, no contract or seed change.
+
+Tests (`work/termpty/build/logs/r1-SUITE-BROWSER.log`): terminal, pty, console, shell, shell-env,
+display, display-cursor, slop, process (the lifecycle suite), core, ending, image-input and
+threads pass in Chromium and Firefox; ended-worker, touch and pager fail in both before or apart
+from the terminal, for images this catalog lacks (`composed`'s `pin`, `amy install less`). The
+source tests pass but `platform-documents`: `Dollyfile-dolly-docs`'s pins are the round's to renew
+(five were stale on `fix/audit-0.1.6`; this branch's four documents join them, and renewing them
+repins 13 demo recipes).
+
 ## State (2026-11-13)
 
 - 1 is on main: the pipe as a stream kind (`74e1d2bb6`) and one descriptor record per descriptor
