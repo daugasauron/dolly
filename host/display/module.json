@@ -11,5 +11,6 @@
   "process": [],
   "headers": ["display.h", "display-abi.h"],
   "kernel": ["kernel.c"],
-  "client": ["client.c"]
+  "client": ["client.c"],
+  "package": "libdolly-display"
 }

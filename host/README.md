@@ -34,7 +34,7 @@ a page of the site names those its route uses ([`site.mjs`](../src/site.mjs)).
 | `kernel` | Kernel C; defines `dolly_NAME_kernel`, the process operations it handles and its release hook ([`process-kernel.h`](../src/process-kernel.h)) |
 | `client` | Process C linked as `libdolly-NAME.a`; it records `DOLLY_HOST_REQUIRE(NAME, VERSION, DOLLY_NAME_ABI_DIGEST)` |
 | `tools` | Process C a package builds from the module's directory: a program (`stack-wrap`) or a library over the module (http's `libcurl.c`, which the `curl` package builds); optional |
-| `seed` | A script the build runs in the toolchain container that writes `build/process-sysroot-parts/NAME/`, the module's part of the process sysroot, which the seed holds as `NAME/`: threads@0's is the threaded libc `cc -pthread` links; optional |
+| `seed` | A script the build runs in the toolchain container that writes `build/process-sysroot-parts/NAME/`, the module's part of the process sysroot, which the seed holds as `NAME/`: threads@0's is the threaded libc `cc -pthread` links, with the module's client; optional |
 | `package` | The package whose recipe installs the module's headers and clients, which the seed then leaves out; absent when the seed holds them |
 | `requested` | `true` on a module whose client defines names of libc's (`sockets`, `pty`): `cc` links it only when a program asks (`-ldolly-NAME`); absent otherwise |
 
@@ -122,9 +122,13 @@ in `abi/dolly-browser-0.wat` and its row in
 [browser boundary](../docs/browser-boundary.md); the last two are where a human
 reviews the authority it adds. Its header and client reach programs through a
 package, `Dollyfile-libdolly-NAME` named as the manifest's `package`, which
-`scripts/build.sh` then leaves out of the seed, as for gpu, audio, microphone,
-sockets and touch (stack's is `stack-wrap`, html's `html`, which holds its command too); a module that a
-core source includes stays in the seed. A module without imports may instead own a
+`scripts/build.sh` then leaves out of the seed, and a recipe that compiles
+against them installs (a package `USE`s) it, as `ghostty-build` does display's
+and input's (stack's is `stack-wrap`, html's `html`, which holds its command
+too). The seed holds the headers and clients of the modules without one:
+http@0's, with which the recipe engine downloads before any recipe runs,
+dso@0's, which `cc -rdynamic` links, and nena@0's, packages@0's and pty@0's;
+threads@0's client is in its part, which `cc -pthread` links. A module without imports may instead own a
 reserved origin of the HTTP broker ([`http/local-services.mjs`](http/local-services.mjs)),
 as `build` does, and `packages` for a directory other than the page's: its service admits
 each request itself.

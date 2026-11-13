@@ -7,49 +7,19 @@ REQUIRES HOST http@0
 # and C headers are the externally supplied bootstrap seed. How those headers
 # eventually map to the lower-level machine contract is deliberately open.
 SOURCE /v0.1.6/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415 /usr/include/dolly/toolchain.h
-SOURCE /v0.1.6/include/dolly/runtime.h   20bd9bfd7cb18340bfd44350b92ff54959ce0e68acb24b95c270308625d0e8cf /usr/include/dolly/runtime.h
+SOURCE /v0.1.6/include/dolly/runtime.h   d57f5242814e516035781cc4fb23c6c5d6c8c6b1b89eafc7447f566fe0b7ad21 /usr/include/dolly/runtime.h
 SOURCE /v0.1.6/include/dolly/process.h   2946bdef52557f5fae8b5741ccd7904745b42a960c27d829f81026a637529ce0 /usr/include/dolly/process.h
-SOURCE /v0.1.6/host/http/http.h      66067135d3d280b5ac48bf0ac2e1ba60663aa7e3b01a72ffc875826c7df387a3 /usr/include/dolly/http.h
-SOURCE /v0.1.6/host/http/http-abi.h 155a414b30cc83bdebf755d68bbde4bd97a728079112c724a04e87701ea3f953 /usr/include/dolly/http-abi.h
-SOURCE /v0.1.6/host/display/display.h   0288b4510090e22243582c37a8f701bd460a31f4bb64db1aff85d8fa058b82ce /usr/include/dolly/display.h
-SOURCE /v0.1.6/host/display/display-abi.h 0429ac498ead0219e509426e5df6293fca6007494b4e54f5f48f43193ddae2f2 /usr/include/dolly/display-abi.h
-SOURCE /v0.1.6/host/input/input.h   80fefe0139ef63fc5745b7e41662892f0c4b7fb2b4d09a42789de3c693685227 /usr/include/dolly/input.h
-SOURCE /v0.1.6/host/input/input-abi.h f9f2ce405bd06d0a3b29c942dec8dc78f97f6280302690903d49fada36b2f8d1 /usr/include/dolly/input-abi.h
-SOURCE /v0.1.6/host/download/download.h  666bca4fba5da7bf1e998c6486f56dce24cdbc82f1126f9be59067eb03b03bfa /usr/include/dolly/download.h
-SOURCE /v0.1.6/host/download/download-abi.h 6252f84477c990f9df2ffc5905c0717a94c9f4e557fccccbbf593ac02198dbc2 /usr/include/dolly/download-abi.h
-
 SOURCE /v0.1.6/include/dolly/host.h 9737f9b15bd65f5732e16bd942fe593132c7c886c3076dfda89a529a23fee08a /usr/include/dolly/host.h
 SOURCE /v0.1.6/include/dolly/host-abi.h 3f2d26426bb088d61a0cc18b6c464697e98c83d8d34ffaf1d063768e619eb766 /usr/include/dolly/host-abi.h
-SOURCE /v0.1.6/host/upload/upload.h 4c9c1f6b00f464ffc337fd8f3bec18179f0bfdd82083f65c0d36c2a9cd400e3f /usr/include/dolly/upload.h
-SOURCE /v0.1.6/host/upload/upload-abi.h 304eb6b73722e62f3e3bde7dab8ce71135c6485278effefa6bd6c53bc5ffd41e /usr/include/dolly/upload-abi.h
 
-SOURCE /v0.1.6/host/threads/threads.h ec223fbc34ff65f173f4b15e338cb25bf34d8bf01b699418f4598d7fc4626394 /usr/include/dolly/threads.h
-SOURCE /v0.1.6/host/threads/threads-abi.h cda45054bc2ec6b021302cc1c840c3d3c18871e735998e9710a743aba4128173 /usr/include/dolly/threads-abi.h
-SOURCE /v0.1.6/host/dso/dso.h 57ee5b695140136a4bd62ad4cd302c10ac31d68f6169cf6019405b1234e715f9 /usr/include/dolly/dso.h
-SOURCE /v0.1.6/host/dso/dso-abi.h 834574e02efad11017a1e008d5477fbab09a9fb14d0f79aedf0b323a094061ee /usr/include/dolly/dso-abi.h
-
+# /usr/include also holds the headers of the modules whose clients the seed
+# holds (host/README.md); every other module's are in its package.
 EXPORTS HEADER libc      /usr/include
 EXPORTS HEADER toolchain /usr/include/dolly/toolchain.h
 EXPORTS HEADER runtime   /usr/include/dolly/runtime.h
 EXPORTS HEADER process   /usr/include/dolly/process.h
-EXPORTS HEADER http      /usr/include/dolly/http.h
-EXPORTS HEADER http-abi /usr/include/dolly/http-abi.h
-EXPORTS HEADER display   /usr/include/dolly/display.h
-EXPORTS HEADER display-abi /usr/include/dolly/display-abi.h
-EXPORTS HEADER input     /usr/include/dolly/input.h
-EXPORTS HEADER input-abi /usr/include/dolly/input-abi.h
-EXPORTS HEADER download  /usr/include/dolly/download.h
-EXPORTS HEADER download-abi /usr/include/dolly/download-abi.h
-
 EXPORTS HEADER host /usr/include/dolly/host.h
 EXPORTS HEADER host-abi /usr/include/dolly/host-abi.h
-EXPORTS HEADER upload /usr/include/dolly/upload.h
-EXPORTS HEADER upload-abi /usr/include/dolly/upload-abi.h
-EXPORTS HEADER threads /usr/include/dolly/threads.h
-EXPORTS HEADER threads-abi /usr/include/dolly/threads-abi.h
-EXPORTS HEADER dso /usr/include/dolly/dso.h
-EXPORTS HEADER dso-abi /usr/include/dolly/dso-abi.h
-
 EXPORTS LIB compiler-rt /usr/lib/libclang_rt.builtins.a
 
 # These are the complete externally seeded compiler dependencies, not ambient
@@ -94,11 +64,11 @@ EXPORTS TOOL dollyfile
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 
-SOURCE /v0.1.6/dist/static/default/slop.c 307f9ccf561345702323f982764c75776525b13264442c4c960b9003bcb9d309 /tmp/slop/slop.c
+SOURCE /v0.1.6/dist/static/default/slop.c eef57190c2bc7fb36829dced03b93d9db2c4e08fb667f97daf80676bb5570658 /tmp/slop/slop.c
 # Slop runs the code of the system's test, [, echo and printf itself.
-SOURCE /v0.1.6/dist/static/default/commands/test.c 3b21b6855f7495f8e6dca7b46bc8b9ce54f4f589570c30339b1ea5e869471edd /tmp/slop/commands/test.c
-SOURCE /v0.1.6/dist/static/default/commands/echo.c b452aa1e2e101d11bc6ac27052d116a8b9e1792cb3ad3406dc23f31f218adb56 /tmp/slop/commands/echo.c
-SOURCE /v0.1.6/dist/static/default/commands/printf.c 7188ef27e1c62707313cb627b7d75865a28b1b186bba1180a8913b61c07ed5d7 /tmp/slop/commands/printf.c
+SOURCE /v0.1.6/dist/static/default/commands/test.c f8c6d9618f2f78a85eb8c177df0bb565e9f611f849cbc05401a4a888ce98c5f9 /tmp/slop/commands/test.c
+SOURCE /v0.1.6/dist/static/default/commands/echo.c 41f0735133bdae9226bf41909009e6db7fc298a0c9a9e1ee16934c09ad244335 /tmp/slop/commands/echo.c
+SOURCE /v0.1.6/dist/static/default/commands/printf.c 67ec89acb4cd3a1f5657e8ec8d54d58f1d796f6e2eb461545e34a884cce962dc /tmp/slop/commands/printf.c
 RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 -DDOLLY_SHELL_UTILITY /tmp/slop/slop.c \
   /tmp/slop/commands/test.c /tmp/slop/commands/echo.c /tmp/slop/commands/printf.c -o /bin/slop
 
@@ -116,16 +86,16 @@ SOURCE /v0.1.6/dist/static/default/commands/help.c 5051d2894cf4733b35ee0a128bbcc
 SOURCE /v0.1.6/dist/static/default/commands/man.c cd13cdece7706188e083a1754187cb19b7627e9cb8d2b294ba21cd2f88ff39d8 /tmp/core-tools/man.c
 SOURCE /v0.1.6/dist/static/default/commands/pwd.c 61b2840bfba274f511c3777f5b800bcdfff1947bef13b771c5d9a98eb5d03d3d /tmp/core-tools/pwd.c
 SOURCE /v0.1.6/dist/static/default/commands/cat.c 43eabd1e83f6c56cd5b5a7d8e5f9621e214c35e9407dea6bbce34120cb9da723 /tmp/core-tools/cat.c
-SOURCE /v0.1.6/dist/static/default/commands/echo.c b452aa1e2e101d11bc6ac27052d116a8b9e1792cb3ad3406dc23f31f218adb56 /tmp/core-tools/echo.c
-SOURCE /v0.1.6/dist/static/default/commands/printf.c 7188ef27e1c62707313cb627b7d75865a28b1b186bba1180a8913b61c07ed5d7 /tmp/core-tools/printf.c
+SOURCE /v0.1.6/dist/static/default/commands/echo.c 41f0735133bdae9226bf41909009e6db7fc298a0c9a9e1ee16934c09ad244335 /tmp/core-tools/echo.c
+SOURCE /v0.1.6/dist/static/default/commands/printf.c 67ec89acb4cd3a1f5657e8ec8d54d58f1d796f6e2eb461545e34a884cce962dc /tmp/core-tools/printf.c
 SOURCE /v0.1.6/dist/static/default/commands/touch.c 1eb3737abe39d9efe0c66d9e84a7bf6445fa2c07c12b46ad107cd799f2f0747c /tmp/core-tools/touch.c
 SOURCE /v0.1.6/dist/static/default/commands/clear.c f2e6915b3fe34393087ec7d04e61d090c0d62e551b86b36e8c3ff6bfff72598d /tmp/core-tools/clear.c
-SOURCE /v0.1.6/dist/static/default/commands/ls.c 9a1ad375e4e1688b3ed8a27a3d9e9220be6780a279559e8032e6b15c45611a5e /tmp/core-tools/ls.c
+SOURCE /v0.1.6/dist/static/default/commands/ls.c 7b1f4a0cdfb7e568b9a8e4ab9b9d784d52d034103915e11b1a25472bbe86d225 /tmp/core-tools/ls.c
 SOURCE /v0.1.6/dist/static/default/commands/stat.c 716e40d4db491a766b738e21c780d4f386641be93daccc4481b4d71b603110c2 /tmp/core-tools/stat.c
 SOURCE /v0.1.6/dist/static/default/commands/file.c 3fd871ab9da0233ab738683f3ae45ab8cac3b37df3be92359575448137b4ec37 /tmp/core-tools/file.c
-SOURCE /v0.1.6/dist/static/default/commands/test.c 3b21b6855f7495f8e6dca7b46bc8b9ce54f4f589570c30339b1ea5e869471edd /tmp/core-tools/test.c
-SOURCE /v0.1.6/dist/static/default/commands/mv.c 326b21d8de8cd70652ec1ae1d42356095ee792c2608dfe362bba7ec05eacc9c3 /tmp/core-tools/mv.c
-SOURCE /v0.1.6/dist/static/default/commands/cp.c 0598cc06e13171dc95314d644f7dc0adb0419d78e776745d430225639ca5b123 /tmp/core-tools/cp.c
+SOURCE /v0.1.6/dist/static/default/commands/test.c f8c6d9618f2f78a85eb8c177df0bb565e9f611f849cbc05401a4a888ce98c5f9 /tmp/core-tools/test.c
+SOURCE /v0.1.6/dist/static/default/commands/mv.c 9c14fbc337cd41f6d7733fb3a36346d845e14223e6207d427a74123a00ea6504 /tmp/core-tools/mv.c
+SOURCE /v0.1.6/dist/static/default/commands/cp.c 1a83e347a694183b45569f43de365bf691ae3482c371809af715a2e11894cc8c /tmp/core-tools/cp.c
 SOURCE /v0.1.6/dist/static/default/commands/sleep.c 7723af4c2a4feb4a3393482fe3e58beaba36b2b0d83fcc67787b339a87e031e6 /tmp/core-tools/sleep.c
 SLOP cc \
   -O2 \

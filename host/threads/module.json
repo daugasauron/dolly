@@ -11,6 +11,7 @@
   "process": ["dolly-threads-0.wat"],
   "headers": ["threads.h", "threads-abi.h"],
   "kernel": ["kernel.c"],
-  "client": ["client.c"],
-  "seed": "seed.sh"
+  "client": [],
+  "seed": "seed.sh",
+  "package": "libdolly-threads"
 }

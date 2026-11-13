@@ -1,0 +1,24 @@
+DOLLY 7
+PACKAGE libdolly-display
+REQUIRES HOST runtime@0
+
+# The display@0 module's header and client (the terminal's surface and a
+# program's frames), for programs the cc package builds: cc links every client
+# archive in /usr/lib/dolly/process, and a program records display@0 only when
+# it calls the client.
+FROM /v0.1.6/Dollyfile-system-build 4b8e830aebe0f008b8a30e50a42a2f3b8fbc268b8e0ee6d8c85c7bcaee936cd6
+REQUIRES HEADER libc
+REQUIRES TOOL ar
+REQUIRES TOOL cc
+REQUIRES TOOL rm
+
+SOURCE /v0.1.6/host/display/display.h 0288b4510090e22243582c37a8f701bd460a31f4bb64db1aff85d8fa058b82ce /usr/include/dolly/display.h
+SOURCE /v0.1.6/host/display/display-abi.h 0429ac498ead0219e509426e5df6293fca6007494b4e54f5f48f43193ddae2f2 /usr/include/dolly/display-abi.h
+SOURCE /v0.1.6/host/display/client.c 8ebb4b6346302ee24fc6fd60c97a3e5ba8039b5bbd6764b60641087564387d02 /tmp/libdolly-display/client.c
+SLOP cc -O1 -c /tmp/libdolly-display/client.c -o /tmp/libdolly-display/client.o
+SLOP ar rcs /usr/lib/dolly/process/libdolly-display.a /tmp/libdolly-display/client.o
+
+EXPORTS HEADER display     /usr/include/dolly/display.h
+EXPORTS HEADER display-abi /usr/include/dolly/display-abi.h
+EXPORTS LIB    dolly-display /usr/lib/dolly/process/libdolly-display.a
+SLOP rm -rf /tmp/libdolly-display

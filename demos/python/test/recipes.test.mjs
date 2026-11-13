@@ -19,7 +19,7 @@ test("the python package builds CPython, libffi and pip with their licenses and 
     type === "ENV" && name === "PYTHONDONTWRITEBYTECODE" && details[0] === "1"));
   assert.equal(recipe.slops.some(({ command }) => command[0] === "python" && command.includes("-B")), false);
   for (const tool of ["ar", "cc", "c++", "make"]) assert.ok(requirements(recipe, "TOOL").includes(tool), tool);
-  for (const header of ["libc", "http", "ffi", "ffitarget", "runtime", "zlib", "curl"]) {
+  for (const header of ["libc", "ffi", "ffitarget", "runtime", "zlib", "curl"]) {
     assert.ok(requirements(recipe, "HEADER").includes(header), header);
   }
   for (const key of ["TOOL:python", "TOOL:pip", "LIB:python", "HEADER:python", "HEADER:ffi", "FOLDER:python-stdlib"]) {

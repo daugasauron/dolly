@@ -14,13 +14,15 @@ REQUIRES HOST gpu@0
 # names a header of Linux's that Emscripten's libc and Dolly's leave out
 # (sys/timex.h), and Jolt Physics, which knows WebAssembly only as Emscripten:
 # 3D physics is Godot's own.
-FROM /v0.1.6/demos/ghostty-gtk/Dollyfile-mesa-build b9f0e2ba283973866d1c640f71c6d27f5ee3603328fa66d12790628539cd1372
-USE /v0.1.6/demos/tools/Dollyfile-scons 1f8bf3e0c9dfc8defe80910ed0aede4c185740297ce2edab64dbe956cd2134a3
-USE /v0.1.6/Dollyfile-mandoc 662e1e227c145339f7d7e54bdcecc523bb9b3fc80902720fbb3e179cf82324d8
-USE /v0.1.6/Dollyfile-libdolly-gpu cd9aa3833517983394b056238013d9dde703ac50678c090a1b4b04a9cec6cd46
-USE /v0.1.6/Dollyfile-libdolly-sockets 443718e31849e2212effd848a41f8998faccf2c98a11af46f7669840f0f74d41
-USE /v0.1.6/demos/godot/Dollyfile-spirv-wgsl 091b819e04fde21dea17e191e5952a812d115b0410f98cc21eb9aa571252ac0a
-USE /v0.1.6/Dollyfile-libdolly-audio 0f949b8e81e54389e2ea64fb25254096bc0222c04ea0c5462a40a93d3732d315
+FROM /v0.1.6/demos/ghostty-gtk/Dollyfile-mesa-build e1e39b2361f25ffbbab1fabe69fb8495109eb5d21eba74a68406782e5f47e81d
+USE /v0.1.6/demos/tools/Dollyfile-scons 56aef47133e20ae9cf74b021662f1c0ab535f0bf4e566f8bc3f3ec805a301e38
+USE /v0.1.6/Dollyfile-mandoc 1e3772c3bd6a83312e05ac46d0601a586f6ab7b8ffdd2689edf858f834e2541f
+USE /v0.1.6/Dollyfile-libdolly-gpu 7180ae37fb3e58cff27f002cb3a59564f81550324c437a91223147c92eea5a23
+USE /v0.1.6/Dollyfile-libdolly-sockets ac8521cceeef91f5276bad043fc096faf87f09b0aba082c91b73fae25f89ab6a
+USE /v0.1.6/demos/godot/Dollyfile-spirv-wgsl 0e154a6ea1702a0c4f040b490de7beda645c6fe4bb2930e90a6f338d06ec2f89
+USE /v0.1.6/Dollyfile-libdolly-audio d3d192a42b6896f682a761f7baa9583843141aa8d7338810059e7672f1c93a44
+USE /v0.1.6/Dollyfile-libdolly-display dd3c562bb97ea3859dfda2b4e1f4b3e28ff446c01937d390a8c72bb0c6049b0d
+USE /v0.1.6/Dollyfile-libdolly-input 26f99fbed0664492f49b07231ecdd4fa7af33a39460a3fc7bd0596d87f9de50d
 
 REQUIRES TOOL cp
 REQUIRES TOOL grep

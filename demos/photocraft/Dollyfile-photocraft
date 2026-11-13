@@ -16,8 +16,12 @@ REQUIRES HOST download@0
 # batches, renders on gpu@0 where the browser grants WebGPU, and serves its commands to agents
 # over MCP. zenity, built by a run of its own so that egui keeps PhotoCraft's features, is the
 # dialogs, on the same platforms.
-FROM /v0.1.6/demos/rust/Dollyfile-rust-build 4a314d3d4ef75781f9927ca4400039f7ce5a93bce486bb265855d03d41bf6fa4
-USE /v0.1.6/Dollyfile-libdolly-gpu cd9aa3833517983394b056238013d9dde703ac50678c090a1b4b04a9cec6cd46
+FROM /v0.1.6/demos/rust/Dollyfile-rust-build 95095c4103ed079e1f192ee33abf9e476dcec933b9ce70001542ad4da61e11a1
+USE /v0.1.6/Dollyfile-libdolly-gpu 7180ae37fb3e58cff27f002cb3a59564f81550324c437a91223147c92eea5a23
+USE /v0.1.6/Dollyfile-libdolly-display dd3c562bb97ea3859dfda2b4e1f4b3e28ff446c01937d390a8c72bb0c6049b0d
+USE /v0.1.6/Dollyfile-libdolly-input 26f99fbed0664492f49b07231ecdd4fa7af33a39460a3fc7bd0596d87f9de50d
+USE /v0.1.6/Dollyfile-libdolly-upload 784abd44049505ed05e871f7864c68a7235db75797ffddf9401f692794060e7b
+USE /v0.1.6/Dollyfile-libdolly-download 6f064a802b185682efccbfcf1379d070be03f551fc70229290883c4f52d6de40
 REQUIRES TOOL cargo
 REQUIRES TOOL cat
 REQUIRES TOOL gzip
