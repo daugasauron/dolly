@@ -80,11 +80,11 @@ for (const name of browsers) {
     // The browser's text pastes into the New Layer dialog's name (the Layers panel's menu), and
     // the field's Ctrl+C gives it back.
     await page.evaluate(() => navigator.clipboard.writeText("Copied outside"));
-    await page.mouse.click(LAYERS_MENU.x, LAYERS_MENU.y);
+    await page.mouse.click(1586, 390);
     await sleep(1000);
-    await page.mouse.click(NEW_LAYER.x, NEW_LAYER.y);
+    await page.mouse.click(1396, 87);
     await sleep(2000);
-    await page.mouse.click(NAME_FIELD.x, NAME_FIELD.y);
+    await page.mouse.click(750, 462);
     await page.keyboard.press("Control+a");
     await page.keyboard.press("Control+v");
     await sleep(1000);
@@ -93,7 +93,8 @@ for (const name of browsers) {
     await page.keyboard.press("Control+c");
     await page.waitForFunction(() => document.documentElement.dataset.clipboardCopy === "copied", null, { timeout: 10_000 });
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), "Copied outside");
-    await page.keyboard.press("Enter");
+    // Cancelled: the PSD stays as saved, and quitting asks about the Great Wave alone.
+    await page.keyboard.press("Escape");
     await sleep(2000);
     if (name === "chromium") await page.screenshot({ path: `build/photocraft-clipboard-${name}.png` });
     await page.mouse.click(800, 450);

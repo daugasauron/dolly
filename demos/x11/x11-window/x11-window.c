@@ -206,10 +206,13 @@ int x11_window_present(x11_window *window, const void *pixels, uint32_t width, u
     }
     window->frame = frame;
   }
+  // The server's pixels are words of its visual's masks, least significant byte first: red
+  // first where red is the low byte (Dolly's Xsdl, on the page's RGBA surface), blue first else.
+  const int same = rgba == (frame->red_mask == 0xff);
   for (uint32_t y = 0; y < height; y++) {
     const unsigned char *from = (const unsigned char *)pixels + y * stride;
     unsigned char *to = (unsigned char *)frame->data + (size_t)y * width * 4;
-    if (!rgba) {
+    if (same) {
       memcpy(to, from, (size_t)width * 4);
       continue;
     }
