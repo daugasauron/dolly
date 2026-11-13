@@ -49,14 +49,17 @@ the default closure rebuilt on them (`build/seedbatch-image-4.log`) and the suit
   lines) and the stale sequence check (3); audio keeps a stream per slot and microphone one
   capture, so the checks around them differ. A helper is an import into two boundary files for 7
   lines.
+- 13, closed: what is left of the lease-bridge boilerplate after `leaseBridge` (the runtime's) is
+  each module's `worker()`: audio's and microphone's are 11 lines, the same but the import they
+  provide, their mailbox export and their reply message; nena's adds its boot files. Those names
+  are the module's authority, which the boundary map's reader looks for in its file; a shared
+  builder would take them as arguments and save about 14 lines.
 - 25, closed: the seven musl include paths of `scripts/build.sh` and `host/threads/seed.sh` in a
   file both source save 3 lines net (its header and a `source` in each), and the compile flags
   differ (`-matomics -mbulk-memory` serial, `-pthread` threaded).
 Left: 8 (the commands' option loops to `getopt`, which changes their messages and, in the native
 command tests, glibc's argument order), 12 (fetch-make, fetch-uucode and fetch-zig keep their own
-pins and cache paths, which the shared `.cache` holds for every tree), 13 (audio's and
-microphone's `worker()` are the same 11 lines but their names; no image of this round's catalog
-loads either module, so a shared one could not be run here).
+pins and cache paths, which the shared `.cache` holds for every tree).
 
 ## State (2026-11-13)
 
