@@ -1,6 +1,6 @@
 # One descriptor record; the pipe a stream kind; the display's terminal a pseudo-terminal
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 300
 - TAGS: kernel,architecture,terminal,audit,0.1.6
 
@@ -129,3 +129,11 @@ machine and with real X key events and ffmpeg's x11grab of a headed Chrome befor
 
 1 and 2 are in, `process_dispatch` has no per-kind branches, the lifecycle, pty, console and
 terminal suites pass in Chromium and Firefox, and 3 has its number.
+
+## Closed (2026-11-13)
+
+`fix/terminal-pty` is in the 0.1.6 candidate round (main `e6ad7707c`): the display's terminal is a
+pseudo-terminal the kernel opens at boot, no descriptor-kind branch is left in process_dispatch, and
+the lifecycle, pty, console, terminal, shell and boundary suites pass in Chromium and Firefox there
+(`work/round1113/build/round-1113c-evidence`; boundary with its sink checked at the import). Item 3's number: median 11.9 to
+13.4 ms on screen, before and after (`work/evidence-2026-11-13/terminal-pty/`).

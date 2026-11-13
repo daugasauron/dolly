@@ -1,6 +1,6 @@
 # Kernel lifecycle details: SIGCHLD round trips, launching_pid, ignored results, held changes
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 200
 - TAGS: kernel,lifecycle,signals,audit,0.1.6
 
@@ -47,3 +47,10 @@ On `fix/batch`, waiting for its rebuild round:
 ## Done when
 
 Each is fixed or measured and closed with the reason; the process and session suites pass.
+
+## Closed (2026-11-13)
+
+In the 0.1.6 candidate round (`round/0.1.6-1113`, main `e6ad7707c`, `work/round1113/build/round-1113c-evidence`): the process, process
+list, process budget, console, pty, session times and session-without-http suites pass in Chromium
+and Firefox with process_dispatch as the table of every operation; the other items were fixed or
+measured above.

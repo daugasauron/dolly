@@ -1,6 +1,6 @@
 # The GPU provider reviewable: validation apart from execution
 
-- STATUS: OPEN
+- STATUS: DONE
 - PRIORITY: 150
 - TAGS: gpu,security,maintainability,audit,0.1.6
 
@@ -37,3 +37,10 @@ line by line.
 
 The split is in, the GPU suites (`test/gpu-browser.mjs`, Godot, PhotoCraft) pass, and the review's
 findings are fixed or filed.
+
+## Closed (2026-11-13)
+
+In the 0.1.6 candidate round (`work/round1113/build/round-1113c-evidence`), on the split provider: Godot's and PhotoCraft's GPU tests in
+Chromium and Firefox, Xonotic's, local-llm, 0 A.D.'s graphics and slopyard on gpu@0, gpu-render and
+gpu-explicit in Chrome (Firefox's installed snap does not start in a unit). The review's findings are
+fixed above.
