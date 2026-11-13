@@ -21,8 +21,8 @@ export async function runtimeKept(site) {
 }
 
 // Keeps SITE's runtime as its server gives it now, and removes what was kept of
-// another. Rejects where the browser has no service worker or cache for the
-// page (a private window of Firefox), or a file is not the one the list names.
+// another. Rejects where the browser refuses the page a service worker or a
+// cache, or a file is not the one the list names.
 export async function keepRuntime(site) {
   await navigator.serviceWorker.register(new URL("coi-serviceworker.js", site), { scope: new URL(site).pathname });
   const listed = await fetch(listUrl(site), { cache: "no-cache" });

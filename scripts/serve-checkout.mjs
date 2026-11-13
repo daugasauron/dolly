@@ -12,6 +12,7 @@ import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { bundleProcessWorker } from "./bundle-process-worker.mjs";
 import { opens, pageRoutes } from "./image-menu.mjs";
+import { offlineFiles } from "./offline-files.mjs";
 import { isolationHeaders, mimeTypes } from "./serve.mjs";
 import { buildIdentities } from "./write-build-id.mjs";
 import { imageInputsMatch, recipesDigest } from "../src/image-inputs.mjs";
@@ -110,6 +111,12 @@ export async function startCheckoutServer(projectDir, image = "default",
       if (path === "/__dolly_build_page") {
         response.writeHead(200, { ...headers, "content-type": "text/html; charset=utf-8" });
         response.end("<!doctype html><title>Dolly image build</title>");
+        return;
+      }
+      // The runtime a saved session keeps, as the checkout's files are now.
+      if (path === "/dist/dolly-offline.json") {
+        response.writeHead(200, { ...headers, "content-type": mimeTypes.get(".json") });
+        response.end(await offlineFiles(projectDir, paths));
         return;
       }
       const relative = files.get(path) ?? files.get(`${path}/index.html`);

@@ -81,6 +81,7 @@ for image_name in "${image_names[@]}"; do
 done
 node "${project_dir}/scripts/share-pages-snapshots.mjs" "${staging}/site/dist" "${project_dir}/dist"
 touch "${staging}/site/.nojekyll"
+node "${project_dir}/scripts/offline-files.mjs" "${staging}/site" > "${staging}/site/dist/dolly-offline.json"
 site_bytes="$(du -sb "${staging}/site" | cut -f1)"
 echo "dolly: Pages site is ${site_bytes} bytes"
 node "${project_dir}/scripts/site-release.mjs" accept "${staging}/site" "${project_dir}"

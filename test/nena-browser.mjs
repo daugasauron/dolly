@@ -255,7 +255,8 @@ await browserTest("nena", { image: "default", timeout: 300_000, server: { fixtur
   const standIn = 'export { DOLLY_MICROPHONE_ABI_DIGEST as digest } from "./abi.mjs";\n' +
     "export function browser(given) { globalThis.microphoneGiven = given.modules !== undefined; return {}; }\n" +
     "export function worker() { return { start: () => new Promise(resolve => setTimeout(resolve, 12_000)) }; }\n";
-  const slow = await open({ setup: page => page.route("**/host/microphone/microphone.mjs",
+  // The page has no service worker: the one a save registers would fetch the module in the route's place.
+  const slow = await open({ context: { serviceWorkers: "block" }, setup: page => page.route("**/host/microphone/microphone.mjs",
     route => route.fulfill({ contentType: "text/javascript", body: standIn })) });
   assert.equal(await slow.submit("echo microphone@0 > /etc/dolly/enabled"), 0);
   assert.equal(await slow.page.evaluate(() => __dolly.saveSession("nena-slow")), "nena-slow");

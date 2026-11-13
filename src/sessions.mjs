@@ -7,6 +7,9 @@ import {
 } from "./session-store.mjs";
 import { exportSessionFile, importSessionFile } from "./session-file.mjs";
 import { clearPackStore, packStoreSize } from "./pack-store.mjs";
+import { clearRuntime, keepRuntime, runtimeKept } from "./offline.mjs";
+
+const site = new URL("../", import.meta.url);
 
 // The sessions page is the site's own: its images are the site's.
 await loadImages(new URL("../", import.meta.url));
@@ -82,6 +85,8 @@ async function refresh() {
   const kept = await packStoreSize().catch(() => ({ count: 0, bytes: 0 }));
   document.querySelector("#pack-store").textContent = `Images started on this site keep their downloads in this browser, ` +
     `so they start again without downloading them: ${(kept.bytes / 1024 / 1024).toFixed(1)} MiB in ${kept.count} packs. ` +
+    (await runtimeKept(site).catch(() => false) ? "The runtime is kept too: saved sessions open without a network. "
+      : "Saving a session keeps the runtime too, so that saves open without a network. ") +
     (await navigator.storage.persisted() ? "The browser keeps them and the saves until they are cleared."
       : "The browser may remove them and the saves when it runs short of space; a save asks it not to.");
   document.documentElement.dataset.sessionsStatus = "ready";
@@ -89,6 +94,7 @@ async function refresh() {
 
 document.querySelector("#clear-packs").addEventListener("click", () => void operation(async () => {
   await clearPackStore();
+  await clearRuntime(site).catch(() => {});
   await refresh();
 }));
 
@@ -110,6 +116,7 @@ input.addEventListener("change", () => {
     record.name = name.trim();
     if (!validSessionName(record.name)) throw new Error("Names use 1–64 letters, numbers, '.', '_' or '-'.");
     await saveStoredSession(record, { overwrite: false });
+    await keepRuntime(site).catch(() => {});
     await refresh();
   });
 });

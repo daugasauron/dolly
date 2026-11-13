@@ -10,6 +10,7 @@ import {
   sessionLoadUrl,
   validSessionName,
 } from "../../src/session-store.mjs";
+import { keepRuntime } from "../../src/offline.mjs";
 
 // An adopted style sheet, which a page's style-src without 'unsafe-inline' allows.
 const style = `
@@ -171,6 +172,9 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
       showStatus(`Saved ${name} locally${site ? " · /sessions lists your saves" : ""}`);
       indicators.hold("session", false);
       update();
+      // The site's runtime is kept beside the save, which then opens without a
+      // network (src/offline.mjs); the save does not wait for it.
+      if (site) void keepRuntime(site).then(() => "kept", () => "failed").then(state => { dataset.sessionOffline = state; });
       return name;
     })().catch((error) => {
       dataset.sessionStatus = "failed";

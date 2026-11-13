@@ -18,6 +18,7 @@ import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
 import { readWasmInterface } from "./wasm-interface.mjs";
 import { verifyDocumentationLinks } from "./package-documentation.mjs";
 import { buildIdentities, buildIdModules } from "./write-build-id.mjs";
+import { offlineFiles } from "./offline-files.mjs";
 
 export function safePath(path) {
   if (!path || /[\\\r\n\0]/.test(path) || path.split("/").some(part => !part || part === "." || part === "..")) {
@@ -71,6 +72,7 @@ async function verifySite(site) {
   for (const [file, text] of Object.entries(buildIdModules(identity))) {
     if (await distText(file) !== text) throw new Error(`release ${file} mismatch`);
   }
+  if (await distText("dolly-offline.json") !== await offlineFiles(site)) throw new Error("release dolly-offline.json mismatch");
   const imageBuildId = identity.imageBuildId;
   const processContract = await readWasmInterface(resolve(site, "dist/dolly-process-0.wasm"));
   const processDigest = Buffer.from(contractDigest(processContract)).toString("hex");
