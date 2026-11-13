@@ -16,7 +16,7 @@ REQUIRES HOST sockets@0
 INSTALL /v0.1.6/Dollyfile-core d69d0e16a3e1a7813171966d23fcf5a44d488a6bcf2723a3d32f689fa162fc5c
 INSTALL /v0.1.6/Dollyfile-posix 9773acc9cc5cdbe7b4d9a355092dcf3bed9a77de6f1da50eb925d1d9690c68ba
 INSTALL /v0.1.6/Dollyfile-display e1328f1decb7f81e8b508cf5f03c18246fdac37d39d259021ea69882d59f4d9f
-INSTALL /v0.1.6/demos/photocraft/Dollyfile-photocraft ccb6b5c6f92276dc38223f0dcd6b2fee7294e0a2edd1af63d812cc572129f32c
+INSTALL /v0.1.6/demos/photocraft/Dollyfile-photocraft fd0858648f39681ea618fa20c54d6096c36b7d361c3dfb3f52d1260e1b1cb98e
 REQUIRES TOOL photocraft
 SLOP mkdir -p /home/dolly/Pictures && cp /usr/share/photocraft/pictures/great-wave.jpg /home/dolly/Pictures/
 FILE /home/dolly/Pictures/great-wave.jpg
