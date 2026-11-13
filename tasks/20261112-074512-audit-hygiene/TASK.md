@@ -6,6 +6,58 @@
 
 From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, section 6 items 5-6, section 7).
 
+## State (2026-11-13, seed round)
+
+The groups the re-check left, on `round/0.1.6-seed` after the layout move (paths as moved), with
+the default closure rebuilt on them (`build/seedbatch-image-4.log`) and the suites again
+(`build/seedbatch-suites-3*/`):
+- 5, done (5a9fafa1f): `scripts/prepared-source.sh` holds the skeleton of the trees prepared in
+  `build/generated` (the key over the pins and inputs, the published-or-not checks, the staging
+  sibling and its one rename); git, zlib, Samurai, WAMR and GNU Make use it: −143 +38 in the five,
+  +30 the helper. The five trees it prepared are identical to the ones before (`diff -r`), so the
+  staged sources and their images are too. zig-native and ghostty-source keep theirs: they prepare
+  in `.cache` and mark a complete tree with a file. `test/preparation-cache.test.mjs` checks the
+  helper's key (it tracks Samurai's script and the helper, and survives relocation).
+- 11, done (30a3900e8): `copy_bytes` in `programs/commands/path.h` is cp's and install's copy loop,
+  which both sourced the header already: −51 +30.
+- 19, done in `scripts/build.sh` (92bc9be32): the toolchain container was defined twice, the
+  second time only to add the Emscripten cache mount, now one of its mounts: −18 +8. Same runtime
+  and image inputs (`79275cdf…`, `build/seedbatch-runtime-19.log`). `prepare-make.sh`'s container
+  stays its own: it mounts the checkout alone and works in its configure tree.
+- 28, done before: the supervisor's spawn packet takes its size and offsets from
+  `DOLLY_PROCESS_SIZEOF` and `DOLLY_PROCESS_OFFSETOF` (`page/process-supervisor.mjs:17-18,153-158`).
+- 2, closed: `site/dollyfile-view.mjs` reads recipes where no kernel runs (the pin updater, the
+  catalog lint and graph in Node, the custom image page before it boots) and
+  `programs/dollyfile.c` is the engine that builds them inside Dolly; one owner would make Node and
+  the page run the Wasm engine, or the engine trust the page's parse. `test/image-browser.mjs` runs
+  the same cases (`test/fixtures/dollyfile-cases.mjs`) through the engine with the page's rows.
+- 4, closed: a package keeps only what it declares (`docs/dollyfile.md`, `FROM`): posix exports 57
+  of system-tools' 58 objects (all but ninja), core 22 of system-build's 46. The rows are two
+  images' contents, each read in its one file; dropping them takes a Dollyfile operation that
+  re-exports a base's objects, a language change for 79 rows.
+- 14, closed: two behaviours. Slop resolves into its caller's `PATH_MAX` buffer, reports a path too
+  long (126) and takes PATH from its own variables; `programs/commands/run-program.h` allocates and
+  fails a non-regular file with EACCES, as `execvp` does, for env, xargs and timeout. Their common
+  part is the 10-line walk of PATH's entries.
+- 17, closed for now: `programs/compiler.cpp`'s two `wasm-ld` heads (side module and process shared
+  object) and lld tails are the pinned seed compiler's; they go with its next round
+  (`docs/sources.md`), with the module names of `20261112-074501-modules-modular`.
+- 21, closed: each suite's `run` is one line; a shared helper makes each `const run =
+  succeeds(session)`, still a line, plus an import: amy's and default's `check` are the only two
+  lines it would remove.
+- 22, closed: audio's and microphone's providers share the OPEN reply (scope, rate, channels: 4
+  lines) and the stale sequence check (3); audio keeps a stream per slot and microphone one
+  capture, so the checks around them differ. A helper is an import into two boundary files for 7
+  lines.
+- 25, closed: the seven musl include paths of `scripts/build.sh` and `host/threads/seed.sh` in a
+  file both source save 3 lines net (its header and a `source` in each), and the compile flags
+  differ (`-matomics -mbulk-memory` serial, `-pthread` threaded).
+Left: 8 (the commands' option loops to `getopt`, which changes their messages and, in the native
+command tests, glibc's argument order), 12 (fetch-make, fetch-uucode and fetch-zig keep their own
+pins and cache paths, which the shared `.cache` holds for every tree), 13 (audio's and
+microphone's `worker()` are the same 11 lines but their names; no image of this round's catalog
+loads either module, so a shared one could not be run here).
+
 ## State (2026-11-13)
 
 Done before: `npm test` runs `test:artifacts` after the source suite (`fix/batch`); the four
