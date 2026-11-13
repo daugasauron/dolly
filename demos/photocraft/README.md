@@ -19,7 +19,7 @@ On `x11-desktop` (2026-11-13, [test](test/photocraft-x11-browser.mjs)), `amy ins
 and `photocraft` with the Great Wave open its window 21 to 23 s after the command, in Chrome and
 Firefox; Ctrl+I's inverted picture shows within a frame, a drag of the title bar moves it, and
 twm's Delete closes it after PhotoCraft asks to save. Its title shows the em dash as other
-characters: twm reads `WM_NAME`, which x11-window sets as Latin-1.
+characters: twm reads `WM_NAME`, where x11-window stores the UTF-8 title as Latin-1 text.
 
 ## Images
 

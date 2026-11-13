@@ -75,8 +75,8 @@ inverted picture showed within a frame, a drag of the title bar moved it 200 pix
 (`build/photocraft-x11-moved-chromium.png`), and twm's Delete closed it after PhotoCraft asked to
 save, with no panic in its log. Logs `build/photocraft-x11-{chromium,firefox}.log`.
 
-Not done: twm shows PhotoCraft's title with its em dash as other characters (x11-window sets
-`WM_NAME` as Latin-1 text); resizing with the window manager was not tried.
+Not done: twm shows PhotoCraft's title with its em dash as other characters (x11-window stores
+the UTF-8 title in `WM_NAME`, whose type is Latin-1 text); resizing with the window manager was not tried.
 
 ## Do
 
