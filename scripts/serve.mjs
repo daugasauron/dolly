@@ -101,11 +101,25 @@ export function createReleaseServer(releases) {
       }
       const body = await readFile(resolve(releases, digest, file));
       if (sha256(body) !== files.get(file)) throw new Error("published file changed");
-      response.writeHead(200, {
+      const headers = {
         ...isolationHeaders, "cache-control": "no-cache", etag, "content-security-policy": siteContentSecurityPolicy,
         "content-type": /^Dollyfile(?:-|$)/.test(basename(file)) ? "text/plain; charset=utf-8" :
-          mimeTypes.get(extname(file)) ?? "application/octet-stream",
-      });
+          mimeTypes.get(extname(file)) ?? "application/octet-stream", "accept-ranges": "bytes",
+      };
+      // A video plays from ranges, as the hosts of a deployment serve them.
+      const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.range ?? "");
+      if (range && (range[1] || range[2])) {
+        const start = range[1] ? Number(range[1]) : Math.max(0, body.length - Number(range[2]));
+        const end = range[1] && range[2] ? Math.min(Number(range[2]), body.length - 1) : body.length - 1;
+        if (start > end) {
+          response.writeHead(416, { ...isolationHeaders, "content-range": `bytes */${body.length}` }).end();
+          return;
+        }
+        response.writeHead(206, { ...headers, "content-range": `bytes ${start}-${end}/${body.length}` });
+        response.end(request.method === "HEAD" ? undefined : body.subarray(start, end + 1));
+        return;
+      }
+      response.writeHead(200, headers);
       response.end(request.method === "HEAD" ? undefined : body);
     } catch {
       response.writeHead(404, isolationHeaders).end("not found");
