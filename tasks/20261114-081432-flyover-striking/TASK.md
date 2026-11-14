@@ -13,7 +13,67 @@ Branch `feature/flyover-2` (`work/flyover`), on the compiler round `round/0.1.6-
 `feature/videos-0.1.6` merged. Brief: `work/briefs-2026-11-14/flyover.md`. The first version and its
 video are `tasks/20261114-011009-videos-0.1.6`.
 
-## State (2026-11-14, 17:50)
+## Version 3 (2026-11-14, 20:00)
+
+Owner, on version 2: "The second video is better but you can do a lot better. I want the mountains
+to look less blocky, and the trees as well. I want a version 3 that is LESS blocky". And for the
+flyer, after the integrator ruled out Nyan Cat (a character whose author enforces it) and a rubber
+duck was passed over: "A corgi with a cape and sunglasses on a surfing board with some jet engines
+that makes it fly."
+
+Done, on `feature/flyover-3` (from `feature/flyover-2`): `5fcbc314d`, `5877a0fe5`, `3b0cf2df6` and `23da19ede` for the
+game, and the commit that closes this task for the video, poster, section and README.
+
+- **Land.** The columns are gone. Three grids of points (1.5, 6 and 24 units apart, to 2.3 km) are
+  raised to heights that a pass draws into textures when the grids step; a grid blends into the
+  coarser one's heights toward its edge, so they meet without a step, and the coarser lies 0.6 of
+  a cell lower under the finer. The fragment stage takes the slope from the same textures: rock
+  in strata where steep, snow where high and flat, meadow, heath or desert below, mottled, with
+  flowers near by. The ranges' function has crests, spurs on the crests and gullies on the spurs
+  (`terrain_height`, mirrored in `terrain.gd`), to about 140 units over the sea.
+- **Trees.** A trunk and a ball of 12 or 5 rings, which the vertex stage shapes: firs with tiers,
+  broad lumpy crowns, desert spires. 2,500 plots near the flyer draw the finer ball, 16,384 the
+  coarser. No tree stands on steep ground.
+- **Flyer.** An original character, built from Godot's primitives in `build_flyer`: a corgi with
+  mirrored sunglasses and a red cape (a cloth the vertex stage flutters), on a teal surfboard with
+  two jets, their flames, and a wake (a ribbon the vertex stage lays along the last 64 places of
+  the board). The board banks 0.6 rad at full turn. The camera's four views were set to show it:
+  behind and to the side, close alongside, high and wide, and ahead looking back at its face.
+- **Start.** `build/flyover-evidence/sim.mjs` flies main.gd's autopilot in JavaScript (it lit the
+  same 4 beacons in 30 s as the game) over every start of a grid and four headings, and scores a
+  flight's 95 s for mountains near, forest, some sea and no desert. The start is its second best,
+  (2250, 4750) heading east.
+- **Kept**: the sky, clouds and their shade, the sea, the shafts, veins, groves and rings at night
+  (veins now thin and unseen by day), the beacons.
+
+Measured on the RTX 5070, Chrome 156 and the installed Firefox, by the game's test
+(1600 by 900 page, 1920 by 1080 frames, Chrome copying its frames):
+
+| | Chrome | Firefox |
+| --- | --- | --- |
+| Version 2 | 59.9, 5.1 ms GPU | 59.0, 5.8 ms GPU |
+| Version 3, quiet machine (`3b0cf2df6`) | 60.0, 4.6 ms | 59.0, 4.7 ms |
+| Version 3 at `23da19ede`, load 3.5 | 58.8, 4.6 ms | 59.0, 4.7 ms |
+| Version 3 at `23da19ede`, load 9 | 60.0, 4.5 ms | 56.1, 4.6 ms (renderer 1.1 ms) |
+| Version 3 while recorded, load 3.5 | 59.1, 4.6 ms | not recorded |
+| Version 3 while recorded, load 2 (take 2) | 60.0, 4.5 ms | |
+
+GPU a frame by step, Chrome: the land with two cascades over 170 units 3.2 ms; four cascades over
+420 units 4.3; 4x MSAA in place of FXAA 4.6. The land has 0.3 million triangles where the columns
+had 3.4. The loads are the owner's desktop (a video player on the takes, among others) and other
+agents' builds and GPU runs, which share the GPU lock: the game was never the only thing running.
+Not measured: a display the GPU drives, another GPU, Firefox's picture (no WebGPU canvas on Xvfb).
+
+Found on the way: version 2 could print Godot's "2 ObjectDB instances were leaked at exit" after a
+flight by itself. With `--verbose` and the streams' ids printed it was a bell: a beacon lit in the
+0.3 s between the report and the exit. No beacon rings once the game is leaving; three runs of the
+flight that showed it are clean.
+
+The video: `sites/slopshare.dev/agents/videos/voxel-flyover.mp4` (2:07, 1920 by 1080, 60 frames a
+second, 23.92 MiB), its poster and section replace version 2's; it plays from the page in headless
+Chrome 156 and Firefox 155. `work/videos-2026-11-14/voxel-flyover-3/README.md`.
+
+## Version 2: state (2026-11-14, 17:50)
 
 Done, on `feature/flyover-2`: the look and the frame rate (`0524efbe6`, `db8d7a746`, `a3d2abee8`),
 and the video, poster and section on the demos page (the commit that closes this task).

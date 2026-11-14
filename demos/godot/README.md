@@ -33,8 +33,8 @@ Dolly, as it exported Dodge the Creeps for `amy install dodge-the-creeps`
 - `godot-lantern-drift`: Lantern Drift on the page at once; Q leaves a shell where `godot-editor -e --path ~/lantern-drift` opens a copy of its project in Godot's editor, the islands in its 3D view. The eye beside HUD in the Scene dock hides the game's display, F5 plays the game so, and Ctrl+S saves the scene.
 - `airtime-godot`: Airtime: Foundry in Godot, the strafe trials of bhop on Airtime's own movement and course, drawn by Forward+ on `gpu@0` as a foundry at night over molten metal; `airtime-godot` plays it.
 - `godot-airtime`: Airtime in Godot on the page, which starts at once; Q leaves a shell where `godot-editor -e --path ~/airtime` opens a copy of its project in Godot's editor, the course in its 3D view. The eye beside Hud in the Scene dock hides the game's display, F5 plays the game so, and Ctrl+S saves the scene.
-- `voxel-flyover`: Voxel Flyover, an airship's flight over an endless world of hexagonal columns through a day and a night, which the GPU builds in its shaders, drawn by Forward+ on `gpu@0`; `voxel-flyover` plays it.
-- `godot-voxel-flyover`: Voxel Flyover on the page at once: the airship flies itself until Enter takes the helm, and Q leaves a shell.
+- `voxel-flyover`: Voxel Flyover, a corgi's flight on a jet surfboard over an endless world of mountains, forests and sea through a day and a night, which the GPU builds in its shaders, drawn by Forward+ on `gpu@0`; `voxel-flyover` plays it.
+- `godot-voxel-flyover`: Voxel Flyover on the page at once: the corgi flies itself until Enter takes the board, and Q leaves a shell.
 
 ## Lantern Drift
 
@@ -53,54 +53,63 @@ prints its frame rate, rings and score.
 
 [`voxel-flyover/`](voxel-flyover) is a Godot project made for Dolly, of scripts and shaders alone.
 Its world is a function of the place ([`terrain.gdshaderinc`](voxel-flyover/terrain.gdshaderinc)):
-seas and continents, hills, ridged mountain ranges and a climate, from an integer hash. Nothing of
-the world is stored or built on the CPU. It stands as hexagonal columns of basalt: three grids of
-instanced columns follow the airship, 65,536 cells a unit wide around it, as many four units wide
-around those and 16,384 sixteen wide to the horizon. When the grids step after the flight, one pass
-draws what stands in each cell into a texture of a texel a cell: the column's top, the climate and
-the lowest column around it ([`ground.gdshader`](voxel-flyover/ground.gdshader)). The columns'
-vertex stage reads its cell there, raises the column and gives it its colour and light
-([`columns.gdshader`](voxel-flyover/columns.gdshader)): jade lowland, heath, coral desert, rock and
-snow by the climate, veins of crystal that glow at night with a light that runs along them, and
-the rings that run out over land and sea from each beacon the airship has lit. A tree of faceted
-cones stands in each of 16,384 plots where the climate has one
-([`trees.gdshader`](voxel-flyover/trees.gdshader)): firs in the cold, parasol trees in the wet, in
-places in blossom or autumn colours, shards of crystal in the desert, and groves that glow at
-night. The sea mirrors the sky, with the sun's glitter on its ripples and foam that glows at night
-along the shore ([`water.gdshader`](voxel-flyover/water.gdshader)). The sky follows the hour, with
-stars, the moon and an aurora, and carries a layer of cloud lit from the sun's side, whose shade
-falls on the ground ([`sky.gdshader`](voxel-flyover/sky.gdshader)). A day lasts two minutes: one
-light is the sun and then the moon, with two shadow cascades, SSAO, glow, haze that thickens
-toward the sea, and volumetric fog, in which the low sun draws shafts and the airship's
+seas and continents, hills, a climate, and ranges of mountains whose spurs stand on their crests
+and whose gullies on their spurs, from an integer hash. Nothing of the world is stored or built on
+the CPU. Three grids of land follow the flight, of 257 by 257 points 1.5 units apart, as many 6
+apart around them and 193 by 193 24 apart to the horizon, 2.3 km off. When the grids step after
+the flight, one pass draws each grid's ground into a texture of a texel a point: the height and
+the climate ([`ground.gdshader`](voxel-flyover/ground.gdshader)). The land's vertex stage raises
+its points to it, blending into the coarser grid's toward its edge, and its fragment stage takes
+the slope from the same texture and dresses the ground by it
+([`land.gdshader`](voxel-flyover/land.gdshader),
+[`ground.gdshaderinc`](voxel-flyover/ground.gdshaderinc)): meadow, heath or desert by the climate,
+mottled and dotted with flowers, bare rock in strata where it is steep, snow where it is high and
+lies, sand by the sea, veins of crystal that glow at night with a light that runs along them, and
+the rings that run out over land and sea from each beacon the flyer has lit. A tree stands in
+each of 16,384 plots where the climate has one and the ground is not steep
+([`trees.gdshader`](voxel-flyover/trees.gdshader)): a trunk and a ball, which the vertex stage
+shapes into firs with tiers of boughs in the cold, broad lumpy crowns in the wet, in places in
+blossom or autumn colours, slender spires in the desert, and groves that glow at night; the
+fragment stage roughens a crown's light as leaves do. The sea mirrors the sky, with the sun's
+glitter on its ripples and foam that glows at night along the shore
+([`water.gdshader`](voxel-flyover/water.gdshader)). The sky follows the hour, with stars, the
+moon and an aurora, and carries a layer of cloud lit from the sun's side, whose shade falls on the
+ground ([`sky.gdshader`](voxel-flyover/sky.gdshader)). A day lasts two minutes: one light is the
+sun and then the moon, with four shadow cascades over 420 units, 4x MSAA, SSAO, glow, haze that
+thickens toward the sea, and volumetric fog, in which the low sun draws shafts and the board's
 searchlight shows at night.
-[`terrain.gd`](voxel-flyover/terrain.gd) computes the same function for the flight, with the same
-integer hash, so the airship clears the ground the GPU draws and finds the beacons that float
-over it. The airship flies itself until Enter takes the helm, and until then the camera glides
-between four views. `-- --autopilot SECONDS` prints its frame rate, the time a frame took, the
-beacons it lit and what its frame shows.
 
-Its 1920 by 1080 frames take the GPU 5.1 to 6.6 ms by Godot's own measure and its renderer's thread
-0.5 to 0.8 ms, and it draws 59.9 frames a second in Chrome 156 and 59.0 in Firefox, the display's
-rate (the test, NVIDIA RTX 5070, 2026-11-14), and 59.9 in Chrome while its screen was recorded. In
-a V8 sampling trace of a flight the game's thread waited in nine samples of ten, for the page's
-next frame or a lock, so the processor does not set the rate. What the frame time was spent on,
-measured in Chrome over the forest it starts in:
+The flyer is a character of our own, drawn for this game from Godot's primitive meshes: a corgi in
+sunglasses and a red cape, standing on a teal surfboard that two small jets carry. The cape is a
+cloth its vertex stage flutters ([`cape.gdshader`](voxel-flyover/cape.gdshader)), and the jets leave
+a wake, a ribbon the vertex stage lays along the places the board has been
+([`wake.gdshader`](voxel-flyover/wake.gdshader)). The board banks into its turns.
+[`terrain.gd`](voxel-flyover/terrain.gd) computes the world's function for the flight, with the
+same integer hash, so the board clears the ground the GPU draws and finds the beacons that float
+over it. The corgi flies itself until Enter takes the board, and until then the camera glides
+between four views of it. `-- --autopilot SECONDS` prints its frame rate, the time a frame took,
+the beacons it lit and what its frame shows.
 
-- Columns whose vertex stage computed the terrain's function took 15.6 ms a frame: every vertex of
-  every column ran it again in the depth pass, the colour pass and each shadow cascade. Reading it
-  from the texture of cells instead: 9.1 ms.
-- Of those, the shadow cascades took 4.9 ms and the finest grid's columns 5.4 ms in all, and at half
-  the resolution the frame still took 8.4: its columns reached from the sea's floor to their tops, and their
-  sides filled the shadow maps over and over. Sides that end at the lowest column around, and two
-  cascades over 170 units where four covered 320: 6.6 ms. SSAO took 0.5 ms, the volumetric fog
-  0.1, the trees 0.9, the two coarser grids 0.9, the sky's clouds 0.2.
+The world was blocks, then hexagonal columns, and is now smooth land. Its 1920 by 1080 frames take
+the GPU 4.5 to 4.8 ms by Godot's own measure and its renderer's thread 0.6 to 0.7 ms, and it draws
+60.0 frames a second in Chrome 156 and 59.0 in Firefox, the display's rate (the test, NVIDIA RTX
+5070, 2026-11-14). Beside other work on the machine the test gave less, 58.8 in Chrome at a load
+of 3.5 and 56.1 in Firefox at 9, and Chrome drew 59.1 while its screen was recorded. What was
+measured on the way, in Chrome:
+
+- Hexagonal columns whose vertex stage computed the terrain's function took 15.6 ms a frame: every
+  vertex of every column ran it again in the depth pass, the colour pass and each shadow cascade.
+  Reading it from a texture drawn once a step: 9.1 ms; with shorter column sides and two shadow
+  cascades, 6.6. In a V8 sampling trace of that flight the game's thread waited in nine samples of
+  ten, for the page's next frame or a lock, so the processor does not set the rate.
+- The smooth land has 0.3 million triangles where the columns had 3.4: 3.2 ms a frame with two
+  cascades over 170 units, 4.3 with four over 420, and 4.6 with 4x MSAA in place of FXAA.
 - On an Xvfb display Chrome's Vulkan swapchain showed a full-screen page at 27 to 35 frames a
   second whatever it drew, an empty WebGPU canvas too, and 60 at 1280 by 720. With
   `--disable-vulkan-surface` Chrome copies each frame to the X server itself: 60 frames a second
   at 1920 by 1080, of which a capture of the screen at 60 saw 237 in 240. The test and the
   recording run so. The first version of the game drew 42 and 34 frames a second on the swapchain,
-  and 60 with the flag; this one draws 30 on the swapchain. A display the GPU drives was not
-  measured.
+  and 60 with the flag. A display the GPU drives was not measured.
 
 Both games build their worlds in scripts as they start. The builders ([`world.gd`](lantern-drift/world.gd)
 with its islands and rings, Airtime's [`foundry.gd`](airtime/foundry.gd) and [`pads.gd`](airtime/pads.gd))
