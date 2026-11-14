@@ -18,7 +18,7 @@
 // also on the packages it installs, and dolly-build also on the playwright-core that
 // starts its browser and on Pi's packages, pi-minimal's, which its init's recipe
 // installs; an image does not depend on its host modules, which docs/embedding.md
-// names to install.
+// names to install and dolly-build's init and add install.
 // A consumer serves the installed packages as they lie, side by side under
 // node_modules/@daugasauron/, with cross-origin isolation (README.md, "Embed").
 import { execFileSync } from "node:child_process";
@@ -147,7 +147,7 @@ async function writeImageDirectory(image) {
     await writeFile(join(directory, "index.mjs"), indexSource(image, declared.map(name =>
       runtimeModules.includes(name) ? `../dolly/host/${name}/module.json` : `../${hostPackage(name)}/module.json`)));
   }
-  const install = [`${scope}/dolly`, ...bootable ? [] : [`${scope}/dolly-build`], `${scope}/${name}`,
+  const install = [`${scope}/dolly`, `${scope}/${name}`,
     ...declared.filter(name => deviceModules.includes(name)).map(name => `${scope}/${hostPackage(name)}`)].join(" ");
   const description = described.get(image);
   return writePackage(directory, [
@@ -161,9 +161,12 @@ async function writeImageDirectory(image) {
     description: `Dolly's ${image} ${record.role}: ${plainText(description)}`,
   }, bootable
     ? `# ${scope}/${name}\n\nDolly's \`${image}\` image, for ${scope}/dolly's \`boot()\`. ${description}\nIt depends on the runtime alone: install it with the runtime and the host modules it\ndeclares, all at version ${version}:\n\n\`\`\`sh\nnpm install ${install}\n\`\`\`\n\n\`\`\`js\nimport { boot } from "./node_modules/${scope}/dolly/page/browser.mjs";\nimport { images, image, modules } from "./node_modules/${scope}/${name}/index.mjs";\nawait boot(document.querySelector("#dolly"), { images, image, modules });\n\`\`\`\n\n` +
-      `\`dolly-build\` (${scope}/dolly's README, "Your own image") builds a recipe of your own on it, with this row:\n\n` +
+      `\`dolly-build\` (${scope}/dolly-build's README, "A recipe on an image") builds a recipe of your own on it, with this row:\n\n` +
       `\`\`\`text\nFROM ${siteReference(record.dollyfile)} ${record.sha256}\n\`\`\`\n\n${licensed}`
-    : `# ${scope}/${name}\n\nDolly's \`${image}\` package, for an image of your own. ${description}\n\`dolly-build init NAME ${image}\` writes a recipe that \`INSTALL\`s it with Pi's packages\n(${scope}/dolly's README, "Your own image"); npm installs the packages it installs with it.\nInstall it with the runtime, the command and the host modules it declares,\nall at version ${version}:\n\n\`\`\`sh\nnpm install ${install}\n\`\`\`\n\n${licensed}`);
+    : `# ${scope}/${name}\n\nDolly's \`${image}\` package, for an image of your own. ${description}\n` +
+      `\`npx dolly-build init NAME ${image}\` writes a project whose recipe \`INSTALL\`s it with Pi's packages, and\n` +
+      `\`npx dolly-build add NAME ${image}\` adds it to a project's recipe (${scope}/dolly-build's README). Either\n` +
+      `installs this package, the packages it installs and the host modules it declares, at\n\`dolly-build\`'s version.\n\n${licensed}`);
 }
 for (const image of listed) tarballs.push(await writeImageDirectory(image));
 // The build command, the scripts it runs and the files init writes, at their checkout
@@ -178,10 +181,17 @@ const { devDependencies } = JSON.parse(await readFile(resolve(projectDir, "packa
 const piPackages = await installedBy("pi-minimal");
 const unlistedPi = piPackages.filter(needed => !listed.includes(needed));
 if (unlistedPi.length) throw new Error(`config/npm-images.txt: dolly-build installs ${unlistedPi.join(", ")}, which it does not list`);
+// The published packages and the device host modules each declares, which init and add
+// install with a package the project lacks.
+const catalog = JSON.parse(await imageRegistryJson(projectDir, await selectImageDefinitions(definitions, listed.join(",")))).images;
+await mkdir(join(out, "dolly-build"), { recursive: true });
+await writeFile(join(out, "dolly-build/packages.json"), `${JSON.stringify(Object.fromEntries(catalog
+  .filter(record => record.role === "package" && listed.includes(record.image))
+  .map(record => [record.image, record.hostRequirements.map(value => value.split("@")[0]).filter(name => deviceModules.includes(name))])), null, 1)}\n`);
 tarballs.push(await writePackage(join(out, "dolly-build"), [...buildFiles, "LICENSE"].map(file => [file, file]), {
   name: `${scope}/dolly-build`, license: "MIT", bin: { "dolly-build": "scripts/dolly-build.mjs" },
   dependencies: { [`${scope}/dolly`]: version, "playwright-core": devDependencies["playwright-core"],
     ...Object.fromEntries(piPackages.map(needed => [`${scope}/${packageName(needed, "package")}`, version])) },
   description: "Build a Dolly image of your own from installed packages, in a browser, into a static site.",
-}, `# ${scope}/dolly-build\n\nA project with a Dolly image of your own: a Dollyfile that INSTALLs Pi's packages, which\nthis command brings, and the packages you name (\`${scope}/dolly-package-NAME\`), with your\nfiles, built in a browser into a site that any static host serves as it lies.\n${scope}/dolly's README (\`docs/embedding.md\`) says how.\n\n\`\`\`sh\nnpx dolly-build init my-pi git\nnpx dolly-build Dollyfile-my-pi my-pi\npython3 -m http.server -d my-pi -b 127.0.0.1 8080\n\`\`\`\n`));
+}, await readFile(resolve(projectDir, "docs/npm.md"), "utf8")));
 console.log(tarballs.map(name => join(out, name)).join("\n"));

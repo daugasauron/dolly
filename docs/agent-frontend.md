@@ -4,17 +4,18 @@ A page can give its users an agent instead of a frontend: Pi, instructions for
 how to work in your company, skills that describe an existing system's API, and
 an HTTP policy that admits that API and the model's provider and nothing else.
 The agent does through the API what the frontend did; the backend stays as it
-is. This guide builds such a page from the npm packages ([Embedding](embedding.md)).
+is. This guide builds such a page from the npm packages ([Dolly from npm](npm.md)).
 
 ## Start
 
-Make the README's "Pi with npm" first: `npx dolly-build init my-pi git` writes
+Make the project of [Dolly from npm](npm.md) first: `npx dolly-build init my-pi git` writes
 a project that runs `pi-minimal` (Pi, a shell, POSIX tools, curl, ripgrep and fd)
 with Git under a policy that admits OpenRouter alone, and `dolly-build` builds
 its image. This guide changes its files:
 
 ```
-Dollyfile-my-pi               the sandbox: Pi's instructions, skills, extensions, tools, how Pi starts
+Dollyfile-my-pi               the sandbox: Pi's instructions, extensions, tools, how Pi starts
+public/skills/                Pi's skills, written into ~/.pi/agent/skills/ at each boot
 public/main.mjs               the page's script: the policy, relays, and the files it writes at boot
 public/workspace/             the project Pi works on, written into /workspace at each boot
 my-pi/                        the site dolly-build writes, for a static host
@@ -25,16 +26,16 @@ my-pi/                        the site dolly-build writes, for a static host
 Pi reads its instructions, skills, extensions and model endpoints from files
 in `~/.pi/agent/` (Pi's `docs/configuration.md`, in the image under
 `/usr/lib/node_modules/@earendil-works/pi-coding-agent/docs/`). `init` wrote
-them as `FILE` rows of the recipe, each body indented four spaces, so they are
-part of the image the page serves; a change is a rebuild (10 s).
+the skills as directories of `public/skills/`, which the page writes at boot,
+and the others as `FILE` rows of the recipe, each body indented four spaces,
+which are part of the image; a change to those is a rebuild (10 s).
 
 - `FILE /home/dolly/.pi/agent/AGENTS.md`: instructions Pi takes into every
   session: who the users are, what they may ask, what never to do.
   `APPEND_SYSTEM.md` adds to the system prompt instead; `SYSTEM.md` would
   replace the image's, which tells Pi what Dolly is and what fails there.
-- `FILE /home/dolly/.pi/agent/skills/NAME/SKILL.md`: a skill, which Pi lists by
-  its description and reads when a task needs it. Files a skill refers to go
-  beside it, each its own row:
+- `public/skills/NAME/SKILL.md`: a skill, which Pi lists by its description and
+  reads when a task needs it. Files a skill refers to go beside it:
 
   ```markdown
   ---
@@ -55,9 +56,9 @@ part of the image the page serves; a change is a rebuild (10 s).
   name (below).
 - `FILE /etc/dolly/init.slop`: how Pi starts (below).
 
-A file the page writes at boot instead, as it writes `workspace/`, is a build that
+A file the page writes at boot, as it writes `workspace/` and `skills/`, is a build that
 keeps the image (seconds) rather than a rebuild: `boot()`'s `files` takes `{ "/home/dolly/.pi/agent/AGENTS.md": text }`
-beside the workspace's ([Embedding](embedding.md)). Files are not secrets: Pi's
+beside them ([Embedding](embedding.md)). Files are not secrets: Pi's
 tools can read them, and so can its model.
 
 ## Your backend
@@ -158,7 +159,7 @@ agent a short-lived token that allows what the frontend allowed.
 
 ## What is measured
 
-- `test/npm-browser.mjs`, in Chromium and Firefox: the README's "Pi with npm"
+- `test/npm-browser.mjs`, in Chromium and Firefox: the project of [Dolly from npm](npm.md)
   as written, packed from the checkout and installed from a registry: the project
   `init` writes, built by `dolly-build` in the same browser, where Pi lists the
   extension and the skill, runs the extension's command, has `AGENTS.md`, the
@@ -179,8 +180,8 @@ agent a short-lived token that allows what the frontend allowed.
 ## Not there yet
 
 - npm ships the images and packages of the repository's `config/npm-images.txt`
-  (`default`, `pi-minimal`, `python-data`; `git`, `cc`, `python` and Python's data
-  libraries). Another program needs an image built in a Dolly checkout
-  (`npm run image`), whose `dist/` the page then serves as `images`.
+  ([Dolly from npm](npm.md) lists them). Another program is built in the recipe,
+  or needs an image built in a Dolly checkout (`npm run image`), whose `dist/`
+  the page then serves as `images`.
 - `pi-minimal` is 27.5 MB compressed on first load.
 - The interface is Pi's terminal UI.

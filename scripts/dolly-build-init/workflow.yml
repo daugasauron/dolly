@@ -1,0 +1,42 @@
+# Builds the site of Dollyfile-__NAME__ in Playwright's headless Chromium, the version
+# package-lock.json pins. npm ci and that browser are its downloads: the runtime, the
+# packages and the build are in node_modules. The site is the artifact github-pages.
+name: __NAME__
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright-core install --with-deps chromium-headless-shell
+      - run: npx dolly-build Dollyfile-__NAME__ __NAME__ --browser chromium
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: __NAME__
+
+  # Publishes the site on GitHub Pages from main, once the repository's Pages
+  # source is "GitHub Actions" (Settings, Pages): remove the "#" of these lines.
+  # deploy:
+  #   if: github.ref == 'refs/heads/main'
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     pages: write
+  #     id-token: write
+  #   environment:
+  #     name: github-pages
+  #     url: ${{ steps.deployment.outputs.page_url }}
+  #   steps:
+  #     - id: deployment
+  #       uses: actions/deploy-pages@v4

@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 // An npm user's image: builds a Dollyfile that INSTALLs installed packages, or starts
 // FROM an installed image, in a browser with that browser's Dolly runtime, into a
-// site a static host serves as it lies (docs/embedding.md, "Your own image").
-//   npx dolly-build init NAME [PACKAGE…]   writes Dollyfile-NAME, Pi's project, and public/ (the page)
+// site a static host serves as it lies (docs/npm.md).
+//   npx dolly-build init NAME [PACKAGE…]   writes Dollyfile-NAME, Pi's project, public/ (the page) and a CI workflow
+//   npx dolly-build add NAME [PACKAGE…]    adds INSTALL rows to Dollyfile-NAME, and writes every row's installed pin
 //   npx dolly-build Dollyfile-NAME OUT [--browser chrome|chromium|firefox]
-// OUT is the files of public/, workspace.json listing public/workspace/, the runtime
+// init and add install with the project's package manager what they name and lack.
+// OUT is the files of public/, workspace.json and skills.json listing public/workspace/
+// and public/skills/, the runtime
 // (dolly/), the host modules the image declares (dolly-host-NAME/),
 // coi-serviceworker.js for hosts without isolation headers, and image/, the image's
 // directory as an image package lays it out (catalog, metadata, packs, recipes,
@@ -47,27 +50,75 @@ function fail(message) {
   console.error(`dolly-build: ${message}`);
   process.exit(1);
 }
-const scope = resolve("node_modules/@daugasauron");
-if (!existsSync(join(scope, "dolly"))) fail("run it where node_modules/@daugasauron/dolly is installed");
 const load = path => import(pathToFileURL(path).href);
-const { positionals, values: { browser: browserName } } = parseArgs({ allowPositionals: true,
-  options: { browser: { type: "string", default: "chrome" } } });
+const usage = `usage: dolly-build init NAME [PACKAGE...]   a project: Pi with the packages named
+       dolly-build add NAME [PACKAGE...]    Dollyfile-NAME with these packages too, every row at its installed pin
+       dolly-build Dollyfile-NAME OUT [--browser chrome|chromium|firefox]   the site, built in a browser`;
+const { positionals, values: { browser: browserName } } = (() => {
+  try { return parseArgs({ allowPositionals: true, options: { browser: { type: "string" } } }); } catch { fail(usage); }
+})();
 // Firefox's system add-on updater resolves its host even behind a proxy.
 const browsers = {
   chrome: options => chromium.launch({ channel: "chrome", headless: true, ...options }),
   chromium: options => chromium.launch({ headless: true, ...options }),
   firefox: options => firefox.launch({ headless: true, firefoxUserPrefs: { "extensions.systemAddon.update.enabled": false }, ...options }),
 };
-const usage = "usage: dolly-build init NAME [PACKAGE...] | Dollyfile-NAME OUT [--browser chrome|chromium|firefox]";
-const init = positionals[0] === "init";
-if (!browsers[browserName] || (init ? positionals.length < 2 : positionals.length !== 2)) fail(usage);
+// Without --browser: the first of them this machine has.
+async function launch(options) {
+  for (const name of browserName ? [browserName] : Object.keys(browsers)) {
+    try { return await browsers[name](options); } catch (error) {
+      if (!/is not found at|Executable doesn't exist/.test(error.message)) throw error;
+    }
+  }
+  fail(`${browserName ?? "a browser"} is not installed: install Chrome, or Playwright's Chromium with ` +
+    "npx playwright-core install chromium-headless-shell");
+}
+const project = ["init", "add"].includes(positionals[0]);
+if ((browserName && !browsers[browserName]) || (project ? positionals.length < 2 : positionals.length !== 2)) fail(usage);
+const scope = resolve("node_modules/@daugasauron"), beside = resolve(import.meta.dirname, "../..");
+const hostPackage = name => `@daugasauron/dolly-host-${name === "download" ? "save" : name}`;
+// Pi's packages, which init's recipe installs: those dolly-build depends on, pi-minimal's
+// (scripts/package-npm.mjs), in its order.
+const own = JSON.parse(await readFile(join(import.meta.dirname, "../package.json"), "utf8"));
+const piPackages = Object.keys(own.dependencies ?? {})
+  .filter(dependency => dependency.startsWith("@daugasauron/dolly-package-")).map(dependency => dependency.replace("@daugasauron/dolly-package-", ""));
+
+// init and add install what they name and the project lacks, at dolly-build's version, with
+// the package manager that runs them: the runtime, each PACKAGE, and the device host modules
+// they declare (init: Pi's too, and the keyboard's), which packages.json lists for every
+// published package (scripts/package-npm.mjs). add also installs at that version each
+// Dolly package the project depends on and has at another, as after dolly-build's update.
+if (project) {
+  const published = JSON.parse(await readFile(join(import.meta.dirname, "../packages.json"), "utf8"));
+  const named = positionals.slice(2), unknown = named.filter(name => !published[name]);
+  if (!validName(positionals[1])) fail(`${positionals[1]}: a name is lowercase letters, digits and dashes, at most 32 bytes`);
+  if (unknown.length) fail(`${unknown.join(", ")}: no such package. The packages: ${Object.keys(published).sort().join(", ")}`);
+  const hosts = [...positionals[0] === "init" ? ["input", ...piPackages.flatMap(name => published[name])] : [], ...named.flatMap(name => published[name])];
+  // The project's own Dolly packages that are installed at another version.
+  const manifest = async directory => JSON.parse(await readFile(join(directory, "package.json"), "utf8").catch(() => "{}"));
+  const stale = [];
+  for (const name of positionals[0] === "add" ? Object.keys((await manifest(".")).dependencies ?? {}).filter(name => name.startsWith("@daugasauron/dolly")) : []) {
+    if ((await manifest(join(scope, basename(name)))).version !== own.version) stale.push(name);
+  }
+  const missing = [...new Set([...stale,
+    ...["@daugasauron/dolly", ...hosts.map(hostPackage)].filter(name => !existsSync(join(scope, basename(name)))),
+    ...named.map(name => `@daugasauron/dolly-package-${name}`).filter(name => ![scope, beside].some(parent => existsSync(join(parent, basename(name)))))])];
+  if (missing.length) {
+    const manager = /^(pnpm|yarn)\//.exec(process.env.npm_config_user_agent ?? "")?.[1] ?? "npm";
+    const command = [manager, manager === "npm" ? "install" : "add", manager === "yarn" ? "--exact" : "--save-exact",
+      ...missing.map(name => `${name}@${own.version}`)];
+    console.log(`dolly-build: ${command.join(" ")}`);
+    if (spawnSync(command[0], command.slice(1), { stdio: "inherit" }).status !== 0) fail("that install failed: run it, then this command again");
+  }
+}
+if (!existsSync(join(scope, "dolly"))) fail("run it where node_modules/@daugasauron/dolly is installed");
 
 // The installed image and package directories (dolly-image-NAME, dolly-package-NAME):
 // each holds its own image's packs, and the catalog and metadata of that image's
 // closure. npm installs the packages a package installs beside it, pnpm beside its
 // real path, and those dolly-build depends on beside dolly-build's.
 const directories = [];
-for (const pending = [scope, resolve(import.meta.dirname, "../..")]; pending.length;) {
+for (const pending = [scope, beside]; pending.length;) {
   const parent = pending.pop();
   for (const name of (await readdir(parent)).filter(name => /^dolly-(image|package)-/.test(name))) {
     const directory = await realpath(join(parent, name));
@@ -93,45 +144,67 @@ for (const name of await readdir(join(scope, "dolly/host"))) {
 for (const name of (await readdir(scope)).filter(name => name.startsWith("dolly-host-"))) {
   modules.set(JSON.parse(await readFile(join(scope, name, "module.json"), "utf8")).name, `${name}/module.json`);
 }
-const hostPackage = name => `@daugasauron/dolly-host-${name === "download" ? "save" : name}`;
 
-
-// Pi's packages, which init's recipe installs: those dolly-build depends on, pi-minimal's
-// (scripts/package-npm.mjs), in its order.
-const piPackages = Object.keys(JSON.parse(await readFile(join(import.meta.dirname, "../package.json"), "utf8")).dependencies ?? {})
-  .filter(dependency => dependency.startsWith("@daugasauron/dolly-package-")).map(dependency => dependency.replace("@daugasauron/dolly-package-", ""));
 // A project: the recipe (INSTALL of Pi's packages and of each PACKAGE at the installed
-// pins, then the template's rows and ENTRY) and public/, the page's files: the page,
-// its theme and the workspace.
+// pins, then the template's rows and ENTRY), public/, the page's files (the page, its
+// theme, the workspace and a skill), and the workflow that builds the site in CI.
+const installRow = definition => `INSTALL ${siteReference(definition.dollyfile)} ${definition.sha256}`;
 async function scaffold(name, packages) {
-  if (!validName(name)) fail(`${name}: a name is lowercase letters, digits and dashes, at most 32 bytes`);
   const installs = [...new Set([...piPackages, ...packages])].map(image => definitionOf(installed(image, "package")));
   // input@0 is the terminal's keyboard; snapshot@0 the page's Save: a save is kept in the
   // browser, and the page opens it again.
   const hosts = [...new Set(installs.flatMap(definition => definition.hostRequirements).concat("input@0", "snapshot@0"))].sort();
-  const row = definition => `INSTALL ${siteReference(definition.dollyfile)} ${definition.sha256}\n`;
   const template = async file => (await readFile(join(import.meta.dirname, "dolly-build-init", file), "utf8")).replaceAll("__NAME__", name);
+  const pages = (await readdir(join(import.meta.dirname, "dolly-build-init/public"), { recursive: true, withFileTypes: true }))
+    .filter(entry => entry.isFile()).map(entry => relative(join(import.meta.dirname, "dolly-build-init"), join(entry.parentPath, entry.name)).split(sep).join("/")).sort();
   const files = {
     [`Dollyfile-${name}`]: `DOLLY 7\nAPPLICATION ${name}\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}\n` +
-      installs.map(row).join("") + "\n" + await template("Dollyfile"),
-    "public/index.html": await template("public/index.html"),
-    "public/main.mjs": await template("public/main.mjs"),
-    "public/page.css": await template("public/page.css"),
-    "public/icon.svg": await template("public/icon.svg"),
-    "public/theme.json": await template("public/theme.json"),
-    "public/workspace/README.md": await template("public/workspace/README.md"),
+      installs.map(definition => `${installRow(definition)}\n`).join("") + "\n" + await template("Dollyfile"),
+    ...Object.fromEntries(await Promise.all(pages.map(async file => [file, await template(file)]))),
+    [`.github/workflows/${name}.yml`]: await template("workflow.yml"),
   };
   const present = Object.keys(files).filter(file => existsSync(file));
   if (present.length) fail(`${present.join(", ")}: already here`);
-  await mkdir("public/workspace", { recursive: true });
-  for (const [file, text] of Object.entries(files)) await writeFile(file, text);
+  for (const [file, text] of Object.entries(files)) {
+    await mkdir(dirname(file), { recursive: true });
+    await writeFile(file, text);
+  }
   // The site and node_modules are built, not kept: a .gitignore, unless the project has one.
   if (!existsSync(".gitignore")) await writeFile(".gitignore", `node_modules/\n${name}/\n`);
-  const missing = hosts.map(host => host.split("@")[0]).filter(name => !modules.has(name));
   console.log(`dolly-build: wrote ${Object.keys(files).join(", ")}\n` +
-    (missing.length ? `  npm install ${missing.map(hostPackage).join(" ")}   the recipe declares ${missing.join(", ")}\n` : "") +
     `  npx dolly-build Dollyfile-${name} ${name}   builds the image and the site, ${name}/ (again after a change)\n` +
     `  python3 -m http.server -d ${name} -b 127.0.0.1 8080   serves it, as any static host does`);
+}
+
+// Dollyfile-NAME with every FROM and INSTALL row at the pin of the installed package that
+// holds its recipe, as after an update of the packages, and a row for each PACKAGE it
+// lacks, with the host modules those declare.
+async function add(name, packages) {
+  const file = `Dollyfile-${name}`, lines = (await readFile(file, "utf8").catch(() =>
+    fail(`${file}: no such recipe here (dolly-build init ${name} writes one)`))).split("\n");
+  const held = new Set(), rows = [];
+  let repinned = 0;
+  for (const [index, line] of lines.entries()) {
+    const [, operation, location, pin] = /^(FROM|INSTALL)\s+(\S+)\s+([0-9a-f]{64})\s*$/.exec(line) ?? [];
+    if (!operation) continue;
+    rows.push(index);
+    const directory = directories.find(candidate => candidate.image === imageFileName(recipeFileName(location)));
+    if (!directory) continue;
+    held.add(directory.image);
+    const definition = definitionOf(directory);
+    if (definition.sha256 !== pin) repinned++;
+    lines[index] = `${operation} ${siteReference(definition.dollyfile)} ${definition.sha256}`;
+  }
+  if (!rows.length) fail(`${file}: no FROM or INSTALL row to add after`);
+  const added = [...new Set(packages)].filter(image => !held.has(image)).map(image => definitionOf(installed(image, "package")));
+  lines.splice(rows.at(-1) + 1, 0, ...added.map(installRow));
+  const declared = new Set(lines.map(line => /^REQUIRES HOST (\S+)/.exec(line)?.[1]));
+  const hosts = [...new Set(added.flatMap(definition => definition.hostRequirements))].filter(host => !declared.has(host));
+  lines.splice(lines.findLastIndex(line => line.startsWith("REQUIRES HOST ")) + 1, 0, ...hosts.map(host => `REQUIRES HOST ${host}`));
+  await writeFile(file, lines.join("\n"));
+  console.log(`dolly-build: ${file}: ${added.length ? `added ${added.map(definition => definition.image).join(", ")}` : "no package added"}` +
+    `${hosts.length ? ` (${hosts.join(", ")})` : ""}; rows at a new pin: ${repinned}\n` +
+    `  npx dolly-build ${file} ${name}   builds it`);
 }
 
 async function build(recipePath, outArgument) {
@@ -150,7 +223,7 @@ async function build(recipePath, outArgument) {
   }
   // Every row that names an image names one of the installed directories at its pin.
   const holders = parsed.artifacts.map(reference => holder(reference) ?? fail(`${filename}:${reference.line}: no installed ` +
-    `package holds ${reference.location} at that pin (dolly-build init writes the rows of the installed ones)`));
+    `package holds ${reference.location} at that pin (dolly-build add ${image} writes the installed pins)`));
   // One catalog of their closures: the same image at the same pin in each.
   const records = new Map(), staticSources = new Map(), first = new Map();
   for (const directory of holders) {
@@ -177,11 +250,10 @@ async function build(recipePath, outArgument) {
     // modules the image declares, as their packages hold them, and the worker
     // that isolates the page where the host sends no headers.
     await cp("public", staging, { recursive: true });
-    const workspace = join(staging, "workspace");
-    if (existsSync(workspace)) {
-      const files = (await readdir(workspace, { recursive: true, withFileTypes: true })).filter(entry => entry.isFile())
-        .map(entry => relative(workspace, join(entry.parentPath, entry.name)).split(sep).join("/")).sort();
-      await writeFile(join(staging, "workspace.json"), `${JSON.stringify(files)}\n`);
+    for (const tree of ["workspace", "skills"].filter(tree => existsSync(join(staging, tree)))) {
+      const files = (await readdir(join(staging, tree), { recursive: true, withFileTypes: true })).filter(entry => entry.isFile())
+        .map(entry => relative(join(staging, tree), join(entry.parentPath, entry.name)).split(sep).join("/")).sort();
+      await writeFile(join(staging, `${tree}.json`), `${JSON.stringify(files)}\n`);
     }
     for (const name of new Set(["dolly", ...declared.map(module => modules.get(module).split("/")[0])])) {
       await cp(join(scope, name), join(staging, name), { recursive: true, dereference: true });
@@ -277,10 +349,12 @@ async function buildImage(directory, { filename, source, image, parsed, holders,
   const refusal = createServer((request, response) => response.writeHead(403).end()).on("connect", (request, socket) => socket.destroy());
   await Promise.all([server, refusal].map(listener => new Promise(listening => listener.listen(0, "127.0.0.1", listening))));
   const origin = `http://127.0.0.1:${server.address().port}`;
+  // What the build asks of this server through the relay is not a host it reaches.
+  reached.add(origin);
   // The environment's proxy is the relay's alone: Firefox takes HTTP_PROXY from its
   // environment over the proxy it is given and sent its page's own address there.
   const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(?:https?|all|no)_proxy$/i.test(name)));
-  const browser = await browsers[browserName]({ env, proxy: { server: `http://127.0.0.1:${refusal.address().port}`, bypass: "127.0.0.1" } });
+  const browser = await launch({ env, proxy: { server: `http://127.0.0.1:${refusal.address().port}`, bypass: "127.0.0.1" } });
   let inputs;
   try {
     const tab = await browser.newPage();
@@ -322,7 +396,7 @@ async function buildImage(directory, { filename, source, image, parsed, holders,
 
 // Last, once every constant above is initialized: the relay reads them during a build.
 try {
-  if (init) await scaffold(positionals[1], positionals.slice(2));
+  if (project) await (positionals[0] === "init" ? scaffold : add)(positionals[1], positionals.slice(2));
   else await build(...positionals.map(path => resolve(path)));
 } catch (error) {
   fail(error.message);

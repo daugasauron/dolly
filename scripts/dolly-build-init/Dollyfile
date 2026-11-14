@@ -1,17 +1,11 @@
 # Pi reads its instructions, skills, extensions and themes from /home/dolly/.pi/agent/
 # (Pi's docs/configuration.md, in the image under /usr/lib/node_modules/@earendil-works/pi-coding-agent/docs/).
 # A FILE row writes its body, each line indented four spaces, into the image.
+# The skills are the directories of public/skills/, which the page writes at boot.
 
 FILE /home/dolly/.pi/agent/AGENTS.md
     You are the coding agent of this project. Keep answers short, and run the
     project's tests after a change.
-
-FILE /home/dolly/.pi/agent/skills/changelog/SKILL.md
-    ---
-    name: changelog
-    description: Keeps /workspace/CHANGELOG.md. Use when asked to record a change.
-    ---
-    Add the change under "## Unreleased", one line each, newest first.
 
 FILE /home/dolly/.pi/agent/extensions/hello.js
     export default function (pi) {
