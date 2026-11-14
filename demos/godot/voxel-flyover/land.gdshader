@@ -37,7 +37,11 @@ void fragment() {
 	vec3 desert = mix(vec3(0.55, 0.13, 0.07), vec3(0.68, 0.3, 0.12), blotch);
 	vec3 colour = mix(heath, meadow, smoothstep(0.38, 0.46, warmth));
 	colour = mix(colour, desert, smoothstep(0.55, 0.6, warmth) * smoothstep(0.5, 0.44, moisture));
-	colour *= mix(0.95, 1.5, smoothstep(SEA, SEA + 45.0, height)) * (0.9 + 0.2 * grain);
+	// The ground cover is mottled, and flowers dot it near by.
+	colour *= mix(0.95, 1.5, smoothstep(SEA, SEA + 45.0, height)) * (0.9 + 0.2 * grain) * (0.72 + 0.56 * fbm(p / 17.0 + vec2(5.0, 90.0), 3));
+	vec2 bloom = floor(p * 2.5);
+	float flower = step(0.975, hash(bloom)) * (1.0 - smoothstep(30.0, 110.0, -VERTEX.z));
+	colour = mix(colour, 0.25 + 0.75 * vec3(hash(bloom + 3.0), hash(bloom + 5.0) * 0.6, hash(bloom + 7.0)), flower * 0.8);
 	// Rock shows where the ground is steep and toward the snow, in strata.
 	float strata = 1.0 - 0.14 * (1.0 - far) * (0.5 + 0.5 * sin(here.x * 0.9 + blotch * 5.0));
 	vec3 rock = mix(vec3(0.09, 0.075, 0.08), vec3(0.24, 0.18, 0.13), grain * 0.5 + 0.5 * blotch) * strata;
@@ -53,11 +57,11 @@ void fragment() {
 	float vein = (1.0 - smoothstep(0.5, 1.0, contour / (0.009 + 0.012 * far))) * (1.0 - sand) * (1.0 - snow);
 	vec3 vein_colour = mix(vec3(0.05, 0.8, 1.0), vec3(1.0, 0.15, 0.7), smoothstep(0.42, 0.58, here.z));
 	float run = 0.55 + 0.45 * sin(grain * 2.0 + (p.x + p.y) * 0.07 - clock * 1.8);
-	colour = mix(colour, vec3(0.5, 0.62, 0.68), vein * 0.12 * (1.0 - far));
+	colour = mix(colour, vec3(0.5, 0.62, 0.68), vein * 0.12 * (1.0 - far) * (1.0 - bare));
 
 	ALBEDO = colour * cloud_shade(world);
 	EMISSION = vein_colour * vein * run * (0.04 + 2.4 * night) + vec3(1.0, 0.5, 0.12) * pulse_light(p) * (1.0 + 1.8 * night) * (0.6 + 0.6 * grain);
-	ROUGHNESS = mix(mix(0.9, 0.7, bare), 0.3, max(max(vein, snow * 0.6), sand * 0.5));
+	ROUGHNESS = mix(mix(0.9, 0.7, bare), 0.3, max(max(vein * night, snow * 0.6), sand * 0.5));
 	SPECULAR = 0.35;
 	// The grain of the ground, which the grid is too coarse to carry, tilts the light near by.
 	float fine = fbm(p * 0.45 + vec2(70.0, 3.0), 3);
