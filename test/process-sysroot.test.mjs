@@ -34,6 +34,8 @@ test("sysroot publication keys startup code and preserves previous versions", as
     await copyFile(join(root, "build/libdolly-process.a"), join(root, part, name));
   await copyFile(join(root, "provider.o"), join(root, part, "crt1.o"));
   await writeFile(join(root, "config/process-libc-provider.symbols"), "fixture\n");
+  // What cc exports for -rdynamic and -pthread, which build.sh writes from the module manifests.
+  for (const option of ["rdynamic", "pthread"]) await writeFile(join(root, `build/${option}.exports`), `${option}_entry\n`);
   const startup = join(root, "build/process-crt1.o");
   const compileStartup = async value => {
     await writeFile(join(root, "startup.c"), `int startup(void) { return ${value}; }\n`);
@@ -46,6 +48,7 @@ test("sysroot publication keys startup code and preserves previous versions", as
   const original = await publish();
   const originalBytes = await readFile(startup);
   assert.deepEqual(await readFile(join(original, "crt1.o")), originalBytes);
+  assert.equal(await readFile(join(original, "pthread.exports"), "utf8"), "pthread_entry\n");
   assert.equal(await publish(), original);
   await compileStartup(2);
   const changed = await publish();
