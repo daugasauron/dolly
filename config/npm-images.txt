@@ -33,3 +33,16 @@ nvim
 less
 jq
 sqlite
+libdolly-audio
+libdolly-clipboard
+libdolly-display
+libdolly-gpu
+libdolly-input
+libdolly-microphone
+libdolly-nena
+libdolly-packages
+libdolly-pty
+libdolly-sockets
+libdolly-threads
+libdolly-touch
+libdolly-upload
