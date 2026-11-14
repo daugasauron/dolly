@@ -31,8 +31,7 @@ void vertex() {
 	float top = here.x;
 	float warmth = here.y;
 	float moisture = here.z;
-	float steep = abs(ground_here(place + vec2(2.0, 0.0)).x - ground_here(place - vec2(2.0, 0.0)).x)
-		+ abs(ground_here(place + vec2(0.0, 2.0)).x - ground_here(place - vec2(0.0, 2.0)).x);
+	float steep = abs(ground_here(place + vec2(4.0, 0.0)).x - top) + abs(ground_here(place + vec2(0.0, 4.0)).x - top);
 	bool desert = is_desert(warmth, moisture);
 	bool cold = is_cold(warmth);
 	bool leafy = VERTEX.y > 0.95;

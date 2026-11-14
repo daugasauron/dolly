@@ -21,6 +21,8 @@ const GROVES := [
 	[216, 3, Vector4(200, 232, 380, 420)],
 	[352, 1, Vector4(380, 420, 560, 690)],
 ]
+## The trees that cast the shadows, in one grid of plain crowns: a shadow needs no more.
+const SHADES := [128, 3, Vector4(-2, -1, 200, 232)]
 const DAY_SECONDS := 120.0
 const CRUISE := 30.0
 const BOOST := 26.0
@@ -122,11 +124,10 @@ func _ready() -> void:
 		add_child(land)
 		lands.append(land)
 		hole = across * cell / 2.0
-	for grove: Array in GROVES:
+	for grove: Array in GROVES + [SHADES]:
 		groves.append(build_grid(tree_mesh(grove[1]), grove[0], PLOT, reads_ground(preload("res://trees.gdshader"), 0)))
 		materials[-1].set_shader_parameter("ring", grove[2])
-		if grove[1] < 5:
-			groves[-1].cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		groves[-1].cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY if grove == SHADES else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(8000, 8000)
 	water.mesh = plane
@@ -348,6 +349,8 @@ func build_flyer() -> void:
 	dark.metallic = 0.6
 	var shades := paint(Color(0.03, 0.04, 0.08), 0.04)
 	shades.metallic = 1.0
+	var gold := paint(Color(1.0, 0.72, 0.2), 0.25)
+	gold.metallic = 0.9
 	var ball := SphereMesh.new()
 	ball.radial_segments = 28
 	ball.rings = 14
@@ -401,6 +404,8 @@ func build_flyer() -> void:
 	part(head, ball, white, Vector3(0, 0.1, -0.36), Vector3(20, 0, 0), Vector3(0.22, 0.5, 0.5))
 	part(head, ball, black, Vector3(0, -0.06, -0.9), Vector3.ZERO, Vector3(0.2, 0.15, 0.14))
 	tongue = part(head, ball, pink, Vector3(0.12, -0.38, -0.7), Vector3(25, 0, 0), Vector3(0.2, 0.06, 0.36))
+	var arm := BoxMesh.new()
+	arm.size = Vector3(0.04, 0.05, 0.62)
 	for x: float in [-1.0, 1.0]:
 		var ear := Node3D.new()
 		ear.position = Vector3(x * 0.4, 0.3, 0.12)
@@ -408,12 +413,13 @@ func build_flyer() -> void:
 		ears.append(ear)
 		part(ear, point, fur, Vector3(0, 0.4, 0), Vector3(0, 0, x * -16), Vector3(0.6, 0.42, 0.3))
 		part(ear, point, pink, Vector3(0, 0.38, -0.05), Vector3(0, 0, x * -16), Vector3(0.36, 0.32, 0.12))
-		# The sunglasses: two dark mirrors in a frame, and a bar across the nose.
-		part(head, ball, shades, Vector3(x * 0.27, 0.13, -0.53), Vector3(8, x * -14, 0), Vector3(0.52, 0.36, 0.1))
-		part(head, lip, black, Vector3(x * 0.27, 0.13, -0.52), Vector3(98, x * -14, 0), Vector3(0.82, 0.3, 0.58))
+		# The sunglasses: two dark mirrors in gold frames, a bar across the nose and an arm to each ear.
+		part(head, ball, shades, Vector3(x * 0.29, 0.13, -0.53), Vector3(8, x * -16, 0), Vector3(0.6, 0.42, 0.1))
+		part(head, lip, gold, Vector3(x * 0.29, 0.13, -0.52), Vector3(98, x * -16, 0), Vector3(0.95, 0.3, 0.68))
+		part(head, arm, gold, Vector3(x * 0.6, 0.17, -0.2))
 	var bar := BoxMesh.new()
-	bar.size = Vector3(1.04, 0.05, 0.05)
-	part(head, bar, black, Vector3(0, 0.2, -0.5))
+	bar.size = Vector3(1.1, 0.05, 0.05)
+	part(head, bar, gold, Vector3(0, 0.2, -0.52))
 	# The cape, from a red collar.
 	var collar := TorusMesh.new()
 	collar.inner_radius = 0.48
