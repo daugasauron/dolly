@@ -89,6 +89,7 @@ var helm := false # the player's, after Enter or a click
 var captured := false # the pointer, which the page gives the game at a click
 var look := Vector2.ZERO # where the mouse has turned the view: around the flyer, and over it
 var looked := Vector2.ZERO # the view on its way there
+var looks_from := 0.0 # the mouse turns the view from then on, a moment after its capture
 var trail := Vector3.ZERO # the flyer's place and heading as the camera follows them, a little late
 var turned := heading
 var lift := 0.0 # of the camera over the ground under and ahead of it
@@ -569,8 +570,10 @@ func show_helm() -> void:
 func _input(event: InputEvent) -> void:
 	if autopilot_seconds > 0.0:
 		return
-	if event is InputEventMouseMotion and captured:
-		var motion := (event as InputEventMouseMotion).relative
+	# A browser may report the pointer's way to where it was captured as its first motion: the
+	# first moments' are left, and no one motion turns the view far.
+	if event is InputEventMouseMotion and captured and elapsed > looks_from:
+		var motion := (event as InputEventMouseMotion).relative.limit_length(150.0)
 		look.x += motion.x * 0.0035
 		look.y = clampf(look.y + motion.y * 0.0035, -0.5, 1.0)
 	if not (event is InputEventKey and event.pressed and not event.echo):
@@ -593,6 +596,7 @@ func hold_pointer() -> void:
 	if now == captured:
 		return
 	captured = now
+	looks_from = elapsed + 0.25
 	helm = captured
 	show_helm()
 

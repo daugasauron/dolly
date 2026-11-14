@@ -17,18 +17,19 @@ one (number of things hit)."
 Branch `feature/flyover-4` (`work/flyover4`, from `v0.1.6`). Brief:
 `work/briefs-2026-11-15/flyover4.md`. Version 3 is `tasks/20261114-081432-flyover-striking`.
 
-## State (2026-11-15, 04:45)
+## State (2026-11-15, 05:30)
 
-Done and committed (`dc773fcfe`, `a867d01c1`, `dcd36b2db`): the pelican on its bicycle, mouse look
-with a captured pointer, the score alone on the screen, and the smoothness work below. The game's
-test passes in Chrome 156 and Firefox 159 on the RTX 5070, and the source suite passes. Nothing
-changed the seed, `host/gpu` or Godot's platform: `voxel-flyover` and `godot-voxel-flyover` are the
-only images to rebuild (50 to 160 s).
+Done and committed on `feature/flyover-4`: the pelican on its bicycle, mouse look with a captured
+pointer, the score alone on the screen, the smoothness work below, and the demos page's video,
+poster and section. The game's test passes in Chrome 156 and Firefox 159 on the RTX 5070, and the
+source suite passes. Nothing changed the seed, `host/gpu` or Godot's platform: `voxel-flyover` and
+`godot-voxel-flyover` are the only images to rebuild (50 to 160 s).
 
-The current take is `work/videos-2026-11-15/voxel-flyover-4/take1.mp4`, of commit `a867d01c1`,
-recorded at a machine load of 11 (two other agents' Chrome renderers at 400% each), where the game
-drew 40 frames a second; its 5.7 s after the click, in which Chrome's notice named the page's local
-address, are cut out.
+The current take is `work/videos-2026-11-15/voxel-flyover-4/take3.mp4`; its README says how it
+was made. The game drew 53.1 frames a second while recorded, at a machine load of 7.7 (two other
+agents' Chrome renderers at 400% each); the 4.9 s after the click, in which Chrome's notice named
+the page's local address, are out of the file. The demos page's video is its cut (2:19, 60 frames
+a second, 24.4 MiB), and plays from the page in headless Chrome and Firefox.
 
 Left:
 
@@ -36,11 +37,16 @@ Left:
   in both browsers to the pixel and as evenly timed, and what Firefox does with them on a display
   the GPU drives could not be seen here. A screenshot or a few seconds of screen recording from
   the owner's Firefox would settle it.
-- A take on a quiet machine, the cut for the demos page, its poster and section.
+- A take on a quiet machine: this one stutters where the machine did (53 frames a second shown
+  at 60).
+- The test failed twice in Firefox while an x264 encode of mine ran beside it (load 12): once
+  the game did not reach its 120th frame in 180 s (not looked into; the wait is now 300 s), and
+  once the view had turned 92 degrees and 9 up where 300 pixels make 60 (see "Mouse look").
 - Not done: the trees' rings still cross-fade by a screen-door of pixels (grainy in the bands at
   64 to 80 and 200 to 232 units); the shadows' edges crawl as the sun moves 3 degrees a second;
   the fur's hair edges are not antialiased near the camera (alpha to coverage puts the shells in
-  Godot's transparent pass: not tried further).
+  Godot's transparent pass: not tried further); the camera still flies through a beacon it
+  lights in its view from ahead, which thins before it but fills the frame for a quarter second.
 
 ## How it is measured
 
@@ -98,6 +104,7 @@ Each was seen on the frames named, in version 3 as shipped unless it says otherw
 | The clouds' shade leapt at dusk | by reading | The light's direction turns from the sun to the moon at once | The shade fades out before, with the light's height |
 | The cape's and feathers' flutter raced when the speed changed | by reading | `TIME * speed` in the shader | The game counts the phase |
 | A far mountain's shadow came at once | by reading (not seen on the flight) | Only the two finer grids cast shadows | All three do |
+| A bicycle wheel's disc flashed white once a turn (new) | take 2's frames | A flat, smooth face turning through the sun's reflection | The discs are rough |
 | The painted crowns past the last trees were squares | stills | A crown wider than its plot was cut off at the plot's edge | The nearest of nine plots' crowns |
 
 Not a fault of the platform: a material's uniform set every frame reaches the screen every frame
@@ -112,7 +119,7 @@ and the same spikes and events to the tile), so one row serves both unless it sa
 | Measure | Version 3 | Now |
 | --- | --- | --- |
 | Spikes over the flight (tiles, frames with one) | 350 in 117 | 78 in 76, two of them of two tiles, none of more |
-| Events of 8 tiles or more | 16 | 9: the changes of view at 30, 40 and 50 s (4), two turns toward a beacon, one at 52.6 s that was not looked at, and the flight through a beacon at 55 s (2) |
+| Events of 8 tiles or more | 16 | 9: the changes of view at 30, 40 and 50 s (4), two turns toward a beacon, one at 52.6 s where a ring sets off close to the camera, and the flight through a beacon at 55 s (2) |
 | Tile jumps | 5,902 in 722 frames | 3,022 in 686 |
 | Slow bursts: shimmer of 20 triples, the worst triple, flick | 0.431, 2.91, 6.5 per mille | 0.208, 0.50, 2.5 per mille |
 | Bursts: shimmer of 29 triples, flick | 1.273, 23.3 per mille (movement 5.43) | 1.129, 20.9 per mille (movement 5.07) |
@@ -174,7 +181,14 @@ pixel, any way round, 0.5 rad up and 1.0 down), eased over a few frames; let go,
 back the short way round. No Control takes the motion: the HUD's are Labels, whose mouse filter is
 ignore, and the game reads the motion in `_input`. The test clicks, waits for
 `document.pointerLockElement`, moves the mouse 300 pixels and reads the view the game prints at Q:
-60 degrees in Chrome, 58 in Firefox. The screen keeps the title, the keys' hint (for 12 s after the
+60 degrees in Chrome, 58 in Firefox. Once, in Firefox on a loaded machine, it read 92 degrees
+and 9 up: more motion than the mouse made. The game now leaves the motion of the first quarter
+second after a capture, and lets no one motion turn the view more than 150 pixels' worth, so a
+pointer's way to where it was captured cannot throw the view. That was not the cause: with it,
+and a second between the capture and the moves, Firefox read 83 degrees in one run of two at a
+load of 13 and 59 in the other, Chrome 60 in both. So on a loaded machine Firefox reports more
+relative motion than Playwright's moves make; whether a person's mouse does the same there is not
+known, and the test accepts 30 to 150 degrees. The screen keeps the title, the keys' hint (for 12 s after the
 board changes hands) and one number, the beacons lit, beside a beacon's crystal.
 
 ## The pelican

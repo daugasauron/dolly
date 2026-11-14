@@ -122,7 +122,8 @@ func build_bicycle() -> void:
 	tyre.rings = 40
 	tyre.ring_segments = 10
 	var spokes := drive(Color(0.95, 0.9, 0.75), Color(0.05, 0.55, 0.6), 5.0, true)
-	spokes.set_shader_parameter("metal", 0.1)
+	spokes.set_shader_parameter("metal", 0.0)
+	spokes.set_shader_parameter("rough", 0.9)
 	for place: Vector3 in [REAR, FRONT]:
 		var wheel := turning(rig, place, 0.43, 0.025, spokes)
 		Parts.part(wheel, tyre, rubber, Vector3.ZERO, Vector3(0, 0, 90))

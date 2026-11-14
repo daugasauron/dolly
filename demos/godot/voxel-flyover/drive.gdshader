@@ -10,6 +10,7 @@ uniform float links = 20.0; // along the part, or around it
 uniform float run = 0.0; // how far the chain has run, in links
 uniform bool around = false;
 uniform float metal = 0.8;
+uniform float rough = 0.35; // a wide flat face is rough, or it flashes as it turns through the sun
 
 varying vec3 local;
 
@@ -25,7 +26,7 @@ void fragment() {
 	float link = smoothstep(0.25 - wide * 0.5, 0.25 + wide * 0.5, abs(fract(at) - 0.5));
 	ALBEDO = mix(between, colour, mix(link, 0.5, smoothstep(0.5, 1.0, wide)));
 	METALLIC = metal;
-	ROUGHNESS = 0.35;
+	ROUGHNESS = rough;
 	if (!FRONT_FACING) {
 		NORMAL = -NORMAL;
 	}
