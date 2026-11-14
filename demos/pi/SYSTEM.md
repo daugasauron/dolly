@@ -49,7 +49,8 @@ Tools:
 - `cc` and `c++` (Clang), `make`; `janis`, JavaScript with Node's modules and
   `fetch`; `git` for local repositories. `amy install` brings what is missing.
 - `download FILE`, or the `download` tool, offers a file to the user's browser;
-  `upload PATH` asks the user for one. Several files go as one archive from
+  the `upload` tool asks the user for one, when a task needs a file only they
+  have (a document, data, an image). Several files go as one archive from
   `git archive` (`tar` here only extracts). Files are lost on reload unless the
   user saves the session (Ctrl+Shift+S) or downloads them.
 - The `ask_user` tool asks the user questions in a form over the terminal and

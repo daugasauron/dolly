@@ -2,8 +2,8 @@
 // tools keep their truncation, full-output files and edit semantics; Dolly
 // only supplies the Slop shell and keeps bytes that are not UTF-8 in edits.
 import { spawn } from "node:child_process";
-import { access, readFile, writeFile } from "node:fs/promises";
-import { basename, resolve } from "node:path";
+import { access, lstat, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { basename, dirname, resolve } from "node:path";
 import { createBashToolDefinition, createEditToolDefinition } from "@earendil-works/pi-coding-agent";
 
 // Each pipe has its own decoder, so interleaved stdout/stderr cannot split a
@@ -79,6 +79,33 @@ const byteEdits = {
   },
 };
 
+// The upload command (upload@0) shows the page's file dialog and writes the
+// file the user chooses to a path that does not exist yet; the browser passes
+// on its bytes alone. Resolves to its status and what it wrote to stderr.
+function upload(target, signal) {
+  return new Promise((resolveStatus, reject) => {
+    if (signal?.aborted) return reject(new Error("aborted"));
+    const child = spawn("upload", [target], { stdio: ["ignore", "ignore", "pipe"] });
+    let errors = "";
+    child.stderr.on("data", (bytes) => { errors += bytes; });
+    const kill = () => child.kill("SIGKILL");
+    signal?.addEventListener("abort", kill);
+    child.on("error", reject);
+    child.on("close", (status) => {
+      signal?.removeEventListener("abort", kill);
+      if (signal?.aborted) reject(new Error("aborted"));
+      else resolveStatus({ status, errors: errors.trim() });
+    });
+  });
+}
+
+async function unusedPath(directory) {
+  for (let index = 1; ; index++) {
+    const path = resolve(directory, `upload-${index}`);
+    if (!(await lstat(path).catch(() => null))) return path;
+  }
+}
+
 // Pi binds a tool's cwd at creation; follow the calling session's cwd instead.
 function sessionTool(create) {
   return {
@@ -143,6 +170,42 @@ export default function dollyTools(pi) {
       const target = resolve(context.cwd, String(parameters.path));
       Dolly.download(target);
       return { content: [{ type: "text", text: `Offered ${basename(target)} to the browser; the user saves it with the page's Save button.` }], details: {} };
+    },
+  });
+
+  // The call, the reason with it, shows on the terminal under the page's dialog.
+  pi.registerTool({
+    name: "upload",
+    label: "upload",
+    executionMode: "sequential",
+    exposure: "model-only",
+    description:
+      "Ask the user for a file of their device: the page shows a file dialog, and the file the user chooses " +
+      "(at most 1 GiB) is written into Dolly's filesystem. Waits until the user chooses one or cancels. Use it " +
+      "when the task needs a file only the user has, such as a document, data or an image they mention, not for " +
+      "anything you can fetch or write yourself. Returns the new file's path and size (the browser does not " +
+      "pass on its name), or that the user cancelled.",
+    parameters: {
+      type: "object",
+      properties: {
+        reason: { type: "string", description: "What the file is for, in a few words the user reads before choosing it" },
+        path: { type: "string", description: "Where to write it, relative to the current workspace or absolute: " +
+          "a path that does not exist yet. Without it, upload-N in the workspace" },
+      },
+      required: ["reason"],
+      additionalProperties: false,
+    },
+    async execute(_id, { path }, signal, _update, context) {
+      const target = path ? resolve(context.cwd, String(path)) : await unusedPath(context.cwd);
+      await mkdir(dirname(target), { recursive: true });
+      const { status, errors } = await upload(target, signal);
+      // upload prints the C library's message for ECANCELED when the user cancels.
+      if (status !== 0 && errors.endsWith("Operation canceled")) {
+        return { content: [{ type: "text", text: "The user cancelled the upload." }], details: { cancelled: true } };
+      }
+      if (status !== 0) throw new Error(errors || `upload exited with status ${status}`);
+      const details = { path: target, size: (await stat(target)).size };
+      return { content: [{ type: "text", text: JSON.stringify(details) }], details };
     },
   });
 }

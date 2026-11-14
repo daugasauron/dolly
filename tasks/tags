@@ -167,6 +167,7 @@ toolchain, Compilers and build tools
 touch, touch@0: fingers on a touchscreen and the holder's buttons
 ui, What a player or user sees and presses
 upgrade, Moving to a newer upstream version
+upload, upload@0 and the upload command: a file the user chooses
 usability, A limit a user runs into
 userspace, Commands and conventions above the kernel
 ux, Whether the page tells the user what is happening

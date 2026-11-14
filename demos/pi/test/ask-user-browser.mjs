@@ -1,10 +1,13 @@
-// Pi's ask_user and show_html (ask-user.js, html@0): a scripted model on an
-// origin of its own asks the user three questions; the test answers in the
-// popup's form as a user would, and the model plans from the answers. It
-// then shows a report the user reads and closes, and asks once more, which
-// the user closes unanswered. Usage: node demos/pi/test/ask-user-browser.mjs
+// Pi's ask_user and show_html (ask-user.js, html@0) and upload (dolly-tools.js,
+// upload@0): a scripted model on an origin of its own asks the user three
+// questions; the test answers in the popup's form as a user would, and the
+// model plans from the answers. It then shows a report the user reads and
+// closes, and asks once more, which the user closes unanswered. It asks for a
+// file, which the user chooses in the browser's picker, and for another, which
+// the user cancels. Usage: node demos/pi/test/ask-user-browser.mjs
 // (DOLLY_BROWSER=firefox runs it in Firefox).
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { delay, demoTest } from "../../browser.mjs";
 import { siteReference } from "../../../page/static-asset.mjs";
@@ -17,6 +20,8 @@ const trip = { title: "Your trip", questions: [{ question: "Where to?" },
   { question: "How do you travel?", choices: ["train", "plane"] },
   { question: "What do you pack?", choices: ["umbrella", "camera", "tent"], multiple: true }] };
 const report = "<h1>Trip report</h1><table><tr><th>Where</th><td>Kyoto</td></tr><tr><th>By</th><td>train</td></tr></table>";
+// Every byte value, so the file arrives as it was chosen.
+const figures = Buffer.from(Uint8Array.from({ length: 3000 }, (_, index) => (index * 7) & 255));
 // The model: per request of the user, its next tool call from the results so far, or its answer.
 const scripts = [
   { says: "Plan my trip.", next(results) {
@@ -31,6 +36,11 @@ const scripts = [
     : { answer: /closed it/.test(results[0]) ? "You have read the report." : "The report was not shown." } },
   { says: "Ask me again.", next: results => !results.length ? { call: ["ask_user", { title: "Again", questions: [{ question: "Anything else?" }] }] }
     : { answer: /closed the form/.test(results[0]) ? "You closed the form; nothing more to do." : "Unexpected answer." } },
+  { says: "Chart my sales figures.", next: results => !results.length
+    ? { call: ["upload", { reason: "The sales figures to chart", path: "data/sales.csv" }] }
+    : { answer: results[0].includes("/workspace/data/sales.csv") ? "Charting the figures." : "No figures." } },
+  { says: "Take one more file.", next: results => !results.length ? { call: ["upload", { reason: "One more file" }] }
+    : { answer: /cancelled/.test(results[0]) ? "You cancelled the upload." : "Unexpected upload." } },
 ];
 const results = [];
 const provider = createServer(async (request, response) => {
@@ -101,9 +111,26 @@ await demoTest("pi ask-user", { image: "pi-runtime", timeout: 300_000, browser: 
   await popup.getByRole("button", { name: "Close" }).click();
   await waitText(/You closed the form; nothing more to do\./, 120_000);
 
-  // The model's plan is a file of the session, written from the user's answers.
+  // The user reads why on the terminal, and chooses the file in the browser's picker.
+  const picker = page.locator("#file-upload[open]");
+  await say(scripts[3].says);
+  await picker.waitFor({ timeout: 120_000 });
+  await waitText(/The sales figures to chart/);
+  const [chooser] = await Promise.all([page.waitForEvent("filechooser"), picker.locator("input").click()]);
+  await chooser.setFiles({ name: "sales.csv", mimeType: "text/csv", buffer: figures });
+  await waitText(/Charting the figures\./, 120_000);
+  assert.deepEqual(JSON.parse(results.at(-1)), { path: "/workspace/data/sales.csv", size: figures.length });
+  await say(scripts[4].says);
+  await picker.waitFor({ timeout: 120_000 });
+  await picker.locator("button").click();
+  await waitText(/You cancelled the upload\./, 120_000);
+
+  // The model's plan is a file of the session, written from the user's answers;
+  // the chosen file arrived as it was, and the cancel left nothing.
   await input("\x04");
   await prompt(/dolly:[^\n]*\$\s*$/);
   await run(`test "$(cat /workspace/plan.txt)" = 'Kyoto by train with umbrella and camera'`);
+  await run(`test "$(sha256sum /workspace/data/sales.csv | cut -d ' ' -f 1)" = ${createHash("sha256").update(figures).digest("hex")} && ` +
+    `test "$(ls /workspace | tr '\\n' ' ')" = 'data plan.txt '`);
 });
 provider.close();
