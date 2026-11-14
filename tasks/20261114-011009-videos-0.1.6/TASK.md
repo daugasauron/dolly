@@ -1,6 +1,6 @@
 # Videos that show what Dolly can do: a Godot voxel flyover and three more
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: 0.1.6,demo,recording,godot
 
@@ -12,14 +12,29 @@ the "Voxel flyover" idea. For other videos, be creative."
 Branch `feature/videos-0.1.6` (`work/vids`), from main `ee42c5982`. Brief:
 `work/briefs-2026-11-14/videos.md`.
 
-## State (2026-11-14, 13:50)
+## State (2026-11-14, 14:00)
 
-Done: the game (`f952c275b`, `eedf424c1`) and its video (`aa3192807`):
-`sites/slopshare.dev/agents/videos/voxel-flyover.mp4` (2:18, 22.0 MiB) and its poster; how it was
-made is in `work/videos-2026-11-14/voxel-flyover/README.md`.
+Done: the game (`f952c275b`, `eedf424c1`) and three videos (`aa3192807`, `b89f6289c`), each with
+its poster and a section in the group at the top of `sites/slopshare.dev/agents/index.html`, and
+each played a second from the page in headless Chrome 156 and Playwright's Firefox 155 with its
+1920 by 1080 frames decoded (`work/videos-2026-11-14/voxel-flyover/plays.mjs`, `plays.log`):
 
-Left: the game's section on the demos page; the other videos (Pi on a local model, Pi changing
-the game's world through OpenRouter), their sections; `plays.mjs` for each in Chrome and Firefox.
+- `voxel-flyover.mp4` (2:18, 22.0 MiB): the game from dawn into night, the helm, the project's
+  lines and the world's function. `work/videos-2026-11-14/voxel-flyover/README.md`.
+- `local-model.mp4` (1:09, 1.9 MiB): Pi on Qwen3.5-2B in the `pi-local` image writes, compiles and
+  runs a C program; all 347 of the page's requests went to the local server.
+  `work/videos-2026-11-14/local-model/README.md`.
+- `session-travel.mp4` (1:00, 1.6 MiB): a session with a compiler and a compiled program saved in
+  Chrome, exported, imported in Firefox and run there, the two side by side.
+  `work/videos-2026-11-14/session-travel/README.md`.
+
+Not made: Pi changing the game's world through OpenRouter. The key was refused that day (401,
+the integrator's message); the script and prompt are ready and unrun in
+`work/videos-2026-11-14/pi-world/`, with a README of how to record it. Xonotic was tried and
+dropped (below).
+
+Left for the integrator: the core browser suite and the round's GPU tests on the merged tree. The
+page's lead paragraph does not name the new recordings (the npm agent edits the same page).
 
 ## The game
 
@@ -63,3 +78,11 @@ second in a 1600 by 900 page on Xvfb) and the installed Firefox (59.0). Decision
 The game image builds, and its test passes in Chrome on gpu@0 (and Firefox where it has an
 adapter). Every new video plays from the demos page in headless Chrome and Firefox, each with a
 poster, a plain section, and a README of how it was made (`work/videos-2026-11-14/NAME/`).
+
+## Closed (2026-11-14)
+
+The done-when holds at `b89f6289c`: `godot-voxel-flyover` builds and
+`demos/godot/test/godot-flyover-browser.mjs` passed in Chrome 156 and the installed Firefox on the
+RTX 5070 (`eedf424c1`); the three videos play from the demos page in headless Chrome 156 and
+Firefox 155, each with a poster, a section and a README; the source suite passes (394). The
+OpenRouter video waits for a key that works and is described where its script is.
