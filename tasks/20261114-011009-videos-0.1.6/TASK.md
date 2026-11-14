@@ -37,7 +37,8 @@ How it works is in `demos/godot/README.md` ("Voxel Flyover"). Decisions:
   Headless Chrome has no adapter here, so a recording is of the Xvfb window.
 - The application has no editor: the world is built by `main.gd` at run time, so the editor's 3D
   view would be empty, and `godot-projects-browser.mjs` tests what the editor shows of a game.
-- Godot prints "2 ObjectDB instances were leaked at exit" when the game quits; not looked into.
+- Quitting while the engine's looping `AudioStreamWAV` played made Godot print "2 ObjectDB instances
+  were leaked at exit" (the stream and its playback): the game stops its sounds and quits 0.3 s later.
 
 ## Done when
 

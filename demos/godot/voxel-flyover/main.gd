@@ -348,8 +348,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_ESCAPE:
 			helm = false
 		KEY_Q:
-			get_tree().quit()
+			leave()
 	show_helm()
+
+
+## Quits once the mixer has let go of the sounds, which Godot counts as leaked otherwise.
+func leave() -> void:
+	engine.stop()
+	bell.stop()
+	await get_tree().create_timer(0.3).timeout
+	get_tree().quit()
 
 
 func key_axis(negative: Key, positive: Key) -> float:
@@ -365,6 +373,7 @@ func _process(delta: float) -> void:
 	fly(delta)
 	tend_beacons(delta)
 	follow(delta)
+	title.modulate.a = clampf(9.0 - elapsed, 0.0, 1.0)
 	gauge.text = "%02d:%02d    altitude %d    speed %d    beacons lit %d" % [int(day * 24.0), int(fposmod(day * 24.0, 1.0) * 60.0), int(ship.position.y - Terrain.SEA), int(speed), lit.size()]
 	if autopilot_seconds > 0.0:
 		watch()
@@ -575,4 +584,4 @@ func watch() -> void:
 				if y < image.get_height() / 8 and c.b > c.r + 0.1:
 					sky += 1
 		print("FLYOVER frame %dx%d sky %d colours %d" % [image.get_width(), image.get_height(), sky, colours.size()])
-	get_tree().quit()
+	leave()
