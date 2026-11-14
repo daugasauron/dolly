@@ -2,6 +2,7 @@
 #define DOLLY_PROCESS_KERNEL_H
 
 #include <sys/types.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -177,7 +178,7 @@ uintptr_t dolly_fs_block(int descriptor, uintptr_t index);
  * bytes, which the Worker holds: 0 or a negative errno. */
 int dolly_fs_input_file(const char *path, uint32_t input, uint64_t size);
 /* The supervisor's words about the executable it prepares, kernel/process-kernel.c. */
-void dolly_kernel_launch_diagnostic(int pid, const unsigned char *bytes, size_t size);
+bool dolly_kernel_launch_diagnostic(int pid, const unsigned char *bytes, size_t size);
 void dolly_terminal_publish_result(int status);
 void dolly_kernel_foreground_publish(int pid, unsigned interrupt);
 /* The terminal's foreground owner, or zero. */

@@ -799,20 +799,20 @@ static dolly_kernel_program *program_to_launch(dolly_kernel_process *process) {
 
 /* What the supervisor says about that executable is for whoever reads the
  * process's complaints: it goes to the process's descriptor 2 where that is
- * a terminal and nowhere otherwise. Never into a file or a pipe, and not onto
+ * a terminal (whether it is taken). Never into a file or a pipe, and not onto
  * the display from a process that is not on it: a program that draws the
  * display (tmux) does not know of the lines. */
-void dolly_kernel_launch_diagnostic(int pid, const unsigned char *bytes, size_t size) {
+bool dolly_kernel_launch_diagnostic(int pid, const unsigned char *bytes, size_t size) {
   dolly_kernel_process *process = find_process(pid);
-  if (program_to_launch(process) == NULL) return;
+  if (program_to_launch(process) == NULL) return false;
   dolly_kernel_socket *stream = process->fds[STDERR_FILENO].stream;
   const dolly_process_terminal_request request = {DOLLY_PROCESS_TERMINAL_ISATTY, 0, 0, 0, 0};
   dolly_process_terminal_response response = {0};
-  if (stream != NULL && stream->kind->terminal != NULL &&
-      stream->kind->terminal(stream, &request, &response) == 0 && response.value == 1) {
-    /* A terminal that takes no more loses the line. */
-    (void)stream->kind->send(stream, bytes, size, 0);
-  }
+  if (stream == NULL || stream->kind->terminal == NULL ||
+      stream->kind->terminal(stream, &request, &response) != 0 || response.value != 1) return false;
+  /* A terminal that takes no more loses the line. */
+  (void)stream->kind->send(stream, bytes, size, 0);
+  return true;
 }
 
 /* The terminal a process stands on: the first of its descriptors 0, 1 and 2

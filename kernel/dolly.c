@@ -143,11 +143,13 @@ void dolly_kernel_terminal_discard(void) {
 }
 
 /* The supervisor's words (abi/dolly-supervisor-0.wat): about the executable it
- * prepares, for the terminal of the process that waits for it. */
+ * prepares, for the terminal of the process that waits for it, a console's as
+ * much as the display's. Without one, and before a display is attached, they
+ * are boot text. */
 int dolly_terminal_write_bytes(int pid, const unsigned char *bytes, uintptr_t length) {
+  if (dolly_kernel_launch_diagnostic(pid, bytes, (size_t)length)) return 0;
   const dolly_terminal_output *output = dolly_kernel_terminal_output_device();
   if (output == NULL || !output->attached()) return dolly_kernel_terminal_write(bytes, length);
-  dolly_kernel_launch_diagnostic(pid, bytes, (size_t)length);
   return 0;
 }
 
