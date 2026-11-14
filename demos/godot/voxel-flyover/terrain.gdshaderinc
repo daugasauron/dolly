@@ -1,15 +1,13 @@
-// The world as a function of the place: every shader that draws it and terrain.gd, which flies
-// over it, compute the same heights. The hash is integer arithmetic, so both agree exactly.
+// The world as a function of the place: ground.gdshader draws it for the shaders, and terrain.gd,
+// which flies over it, computes the same heights. The hash is integer arithmetic, so both agree.
 const float SEA = 24.0;
-// A row of hexagonal cells is this much of a cell's width from the next.
-const float ROW = 0.8660254;
 const float CLOUD_HEIGHT = 520.0;
 
 // What main.gd tells every shader each frame.
 uniform float clock = 0.0; // seconds flown
 uniform float night = 0.0;
 uniform vec3 to_light = vec3(0.0, 1.0, 0.0); // toward the sun, or the moon once it has set
-// The lit beacons nearest the airship: where each stands (xy) and the clock when it was lit (z).
+// The lit beacons nearest the flyer: where each stands (xy) and the clock when it was lit (z).
 uniform vec4 pulses[4];
 
 float hash(vec2 cell) {
@@ -47,35 +45,22 @@ float ridge(vec2 p) {
 	return n * n;
 }
 
-// The ground's height before it is cut into columns: sea and continents, hills, and ranges of
-// ridged mountains where the land allows them.
+// The ground's height: sea and continents, hills, and ranges of mountains where the land allows
+// them, whose spurs stand on their crests and whose gullies on their spurs.
 float terrain_height(vec2 p) {
 	float land = smoothstep(0.36, 0.52, fbm(p / 520.0, 3));
 	float hills = fbm(p / 130.0 + vec2(17.0, 5.0), 4);
-	float ranges = smoothstep(0.4, 0.62, fbm(p / 640.0 + vec2(80.0, 31.0), 2));
-	float peaks = ridge(p / 230.0 + vec2(40.0, 12.0)) * (0.55 + 0.45 * ridge(p / 90.0 + vec2(9.0, 77.0)));
-	return SEA - 13.0 + land * 16.0 + hills * 22.0 * (0.35 + land) + peaks * 85.0 * land * ranges;
+	float ranges = smoothstep(0.36, 0.58, fbm(p / 640.0 + vec2(80.0, 31.0), 2));
+	vec2 q = p / 260.0 + vec2(40.0, 12.0);
+	float crest = ridge(q);
+	float spur = ridge(q * 2.3 + vec2(9.0, 77.0)) * crest;
+	float peaks = crest * 0.6 + spur * 0.3 + ridge(q * 5.1 + vec2(3.0, 41.0)) * spur * 0.16;
+	return SEA - 13.0 + land * 16.0 + hills * 22.0 * (0.35 + land) + peaks * 125.0 * land * ranges;
 }
 
 // x: warmth, y: moisture, both between 0 and 1.
 vec2 climate(vec2 p) {
 	return vec2(fbm(p / 900.0 + vec2(211.0, 57.0), 2), fbm(p / 560.0 + vec2(13.0, 143.0), 2));
-}
-
-// The hexagonal cell, `cell` wide, of the row p is in: its column and row among the world's.
-vec2 hex_cell(vec2 p, float cell) {
-	float row = round(p.y / (ROW * cell));
-	return vec2(round(p.x / cell - 0.5 * mod(row, 2.0)), row);
-}
-
-vec2 hex_centre(vec2 at, float cell) {
-	return vec2((at.x + 0.5 * mod(at.y, 2.0)) * cell, at.y * ROW * cell);
-}
-
-// Where the column of a cell ends: the ground in steps of half a unit, each column a little off
-// its neighbours, as basalt stands.
-float column_top(vec2 at, float cell) {
-	return floor(terrain_height(hex_centre(at, cell)) * 2.0) * 0.5 + (hash(at) - 0.5) * 0.35 * cell;
 }
 
 // How much cloud stands over a place of the cloud layer, between 0 and 1.

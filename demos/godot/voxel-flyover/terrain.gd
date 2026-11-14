@@ -44,9 +44,12 @@ static func ridge(p: Vector2) -> float:
 static func height(p: Vector2) -> float:
 	var land := smoothstep(0.36, 0.52, fbm(p / 520.0, 3))
 	var hills := fbm(p / 130.0 + Vector2(17.0, 5.0), 4)
-	var ranges := smoothstep(0.4, 0.62, fbm(p / 640.0 + Vector2(80.0, 31.0), 2))
-	var peaks := ridge(p / 230.0 + Vector2(40.0, 12.0)) * (0.55 + 0.45 * ridge(p / 90.0 + Vector2(9.0, 77.0)))
-	return SEA - 13.0 + land * 16.0 + hills * 22.0 * (0.35 + land) + peaks * 85.0 * land * ranges
+	var ranges := smoothstep(0.36, 0.58, fbm(p / 640.0 + Vector2(80.0, 31.0), 2))
+	var q := p / 260.0 + Vector2(40.0, 12.0)
+	var crest := ridge(q)
+	var spur := ridge(q * 2.3 + Vector2(9.0, 77.0)) * crest
+	var peaks := crest * 0.6 + spur * 0.3 + ridge(q * 5.1 + Vector2(3.0, 41.0)) * spur * 0.16
+	return SEA - 13.0 + land * 16.0 + hills * 22.0 * (0.35 + land) + peaks * 125.0 * land * ranges
 
 
 ## The surface a flight stays above: the ground or the sea.

@@ -1,6 +1,6 @@
 // Voxel Flyover on gpu@0, on a real adapter, on the private X display DISPLAY names: Chrome on
 // Vulkan, or the installed Firefox (docs/gpu.md). godot-voxel-flyover starts the game on the
-// page; Q leaves the shell, where the game flies itself through a morning and reports: its airship
+// page; Q leaves the shell, where the game flies itself through a morning and reports: its flyer
 // reached a beacon, so the ground the script flies over is the ground the shaders draw, and its
 // frame has the sky along the top and a scene's worth of colours. Chrome shows its frames on the
 // X display by copies (--disable-vulkan-surface): its Vulkan swapchain there shows a full-screen

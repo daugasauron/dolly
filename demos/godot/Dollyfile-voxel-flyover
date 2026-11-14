@@ -9,10 +9,10 @@ REQUIRES HOST sockets@0
 REQUIRES HOST gpu@0
 REQUIRES HOST clipboard@0
 
-# Voxel Flyover: an airship's flight over an endless world of hexagonal columns through a day and
-# a night, drawn by Godot's Forward+ renderer on gpu@0. The world is a function its shaders
-# compute: a pass draws what stands in each cell, and the vertex stage raises grids of columns
-# and trees around the airship to it. Its
+# Voxel Flyover: a corgi on a jet surfboard flies over an endless world of mountains, forests and
+# sea through a day and a night, drawn by Godot's Forward+ renderer on gpu@0. The world is a
+# function its shaders compute: a pass draws the ground into textures as the flight goes, and
+# the vertex stages raise grids of land to it and stand trees on it. Its
 # project (demos/godot/voxel-flyover) is imported and exported here by Godot's editor, and
 # voxel-flyover plays the pack with godot, which installs with it. The project installs too.
 FROM /v0.1.6/Dollyfile-system 33e5bcf65ef4a634da5dbf8e291a379148e7971aa0411fe1bdaa4e0332f24b94
@@ -25,7 +25,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.6/dist/static/godot/voxel-flyover.tar a54f6d134cb71f0727dc66d5811955e7857b642030195edcfec1adfd5c6128fb /tmp/voxel-flyover.tar
+SOURCE /v0.1.6/dist/static/godot/voxel-flyover.tar 4705135b43892c751f45340a7968578b9bc88c4237c81ab56b722151dd1fdc8a /tmp/voxel-flyover.tar
 SLOP CWD / tar -xf /tmp/voxel-flyover.tar
 SLOP mkdir -p /usr/share/voxel-flyover
 SLOP cp -r /usr/src/voxel-flyover /usr/share/voxel-flyover/project
@@ -39,12 +39,13 @@ FILE /usr/bin/voxel-flyover
 EXPORTS TOOL voxel-flyover
 FILE /usr/share/man/cat1/voxel-flyover.1
     voxel-flyover [GODOT-OPTION...] [-- --autopilot SECONDS] [-- --day HOUR]
-    Plays Voxel Flyover on the page: an airship flies over an endless world of
-    hexagonal columns, from dawn through the day into night, and lights the
-    beacons it reaches, which send rings of light over the ground. It flies
-    itself until Enter takes the helm: arrows or WASD steer, climb and dive,
-    Space is full speed, T lets the hours run, Escape lets go of the helm, Q
-    quits. With --autopilot it flies by itself for that long and prints its
+    Plays Voxel Flyover on the page: a corgi in a cape and sunglasses flies a
+    jet surfboard over an endless world of mountains, forests and sea, from
+    dawn through the day into night, and lights the beacons it reaches, which
+    send rings of light over the ground. It flies itself until Enter takes
+    the board: arrows or WASD steer, climb and dive, Space is full speed, T
+    lets the hours run, Escape lets go of the board, Q quits. With
+    --autopilot it flies by itself for that long and prints its
     frame rate, the milliseconds a frame took the GPU and the renderer, the
     beacons it lit and what its frame shows; --day starts at that hour. It
     draws through WebGPU (gpu@0). Its project is

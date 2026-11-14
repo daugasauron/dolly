@@ -1,8 +1,9 @@
-// The sea, a mirror for the sky: its colour deepens with the ground under it, which the terrain's
-// function gives, and ripples break the reflection. Foam follows the shore and glows at night, as
+// The sea, a mirror for the sky: its colour deepens with the ground under it, which the ground's
+// texture gives, and ripples break the reflection. Foam follows the shore and glows at night, as
 // do the rings from lit beacons that cross the water.
 shader_type spatial;
 #include "res://terrain.gdshaderinc"
+#include "res://ground.gdshaderinc"
 
 uniform vec3 shallow : source_color = vec3(0.05, 0.5, 0.48);
 uniform vec3 deep : source_color = vec3(0.004, 0.035, 0.1);
@@ -20,7 +21,7 @@ void vertex() {
 
 void fragment() {
 	vec2 p = world_position.xz;
-	float depth = max(SEA - terrain_height(p), 0.0);
+	float depth = max(SEA - ground_here(p).x, 0.0);
 	float here = ripples(p);
 	float calm = 1.0 / (1.0 + length(VERTEX) * 0.01);
 	vec2 slope = vec2(ripples(p + vec2(0.4, 0.0)) - here, ripples(p + vec2(0.0, 0.4)) - here) * 0.9 * calm;
