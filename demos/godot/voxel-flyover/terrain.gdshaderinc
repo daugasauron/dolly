@@ -7,8 +7,9 @@ const float CLOUD_HEIGHT = 520.0;
 uniform float clock = 0.0; // seconds flown
 uniform float night = 0.0;
 uniform vec3 to_light = vec3(0.0, 1.0, 0.0); // toward the sun, or the moon once it has set
-// The lit beacons nearest the flyer: where each stands (xy) and the clock when it was lit (z).
-uniform vec4 pulses[4];
+// The lit beacons around the flyer: where each stands (xy), how long ago its ring set off (z),
+// and how strong its rings are (w), which is less the further it is from the flyer.
+uniform vec4 pulses[8];
 
 float hash(vec2 cell) {
 	uvec2 p = uvec2(ivec2(cell)) * uvec2(1597334673u, 3812015801u);
@@ -96,12 +97,13 @@ float cloud_shade(vec3 place) {
 // The light of the rings that run out from lit beacons, every nine seconds each.
 float pulse_light(vec2 p) {
 	float light = 0.0;
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < 8; i++) {
 		if (pulses[i].w > 0.0) {
-			float age = mod(clock - pulses[i].z, 9.0);
-			float reach = age * 75.0;
-			float off = (distance(p, pulses[i].xy) - reach) / (5.0 + reach * 0.03);
-			light += exp(-off * off) * exp(-age * 0.45);
+			float age = pulses[i].z;
+			float radius = age * 75.0;
+			float off = (distance(p, pulses[i].xy) - radius) / (5.0 + radius * 0.03);
+			// A ring grows out of nothing in its first half second, and is gone before the next sets off.
+			light += exp(-off * off) * exp(-age * 0.45) * smoothstep(0.0, 0.5, age) * (1.0 - smoothstep(7.0, 9.0, age)) * pulses[i].w;
 		}
 	}
 	return light;

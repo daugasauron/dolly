@@ -20,5 +20,5 @@ void fragment() {
 	float middle = abs(dot(NORMAL, VIEW));
 	ALBEDO = colour * strength * 2.0;
 	// It thins before the camera, which may fly through it.
-	ALPHA = middle * middle * exp(-up / 45.0) * thin * smoothstep(3.0, 22.0, length(VERTEX));
+	ALPHA = middle * middle * exp(-up / 45.0) * thin * smoothstep(6.0, 40.0, length(VERTEX));
 }

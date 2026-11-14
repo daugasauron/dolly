@@ -33,8 +33,8 @@ Dolly, as it exported Dodge the Creeps for `amy install dodge-the-creeps`
 - `godot-lantern-drift`: Lantern Drift on the page at once; Q leaves a shell where `godot-editor -e --path ~/lantern-drift` opens a copy of its project in Godot's editor, the islands in its 3D view. The eye beside HUD in the Scene dock hides the game's display, F5 plays the game so, and Ctrl+S saves the scene.
 - `airtime-godot`: Airtime: Foundry in Godot, the strafe trials of bhop on Airtime's own movement and course, drawn by Forward+ on `gpu@0` as a foundry at night over molten metal; `airtime-godot` plays it.
 - `godot-airtime`: Airtime in Godot on the page, which starts at once; Q leaves a shell where `godot-editor -e --path ~/airtime` opens a copy of its project in Godot's editor, the course in its 3D view. The eye beside Hud in the Scene dock hides the game's display, F5 plays the game so, and Ctrl+S saves the scene.
-- `voxel-flyover`: Voxel Flyover, a corgi's flight on a jet surfboard over an endless world of mountains, forests and sea through a day and a night, which the GPU builds in its shaders, drawn by Forward+ on `gpu@0`; `voxel-flyover` plays it.
-- `godot-voxel-flyover`: Voxel Flyover on the page at once: the corgi flies itself until Enter takes the board, and Q leaves a shell.
+- `voxel-flyover`: Voxel Flyover, a corgi's flight on a jet surfboard, with a pelican on a bicycle pedalling under it for the jets, over an endless world of mountains, forests and sea through a day and a night, which the GPU builds in its shaders, drawn by Forward+ on `gpu@0`; `voxel-flyover` plays it.
+- `godot-voxel-flyover`: Voxel Flyover on the page at once: the corgi flies itself until Enter or a click takes the board, the mouse then turns the view, and Q leaves a shell.
 
 ## Lantern Drift
 
@@ -76,17 +76,32 @@ glitter on its ripples and foam that glows at night along the shore
 ([`water.gdshader`](voxel-flyover/water.gdshader)). The sky follows the hour, with stars, the
 moon and an aurora, and carries a layer of cloud lit from the sun's side, whose shade falls on the
 ground ([`sky.gdshader`](voxel-flyover/sky.gdshader)). A day lasts two minutes: one light is the
-sun and then the moon, with four shadow cascades over 420 units, 4x MSAA, SSAO, glow, haze that
-thickens toward the sea, and volumetric fog, in which the low sun draws shafts and the board's
-searchlight shows at night.
+sun and then the moon, with four shadow cascades over 420 units that every grid of land casts
+into, 4x MSAA, SSAO, glow, haze that thickens toward the sea, and volumetric fog, in which the low
+sun draws shafts and the board's searchlight shows at night.
 
 Nothing appears or goes at once. The same trees are drawn by four grids, each a ring further from
 the flyer with a simpler mesh: a crown of 12 rings to 80 units, of 5 to 232, of 3 without a trunk
 to 420, and eight triangles to 690. Where two rings overlap, one's trees thin out pixel by pixel as
 the other's fill in, both asking the same number of the pixel, and past the last ring the land's
-shader paints the same crowns on the ground they stand on, and further still the colour of the
-climate's share of them. The land's grids blend their heights by the distance from the flyer,
-which moves smoothly while the grids step, and the beacons brighten from 340 units to 230.
+shader paints the same crowns on the ground they stand on, round over their plots' edges, and
+further still the colour of the climate's share of them. The land's grids blend their heights by
+the distance from the flyer, which moves smoothly while the grids step, and the beacons brighten
+from 340 units to 230. A beacon takes its light by degrees when it is lit, its ring of light grows
+out of nothing and is gone before the next sets off, and the rings of a beacon fade with its
+distance from the flyer. A tree, a beacon's crystal or its shaft thins out before the camera,
+which may fly through it. The camera follows a point that follows the next of its views, so it
+neither sets off nor arrives at once, and the ground lifts it by degrees before it is reached.
+
+Nothing finer than a pixel is drawn as it is, since the flight would carry it across the pixels as
+flicker. Each shader measures how much of its surface a pixel covers (the derivatives of the
+place, or of the hairs' own coordinates) and lets detail finer than that give way to its mean: the
+octaves of the ground's grain one by one, its flowers, the tilt of its light, the sea's three
+sizes of ripple (whose lost slope becomes roughness, so the sun's glitter widens into a glare),
+the clumps of a crown's leaves, the fur's hairs, which merge into a coat of their mean length, and
+the links of the pelican's chain. A vein of crystal and a far beacon's shaft keep a width of a
+pixel or a few and grow fainter in proportion; a wake seen on edge fades; the painted crowns merge
+into their share's colour where a pixel covers a crown.
 
 The flyer is a character of our own, drawn for this game from Godot's primitive meshes: a corgi in
 mirrored sunglasses and a red cape, crouched on a teal surfboard that two small jets carry. Its
@@ -98,11 +113,28 @@ its tongue flaps; the cape is a cloth its vertex stage flutters and swings out o
 ([`cape.gdshader`](voxel-flyover/cape.gdshader)), and each jet leaves a wake, a ribbon the vertex
 stage lays along the places the board has been ([`wake.gdshader`](voxel-flyover/wake.gdshader)).
 The board banks into its turns.
+
+Under the board hangs a bicycle, and on it a pelican pedals for the jets
+([`pelican.gd`](voxel-flyover/pelican.gd)), also of primitive meshes: a white bird in a cyclist's
+red cap, with a long bill and its pouch, feathers in the same shells as the corgi's fur, and long
+black-tipped flight feathers, a tail and a crest of the cape's cloth, which trail and flutter in
+the wind. Its legs are laid from hip to knee to pedal each frame. A chain runs from the chainring
+up to a sprocket on a shaft between the two engines, and a fan turns in each engine's intake;
+chain, shaft, fans and wheels turn by the cranks' one angle, so nothing slips, and they are
+striped or sectored so the turning shows ([`drive.gdshader`](voxel-flyover/drive.gdshader)). The
+cranks turn faster the faster the board flies, the flames
+([`flame.gdshader`](voxel-flyover/flame.gdshader)) lengthen with each stroke of a leg and carry a
+ring of brighter gas for it, the nozzles glow with it, and a pulse runs down each wake.
 [`terrain.gd`](voxel-flyover/terrain.gd) computes the world's function for the flight, with the
 same integer hash, so the board clears the ground the GPU draws and finds the beacons that float
-over it. The corgi flies itself until Enter takes the board, and until then the camera glides
-between four views of it. `-- --autopilot SECONDS` prints its frame rate, the time a frame took,
-the beacons it lit and what its frame shows.
+over it. The corgi flies itself until Enter or a click takes the board, and until then the camera
+glides between five views of it, one of them the pelican's. The click also gives the game the
+pointer (the page captures it at a person's click alone), and the mouse then turns the view
+around the flyer while the keys steer; Escape gives the pointer and the board back, and the view
+comes round again. The one number on the screen is the score, the beacons lit.
+`-- --autopilot SECONDS` prints its frame rate, how even its frames were (median, 99th percentile,
+maximum, and the frames of over twice the median), the time a frame took, the beacons it lit and
+what its frame shows.
 
 The world was blocks, then hexagonal columns, and is now smooth land. Its 1920 by 1080 frames take
 the GPU 5.2 to 5.5 ms by Godot's own measure and its renderer's thread 0.6 to 0.8 ms, and it draws
@@ -265,8 +297,9 @@ Both games passed in both browsers on 2026-11-13, the editor's log without an er
 
 [`test/godot-flyover-browser.mjs`](test/godot-flyover-browser.mjs) opens `godot-voxel-flyover` from
 the front page's list of applications, on a hardware adapter, in Chrome and Firefox: the game
-draws on `gpu@0`, Q leaves the shell, and a flight by itself through a morning reaches a beacon
-and reports a frame with the sky along its top.
+draws on `gpu@0`, a click captures the pointer and 300 pixels of the mouse turn the view 60
+degrees, Q leaves the shell, and a flight by itself through a morning reaches a beacon and
+reports even frames and a frame with the sky along its top.
 
 [`test/godot-x11-browser.mjs`](test/godot-x11-browser.mjs) installs the editor and Lantern Drift
 with amy in `x11-desktop`'s xterm: the game and then the editor open windows of their own on the

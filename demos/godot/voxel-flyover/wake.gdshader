@@ -16,7 +16,9 @@ varying vec2 across; // x: along the wake, 0 at the board to 1 at its end; y: ac
 void vertex() {
 	int i = int(round(UV.x * float(POINTS - 1)));
 	float along = i == 0 ? 0.0 : (float(i) - 1.0 + lead) / float(POINTS - 1);
-	vec3 back = path[min(i + 1, POINTS - 1)] - path[max(i - 1, 0)];
+	// The newest place is the board's own, and at times the very place before it: the ribbon's first
+	// stretch takes its direction from the place after those.
+	vec3 back = path[min(max(i + 1, 2), POINTS - 1)] - path[max(i - 1, 0)];
 	vec3 toward = length(back) > 0.001 ? normalize(back) : vec3(0.0, 0.0, 1.0);
 	vec3 side = normalize(cross(toward, vec3(0.0, 1.0, 0.0)));
 	float roll = sin(along * 14.0 - clock * 2.2) * 1.1;

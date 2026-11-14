@@ -17,9 +17,12 @@ void vertex() {
 	shell = (float(INSTANCE_ID) + 1.0) / shells;
 	float shiver = sin(TIME * 17.0 + UV.x * 40.0 + UV.y * 31.0);
 	vec3 blown = wind * (0.7 + 0.3 * shiver) + vec3(0.0, 0.25, 0.0) * shiver * length(wind);
+	// The normal comes as long as its part is scaled, or of length one where the scale is uneven: a
+	// leg, whose scale changes as the corgi crouches, came now one way and now the other.
+	vec3 out_of = normalize(NORMAL);
 	// A hair bends more toward its tip, and less where it would be pushed into the skin.
-	blown -= NORMAL * min(dot(blown, NORMAL), 0.0);
-	VERTEX += (NORMAL * shell + blown * shell * shell) * hair;
+	blown -= out_of * min(dot(blown, out_of), 0.0);
+	VERTEX += (out_of * shell + blown * shell * shell) * hair;
 }
 
 void fragment() {

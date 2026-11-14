@@ -44,7 +44,7 @@ const SHOTS := [
 	[Vector3(9, 26, 34), Vector3(0, -10, -70), 74.0],
 	[Vector3(5.5, 0.6, -11.5), Vector3(-1, -0.4, 6), 58.0],
 ]
-const SHOT_SECONDS := 13.0
+const SHOT_SECONDS := 10.0
 
 var environment := Environment.new()
 var sky_material := ShaderMaterial.new()
@@ -71,6 +71,7 @@ var flutter := 0.0 # the phase of what flutters in the wind, which runs with the
 var wakes: Array[ShaderMaterial] = []
 var wake := PackedVector3Array()
 var flames: Array[MeshInstance3D] = []
+var fires: Array[ShaderMaterial] = [] # the flames' light and its heart
 var searchlight := SpotLight3D.new()
 var lamp := OmniLight3D.new()
 var hud := CanvasLayer.new()
@@ -79,6 +80,7 @@ var hint := Label.new()
 var score := Label.new()
 var engine := AudioStreamPlayer.new()
 var bell := AudioStreamPlayer.new()
+var chimes: Array[AudioStreamWAV] = [] # a note for each beacon lit, made before the flight
 var leaving := false # after Q, or a flight by itself that has ended
 var beacons := {} # plot -> its node, for the plots around the flyer
 var lit := {} # plot -> where it stands (x, y) and the clock when it was lit (z)
@@ -87,6 +89,9 @@ var helm := false # the player's, after Enter or a click
 var captured := false # the pointer, which the page gives the game at a click
 var look := Vector2.ZERO # where the mouse has turned the view: around the flyer, and over it
 var looked := Vector2.ZERO # the view on its way there
+var trail := Vector3.ZERO # the flyer's place and heading as the camera follows them, a little late
+var turned := heading
+var lift := 0.0 # of the camera over the ground under and ahead of it
 var shown_score := 0.0
 var hint_until := 0.0 # the keys show for a while after the board changes hands
 var day := 0.24
@@ -97,6 +102,9 @@ var speed := CRUISE
 var flown := 0.0
 var view: Vector3 = SHOTS[0][0]
 var aim: Vector3 = SHOTS[0][1]
+var view_led: Vector3 = view # what the view follows on its way to the next: it sets off gently
+var aim_led: Vector3 = aim
+var fov_led := 66.0
 var autopilot_seconds := 0.0
 var elapsed := 0.0
 var frames := 0
@@ -132,7 +140,8 @@ func _ready() -> void:
 		land.material_override = reads_ground(preload("res://land.gdshader"), ring)
 		materials[-1].set_shader_parameter("hole", hole)
 		land.custom_aabb = AABB(Vector3(-across * cell / 2.0, 0, -across * cell / 2.0), Vector3(across * cell, 260, across * cell))
-		land.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if ring < 2 else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# Every grid casts shadows: a low sun lays a far mountain's over the land near by, and it
+		# would come at once as a finer grid stepped under the mountain.
 		add_child(land)
 		lands.append(land)
 		hole = across * cell / 2.0
@@ -149,10 +158,12 @@ func _ready() -> void:
 	add_child(water)
 	build_flyer()
 	camera.far = 3000.0
+	camera.fov = fov_led
 	camera.near = 0.3
 	add_child(camera)
 	build_hud()
 	flyer.position = Vector3(START.x, Terrain.surface(START) + 30.0, START.y)
+	trail = flyer.position
 	camera.position = flyer.position + view
 	wake.resize(WAKE)
 	wake.fill(flyer.position)
@@ -334,12 +345,11 @@ func build_flyer() -> void:
 	Parts.part(flyer, ball, Parts.paint(Color(0.95, 0.9, 0.75), 0.3), Vector3(0, 0.03, 0), Vector3.ZERO, Vector3(0.5, 0.28, 6.1))
 	Parts.part(flyer, point, steel, Vector3(0, -0.4, 2.3), Vector3(200, 0, 0), Vector3(0.12, 0.35, 0.7))
 	# The jets, one under each rail: an intake's ring, a nozzle, and a flame with a white heart.
-	var flame := StandardMaterial3D.new()
-	flame.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	flame.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	flame.albedo_color = Color(0.25, 0.7, 1.6)
-	var heart := flame.duplicate() as StandardMaterial3D
-	heart.albedo_color = Color(1.6, 1.5, 1.2)
+	var flame := ShaderMaterial.new()
+	flame.shader = preload("res://flame.gdshader")
+	var heart := flame.duplicate() as ShaderMaterial
+	heart.set_shader_parameter("colour", Color(1.6, 1.5, 1.2))
+	fires = [flame, heart]
 	var lip := TorusMesh.new()
 	lip.inner_radius = 0.2
 	lip.outer_radius = 0.33
@@ -440,6 +450,8 @@ func build_flyer() -> void:
 	add_child(engine)
 	engine.play()
 	bell.volume_db = -6.0
+	for note: int in [0, 2, 4, 7, 9, 12]:
+		chimes.append(chime(440.0 * pow(2.0, note / 12.0)))
 	add_child(bell)
 
 
@@ -466,10 +478,12 @@ func ride(delta: float) -> void:
 	# The jets burn as the pelican pushes: longer and brighter with each stroke of its legs.
 	var push := pelican.stroke()
 	for flame in flames:
-		flame.scale.y = flame.scale.x * (1.3 + 1.4 * fast) * (0.8 + 0.5 * push)
+		flame.scale.y = flame.scale.x * (1.4 + 1.4 * fast) * (0.88 + 0.24 * push)
 		flame.position.z = 2.95 + flame.scale.y
 	for glow in glows:
-		glow.emission_energy_multiplier = 3.0 + 6.0 * push
+		glow.emission_energy_multiplier = 4.5 + 3.0 * push
+	for fire in fires:
+		fire.set_shader_parameter("strokes", pelican.angle / PI)
 	# The air comes from ahead, and from the outside of a turn.
 	var air := flyer.global_basis * Vector3(turn * 0.5, 0.0, 0.9 * fast)
 	for fur in furs:
@@ -477,10 +491,11 @@ func ride(delta: float) -> void:
 	for cloth: ShaderMaterial in pelican.plumes + [cape_material]:
 		cloth.set_shader_parameter("phase", flutter)
 		cloth.set_shader_parameter("lean", turn)
-	# The wakes keep a place for every stretch flown, the newest at the board's tail.
+	# The wakes keep a place for every stretch flown, the newest at the board's tail: each exactly
+	# a stretch from the one before, so the ribbon's pattern keeps its place as one is added.
 	wake[0] = flyer.to_global(Vector3(0, -0.3, 3.0))
-	if wake[0].distance_to(wake[1]) > WAKE_APART:
-		wake.insert(1, wake[0])
+	while wake[0].distance_to(wake[1]) > WAKE_APART:
+		wake.insert(1, wake[1] + (wake[0] - wake[1]).normalized() * WAKE_APART)
 		wake.resize(WAKE)
 	for wake_material in wakes:
 		wake_material.set_shader_parameter("path", wake)
@@ -612,7 +627,7 @@ func _process(delta: float) -> void:
 	# The score swells as a beacon is lit.
 	shown_score = lerpf(shown_score, lit.size(), 1.0 - exp(-delta * 6.0))
 	score.text = str(lit.size())
-	score.scale = Vector2.ONE * (1.0 + 0.5 * clampf(lit.size() - shown_score, 0.0, 1.0))
+	score.scale = Vector2.ONE * (1.0 + 0.5 * sin(PI * clampf(lit.size() - shown_score, 0.0, 1.0)))
 	if autopilot_seconds > 0.0:
 		watch()
 
@@ -717,15 +732,20 @@ func tend_beacons(delta: float) -> void:
 		(beacon.get_child(2) as OmniLight3D).light_energy = lerpf(3.0, 8.0, alight) * seen
 		if not leaving and not lit.has(plot) and beacon.position.distance_to(flyer.position) < BEACON_REACH:
 			lit[plot] = Vector4(beacon.position.x, beacon.position.z, elapsed, 1.0)
-			bell.stream = chime(440.0 * pow(2.0, [0, 2, 4, 7, 9, 12][(lit.size() - 1) % 6] / 12.0))
+			bell.stream = chimes[(lit.size() - 1) % chimes.size()]
 			bell.play()
-	# The shaders run rings of light out from the four lit beacons nearest the flyer.
+	# The shaders run rings of light out from the lit beacons around the flyer, every nine seconds
+	# each. A beacon's rings fade with its distance from the flyer, so none comes or goes at once;
+	# of more than eight around, the last lit have theirs.
 	var here := Vector2(flyer.position.x, flyer.position.z)
-	var nearest := lit.values()
-	nearest.sort_custom(func(a: Vector4, b: Vector4) -> bool: return Vector2(a.x, a.y).distance_to(here) < Vector2(b.x, b.y).distance_to(here))
 	var pulses := PackedVector4Array()
-	for i in 4:
-		pulses.append(nearest[i] if i < nearest.size() else Vector4.ZERO)
+	var newest := lit.values()
+	newest.reverse()
+	for at: Vector4 in newest:
+		var strength := 1.0 - smoothstep(520.0, 760.0, Vector2(at.x, at.y).distance_to(here))
+		if strength > 0.0 and pulses.size() < 8:
+			pulses.append(Vector4(at.x, at.y, fposmod(elapsed - at.z, 9.0), strength))
+	pulses.resize(8)
 	tell("pulses", pulses)
 
 
@@ -744,6 +764,10 @@ func build_beacon(place: Vector3, alight: float) -> Node3D:
 	point.radial_segments = 6
 	point.rings = 1
 	var glass := Parts.paint(colour, 0.15, 1.5)
+	# The crystal thins before the camera, which may fly through it.
+	glass.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_DITHER
+	glass.distance_fade_min_distance = 5.0
+	glass.distance_fade_max_distance = 20.0
 	Parts.part(gem, point, glass, Vector3(0, 1.1, 0))
 	Parts.part(gem, point, glass, Vector3(0, -1.1, 0), Vector3(180, 0, 0))
 	var column := CylinderMesh.new()
@@ -799,19 +823,36 @@ static func chime(frequency: float) -> AudioStreamWAV:
 ## glides from one of its views to the next, and never under the ground.
 func follow(delta: float) -> void:
 	var shot: Array = SHOTS[0 if helm else int(elapsed / SHOT_SECONDS) % SHOTS.size()]
-	var glide := 1.0 - exp(-delta * 0.9)
-	view = view.lerp(shot[0], glide)
-	aim = aim.lerp(shot[1], glide)
-	camera.fov = lerpf(camera.fov, shot[2], glide)
+	# Each follows a point that follows the next view, so the camera neither sets off nor arrives
+	# at once.
+	var glide := 1.0 - exp(-delta * 1.7)
+	view_led = view_led.lerp(shot[0], glide)
+	aim_led = aim_led.lerp(shot[1], glide)
+	fov_led = lerpf(fov_led, shot[2], glide)
+	view = view.lerp(view_led, glide)
+	aim = aim.lerp(aim_led, glide)
+	camera.fov = lerpf(camera.fov, fov_led, glide)
 	# The mouse turns the view around the flyer while the player has the board; let go, the view
 	# comes back the short way round.
 	if not helm:
 		look = Vector2(wrapf(look.x, -PI, PI), look.y).lerp(Vector2.ZERO, 1.0 - exp(-delta * 2.0))
 		looked.x = wrapf(looked.x, look.x - PI, look.x + PI)
 	looked = looked.lerp(look, 1.0 - exp(-delta * 14.0))
-	var frame := Basis(Vector3.UP, -heading - looked.x) * Basis(Vector3.RIGHT, -looked.y)
-	var place := camera.position.lerp(flyer.position + frame * view, 1.0 - exp(-delta * 5.0))
-	place.y = maxf(place.y, Terrain.surface(Vector2(place.x, place.z)) + 6.0)
+	# The camera follows the flyer's place and heading a little late, and turns about it exactly:
+	# a straight way between two places around the flyer would cut through it.
+	var late := 1.0 - exp(-delta * 5.0)
+	trail = trail.lerp(flyer.position, late)
+	turned = lerp_angle(turned, heading, late)
+	var frame := Basis(Vector3.UP, -turned - looked.x) * Basis(Vector3.RIGHT, -looked.y)
+	var place := trail + frame * view
+	# The ground lifts the camera before it is reached, by degrees: the highest of where the
+	# camera is and will be in the next second and a half.
+	var ground := 0.0
+	for step in 4:
+		ground = maxf(ground, Terrain.surface(Vector2(place.x, place.z) + Vector2(sin(heading), -cos(heading)) * step * 15.0))
+	var over := place.y - ground - 6.0
+	lift = lerpf(lift, (sqrt(over * over + 9.0) - over) / 2.0, 1.0 - exp(-delta * 3.0))
+	place.y += lift
 	camera.position = place
 	camera.look_at(flyer.position + frame * aim)
 	tell("eye", camera.position)

@@ -59,12 +59,28 @@ void fragment() {
 	float painted = smoothstep(540.0, 680.0, away);
 	vec3 lit_crowns = vec3(0.0);
 	if (painted > 0.0 && grows(here.x, here.y)) {
-		vec4 tree = plot_tree(p);
-		float crown = crown_width(here.y, here.z) * tree_size(tree.w) * 1.3;
+		float crown = crown_width(here.y, here.z) * 1.3;
 		float share = tree_share(here.y, here.z);
 		// Where a crown is less than a pixel, the ground takes the colour of its share of them.
 		float merged = max(smoothstep(800.0, 1300.0, away), smoothstep(crown * 0.35, crown * 1.4, wide));
-		float under = mix(step(tree.z, share) * (1.0 - smoothstep(crown * 0.6, crown, distance(p, tree.xy))), share * 0.6, merged) * (1.0 - bare) * painted;
+		// A crown is wider than its plot: the pixel is under the nearest of its own plot's tree and
+		// the eight plots' around, so a crown is round and not cut off where its plot ends.
+		vec4 tree = vec4(0.0);
+		float disc = 0.0;
+		if (merged < 1.0) {
+			for (int x = -1; x <= 1; x++) {
+				for (int y = -1; y <= 1; y++) {
+					vec4 near_by = plot_tree(p + vec2(float(x), float(y)) * PLOT);
+					float spread = crown * tree_size(near_by.w);
+					float covers = step(near_by.z, share) * (1.0 - smoothstep(spread * 0.6, spread, distance(p, near_by.xy)));
+					if (covers > disc) {
+						disc = covers;
+						tree = near_by;
+					}
+				}
+			}
+		}
+		float under = mix(disc, share * 0.6, merged) * (1.0 - bare) * painted;
 		vec4 leaves = mix(crown_colour(tree.xy, tree.w, here.y, here.z), crown_colour(p, 0.5, here.y, here.z), merged);
 		colour = mix(colour, leaves.rgb * 0.75 * (1.0 - 0.5 * leaves.a), under);
 		lit_crowns = leaves.rgb * leaves.a * under * (0.1 + 1.5 * night) * 0.75;

@@ -216,8 +216,8 @@ func build_bird() -> void:
 	var bend := Vector3(0, -0.93, -0.42)
 	head.position = Vector3(0, -0.72, -0.64)
 	bird.add_child(head)
-	Parts.lay(Parts.coated(coats, bird, tube, white, 0.05, Vector2(30, 12), Vector3.ZERO), Vector3(0, -1.22, -0.22), bend, 0.2)
-	Parts.lay(Parts.coated(coats, bird, tube, white, 0.05, Vector2(30, 10), Vector3.ZERO), bend, head.position, 0.18)
+	Parts.lay(Parts.coated(coats, bird, tube, white, 0.035, Vector2(44, 30), Vector3.ZERO), Vector3(0, -1.22, -0.22), bend, 0.21)
+	Parts.lay(Parts.coated(coats, bird, tube, white, 0.035, Vector2(44, 24), Vector3.ZERO), bend, head.position, 0.19)
 	Parts.part(bird, ball, plain, bend, Vector3.ZERO, Vector3.ONE * 0.22)
 	Parts.coated(coats, head, ball, white, 0.05, Vector2(40, 30), Vector3.ZERO, Vector3.ZERO, Vector3(0.34, 0.33, 0.38))
 	for side: float in [-1.0, 1.0]:
@@ -229,8 +229,8 @@ func build_bird() -> void:
 	pouch.position = Vector3(0, -0.06, -0.12)
 	head.add_child(pouch)
 	var sack := Parts.part(pouch, ball, orange, Vector3.ZERO)
-	Parts.lay(sack, Vector3(0, -0.06, 0.08), Vector3(0, -0.36, -0.86), 0.26)
-	sack.scale.z *= 0.75
+	Parts.lay(sack, Vector3(0, -0.08, 0.1), Vector3(0, -0.4, -0.9), 0.36)
+	sack.scale.z *= 0.6
 	# A cyclist's cap in the cape's red.
 	var red := Parts.paint(Color(0.8, 0.05, 0.08), 0.6)
 	Parts.part(head, ball, red, Vector3(0, 0.1, 0.02), Vector3.ZERO, Vector3(0.36, 0.2, 0.38))
