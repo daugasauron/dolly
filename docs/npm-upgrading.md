@@ -36,8 +36,9 @@ Starting a project:
   dolly-build init my-pi git python nvim` installs the packages it names and
   the host modules they declare, at `dolly-build`'s version. In 0.1.5 the line
   named ten packages, among them the host module `python` needs.
-- `npx dolly-build add NAME [PACKAGE…]` puts more tools into a recipe and
-  writes every row's pin from the installed packages. In 0.1.5 a tool added
+- `npx dolly-build add NAME [PACKAGE…]` puts more tools into a recipe, writes
+  every row's pin from the installed packages, and declares the host modules
+  the packages need. In 0.1.5 a tool added
   later was a row and a SHA-256 written by hand.
 - Skills are directories: `public/skills/NAME/` with a `SKILL.md` and its
   scripts, written into Pi's skills at boot. A change to a skill keeps the
@@ -50,9 +51,16 @@ Starting a project:
   package lists the packages, and a row whose pin is stale names the command
   that writes it.
 
+Pi:
+
+- Pi asks the user for a file. Its new `upload` tool opens the page's file
+  dialog, and Pi gets the file's path and size, or that the user cancelled;
+  the `download` and `upload` commands are in its shell too.
+
 More to install:
 
-- Tools: `nvim` (Neovim with its tree-sitter parsers), `jq`, `sqlite`, `less`.
+- Tools: `nvim` (Neovim with its tree-sitter parsers), `jq`, `sqlite`, `less`,
+  `transfer` (the `download` and `upload` commands).
 - Pi's parts as packages of their own, which `init`'s recipe installs in place
   of the `pi-minimal` image: `core`, `posix`, `curl`, `display`, `dollyfile`,
   `pi-dolly`, with `pi`, `quickjs`, `janis`, `ripgrep`, `fd`, `sbase`, `gzip`,
@@ -106,6 +114,7 @@ Sessions:
 | A recipe's pins | `FROM /v0.1.5/… SHA256`, `INSTALL /v0.1.5/… SHA256` | The same rows name `/v0.1.6/…` and other pins | `npx dolly-build add NAME` writes them |
 | The base of `init`'s recipe | `FROM` the `pi-minimal` image | `INSTALL` rows of Pi's packages; no `FROM` | Nothing: a recipe that starts `FROM pi-minimal` builds as before, with `@daugasauron/dolly-image-pi-minimal` installed |
 | Module headers (`<dolly/display.h>`, `input.h`, `download.h`, `upload.h`, `nena.h`, `packages.h`, `pty.h`, `sockets.h` and the others) | In the `cc` package | Each module's header and client library is the package `libdolly-NAME`; `cc` holds none | A recipe that compiles against one: `npx dolly-build add NAME libdolly-display` (and the others it includes). A program links a client with `-ldolly-NAME` |
+| Pi's host modules | `display`, `input`, `download`, `html` | Also `upload`: `pi-dolly` declares `upload@0` for Pi's `upload` tool | `npx dolly-build add NAME` writes `REQUIRES HOST upload@0` into the recipe and installs `@daugasauron/dolly-host-upload`. A page that boots `pi-minimal` itself installs that package |
 | The `default` image | Holds `html` and declares `html@0` | Holds no `html` and does not declare `html@0` | A page that runs `default` no longer needs `@daugasauron/dolly-host-html`. For the `html` command, build a recipe that installs the `html` package |
 | Saved sessions | A save opens on the image it was made on | A save records the runtime's image build ID, which 0.1.6 changed | A 0.1.5 save does not open in 0.1.6: see [Saved sessions](#saved-sessions) |
 | `/workspace` in a recipe | Never kept | Kept as any path | A `FILE /workspace/…` row is now in the image; the page's `public/workspace/` still lies over it at a fresh boot |
@@ -131,7 +140,9 @@ In the project's directory, with its 0.1.5 packages installed:
 
 2. Let it move the rest. `add` installs every `@daugasauron` package of
    `package.json` at `dolly-build`'s version (it prints the `npm install` line
-   it runs) and writes the pins of the recipe's `FROM` and `INSTALL` rows:
+   it runs), writes the pins of the recipe's `FROM` and `INSTALL` rows, and
+   declares the host module Pi gained, `REQUIRES HOST upload@0`, installing
+   `@daugasauron/dolly-host-upload`:
 
    ```sh
    npx dolly-build add my-pi
@@ -192,9 +203,15 @@ own:
    sed -i 's|/dolly/src/browser.mjs|/dolly/page/browser.mjs|' index.html
    ```
 
-3. A page that runs `default` and listed its modules by hand may drop
-   `dolly-host-html`; a page that takes `modules` from the image's `index.mjs`
-   changes nothing.
+3. A page that runs `pi-minimal` also installs the module Pi gained:
+
+   ```sh
+   npm install --save-exact @daugasauron/dolly-host-upload@0.1.6
+   ```
+
+   A page that runs `default` and listed its modules by hand may drop
+   `dolly-host-html`. A page that takes `modules` from the image's `index.mjs`
+   changes nothing else.
 
 `boot()`'s options and the handle it resolves to are as they were. The server
 sends the same headers.

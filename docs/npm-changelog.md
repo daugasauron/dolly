@@ -23,8 +23,9 @@ A project in fewer steps:
   `dolly-build`'s version. Before, the line named nine packages, a package's
   host module (`sockets` for `python`) was the user's to find, and `init`
   stopped at the first package that was not installed.
-- `dolly-build add NAME [PACKAGE…]` puts packages into an existing recipe and
-  writes every row's installed pin. Before, a package added later needed its
+- `dolly-build add NAME [PACKAGE…]` puts packages into an existing recipe,
+  writes every row's installed pin, and declares and installs the host modules
+  the recipe's packages have gained since. Before, a package added later needed its
   row and SHA-256 written by hand, and after an update of the packages the
   only source of the new pins was `init` in an empty directory.
 - Skills are directories under `public/skills/`, a `SKILL.md` with its scripts
@@ -40,9 +41,14 @@ A project in fewer steps:
 - `dolly-build --help`, or an option it does not know, prints the usage.
   Before, it printed a stack trace.
 - A name that is no package lists the packages there are.
-- New packages: `nvim` (Neovim), `jq`, `sqlite`, `less`, and Pi's own as
-  packages (`core`, `posix`, `curl`, `display`, `dollyfile`, `pi-dolly` and
-  what they install).
+- New packages: `nvim` (Neovim), `jq`, `sqlite`, `less`, `transfer` (the
+  `download` and `upload` commands), the modules' headers and client libraries
+  (`libdolly-NAME`), and Pi's own as packages (`core`, `posix`, `curl`,
+  `display`, `dollyfile`, `pi-dolly` and what they install).
+- Pi has an `upload` tool: it asks the user for a file, the page's file dialog
+  opens, and Pi gets the path and size, or that the user cancelled. `pi-dolly`
+  installs `transfer` for it and declares `upload@0`, so a Pi project needs
+  `@daugasauron/dolly-host-upload`, which `init` and `add` install.
 - The build's log no longer says that the build "reaches" `dolly-build`'s own
   server on 127.0.0.1.
 

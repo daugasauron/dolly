@@ -31,7 +31,9 @@ python3 -m http.server -d my-pi -b 127.0.0.1 8080
 - Python's server serves it. Open <http://127.0.0.1:8080/>: Pi asks for your
   OpenRouter key at a prompt that does not show it, and starts in `/workspace`.
   `curl https://example.com` in Pi's shell fails: the page's policy admits the
-  model's provider and nothing else. Ctrl+D leaves Pi for a shell. Save
+  model's provider and nothing else. Ctrl+D leaves Pi for a shell. When Pi needs
+  a file of yours it asks with its `upload` tool: the page's file dialog opens,
+  and Pi gets the file's path and size, or that you cancelled. Save
   (Ctrl+Shift+S) keeps the sandbox, files and all, in this browser and names it
   in the address (`?session=NAME`), which opens it again as it was.
 
@@ -76,7 +78,7 @@ npx dolly-build add my-pi jq sqlite
 | `nvim` | Neovim, with its runtime files and tree-sitter parsers |
 | `cc` | The C and C++ compiler, with `ld`, `ar`, Make and the headers |
 | `jq`, `sqlite`, `less` | `jq`, `sqlite3` and the pager |
-| Pi's own, which `init` always installs | `core` (the shell `slop` and its commands), `posix` (grep, sed, awk, find and the others), `curl`, `display` (the terminal), `dollyfile` (the recipe engine) and `pi-dolly` (Pi, its JavaScript runtime, ripgrep, fd, and Pi's Dolly skill and tools) |
+| Pi's own, which `init` always installs | `core` (the shell `slop` and its commands), `posix` (grep, sed, awk, find and the others), `curl`, `display` (the terminal), `dollyfile` (the recipe engine) and `pi-dolly` (Pi, its JavaScript runtime, ripgrep, fd, the `download` and `upload` commands, and Pi's Dolly skill and tools, among them `download` and `upload`, which hand the user a file and ask the user for one) |
 
 `npx dolly-build init` with a name that is no package lists them all. A program
 that is not among them is built in the recipe, where a compiler is: a `FILE`
