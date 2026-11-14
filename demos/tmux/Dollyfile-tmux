@@ -8,10 +8,10 @@ REQUIRES HOST sockets@0
 # packages. tmux takes Dolly's port (README.md): a patch and its operating
 # system file.
 FROM /v0.1.6/demos/tools/Dollyfile-tools-build f0a23271701bb566fdd11375946b1a4159d15510005f66c9781cf5a2f411eb5c
-USE /v0.1.6/Dollyfile-libdolly-sockets 9b3cbc49070172a0a59f972bcbc6d66d54dd0910226495118782acdfeaf220ec
+USE /v0.1.6/Dollyfile-libdolly-sockets 21a5b6d8d2dea4fa61305f4af76be2773bc8f92fb4e8419ba985bda01efca52a
 USE /v0.1.6/demos/tmux/Dollyfile-libevent fdfcf570a132568f7aefb35d6d3828bb0986b193cb6f987d11376bbef7b3211f
 USE /v0.1.6/demos/tmux/Dollyfile-libterminfo 9d3697aa11d8bc57cf409f95c5fbeb55702ae39c56ab8e5cda6f8c8495843021
-USE /v0.1.6/Dollyfile-libdolly-pty 06d2042a07b180ad4d8295ec2a4384dbe10c888c4c2e87721a1906b3fa045834
+USE /v0.1.6/Dollyfile-libdolly-pty efe053dd7e7f0c006053f02763ebd5fbf2d9a81da6124a904805a03dbb6abd9c
 
 REQUIRES HEADER libc
 REQUIRES HEADER event

@@ -7,7 +7,7 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
 FROM /v0.1.6/Dollyfile-system 33e5bcf65ef4a634da5dbf8e291a379148e7971aa0411fe1bdaa4e0332f24b94
-USE /v0.1.6/Dollyfile-libdolly-sockets 9b3cbc49070172a0a59f972bcbc6d66d54dd0910226495118782acdfeaf220ec
+USE /v0.1.6/Dollyfile-libdolly-sockets 21a5b6d8d2dea4fa61305f4af76be2773bc8f92fb4e8419ba985bda01efca52a
 USE /v0.1.6/demos/tools/Dollyfile-sqlite ee4ebbda62a90294de321a7487bbfebcdd630dd5add020ed1ee33978db2ab27a
 USE /v0.1.6/demos/tools/Dollyfile-bzip2 e6edc0699830fa0aa9a6c36dcec8ce4543fc0e595d8bd62c7c4b53f7ecbfe2cd
 USE /v0.1.6/demos/tools/Dollyfile-xz 9b8487a105a5fa4e6c10e63e42aab0c6a42e6297b91b463d6f088c84de059964
