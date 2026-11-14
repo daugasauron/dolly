@@ -98,8 +98,7 @@ Open [slopshare.dev](https://slopshare.dev/). The menu lists every image.
 
 In a page of your own: `npm install @daugasauron/dolly @daugasauron/dolly-image-default`
 with the host modules it declares ([Embedding](docs/embedding.md) gives the line),
-or [Pi with npm](#pi-with-npm) below;
-`@daugasauron/dolly-image-python-data` is Python with NumPy, pandas and Matplotlib.
+or [Pi with npm](#pi-with-npm) below.
 
 - `/IMAGE/` boots the prebuilt image; `/IMAGE/rebuild/` builds it from its
   Dollyfile in your browser; `/view/IMAGE/` shows the recipe.
@@ -114,58 +113,25 @@ or [Pi with npm](#pi-with-npm) below;
 
 ## Pi with npm
 
-A site of your own that runs the Pi coding agent on your project, with Git,
-Python, NumPy and Matplotlib, whose requests the browser admits to the model's
-provider and nowhere else. In an empty directory, with Node.js, npm, Chrome and
-Python (for its static file server):
+A site of your own that runs the Pi coding agent in a sandbox with the tools
+you choose (Git, Python, Neovim and others) and your skills, whose requests
+the browser admits to the model's provider and nowhere else:
 
 ```sh
-npm init --yes
-npm install @daugasauron/dolly @daugasauron/dolly-build \
-  @daugasauron/dolly-host-display @daugasauron/dolly-host-input @daugasauron/dolly-host-save \
-  @daugasauron/dolly-host-html @daugasauron/dolly-host-sockets \
-  @daugasauron/dolly-package-git @daugasauron/dolly-package-matplotlib
-npx dolly-build init my-pi git python numpy matplotlib
+npm install @daugasauron/dolly-build
+npx dolly-build init my-pi git python nvim
 npx dolly-build Dollyfile-my-pi my-pi
 python3 -m http.server -d my-pi -b 127.0.0.1 8080
 ```
 
-`npm install` is the only step that downloads anything (`matplotlib` brings the
-packages it installs: `numpy`, `python`, the C compiler); after it, the build
-reaches only the URLs of the recipe's own `SOURCE` rows, and `init`'s recipe has
-none. `init` writes the
-project; the second `dolly-build` builds its image in your Chrome (headless, 10
-to 60 s; `--browser firefox` after `npx playwright-core install firefox`) into
-`my-pi/`, a site any static host serves as it lies, and Python's server serves
-it. Open <http://127.0.0.1:8080/>: Pi asks for your OpenRouter key at a prompt
-that does not show it, and starts in `/workspace` with Git, Python with NumPy
-and Matplotlib, a C compiler and the project's files. `curl https://example.com`
-in Pi's shell fails: the policy refuses it. Save (Ctrl+Shift+S) keeps the
-sandbox, files and all, in this browser and names it in the address
-(`?session=NAME`): that address opens it again as it was.
-
-| File | What it declares | After a change |
-| --- | --- | --- |
-| `Dollyfile-my-pi` | The sandbox, a [recipe](docs/dollyfile.md): `INSTALL` rows for Pi's packages, which `dolly-build` brings, and the packages you named (`git`, `python`, `numpy`, `matplotlib`), `FILE` rows with Pi's `AGENTS.md`, a skill, an extension with a `/hello` command, a `todo` tool (a C program or a file of an npm package are tools too, as its comments say), and the script that starts Pi with its provider and model: OpenRouter, or Anthropic's API with your key on the next line | Build again |
-| `public/main.mjs` | The hosts the agent may reach ([HTTP policy](docs/http.md)): one rule per host, OpenRouter's API to begin with. The files written into `/workspace` | Build again (the image is kept) |
-| `public/index.html`, `public/page.css` | The page, and the popups' font. No inline script or style, so the host may serve a strict Content-Security-Policy ([Embedding](docs/embedding.md)) | Build again (the image is kept) |
-| `public/theme.json` | The sandbox's colours: five values in Pi's theme format, whose background, text, accent and muted are the terminal's and the popups' too | Build again (the image is kept) |
-| `public/workspace/` | The project the agent works on, written into `/workspace` at each boot | Build again (the image is kept) |
-| `my-pi/` | The site `dolly-build` writes: `public/`, the listing of its workspace, the runtime, the host modules the recipe declares, the image and `coi-serviceworker.js`, which isolates the page where the host sends no isolation headers ([Embedding](docs/embedding.md), "Your own image") | Reload |
-
-Pi's packages are those of the `pi-minimal` image: Pi with a shell, POSIX tools,
-curl, ripgrep and fd; the page gives it a terminal (`display`), a keyboard
-(`input`), Pi's download tool (`save`) and the popup its `ask_user` and
-`show_html` tools show (`html`), and nothing else of the browser. A package's host modules join the recipe's `REQUIRES HOST` rows and the
-page's install line: `python` needs `@daugasauron/dolly-host-sockets`.
-
-[Data Pi](demos/pi/data-pi/README.md) is such a project, with its CI: Pi with
-NumPy, pandas and Matplotlib, three skills of its own and a sample dataset,
-built in Playwright's Chromium by a workflow that publishes the site.
-
-[An agent in place of a web frontend](docs/agent-frontend.md) goes on from here:
-your company's instructions and skills, your backend's API, your model provider
-(Bedrock, Copilot, a gateway of your own) and how Pi starts.
+`npm install` and `init` are the only steps that download anything. `my-pi/`
+is a static site, and `init` writes the workflow that builds it in CI.
+[Dolly from npm](docs/npm.md) is the guide: the project's files, tools,
+skills, the policy, CI, serving and updating; the
+[npm changelog](docs/npm-changelog.md) lists what changed in the packages.
+[Data Pi](demos/pi/data-pi/README.md) is such a project, and
+[An agent in place of a web frontend](docs/agent-frontend.md) goes on from
+there: your backend's API, your model provider and how Pi starts.
 
 ## Boundary
 
@@ -205,7 +171,8 @@ Image builds rewrite SHA-256 pins in `Dollyfile*`. Check by what you changed
 ## Docs
 
 - [Architecture](docs/architecture.md): components, system calls, core images.
-- [Embedding](docs/embedding.md): the npm packages, `boot()`, serving a page.
+- [Dolly from npm](docs/npm.md): the npm packages, `dolly-build`, an agent of your own, CI; its [changelog](docs/npm-changelog.md).
+- [Embedding](docs/embedding.md): `boot()`, a page of your own, serving it.
 - [Agent frontend](docs/agent-frontend.md): Pi, skills and a policy in place of a web frontend.
 - [Process model](docs/process-model.md): spawn, descriptors, pipes, signals.
 - [Browser stack](docs/browser-stack.md): what bounds recursion, how a process is entered, Firefox, LLVM.

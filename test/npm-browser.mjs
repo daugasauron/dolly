@@ -13,16 +13,23 @@
 // - A page that adds every other device module loads them all, enables gpu@0,
 //   and holds the http@0 policy it gives boot().
 // - A page that lacks a module the image requires, or isolation, says so.
-// - The README's "Pi with npm", as written: its packages and the project
-//   dolly-build init writes, whose image dolly-build builds in the browser under
-//   test with Git, Python, NumPy and Matplotlib into a site that a plain static
-//   server without isolation headers serves: every file the page asks for is there,
-//   and the page isolates itself. Pi starts with the extension, the skill, the
-//   instructions, the tools (the template's and a C program the recipe compiles),
-//   the workspace and the user's theme, and a policy that refuses another origin;
-//   Python draws a figure with NumPy and Matplotlib; Save keeps a session the page
-//   opens again from its address. A change to the page alone is built again without
-//   building the image.
+// - docs/npm.md's Pi agent, as written: dolly-build alone is installed, and its init
+//   installs what the project it writes needs (Git, Python, Neovim); add puts jq,
+//   SQLite, NumPy and Matplotlib into the recipe. dolly-build builds the image in the
+//   browser under test (the first time in the one it finds itself) into a site that a
+//   plain static server without isolation headers serves: every file the page asks for
+//   is there, and the page isolates itself. Pi starts with the extension, the skills
+//   (the template's and one of the project's own with a script), the instructions, the
+//   tools (the template's, the packages' and a C program the recipe compiles), the
+//   workspace and the user's theme, and a policy that refuses another origin; Neovim
+//   edits a file; Python draws a figure with NumPy and Matplotlib; Save keeps a session
+//   the page opens again from its address. A change to the page alone is built again
+//   without building the image.
+// - The project as CI builds it: committed, cloned, and the workflow's own npm ci and
+//   build lines run in the clone write the same site.
+// - A project of an older version: after dolly-build is installed at the new one, add
+//   installs the project's packages at it and writes the recipe's pins again.
+// - dolly-build says its usage, and the packages there are, in one line each.
 // - python-data as its package's README has it: installed as the README says, its
 //   page runs NumPy, pandas and Matplotlib, and a recipe of the project's own on the
 //   README's FROM row, whose build runs Python with them and pip installs a wheel
@@ -36,6 +43,7 @@ import { createHash } from "node:crypto";
 import { createSocket } from "node:dgram";
 import { createServer } from "node:http";
 import { connect, createServer as createTcpServer } from "node:net";
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, join, resolve } from "node:path";
@@ -46,10 +54,13 @@ import { isolationHeaders, mimeTypes } from "../scripts/serve.mjs";
 const projectDir = resolve(import.meta.dirname, "..");
 const names = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const work = await mkdtemp(join(tmpdir(), "dolly-npm-"));
+const checkoutVersion = JSON.parse(await readFile(resolve(projectDir, "package.json"), "utf8")).version;
 const packs = join(work, "packs");
 if (!process.env.DOLLY_NPM_OFFLINE) {
   try {
     execFileSync("node", [resolve(projectDir, "scripts/package-npm.mjs"), packs], { stdio: "ignore" });
+    // An older version of every package, for the update.
+    execFileSync("node", [resolve(projectDir, "scripts/package-npm.mjs"), packs, `${checkoutVersion}-rc.0`], { stdio: "ignore" });
     // dolly-build starts its browser with playwright-core, which the registry holds too.
     execFileSync("npm", ["pack", "--silent", "--pack-destination", packs], { cwd: resolve(projectDir, "node_modules/playwright-core") });
     // The namespace: loopback up, every other address local, and each TCP and UDP
@@ -135,13 +146,15 @@ const refusal = await listen(createServer((request, response) => {
 }));
 servers.push(refusal);
 try {
-  // A registry that holds these packages alone, as npmjs would serve them.
-  const published = new Map();
+  // A registry that holds these packages alone, as npmjs would serve them: each at this
+  // checkout's version, the latest, and at a prerelease of it.
+  const published = new Map(), tarballs = [];
   for (const file of (await readdir(process.env.DOLLY_NPM_OFFLINE)).filter(name => name.endsWith(".tgz"))) {
     const bytes = await readFile(join(process.env.DOLLY_NPM_OFFLINE, file));
     const manifest = JSON.parse(execFileSync("tar", ["-xzOf", join(process.env.DOLLY_NPM_OFFLINE, file), "package/package.json"],
       { encoding: "utf8" }));
-    published.set(manifest.name, { manifest, file, bytes });
+    tarballs.push({ manifest, file, bytes });
+    if (!manifest.version.includes("-rc.")) published.set(manifest.name, { manifest, file, bytes });
   }
   // The packages' own rule: the runtime depends on nothing, every other package on the runtime,
   // at its version; a Dolly package also on the packages it installs, and dolly-build on the
@@ -161,16 +174,15 @@ try {
   }
   const registry = await listen(createServer((request, response) => {
     const path = decodeURIComponent(new URL(request.url, "http://x").pathname).slice(1);
-    const tarball = [...published.values()].find(({ file }) => path === `-/${file}`);
+    const tarball = tarballs.find(({ file }) => path === `-/${file}`);
     if (tarball) return response.writeHead(200, { "content-type": "application/octet-stream" }).end(tarball.bytes);
-    const entry = published.get(path);
-    if (!entry) return response.writeHead(404).end();
-    const { manifest, file, bytes } = entry;
+    if (!published.has(path)) return response.writeHead(404).end();
     response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({
-      name: manifest.name, "dist-tags": { latest: manifest.version },
-      versions: { [manifest.version]: { ...manifest, dist: { tarball: `${origin(registry)}/-/${file}`,
-        shasum: createHash("sha1").update(bytes).digest("hex"),
-        integrity: `sha512-${createHash("sha512").update(bytes).digest("base64")}` } } },
+      name: path, "dist-tags": { latest: published.get(path).manifest.version },
+      versions: Object.fromEntries(tarballs.filter(({ manifest }) => manifest.name === path).map(({ manifest, file, bytes }) =>
+        [manifest.version, { ...manifest, dist: { tarball: `${origin(registry)}/-/${file}`,
+          shasum: createHash("sha1").update(bytes).digest("hex"),
+          integrity: `sha512-${createHash("sha512").update(bytes).digest("base64")}` } }])),
     }));
   }));
   servers.push(registry);
@@ -188,17 +200,34 @@ try {
   await npm(app, install);
   await npm(app, more);
 
-  // The README's "Pi with npm": its one block of commands, the last of which serves the site.
-  const readme = await readFile(resolve(projectDir, "README.md"), "utf8");
-  const piSection = readme.slice(readme.indexOf("\n## Pi with npm\n"), readme.indexOf("\n## ", readme.indexOf("\n## Pi with npm\n") + 1));
-  const [piCommands] = [...piSection.matchAll(/```sh\n([\s\S]*?)```/g)].map(([, text]) => text);
-  const [piInit, piInstall, scaffold, buildCommand, serveCommand] = piCommands.replace(/\\\n/g, " ").trim().split("\n");
+  // docs/npm.md's Pi agent: its first block of commands, the last of which serves the
+  // site, and its Tools block, which adds packages; the test adds two more for a figure.
+  const npmGuide = await readFile(resolve(projectDir, "docs/npm.md"), "utf8");
+  const guideBlocks = [...npmGuide.matchAll(/```sh\n([\s\S]*?)```/g)].map(([, text]) => text.replace(/\\\n/g, " ").trim().split("\n"));
+  const [[piInit, piInstall, scaffold, buildCommand, serveCommand], [addCommand]] = guideBlocks;
   assert.match(serveCommand, /^python3 -m http\.server -d my-pi /);
+  assert.match(addCommand, /^npx dolly-build add my-pi jq sqlite$/);
   const piApp = join(work, "pi-app");
   await mkdir(piApp);
   await npm(piApp, piInit);
   await npm(piApp, piInstall);
+  // The command says how it is used and what packages there are, each in a message of its own.
+  const refused = command => npm(piApp, command).then(() => assert.fail(`${command} succeeded`), error => error.stderr);
+  assert.match(await refused("npx dolly-build --help"), /^dolly-build: usage: [^\n]*\n[^\n]*\n[^\n]*\n$/);
+  assert.match(await refused("npx dolly-build init my-pi git emacs"), /^dolly-build: emacs: no such package\. The packages: .*\bnvim\b.*\n$/);
+  // init installs what it names and lacks: nothing but dolly-build was installed.
   await npm(piApp, scaffold);
+  await npm(piApp, addCommand);
+  await npm(piApp, "npx dolly-build add my-pi numpy matplotlib");
+  const dependencies = JSON.parse(await readFile(join(piApp, "package.json"), "utf8")).dependencies;
+  for (const name of ["git", "python", "nvim", "jq", "sqlite", "numpy", "matplotlib"]) {
+    assert.equal(dependencies[`@daugasauron/dolly-package-${name}`], checkoutVersion, name);
+  }
+  // A skill of the project's own, with a script beside it.
+  await mkdir(join(piApp, "public/skills/line-count"));
+  await writeFile(join(piApp, "public/skills/line-count/SKILL.md"),
+    "---\nname: line-count\ndescription: Counts the lines of a file. Use when asked how long a file is.\n---\nRun `slop ~/.pi/agent/skills/line-count/count.slop FILE`.\n");
+  await writeFile(join(piApp, "public/skills/line-count/count.slop"), 'wc -l < "$1"\n');
   // The project as written, with the page's handle kept for the test and a file of its own in the workspace.
   const piMain = await readFile(join(piApp, "public/main.mjs"), "utf8");
   assert.ok(piMain.includes("await boot("));
@@ -225,7 +254,30 @@ try {
     site.once("exit", status => reject(new Error(`${serveCommand} exited with ${status}`)));
   });
   let piPage;
+  // The steps the project's workflow runs, as init wrote them.
+  const workflowRuns = [...(await readFile(join(piApp, ".github/workflows/my-pi.yml"), "utf8")).matchAll(/^ {6}- run: (.*)$/gm)].map(([, run]) => run);
+  assert.deepEqual(workflowRuns.map(run => run.split(" ").slice(0, 2).join(" ")), ["npm ci", "npx playwright-core", "npx dolly-build"]);
+  assert.ok(workflowRuns[2].endsWith(" --browser chromium"));
+  const siteFiles = async site => (await readdir(site, { recursive: true, withFileTypes: true })).filter(entry => entry.isFile())
+    .map(entry => join(entry.parentPath, entry.name).slice(site.length)).filter(path => !path.startsWith("/image/dist/packs/")).sort();
 
+  // A project made at an older version: dolly-build at the new one, then add, which installs
+  // the project's packages at it and writes the pin a row lost.
+  const oldApp = join(work, "old-app");
+  await mkdir(oldApp);
+  await npm(oldApp, "npm init --yes");
+  await npm(oldApp, `npm install --save-exact @daugasauron/dolly-build@${checkoutVersion}-rc.0`);
+  await npm(oldApp, "npx dolly-build init my-pi git");
+  const pinned = await readFile(join(oldApp, "Dollyfile-my-pi"), "utf8");
+  await writeFile(join(oldApp, "Dollyfile-my-pi"), pinned.replace(/(Dollyfile-git) [0-9a-f]{64}/, `$1 ${"0".repeat(64)}`));
+  await npm(oldApp, `npm install --save-exact @daugasauron/dolly-build@${checkoutVersion}`);
+  await npm(oldApp, "npx dolly-build add my-pi");
+  assert.equal(await readFile(join(oldApp, "Dollyfile-my-pi"), "utf8"), pinned);
+  for (const [name, version] of [["@daugasauron/dolly", checkoutVersion],
+    ...Object.entries(JSON.parse(await readFile(join(oldApp, "package.json"), "utf8")).dependencies)]) {
+    assert.equal(version, checkoutVersion, name);
+    assert.equal(JSON.parse(await readFile(join(oldApp, "node_modules", name, "package.json"), "utf8")).version, checkoutVersion, name);
+  }
   // The guide's page, which also keeps the handle for the test; the same page
   // with every other device module, a policy and files; and one that lacks upload@0.
   const page = blocks("html")[0].replace("const dolly = await boot(", "const dolly = window.dolly = await boot(");
@@ -327,6 +379,7 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
   const shows = (tab, pattern, what) => within(tab.evaluate(([source, what]) =>
     window.dolly.waitForInteractiveTerminal(new RegExp(source), what, 0), [pattern.source, what]), 120, what);
   const dollyBuild = (project, command, name) => npm(project, `${command} --browser ${name === "chromium" ? "chrome" : name}`);
+  const git = (directory, ...words) => execFileSync("git", ["-c", "user.name=test", "-c", "user.email=test@example.com", ...words], { cwd: directory, stdio: "ignore" });
   for (const name of names) {
     const started = performance.now();
     // The browsers stand for the user's, whose own requests are their vendor's, not the
@@ -378,8 +431,22 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
 
       // The project's site, built in this browser (after the first, from nothing again). Its
       // start script asks for the key; Pi then lists the skill and the extension and runs its command.
+      // The guide's command finds a browser itself: this machine's Chrome.
       await rm(join(piApp, "my-pi"), { recursive: true, force: true });
-      await dollyBuild(piApp, buildCommand, name);
+      await (name === "chromium" ? npm(piApp, buildCommand) : dollyBuild(piApp, buildCommand, name));
+      // As CI builds it: the project committed, cloned, and the workflow's npm ci and build
+      // lines run in the clone (the browser is the one under test, which is installed).
+      const clone = join(work, `ci-${name}`);
+      await rm(join(piApp, ".git"), { recursive: true, force: true });
+      git(piApp, "init", "-q");
+      git(piApp, "add", "-A");
+      git(piApp, "commit", "-q", "-m", "the project");
+      git(work, "clone", "-q", piApp, clone);
+      assert.ok(!existsSync(join(clone, "node_modules")) && !existsSync(join(clone, "my-pi")) && existsSync(join(clone, "package-lock.json")));
+      await npm(clone, workflowRuns[0]);
+      await dollyBuild(clone, workflowRuns[2].replace(" --browser chromium", ""), name);
+      assert.deepEqual(await siteFiles(join(clone, "my-pi")), await siteFiles(join(piApp, "my-pi")));
+      await rm(clone, { recursive: true, force: true });
       piPage ??= await startSite();
       const pi = await newPage();
       await booted(pi, piPage, /not shown\):/);
@@ -387,7 +454,7 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
       await pi.keyboard.type("sk-or-test");
       await pi.keyboard.press("Enter");
       await shows(pi, /Bash is not installed/, "Pi");
-      assert.match(await pi.evaluate(() => window.dolly.visibleTerminalText()), /changelog[\s\S]*hello\.js|hello\.js[\s\S]*changelog/);
+      assert.match(await pi.evaluate(() => window.dolly.visibleTerminalText()), /changelog[^\n]*line-count[\s\S]*hello\.js/);
       // Enter takes the command menu's choice, so it waits for the menu to offer this one.
       await pi.keyboard.type("/hello");
       await shows(pi, /Say hello/, "the menu");
@@ -405,6 +472,16 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
         "the terminal's background is theme.json's");
       assert.equal(await shell("test \"$(printf 'a\\nb\\n' | count-lines)\" = '2 lines'"), 0);
       assert.equal(await shell("git --version > /dev/null"), 0);
+      assert.equal(await shell("test \"$(echo '[1,2]' | jq -c 'map(. * 2)')\" = '[2,4]' && test \"$(sqlite3 :memory: 'select 6 * 7')\" = 42"), 0);
+      assert.equal(await shell("test \"$(slop ~/.pi/agent/skills/line-count/count.slop /workspace/README.md)\" -gt 0"), 0);
+      // Neovim on the terminal: a line typed into a new file and written.
+      await pi.keyboard.type("nvim /tmp/note.txt\n");
+      await shows(pi, /note\.txt/, "Neovim");
+      await pi.keyboard.type("iwritten in neovim");
+      await pi.keyboard.press("Escape");
+      await pi.keyboard.type(":wq\n");
+      await shows(pi, /\ndolly:[^\n]*\$\s*$/, "the shell after Neovim");
+      assert.equal(await shell("grep -qx 'written in neovim' /tmp/note.txt"), 0);
       assert.equal(await shell(String.raw`python -c 'import numpy, matplotlib.pyplot as plot; plot.plot(numpy.arange(4) ** 2); ` +
         String.raw`plot.savefig("/tmp/squares.png"); assert open("/tmp/squares.png", "rb").read(4) == b"\x89PNG"'`), 0);
       assert.equal(await shell("grep -q 'deepest trench' '/workspace/notes/deep sea.txt' && test -f /workspace/README.md"), 0);

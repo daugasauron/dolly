@@ -22,16 +22,19 @@ const policy = { rules: [
   // { origin: "https://api.anthropic.com", pathPrefix: "/v1/", methods: ["POST"], credentialHeaders: ["x-api-key"] },
 ] };
 
-// The project: workspace/ is written into /workspace at each boot. dolly-build
-// lists its files in workspace.json beside this page. Pi's tools can read these
-// files; they are not for secrets.
-const listing = await fetch("./workspace.json");
-if (!listing.ok) throw new Error("workspace.json must list the files under workspace/, as dolly-build writes it");
+// The project and Pi's skills: workspace/ is written into /workspace and each
+// skills/NAME/ (a SKILL.md and the files it names, Pi's docs/skills.md) into Pi's
+// skills at each boot. dolly-build lists their files in workspace.json and skills.json
+// beside this page. Pi's tools can read these files; they are not for secrets.
 const files = {};
-await Promise.all((await listing.json()).map(async path => {
-  const url = `./workspace/${path.split("/").map(encodeURIComponent).join("/")}`;
-  files[`/workspace/${path}`] = new Uint8Array(await (await fetch(url)).arrayBuffer());
-}));
+for (const [tree, directory] of [["workspace", "/workspace"], ["skills", "/home/dolly/.pi/agent/skills"]]) {
+  const listing = await fetch(`./${tree}.json`);
+  if (!listing.ok) throw new Error(`${tree}.json must list the files under ${tree}/, as dolly-build writes it`);
+  await Promise.all((await listing.json()).map(async path => {
+    const url = `./${tree}/${path.split("/").map(encodeURIComponent).join("/")}`;
+    files[`${directory}/${path}`] = new Uint8Array(await (await fetch(url)).arrayBuffer());
+  }));
+}
 // The sandbox's colours, all in theme.json: Pi's theme (Pi's docs/themes.md), written
 // over the image's, whose background, text, accent and muted the terminal and the
 // popups take too (docs/embedding.md in @daugasauron/dolly).
