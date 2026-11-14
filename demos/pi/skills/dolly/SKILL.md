@@ -42,7 +42,9 @@ filesystem, no sockets to the outside, no root and no `apt`, `npm` or
 - `download FILE` (or Pi's `download` tool) offers one file to the user's
   browser, which saves it when the user clicks Save; use it only when asked.
 - `upload PATH` asks the user to pick a file and writes it to `PATH`; an
-  existing file is never replaced.
+  existing file is never replaced. Pi's `upload` tool does the same with a
+  reason the user reads: call it when a task needs a file only the user has.
+  The file arrives without its name; `file PATH` says what it holds.
 - Several files: `tar` here only extracts. Git writes archives of any
   directory:
   `git init -q . && git add -A && git archive -o out.tar.gz $(git write-tree)`

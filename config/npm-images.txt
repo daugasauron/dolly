@@ -9,6 +9,7 @@ pi-dolly
 pi
 secretenv
 html
+transfer
 dolly-docs
 libdolly-download
 janis
