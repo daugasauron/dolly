@@ -13,8 +13,14 @@ const RINGS := [[256, 1.5], [256, 6.0], [192, 24.0]]
 ## The grids follow the flight in steps of the coarsest cell, so every point stays where it is.
 const STEP := 24.0
 const PLOT := 4.0 # a tree's plot
-## The trees' grids, the finer in the middle of the coarser: plots across, a crown's rings.
-const GROVES := [[50, 12], [128, 5]]
+## The trees' grids, each a ring around the flyer with less detail than the one inside it: plots
+## across, a crown's rings, and how far out its trees fill in and thin out (trees.gdshader).
+const GROVES := [
+	[50, 12, Vector4(-2, -1, 64, 80)],
+	[128, 5, Vector4(64, 80, 200, 232)],
+	[216, 3, Vector4(200, 232, 380, 420)],
+	[352, 1, Vector4(380, 420, 560, 690)],
+]
 const DAY_SECONDS := 120.0
 const CRUISE := 30.0
 const BOOST := 26.0
@@ -22,7 +28,8 @@ const CEILING := 190.0
 const BEACON_PLOT := 180.0
 const BEACON_REACH := 8.0
 const START := Vector2(2250, 4750)
-const WAKE := 64 # the places the wake keeps
+const WAKE := 64 # the places the wakes keep
+const SHELLS := 18 # of fur
 const WAKE_APART := 1.2
 ## The camera's views while the corgi flies itself, each for SHOT_SECONDS: where it stands in the
 ## flyer's frame, where it looks, and its field of view.
@@ -44,10 +51,17 @@ var grounds: Array[SubViewport] = [] # each grid's ground, for the shaders to re
 var groves: Array[MultiMeshInstance3D] = []
 var water := MeshInstance3D.new()
 var flyer := Node3D.new()
-var cape_material := ShaderMaterial.new()
-var wake_material := ShaderMaterial.new()
-var wake := PackedVector3Array()
+var dog := Node3D.new()
+var head := Node3D.new()
+var legs: Array[MeshInstance3D] = []
+var paws: Array[MeshInstance3D] = []
+var ears: Array[Node3D] = []
 var tail: MeshInstance3D
+var tongue: MeshInstance3D
+var furs: Array[ShaderMaterial] = []
+var cape_material := ShaderMaterial.new()
+var wakes: Array[ShaderMaterial] = []
+var wake := PackedVector3Array()
 var flames: Array[MeshInstance3D] = []
 var searchlight := SpotLight3D.new()
 var lamp := OmniLight3D.new()
@@ -110,10 +124,9 @@ func _ready() -> void:
 		hole = across * cell / 2.0
 	for grove: Array in GROVES:
 		groves.append(build_grid(tree_mesh(grove[1]), grove[0], PLOT, reads_ground(preload("res://trees.gdshader"), 0)))
-		materials[-1].set_shader_parameter("plot", PLOT)
-		materials[-1].set_shader_parameter("near", GROVES[0][0] * PLOT / 2.0)
-		materials[-1].set_shader_parameter("coarse", grove != GROVES[0])
-		materials[-1].set_shader_parameter("end", grove[0] * PLOT / 2.0 - PLOT)
+		materials[-1].set_shader_parameter("ring", grove[2])
+		if grove[1] < 5:
+			groves[-1].cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(8000, 8000)
 	water.mesh = plane
@@ -196,7 +209,7 @@ func reads_ground(shader: Shader, ring: int) -> ShaderMaterial:
 	material.set_shader_parameter("ground_beyond", grounds[beyond].get_texture())
 	material.set_shader_parameter("cell", RINGS[ring][1])
 	material.set_shader_parameter("cell_beyond", RINGS[beyond][1])
-	material.set_shader_parameter("reach", RINGS[ring][0] * RINGS[ring][1] / 2.0)
+	material.set_shader_parameter("reach", (RINGS[ring][0] * RINGS[ring][1] - STEP) / 2.0)
 	materials.append(material)
 	return material
 
@@ -251,24 +264,25 @@ func build_ground(texels: int, cell: float) -> SubViewport:
 	return viewport
 
 
-## A tree standing on y = 0 for trees.gdshader to shape: a trunk up to 0.9, and over it a ball
-## of that many rings, around (0, 2, 0), for its crown.
+## A tree standing on y = 0 for trees.gdshader to shape: a ball of that many rings, around
+## (0, 2, 0), for its crown, and under it a trunk up to 0.9, which the trees far off go without.
 static func tree_mesh(rings: int) -> ArrayMesh:
-	var trunk := CylinderMesh.new()
-	trunk.top_radius = 0.7
-	trunk.bottom_radius = 1.0
-	trunk.height = 0.9
-	trunk.radial_segments = 6
-	trunk.rings = 0
-	trunk.cap_top = false
-	trunk.cap_bottom = false
 	var crown := SphereMesh.new()
 	crown.radius = 1.0
 	crown.height = 2.0
-	crown.radial_segments = rings + 2
+	crown.radial_segments = rings + 3
 	crown.rings = rings
 	var tool := SurfaceTool.new()
-	tool.append_from(trunk, 0, Transform3D(Basis.IDENTITY, Vector3(0, 0.45, 0)))
+	if rings >= 5:
+		var trunk := CylinderMesh.new()
+		trunk.top_radius = 0.7
+		trunk.bottom_radius = 1.0
+		trunk.height = 0.9
+		trunk.radial_segments = 6
+		trunk.rings = 0
+		trunk.cap_top = false
+		trunk.cap_bottom = false
+		tool.append_from(trunk, 0, Transform3D(Basis.IDENTITY, Vector3(0, 0.45, 0)))
 	tool.append_from(crown, 0, Transform3D(Basis.IDENTITY, Vector3(0, 2, 0)))
 	return tool.commit()
 
@@ -294,85 +308,136 @@ func part(to: Node3D, mesh: Mesh, material: Material, place: Vector3, turn := Ve
 	return instance
 
 
-## The flyer: a corgi in sunglasses and a cape, standing on a surfboard that two small jets carry.
-## It looks along -z.
+## A furred part of the corgi: the part itself, and over it its fur, the same mesh in SHELLS
+## shells that fur.gdshader spreads along its normals.
+func furry(to: Node3D, mesh: Mesh, colour: Color, hair: float, hairs: Vector2, place: Vector3, turn := Vector3.ZERO, size := Vector3.ONE) -> MeshInstance3D:
+	var skin := part(to, mesh, paint(colour * 0.6, 0.8), place, turn, size)
+	var shells := MultiMesh.new()
+	shells.transform_format = MultiMesh.TRANSFORM_3D
+	shells.mesh = mesh
+	shells.instance_count = SHELLS
+	for shell in SHELLS:
+		shells.set_instance_transform(shell, Transform3D.IDENTITY)
+	var fur := ShaderMaterial.new()
+	fur.shader = preload("res://fur.gdshader")
+	fur.set_shader_parameter("colour", colour)
+	fur.set_shader_parameter("shells", float(SHELLS))
+	fur.set_shader_parameter("hair", hair)
+	fur.set_shader_parameter("hairs", hairs)
+	furs.append(fur)
+	var coat := MultiMeshInstance3D.new()
+	coat.multimesh = shells
+	coat.material_override = fur
+	coat.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	skin.add_child(coat)
+	return skin
+
+
+## The flyer: a corgi in sunglasses and a cape, crouched on a surfboard that two small jets carry.
+## It looks along -z. The character is this game's own.
 func build_flyer() -> void:
-	var fur := paint(Color(0.85, 0.47, 0.16), 0.75)
-	var white := paint(Color(0.95, 0.93, 0.88), 0.8)
+	var tan_fur := Color(0.8, 0.46, 0.2)
+	var white_fur := Color(0.97, 0.95, 0.9)
+	var fur := paint(tan_fur, 0.75)
+	var white := paint(white_fur, 0.8)
 	var black := paint(Color(0.015, 0.015, 0.02), 0.08)
 	var pink := paint(Color(0.9, 0.45, 0.5), 0.6)
 	var steel := paint(Color(0.45, 0.47, 0.5), 0.3)
 	steel.metallic = 0.8
+	var dark := paint(Color(0.05, 0.05, 0.06), 0.4)
+	dark.metallic = 0.6
 	var shades := paint(Color(0.03, 0.04, 0.08), 0.04)
 	shades.metallic = 1.0
 	var ball := SphereMesh.new()
+	ball.radial_segments = 28
+	ball.rings = 14
 	var rod := CapsuleMesh.new()
+	rod.radial_segments = 28
+	rod.rings = 6
 	var point := CylinderMesh.new()
 	point.top_radius = 0.0
 	# The board: teal with a cream stripe, a fin under its tail.
 	part(flyer, ball, paint(Color(0.05, 0.55, 0.6), 0.25), Vector3.ZERO, Vector3.ZERO, Vector3(2.0, 0.28, 6.4))
 	part(flyer, ball, paint(Color(0.95, 0.9, 0.75), 0.3), Vector3(0, 0.03, 0), Vector3.ZERO, Vector3(0.5, 0.28, 6.1))
 	part(flyer, point, steel, Vector3(0, -0.4, 2.3), Vector3(200, 0, 0), Vector3(0.12, 0.35, 0.7))
-	# The jets, one under each rail, and their flames.
+	# The jets, one under each rail: an intake's ring, a nozzle, and a flame with a white heart.
 	var flame := StandardMaterial3D.new()
 	flame.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	flame.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	flame.albedo_color = Color(0.25, 0.7, 1.6)
+	var heart := flame.duplicate() as StandardMaterial3D
+	heart.albedo_color = Color(1.6, 1.5, 1.2)
+	var lip := TorusMesh.new()
+	lip.inner_radius = 0.2
+	lip.outer_radius = 0.33
+	var nozzle := CylinderMesh.new()
+	nozzle.top_radius = 0.2
+	nozzle.bottom_radius = 0.3
+	nozzle.height = 0.4
 	for x: float in [-0.95, 0.95]:
 		part(flyer, rod, steel, Vector3(x, -0.3, 1.9), Vector3(90, 0, 0), Vector3(0.55, 0.75, 0.55))
-		part(flyer, ball, paint(Color(1.0, 0.7, 0.35), 0.4, 6.0), Vector3(x, -0.3, 2.62), Vector3.ZERO, Vector3(0.38, 0.38, 0.2))
-		flames.append(part(flyer, point, flame, Vector3(x, -0.3, 3.5), Vector3(90, 0, 0), Vector3(0.3, 0.7, 0.3)))
-		flames[-1].cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# The corgi: long and low, white in front and under, with large ears.
-	var dog := Node3D.new()
-	dog.position = Vector3(0, 0.14, 0.2)
+		part(flyer, lip, paint(Color(0.8, 0.1, 0.08), 0.4), Vector3(x, -0.3, 1.2), Vector3(90, 0, 0))
+		part(flyer, nozzle, dark, Vector3(x, -0.3, 2.75), Vector3(90, 0, 0))
+		part(flyer, ball, paint(Color(1.0, 0.7, 0.35), 0.4, 6.0), Vector3(x, -0.3, 2.9), Vector3.ZERO, Vector3(0.34, 0.34, 0.12))
+		for pair: Array in [[flame, 0.3, 0.7], [heart, 0.14, 0.4]]:
+			flames.append(part(flyer, point, pair[0], Vector3(x, -0.3, 2.95 + pair[2]), Vector3(90, 0, 0), Vector3(pair[1], pair[2], pair[1])))
+			flames[-1].cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# The corgi: long and low, white in front and under, with a thick coat and large ears.
 	flyer.add_child(dog)
-	part(dog, rod, fur, Vector3(0, 0.95, 0.25), Vector3(90, 0, 0), Vector3(1.15, 1.25, 1.1))
-	part(dog, ball, white, Vector3(0, 0.82, -0.55), Vector3.ZERO, Vector3(1.0, 0.95, 1.0))
-	part(dog, ball, fur, Vector3(0, 0.98, 1.38), Vector3.ZERO, Vector3(1.0, 1.0, 0.8))
-	part(dog, ball, white, Vector3(0, 0.72, 1.5), Vector3.ZERO, Vector3(0.8, 0.6, 0.6))
-	tail = part(dog, ball, fur, Vector3(0, 1.3, 1.62), Vector3.ZERO, Vector3(0.3, 0.3, 0.42))
+	furry(dog, rod, tan_fur, 0.11, Vector2(170, 150), Vector3(0, 0.95, 0.25), Vector3(90, 0, 0), Vector3(1.15, 1.25, 1.1))
+	furry(dog, ball, white_fur, 0.13, Vector2(150, 75), Vector3(0, 0.82, -0.55), Vector3.ZERO, Vector3(1.0, 0.95, 1.0))
+	furry(dog, ball, tan_fur, 0.15, Vector2(150, 75), Vector3(0, 0.98, 1.38), Vector3.ZERO, Vector3(1.0, 1.0, 0.8))
+	furry(dog, ball, white_fur, 0.16, Vector2(130, 65), Vector3(0, 0.72, 1.5), Vector3.ZERO, Vector3(0.8, 0.6, 0.6))
+	tail = furry(dog, ball, tan_fur, 0.1, Vector2(70, 35), Vector3(0, 1.3, 1.62), Vector3.ZERO, Vector3(0.3, 0.3, 0.42))
 	for x: float in [-0.36, 0.36]:
 		for z: float in [-0.6, 1.1]:
-			part(dog, rod, white, Vector3(x, 0.3, z), Vector3.ZERO, Vector3(0.3, 0.32, 0.3))
-			part(dog, ball, white, Vector3(x, 0.06, z - 0.08), Vector3.ZERO, Vector3(0.34, 0.2, 0.46))
-	var head := Node3D.new()
+			legs.append(furry(dog, rod, white_fur, 0.05, Vector2(60, 50), Vector3(x, 0.3, z), Vector3.ZERO, Vector3(0.3, 0.32, 0.3)))
+			paws.append(part(dog, ball, white, Vector3(x, 0.06, z - 0.08), Vector3.ZERO, Vector3(0.34, 0.2, 0.46)))
 	head.position = Vector3(0, 1.62, -1.0)
-	head.rotation_degrees.x = 8.0
 	dog.add_child(head)
-	part(head, ball, fur, Vector3.ZERO, Vector3.ZERO, Vector3(1.12, 1.02, 1.05))
+	furry(head, ball, tan_fur, 0.06, Vector2(190, 95), Vector3.ZERO, Vector3.ZERO, Vector3(1.12, 1.02, 1.05))
+	furry(head, ball, white_fur, 0.09, Vector2(120, 60), Vector3(0, -0.2, -0.08), Vector3.ZERO, Vector3(1.0, 0.7, 0.9))
 	part(head, ball, white, Vector3(0, -0.14, -0.5), Vector3.ZERO, Vector3(0.56, 0.46, 0.8))
 	part(head, ball, white, Vector3(0, 0.1, -0.36), Vector3(20, 0, 0), Vector3(0.22, 0.5, 0.5))
 	part(head, ball, black, Vector3(0, -0.06, -0.9), Vector3.ZERO, Vector3(0.2, 0.15, 0.14))
-	part(head, ball, pink, Vector3(0, -0.36, -0.72), Vector3(25, 0, 0), Vector3(0.2, 0.06, 0.3))
+	tongue = part(head, ball, pink, Vector3(0.12, -0.38, -0.7), Vector3(25, 0, 0), Vector3(0.2, 0.06, 0.36))
 	for x: float in [-1.0, 1.0]:
-		part(head, point, fur, Vector3(x * 0.4, 0.62, 0.12), Vector3(-8, 0, x * -16), Vector3(0.6, 0.4, 0.3))
-		part(head, point, pink, Vector3(x * 0.4, 0.6, 0.07), Vector3(-8, 0, x * -16), Vector3(0.32, 0.32, 0.12))
-		# The sunglasses: two dark lenses and a bar across the nose.
-		part(head, ball, shades, Vector3(x * 0.26, 0.13, -0.47), Vector3(8, x * -14, 0), Vector3(0.5, 0.34, 0.1))
+		var ear := Node3D.new()
+		ear.position = Vector3(x * 0.4, 0.3, 0.12)
+		head.add_child(ear)
+		ears.append(ear)
+		part(ear, point, fur, Vector3(0, 0.4, 0), Vector3(0, 0, x * -16), Vector3(0.6, 0.42, 0.3))
+		part(ear, point, pink, Vector3(0, 0.38, -0.05), Vector3(0, 0, x * -16), Vector3(0.36, 0.32, 0.12))
+		# The sunglasses: two dark mirrors in a frame, and a bar across the nose.
+		part(head, ball, shades, Vector3(x * 0.27, 0.13, -0.53), Vector3(8, x * -14, 0), Vector3(0.52, 0.36, 0.1))
+		part(head, lip, black, Vector3(x * 0.27, 0.13, -0.52), Vector3(98, x * -14, 0), Vector3(0.82, 0.3, 0.58))
 	var bar := BoxMesh.new()
-	bar.size = Vector3(0.96, 0.05, 0.05)
-	part(head, bar, shades, Vector3(0, 0.2, -0.45))
+	bar.size = Vector3(1.04, 0.05, 0.05)
+	part(head, bar, black, Vector3(0, 0.2, -0.5))
 	# The cape, from a red collar.
 	var collar := TorusMesh.new()
-	collar.inner_radius = 0.42
-	collar.outer_radius = 0.6
+	collar.inner_radius = 0.48
+	collar.outer_radius = 0.68
 	part(dog, collar, paint(Color(0.8, 0.05, 0.08), 0.6), Vector3(0, 1.3, -0.62), Vector3(68, 0, 0))
 	var cloth := PlaneMesh.new()
 	cloth.size = Vector2(1.0, 2.5)
 	cloth.center_offset = Vector3(0, 0, 1.25)
-	cloth.subdivide_width = 4
-	cloth.subdivide_depth = 16
+	cloth.subdivide_width = 6
+	cloth.subdivide_depth = 20
 	cape_material.shader = preload("res://cape.gdshader")
-	part(dog, cloth, cape_material, Vector3(0, 1.72, -0.5), Vector3(-22, 0, 0))
-	# The wake, a ribbon the shader lays along where the board has been.
+	part(dog, cloth, cape_material, Vector3(0, 1.8, -0.45), Vector3(-22, 0, 0))
+	# The wakes, one from each jet: ribbons the shader lays along where the board has been.
 	var ribbon := PlaneMesh.new()
 	ribbon.subdivide_width = WAKE - 2
 	ribbon.subdivide_depth = 0
-	wake_material.shader = preload("res://wake.gdshader")
-	var trail := part(self, ribbon, wake_material, Vector3.ZERO)
-	trail.custom_aabb = AABB(Vector3.ONE * -1e6, Vector3.ONE * 2e6)
-	trail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for aside: float in [-1.2, 1.2]:
+		var wake_material := ShaderMaterial.new()
+		wake_material.shader = preload("res://wake.gdshader")
+		wake_material.set_shader_parameter("aside", aside)
+		wakes.append(wake_material)
+		var trail := part(self, ribbon, wake_material, Vector3.ZERO)
+		trail.custom_aabb = AABB(Vector3.ONE * -1e6, Vector3.ONE * 2e6)
+		trail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# The headlight under the nose, and the searchlight it turns on the ground at night.
 	var lantern := part(flyer, ball, paint(Color(1.0, 0.72, 0.3), 0.3, 6.0), Vector3(0, -0.2, -2.6), Vector3.ZERO, Vector3(0.3, 0.3, 0.3))
 	# A lamp of its own keeps the corgi in sight at night.
@@ -397,6 +462,44 @@ func build_flyer() -> void:
 	engine.play()
 	bell.volume_db = -6.0
 	add_child(bell)
+
+
+## The corgi rides the board: it crouches lower the faster it goes and the harder it turns, leans
+## and looks into its turns, and the air lays back its ears, cape and coat.
+func ride() -> void:
+	var fast := speed / CRUISE
+	var crouch := clampf(0.05 + 0.14 * (fast - 1.0) / (BOOST / CRUISE) + 0.12 * absf(turn) + 0.015 * sin(elapsed * 2.1), 0.0, 0.3)
+	dog.position = Vector3(0, 0.14 - crouch, 0.2)
+	dog.rotation = Vector3(-crouch * 0.5 + climb * 0.008, 0.0, -turn * 0.22)
+	head.rotation = Vector3(deg_to_rad(8.0) + crouch * 0.6, -turn * 0.45, turn * 0.15)
+	for leg in legs:
+		# From the paw on the board to the hip, which has come down.
+		leg.position.y = 0.3 + crouch / 2.0
+		leg.scale.y = 0.32 - crouch / 2.0
+	for paw in paws:
+		paw.position.y = 0.06 + crouch
+	for side in 2:
+		ears[side].rotation = Vector3(0.05 + 0.2 * fast + 0.06 * sin(elapsed * 23.0 + side * 2.0) * fast, 0.0, turn * 0.25)
+	tail.rotation.y = sin(elapsed * 11.0) * 0.6
+	tongue.rotation.z = 0.3 * sin(elapsed * 19.0) * fast
+	for flame in flames:
+		flame.scale.y = flame.scale.x * (1.6 + 1.4 * fast) * (0.9 + 0.2 * sin(elapsed * 47.0 + flame.position.x))
+		flame.position.z = 2.95 + flame.scale.y
+	# The air comes from ahead, and from the outside of a turn.
+	var air := flyer.global_basis * Vector3(turn * 0.5, 0.0, 0.9 * fast)
+	for fur in furs:
+		fur.set_shader_parameter("wind", air)
+	cape_material.set_shader_parameter("speed", fast)
+	cape_material.set_shader_parameter("lean", turn)
+	# The wakes keep a place for every stretch flown, the newest at the board's tail.
+	wake[0] = flyer.to_global(Vector3(0, -0.3, 3.0))
+	if wake[0].distance_to(wake[1]) > WAKE_APART:
+		wake.insert(1, wake[0])
+		wake.resize(WAKE)
+	for wake_material in wakes:
+		wake_material.set_shader_parameter("path", wake)
+		wake_material.set_shader_parameter("lead", wake[0].distance_to(wake[1]) / WAKE_APART)
+		wake_material.set_shader_parameter("clock", elapsed)
 
 
 ## The jets' drone and the wind around them, made here: two seconds that loop.
@@ -535,21 +638,10 @@ func fly(delta: float) -> void:
 	flown += speed * delta
 	flyer.position += forward * speed * delta + Vector3.UP * climb * delta
 	flyer.position.y = maxf(flyer.position.y, Terrain.surface(Vector2(flyer.position.x, flyer.position.z)) + 5.0)
-	# The board banks into its turns and noses up into its climbs; the corgi's tail wags.
+	# The board banks into its turns and noses up into its climbs.
 	flyer.rotation = Vector3(climb * 0.02, -heading, -turn * 0.6)
-	tail.rotation.y = sin(elapsed * 11.0) * 0.6
-	for flame in flames:
-		flame.scale.y = (0.6 + 0.5 * speed / CRUISE) * (0.9 + 0.2 * sin(elapsed * 47.0))
-	cape_material.set_shader_parameter("speed", speed / CRUISE)
 	engine.pitch_scale = 0.8 + speed / CRUISE * 0.3
-	# The wake keeps a place for every stretch flown, the newest at the board's tail.
-	wake[0] = flyer.to_global(Vector3(0, 0, 2.9))
-	if wake[0].distance_to(wake[1]) > WAKE_APART:
-		wake.insert(1, wake[0])
-		wake.resize(WAKE)
-	wake_material.set_shader_parameter("path", wake)
-	wake_material.set_shader_parameter("lead", wake[0].distance_to(wake[1]) / WAKE_APART)
-	wake_material.set_shader_parameter("clock", elapsed)
+	ride()
 	var middle := Vector2(snappedf(flyer.position.x, STEP), snappedf(flyer.position.z, STEP))
 	if lands[0].position.x != middle.x or lands[0].position.z != middle.y:
 		for ring in RINGS.size():
@@ -562,7 +654,7 @@ func fly(delta: float) -> void:
 	var among := Vector2(snappedf(flyer.position.x, PLOT * 4.0), snappedf(flyer.position.z, PLOT * 4.0))
 	for grove in groves:
 		grove.position = Vector3(among.x, 0.0, among.y)
-	tell("near_middle", among)
+	tell("flyer", Vector2(flyer.position.x, flyer.position.z))
 	water.position = Vector3(flyer.position.x, Terrain.SEA - 0.2, flyer.position.z)
 
 
@@ -575,15 +667,16 @@ static func beacon_place(plot: Vector2i) -> Variant:
 	return Vector3(p.x, ground + 16.0, p.y)
 
 
-## Keeps the beacons of the nine plots around the flyer, and lights the one it reaches.
+## Keeps the beacons of the 25 plots around the flyer, which come into sight by degrees as it
+## nears them, and lights the one it reaches.
 func tend_beacons(delta: float) -> void:
 	var middle := Vector2i((Vector2(flyer.position.x, flyer.position.z) / BEACON_PLOT).floor())
 	for plot: Vector2i in beacons.keys():
-		if absi(plot.x - middle.x) > 1 or absi(plot.y - middle.y) > 1:
+		if absi(plot.x - middle.x) > 2 or absi(plot.y - middle.y) > 2:
 			beacons[plot].queue_free()
 			beacons.erase(plot)
-	for x in range(middle.x - 1, middle.x + 2):
-		for y in range(middle.y - 1, middle.y + 2):
+	for x in range(middle.x - 2, middle.x + 3):
+		for y in range(middle.y - 2, middle.y + 3):
 			var plot := Vector2i(x, y)
 			if not beacons.has(plot):
 				var place: Variant = beacon_place(plot)
@@ -592,6 +685,10 @@ func tend_beacons(delta: float) -> void:
 	for plot: Vector2i in beacons:
 		var beacon: Node3D = beacons[plot]
 		beacon.get_child(0).rotate_y(delta * 1.3)
+		var seen := 1.0 - smoothstep(230.0, 340.0, Vector2(beacon.position.x - flyer.position.x, beacon.position.z - flyer.position.z).length())
+		beacon.get_child(0).scale = Vector3.ONE * maxf(seen, 0.001)
+		((beacon.get_child(1) as MeshInstance3D).material_override as ShaderMaterial).set_shader_parameter("strength", (0.7 if lit.has(plot) else 0.35) * seen)
+		(beacon.get_child(2) as OmniLight3D).light_energy = (8.0 if lit.has(plot) else 3.0) * seen
 		if not leaving and not lit.has(plot) and beacon.position.distance_to(flyer.position) < BEACON_REACH:
 			lit[plot] = Vector4(beacon.position.x, beacon.position.z, elapsed, 1.0)
 			beacon.queue_free()
@@ -634,24 +731,24 @@ func build_beacon(place: Vector3, alight: bool) -> Node3D:
 	var light := ShaderMaterial.new()
 	light.shader = preload("res://shaft.gdshader")
 	light.set_shader_parameter("colour", colour)
-	light.set_shader_parameter("strength", 0.7 if alight else 0.35)
 	part(beacon, column, light, Vector3(0, 64, 0)).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var glow := OmniLight3D.new()
 	glow.light_color = colour
-	glow.light_energy = 8.0 if alight else 3.0
 	glow.omni_range = 50.0
 	beacon.add_child(glow)
 	add_child(beacon)
 	return beacon
 
 
-## The nearest beacon not yet lit that lies ahead, for the corgi flying itself.
+## The nearest beacon not yet lit that lies ahead in the nine plots around, for the corgi flying
+## itself.
 func beacon_ahead(forward: Vector3) -> Node3D:
+	var middle := Vector2i((Vector2(flyer.position.x, flyer.position.z) / BEACON_PLOT).floor())
 	var nearest: Node3D = null
 	for plot: Vector2i in beacons:
 		var to: Vector3 = beacons[plot].position - flyer.position
 		to.y = 0.0
-		if not lit.has(plot) and to.length() > 12.0 and to.normalized().dot(forward) > 0.5 and (nearest == null or to.length() < (nearest.position - flyer.position).length()):
+		if absi(plot.x - middle.x) <= 1 and absi(plot.y - middle.y) <= 1 and not lit.has(plot) and to.length() > 12.0 and to.normalized().dot(forward) > 0.5 and (nearest == null or to.length() < (nearest.position - flyer.position).length()):
 			nearest = beacons[plot]
 	return nearest
 

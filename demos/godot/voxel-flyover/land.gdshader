@@ -6,9 +6,11 @@
 shader_type spatial;
 #include "res://terrain.gdshaderinc"
 #include "res://ground.gdshaderinc"
+#include "res://flora.gdshaderinc"
 
 // A coarser grid lies a little lower under the square a finer one draws, of this half size.
 uniform float hole = 0.0;
+uniform vec2 middle; // of the grids
 
 varying vec3 world;
 
@@ -49,6 +51,19 @@ void fragment() {
 	colour = mix(colour, rock, bare);
 	float snow = smoothstep(snowline - 3.0, snowline + 3.0, height) * smoothstep(0.42, 0.2, steep);
 	colour = mix(colour, vec3(0.6, 0.67, 0.8) * (0.9 + 0.2 * grain), snow);
+	// Past the last trees that are drawn, their crowns are painted on the ground they stand on.
+	float painted = smoothstep(540.0, 680.0, distance(p, flyer));
+	vec3 lit_crowns = vec3(0.0);
+	if (painted > 0.0 && grows(here.x, here.y)) {
+		vec4 tree = plot_tree(p);
+		float wide = crown_width(here.y, here.z) * tree_size(tree.w) * 1.3;
+		float share = tree_share(here.y, here.z);
+		// Further still a crown is less than a pixel, and the ground takes the colour of its share of them.
+		float under = mix(step(tree.z, share) * (1.0 - smoothstep(wide * 0.6, wide, distance(p, tree.xy))), share * 0.6, smoothstep(800.0, 1300.0, distance(p, flyer))) * (1.0 - bare) * painted;
+		vec4 leaves = crown_colour(tree.xy, tree.w, here.y, here.z);
+		colour = mix(colour, leaves.rgb * 0.75 * (1.0 - 0.5 * leaves.a), under);
+		lit_crowns = leaves.rgb * leaves.a * under * (0.1 + 1.5 * night) * 0.75;
+	}
 	float sand = smoothstep(SEA + 2.4, SEA + 0.8, height);
 	colour = mix(colour, vec3(0.6, 0.47, 0.27) * (1.0 - 0.5 * smoothstep(SEA, SEA - 2.5, height)), sand);
 	// A vein of crystal follows a contour of a noise: pale by day, alight at night, and the
@@ -63,7 +78,7 @@ void fragment() {
 	float fine = fbm(p * 0.45 + vec2(70.0, 3.0), 3);
 	vec2 tilt = (vec2(fbm(p * 0.45 + vec2(70.4, 3.0), 3), fbm(p * 0.45 + vec2(70.0, 3.4), 3)) - fine) * (0.5 + 1.6 * bare) * (1.0 - far) * (1.0 - 0.6 * snow);
 	ALBEDO = colour * cloud_shade(world);
-	EMISSION = vein_colour * vein * run * (0.02 + 1.7 * night) + vec3(1.0, 0.5, 0.12) * pulse_light(p) * (1.0 + 1.8 * night) * (0.6 + 0.6 * grain);
+	EMISSION = lit_crowns + vein_colour * vein * run * (0.02 + 1.7 * night) + vec3(1.0, 0.5, 0.12) * pulse_light(p) * (1.0 + 1.8 * night) * (0.6 + 0.6 * grain);
 	ROUGHNESS = mix(mix(0.9, 0.7, bare), 0.3, max(max(vein * night, snow * 0.6), sand * 0.5));
 	SPECULAR = 0.35;
 	NORMAL = normalize((VIEW_MATRIX * vec4(normalize(normal + vec3(tilt.x, 0.0, tilt.y)), 0.0)).xyz);

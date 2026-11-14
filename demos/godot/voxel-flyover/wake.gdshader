@@ -1,4 +1,4 @@
-// The wake behind the board: a ribbon along the places it has been (path, the newest first), which
+// A jet's wake behind the board: a ribbon along the places it has been (path, the newest first), which
 // rolls as it trails, widens and thins out, in colours that run along it.
 shader_type spatial;
 render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled;
@@ -8,6 +8,7 @@ uniform vec3 path[64];
 // How far the board is from the newest kept place, in places: the ribbon's pattern keeps to the air.
 uniform float lead = 0.0;
 uniform float clock = 0.0;
+uniform float aside = 0.0; // the jet it comes from, to the side of the path
 
 varying vec2 across; // x: along the wake, 0 at the board to 1 at its end; y: across it
 
@@ -19,8 +20,9 @@ void vertex() {
 	vec3 side = normalize(cross(toward, vec3(0.0, 1.0, 0.0)));
 	float roll = sin(along * 14.0 - clock * 2.2) * 1.1;
 	side = side * cos(roll) + cross(toward, side) * sin(roll);
-	float wide = 0.75 * smoothstep(0.0, 0.1, along) * (1.0 - 0.5 * along) + 0.3;
-	VERTEX = path[i] + side * (UV.y - 0.5) * 2.0 * wide;
+	float wide = 0.5 * smoothstep(0.0, 0.1, along) * (1.0 - 0.5 * along) + 0.22;
+	// The two jets' wakes close on each other.
+	VERTEX = path[i] + normalize(cross(toward, vec3(0.0, 1.0, 0.0))) * aside * (1.0 - 0.7 * along) + side * (UV.y - 0.5) * 2.0 * wide;
 	across = vec2(along, UV.y);
 }
 
