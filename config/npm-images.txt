@@ -28,3 +28,7 @@ python-dateutil
 pandas
 matplotlib
 seaborn
+nvim
+less
+jq
+sqlite
