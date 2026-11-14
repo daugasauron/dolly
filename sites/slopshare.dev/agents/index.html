@@ -34,15 +34,16 @@
     speed-ups.</p>
   <h2><a href="../godot-voxel-flyover/">Voxel Flyover</a>: a world computed by the GPU</h2>
   <p class="lead">A Godot game made for Dolly, recorded on 14 November 2026: an airship flies over an endless world
-    of blocks through a day and a night. The world is one function in a shader. Each frame the vertex stage raises
-    grids of boxes around the airship into ground, trees and clouds, and nothing of the world is stored. Godot 4.7's
-    Forward+ renderer draws it at 1920 by 1080 on gpu@0, with shadows, glow, SSAO and volumetric fog.</p>
+    of hexagonal columns through a day and a night. The world is one function in a shader. When the airship has moved
+    on, a pass draws what stands in each cell into a texture, the vertex stage raises grids of columns and trees to
+    it, and nothing of the world is stored. Godot 4.7's Forward+ renderer draws it at 1920 by 1080 on gpu@0, with
+    shadows, glow, SSAO and volumetric fog.</p>
   <div class="grid">
     <article>
       <video controls playsinline preload="none" poster="posters/voxel-flyover.jpg" aria-label="Voxel Flyover recording"><source src="videos/voxel-flyover.mp4" type="video/mp4"></video>
       <div>
         <h3>From dawn into night</h3>
-        <p>The godot-voxel-flyover image: the airship flies itself and lights beacons, Enter takes the helm, and the day runs through sunset into a night of stars, an aurora and glowing groves; then the project's 973 lines and the function that is the world, 34 frames a second while recorded · 2:18</p>
+        <p>The godot-voxel-flyover image: the airship flies itself and lights beacons, whose rings of light run out over land and sea; Enter takes the helm, and the day runs through sunset into a night of stars, an aurora, and veins and groves that glow; then the project's 1,177 lines and the function that is the world, 59.9 frames a second while recorded · 1:58</p>
       </div>
     </article>
   </div>

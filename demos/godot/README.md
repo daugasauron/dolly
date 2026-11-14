@@ -79,9 +79,12 @@ over it. The airship flies itself until Enter takes the helm, and until then the
 between four views. `-- --autopilot SECONDS` prints its frame rate, the time a frame took, the
 beacons it lit and what its frame shows.
 
-Its 1920 by 1080 frames take the GPU 5.1 to 6.6 ms by Godot's own measure, and it draws 60 frames
-a second in Chrome 156 and 59 in Firefox (NVIDIA RTX 5070, 2026-11-14). What the frame time was
-spent on, measured in Chrome over the forest it starts in:
+Its 1920 by 1080 frames take the GPU 5.1 to 6.6 ms by Godot's own measure and its renderer's thread
+0.5 to 0.8 ms, and it draws 59.9 frames a second in Chrome 156 and 59.0 in Firefox, the display's
+rate (the test, NVIDIA RTX 5070, 2026-11-14), and 59.9 in Chrome while its screen was recorded. In
+a V8 sampling trace of a flight the game's thread waited in nine samples of ten, for the page's
+next frame or a lock, so the processor does not set the rate. What the frame time was spent on,
+measured in Chrome over the forest it starts in:
 
 - Columns whose vertex stage computed the terrain's function took 15.6 ms a frame: every vertex of
   every column ran it again in the depth pass, the colour pass and each shadow cascade. Reading it
@@ -95,7 +98,9 @@ spent on, measured in Chrome over the forest it starts in:
   second whatever it drew, an empty WebGPU canvas too, and 60 at 1280 by 720. With
   `--disable-vulkan-surface` Chrome copies each frame to the X server itself: 60 frames a second
   at 1920 by 1080, of which a capture of the screen at 60 saw 237 in 240. The test and the
-  recording run so; a display the GPU drives needs no such flag.
+  recording run so. The first version of the game drew 42 and 34 frames a second on the swapchain,
+  and 60 with the flag; this one draws 30 on the swapchain. A display the GPU drives was not
+  measured.
 
 Both games build their worlds in scripts as they start. The builders ([`world.gd`](lantern-drift/world.gd)
 with its islands and rings, Airtime's [`foundry.gd`](airtime/foundry.gd) and [`pads.gd`](airtime/pads.gd))
