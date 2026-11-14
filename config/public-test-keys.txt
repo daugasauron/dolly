@@ -1,2 +1,5 @@
 4280dcaf02ddf203cc1e3179b872f2e2f130662437b2f525bb24dfab4e7fade3 Go 1.27.3 src/crypto/tls/testdata/example-key.pem, also in src/crypto/tls/example_test.go
 2fea2ebe77388df61566fcd43eb0070dbff2842c8786a0e7906a13e5f10c3e65 Go 1.27.3 src/crypto/x509/platform_root_key.pem
+583d0b485c32dc450b701746741dba43fa2140bb68d06642231d36808559f3ea Godot 4.7.2 thirdparty/mbedtls/library/pk_internal.h: PEM_BEGIN_PRIVATE_KEY_PKCS8 and its END string in godot-editor, no key between
+33e7df754a2b45edcfc17ea9e88aa4eb2fcc4ad7e438d17e09cb97c5296fd096 Godot 4.7.2 thirdparty/mbedtls/library/pk_internal.h: PEM_BEGIN_PRIVATE_KEY_EC and its END string in godot-editor, no key between
+341e889d0f673f5642eb1aff378de42f2366441a9e351016eba313f3a358d03e Godot 4.7.2 thirdparty/mbedtls/library/pk_internal.h: PEM_BEGIN_PRIVATE_KEY_RSA and its END string in godot-editor, no key between
