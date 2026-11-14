@@ -66,8 +66,9 @@ the slope from the same texture and dresses the ground by it
 mottled and dotted with flowers, bare rock in strata where it is steep, snow where it is high and
 lies, sand by the sea, veins of crystal that glow at night with a light that runs along them, and
 the rings that run out over land and sea from each beacon the flyer has lit. A tree stands in
-each of 16,384 plots where the climate has one and the ground is not steep
-([`trees.gdshader`](voxel-flyover/trees.gdshader)): a trunk and a ball, which the vertex stage
+a plot of 4 units where the climate has one and the ground is not steep
+([`flora.gdshaderinc`](voxel-flyover/flora.gdshaderinc),
+[`trees.gdshader`](voxel-flyover/trees.gdshader)): a trunk and a ball, which the vertex stage
 shapes into firs with tiers of boughs in the cold, broad lumpy crowns in the wet, in places in
 blossom or autumn colours, slender spires in the desert, and groves that glow at night; the
 fragment stage roughens a crown's light as leaves do. The sea mirrors the sky, with the sun's
@@ -79,11 +80,24 @@ sun and then the moon, with four shadow cascades over 420 units, 4x MSAA, SSAO, 
 thickens toward the sea, and volumetric fog, in which the low sun draws shafts and the board's
 searchlight shows at night.
 
+Nothing appears or goes at once. The same trees are drawn by four grids, each a ring further from
+the flyer with a simpler mesh: a crown of 12 rings to 80 units, of 5 to 232, of 3 without a trunk
+to 420, and eight triangles to 690. Where two rings overlap, one's trees thin out pixel by pixel as
+the other's fill in, both asking the same number of the pixel, and past the last ring the land's
+shader paints the same crowns on the ground they stand on, and further still the colour of the
+climate's share of them. The land's grids blend their heights by the distance from the flyer,
+which moves smoothly while the grids step, and the beacons brighten from 340 units to 230.
+
 The flyer is a character of our own, drawn for this game from Godot's primitive meshes: a corgi in
-sunglasses and a red cape, standing on a teal surfboard that two small jets carry. The cape is a
-cloth its vertex stage flutters ([`cape.gdshader`](voxel-flyover/cape.gdshader)), and the jets leave
-a wake, a ribbon the vertex stage lays along the places the board has been
-([`wake.gdshader`](voxel-flyover/wake.gdshader)). The board banks into its turns.
+mirrored sunglasses and a red cape, crouched on a teal surfboard that two small jets carry. Its
+coat is fur in 18 shells ([`fur.gdshader`](voxel-flyover/fur.gdshader)): each furred part is drawn
+again and again a little further out along its normals, keeping the pixels where a hair is that
+long, and the hairs lean and shiver in the air the flight drives past. It crouches lower the
+faster it goes and the harder it turns, leans and looks into its turns, its ears lie back and
+its tongue flaps; the cape is a cloth its vertex stage flutters and swings out of a turn
+([`cape.gdshader`](voxel-flyover/cape.gdshader)), and each jet leaves a wake, a ribbon the vertex
+stage lays along the places the board has been ([`wake.gdshader`](voxel-flyover/wake.gdshader)).
+The board banks into its turns.
 [`terrain.gd`](voxel-flyover/terrain.gd) computes the world's function for the flight, with the
 same integer hash, so the board clears the ground the GPU draws and finds the beacons that float
 over it. The corgi flies itself until Enter takes the board, and until then the camera glides
@@ -91,11 +105,11 @@ between four views of it. `-- --autopilot SECONDS` prints its frame rate, the ti
 the beacons it lit and what its frame shows.
 
 The world was blocks, then hexagonal columns, and is now smooth land. Its 1920 by 1080 frames take
-the GPU 4.5 to 4.8 ms by Godot's own measure and its renderer's thread 0.6 to 0.7 ms, and it draws
+the GPU 5.2 to 5.5 ms by Godot's own measure and its renderer's thread 0.6 to 0.8 ms, and it draws
 60.0 frames a second in Chrome 156 and 59.0 in Firefox, the display's rate (the test, NVIDIA RTX
-5070, 2026-11-14). Beside other work on the machine the test gave less, 58.8 in Chrome at a load
-of 3.5 and 56.1 in Firefox at 9, and Chrome drew 59.1 while its screen was recorded. What was
-measured on the way, in Chrome:
+5070, 2026-11-14), and 60.0 in Chrome while its screen was recorded. Those are a quiet machine's:
+beside other work the same test gave 59.2 and 57.7 at a load of 2.7, and 25.9 in Chrome at a load
+of 8, where the renderer's thread took 2.8 ms a frame. What was measured on the way, in Chrome:
 
 - Hexagonal columns whose vertex stage computed the terrain's function took 15.6 ms a frame: every
   vertex of every column ran it again in the depth pass, the colour pass and each shadow cascade.
@@ -104,6 +118,9 @@ measured on the way, in Chrome:
   ten, for the page's next frame or a lock, so the processor does not set the rate.
 - The smooth land has 0.3 million triangles where the columns had 3.4: 3.2 ms a frame with two
   cascades over 170 units, 4.3 with four over 420, and 4.6 with 4x MSAA in place of FXAA.
+- Trees to 690 units in four rings of detail, where two grids drew them to 256, and the corgi's
+  fur: 6.1 ms. One grid of plain crowns for the shadows of all of them, and a slope read from two
+  heights more where it was four: 5.4.
 - On an Xvfb display Chrome's Vulkan swapchain showed a full-screen page at 27 to 35 frames a
   second whatever it drew, an empty WebGPU canvas too, and 60 at 1280 by 720. With
   `--disable-vulkan-surface` Chrome copies each frame to the X server itself: 60 frames a second
@@ -246,9 +263,10 @@ the game runs with F5 and the scene is saved; a node's name copied in its rename
 browser's clipboard's and pastes into another's, and the browser's text pastes as a third's.
 Both games passed in both browsers on 2026-11-13, the editor's log without an error.
 
-[`test/godot-flyover-browser.mjs`](test/godot-flyover-browser.mjs) opens `godot-voxel-flyover` on
-a hardware adapter, in Chrome and Firefox: the game draws on `gpu@0`, Q leaves the shell, and a
-flight by itself through a morning reaches a beacon and reports a frame with the sky along its top.
+[`test/godot-flyover-browser.mjs`](test/godot-flyover-browser.mjs) opens `godot-voxel-flyover` from
+the front page's list of applications, on a hardware adapter, in Chrome and Firefox: the game
+draws on `gpu@0`, Q leaves the shell, and a flight by itself through a morning reaches a beacon
+and reports a frame with the sky along its top.
 
 [`test/godot-x11-browser.mjs`](test/godot-x11-browser.mjs) installs the editor and Lantern Drift
 with amy in `x11-desktop`'s xterm: the game and then the editor open windows of their own on the

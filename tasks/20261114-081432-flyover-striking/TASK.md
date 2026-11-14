@@ -13,7 +13,55 @@ Branch `feature/flyover-2` (`work/flyover`), on the compiler round `round/0.1.6-
 `feature/videos-0.1.6` merged. Brief: `work/briefs-2026-11-14/flyover.md`. The first version and its
 video are `tasks/20261114-011009-videos-0.1.6`.
 
-## Version 3 (2026-11-14, 20:00)
+## Version 3, with the owner's second round (2026-11-14, 20:50)
+
+Owner, on version 3's first take: "I think it looks great! This is what I had in mind. One thing I
+absolutely want to fix though is that objects appear/disappear too directly [...] there has to be
+some way to transition such that the trees/objects that are close render in more detail than the
+ones close to the horizon [...] Also, I absolutely want to include this as an application on the
+dolly front page. I like the dog on the surfboard thing but I think you can spend more effort on
+it, maybe hair shaders that "blows in the wind"."
+
+Done, on `feature/flyover-3`: `f0eae0047`, `c816d0437`, and the commit that closes this task for the
+final video, poster, section and README.
+
+- **Nothing pops.** The same trees (one function of the plot, `flora.gdshaderinc`) are drawn by
+  four grids, rings around the flyer with crowns of 12, 5, 3 and 1 rings, to 80, 232, 420 and 690
+  units. In a band where two rings overlap, the inner one's pixels go as the outer one's come:
+  both compare the same number of the pixel with the tree's distance from the flyer. Past 540
+  units the land's shader paints the same crowns as discs on the ground, and past 800 the colour
+  of the climate's share of them, so forests reach the horizon. Before, trees shrank to nothing
+  at 256 units and changed mesh at once at 100.
+- The land's grids blended their heights by the distance from where the grids had stepped, so
+  detail jumped every 24 units flown. They blend by the distance from the flyer, which is smooth.
+- Beacons are kept for 25 plots where they were for 9, and their shaft, crystal and light grow
+  from nothing at 340 units to full at 230. The flight by itself still steers by the nine.
+- **The corgi.** Fur in 18 shells (`fur.gdshader`): each furred part is a MultiMesh of its mesh,
+  whose instances the shader spreads along the normals and bends down the wind, keeping the
+  pixels where a hair is that long. Body, chest, rump, tail, head and legs have coats of their own
+  lengths. It crouches with speed and turn (its legs shorten to keep the paws on the board), leans
+  and looks into its turns, its ears lie back and shiver, its tongue flaps, the cape swings out of
+  a turn. Gold-framed mirrored sunglasses with arms. Each jet has an intake ring, a nozzle, a flame
+  with a white heart, and a wake of its own.
+- **The front page.** `godot-voxel-flyover` is an APPLICATION in `config/domain-pages-images.txt`,
+  so `scripts/generate-routes.mjs` lists it under Applications with its README line; nothing was
+  missing but the words, which named the airship. The game's test now starts at the front page
+  and clicks the application's link, in both browsers.
+
+Measured (the test, quiet machine, at `c816d0437`): Chrome 156 60.0 frames a second with 5.2 ms of
+GPU, Firefox 59.0 with 5.5 ms. While recorded: 60.0 in Chrome, no frame repeated or dropped by the
+capture. GPU by step: 4.6 ms before this round, 6.1 with the rings of trees and the fur, 5.4 with
+one grid of plain crowns casting every tree's shadow and a cheaper slope test. Under load the same
+game and test gave 59.2 and 57.7 (load 2.7) and 25.9 in Chrome (load 8, renderer's thread 2.8 ms),
+and takes gave 53.7 to 59.8: the rate follows the machine's load, not the scene.
+
+Not measured: popping was judged by eye on the takes' frames, half a second apart, not by a
+test. Firefox's picture, a display the GPU drives, another GPU: as before.
+
+The video: 2:09, 60 frames a second, 24.05 MiB, from take 9; it plays from the page in headless
+Chrome 156 and Firefox 155. `work/videos-2026-11-14/voxel-flyover-3/README.md`.
+
+## Version 3, first round (2026-11-14, 20:00)
 
 Owner, on version 2: "The second video is better but you can do a lot better. I want the mountains
 to look less blocky, and the trees as well. I want a version 3 that is LESS blocky". And for the
