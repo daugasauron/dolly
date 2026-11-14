@@ -1,8 +1,10 @@
 // Voxel Flyover on gpu@0, on a real adapter, on the private X display DISPLAY names: Chrome on
 // Vulkan, or the installed Firefox (docs/gpu.md). godot-voxel-flyover starts the game on the
-// page; Q leaves the shell, where the game flies itself from noon and reports: its airship
+// page; Q leaves the shell, where the game flies itself through a morning and reports: its airship
 // reached a beacon, so the ground the script flies over is the ground the shaders draw, and its
-// frame has the sky along the top and a scene's worth of colours.
+// frame has the sky along the top and a scene's worth of colours. Chrome shows its frames on the
+// X display by copies (--disable-vulkan-surface): its Vulkan swapchain there shows a full-screen
+// page at half the display's rate, whatever the page draws.
 // Usage: node demos/godot/test/godot-flyover-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { chromium, firefox } from "playwright-core";
@@ -15,7 +17,8 @@ for (const name of browsers) {
   const browser = name === "firefox"
     ? await firefox.launch({ channel: "moz-firefox", headless: false, firefoxUserPrefs: { "dom.webgpu.enabled": true } })
     : await chromium.launch({ channel: "chrome", headless: false,
-      args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan,VulkanFromANGLE"] });
+      args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan,VulkanFromANGLE",
+        "--disable-vulkan-surface"] });
   const deadline = setTimeout(() => void browser.close(), 600_000);
   try {
     const page = await browser.newPage({ viewport: { width: 1600, height: 900 } }), errors = [];
@@ -32,12 +35,12 @@ for (const name of browsers) {
     }
     await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
     const run = async command => assert.equal(await page.evaluate(text => __dolly.submit(text), command), 0, command);
-    await run("voxel-flyover -- --autopilot 30 --day 12 > /tmp/flyover.out 2>&1");
+    await run("voxel-flyover -- --autopilot 30 --day 9 > /tmp/flyover.out 2>&1");
     await run("! grep -qE 'refused a batch|SCRIPT ERROR|SHADER ERROR' /tmp/flyover.out");
     await run("clear; grep '^FLYOVER ' /tmp/flyover.out");
     const report = await page.evaluate(() => __dolly.visibleTerminalText());
     assert.match(report, /^FLYOVER adapter WebGPU forward_plus$/m);
-    const [, fps, beacons] = report.match(/^FLYOVER seconds [\d.]+ frames \d+ fps ([\d.]+) flown \d+ beacons (\d+)$/m) ?? [];
+    const [, fps, beacons] = report.match(/^FLYOVER seconds [\d.]+ frames \d+ fps ([\d.]+) gpu [\d.]+ cpu [\d.]+ flown \d+ beacons (\d+)$/m) ?? [];
     const [, sky, colours] = report.match(/^FLYOVER frame \d+x\d+ sky (\d+) colours (\d+)$/m) ?? [];
     assert.ok(Number(fps) >= 10 && Number(beacons) >= 1 && Number(sky) > 100 && Number(colours) > 150, `Voxel Flyover flies and draws: ${report}`);
     assert.deepEqual(errors, []);

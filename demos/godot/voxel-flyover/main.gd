@@ -1,22 +1,20 @@
 extends Node3D
-## Voxel Flyover: an airship's flight over an endless world of blocks, from dawn through the day
-## into night. The world is a function (terrain.gdshaderinc): the GPU's vertex stage raises a grid
-## of boxes that follows the airship into its ground, trees and clouds, and nothing of it is kept.
+## Voxel Flyover: an airship's flight over an endless world of hexagonal columns, from dawn through
+## the day into night. The world is a function (terrain.gdshaderinc): the GPU's vertex stage raises
+## grids of columns and trees that follow the airship into its ground, and nothing of it is kept.
 ## The airship flies itself until Enter takes the helm.
 ##
-## `-- --autopilot SECONDS` flies by itself, prints its frame rate and what its frame shows, and
-## quits: Dolly's test uses it. `--day HOUR` starts at that hour of 24, `--scale FACTOR` renders
-## the 3D view smaller and `--plain` leaves out SSAO and the volumetric fog.
+## `-- --autopilot SECONDS` flies by itself, prints its frame rate, the time a frame took and what
+## the frame shows, and quits: Dolly's test uses it. `--day HOUR` starts at that hour of 24.
 
 const Terrain := preload("res://terrain.gd")
-const NEAR := 256 # columns across the near grid, one unit each
-const FAR := 256 # columns across the far grid, FAR_CELL units each
-const FAR_CELL := 4.0
-const PLOT := 5.0 # a tree's plot
-const PLOTS := 80
-const CLOUD_CELL := 16.0
-const CLOUDS := 64
-const CLOUD_HEIGHT := 196.0
+const ROW := 0.8660254 # a row of hexagonal cells, in cell widths
+## The grids of columns around the airship, each around the one before: cells across, a cell's width.
+const RINGS := [[256, 1.0], [256, 4.0], [128, 16.0]]
+## The grids follow the flight in steps of the coarsest cells, so every column stays where it is.
+const STEP := Vector2(16.0, 32.0 * ROW)
+const PLOT := 4.0 # a tree's plot
+const PLOTS := 128
 const DAY_SECONDS := 120.0
 const CRUISE := 30.0
 const BOOST := 26.0
@@ -24,14 +22,24 @@ const CEILING := 180.0
 const BEACON_PLOT := 220.0
 const BEACON_REACH := 8.0
 const START := Vector2(281, 2156)
+## The camera's views while the airship flies itself, each for SHOT_SECONDS: where it stands in the
+## airship's frame, where it looks, and its field of view.
+const SHOTS := [
+	[Vector3(0, 5.5, 17), Vector3(0, -3, -30), 68.0],
+	[Vector3(-15, 2, -9), Vector3(6, -1, 2), 58.0],
+	[Vector3(10, 30, 40), Vector3(0, -12, -70), 74.0],
+	[Vector3(13, -1.5, 8), Vector3(-8, 2, -30), 62.0],
+]
+const SHOT_SECONDS := 13.0
 
 var environment := Environment.new()
 var sky_material := ShaderMaterial.new()
 var sun := DirectionalLight3D.new()
 var camera := Camera3D.new()
-var followers: Array[MultiMeshInstance3D] = []
-var far_material: ShaderMaterial
-var clouds: MultiMeshInstance3D
+var materials: Array[ShaderMaterial] = [sky_material] # every one that draws the world
+var columns: Array[MultiMeshInstance3D] = []
+var grounds: Array[SubViewport] = [] # what stands in each grid's cells, for its columns to read
+var trees: MultiMeshInstance3D
 var water := MeshInstance3D.new()
 var ship := Node3D.new()
 var propeller: MeshInstance3D
@@ -44,8 +52,7 @@ var gauge := Label.new()
 var engine := AudioStreamPlayer.new()
 var bell := AudioStreamPlayer.new()
 var beacons := {} # plot -> its node, for the plots around the airship
-var lit := {} # plot -> true
-var trees_material: ShaderMaterial
+var lit := {} # plot -> where it stands (x, y) and the clock when it was lit (z)
 
 var helm := false # the player's, after Enter
 var day := 0.24
@@ -54,12 +61,14 @@ var turn := 0.0
 var climb := 0.0
 var speed := CRUISE
 var flown := 0.0
-var wind := Vector2.ZERO
-var view_swing := 0.0
+var view: Vector3 = SHOTS[0][0]
+var aim: Vector3 = SHOTS[0][1]
 var autopilot_seconds := 0.0
 var elapsed := 0.0
 var frames := 0
 var steady_from := 0
+var gpu_milliseconds := 0.0
+var cpu_milliseconds := 0.0
 
 
 func option(name: String, otherwise: float) -> float:
@@ -71,38 +80,52 @@ func option(name: String, otherwise: float) -> float:
 func _ready() -> void:
 	autopilot_seconds = option("--autopilot", 0.0)
 	day = option("--day", day * 24.0) / 24.0
-	get_viewport().scaling_3d_scale = option("--scale", 1.0)
-	build_light("--plain" in OS.get_cmdline_user_args())
-	var columns := preload("res://columns.gdshader")
-	followers.append(build_grid(BoxMesh.new(), NEAR, 1.0, columns, true))
-	followers.append(build_grid(BoxMesh.new(), FAR, FAR_CELL, columns, false))
-	far_material = followers[1].material_override
-	far_material.set_shader_parameter("hole", NEAR / 2.0)
-	followers.append(build_grid(tree_mesh(), PLOTS, PLOT, preload("res://trees.gdshader"), true))
-	trees_material = followers[2].material_override
-	clouds = build_grid(BoxMesh.new(), CLOUDS, CLOUD_CELL, preload("res://clouds.gdshader"), true)
-	(clouds.multimesh.mesh as BoxMesh).size = Vector3(CLOUD_CELL, 5.0, CLOUD_CELL)
+	build_light()
+	var hole := Vector2.ZERO
+	for ring: Array in RINGS:
+		var across: int = ring[0]
+		var cell: float = ring[1]
+		columns.append(build_grid(column_mesh(cell, 0.12 if cell == 1.0 else 0.0), across, Vector2(cell, cell * ROW), true, preload("res://columns.gdshader"), cell == 1.0))
+		grounds.append(build_ground(across, cell))
+		materials[-1].set_shader_parameter("ground", grounds[-1].get_texture())
+		materials[-1].set_shader_parameter("across", float(across))
+		materials[-1].set_shader_parameter("cell", cell)
+		materials[-1].set_shader_parameter("hole", hole)
+		hole = Vector2(across * cell, across * cell * ROW) / 2.0
+	trees = build_grid(tree_mesh(), PLOTS, Vector2(PLOT, PLOT), false, preload("res://trees.gdshader"), true)
+	materials[-1].set_shader_parameter("ground_fine", grounds[0].get_texture())
+	materials[-1].set_shader_parameter("ground_coarse", grounds[1].get_texture())
+	materials[-1].set_shader_parameter("plot", PLOT)
+	materials[-1].set_shader_parameter("fine", Vector2(RINGS[0][0] * RINGS[0][1], RINGS[0][0] * RINGS[0][1] * ROW) / 2.0)
+	materials[-1].set_shader_parameter("coarse", RINGS[1][1])
+	materials[-1].set_shader_parameter("reach", PLOTS * PLOT / 2.0 - PLOT)
 	var plane := PlaneMesh.new()
-	plane.size = Vector2(2400, 2400)
+	plane.size = Vector2(6000, 6000)
 	water.mesh = plane
-	var water_material := ShaderMaterial.new()
-	water_material.shader = preload("res://water.gdshader")
-	water.material_override = water_material
+	materials.append(ShaderMaterial.new())
+	materials[-1].shader = preload("res://water.gdshader")
+	water.material_override = materials[-1]
 	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(water)
 	build_ship()
-	camera.fov = 68.0
-	camera.far = 1100.0
+	camera.far = 1500.0
 	camera.near = 0.3
 	add_child(camera)
 	build_hud()
 	ship.position = Vector3(START.x, Terrain.surface(START) + 30.0, START.y)
-	camera.position = ship.position + Vector3(0, 5, 14)
+	camera.position = ship.position + view
+	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
 	if autopilot_seconds > 0.0:
 		print("FLYOVER adapter ", RenderingServer.get_video_adapter_name(), " ", RenderingServer.get_current_rendering_method())
 
 
-func build_light(plain: bool) -> void:
+## Tells every shader that draws the world.
+func tell(parameter: String, value: Variant) -> void:
+	for material in materials:
+		material.set_shader_parameter(parameter, value)
+
+
+func build_light() -> void:
 	sky_material.shader = preload("res://sky.gdshader")
 	var sky := Sky.new()
 	sky.sky_material = sky_material
@@ -110,48 +133,49 @@ func build_light(plain: bool) -> void:
 	environment.background_mode = Environment.BG_SKY
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	environment.ambient_light_sky_contribution = 0.45
+	environment.ambient_light_sky_contribution = 0.7
 	environment.tonemap_mode = Environment.TONE_MAPPER_ACES
 	environment.tonemap_white = 6.0
 	environment.glow_enabled = true
 	environment.glow_intensity = 0.7
-	environment.glow_bloom = 0.05
-	environment.glow_hdr_threshold = 1.1
-	environment.ssao_enabled = not plain
-	environment.ssao_radius = 2.0
-	environment.ssao_intensity = 2.2
+	environment.glow_strength = 1.1
+	environment.glow_bloom = 0.06
+	environment.glow_hdr_threshold = 1.0
+	environment.ssao_enabled = true
+	environment.ssao_radius = 1.6
+	environment.ssao_intensity = 2.4
+	# Haze that thickens toward the sea, in the sky's colour, and fog the light draws its shafts in.
 	environment.fog_enabled = true
-	environment.fog_mode = Environment.FOG_MODE_DEPTH
-	environment.fog_depth_begin = 220.0
-	environment.fog_depth_end = 600.0
-	environment.fog_depth_curve = 1.4
-	environment.fog_aerial_perspective = 1.0
+	environment.fog_mode = Environment.FOG_MODE_EXPONENTIAL
+	environment.fog_density = 0.0006
+	environment.fog_height = Terrain.SEA + 14.0
+	environment.fog_height_density = 0.006
+	environment.fog_aerial_perspective = 0.7
+	environment.fog_sun_scatter = 0.25
 	environment.fog_sky_affect = 0.0
-	environment.fog_density = 1.0
-	environment.volumetric_fog_enabled = not plain
-	environment.volumetric_fog_density = 0.0016
-	environment.volumetric_fog_anisotropy = 0.65
-	environment.volumetric_fog_length = 220.0
+	environment.volumetric_fog_enabled = true
+	environment.volumetric_fog_density = 0.0011
+	environment.volumetric_fog_anisotropy = 0.7
+	environment.volumetric_fog_length = 260.0
 	environment.volumetric_fog_sky_affect = 0.0
-	environment.volumetric_fog_ambient_inject = 0.3
+	environment.volumetric_fog_ambient_inject = 0.2
 	environment.adjustment_enabled = true
-	environment.adjustment_saturation = 1.12
-	environment.adjustment_contrast = 1.05
+	environment.adjustment_saturation = 1.2
+	environment.adjustment_contrast = 1.1
 	var world := WorldEnvironment.new()
 	world.environment = environment
 	add_child(world)
 	sun.shadow_enabled = true
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
-	sun.directional_shadow_max_distance = 320.0
-	sun.light_volumetric_fog_energy = 1.4
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	sun.directional_shadow_max_distance = 170.0
+	sun.light_volumetric_fog_energy = 2.2
 	add_child(sun)
 
 
-## A square grid of one mesh, a plot of `cell` units for each; its shader places each instance by
-## the plot it stands in, so the grid can follow the flight in steps of a plot.
-func build_grid(mesh: Mesh, across: int, cell: float, shader: Shader, shadows: bool) -> MultiMeshInstance3D:
-	if mesh is BoxMesh:
-		mesh.size = Vector3(cell, 1.0, cell)
+## A grid of one mesh, a plot of `spacing` for each, every other row half a plot along where rows
+## stagger; its shader places each instance by the plot it stands in, so the grid can follow the
+## flight in steps.
+func build_grid(mesh: Mesh, across: int, spacing: Vector2, stagger: bool, shader: Shader, shadows: bool) -> MultiMeshInstance3D:
 	var grid := MultiMesh.new()
 	grid.transform_format = MultiMesh.TRANSFORM_3D
 	grid.mesh = mesh
@@ -161,107 +185,157 @@ func build_grid(mesh: Mesh, across: int, cell: float, shader: Shader, shadows: b
 	transforms.fill(0.0)
 	var at := 0
 	for z in across:
+		var along := 0.5 * (z & 1) if stagger else 0.5
 		for x in across:
 			transforms[at] = 1.0
-			transforms[at + 3] = (x - across / 2 + 0.5) * cell
+			transforms[at + 3] = (x - across / 2 + along) * spacing.x
 			transforms[at + 5] = 1.0
 			transforms[at + 10] = 1.0
-			transforms[at + 11] = (z - across / 2 + 0.5) * cell
+			transforms[at + 11] = (z - across / 2 + (0.0 if stagger else 0.5)) * spacing.y
 			at += 12
 	grid.buffer = transforms
 	var material := ShaderMaterial.new()
 	material.shader = shader
-	material.set_shader_parameter("cell", cell)
-	material.set_shader_parameter("plot", cell)
+	materials.append(material)
 	var instance := MultiMeshInstance3D.new()
 	instance.multimesh = grid
 	instance.material_override = material
-	instance.custom_aabb = AABB(Vector3(-across * cell / 2, -20, -across * cell / 2), Vector3(across * cell, 260, across * cell))
+	var half := Vector2(across, across) * spacing / 2.0 + spacing
+	instance.custom_aabb = AABB(Vector3(-half.x, -20, -half.y), Vector3(half.x * 2.0, 280, half.y * 2.0))
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if shadows else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(instance)
 	return instance
 
 
-## One mesh of boxes, each [centre, size, colour].
-static func boxes(parts: Array) -> ArrayMesh:
+## The ground of a grid of columns as a texture, a texel for each cell, which ground.gdshader
+## draws when the grid steps.
+func build_ground(across: int, cell: float) -> SubViewport:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(across, across)
+	viewport.use_hdr_2d = true
+	viewport.transparent_bg = true
+	viewport.disable_3d = true
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	var cells := ColorRect.new()
+	cells.size = viewport.size
+	var material := ShaderMaterial.new()
+	material.shader = preload("res://ground.gdshader")
+	material.set_shader_parameter("cell", cell)
+	material.set_shader_parameter("across", float(across))
+	cells.material = material
+	viewport.add_child(cells)
+	add_child(viewport)
+	return viewport
+
+
+## Adds a flat face that looks along `normal`; each corner is its place and its UV.
+static func face(tool: SurfaceTool, corners: Array, normal: Vector3, colour: Color) -> void:
+	# Godot's front faces wind clockwise.
+	var flip: bool = (corners[1][0] - corners[0][0]).cross(corners[2][0] - corners[0][0]).dot(normal) > 0.0
+	for i in range(1, corners.size() - 1):
+		for corner: Array in [corners[0], corners[i + 1 if flip else i], corners[i if flip else i + 1]]:
+			tool.set_normal(normal)
+			tool.set_color(colour)
+			tool.set_uv(corner[1])
+			tool.add_vertex(corner[0])
+
+
+## A hexagonal column a cell wide with a bevel around its top. columns.gdshader raises the
+## vertices whose UV.x is 1 to the ground, less UV.y, and sets the others at the column's foot;
+## red marks the sides.
+static func column_mesh(cell: float, bevel: float) -> ArrayMesh:
 	var tool := SurfaceTool.new()
 	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for part: Array in parts:
-		var centre: Vector3 = part[0]
-		var half: Vector3 = part[1] / 2.0
-		tool.set_color(part[2])
-		for axis in 3:
-			for side: float in [-1.0, 1.0]:
-				var normal := Vector3.ZERO
-				normal[axis] = side
-				var u := Vector3.ZERO
-				u[(axis + 1) % 3] = 1.0
-				var v := normal.cross(u)
-				var corners: Array[Vector3] = []
-				for corner: Vector2 in [Vector2(-1, -1), Vector2(-1, 1), Vector2(1, 1), Vector2(1, -1)]:
-					corners.append(centre + (normal + u * corner.x + v * corner.y) * half)
-				for index: int in [0, 1, 2, 0, 2, 3]:
-					tool.set_normal(normal)
-					tool.add_vertex(corners[index])
+	var rim: Array[Vector3] = []
+	for k in 6:
+		rim.append(Vector3(cos(TAU * (k + 0.5) / 6.0), 0.0, sin(TAU * (k + 0.5) / 6.0)) * cell / sqrt(3.0))
+	var top := []
+	for k in 6:
+		top.append([rim[k] * (1.0 - bevel * 1.2) + Vector3.UP, Vector2(1, 0)])
+	face(tool, top, Vector3.UP, Color.BLACK)
+	for k in 6:
+		var a := rim[k]
+		var b := rim[(k + 1) % 6]
+		var out := (a + b).normalized()
+		if bevel > 0.0:
+			face(tool, [top[k], top[(k + 1) % 6], [b + Vector3.UP, Vector2(1, bevel)], [a + Vector3.UP, Vector2(1, bevel)]], (out + Vector3.UP * 1.2).normalized(), Color.BLACK)
+		face(tool, [[a + Vector3.UP, Vector2(1, bevel)], [b + Vector3.UP, Vector2(1, bevel)], [b, Vector2.ZERO], [a, Vector2.ZERO]], out, Color.RED)
+	tool.index()
 	return tool.commit()
 
 
-## An oak of blocks, standing on y = 0: red marks its leaves for trees.gdshader.
+## Adds a cone's six facets, from one radius and height to another.
+static func cone(tool: SurfaceTool, from: Vector2, to: Vector2, colour: Color) -> void:
+	for k in 6:
+		var a := Vector3(cos(TAU * k / 6.0), 0.0, sin(TAU * k / 6.0))
+		var b := Vector3(cos(TAU * (k + 1) / 6.0), 0.0, sin(TAU * (k + 1) / 6.0))
+		var corners := [[a * from.x + Vector3.UP * from.y, Vector2.ZERO], [b * from.x + Vector3.UP * from.y, Vector2.ZERO], [b * to.x + Vector3.UP * to.y, Vector2.ZERO]]
+		if to.x > 0.0:
+			corners.append([a * to.x + Vector3.UP * to.y, Vector2.ZERO])
+		face(tool, corners, ((a + b).normalized() * (to.y - from.y) + Vector3.UP * (from.x - to.x)).normalized(), colour)
+
+
+## A tree standing on y = 0: a trunk and a crown of three cones, which red marks for
+## trees.gdshader to shape.
 static func tree_mesh() -> ArrayMesh:
-	var trunk := Color.BLACK
-	var leaf := Color.RED
-	return boxes([
-		[Vector3(0, 2.5, 0), Vector3(1, 5, 1), trunk],
-		[Vector3(0, 5, 0), Vector3(5, 2, 5), leaf],
-		[Vector3(0, 6.5, 0), Vector3(3, 1, 3), leaf],
-		[Vector3(0, 7.5, 0), Vector3(1, 1, 1), leaf],
-	])
+	var tool := SurfaceTool.new()
+	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	cone(tool, Vector2(0.22, 0.0), Vector2(0.14, 2.6), Color.BLACK)
+	for tier in 3:
+		cone(tool, Vector2(1.5 - 0.4 * tier, 2.0 + 1.3 * tier), Vector2(0.0, 4.2 + 1.3 * tier), Color.RED)
+	tool.index()
+	return tool.commit()
 
 
+static func paint(colour: Color, roughness: float, glow := 0.0) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = colour
+	material.roughness = roughness
+	material.emission_enabled = glow > 0.0
+	material.emission = colour
+	material.emission_energy_multiplier = glow
+	return material
+
+
+func part(to: Node3D, mesh: Mesh, material: Material, place: Vector3, turn := Vector3.ZERO, size := Vector3.ONE) -> MeshInstance3D:
+	var instance := MeshInstance3D.new()
+	instance.mesh = mesh
+	instance.material_override = material
+	instance.position = place
+	instance.rotation_degrees = turn
+	instance.scale = size
+	to.add_child(instance)
+	return instance
+
+
+## The airship: an envelope with two bands and three fins, and a gondola under it with the lamp.
 func build_ship() -> void:
-	var cream := Color(0.95, 0.9, 0.78)
-	var red := Color(0.82, 0.16, 0.12)
-	var wood := Color(0.42, 0.26, 0.14)
-	var dark := Color(0.16, 0.14, 0.14)
-	var parts := [
-		[Vector3(0, 1.75, 0), Vector3(2.0, 1.5, 5.0), cream],
-		[Vector3(0, 1.75, -1.5), Vector3(2.1, 1.6, 0.5), red],
-		[Vector3(0, 1.75, 1.5), Vector3(2.1, 1.6, 0.5), red],
-		[Vector3(0, 1.75, -2.75), Vector3(1.5, 1.0, 0.5), cream],
-		[Vector3(0, 1.75, -3.125), Vector3(1.0, 0.5, 0.25), red],
-		[Vector3(0, 1.75, 2.75), Vector3(1.5, 1.0, 0.5), cream],
-		[Vector3(0, 0.25, 0), Vector3(1.0, 0.5, 2.5), wood],
-		[Vector3(0, 0.55, 0), Vector3(1.1, 0.1, 2.6), dark],
-		[Vector3(0, 2.75, 2.5), Vector3(0.14, 1.0, 1.0), red],
-		[Vector3(0, 1.75, 2.6), Vector3(3.2, 0.14, 0.8), red],
-	]
-	for x: float in [-0.4, 0.4]:
-		for z: float in [-0.9, 0.9]:
-			parts.append([Vector3(x, 0.8, z), Vector3(0.1, 0.5, 0.1), dark])
-	var paint := StandardMaterial3D.new()
-	paint.vertex_color_use_as_albedo = true
-	paint.roughness = 0.7
-	var hull := MeshInstance3D.new()
-	hull.mesh = boxes(parts)
-	hull.material_override = paint
-	ship.add_child(hull)
-	propeller = MeshInstance3D.new()
-	propeller.mesh = boxes([[Vector3.ZERO, Vector3(1.7, 0.16, 0.06), dark], [Vector3.ZERO, Vector3(0.16, 1.7, 0.06), dark]])
-	propeller.material_override = paint
-	propeller.position = Vector3(0, 0.3, 1.4)
-	ship.add_child(propeller)
+	var cream := paint(Color(0.93, 0.88, 0.76), 0.4)
+	var red := paint(Color(0.75, 0.1, 0.08), 0.45)
+	var wood := paint(Color(0.3, 0.17, 0.09), 0.6)
+	var dark := paint(Color(0.05, 0.05, 0.06), 0.5)
+	part(ship, SphereMesh.new(), cream, Vector3.ZERO, Vector3.ZERO, Vector3(2.6, 2.6, 7.4))
+	var band := CylinderMesh.new()
+	band.top_radius = 1.24
+	band.bottom_radius = 1.24
+	band.height = 0.4
+	for z: float in [-1.3, 1.3]:
+		part(ship, band, red, Vector3(0, 0, z), Vector3(90, 0, 0))
+	part(ship, SphereMesh.new(), red, Vector3(0, 0, -3.45), Vector3.ZERO, Vector3(0.9, 0.9, 0.9))
+	var fin := BoxMesh.new()
+	fin.size = Vector3(0.07, 1.5, 1.4)
+	for angle: float in [0.0, 120.0, -120.0]:
+		part(ship, fin, red, Basis(Vector3.BACK, deg_to_rad(angle)) * Vector3(0, 0.8, 0) + Vector3(0, 0, 3.0), Vector3(0, 0, angle))
+	var cabin := CapsuleMesh.new()
+	cabin.radius = 0.42
+	cabin.height = 2.4
+	part(ship, cabin, wood, Vector3(0, -1.55, 0.1), Vector3(90, 0, 0))
+	var blade := BoxMesh.new()
+	blade.size = Vector3(1.5, 0.14, 0.05)
+	propeller = part(ship, blade, dark, Vector3(0, -1.55, 1.45))
+	part(propeller, blade, dark, Vector3.ZERO, Vector3(0, 0, 90))
 	# The lamp under the bow, and the searchlight it turns on the ground at night.
-	var glass := StandardMaterial3D.new()
-	glass.albedo_color = Color(1.0, 0.8, 0.4)
-	glass.emission_enabled = true
-	glass.emission = Color(1.0, 0.72, 0.3)
-	glass.emission_energy_multiplier = 5.0
-	var lantern := MeshInstance3D.new()
-	lantern.mesh = BoxMesh.new()
-	lantern.mesh.size = Vector3(0.36, 0.36, 0.36)
-	lantern.material_override = glass
-	lantern.position = Vector3(0, -0.1, -1.1)
-	ship.add_child(lantern)
+	var lantern := part(ship, SphereMesh.new(), paint(Color(1.0, 0.72, 0.3), 0.3, 6.0), Vector3(0, -1.8, -1.0), Vector3.ZERO, Vector3(0.4, 0.4, 0.4))
 	lamp.light_color = Color(1.0, 0.7, 0.35)
 	lamp.omni_range = 9.0
 	lamp.position = lantern.position
@@ -369,6 +443,7 @@ func _process(delta: float) -> void:
 	elapsed += delta
 	var hours := 8.0 if helm and Input.is_physical_key_pressed(KEY_T) else 1.0
 	day = fposmod(day + delta * hours / DAY_SECONDS, 1.0)
+	tell("clock", elapsed)
 	set_day()
 	fly(delta)
 	tend_beacons(delta)
@@ -393,19 +468,19 @@ func fly(delta: float) -> void:
 		wanted_climb = (Input.get_axis("ui_down", "ui_up") + key_axis(KEY_S, KEY_W)) * 14.0
 		if Input.is_physical_key_pressed(KEY_SPACE):
 			wanted_speed += BOOST
-		# The ground pushes the airship up, and the clouds' floor holds it down.
-		wanted_climb = maxf(wanted_climb, (ground + 7.0 - ship.position.y) * 2.0)
+		# The ground pushes the airship up, and its ceiling holds it down.
+		wanted_climb = maxf(wanted_climb, (ground + 9.0 - ship.position.y) * 2.0)
 		wanted_climb = minf(wanted_climb, (CEILING - ship.position.y) * 2.0)
 	else:
 		# A wandering course at a steady height over the ground ahead, by way of the next beacon.
 		wanted_turn = sin(flown * 0.0037) * 0.5 + sin(flown * 0.0013 + 1.0) * 0.4
-		var height := ground + 20.0
+		var height := ground + 22.0
 		var beacon := beacon_ahead(forward)
 		if beacon:
 			var to := beacon.position - ship.position
 			wanted_turn = clampf(forward.signed_angle_to(Vector3(to.x, 0.0, to.z), Vector3.DOWN) * 2.5, -1.0, 1.0)
 			if Vector2(to.x, to.z).length() < 110.0:
-				height = maxf(ground + 8.0, beacon.position.y - 1.0)
+				height = maxf(ground + 10.0, beacon.position.y)
 		wanted_climb = clampf((height - ship.position.y) * 0.7, -9.0, 14.0)
 	var ease := 1.0 - exp(-delta * 2.5)
 	turn = lerpf(turn, clampf(wanted_turn, -1.0, 1.0), ease)
@@ -417,13 +492,17 @@ func fly(delta: float) -> void:
 	ship.rotation = Vector3(climb * 0.012, -heading, -turn * 0.35)
 	propeller.rotation.z += delta * speed * 0.9
 	engine.pitch_scale = 0.8 + speed / CRUISE * 0.3
-	# The grids follow in steps of the largest plot they share, so every block stays where it is.
-	for follower in followers:
-		follower.position = Vector3(snappedf(ship.position.x, 20.0), 0.0, snappedf(ship.position.z, 20.0))
-	far_material.set_shader_parameter("hole_centre", Vector2(followers[0].position.x, followers[0].position.z))
-	wind += Vector2(3.0, 1.2) * delta
-	clouds.position = Vector3(snappedf(ship.position.x - wind.x, CLOUD_CELL) + wind.x, CLOUD_HEIGHT, snappedf(ship.position.z - wind.y, CLOUD_CELL) + wind.y)
-	(clouds.material_override as ShaderMaterial).set_shader_parameter("drift", wind)
+	var middle := Vector3(snappedf(ship.position.x, STEP.x), 0.0, snappedf(ship.position.z, STEP.y))
+	if columns[0].position != middle:
+		for ring in RINGS.size():
+			var across: int = RINGS[ring][0]
+			var cell: float = RINGS[ring][1]
+			columns[ring].position = middle
+			(grounds[ring].get_child(0) as ColorRect).material.set_shader_parameter("first", Vector2(middle.x / cell - across / 2, middle.z / (cell * ROW) - across / 2).round())
+			grounds[ring].render_target_update_mode = SubViewport.UPDATE_ONCE
+		tell("hole_centre", Vector2(middle.x, middle.z))
+		tell("fine_centre", Vector2(middle.x, middle.z))
+	trees.position = Vector3(snappedf(ship.position.x, PLOT * 4.0), 0.0, snappedf(ship.position.z, PLOT * 4.0))
 	water.position = Vector3(ship.position.x, Terrain.SEA - 0.2, ship.position.z)
 
 
@@ -453,46 +532,54 @@ func tend_beacons(delta: float) -> void:
 	for plot: Vector2i in beacons:
 		var beacon: Node3D = beacons[plot]
 		beacon.get_child(0).rotate_y(delta * 1.3)
-		if not lit.has(plot) and beacon.position.distance_to(ship.position + Vector3.UP) < BEACON_REACH:
-			lit[plot] = true
+		if not lit.has(plot) and beacon.position.distance_to(ship.position) < BEACON_REACH:
+			lit[plot] = Vector4(beacon.position.x, beacon.position.z, elapsed, 1.0)
 			beacon.queue_free()
 			beacons[plot] = build_beacon(beacon.position, true)
 			bell.stream = chime(440.0 * pow(2.0, [0, 2, 4, 7, 9, 12][(lit.size() - 1) % 6] / 12.0))
 			bell.play()
+	# The shaders run rings of light out from the four lit beacons nearest the airship.
+	var here := Vector2(ship.position.x, ship.position.z)
+	var nearest := lit.values()
+	nearest.sort_custom(func(a: Vector4, b: Vector4) -> bool: return Vector2(a.x, a.y).distance_to(here) < Vector2(b.x, b.y).distance_to(here))
+	var pulses := PackedVector4Array()
+	for i in 4:
+		pulses.append(nearest[i] if i < nearest.size() else Vector4.ZERO)
+	tell("pulses", pulses)
 
 
+## A crystal that turns over the ground, a light, and a shaft of light seen from far off.
 func build_beacon(place: Vector3, alight: bool) -> Node3D:
-	var colour := Color(1.0, 0.72, 0.2) if alight else Color(0.25, 0.85, 1.0)
-	var glass := StandardMaterial3D.new()
-	glass.albedo_color = colour
-	glass.emission_enabled = true
-	glass.emission = colour
-	glass.emission_energy_multiplier = 4.0
-	var gem := MeshInstance3D.new()
-	gem.mesh = BoxMesh.new()
-	gem.mesh.size = Vector3(2.4, 2.4, 2.4)
-	gem.material_override = glass
-	gem.rotation = Vector3(atan(1.0 / sqrt(2.0)), 0.0, PI / 4.0)
-	# A shaft of light from the ground up, seen from far off.
-	var light := StandardMaterial3D.new()
-	light.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	light.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	light.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	light.albedo_color = Color(colour, 0.5 if alight else 0.22)
-	var shaft := MeshInstance3D.new()
-	shaft.mesh = BoxMesh.new()
-	shaft.mesh.size = Vector3(1.0, 150.0, 1.0)
-	shaft.material_override = light
-	shaft.position.y = 59.0
-	shaft.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var glow := OmniLight3D.new()
-	glow.light_color = colour
-	glow.light_energy = 6.0 if alight else 3.0
-	glow.omni_range = 46.0
+	var colour := Color(1.0, 0.62, 0.15) if alight else Color(0.2, 0.8, 1.0)
 	var beacon := Node3D.new()
 	beacon.position = place
+	var gem := Node3D.new()
 	beacon.add_child(gem)
-	beacon.add_child(shaft)
+	var point := CylinderMesh.new()
+	point.top_radius = 0.0
+	point.bottom_radius = 1.5
+	point.height = 2.2
+	point.radial_segments = 6
+	point.rings = 1
+	var glass := paint(colour, 0.15, 2.5 if alight else 1.5)
+	part(gem, point, glass, Vector3(0, 1.1, 0))
+	part(gem, point, glass, Vector3(0, -1.1, 0), Vector3(180, 0, 0))
+	var column := CylinderMesh.new()
+	column.top_radius = 0.9
+	column.bottom_radius = 0.9
+	column.height = 160.0
+	column.radial_segments = 12
+	column.cap_top = false
+	column.cap_bottom = false
+	var light := ShaderMaterial.new()
+	light.shader = preload("res://shaft.gdshader")
+	light.set_shader_parameter("colour", colour)
+	light.set_shader_parameter("strength", 0.7 if alight else 0.35)
+	part(beacon, column, light, Vector3(0, 64, 0)).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var glow := OmniLight3D.new()
+	glow.light_color = colour
+	glow.light_energy = 8.0 if alight else 3.0
+	glow.omni_range = 50.0
 	beacon.add_child(glow)
 	add_child(beacon)
 	return beacon
@@ -526,13 +613,19 @@ static func chime(frequency: float) -> AudioStreamWAV:
 	return stream
 
 
-## The camera trails the airship; while it flies itself the view swings slowly around it.
+## The camera trails the airship at the helm; while it flies itself the camera glides from one
+## of its views to the next, and never under the ground.
 func follow(delta: float) -> void:
-	view_swing = lerpf(view_swing, 0.0 if helm else sin(elapsed * 0.09) * 1.1, 1.0 - exp(-delta * 2.0))
-	var behind := Basis(Vector3.UP, -heading + view_swing) * Vector3(0, 5.5, 17.0)
-	camera.position = camera.position.lerp(ship.position + behind, 1.0 - exp(-delta * 5.0))
-	var ahead := Basis(Vector3.UP, -heading) * Vector3(0, -3.0, -30.0)
-	camera.look_at(ship.position + ahead * cos(view_swing))
+	var shot: Array = SHOTS[0 if helm else int(elapsed / SHOT_SECONDS) % SHOTS.size()]
+	var glide := 1.0 - exp(-delta * 0.9)
+	view = view.lerp(shot[0], glide)
+	aim = aim.lerp(shot[1], glide)
+	camera.fov = lerpf(camera.fov, shot[2], glide)
+	var frame := Basis(Vector3.UP, -heading)
+	var place := camera.position.lerp(ship.position + frame * view, 1.0 - exp(-delta * 5.0))
+	place.y = maxf(place.y, Terrain.surface(Vector2(place.x, place.z)) + 3.0)
+	camera.position = place
+	camera.look_at(ship.position + frame * aim)
 
 
 ## The light of the hour: the sun's arc, then the moon's, in one light.
@@ -542,36 +635,41 @@ func set_day() -> void:
 	var height := to_sun.y
 	var sunlight := smoothstep(-0.03, 0.2, height)
 	var night := smoothstep(0.02, 0.3, -height)
-	var warm := Color(1.0, 0.45, 0.2).lerp(Color(1.0, 0.95, 0.86), smoothstep(0.0, 0.45, height))
+	var warm := Color(1.0, 0.42, 0.18).lerp(Color(1.0, 0.95, 0.86), smoothstep(0.0, 0.45, height))
+	var to_light := to_sun if height > -0.06 else -to_sun
+	sun.basis = Basis.looking_at(-to_light)
 	if height > -0.06:
-		sun.basis = Basis.looking_at(-to_sun)
 		sun.light_color = warm
-		sun.light_energy = 1.35 * sunlight
+		sun.light_energy = 1.9 * sunlight
 	else:
-		sun.basis = Basis.looking_at(to_sun)
-		sun.light_color = Color(0.5, 0.65, 1.0)
-		sun.light_energy = 0.55 * smoothstep(0.1, 0.35, -height)
+		sun.light_color = Color(0.45, 0.6, 1.0)
+		sun.light_energy = 0.7 * smoothstep(0.1, 0.35, -height)
 	sky_material.set_shader_parameter("sun_direction", to_sun)
 	sky_material.set_shader_parameter("sun_colour", warm)
-	sky_material.set_shader_parameter("aurora_phase", elapsed * 0.25)
-	environment.ambient_light_color = Color(0.85, 0.82, 0.78).lerp(Color(0.2, 0.3, 0.6), night)
-	environment.ambient_light_energy = lerpf(0.9, 0.8, night)
+	tell("night", night)
+	tell("to_light", to_light)
+	environment.ambient_light_color = Color(0.85, 0.82, 0.78).lerp(Color(0.15, 0.22, 0.5), night)
+	environment.ambient_light_energy = lerpf(0.8, 0.55, night)
 	environment.volumetric_fog_albedo = Color(0.75, 0.82, 1.0).lerp(warm, 0.5)
 	searchlight.light_energy = 14.0 * night
-	trees_material.set_shader_parameter("night", night)
 	lamp.light_energy = 1.0 + 3.0 * night
 
 
-## For automated runs: the frame rate once the first frames' pipelines are made, and what the
-## frame shows, then quit.
+## For automated runs: the frame rate once the first frames' pipelines are made, the time the
+## GPU and the renderer's thread took for a frame, and what the frame shows, then quit.
 func watch() -> void:
 	frames += 1
 	if frames == 120:
 		steady_from = Time.get_ticks_msec()
+	if frames > 120:
+		var viewport := get_viewport().get_viewport_rid()
+		gpu_milliseconds += RenderingServer.viewport_get_measured_render_time_gpu(viewport)
+		cpu_milliseconds += RenderingServer.viewport_get_measured_render_time_cpu(viewport) + RenderingServer.get_frame_setup_time_cpu()
 	if elapsed < autopilot_seconds:
 		return
 	autopilot_seconds = 0.0
-	print("FLYOVER seconds %.1f frames %d fps %.1f flown %d beacons %d" % [elapsed, frames, (frames - 120) * 1000.0 / (Time.get_ticks_msec() - steady_from), int(flown), lit.size()])
+	var steady := frames - 120
+	print("FLYOVER seconds %.1f frames %d fps %.1f gpu %.1f cpu %.1f flown %d beacons %d" % [elapsed, frames, steady * 1000.0 / (Time.get_ticks_msec() - steady_from), gpu_milliseconds / steady, cpu_milliseconds / steady, int(flown), lit.size()])
 	var image := get_viewport().get_texture().get_image()
 	if image and not image.is_empty():
 		# The sky's pixels along the top, and how many colours the frame has.
