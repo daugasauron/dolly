@@ -12,8 +12,11 @@ upload."
 
 Branch `feature/pi-upload` in `work/piupload` (the compiler round with `feature/npm-0.1.6`).
 Done and measured: the tool, the recipes, the prompt and skill, the Pi test in Chromium and
-Firefox on rebuilt pi-dolly and pi-runtime. Left: `dolly-build add` declaring a package's new
-host modules (in source, unmeasured), pi-minimal and pi-agent, `test/npm-browser.mjs`.
+Firefox, `dolly-build add` declaring a package's new host modules, `test/npm-browser.mjs` in
+both. Rebuilt here: pi-dolly, pi-runtime, pi-minimal, pi-agent, python-data (and seaborn),
+dollyfile-studio, classicube and classicube-agent. For the release round, which rebuilds them
+for the seed anyway: pi-local, pi-phone, slopyard, rts-arena and seven-kingdoms (FROM
+pi-runtime). The npm docs (`docs/npm*.md`, another branch's) need the lines in the report.
 
 ## Measured
 
@@ -28,6 +31,15 @@ host modules (in source, unmeasured), pi-minimal and pi-agent, `test/npm-browser
   "The user cancelled the upload." and leaves nothing in `/workspace`.
 - What the user sees: `build/piupload-evidence/dialog.png`, the page's dialog over Pi, with
   `upload reason="The sales figures to chart" path="data/sales.csv"` readable beneath it.
+- `test/npm-browser.mjs` (packed from this tree, offline namespace): Chrome passed in 271.8 s,
+  Firefox in 239.2 s; requests beyond the machine: none. New in it: init's recipe declares
+  `upload@0`; in the Pi site's shell `upload /tmp/chosen` shows the dialog and Escape cancels it
+  (status 1); the older project, without `upload@0` and `dolly-host-upload` as one of 0.1.5,
+  gets both back from `add`. With the old `add` it fails there: the recipe lacks
+  `REQUIRES HOST upload@0` (`build/piupload-evidence/npm-browser-old-add.log`).
+- Builds (`DOLLY_IMAGE_JOBS=1`, build slot): pi-dolly and pi-runtime 227 s; pi-minimal,
+  pi-agent, python-data and seaborn 161 s; dollyfile-studio, classicube-agent and classicube
+  131 s.
 - The source suite: 393 of 394; `process-sysroot.test.mjs` needs `build/rdynamic.exports`, an
   output of `npm run build:runtime`, which this tree does not run (the brief).
 
@@ -55,6 +67,12 @@ host modules (in source, unmeasured), pi-minimal and pi-agent, `test/npm-browser
   installs pi-dolly already had both. npm: `transfer` is listed in `config/npm-images.txt`
   (pi-dolly installs it), and `dolly-build init` declares `upload@0` and installs
   `@daugasauron/dolly-host-upload` without a change of its own, from pi-dolly's host modules.
+- A project of 0.1.5 has no `upload@0` row, and after `dolly-build add` moved its pins the
+  build refused pi-dolly (`site/dollyfile-graph.mjs`: "needs REQUIRES HOST upload@0"). `add`
+  now declares the host modules of every package the recipe installs at its new pin, and
+  installs their host packages, so the upgrade guide's `npx dolly-build add my-pi` moves it.
+- Not changed: `Dollyfile-pi`'s manual page says pi-dolly adds "a download tool"; true still,
+  and a change would rebuild `pi` and everything on it for one word.
 
 ## Done when
 

@@ -87,13 +87,17 @@ const piPackages = Object.keys(own.dependencies ?? {})
 // the package manager that runs them: the runtime, each PACKAGE, and the device host modules
 // they declare (init: Pi's too, and the keyboard's), which packages.json lists for every
 // published package (scripts/package-npm.mjs). add also installs at that version each
-// Dolly package the project depends on and has at another, as after dolly-build's update.
+// Dolly package the project depends on and has at another, as after dolly-build's update,
+// and the host modules of the packages its recipe installs, which a new version may add to.
 if (project) {
   const published = JSON.parse(await readFile(join(import.meta.dirname, "../packages.json"), "utf8"));
   const named = positionals.slice(2), unknown = named.filter(name => !published[name]);
   if (!validName(positionals[1])) fail(`${positionals[1]}: a name is lowercase letters, digits and dashes, at most 32 bytes`);
   if (unknown.length) fail(`${unknown.join(", ")}: no such package. The packages: ${Object.keys(published).sort().join(", ")}`);
-  const hosts = [...positionals[0] === "init" ? ["input", ...piPackages.flatMap(name => published[name])] : [], ...named.flatMap(name => published[name])];
+  const recipePackages = positionals[0] === "init" ? [] : (await readFile(`Dollyfile-${positionals[1]}`, "utf8").catch(() => ""))
+    .split("\n").map(line => /^INSTALL\s+(\S+)/.exec(line)?.[1]).filter(Boolean).map(location => imageFileName(recipeFileName(location)));
+  const hosts = [...positionals[0] === "init" ? ["input", ...piPackages.flatMap(name => published[name])] : [],
+    ...[...named, ...recipePackages].flatMap(name => published[name] ?? [])];
   // The project's own Dolly packages that are installed at another version.
   const manifest = async directory => JSON.parse(await readFile(join(directory, "package.json"), "utf8").catch(() => "{}"));
   const stale = [];
@@ -178,11 +182,11 @@ async function scaffold(name, packages) {
 
 // Dollyfile-NAME with every FROM and INSTALL row at the pin of the installed package that
 // holds its recipe, as after an update of the packages, and a row for each PACKAGE it
-// lacks, with the host modules those declare.
+// lacks, with the host modules those and the packages it installs at their new pins declare.
 async function add(name, packages) {
   const file = `Dollyfile-${name}`, lines = (await readFile(file, "utf8").catch(() =>
     fail(`${file}: no such recipe here (dolly-build init ${name} writes one)`))).split("\n");
-  const held = new Set(), rows = [];
+  const held = new Set(), rows = [], installs = [];
   let repinned = 0;
   for (const [index, line] of lines.entries()) {
     const [, operation, location, pin] = /^(FROM|INSTALL)\s+(\S+)\s+([0-9a-f]{64})\s*$/.exec(line) ?? [];
@@ -192,6 +196,7 @@ async function add(name, packages) {
     if (!directory) continue;
     held.add(directory.image);
     const definition = definitionOf(directory);
+    if (operation === "INSTALL") installs.push(definition);
     if (definition.sha256 !== pin) repinned++;
     lines[index] = `${operation} ${siteReference(definition.dollyfile)} ${definition.sha256}`;
   }
@@ -199,7 +204,7 @@ async function add(name, packages) {
   const added = [...new Set(packages)].filter(image => !held.has(image)).map(image => definitionOf(installed(image, "package")));
   lines.splice(rows.at(-1) + 1, 0, ...added.map(installRow));
   const declared = new Set(lines.map(line => /^REQUIRES HOST (\S+)/.exec(line)?.[1]));
-  const hosts = [...new Set(added.flatMap(definition => definition.hostRequirements))].filter(host => !declared.has(host));
+  const hosts = [...new Set([...installs, ...added].flatMap(definition => definition.hostRequirements))].filter(host => !declared.has(host));
   lines.splice(lines.findLastIndex(line => line.startsWith("REQUIRES HOST ")) + 1, 0, ...hosts.map(host => `REQUIRES HOST ${host}`));
   await writeFile(file, lines.join("\n"));
   console.log(`dolly-build: ${file}: ${added.length ? `added ${added.map(definition => definition.image).join(", ")}` : "no package added"}` +
