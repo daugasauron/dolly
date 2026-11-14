@@ -1,0 +1,26 @@
+DOLLY 7
+APPLICATION godot-voxel-flyover
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST audio@0
+REQUIRES HOST gpu@0
+REQUIRES HOST threads@0
+REQUIRES HOST sockets@0
+REQUIRES HOST clipboard@0
+
+# Voxel Flyover on the page: the flight starts at once; Q quits to a shell.
+INSTALL /v0.1.6/Dollyfile-core 1af35bd391b18ddb626a8a5248c4c940564cc4c23af9c2d44e313bf847b66bba
+INSTALL /v0.1.6/Dollyfile-posix 37d85018d9ab218475d878070e6d5df646238f3e450e534e5c31b6c9e3198191
+INSTALL /v0.1.6/Dollyfile-display 9516e36ef9c8566c9f0590546e1474db96ca02ddc75028e562e92af71fdbdeef
+INSTALL /v0.1.6/demos/godot/Dollyfile-voxel-flyover dfca2ca71f88bdd7a1732c29086e9abcd6ba2f0b121b0990e8b8f8d09a9a8839
+REQUIRES TOOL voxel-flyover
+
+FILE /etc/dolly/init.slop
+    /bin/foreground /usr/bin/voxel-flyover
+    printf '\nVoxel Flyover has quit; voxel-flyover plays it again, and man voxel-flyover lists its options.\n'
+    printf 'Its project is /usr/share/voxel-flyover/project: the world is terrain.gdshaderinc.\n'
+    /bin/foreground -i /bin/slop
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

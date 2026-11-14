@@ -33,6 +33,8 @@ Dolly, as it exported Dodge the Creeps for `amy install dodge-the-creeps`
 - `godot-lantern-drift`: Lantern Drift on the page at once; Q leaves a shell where `godot-editor -e --path ~/lantern-drift` opens a copy of its project in Godot's editor, the islands in its 3D view. The eye beside HUD in the Scene dock hides the game's display, F5 plays the game so, and Ctrl+S saves the scene.
 - `airtime-godot`: Airtime: Foundry in Godot, the strafe trials of bhop on Airtime's own movement and course, drawn by Forward+ on `gpu@0` as a foundry at night over molten metal; `airtime-godot` plays it.
 - `godot-airtime`: Airtime in Godot on the page, which starts at once; Q leaves a shell where `godot-editor -e --path ~/airtime` opens a copy of its project in Godot's editor, the course in its 3D view. The eye beside Hud in the Scene dock hides the game's display, F5 plays the game so, and Ctrl+S saves the scene.
+- `voxel-flyover`: Voxel Flyover, an airship's flight over an endless world of blocks through a day and a night, which the GPU builds in its shaders, drawn by Forward+ on `gpu@0`; `voxel-flyover` plays it.
+- `godot-voxel-flyover`: Voxel Flyover on the page at once: the airship flies itself until Enter takes the helm, and Q leaves a shell.
 
 ## Lantern Drift
 
@@ -46,6 +48,33 @@ sky darkens from sunset into night as the run goes on. Godot's editor imports an
 while the package builds. It drew 59 frames a second at 1600 by 900 in Chrome (NVIDIA RTX
 5070, 2026-11-10). `-- --autopilot SECONDS` flies a run by itself, as the title screen does, and
 prints its frame rate, rings and score.
+
+## Voxel Flyover
+
+[`voxel-flyover/`](voxel-flyover) is a Godot project made for Dolly, of scripts and shaders alone.
+Its world is a function of the place ([`terrain.gdshaderinc`](voxel-flyover/terrain.gdshaderinc)):
+seas and continents, hills, ridged mountain ranges and a climate, from an integer hash. Nothing of
+the world is stored or built on the CPU. Four grids of instanced boxes follow the airship, and
+each one's vertex stage computes what stands in its plot: a column of ground a block wide for
+65,536 plots around the airship and one four blocks wide for as many beyond them
+([`columns.gdshader`](voxel-flyover/columns.gdshader)), a tree for each of 6,400 plots, by the
+climate an oak, in places in autumn colours, in blossom or glowing at night, a pine or a cactus
+([`trees.gdshader`](voxel-flyover/trees.gdshader)), and a slab of cloud that drifts with the wind
+and shades the ground ([`clouds.gdshader`](voxel-flyover/clouds.gdshader)). The fragment stages
+colour each block by climate, height and depth, the sea by the ground under it with foam along the
+shore's blocks ([`water.gdshader`](voxel-flyover/water.gdshader)), and the sky by the hour, with
+stars, the moon and an aurora ([`sky.gdshader`](voxel-flyover/sky.gdshader)). A day lasts two
+minutes: one light is the sun and then the moon, with four shadow cascades, SSAO, glow and
+volumetric fog, in which the airship's searchlight shows at night.
+[`terrain.gd`](voxel-flyover/terrain.gd) computes the same function for the flight, with the same
+integer hash, so the airship clears the ground the GPU draws and finds the beacons that float
+over it; reaching one lights it. The airship flies itself until Enter takes the helm.
+`-- --autopilot SECONDS` prints its frame rate, the beacons it lit and what its frame shows.
+
+Its 1920 by 1080 frames took 4.9 ms of the GPU each (Godot's own measure, Chrome, NVIDIA RTX 5070,
+2026-11-14). It drew 35 frames a second in a 1920 by 1000 page on an Xvfb display and 60 in a 960
+by 540 one, with the grids at a sixteenth of their size or whole: there Chrome's copy of each
+frame to the X server sets the rate, not the game.
 
 Both games build their worlds in scripts as they start. The builders ([`world.gd`](lantern-drift/world.gd)
 with its islands and rings, Airtime's [`foundry.gd`](airtime/foundry.gd) and [`pads.gd`](airtime/pads.gd))
@@ -181,6 +210,10 @@ counts the meshes the scene shows and the colours of the 3D view; the HUD is hid
 the game runs with F5 and the scene is saved; a node's name copied in its rename field is the
 browser's clipboard's and pastes into another's, and the browser's text pastes as a third's.
 Both games passed in both browsers on 2026-11-13, the editor's log without an error.
+
+[`test/godot-flyover-browser.mjs`](test/godot-flyover-browser.mjs) opens `godot-voxel-flyover` on
+a hardware adapter, in Chrome and Firefox: the game draws on `gpu@0`, Q leaves the shell, and a
+flight by itself from noon reaches a beacon and reports a frame with the sky along its top.
 
 [`test/godot-x11-browser.mjs`](test/godot-x11-browser.mjs) installs the editor and Lantern Drift
 with amy in `x11-desktop`'s xterm: the game and then the editor open windows of their own on the
