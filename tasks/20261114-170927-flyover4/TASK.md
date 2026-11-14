@@ -17,9 +17,30 @@ one (number of things hit)."
 Branch `feature/flyover-4` (`work/flyover4`, from `v0.1.6`). Brief:
 `work/briefs-2026-11-15/flyover4.md`. Version 3 is `tasks/20261114-081432-flyover-striking`.
 
-## State (2026-11-15)
+## State (2026-11-15, 04:30)
 
-See the sections below; this one is rewritten as the work goes.
+Done and committed (`dc773fcfe`, `a867d01c1`, `dcd36b2db`): the pelican on its bicycle, mouse look
+with a captured pointer, the score alone on the screen, and the smoothness work below. The game's
+test passes in Chrome 156 and Firefox 159 on the RTX 5070, and the source suite passes. Nothing
+changed the seed, `host/gpu` or Godot's platform: `voxel-flyover` and `godot-voxel-flyover` are the
+only images to rebuild (50 to 160 s).
+
+The current take is `work/videos-2026-11-15/voxel-flyover-4/take1.mp4`, of commit `a867d01c1`,
+recorded at a machine load of 11 (two other agents' Chrome renderers at 400% each), where the game
+drew 40 frames a second; its 5.7 s after the click, in which Chrome's notice named the page's local
+address, are cut out.
+
+Left:
+
+- **What the owner sees in Firefox is not known.** See "Firefox" below: Godot's frames are the same
+  in both browsers to the pixel and as evenly timed, and what Firefox does with them on a display
+  the GPU drives could not be seen here. A screenshot or a few seconds of screen recording from
+  the owner's Firefox would settle it.
+- A take on a quiet machine, the cut for the demos page, its poster and section.
+- Not done: the trees' rings still cross-fade by a screen-door of pixels (grainy in the bands at
+  64 to 80 and 200 to 232 units); the shadows' edges crawl as the sun moves 3 degrees a second;
+  the fur's hair edges are not antialiased near the camera (alpha to coverage puts the shells in
+  Godot's transparent pass: not tried further).
 
 ## How it is measured
 
@@ -44,8 +65,122 @@ page composes `voxel-flyover` with `curl`, and fetches the project as a tar from
   fifth of the mean frame difference): it compares versions of one flight and is no absolute.
 - **Bursts**: the flight at Godot's `--fixed-fps 60`, where the game's frames are the same
   whatever the machine's load or the browser, with three consecutive frames read back every two
-  seconds (29 triples). This is the measure for before and after, and the only one for Firefox,
-  whose canvas an Xvfb display does not show.
-- **Jumps**, on a lossless 60 fps capture of Chrome's screen, over 16 by 9 tiles: a tile jumps
-  when its mean frame difference is over three times the median of its 30 frames around and over
-  4/255. The capture repeats frames when the machine is loaded, so it is taken at a load under 2.
+  seconds (29 triples). **Slow bursts**: 40 s of it at `--fixed-fps 240`, a quarter of a frame's
+  movement between frames, where what moves across the pixels hardly reverses and what flickers
+  of itself still does (20 triples).
+- **Jumps**: the flight at the fixed step with every frame read back and shrunk to 120 by 67, in
+  tiles of 8 by 8 (128 pixels of the frame). A *spike* is a tile whose change in one frame is
+  over 2.5 times that of the frames before and after and over 4/255: something there appeared,
+  vanished or leapt. An *event* is a run of frames in which 8 tiles or more change over three
+  times their median of the 30 frames around: a spike, or a movement that sets in. The frames
+  around each spike were then read back whole and looked at; that is how the causes below were
+  found.
+- A capture of Chrome's screen at 60 frames a second repeats and drops frames when the machine is
+  loaded (795 of 3,300 at a load of 5), so the measures above are taken on the game's own frames.
+
+## What popped or flickered, and what was done
+
+Each was seen on the frames named, in version 3 as shipped unless it says otherwise.
+
+| What | Where it was seen | Cause | Fix |
+| --- | --- | --- | --- |
+| A band of light came or went on a hillside in one frame, at each step of the grids and when a beacon was lit; at night whole ranges were lit in broad bands that differed from grid to grid | spikes of 13 to 25 tiles at 6.8, 39.2, 54.8 and 57.2 s, of 2 to 7 at 36.0 and 36.9 s | In `pulse_light` a local named `reach` took the value of the ground's uniform `reach`, declared after it in another include: a ring stood at the grid's reach (180, 756 or 2,292 units) and was as wide, instead of running out at 75 units a second | Renamed. A ring also grows out of nothing in half a second, is gone before the next sets off, and fades with its beacon's distance (eight beacons, where the four nearest were shown and changed places at once); it leaves a glow behind its front |
+| The fur of the corgi's legs flickered between long and short | spikes of 2 to 5 tiles a few frames apart, all flight | Godot hands a vertex stage the normal scaled as its part where the part's scale is even, of length one where it is not; a leg's scale changes as the corgi crouches and crossed from one to the other | `normalize(NORMAL)` in `fur.gdshader` |
+| A bright dash between the jets every third frame, and the wakes' pattern slipping | spikes 3 frames apart, most at night | A place was added to the wakes at the board's own, so the first stretch had no length and no direction for a frame, and places were 1.2 to 1.7 units apart | Places exactly 1.2 apart; the first stretch takes its direction from the place after |
+| The camera set off at once at each change of view | an event at every 10 s; in slow bursts the triple at 30.0 s had 5.15 of shimmer, the others 0.05 to 0.7 | One exponential approach: full speed in the first frame | The view follows a point that follows the next view |
+| The camera rose and fell with the ground under it | events at 16.4 and 16.8 s | A hard floor 6 units over the ground at the camera's place | The highest ground under and up to 45 units ahead lifts it, by degrees |
+| A turn of the view cut through the flyer (new with mouse look) | the look test's frames | The camera's place approached its goal along a straight line | It follows the flyer's place and heading a little late, and turns about it exactly |
+| A beacon changed colour and brightness at once when lit | spikes at each lighting | The beacon was rebuilt | It takes its light over about a second |
+| A hitch at each lighting | 22,050 samples of the chime made in script as it rang | | The six notes are made before the flight |
+| A beacon's shaft or crystal, or a tree, filled the screen for some frames as the camera flew through | events at 23 s (capture), 55.3 s | | They thin out before the camera |
+| Far shafts and veins flickered as lines thinner than a pixel; the wakes seen on edge were bright lines | heat of the bursts | | A width of a pixel or a few, fainter in proportion; the wake fades as it turns its edge |
+| The ground, sea, crowns and fur shimmered where their detail was finer than a pixel | slow bursts | Noise, flowers, ripples, clumps and hairs sampled once a pixel | Each fades to its mean by the size of the pixel on its surface |
+| The clouds' shade leapt at dusk | by reading | The light's direction turns from the sun to the moon at once | The shade fades out before, with the light's height |
+| The cape's and feathers' flutter raced when the speed changed | by reading | `TIME * speed` in the shader | The game counts the phase |
+| A far mountain's shadow came at once | by reading (not seen on the flight) | Only the two finer grids cast shadows | All three do |
+| The painted crowns past the last trees were squares | stills | A crown wider than its plot was cut off at the plot's edge | The nearest of nine plots' crowns |
+
+Not a fault of the platform: a material's uniform set every frame reaches the screen every frame
+(a patch whose brightness a uniform stepped, read back for 220 frames).
+
+## Measurements
+
+Version 3 is `v0.1.6`'s game; "now" is the commit named. Chrome and Firefox draw the same frames at
+a fixed step (mean difference of 87 frames 0.016/255), so one row serves both unless it says so.
+
+| Measure | Version 3 | Now |
+| --- | --- | --- |
+| Spikes over the flight (tiles, frames with one) | 350 in 117 | 80 in 77 (`a867d01c1`), 3 of them of two tiles, none of more |
+| Events of 8 tiles or more | 16 | 8: the six changes of view and two turns toward a beacon, and the flight through a beacon at 55.3 s |
+| Tile jumps | 5,902 in 722 frames | 3,154 in 702 |
+| Slow bursts, shimmer of 20 triples | 0.568 | 0.461 (`dc773fcfe`, before the camera's fix: the triple at the change of view is 5.1 in both); without it 0.327 and 0.215 |
+| Bursts, the same flight and camera with version 3's shaders and with the new | 1.317, flick 24.5 | 1.161, flick 21.9 |
+| Bursts, each version's own flight and camera | 1.273, flick 23.3 | see the last row of the table below |
+| Frame times in Chrome, load 1.2 to 1.6 | median 16.5 ms, p99 20.0, max 38.6, 2 of 3,598 over twice the median | at a load of 11: see below |
+| Frame times in Firefox, load 1.2 | 17.0, 19.9, 37.6, 4 of 3,541 | at a load of 11: see below |
+| The test's flight (30 s), Chrome | 60.0 frames a second, GPU 5.2 ms (version 3's task) | load 1.5: 59.9, GPU 5.1 ms, median 16.7 ms, p99 20.9, max 31.1, no hitch |
+| The test's flight, Firefox | 59.0, GPU 5.5 ms | load 1.5: 59.0, GPU 5.2 ms, 17.0, 20.9, 46.2, 4 hitches |
+
+The GPU's time a frame is unchanged at 5.1 to 5.3 ms with the pelican (some 40 more draws), the
+third grid's shadows and the nine-plot crowns. From 03:00 the machine's load was 9 to 14 (other
+agents' work), and the test then gave 52.8 to 54.6 frames a second in Chrome and 52.7 to 53.6 in
+Firefox, with 2 to 17 hitches of 1,500: the rate follows the load, as version 3's did.
+
+## Firefox
+
+What was found, in the order it was looked for:
+
+- **Godot draws the same picture.** At a fixed step the frames the game reads back from its own
+  render target are the same in Chrome and Firefox: mean difference 0.000 to 0.021 of 255 over
+  the triples, 0.34 per mille of pixels over 12 at most. No effect the game uses is missing in
+  Firefox (it uses SSAO, glow, volumetric fog and shadows, none of which needs the texture format
+  tiers).
+- **As evenly timed.** Frame times over the fixed flight: Chrome median 16.5 ms, p99 20.0, max
+  38.6; Firefox 17.0, 19.9, 37.6. Same adapter (the NVIDIA card through Vulkan in both).
+- **So what differs is how Firefox shows the frames, and that could not be seen here.** On Xvfb
+  Firefox composites in software and shows no WebGPU canvas at all (docs/gpu.md). Forced to
+  composite with OpenGL (`gfx.webrender.all`, `gfx.webrender.software=false`; Mesa's llvmpipe on
+  Xvfb) it shows the canvas, and then:
+  - the game's picture had red and blue exchanged (a blue corgi under an orange sky), in the
+    window and in Playwright's screenshot alike;
+  - in a page of bare canvases cleared to red and blue, an `rgba8unorm` canvas showed right, a
+    `bgra8unorm` one (Firefox's preferred format, which `host/gpu` configures) showed nothing at
+    200 by 100 and showed exchanged or right at 1920 by 1080 from one run to the next; with
+    Firefox's own defaults an `rgba8unorm` canvas crashed the browser;
+  - the window showed 109 different frames in 20 s while the game drew 52 a second.
+  None of this is the owner's configuration (a GNOME X11 session whose Firefox composites on the
+  NVIDIA card), so it says where to look and not what the owner sees. A private display the GPU
+  drives was tried with a headless gnome-shell and its Xwayland and given up: it started the
+  desktop's services and watched the owner's login session, and its Xwayland never answered.
+- Firefox presents a WebGPU canvas on Linux by reading each frame back and uploading it again,
+  as far as its sources say; if so its screen shows fewer and less even frames than the game
+  draws, whatever the game does.
+
+Nothing was changed in `host/gpu` for it: a choice of canvas format made by what was seen on
+llvmpipe would be a guess about the owner's screen. The game's own share is done for both
+browsers alike: less of what flickers when frames are shown unevenly.
+
+## Mouse look and the screen
+
+The game asks for the pointer from its start; the page gives it at a person's click (a trusted
+event), which also takes the board, and takes it back at Escape, which also lets go of the board
+(the page keeps that key while it holds the pointer). Enter still takes the board without the
+pointer, and a click then gives it. The mouse turns the view around the flyer (0.0035 rad a
+pixel, any way round, 0.5 rad up and 1.0 down), eased over a few frames; let go, the view comes
+back the short way round. No Control takes the motion: the HUD's are Labels, whose mouse filter is
+ignore, and the game reads the motion in `_input`. The test clicks, waits for
+`document.pointerLockElement`, moves the mouse 300 pixels and reads the view the game prints at Q:
+60 degrees in Chrome, 58 in Firefox. The screen keeps the title, the keys' hint (for 12 s after the
+board changes hands) and one number, the beacons lit, beside a beacon's crystal.
+
+## The pelican
+
+`pelican.gd`, of Godot's primitive meshes like the corgi: a white bird in a cyclist's red cap with
+a long bill and its pouch, on a yellow bicycle with disc wheels that hangs from the board by its
+head tube and rear axle. A chain runs from the chainring to a sprocket on a shaft between the two
+engines, and a fan turns in each intake; chain, shaft, fans and wheels turn by the cranks' one
+angle. The cranks turn 1.05 times a second at cruise and faster with the speed; the flames
+lengthen and the nozzles brighten with each stroke, a ring of brighter gas runs down each flame
+and a pulse down each wake. Its legs are laid from hip to knee to pedal each frame; its feathers
+are the fur's shells, and its flight feathers, tail and crest are strips of the cape's cloth.
+The camera's third view, of five, is the pelican's.
