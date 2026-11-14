@@ -137,7 +137,8 @@ metadata and packs, the recipes it was built from, its `amy-index.txt` and an
 - Both commands run in the directory whose `node_modules/@daugasauron/` holds
   the packages (npm, pnpm and Yarn 1 alike; Yarn 2 and later need `nodeLinker:
   node-modules`). `init` and `add` install with the package manager that runs
-  them.
+  them (`npm install`, `pnpm add` or `yarn add`); their install is measured
+  with npm alone.
 - A recipe's steps reach the network only where the recipe says so: a `SOURCE`
   row, or a `SLOP` step such as `pip install`. The browser hands each such
   request to `dolly-build`, which fetches it in Node, so a host without CORS

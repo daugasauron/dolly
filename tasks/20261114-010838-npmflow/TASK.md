@@ -19,7 +19,10 @@ Branch `feature/npm-0.1.6` (tree `work/npmflow`), from main `ee42c5982`. No seed
 
 ## State (2026-11-14)
 
-See "What is left" at the end; everything above it is done and measured as stated.
+Done on the branch (`e0e4ffacf` the fixes, tests and documents; `d66fe8e69` the video and its
+section): the flow below works as `docs/npm.md` says, from an empty directory and as CI runs it,
+in Chromium and Firefox. Left, and why the task stays open: the video has no model, because
+OpenRouter refused the key ("The video" and "What is left" below).
 
 ## The flow now
 
@@ -85,8 +88,15 @@ Seen and left:
   beside the Firefox test. The workflow has not run on GitHub's runners.
 - The source suite: 394 of 394.
 
+- The site from a path below the server's root (`/my-pi/`) in Firefox 155, without isolation
+  headers: it isolates itself and boots; Neovim and the skills are there.
+- The video plays a second from the demos page in Chrome 156 and Firefox 155
+  (`work/videos-2026-11-14/npm/plays.log`); `test/site-release.test.mjs` passes.
+
 Not measured: pnpm and Yarn with `init`'s own install (the manager is taken from
-`npm_config_user_agent`; npm alone was run); the workflow on GitHub; Pi calling a model (below).
+`npm_config_user_agent`; npm alone was run: this machine's pnpm 12.16.1 wants to fetch 12.18.0
+from the public registry first, and `docs/npm.md` says npm alone is measured); the workflow on
+GitHub; Pi calling a model (below).
 
 ## The video
 
