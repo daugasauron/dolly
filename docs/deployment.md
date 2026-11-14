@@ -38,6 +38,13 @@ flowchart LR
 - A published version never changes. A fix is a new version, and `/` then
   leads to it. Removing a version is the owner's explicit act: delete its
   directory from the archive and deploy; its paths return 404.
+- One addition is allowed: a version may first be deployed without its
+  `/agents/` showcase, which a later deployment of the same version adds,
+  so that its recordings can show the published site. That deployment
+  adds the showcase's files, which were never served at those paths (its
+  page is a page, never cached), and changes no other file of the version
+  but the release's own lists (`deployment.sha256`, `release/`), which only
+  the release scripts read.
 - Saved sessions belong to a version; the image cache and the pack store are
   shared, and a version's page removes the packs no image of its runtime
   names ([sessions](sessions.md)).
