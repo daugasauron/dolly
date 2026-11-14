@@ -27,6 +27,7 @@ zero-ad
 slopyard
 godot-lantern-drift
 godot-airtime
+godot-voxel-flyover
 photocraft-photos
 cmake
 sdl2

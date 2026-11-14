@@ -1,0 +1,54 @@
+extends RefCounted
+## terrain.gdshaderinc's world, computed here for the flight: the same hash, noise and heights.
+
+const SEA := 24.0
+const MASK := 0xFFFFFFFF
+
+
+static func cell_hash(x: int, y: int) -> float:
+	var px := ((x & MASK) * 1597334673) & MASK
+	var py := ((y & MASK) * 3812015801) & MASK
+	var n := ((px ^ py) * 1597334673) & MASK
+	n ^= n >> 15
+	n = (n * 2246822519) & MASK
+	n ^= n >> 13
+	return float(n >> 8) / 16777216.0
+
+
+static func noise(p: Vector2) -> float:
+	var i := p.floor()
+	var f := p - i
+	var u := f * f * f * (f * (f * 6.0 - Vector2(15, 15)) + Vector2(10, 10))
+	var x := int(i.x)
+	var y := int(i.y)
+	return lerpf(lerpf(cell_hash(x, y), cell_hash(x + 1, y), u.x), lerpf(cell_hash(x, y + 1), cell_hash(x + 1, y + 1), u.x), u.y)
+
+
+static func fbm(p: Vector2, octaves: int) -> float:
+	var sum := 0.0
+	var weight := 0.5
+	var total := 0.0
+	for octave in octaves:
+		sum += noise(p) * weight
+		total += weight
+		p = Vector2(0.8 * p.x - 0.6 * p.y, 0.6 * p.x + 0.8 * p.y) * 2.02 + Vector2(3.1, 1.7)
+		weight *= 0.5
+	return sum / total
+
+
+static func ridge(p: Vector2) -> float:
+	var n := 1.0 - absf(noise(p) * 2.0 - 1.0)
+	return n * n
+
+
+static func height(p: Vector2) -> float:
+	var land := smoothstep(0.36, 0.52, fbm(p / 520.0, 3))
+	var hills := fbm(p / 130.0 + Vector2(17.0, 5.0), 4)
+	var ranges := smoothstep(0.4, 0.62, fbm(p / 640.0 + Vector2(80.0, 31.0), 2))
+	var peaks := ridge(p / 230.0 + Vector2(40.0, 12.0)) * (0.55 + 0.45 * ridge(p / 90.0 + Vector2(9.0, 77.0)))
+	return SEA - 13.0 + land * 16.0 + hills * 22.0 * (0.35 + land) + peaks * 85.0 * land * ranges
+
+
+## The surface a flight stays above: the ground or the sea.
+static func surface(p: Vector2) -> float:
+	return maxf(height(p), SEA)
