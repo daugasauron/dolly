@@ -6,7 +6,9 @@
 //
 // Several grids draw the same trees, each with a mesh of less detail over a ring further from
 // the flyer. Where two rings overlap, one's trees thin out pixel by pixel as the other's fill in,
-// so no tree appears or goes at once; past the last ring land.gdshader paints the crowns.
+// so no tree appears or goes at once; past the last ring land.gdshader paints the crowns. The
+// grid that casts the shadows has no pixels to thin: its trees shrink into the ground instead,
+// and a shadow's edge stays whole. A tree the camera flies into thins out before it.
 shader_type spatial;
 #include "res://terrain.gdshaderinc"
 #include "res://ground.gdshaderinc"
@@ -14,6 +16,8 @@ shader_type spatial;
 
 // How far from the flyer this grid's trees fill in (from x to y) and thin out (from z to w).
 uniform vec4 ring = vec4(-2.0, -1.0, 64.0, 80.0);
+uniform bool shrinks = false; // the grid that casts the shadows
+uniform vec3 eye; // where the camera is
 
 varying flat vec3 colour;
 varying flat float glow;
@@ -76,7 +80,7 @@ void vertex() {
 		}
 		colour *= cloud_shade(vec3(place.x, top, place.y));
 		NORMAL = facing;
-		VERTEX = at * tree_size(kind) + vec3(place.x, top - 0.15, place.y) - MODEL_MATRIX[3].xyz;
+		VERTEX = at * tree_size(kind) * (shrinks ? shown.y : 1.0) + vec3(place.x, top - 0.15, place.y) - MODEL_MATRIX[3].xyz;
 	}
 	world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
@@ -84,14 +88,16 @@ void vertex() {
 void fragment() {
 	// One ring's pixels go as the next ring's come: both ask the same number of the pixel.
 	float pixel = fract(52.9829189 * fract(dot(FRAGCOORD.xy, vec2(0.06711056, 0.00583715))));
-	if (pixel >= shown.y || pixel < 1.0 - shown.x) {
+	if (!shrinks && (pixel >= min(shown.y, smoothstep(2.0, 9.0, distance(world, eye))) || pixel < 1.0 - shown.x)) {
 		discard;
 	}
 	float leafy = step(0.001, crown);
 	// Leaves: clumps lighter and darker, deeper toward the crown's foot and inside, and a light
 	// that does not fall as on a smooth ball.
-	float clump = noise(world.xz * 1.9 + world.y * 1.3);
-	float fleck = noise(world.zy * 2.3 + world.x * 1.7);
+	// Clumps finer than the pixels would flicker as the crown moves: from afar it is evenly lit.
+	float seen = 1.0 - smoothstep(0.1, 0.35, max(length(dFdx(world)), length(dFdy(world))));
+	float clump = mix(0.5, noise(world.xz * 1.9 + world.y * 1.3), seen);
+	float fleck = mix(0.5, noise(world.zy * 2.3 + world.x * 1.7), seen);
 	vec3 shade = colour * mix(1.0, (0.55 + 0.6 * crown) * (0.78 + 0.44 * clump), leafy);
 	float edge = pow(1.0 - abs(dot(NORMAL, VIEW)), 2.0);
 	ALBEDO = (shade + colour * edge * 0.2 * leafy) * (1.0 - 0.5 * glow);

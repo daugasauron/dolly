@@ -40,6 +40,23 @@ float fbm(vec2 p, int octaves) {
 	return sum / total;
 }
 
+// The same sum for a pixel that covers `wide` of p's units: an octave finer than the pixel would
+// shimmer as the flight moves it, so it gives its mean, a half, by degrees.
+float fbm_seen(vec2 p, int octaves, float wide) {
+	float sum = 0.0;
+	float weight = 0.5;
+	float total = 0.0;
+	for (int octave = 0; octave < octaves; octave++) {
+		float seen = 1.0 - smoothstep(0.2, 0.55, wide);
+		sum += mix(0.5, noise(p), seen) * weight;
+		total += weight;
+		p = vec2(0.8 * p.x - 0.6 * p.y, 0.6 * p.x + 0.8 * p.y) * 2.02 + vec2(3.1, 1.7);
+		wide *= 2.02;
+		weight *= 0.5;
+	}
+	return sum / total;
+}
+
 float ridge(vec2 p) {
 	float n = 1.0 - abs(noise(p) * 2.0 - 1.0);
 	return n * n;
@@ -72,7 +89,8 @@ float cloud_cover(vec2 p, int octaves) {
 // The clouds' shade on a place of the ground, along the light.
 float cloud_shade(vec3 place) {
 	vec2 under = place.xz + to_light.xz * (CLOUD_HEIGHT - place.y) / max(to_light.y, 0.12);
-	return 1.0 - 0.55 * cloud_cover(under, 3);
+	// A light at the horizon casts no cloud's shade: it fades before the sun hands over to the moon.
+	return 1.0 - 0.55 * cloud_cover(under, 3) * smoothstep(0.03, 0.16, to_light.y);
 }
 
 // The light of the rings that run out from lit beacons, every nine seconds each.

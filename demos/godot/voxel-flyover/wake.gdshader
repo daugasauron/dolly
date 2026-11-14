@@ -9,6 +9,7 @@ uniform vec3 path[64];
 uniform float lead = 0.0;
 uniform float clock = 0.0;
 uniform float aside = 0.0; // the jet it comes from, to the side of the path
+uniform float strokes = 0.0; // of the pelican's legs so far: each sends a pulse down the wake
 
 varying vec2 across; // x: along the wake, 0 at the board to 1 at its end; y: across it
 
@@ -23,6 +24,7 @@ void vertex() {
 	float wide = 0.5 * smoothstep(0.0, 0.1, along) * (1.0 - 0.5 * along) + 0.22;
 	// The two jets' wakes close on each other.
 	VERTEX = path[i] + normalize(cross(toward, vec3(0.0, 1.0, 0.0))) * aside * (1.0 - 0.7 * along) + side * (UV.y - 0.5) * 2.0 * wide;
+	NORMAL = cross(toward, side);
 	across = vec2(along, UV.y);
 }
 
@@ -31,7 +33,9 @@ void fragment() {
 	float hue = across.x * 2.2 - clock * 0.35;
 	vec3 colour = 0.5 + 0.5 * cos(6.2832 * (vec3(0.62, 0.45, 0.2) - hue * vec3(0.5, 0.3, 0.45)));
 	float middle = sin(across.y * 3.1416);
-	ALBEDO = colour * (0.5 + 1.0 * middle * middle);
+	// A stroke's pulse is a fifth of the wake behind the board by the next one.
+	ALBEDO = colour * (0.5 + 1.0 * middle * middle) * (0.8 + 0.35 * cos(6.2832 * (strokes - across.x * 5.3)));
 	// It thins before the camera, which may fly through it.
-	ALPHA = (1.0 - across.x) * (1.0 - across.x) * middle * 0.75 * smoothstep(1.5, 8.0, length(VERTEX));
+	// Seen on edge the ribbon would be a bright line: it fades as it turns its edge.
+	ALPHA = (1.0 - across.x) * (1.0 - across.x) * middle * 0.75 * smoothstep(1.5, 8.0, length(VERTEX)) * smoothstep(0.03, 0.4, abs(dot(normalize(NORMAL), VIEW)));
 }

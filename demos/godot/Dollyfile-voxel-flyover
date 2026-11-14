@@ -9,7 +9,8 @@ REQUIRES HOST sockets@0
 REQUIRES HOST gpu@0
 REQUIRES HOST clipboard@0
 
-# Voxel Flyover: a corgi on a jet surfboard flies over an endless world of mountains, forests and
+# Voxel Flyover: a corgi on a jet surfboard, a pelican on a bicycle pedalling under it for the
+# jets, flies over an endless world of mountains, forests and
 # sea through a day and a night, drawn by Godot's Forward+ renderer on gpu@0. The world is a
 # function its shaders compute: a pass draws the ground into textures as the flight goes, and
 # the vertex stages raise grids of land to it and stand trees on it. Its
@@ -25,7 +26,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.6/dist/static/godot/voxel-flyover.tar ff8d919db560a26a5584613c6b1bbd9128d2f5243bedf046b975d8c74b9e95bd /tmp/voxel-flyover.tar
+SOURCE /v0.1.6/dist/static/godot/voxel-flyover.tar 5d1a8246f4248a5d1317bf166421a5eed5ea808e24d9d9fc573931307b98a1c1 /tmp/voxel-flyover.tar
 SLOP CWD / tar -xf /tmp/voxel-flyover.tar
 SLOP mkdir -p /usr/share/voxel-flyover
 SLOP cp -r /usr/src/voxel-flyover /usr/share/voxel-flyover/project
@@ -42,13 +43,16 @@ FILE /usr/share/man/cat1/voxel-flyover.1
     Plays Voxel Flyover on the page: a corgi in a cape and sunglasses flies a
     jet surfboard over an endless world of mountains, forests and sea, from
     dawn through the day into night, and lights the beacons it reaches, which
-    send rings of light over the ground. It flies itself until Enter takes
-    the board: arrows or WASD steer, climb and dive, Space is full speed, T
-    lets the hours run, Escape lets go of the board, Q quits. With
-    --autopilot it flies by itself for that long and prints its
-    frame rate, the milliseconds a frame took the GPU and the renderer, the
-    beacons it lit and what its frame shows; --day starts at that hour. It
-    draws through WebGPU (gpu@0). Its project is
+    send rings of light over the ground; under the board a pelican on a
+    bicycle pedals for the jets. It flies itself until Enter or a click
+    takes the board: arrows or WASD steer, climb and dive, Space is full
+    speed, T lets the hours run, Escape lets go of the board, Q quits. A
+    click also gives the game the pointer, and the mouse then turns the
+    view. The number on the screen counts the beacons lit. With --autopilot
+    it flies by itself for that long and prints its frame rate, how even
+    its frames were, the milliseconds a frame took the GPU and the
+    renderer, the beacons it lit and what its frame shows; --day starts at
+    that hour. It draws through WebGPU (gpu@0). Its project is
     /usr/share/voxel-flyover/project: copy it to edit it with godot-editor.
 FILE /usr/share/voxel-flyover/voxel-flyover.pck
 FOLDER /usr/share/voxel-flyover/project

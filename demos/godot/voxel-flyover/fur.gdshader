@@ -25,8 +25,10 @@ void vertex() {
 void fragment() {
 	vec2 at = UV * hairs;
 	vec2 cell = floor(at);
-	float tall = 0.45 + 0.55 * fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
-	float off = length(fract(at) - 0.5) * 2.0;
+	// Hairs finer than the pixels would sparkle: from afar they merge into a coat of their mean length.
+	float merged = smoothstep(0.3, 0.9, max(length(dFdx(at)), length(dFdy(at))));
+	float tall = mix(0.45 + 0.55 * fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453), 0.72, merged);
+	float off = length(fract(at) - 0.5) * 2.0 * (1.0 - merged);
 	if (shell > tall || off > 1.3 * (1.0 - shell / tall) + 0.25) {
 		discard;
 	}

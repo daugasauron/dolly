@@ -12,10 +12,20 @@ vec4 ground_in(sampler2D map, vec2 p, float size) {
 	return textureLod(map, (p / size + 0.5) / vec2(textureSize(map, 0)), 0.0);
 }
 
+// How much of the ground at a place is the grid's own: all of it near the flyer, none past its reach.
+float ground_own(vec2 p) {
+	vec2 away = abs(p - flyer);
+	return 1.0 - smoothstep(reach - cell_beyond * 4.0, reach, max(away.x, away.y));
+}
+
+// How far apart the ground's points are at a place.
+float ground_spacing(vec2 p) {
+	return mix(cell_beyond, cell, ground_own(p));
+}
+
 // x: the height, y: warmth, z: moisture.
 vec4 ground_here(vec2 p) {
-	vec2 away = abs(p - flyer);
-	float own = 1.0 - smoothstep(reach - cell_beyond * 4.0, reach, max(away.x, away.y));
+	float own = ground_own(p);
 	vec4 beyond = ground_in(ground_beyond, p, cell_beyond);
 	return own > 0.0 ? mix(beyond, ground_in(ground, p, cell), own) : beyond;
 }
