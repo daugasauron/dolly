@@ -65,8 +65,41 @@ Seen and left:
 
 ## Measured
 
-To be filled in from the runs below.
+- `test/npm-browser.mjs` at `e0e4ffacf`, in a network namespace with loopback alone: Chromium
+  (Chrome 156) passed in 250.5 s, Firefox (Playwright's 155) in 457.7 s beside another build;
+  requests beyond the machine: none. It follows `docs/npm.md`'s commands as written: `dolly-build`
+  alone installed, `init my-pi git python nvim`, `add my-pi jq sqlite` (and NumPy and Matplotlib),
+  a skill of the project's own with a script, the build (in Chromium without `--browser`), Pi
+  listing both skills, Neovim writing a file, jq, SQLite, the figure, the saved session; the
+  project committed and cloned, the workflow's `npm ci` and build lines run in the clone, the same
+  site's files; a project made at `0.1.6-rc.0` moved to `0.1.6` by `add`, a lost pin written
+  again; `--help` and a name that is no package. Before this branch every one of those steps
+  failed (no `add`, no `nvim`, no `public/skills/`, no workflow, `init` without the packages).
+- The stranger's pass after the fixes, from an empty directory (Chrome 156, headless): install
+  0.4 s, `init` with its install 2 s, the build 45 s, the site 94 MB, `node_modules` 134 MB. Pi
+  lists `changelog, csv-report, dolly`; the skill's script, `nvim`, `jq`, `sqlite3`, `git` and
+  `python` run; `curl https://example.com` is refused (status 9).
+- As CI (`build/npmflow-evidence/ci-run.sh`, `ci-run.log`): the project committed, cloned, `npm ci`
+  (0.7 s from the loopback registry), then the workflow's build line with Playwright's
+  `chromium_headless_shell-1243` in `unshare -rn` with loopback alone: the site, 91 MB, in 126 s
+  beside the Firefox test. The workflow has not run on GitHub's runners.
+- The source suite: 394 of 394.
+
+Not measured: pnpm and Yarn with `init`'s own install (the manager is taken from
+`npm_config_user_agent`; npm alone was run); the workflow on GitHub; Pi calling a model (below).
+
+## The video
+
+`sites/slopshare.dev/agents/videos/npm-pi-agent.mp4`, made in `work/videos-2026-11-14/npm/`
+(README there). OpenRouter refused the key in `~/.openrouter` (401 "User not found", 13:23 JST),
+so the take has no model: Pi lists the project's skill, and the skill's script is run by hand in
+the sandbox's shell. With a working key in `~/.openrouter`, the take in which Pi uses the skill is
+
+    cd /home/daug/dev/dolly/work/videos-2026-11-14/npm && bash retake.sh
+
+(the registry on 127.0.0.1:9154 and Xvfb :154 must run; the script starts both if they do not).
 
 ## What is left
 
-- The browser tests in both browsers, the CI-like run with Playwright's Chromium, the video.
+- The take with a model, once the owner renews the key.
+- `demos/pi/data-pi` to 0.1.6 after 0.1.6 is published (above).
