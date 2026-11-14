@@ -28,7 +28,7 @@ vec3 surface_colour(float top, float warmth, float moisture, float own, float pa
 	vec3 coral = mix(vec3(0.55, 0.13, 0.07), vec3(0.68, 0.3, 0.12), own);
 	vec3 colour = mix(heath, jade, smoothstep(0.38, 0.46, t));
 	colour = mix(colour, coral, smoothstep(0.55, 0.6, t) * smoothstep(0.5, 0.44, m));
-	colour *= mix(0.7, 1.25, smoothstep(SEA, SEA + 45.0, top)) * (0.85 + 0.3 * own);
+	colour *= mix(0.95, 1.6, smoothstep(SEA, SEA + 45.0, top)) * (0.85 + 0.3 * own);
 	colour = mix(colour, vec3(0.06, 0.06, 0.09), smoothstep(snowline - 18.0, snowline - 9.0, top));
 	colour = mix(colour, vec3(0.78, 0.84, 0.95), smoothstep(snowline - 2.0, snowline, top));
 	return mix(vec3(0.6, 0.47, 0.27), colour, smoothstep(SEA + 0.8, SEA + 2.4, top));

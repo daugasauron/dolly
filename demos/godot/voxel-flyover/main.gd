@@ -649,7 +649,7 @@ func set_day() -> void:
 	tell("night", night)
 	tell("to_light", to_light)
 	environment.ambient_light_color = Color(0.85, 0.82, 0.78).lerp(Color(0.15, 0.22, 0.5), night)
-	environment.ambient_light_energy = lerpf(0.8, 0.55, night)
+	environment.ambient_light_energy = lerpf(1.0, 0.55, night)
 	environment.volumetric_fog_albedo = Color(0.75, 0.82, 1.0).lerp(warm, 0.5)
 	searchlight.light_energy = 14.0 * night
 	lamp.light_energy = 1.0 + 3.0 * night
