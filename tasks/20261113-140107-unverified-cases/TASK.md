@@ -1,10 +1,14 @@
 # Session cases the audit could not drive: a hidden tab's save, Firefox's storage prompt
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: sessions,audit,0.1.6
 
 Left by `20261113-221000-session-audit`.
+
+## Closed (2026-11-14)
+
+Owner (2026-11-14): "close the task for now, I will open issues if there are problems."
 
 ## State (2026-11-13)
 

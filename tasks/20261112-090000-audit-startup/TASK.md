@@ -1,11 +1,17 @@
 # Startup network audit: what an image start downloads, and what it does not need
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 440
 - TAGS: audit,startup,network,performance
 
 The owner's question: "is everything I see on the network tab in chrome inspector during
 startup necessary? Does it download more stuff than it needs to launch?"
+
+## Closed (2026-11-14)
+
+Owner (2026-11-14): "Startup audit, close this task for now. Can open another one later if it's a
+problem." Every finding but 2 is fixed; finding 2 (image contents the first screen does not use)
+stays the recipes' choice, per image, unless it becomes a problem.
 
 ## State (2026-11-13)
 
