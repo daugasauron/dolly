@@ -28,7 +28,8 @@
 // - The project as CI builds it: committed, cloned, and the workflow's own npm ci and
 //   build lines run in the clone write the same site.
 // - A project of an older version: after dolly-build is installed at the new one, add
-//   installs the project's packages at it and writes the recipe's pins again.
+//   installs the project's packages at it and writes the recipe's pins again, with the
+//   host modules its packages declare since, declared and installed.
 // - dolly-build says its usage, and the packages there are, in one line each.
 // - python-data as its package's README has it: installed as the README says, its
 //   page runs NumPy, pandas and Matplotlib, and a recipe of the project's own on the
@@ -244,6 +245,7 @@ try {
     "SLOP cc /tmp/count-lines.c -o /usr/bin/count-lines\nEXPORTS TOOL count-lines\n\nENTRY ");
   await writeFile(join(piApp, "Dollyfile-my-pi"), recipe);
   const declaredByRecipe = [...recipe.matchAll(/^REQUIRES HOST (\S+)/gm)].map(([, name]) => name).toSorted();
+  assert.ok(declaredByRecipe.includes("upload@0"), "init's recipe declares the module of Pi's upload tool");
   // The README's server, a plain one: no isolation headers, and a log line per request.
   const requested = [];
   const startSite = () => new Promise((resolveAddress, reject) => {
@@ -262,19 +264,23 @@ try {
     .map(entry => join(entry.parentPath, entry.name).slice(site.length)).filter(path => !path.startsWith("/image/dist/packs/")).sort();
 
   // A project made at an older version: dolly-build at the new one, then add, which installs
-  // the project's packages at it and writes the pin a row lost.
+  // the project's packages at it and writes the pin a row lost. As in a project of 0.1.5, whose
+  // pi-dolly had no upload tool, the recipe and the project lack upload@0: add brings both back.
   const oldApp = join(work, "old-app");
   await mkdir(oldApp);
   await npm(oldApp, "npm init --yes");
   await npm(oldApp, `npm install --save-exact @daugasauron/dolly-build@${checkoutVersion}-rc.0`);
   await npm(oldApp, "npx dolly-build init my-pi git");
   const pinned = await readFile(join(oldApp, "Dollyfile-my-pi"), "utf8");
-  await writeFile(join(oldApp, "Dollyfile-my-pi"), pinned.replace(/(Dollyfile-git) [0-9a-f]{64}/, `$1 ${"0".repeat(64)}`));
+  await writeFile(join(oldApp, "Dollyfile-my-pi"), pinned.replace(/(Dollyfile-git) [0-9a-f]{64}/, `$1 ${"0".repeat(64)}`)
+    .replace("REQUIRES HOST upload@0\n", ""));
+  await npm(oldApp, "npm uninstall @daugasauron/dolly-host-upload");
   await npm(oldApp, `npm install --save-exact @daugasauron/dolly-build@${checkoutVersion}`);
   await npm(oldApp, "npx dolly-build add my-pi");
   assert.equal(await readFile(join(oldApp, "Dollyfile-my-pi"), "utf8"), pinned);
-  for (const [name, version] of [["@daugasauron/dolly", checkoutVersion],
-    ...Object.entries(JSON.parse(await readFile(join(oldApp, "package.json"), "utf8")).dependencies)]) {
+  const upgraded = JSON.parse(await readFile(join(oldApp, "package.json"), "utf8")).dependencies;
+  assert.ok(upgraded["@daugasauron/dolly-host-upload"], "add installs the host module a package declares since");
+  for (const [name, version] of [["@daugasauron/dolly", checkoutVersion], ...Object.entries(upgraded)]) {
     assert.equal(version, checkoutVersion, name);
     assert.equal(JSON.parse(await readFile(join(oldApp, "node_modules", name, "package.json"), "utf8")).version, checkoutVersion, name);
   }
@@ -467,6 +473,11 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
       await shows(pi, /Pi exited; this is a Slop shell\.[\s\S]*\ndolly:[^\n]*\$\s*$/, "the shell");
       const shell = command => within(pi.evaluate(command => window.dolly.submit(command), command), 120, command);
       assert.equal(await shell("grep -q 'coding agent' ~/.pi/agent/AGENTS.md && command -v todo > /dev/null"), 0);
+      // The command of Pi's upload tool shows the site's dialog, which Escape cancels.
+      const uploading = shell("upload /tmp/chosen");
+      await pi.locator("#file-upload[open]").waitFor({ timeout: 60_000 });
+      await pi.keyboard.press("Escape");
+      assert.equal(await uploading, 1);
       assert.equal(await shell("grep -q '#0fa9e6' ~/.pi/agent/themes/dolly.json && grep -q '\"theme\": \"dolly\"' ~/.pi/agent/settings.json"), 0);
       assert.deepEqual(await pi.evaluate(async () => [...(await window.dolly.frame()).data.subarray(0, 3)]), [0x10, 0x20, 0x30],
         "the terminal's background is theme.json's");
