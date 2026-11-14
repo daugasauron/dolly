@@ -15,12 +15,15 @@ fi
 if has_image truck-town; then
   copy_static "$(bash scripts/fetch-pinned-archive.sh godot_truck)" godot/3d_truck_town.zip
 fi
-# Lantern Drift's project, as its package's build imports and exports it.
+# The games' projects, as their packages' builds import and export them.
 if has_image airtime-godot; then
   node scripts/build-source-tar.mjs "${static_dir}/godot/airtime.tar" demos/godot/airtime /usr/src/airtime
 fi
 if has_image lantern-drift; then
   node scripts/build-source-tar.mjs "${static_dir}/godot/lantern-drift.tar" demos/godot/lantern-drift /usr/src/lantern-drift
+fi
+if has_image voxel-flyover; then
+  node scripts/build-source-tar.mjs "${static_dir}/godot/voxel-flyover.tar" demos/godot/voxel-flyover /usr/src/voxel-flyover
 fi
 # The part of Dawn's tree Tint's CMake build reads, with SPIRV-Tools, SPIRV-Headers and Abseil
 # where Dawn's checkout keeps them, and Dolly's translator over them (spirv-wgsl).

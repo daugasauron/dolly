@@ -1,0 +1,52 @@
+DOLLY 7
+PACKAGE voxel-flyover
+REQUIRES HOST runtime@0
+REQUIRES HOST audio@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST threads@0
+REQUIRES HOST sockets@0
+REQUIRES HOST gpu@0
+REQUIRES HOST clipboard@0
+
+# Voxel Flyover: an airship's flight over an endless world of blocks through a day and a night,
+# drawn by Godot's Forward+ renderer on gpu@0. The world is a function its shaders compute: the
+# vertex stage raises grids of boxes into ground, trees and clouds around the airship. Its
+# project (demos/godot/voxel-flyover) is imported and exported here by Godot's editor, and
+# voxel-flyover plays the pack with godot, which installs with it. The project installs too.
+FROM /v0.1.6/Dollyfile-system 33e5bcf65ef4a634da5dbf8e291a379148e7971aa0411fe1bdaa4e0332f24b94
+INSTALL /v0.1.6/demos/godot/Dollyfile-godot baadc1405822d84085538468420f096d55c4d809a1a112c100ad6076f3a1b16c
+USE /v0.1.6/demos/godot/Dollyfile-godot-editor 331ba631756d21a69ab3046a333fa1cb4cedff191eb5b9ade6cac1147d23b470
+
+REQUIRES TOOL cp
+REQUIRES TOOL godot-editor
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /v0.1.6/dist/static/godot/voxel-flyover.tar 34d0a5d67c979d81552831bbac673c6f1b1e646a37865cdefa8e9b0481705846 /tmp/voxel-flyover.tar
+SLOP CWD / tar -xf /tmp/voxel-flyover.tar
+SLOP mkdir -p /usr/share/voxel-flyover
+SLOP cp -r /usr/src/voxel-flyover /usr/share/voxel-flyover/project
+SLOP CWD /usr/src/voxel-flyover godot-editor --headless --import
+SLOP CWD /usr/src/voxel-flyover godot-editor --headless --export-pack Dolly /usr/share/voxel-flyover/voxel-flyover.pck
+SLOP rm -rf /usr/src/voxel-flyover /tmp/voxel-flyover.tar
+
+FILE /usr/bin/voxel-flyover
+    #!/bin/slop
+    godot --main-pack /usr/share/voxel-flyover/voxel-flyover.pck "$@"
+EXPORTS TOOL voxel-flyover
+FILE /usr/share/man/cat1/voxel-flyover.1
+    voxel-flyover [GODOT-OPTION...] [-- --autopilot SECONDS] [-- --day HOUR] [-- --scale FACTOR] [-- --plain]
+    Plays Voxel Flyover on the page: an airship flies over an endless world of
+    blocks, from dawn through the day into night, and lights the beacons it
+    reaches. It flies itself until Enter takes the helm: arrows or WASD steer,
+    climb and dive, Space is full speed, T lets the hours run, Escape lets go
+    of the helm, Q quits. With --autopilot it flies by itself for that long and
+    prints its frame rate, the beacons it lit and what its frame shows; --day
+    starts at that hour, --scale renders the 3D view smaller and --plain leaves
+    out SSAO and the volumetric fog. It draws through WebGPU (gpu@0). Its
+    project is /usr/share/voxel-flyover/project: copy it to edit it with
+    godot-editor.
+FILE /usr/share/voxel-flyover/voxel-flyover.pck
+FOLDER /usr/share/voxel-flyover/project
