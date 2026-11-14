@@ -33,16 +33,19 @@
     Opus 5.5 at high effort working in Dolly, recorded on 1 and 2 November 2026. Each video's caption bar names its
     speed-ups.</p>
   <h2><a href="../godot-voxel-flyover/">Voxel Flyover</a>: a world computed by the GPU</h2>
-  <p class="lead">A Godot game made for Dolly, recorded on 14 November 2026: an airship flies over an endless world
-    of blocks through a day and a night. The world is one function in a shader. Each frame the vertex stage raises
-    grids of boxes around the airship into ground, trees and clouds, and nothing of the world is stored. Godot 4.7's
-    Forward+ renderer draws it at 1920 by 1080 on gpu@0, with shadows, glow, SSAO and volumetric fog.</p>
+  <p class="lead">A Godot game made for Dolly, recorded on 14 November 2026: a corgi on a jet surfboard flies over an
+    endless world of mountains, forests and sea through a day and a night. The world is one function in a shader.
+    As the flight goes on, a pass draws the ground into textures, the vertex stages raise grids of land to it and
+    stand trees on it, and nothing of the world is stored. The same trees are drawn in less and less detail the
+    further off they stand, each level fading into the next. Godot 4.7's Forward+ renderer draws it at 1920 by 1080
+    on gpu@0, with shadows, 4x MSAA, glow, SSAO and volumetric fog. The corgi is a character of our own, with fur
+    in shells that the wind lays back.</p>
   <div class="grid">
     <article>
       <video controls playsinline preload="none" poster="posters/voxel-flyover.jpg" aria-label="Voxel Flyover recording"><source src="videos/voxel-flyover.mp4" type="video/mp4"></video>
       <div>
         <h3>From dawn into night</h3>
-        <p>The godot-voxel-flyover image: the airship flies itself and lights beacons, Enter takes the helm, and the day runs through sunset into a night of stars, an aurora and glowing groves; then the project's 973 lines and the function that is the world, 34 frames a second while recorded · 2:18</p>
+        <p>The godot-voxel-flyover image: the corgi flies itself along a coast and over snowy ranges and lights beacons, whose rings of light run out over land and sea; Enter takes the board, and the day runs through sunset into a night of stars, an aurora, and veins and groves that glow; then the project's 1,511 lines and the function that is the world, 60.0 frames a second while recorded · 2:09</p>
       </div>
     </article>
   </div>
