@@ -64,6 +64,14 @@ test("a version's header rules name only its own compressed files", () => {
     Array.from({ length: 95 }, (_, index) => `dist/static/file-${index}`)) }]), /100 header rules exceeded: v0\.1\.0 need 101/);
 });
 
+test("the Content-Security-Policy covers the versions whose pages hold no inline script, and the root's pages", () => {
+  const rules = pagesHeaders(["v0.1.5", "v0.1.6", "v0.1.7"].map(name => ({ name, paths: [], headers: "" }))).split("\n\n");
+  const policed = rules.filter(rule => rule.includes("Content-Security-Policy")).map(rule => rule.slice(0, rule.indexOf("\n")));
+  assert.deepEqual(policed, ["/", "/404.html", "/v0.1.6/*", "/v0.1.7/*"]);
+  assert.ok(rules.find(rule => rule.startsWith("/*\n")).includes("Cross-Origin-Embedder-Policy: require-corp"));
+  assert.ok(!pagesHeaders([{ name: "v0.1.5", paths: [], headers: "" }]).includes("Content-Security-Policy"));
+});
+
 test("one deployment serves every published version under its path and nothing else", async t => {
   const root = await mkdtemp(resolve(tmpdir(), "dolly-pages-test-"));
   t.after(() => rm(root, { recursive: true, force: true }));

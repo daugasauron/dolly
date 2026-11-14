@@ -66,11 +66,19 @@ export function versionHeaders(compressed) {
 // deployment.headers name it.
 const partsRule = path => `${path}\n  X-Dolly-Parts: 1\n  Content-Type: application/octet-stream`;
 
+// The first version whose pages hold no inline script: from it on, a version's paths and the
+// root's pages (the newest version's) get the site's Content-Security-Policy. The versions
+// before it were deployed without one, and their pages need their inline scripts.
+const firstWithPolicy = "v0.1.6";
+
 // The root _headers for VERSIONS, each { name, paths, headers }: its files and
 // its deployment.headers.
 export function pagesHeaders(versions) {
+  const policy = `  Content-Security-Policy: ${siteContentSecurityPolicy}`;
+  const withPolicy = versions.map(({ name }) => name).filter(name => compareVersions(name, firstWithPolicy) >= 0);
   const rules = [
-    `/*\n  Cross-Origin-Opener-Policy: same-origin\n  Cross-Origin-Embedder-Policy: require-corp\n  Cross-Origin-Resource-Policy: same-origin\n  Content-Security-Policy: ${siteContentSecurityPolicy}\n  Cache-Control: no-store`,
+    "/*\n  Cross-Origin-Opener-Policy: same-origin\n  Cross-Origin-Embedder-Policy: require-corp\n  Cross-Origin-Resource-Policy: same-origin\n  Cache-Control: no-store",
+    ...(withPolicy.length ? ["/", "/404.html", ...withPolicy.map(name => `/${name}/*`)] : []).map(path => `${path}\n${policy}`),
     // A published version never changes, so its files are immutable. Its pages
     // (a directory's address) are not: a removed version must stop loading.
     "/:version/*\n  ! Cache-Control\n  Cache-Control: public, max-age=31536000, immutable, no-transform",
