@@ -348,6 +348,15 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
     "FOLDER /usr/lib/python3.14/site-packages",
     "SLOP python -c 'import dolly_sample; print(dolly_sample.VALUE)' > /home/dolly/sample.txt", "FILE /home/dolly/sample.txt",
     "ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop", ""].join("\n"));
+  // A recipe that starts FROM an image and lacks a module the image declares, as one written
+  // for an older version of the image: add declares it and installs its package.
+  const dataRecipe = await readFile(join(dataApp, "Dollyfile-my-data"), "utf8");
+  assert.ok(dataRecipe.includes("REQUIRES HOST upload@0\n"));
+  await writeFile(join(dataApp, "Dollyfile-my-data"), dataRecipe.replace("REQUIRES HOST upload@0\n", ""));
+  await npm(dataApp, "npm uninstall @daugasauron/dolly-host-upload");
+  await npm(dataApp, "npx dolly-build add my-data");
+  assert.match(await readFile(join(dataApp, "Dollyfile-my-data"), "utf8"), /^REQUIRES HOST upload@0$/m);
+  assert.ok(existsSync(join(dataApp, "node_modules/@daugasauron/dolly-host-upload/module.json")));
   await writeFile(join(dataApp, "index.html"), page.replace("./node_modules/@daugasauron/dolly-image-default/index.mjs",
     "./node_modules/@daugasauron/dolly-image-python-data/index.mjs"));
   await writeFile(join(dataApp, "public/index.html"), page.replace("./node_modules/@daugasauron/dolly/page/browser.mjs", "./dolly/page/browser.mjs")

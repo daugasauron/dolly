@@ -3,20 +3,17 @@
 What changed in Dolly's npm packages (`@daugasauron/dolly`, `dolly-build`,
 `dolly-host-NAME`, `dolly-image-NAME`, `dolly-package-NAME`), newest first:
 the problems a user of them met and their fixes. [Dolly from npm](npm.md) is
-the guide. The packages of one project are all of one version.
+the guide, and [Upgrading](npm-upgrading.md) moves a project from one version
+to the next. The packages of one project are all of one version.
 
 ## 0.1.6
 
-Moving a 0.1.5 project to it:
-
-- The runtime's page code moved: a page imports `./dolly/page/browser.mjs`,
-  where 0.1.5 had `./dolly/src/browser.mjs`.
-- `init`'s recipe now `INSTALL`s Pi's packages instead of starting `FROM` the
-  `pi-minimal` image. A 0.1.5 recipe with its `FROM` row still builds, with
-  `@daugasauron/dolly-image-pi-minimal` installed.
-- Install `@daugasauron/dolly-build` at 0.1.6, then `npx dolly-build add NAME`:
-  it installs the project's other packages at that version and writes the
-  recipe's pins.
+Moving a 0.1.5 project or page to it: [Upgrading](npm-upgrading.md) has the
+steps, what changes under an existing project, and the checks. In short, the
+runtime's page code is `./dolly/page/browser.mjs` (0.1.5: `src/`), `npx
+dolly-build add NAME` moves the packages and the recipe's pins, the module
+headers left `cc` for the `libdolly-NAME` packages, and a 0.1.5 save does not
+open.
 
 A project in fewer steps:
 
@@ -26,8 +23,9 @@ A project in fewer steps:
   `dolly-build`'s version. Before, the line named nine packages, a package's
   host module (`sockets` for `python`) was the user's to find, and `init`
   stopped at the first package that was not installed.
-- `dolly-build add NAME [PACKAGE…]` puts packages into an existing recipe and
-  writes every row's installed pin. Before, a package added later needed its
+- `dolly-build add NAME [PACKAGE…]` puts packages into an existing recipe,
+  writes every row's installed pin, and declares and installs the host modules
+  the recipe's packages, and the image it starts `FROM`, have gained since. Before, a package added later needed its
   row and SHA-256 written by hand, and after an update of the packages the
   only source of the new pins was `init` in an empty directory.
 - Skills are directories under `public/skills/`, a `SKILL.md` with its scripts
@@ -43,9 +41,14 @@ A project in fewer steps:
 - `dolly-build --help`, or an option it does not know, prints the usage.
   Before, it printed a stack trace.
 - A name that is no package lists the packages there are.
-- New packages: `nvim` (Neovim), `jq`, `sqlite`, `less`, and Pi's own as
-  packages (`core`, `posix`, `curl`, `display`, `dollyfile`, `pi-dolly` and
-  what they install).
+- New packages: `nvim` (Neovim), `jq`, `sqlite`, `less`, `transfer` (the
+  `download` and `upload` commands), the modules' headers and client libraries
+  (`libdolly-NAME`), and Pi's own as packages (`core`, `posix`, `curl`,
+  `display`, `dollyfile`, `pi-dolly` and what they install).
+- Pi has an `upload` tool: it asks the user for a file, the page's file dialog
+  opens, and Pi gets the path and size, or that the user cancelled. `pi-dolly`
+  installs `transfer` for it and declares `upload@0`, so a Pi project needs
+  `@daugasauron/dolly-host-upload`, which `init` and `add` install.
 - The build's log no longer says that the build "reaches" `dolly-build`'s own
   server on 127.0.0.1.
 
