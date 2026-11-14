@@ -430,7 +430,7 @@ export class DollyProcessSupervisor {
       noticeShown = true;
       const mebibytes = (byteLength / (1024 * 1024)).toFixed(1);
       this.#writeTerminal(pid,
-        `\r\ndolly: preparing ${mebibytes} MiB WebAssembly executable for this session...\r\n`,
+        `\ndolly: preparing ${mebibytes} MiB WebAssembly executable for this session...\n`,
       );
     }, compilationNoticeMilliseconds);
     let module;
@@ -456,8 +456,8 @@ export class DollyProcessSupervisor {
       if (noticeShown) {
         this.#writeTerminal(pid,
           prepared
-            ? `dolly: executable ready in ${((performance.now() - started) / 1000).toFixed(1)}s\r\n`
-            : "dolly: executable preparation failed\r\n",
+            ? `dolly: executable ready in ${((performance.now() - started) / 1000).toFixed(1)}s\n`
+            : "dolly: executable preparation failed\n",
         );
       }
     }
