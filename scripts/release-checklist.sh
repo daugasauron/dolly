@@ -58,7 +58,9 @@ node scripts/site-release.mjs verify "${domain}" . || stop "${domain} is not pac
 step "3 the npm packages: packed from ${commit:0:8}, installed into an empty app and booted"
 npm_dir="build/npm-${version}"
 rm -rf -- "${npm_dir}"
-node scripts/package-npm.mjs "${npm_dir}" > /dev/null
+# The packager lists the tarballs each after those it depends on: published in that order, a
+# package npm refuses stops the publish before anything that needs it is out.
+node scripts/package-npm.mjs "${npm_dir}" > "${npm_dir}.order"
 node test/npm-browser.mjs > /dev/null || stop "the npm packages do not boot: node test/npm-browser.mjs"
 
 step "6 the deployment: every published version and ${version}"
@@ -74,7 +76,7 @@ cat <<COMMANDS
 4  git tag -a ${version} -m "Dolly ${version#v}" ${commit}
    git push origin main ${version}
 5  gh release create ${version} ${seed_compiler} --verify-tag --notes-file NOTES
-   for tarball in ${npm_dir}/*.tgz; do npm publish "\${tarball}" --access public; done
+   while read -r tarball; do npm publish "\${tarball}" --access public || break; done < ${npm_dir}.order
 6  node test/pages-host.mjs ${deployment} 8790, and while it serves:
    node scripts/published-version.mjs boot http://127.0.0.1:8790 ${versions}
    systemd-run --user --unit dolly-deploy-${version} --working-directory=${project_dir} --setenv=PATH="\$PATH" bash -c 'npx wrangler@4.129.1 pages deploy ${project_dir}/${deployment} --project-name dolly --branch main > ${project_dir}/build/deploy-${version}.log 2>&1'
