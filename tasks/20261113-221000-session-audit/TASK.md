@@ -1,6 +1,6 @@
 # Save, resume and snapshots: an audit with user testing, and restore from local storage
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 430
 - TAGS: snapshot,sessions,audit,offline,0.1.6,owner,overnight
 
@@ -11,6 +11,17 @@ file system) offline - completely from local storage." Then: the page's own requ
 (`?session=NAME`) may reach the server; running programs' memory and process state are not
 part of a save; and the audit includes "user testing" of corner cases, so that actual users
 do not run into issues.
+
+## Closed (2026-11-14)
+
+In the 0.1.6-rc round (`round/0.1.6-rc`, local main `530aeee05`, release `e1c400a5…` on 127.0.0.1:9045), with the audit's branch merged onto the layout (`site/offline.mjs`; the offline list
+covers `page/` and `site/`). The round found one more: a change made just before a save that
+fails was never reported, so the page did not ask before the tab was left. The kernel publishes
+its count in a service step, and the capture began before the Worker reported it. Fixed in
+`530aeee05`: the capture request runs a step and reports first, and the page keeps a reported
+change unsaved until a save is stored. The six session tests pass in Chromium and Firefox. The
+release serves `dist/dolly-offline.json`. Left: `20261113-140107-unverified-cases` (needs a person),
+and `session-recover`'s removal at the next seed round (`20261113-140028-recover-large`).
 
 ## State (2026-11-14)
 

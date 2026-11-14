@@ -10,6 +10,16 @@ fine, but it definitely seems the current implementation is broken from an archi
 view." Earlier: 2026-10-01 "If the core is slop it will be impossible to extend it"; 2026-11-04 "I
 feel like the modularity of the host modules have been lost somewhere along the way".
 
+## State (2026-11-14): the compiler's part waits for a compiler round
+
+In the 0.1.6-rc round (`round/0.1.6-rc`, local main `530aeee05`, release `e1c400a5…` on 127.0.0.1:9045) the seed batch (module headers in packages, the layout) changed the seed's runtime, so the
+llvm-cc image built a compiler 24 bytes from the pinned one (`12c24b36…` beside `8b700874…`; only
+`process-bin/compiler` differs): not a fixed point. The RC keeps the pinned compiler, the one the
+previous seed built. This task's compiler part changes the compiler anyway, so both go in one
+compiler round before the release: pin, rebuild the seed, and the next llvm-cc must be the same.
+Images that took module headers from the seed now install the packages (`b6adf707b`,
+`8d270a103`, `72712de09`).
+
 ## State (2026-11-13, seed round)
 
 `fix/seed-hygiene` is merged with main on `round/0.1.6-seed` (65de9b568): x11-window, which main

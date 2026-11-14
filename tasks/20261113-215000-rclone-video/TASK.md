@@ -1,8 +1,14 @@
 # The HTTP-synced folder as a demo video
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 400
 - TAGS: http,demo,recording,0.1.6,owner,overnight
+
+## Closed (2026-11-14)
+
+In the 0.1.6-rc round (`round/0.1.6-rc`, local main `530aeee05`, release `e1c400a5…` on 127.0.0.1:9045), `/v0.1.6/agents/` lists it, and it plays from there in headless Chrome and Firefox
+(1920x1080, 117 s; the x11 workbench's too, 150 s). The owner's login name shows in a path and in
+`ls -l` in this take; a retake is offered.
 
 ## State (2026-11-13, `feature/rclone-video`)
 

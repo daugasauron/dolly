@@ -9,6 +9,10 @@ broken, create a task to fix that too." Not yet recorded: the browser and system
 whether the page drew on `gpu@0` or in the engine's software rasterizer (no WebGPU adapter), and
 what "broken" looks like (a screenshot settles most of it).
 
+## State (2026-11-14): in the RC
+
+In the 0.1.6-rc round (`round/0.1.6-rc`, local main `530aeee05`, release `e1c400a5…` on 127.0.0.1:9045); the round's GPU test passed on gpu@0, its Boil check included.
+
 ## State (2026-11-14): fixed on `fix/xonotic-walls`, waiting for a release
 
 Cause: whole world surfaces had no WGSL, so `dpgpurast.c` skipped their draws. Firefox on the

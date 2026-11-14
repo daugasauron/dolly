@@ -1,10 +1,17 @@
 # The directory says what a file is: kernel, process, page, site, programs
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: architecture,core,hygiene,audit,0.1.6
 
 From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, A6, A7; 2026-11-07 S1, S3, S4, standing).
+
+## Closed (2026-11-14)
+
+In the 0.1.6-rc round (`round/0.1.6-rc`, local main `530aeee05`, release `e1c400a5…` on 127.0.0.1:9045): all 228 images built on the layout and the suites and GPU tests passed. The move's
+fallout, fixed there: libffi's own `src/dolly.c`, a guest path the rewrite had turned into
+`kernel/` (`f6ac50e5d`); classicube's fixtures reading the session store from `site/`
+(`220081dbf`); `fix/sessions`, made before the move, placed by hand (`a50f92c97`).
 
 ## State (2026-11-13, seed round)
 
