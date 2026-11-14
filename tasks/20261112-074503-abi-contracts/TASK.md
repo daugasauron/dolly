@@ -1,11 +1,21 @@
 # What a host depends on is in a contract: malloc, boot-control files, the image directory, mailbox words
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 360
 - TAGS: abi,architecture,donna,audit,0.1.6
 
 From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, A3). `AGENTS.md`: "The core interface must remain small, typed,
 inspectable, and versioned."
+
+## Closed (2026-11-14)
+
+Donna (2026-11-14), against the 0.1.6-rc (main `79c143f66`, release `e1c400a5…`): the snapshot and
+entry limits now come from `dolly-abi.json`'s runtime constants, as every mailbox word, packet
+size, errno and process constant already did; the boot files and the image directory follow
+`abi/README.md`'s documented format; its build ID is `dist/dolly-build-id.json`'s `imageBuildId`,
+which it reads instead of recomputing (keep that file and field stable). 125 of its tests pass,
+also on an empty module cache, and the 13 images it builds match the release byte for byte. The C
+asserts the same constants (`build/generated/dolly-kernel-contracts.h`, `include/dolly/image-abi.h`).
 
 ## State (2026-11-13, seed round)
 
