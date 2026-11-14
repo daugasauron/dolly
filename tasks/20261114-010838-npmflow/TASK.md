@@ -1,6 +1,6 @@
 # npm packages: a custom pi-agent made smooth (audit, fixes, docs/npm.md, changelog, video)
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: npm,0.1.6
 
@@ -17,12 +17,11 @@ The owner (2026-11-14):
 
 Branch `feature/npm-0.1.6` (tree `work/npmflow`), from main `ee42c5982`. No seed input changed.
 
-## State (2026-11-14)
+## State (2026-11-14): closed
 
-Done on the branch (`e0e4ffacf` the fixes, tests and documents; `d66fe8e69` the video and its
-section): the flow below works as `docs/npm.md` says, from an empty directory and as CI runs it,
-in Chromium and Firefox. Left, and why the task stays open: the video has no model, because
-OpenRouter refused the key ("The video" and "What is left" below).
+Closed below. `e0e4ffacf` holds the fixes, tests and documents, `d66fe8e69` a first video without a
+model (both on `feature/npm-0.1.6`), and `feature/npm-model-take` the video in which Pi uses the
+skill.
 
 ## The flow now
 
@@ -96,20 +95,23 @@ Seen and left:
 Not measured: pnpm and Yarn with `init`'s own install (the manager is taken from
 `npm_config_user_agent`; npm alone was run: this machine's pnpm 12.16.1 wants to fetch 12.18.0
 from the public registry first, and `docs/npm.md` says npm alone is measured); the workflow on
-GitHub; Pi calling a model (below).
+GitHub.
 
 ## The video
 
-`sites/slopshare.dev/agents/videos/npm-pi-agent.mp4`, made in `work/videos-2026-11-14/npm/`
-(README there). OpenRouter refused the key in `~/.openrouter` (401 "User not found", 13:23 JST),
-so the take has no model: Pi lists the project's skill, and the skill's script is run by hand in
-the sandbox's shell. With a working key in `~/.openrouter`, the take in which Pi uses the skill is
+`sites/slopshare.dev/agents/videos/npm-pi-agent.mp4` (2:02), made in `work/videos-2026-11-14/npm/`
+(README there; `bash retake.sh NAME` records and cuts another). OpenRouter refused the key in
+`~/.openrouter` at 13:23 JST (401), so the take on `feature/npm-0.1.6` had no model. With the key
+renewed (15:57), take 3 on `feature/npm-model-take` replaces it: one prompt, and Pi
+(anthropic/claude-sonnet-5.5 through OpenRouter) reads the project's skill, runs its script with the
+sandbox's Python and writes `report.md`, 16.9 s; Neovim then shows the report. The key's usage went
+from 0 to 0.0227 USD. It plays a second from the page in Chrome 156 and Firefox 155.
 
-    cd /home/daug/dev/dolly/work/videos-2026-11-14/npm && bash retake.sh
+## Closed (2026-11-14)
 
-(the registry on 127.0.0.1:9154 and Xvfb :154 must run; the script starts both if they do not).
-
-## What is left
-
-- The take with a model, once the owner renews the key.
-- `demos/pi/data-pi` to 0.1.6 after 0.1.6 is published (above).
+The done-when is met: the flow works as `docs/npm.md` says from an empty directory and in a CI-like
+clean run, in Chromium and Firefox (`test/npm-browser.mjs`, "Measured" above); the fixes have tests
+that failed before; `docs/npm.md` and `docs/npm-changelog.md` exist and the README links them; the
+video plays from the demos page, with Pi using the skill; this file holds the audit. Still wanted and
+moved: Data Pi to 0.1.6 once it is published, `tasks/20261114-070149-datapi`. Not measured, as
+above: the workflow on GitHub's runners, and `init`'s own install under pnpm and Yarn.
