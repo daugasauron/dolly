@@ -101,9 +101,12 @@ float pulse_light(vec2 p) {
 		if (pulses[i].w > 0.0) {
 			float age = pulses[i].z;
 			float radius = age * 75.0;
-			float off = (distance(p, pulses[i].xy) - radius) / (5.0 + radius * 0.03);
+			float behind = radius - distance(p, pulses[i].xy);
+			float off = behind / (6.0 + radius * 0.04);
+			// The ring's front, and behind it a glow that the ground it has passed keeps for a while.
+			float ring = max(exp(-off * off), behind > 0.0 ? 0.4 * exp(-behind / (40.0 + radius * 0.15)) : 0.0);
 			// A ring grows out of nothing in its first half second, and is gone before the next sets off.
-			light += exp(-off * off) * exp(-age * 0.45) * smoothstep(0.0, 0.5, age) * (1.0 - smoothstep(7.0, 9.0, age)) * pulses[i].w;
+			light += ring * exp(-age * 0.45) * smoothstep(0.0, 0.5, age) * (1.0 - smoothstep(7.0, 9.0, age)) * pulses[i].w;
 		}
 	}
 	return light;
