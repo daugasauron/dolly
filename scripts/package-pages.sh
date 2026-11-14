@@ -63,6 +63,7 @@ cp \
   "${project_dir}/dist/dolly-build-id.mjs" \
   "${project_dir}/dist/dolly-image-build-id.mjs" \
   "${project_dir}/dist/dolly-build-id.json" \
+  "${project_dir}/dist/dolly-abi.json" \
   "${project_dir}/dist/dolly-images.json" \
   "${project_dir}/dist/dolly.data" \
   "${project_dir}/dist/dolly.wasm" \
