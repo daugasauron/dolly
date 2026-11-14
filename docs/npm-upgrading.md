@@ -110,13 +110,13 @@ Sessions:
 
 | What | 0.1.5 | 0.1.6 | What to do |
 | --- | --- | --- | --- |
-| The runtime's page code | `@daugasauron/dolly/src/browser.mjs` | `@daugasauron/dolly/page/browser.mjs` (`src/` is gone: the package holds `page/`, `site/`, `host/`, `process/` and `dist/`) | Change the import in the page: `./dolly/page/browser.mjs` in a `dolly-build` site, `./node_modules/@daugasauron/dolly/page/browser.mjs` beside `node_modules`. A bare `import "@daugasauron/dolly"` through an import map or a bundler follows the package's `exports` and needs no change |
+| The runtime's page code | `@daugasauron/dolly/src/browser.mjs` | `@daugasauron/dolly/page/browser.mjs` (`src/` is gone: the package holds `page/`, `site/`, `host/` and `dist/`) | Change the import in the page: `./dolly/page/browser.mjs` in a `dolly-build` site, `./node_modules/@daugasauron/dolly/page/browser.mjs` beside `node_modules`. A bare `import "@daugasauron/dolly"` through an import map or a bundler follows the package's `exports` and needs no change |
 | A recipe's pins | `FROM /v0.1.5/… SHA256`, `INSTALL /v0.1.5/… SHA256` | The same rows name `/v0.1.6/…` and other pins | `npx dolly-build add NAME` writes them |
 | The base of `init`'s recipe | `FROM` the `pi-minimal` image | `INSTALL` rows of Pi's packages; no `FROM` | Nothing: a recipe that starts `FROM pi-minimal` builds as before, with `@daugasauron/dolly-image-pi-minimal` installed |
-| Module headers (`<dolly/display.h>`, `input.h`, `download.h`, `upload.h`, `nena.h`, `packages.h`, `pty.h`, `sockets.h` and the others) | In the `cc` package | Each module's header and client library is the package `libdolly-NAME`; `cc` holds none | A recipe that compiles against one: `npx dolly-build add NAME libdolly-display` (and the others it includes). A program links a client with `-ldolly-NAME` |
-| Pi's host modules | `display`, `input`, `download`, `html` | Also `upload`: `pi-dolly` declares `upload@0` for Pi's `upload` tool | `npx dolly-build add NAME` writes `REQUIRES HOST upload@0` into the recipe and installs `@daugasauron/dolly-host-upload`. A page that boots `pi-minimal` itself installs that package |
+| Module headers (`<dolly/display.h>`, `input.h`, `download.h`, `upload.h`, `nena.h`, `packages.h`, `pty.h`, `sockets.h` and the others) | In the `cc` package | Each module's header and client library is the package `libdolly-NAME`; `cc` holds none | A recipe that compiles against one: `npx dolly-build add NAME libdolly-display` (and the others it includes); the build stops at the `#include` until then |
+| Pi's host modules | `display`, `input`, `download`, `html` | Also `upload`: `pi-dolly` declares `upload@0` for Pi's `upload` tool | `npx dolly-build add NAME` writes `REQUIRES HOST upload@0` into the recipe and installs `@daugasauron/dolly-host-upload`; without the row the build stops with `/bin/upload uses upload@0: add REQUIRES HOST upload@0`. A page that boots `pi-minimal` itself installs that package |
 | The `default` image | Holds `html` and declares `html@0` | Holds no `html` and does not declare `html@0` | A page that runs `default` no longer needs `@daugasauron/dolly-host-html`. For the `html` command, build a recipe that installs the `html` package |
-| Saved sessions | A save opens on the image it was made on | A save records the runtime's image build ID, which 0.1.6 changed | A 0.1.5 save does not open in 0.1.6: see [Saved sessions](#saved-sessions) |
+| Saved sessions | A save opens on the image it was made on | A save records the runtime's image build ID, which 0.1.6 changed | A 0.1.5 save is not found by the 0.1.6 page: see [Saved sessions](#saved-sessions) |
 | `/workspace` in a recipe | Never kept | Kept as any path | A `FILE /workspace/…` row is now in the image; the page's `public/workspace/` still lies over it at a fresh boot |
 | `dolly-build` without `--browser` | Chrome, or it fails | The first of Chrome, Playwright's Chromium and Firefox | Nothing; a CI job that must use one browser names it |
 | `dolly-build`'s dependencies | The runtime and `playwright-core` | Also Pi's packages (`pi-dolly` and what it installs) | Nothing: npm installs them with it |
@@ -218,20 +218,23 @@ sends the same headers.
 
 ### Saved sessions
 
-A save is kept in the browser, for the page's origin, and opens only on a
-runtime with the image build ID of the one that made it. 0.1.6's is another
-than 0.1.5's (the seed and the process contracts changed), so a session saved
-by a 0.1.5 page does not open in the upgraded page.
+A save is kept in the browser, for the page's origin and the version that made
+it, and opens only on a runtime with the image build ID of the one that made
+it. 0.1.6's is another than 0.1.5's (the seed and the process contracts
+changed). The upgraded page does not find a session a 0.1.5 page saved:
+`?session=NAME` answers `Session 'NAME' was not found in this browser.`
 
-To carry files over, get them out before the upgrade, on the 0.1.5 page: in a
-`dolly-build` project Pi's download tool, or `download FILE` from the shell
-where the image has it; in a page that runs `default`, `download FILE`. After
-the upgrade, `public/workspace/` puts files into a fresh start, and Save makes
-a save 0.1.6 opens again.
+So get the files you want to keep out before the upgrade, on the 0.1.5 page:
+`download FILE` from the shell where the image has it (`default` does), or
+Pi's download tool. After the upgrade, `public/workspace/` puts files into a
+fresh start, and Save makes a save that 0.1.6 opens again.
 
 Dolly's own site lists saves at `/sessions/`, where **Recover files** copies
 an older save's files into a new session; a page of your own has that list
-only if it names a `site` that serves those pages.
+only if it names a `site` that serves those pages. Going back is not a way
+out that was found to work: the 0.1.5 site served again from the same address
+did not open its save in a browser that had visited the 0.1.6 site in
+between (once, in Chrome).
 
 ### Checks
 
@@ -246,4 +249,36 @@ only if it names a `site` that serves those pages.
 
 ### Measured
 
-The 0.1.5 and 0.1.6 numbers are filled in here once the 0.1.6-rc.0 packages are verified.
+A project made with 0.1.5 from the public registry (2026-11-14: `init my-pi
+git python numpy matplotlib`, with a C tool that includes `<dolly/display.h>`,
+a skill as `FILE` rows and a file in the workspace), upgraded to the
+0.1.6-rc.0 packages by the steps above as written, built with Chrome 156, and
+its site served by `python3 -m http.server`. Times are from navigation, on one
+16-core desktop that ran other builds, in headless Chrome 156 and Playwright's
+Firefox 155; each first visit in a fresh profile.
+
+| | 0.1.5 | 0.1.6-rc.0 |
+| --- | --- | --- |
+| Chrome, first visit: the page ready / Pi's screen | 4.8 s / 6.9 s | 1.5 s / 3.4 s |
+| Chrome, second visit | 5.3 s / 8.1 s | 1.2 s / 3.5 s |
+| Firefox, first visit | 11.7 s / 14.6 s | 2.2 s / 4.2 s |
+| Firefox, second visit | 4.3 s / 6.3 s | 1.6 s / 3.7 s |
+| A saved session, reopened in Chrome: the page ready | not measured | 0.7 s |
+| The site | 100 MB | 100 MB |
+| `node_modules` | 125 MB | 173 MB (Pi's packages beside the `pi-minimal` image this project keeps) |
+
+The upgraded project builds and boots in both browsers: Pi starts with its
+three skills, the C tool, Git, Python with NumPy and Matplotlib and the
+`upload` command are there, `curl https://example.com` is refused, and a
+session saved there opens again. Before step 4 the build stopped at
+`'dolly/display.h' file not found`, and without the `upload@0` row at
+`/bin/upload uses upload@0`.
+
+A page that ran 0.1.5's `default` with `boot()`, upgraded by the two commands
+above: it boots in both browsers with the nine modules the image declares,
+`html` is no longer a command, and its 0.1.5 save is not found.
+
+Not measured: build times against each other (the machine was busy: 54 s for
+the 0.1.5 build, 95 s for the 0.1.6 one), pnpm and Yarn, and the optional
+steps (skills as directories, the page without inline code, a recipe of
+packages) on this project.
