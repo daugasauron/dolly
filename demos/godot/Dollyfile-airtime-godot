@@ -14,9 +14,9 @@ REQUIRES HOST clipboard@0
 # Forward+ renderer on gpu@0 as a foundry at night over a sea of molten metal. Its project
 # (demos/godot/airtime) is imported and exported here by Godot's editor, and airtime-godot plays
 # the pack with godot, which installs with it. The project installs too, for the editor.
-FROM /v0.1.7/Dollyfile-system 33e5bcf65ef4a634da5dbf8e291a379148e7971aa0411fe1bdaa4e0332f24b94
-INSTALL /v0.1.7/demos/godot/Dollyfile-godot f9bfa77355356aa10dae2a7932825a3004f092e8eeb0d3ed333a58211db1a8cb
-USE /v0.1.7/demos/godot/Dollyfile-godot-editor 40b356d99d06e3334cca43232df29096f916427434a8c11d684c967ee5b4600b
+FROM /v0.1.7/Dollyfile-system 53019922324696a18a573eededf9b475fe22e783d58f35585fe5c73943b926ae
+INSTALL /v0.1.7/demos/godot/Dollyfile-godot 63accca6cf7ff3f8cd2d5ae75c9eee66dadc07734e9ecfe0d357c47edf0350b7
+USE /v0.1.7/demos/godot/Dollyfile-godot-editor 82210d364770aa50a70a7b57e12b3ab105a85f64ccbda7074a39b6a3c985b812
 
 REQUIRES TOOL cp
 REQUIRES TOOL godot-editor
@@ -24,7 +24,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.7/dist/static/godot/airtime.tar e84cc87029526665f9e667809426f6d443771bb7e06833c62cc59f730423b260 /tmp/airtime.tar
+SOURCE /v0.1.7/dist/static/godot/airtime.tar f0004329aa3e605f246f3c278f9eb9a57cbc4d2e91ac7fb7e2ab1320a7f88e54 /tmp/airtime.tar
 SLOP CWD / tar -xf /tmp/airtime.tar
 SLOP mkdir -p /usr/share/airtime-godot
 SLOP cp -r /usr/src/airtime /usr/share/airtime-godot/project

@@ -18,16 +18,16 @@ REQUIRES HOST nena@0
 # takes the display, and Ghostty draws its terminal with Mesa's OpenGL
 # (softpipe through EGL, OpenGL 4.3 as Ghostty asks) and its window's
 # widgets with cairo. GTK's text is fontconfig's, from the terminal's font.
-INSTALL /v0.1.7/Dollyfile-core 1af35bd391b18ddb626a8a5248c4c940564cc4c23af9c2d44e313bf847b66bba
-INSTALL /v0.1.7/Dollyfile-posix 37d85018d9ab218475d878070e6d5df646238f3e450e534e5c31b6c9e3198191
-INSTALL /v0.1.7/Dollyfile-display 9516e36ef9c8566c9f0590546e1474db96ca02ddc75028e562e92af71fdbdeef
-INSTALL /v0.1.7/demos/x11/Dollyfile-xorg-server eb0f55337d26fcf91235fa43a3ca46ae8d5639f4ccad054b47aab3c43942fd42
-INSTALL /v0.1.7/demos/ghostty-gtk/Dollyfile-ghostty-gtk bd7faa29d5e1544da2032f86085bb58a0493c4e7eba61077d0b47973ed6e3d83
+INSTALL /v0.1.7/Dollyfile-core 0400b7c98241821542518a568100a4d8abf5e6642e2dbbc3b09f3512dfc75ba0
+INSTALL /v0.1.7/Dollyfile-posix 1253bee9688e620f912bff5694ce133044a38d20392218a152f9da4d3a290e63
+INSTALL /v0.1.7/Dollyfile-display a6680af8ee3a48c935c74f701bdd3b31b15ea2aa9e7d98cd8776d9509c81fbd2
+INSTALL /v0.1.7/demos/x11/Dollyfile-xorg-server 464cd2aca0261510f716f9aba0f673c2107064176d219d57746170dc2c9494b9
+INSTALL /v0.1.7/demos/ghostty-gtk/Dollyfile-ghostty-gtk 7153bd8279c357b6df840ccf518f499f3e38ee079838df2b27c712c048014f16
 # amy installs packages into the session (tmux, nvim and the rest); nena
 # enables the host modules they need.
-INSTALL /v0.1.7/Dollyfile-amy dcd5a7f5c88a9bbb99002762959d64dd04be2d479dc85566783f48f9c19d07ac
-INSTALL /v0.1.7/Dollyfile-nena 3946645dbbc253accb15ce4ce43b012da951ec9aa0c7eb6c06d7293e439f2db6
-COPY /v0.1.7/Dollyfile-ghostty-build 2ce6bdb97cc414bc2d1c772e67f2cd674d938cd2c82b26585e8ba15b850a7d1c /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+INSTALL /v0.1.7/Dollyfile-amy 68444169857e8d1bcac03c0541ea52c1b8660b8bffa61a466c83de79ddc79f76
+INSTALL /v0.1.7/Dollyfile-nena 034d9012d6b5e77516510c595148261044f289c279457d35b437052292439b75
+COPY /v0.1.7/Dollyfile-ghostty-build 92300f48b29bce377f36194e56c7634f71578293e97b5cf667085e5009a182a7 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 
 # The server takes the display, the keyboard and the pointer until it ends
 # (kill $(cat /tmp/.X0-pid) in Ghostty's shell); Ghostty ends with it, and

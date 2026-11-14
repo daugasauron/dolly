@@ -8,10 +8,10 @@ REQUIRES HOST http@0
 # the packages it depends on into /usr/lib/node_modules, with a /usr/bin
 # launcher for each command it names. It is one Janis script linked with the
 # runner, as tsc is, and checks and decompresses tarballs with sha512sum and gzip.
-FROM /v0.1.7/Dollyfile-system-tools 69127104c12ae52e00d0e0a8787c3c99ece25f59a2c382fc9c811d66a090e5ec
-INSTALL /v0.1.7/demos/javascript/Dollyfile-janis 220dbbe7787e293629201fb7011b20e72b31be1d7ff7d422c2ace0bef46ee8c7
-INSTALL /v0.1.7/Dollyfile-gzip afb9abb2b9a78e4c82811af6f5695f814ac322f538655f733ba6813895be13ae
-INSTALL /v0.1.7/demos/tools/Dollyfile-sbase 5b79105adbaf4ee4192584dd43602ccaff54e2c8d380f2b7b0de90c5ec3e6c16
+FROM /v0.1.7/Dollyfile-system-tools 6699b9ce9339fe8ee70c02972b8a4b10242adb71dd63c3a5ac5da48f8d1828ed
+INSTALL /v0.1.7/demos/javascript/Dollyfile-janis 427f184ffb58d8b64d094c2ba0ad403d4a5cbb29cde20365cca9c231f7296b1f
+INSTALL /v0.1.7/Dollyfile-gzip fe37ea911f935be9f5dc2fcf29fdddba385759e05220a033ebaea81a810a16b5
+INSTALL /v0.1.7/demos/tools/Dollyfile-sbase a6fbfede1d09af42fd0ebc4569a27207c8d61c49878102fe5969ee24dd4545c4
 
 REQUIRES HEADER libc
 REQUIRES HEADER quickjs-runner

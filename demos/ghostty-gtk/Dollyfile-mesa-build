@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 # A build stage over gtk-build: Mesa's OpenGL through EGL's surfaceless
 # platform, drawing with softpipe in the program itself (mesa-dolly.patch; its
 # parsers are made on the host, prepare-mesa.sh). Static libraries in /usr/lib.
-FROM /v0.1.7/demos/gtk/Dollyfile-gtk-build f4fc74dceb95f74350da1f608e358283f7d96713c5dee9f3ffe25fe7e22c3e86
+FROM /v0.1.7/demos/gtk/Dollyfile-gtk-build 8441c6ddd4d946b08b89d669aa529f04c9894d8f0da504af5672aa3e6055046a
 
 REQUIRES TOOL   ar
 REQUIRES TOOL   c++

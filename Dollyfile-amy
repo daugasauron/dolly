@@ -7,9 +7,9 @@ REQUIRES HOST packages@0
 # amy and the recipe engine it runs (the dollyfile package): what a session needs
 # to install packages. amy reads the package index of an image directory, by
 # default the one the page loads its images from.
-FROM /v0.1.7/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
-INSTALL /v0.1.7/Dollyfile-dollyfile 21e1fc5906dedfaeb01edc40404fab4c0939a3c420686923801c7d0e088fdcd4
-USE /v0.1.7/Dollyfile-libdolly-packages 1970fb1dbf68cac3bab7402314e55581fb03dbff6eb58cbc4837d483642870eb
+FROM /v0.1.7/Dollyfile-system-build d1bb50136de0dadf12e3e2af2266c5102e9ab15769e9f607807c44d46323f3a1
+INSTALL /v0.1.7/Dollyfile-dollyfile 364f3dedf3dfd15a200908f3d069030e4df45fe15434051cf57e24510e479837
+USE /v0.1.7/Dollyfile-libdolly-packages f2ab93274962433d7b099fcf3f0de6de3d04986cd1c27aa7ac75317ac7b1923d
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL rm
