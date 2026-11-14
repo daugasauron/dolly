@@ -7,7 +7,8 @@ This document is the guide to them. Its main case is a coding agent of your
 own: [Pi](https://github.com/earendil-works/pi) in a sandbox with the tools you
 choose and your skills, served from your machine, and built into the same
 static site in CI. What changed between versions is in the
-[npm changelog](npm-changelog.md).
+[npm changelog](npm-changelog.md), and how to move a project to a new version
+in [Upgrading](npm-upgrading.md).
 
 ## A Pi agent of your own
 

@@ -128,7 +128,8 @@ python3 -m http.server -d my-pi -b 127.0.0.1 8080
 is a static site, and `init` writes the workflow that builds it in CI.
 [Dolly from npm](docs/npm.md) is the guide: the project's files, tools,
 skills, the policy, CI, serving and updating; the
-[npm changelog](docs/npm-changelog.md) lists what changed in the packages.
+[npm changelog](docs/npm-changelog.md) lists what changed in the packages, and
+[Upgrading](docs/npm-upgrading.md) moves a 0.1.5 project to 0.1.6.
 [Data Pi](demos/pi/data-pi/README.md) is such a project, and
 [An agent in place of a web frontend](docs/agent-frontend.md) goes on from
 there: your backend's API, your model provider and how Pi starts.
@@ -171,7 +172,7 @@ Image builds rewrite SHA-256 pins in `Dollyfile*`. Check by what you changed
 ## Docs
 
 - [Architecture](docs/architecture.md): components, system calls, core images.
-- [Dolly from npm](docs/npm.md): the npm packages, `dolly-build`, an agent of your own, CI; its [changelog](docs/npm-changelog.md).
+- [Dolly from npm](docs/npm.md): the npm packages, `dolly-build`, an agent of your own, CI; its [changelog](docs/npm-changelog.md); [upgrading](docs/npm-upgrading.md) from 0.1.5.
 - [Embedding](docs/embedding.md): `boot()`, a page of your own, serving it.
 - [Agent frontend](docs/agent-frontend.md): Pi, skills and a policy in place of a web frontend.
 - [Process model](docs/process-model.md): spawn, descriptors, pipes, signals.

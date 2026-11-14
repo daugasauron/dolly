@@ -3,20 +3,17 @@
 What changed in Dolly's npm packages (`@daugasauron/dolly`, `dolly-build`,
 `dolly-host-NAME`, `dolly-image-NAME`, `dolly-package-NAME`), newest first:
 the problems a user of them met and their fixes. [Dolly from npm](npm.md) is
-the guide. The packages of one project are all of one version.
+the guide, and [Upgrading](npm-upgrading.md) moves a project from one version
+to the next. The packages of one project are all of one version.
 
 ## 0.1.6
 
-Moving a 0.1.5 project to it:
-
-- The runtime's page code moved: a page imports `./dolly/page/browser.mjs`,
-  where 0.1.5 had `./dolly/src/browser.mjs`.
-- `init`'s recipe now `INSTALL`s Pi's packages instead of starting `FROM` the
-  `pi-minimal` image. A 0.1.5 recipe with its `FROM` row still builds, with
-  `@daugasauron/dolly-image-pi-minimal` installed.
-- Install `@daugasauron/dolly-build` at 0.1.6, then `npx dolly-build add NAME`:
-  it installs the project's other packages at that version and writes the
-  recipe's pins.
+Moving a 0.1.5 project or page to it: [Upgrading](npm-upgrading.md) has the
+steps, what changes under an existing project, and the checks. In short, the
+runtime's page code is `./dolly/page/browser.mjs` (0.1.5: `src/`), `npx
+dolly-build add NAME` moves the packages and the recipe's pins, the module
+headers left `cc` for the `libdolly-NAME` packages, and a 0.1.5 save does not
+open.
 
 A project in fewer steps:
 
