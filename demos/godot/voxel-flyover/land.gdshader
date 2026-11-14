@@ -43,7 +43,7 @@ void fragment() {
 	float flower = step(0.975, hash(bloom)) * (1.0 - smoothstep(30.0, 110.0, -VERTEX.z));
 	colour = mix(colour, 0.25 + 0.75 * vec3(hash(bloom + 3.0), hash(bloom + 5.0) * 0.6, hash(bloom + 7.0)), flower * 0.8);
 	// Rock shows where the ground is steep and toward the snow, in strata.
-	float strata = 1.0 - 0.14 * (1.0 - far) * (0.5 + 0.5 * sin(here.x * 0.9 + blotch * 5.0));
+	float strata = 1.0 - 0.22 * (1.0 - far) * (0.5 + 0.5 * sin(here.x * 1.3 + blotch * 7.0));
 	vec3 rock = mix(vec3(0.09, 0.075, 0.08), vec3(0.24, 0.18, 0.13), grain * 0.5 + 0.5 * blotch) * strata;
 	float bare = max(smoothstep(0.1, 0.22, steep + (grain - 0.5) * 0.06), smoothstep(snowline - 26.0, snowline - 12.0, height));
 	colour = mix(colour, rock, bare);
@@ -61,8 +61,6 @@ void fragment() {
 
 	// The grain of the ground, which the grid is too coarse to carry, tilts the light near by.
 	float fine = fbm(p * 0.45 + vec2(70.0, 3.0), 3);
-	// Cracks run through bare rock.
-	colour *= 1.0 - 0.25 * bare * (1.0 - snow) * (1.0 - far) * (1.0 - smoothstep(0.0, 0.02, abs(fine - 0.5)));
 	vec2 tilt = (vec2(fbm(p * 0.45 + vec2(70.4, 3.0), 3), fbm(p * 0.45 + vec2(70.0, 3.4), 3)) - fine) * (0.5 + 1.6 * bare) * (1.0 - far) * (1.0 - 0.6 * snow);
 	ALBEDO = colour * cloud_shade(world);
 	EMISSION = vein_colour * vein * run * (0.02 + 1.7 * night) + vec3(1.0, 0.5, 0.12) * pulse_light(p) * (1.0 + 1.8 * night) * (0.6 + 0.6 * grain);

@@ -21,7 +21,7 @@ const BOOST := 26.0
 const CEILING := 190.0
 const BEACON_PLOT := 180.0
 const BEACON_REACH := 8.0
-const START := Vector2(2000, -400)
+const START := Vector2(2250, 4750)
 const WAKE := 64 # the places the wake keeps
 const WAKE_APART := 1.2
 ## The camera's views while the corgi flies itself, each for SHOT_SECONDS: where it stands in the
@@ -57,13 +57,14 @@ var hint := Label.new()
 var gauge := Label.new()
 var engine := AudioStreamPlayer.new()
 var bell := AudioStreamPlayer.new()
+var leaving := false # after Q, or a flight by itself that has ended
 var beacons := {} # plot -> its node, for the plots around the flyer
 var lit := {} # plot -> where it stands (x, y) and the clock when it was lit (z)
 
 var helm := false # the player's, after Enter
 var hint_until := 0.0 # the keys show for a while after the board changes hands
 var day := 0.24
-var heading := PI / 2.0 # east, over the bay
+var heading := PI / 2.0 # east, along the coast
 var turn := 0.0
 var climb := 0.0
 var speed := CRUISE
@@ -302,6 +303,8 @@ func build_flyer() -> void:
 	var pink := paint(Color(0.9, 0.45, 0.5), 0.6)
 	var steel := paint(Color(0.45, 0.47, 0.5), 0.3)
 	steel.metallic = 0.8
+	var shades := paint(Color(0.03, 0.04, 0.08), 0.04)
+	shades.metallic = 1.0
 	var ball := SphereMesh.new()
 	var rod := CapsuleMesh.new()
 	var point := CylinderMesh.new()
@@ -346,10 +349,10 @@ func build_flyer() -> void:
 		part(head, point, fur, Vector3(x * 0.4, 0.62, 0.12), Vector3(-8, 0, x * -16), Vector3(0.6, 0.4, 0.3))
 		part(head, point, pink, Vector3(x * 0.4, 0.6, 0.07), Vector3(-8, 0, x * -16), Vector3(0.32, 0.32, 0.12))
 		# The sunglasses: two dark lenses and a bar across the nose.
-		part(head, ball, black, Vector3(x * 0.25, 0.13, -0.47), Vector3(8, x * -14, 0), Vector3(0.44, 0.3, 0.1))
+		part(head, ball, shades, Vector3(x * 0.26, 0.13, -0.47), Vector3(8, x * -14, 0), Vector3(0.5, 0.34, 0.1))
 	var bar := BoxMesh.new()
 	bar.size = Vector3(0.96, 0.05, 0.05)
-	part(head, bar, black, Vector3(0, 0.2, -0.45))
+	part(head, bar, shades, Vector3(0, 0.2, -0.45))
 	# The cape, from a red collar.
 	var collar := TorusMesh.new()
 	collar.inner_radius = 0.42
@@ -465,8 +468,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	show_helm()
 
 
-## Quits once the mixer has let go of the sounds, which Godot counts as leaked otherwise.
+## Quits once the mixer has let go of the sounds, which Godot counts as leaked otherwise; no
+## beacon rings meanwhile.
 func leave() -> void:
+	leaving = true
 	engine.stop()
 	bell.stop()
 	await get_tree().create_timer(0.3).timeout
@@ -587,7 +592,7 @@ func tend_beacons(delta: float) -> void:
 	for plot: Vector2i in beacons:
 		var beacon: Node3D = beacons[plot]
 		beacon.get_child(0).rotate_y(delta * 1.3)
-		if not lit.has(plot) and beacon.position.distance_to(flyer.position) < BEACON_REACH:
+		if not leaving and not lit.has(plot) and beacon.position.distance_to(flyer.position) < BEACON_REACH:
 			lit[plot] = Vector4(beacon.position.x, beacon.position.z, elapsed, 1.0)
 			beacon.queue_free()
 			beacons[plot] = build_beacon(beacon.position, true)
