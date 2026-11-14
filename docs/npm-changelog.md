@@ -6,6 +6,20 @@ the problems a user of them met and their fixes. [Dolly from npm](npm.md) is
 the guide, and [Upgrading](npm-upgrading.md) moves a project from one version
 to the next. The packages of one project are all of one version.
 
+## 0.1.7
+
+- 0.1.6 did not install from npm. npm refuses a new package name with the word
+  "download" in it ("That word is not allowed"), so
+  `@daugasauron/dolly-package-libdolly-download` was never published, and
+  Janis, `janis-install`, Pi and `dolly-build`, which need it, failed with a
+  404. Its package is now `@daugasauron/dolly-package-libdolly-save`, as
+  `download@0`'s host module has been `dolly-host-save`; a test checks every
+  published name, and the packages are published each after those it depends
+  on. npm's `latest` stayed on 0.1.5, and the five 0.1.6 versions that do not
+  install are deprecated.
+- A 0.1.5 project moves straight to 0.1.7 ([Upgrading](npm-upgrading.md)):
+  everything listed under 0.1.6 below comes with it.
+
 ## 0.1.6
 
 Moving a 0.1.5 project or page to it: [Upgrading](npm-upgrading.md) has the

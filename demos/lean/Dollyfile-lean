@@ -9,11 +9,11 @@ REQUIRES HOST threads@0
 # (lean-meta), and here Lake's and LeanExport's, as upstream links them
 # (lean-dolly.mk), with the C++ runtime compiled again from src/. Lake
 # compiles a package's C with cc and links it with libuv.
-FROM /v0.1.6/demos/lean/Dollyfile-lean-stage0 a530d57c26269b538222cbaf8ccdf71e995c06fff9e72f49c866e2f9607653d2
-INSTALL /v0.1.6/demos/lean/Dollyfile-lean-std d32552a5028a898aa05f441f0988f7f3cdb6a31b723137d5e0de9f6c2e3a955d
-INSTALL /v0.1.6/demos/lean/Dollyfile-lean-meta b87b4f0754bb03308fa0cd92dfbfcc551c92685fce4b3e8f689739e97a6df68a
-INSTALL /v0.1.6/Dollyfile-cc dd9c3a1f3e39d395d478e5a07e6a01bee97e16e71f4a583a07fe7f8c2356ba8c
-INSTALL /v0.1.6/demos/cmake/Dollyfile-libuv c61090002f825b9b2c92d151eef34f5f4ef6d18ccc06d096b0043c8cd832e98d
+FROM /v0.1.7/demos/lean/Dollyfile-lean-stage0 a530d57c26269b538222cbaf8ccdf71e995c06fff9e72f49c866e2f9607653d2
+INSTALL /v0.1.7/demos/lean/Dollyfile-lean-std d32552a5028a898aa05f441f0988f7f3cdb6a31b723137d5e0de9f6c2e3a955d
+INSTALL /v0.1.7/demos/lean/Dollyfile-lean-meta b87b4f0754bb03308fa0cd92dfbfcc551c92685fce4b3e8f689739e97a6df68a
+INSTALL /v0.1.7/Dollyfile-cc dd9c3a1f3e39d395d478e5a07e6a01bee97e16e71f4a583a07fe7f8c2356ba8c
+INSTALL /v0.1.7/demos/cmake/Dollyfile-libuv c61090002f825b9b2c92d151eef34f5f4ef6d18ccc06d096b0043c8cd832e98d
 
 REQUIRES HEADER libc
 REQUIRES HEADER uv
@@ -33,8 +33,8 @@ REQUIRES TOOL tar
 REQUIRES TOOL tr
 REQUIRES TOOL xargs
 
-SOURCE /v0.1.6/dist/static/lean/lean.tar.gz ef83239912f7c218c5f0e937de704b7da807b9802b05216414b59b9dec42e0da /tmp/lean.tar.gz
-SOURCE /v0.1.6/dist/static/lean/port.tar 1716710f88ccdd478709b75533ef1686ff39e381ad7d66ff65caff992e2dd1a6 /tmp/lean-port.tar
+SOURCE /v0.1.7/dist/static/lean/lean.tar.gz ef83239912f7c218c5f0e937de704b7da807b9802b05216414b59b9dec42e0da /tmp/lean.tar.gz
+SOURCE /v0.1.7/dist/static/lean/port.tar 1716710f88ccdd478709b75533ef1686ff39e381ad7d66ff65caff992e2dd1a6 /tmp/lean-port.tar
 # Stage 1 reads only src/.
 SLOP gzip -dc /tmp/lean.tar.gz | tar -xf - -C / && rm -r /tmp/lean.tar.gz /tmp/lean/stage0
 SLOP tar -xf /tmp/lean-port.tar -C /

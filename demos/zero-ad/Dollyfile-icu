@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # autotools, which Slop cannot run; as Emscripten's port does, every source of
 # common, i18n and stubdata is compiled. The data stays a file, which ICU finds
 # in /usr/share/icu/68.2 unless ICU_DATA names another directory.
-FROM /v0.1.6/Dollyfile-system-tools 69127104c12ae52e00d0e0a8787c3c99ece25f59a2c382fc9c811d66a090e5ec
+FROM /v0.1.7/Dollyfile-system-tools 69127104c12ae52e00d0e0a8787c3c99ece25f59a2c382fc9c811d66a090e5ec
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES TOOL ar
@@ -22,7 +22,7 @@ REQUIRES TOOL rm
 REQUIRES TOOL sed
 REQUIRES TOOL tar
 
-SOURCE /v0.1.6/dist/static/icu/source.tar.gz 2d201cd0b1af20183e8a1eca3de424ea29e87e9fd9a37785cb9ce1415bd50662 /tmp/icu.tar.gz
+SOURCE /v0.1.7/dist/static/icu/source.tar.gz 2d201cd0b1af20183e8a1eca3de424ea29e87e9fd9a37785cb9ce1415bd50662 /tmp/icu.tar.gz
 SLOP gzip -dc /tmp/icu.tar.gz | tar -xf - -C /
 FILE /tmp/icu/Makefile
     ICU := /tmp/icu/source

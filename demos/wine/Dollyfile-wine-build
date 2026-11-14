@@ -7,12 +7,12 @@ REQUIRES HOST input@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.6/Dollyfile-system-tools 69127104c12ae52e00d0e0a8787c3c99ece25f59a2c382fc9c811d66a090e5ec
-INSTALL /v0.1.6/Dollyfile-libdolly-sockets 21a5b6d8d2dea4fa61305f4af76be2773bc8f92fb4e8419ba985bda01efca52a
-INSTALL /v0.1.6/Dollyfile-libdolly-display c4f8ea64af9ad51300b9b48369558e17493bccb9be1b7db853cda0e1d7d66a48
-INSTALL /v0.1.6/Dollyfile-libdolly-input 45202588e489298ba6fe352129e992fca0c7a45e13bf45cde85976c931a981e4
+FROM /v0.1.7/Dollyfile-system-tools 69127104c12ae52e00d0e0a8787c3c99ece25f59a2c382fc9c811d66a090e5ec
+INSTALL /v0.1.7/Dollyfile-libdolly-sockets 21a5b6d8d2dea4fa61305f4af76be2773bc8f92fb4e8419ba985bda01efca52a
+INSTALL /v0.1.7/Dollyfile-libdolly-display c4f8ea64af9ad51300b9b48369558e17493bccb9be1b7db853cda0e1d7d66a48
+INSTALL /v0.1.7/Dollyfile-libdolly-input 45202588e489298ba6fe352129e992fca0c7a45e13bf45cde85976c931a981e4
 # FreeType (with its libpng) for gdi32's fonts, as 0 A.D. built them; libpng's headers for NetSurf.
-INSTALL /v0.1.6/demos/zero-ad/Dollyfile-freetype a637b97200e1ceeb75232ea15cd62810b10ebd1dc08aef8222012a5cd94c24e3
+INSTALL /v0.1.7/demos/zero-ad/Dollyfile-freetype a637b97200e1ceeb75232ea15cd62810b10ebd1dc08aef8222012a5cd94c24e3
 REQUIRES HEADER curl
 REQUIRES HEADER zlib
 REQUIRES LIB curl
@@ -28,10 +28,10 @@ REQUIRES TOOL sed
 REQUIRES TOOL sort
 REQUIRES TOOL tar
 
-SOURCE /v0.1.6/dist/static/wine/source.tar.gz 5a8e425e06a6c8d2298b68e36d9c67906137ec4cb9ed12ed920d55a9a44d438a /tmp/wine-source.tar.gz
+SOURCE /v0.1.7/dist/static/wine/source.tar.gz 5a8e425e06a6c8d2298b68e36d9c67906137ec4cb9ed12ed920d55a9a44d438a /tmp/wine-source.tar.gz
 SLOP gzip -dc /tmp/wine-source.tar.gz | tar -xf - -C /
 # TinyCC's win64 binaries, unmodified: x86-64 code for x86emu, which builds the Start menu's x86-64 sample with them.
-SOURCE /v0.1.6/dist/static/wine/tinycc.tar.gz 20709ea054c77d290a1837699bd8993dfbe84f97b5900002057a50dfd002fe4a /tmp/tinycc.tar.gz
+SOURCE /v0.1.7/dist/static/wine/tinycc.tar.gz 20709ea054c77d290a1837699bd8993dfbe84f97b5900002057a50dfd002fe4a /tmp/tinycc.tar.gz
 SLOP gzip -dc /tmp/tinycc.tar.gz | tar -xf - -C /
 # Tools, generated headers, every module and wineserver, linked into /usr/bin/wine; Wine's fonts.
 SLOP make -j4 -f /usr/src/dolly/wine/Makefile

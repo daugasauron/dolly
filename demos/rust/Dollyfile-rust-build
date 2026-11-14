@@ -11,12 +11,12 @@ REQUIRES HOST threads@0
 # here from their pinned sources. The seed builds the first rustc; that one
 # builds the rustc kept. Every Rust program in the catalog is built by this
 # image's toolchain.
-FROM /v0.1.6/demos/rust/Dollyfile-rust-sdk 46a52acff72a024c4b5738585ce3459befcaded6b1ceaab8843ae80554ae9614
-COPY /v0.1.6/demos/rust/Dollyfile-rust-llvm cfb632977173c4dd2bef5b999896e518ba9e4891de43458684ed8342e057a19a /opt/rust-llvm /opt/rust-llvm
+FROM /v0.1.7/demos/rust/Dollyfile-rust-sdk 46a52acff72a024c4b5738585ce3459befcaded6b1ceaab8843ae80554ae9614
+COPY /v0.1.7/demos/rust/Dollyfile-rust-llvm cfb632977173c4dd2bef5b999896e518ba9e4891de43458684ed8342e057a19a /opt/rust-llvm /opt/rust-llvm
 # patch, for the compiler's patch below.
-INSTALL /v0.1.6/Dollyfile-git 3393aa9b0bb67b91dd2195bfc5be7477d276e9522ae2ada7041abc1d21cb1e1c
+INSTALL /v0.1.7/Dollyfile-git 3393aa9b0bb67b91dd2195bfc5be7477d276e9522ae2ada7041abc1d21cb1e1c
 # cmp, for the check that the second generation rebuilds the same library.
-INSTALL /v0.1.6/Dollyfile-posix 37d85018d9ab218475d878070e6d5df646238f3e450e534e5c31b6c9e3198191
+INSTALL /v0.1.7/Dollyfile-posix 37d85018d9ab218475d878070e6d5df646238f3e450e534e5c31b6c9e3198191
 REQUIRES TOOL cargo
 REQUIRES TOOL rustc
 REQUIRES TOOL cc
@@ -32,18 +32,18 @@ REQUIRES TOOL rm
 # rustc's and std's source as the seed's build prepared it, their locked
 # crates as Cargo's directory source, and the build's settings in
 # /tmp/rustc/.cargo/config.toml.
-SOURCE /v0.1.6/dist/static/rust/rustc.tar.gz 29234737d1587e914e0a03634ed99591d1c8f26a275c7767e42e0867c960bd57 /tmp/rustc.tar.gz
+SOURCE /v0.1.7/dist/static/rust/rustc.tar.gz 29234737d1587e914e0a03634ed99591d1c8f26a275c7767e42e0867c960bd57 /tmp/rustc.tar.gz
 SLOP gzip -dc /tmp/rustc.tar.gz | tar -xf - -C /
 SLOP rm /tmp/rustc.tar.gz
 # rustdoc builds its sessions from the default options, whose sysroot the
 # static compiler finds only by its symlinked name, as rustdoc-real is: the
 # lookup checked lib/rustlib against the working directory, not that sysroot.
-SOURCE /v0.1.6/dist/static/rust/rustc-sysroot.patch 1446ec39a26318f5caa6ec71f71490225ca26b5b8313074f14ff812f92e6cf7f /tmp/rustc/sysroot.patch
+SOURCE /v0.1.7/dist/static/rust/rustc-sysroot.patch 1446ec39a26318f5caa6ec71f71490225ca26b5b8313074f14ff812f92e6cf7f /tmp/rustc/sysroot.patch
 SLOP patch -p1 -d /tmp/rustc/source -i /tmp/rustc/sysroot.patch
 # The target as Dolly defines it now (panics unwind). The seed's library was
 # built for the seed's definition, which stays the host's until a library for
 # this one replaces it: a crate built for one cannot link the other's.
-SOURCE /v0.1.6/dist/static/rust/wasm64-emscripten-probe.json 90972fb95b4f3f9abdc5a4483d284afc349095f504fa5febf3612c69cd93d053 /tmp/rustc/spec/wasm64-emscripten-probe.json
+SOURCE /v0.1.7/dist/static/rust/wasm64-emscripten-probe.json 90972fb95b4f3f9abdc5a4483d284afc349095f504fa5febf3612c69cd93d053 /tmp/rustc/spec/wasm64-emscripten-probe.json
 
 # One generation: the compiler, built by the rustc in /opt/rust-sdk against the
 # standard library there, replaces that rustc. It is linked as a host of
@@ -135,7 +135,7 @@ SLOP CWD /tmp/rustc/sdk-target/wasm64-emscripten-probe/debug/deps slop -e -c 'fo
 SLOP rm -rf /tmp/rustc /opt/rust-llvm /opt/rust-sdk/lib/rustlib/src
 
 # Cargo, by the kept compiler and library; the seed's Cargo drives its last build.
-SOURCE /v0.1.6/dist/static/rust/cargo.tar.gz 0254c9333333c4afc6c65b057bfd61d40715c5035aa0bfd84c54d0fd0d09a5fa /tmp/cargo.tar.gz
+SOURCE /v0.1.7/dist/static/rust/cargo.tar.gz 0254c9333333c4afc6c65b057bfd61d40715c5035aa0bfd84c54d0fd0d09a5fa /tmp/cargo.tar.gz
 SLOP gzip -dc /tmp/cargo.tar.gz | tar -xf - -C /
 SLOP rm /tmp/cargo.tar.gz
 SLOP CWD /tmp/cargo/source cargo build -j 4 --offline --bin cargo --target-dir /tmp/cargo/build

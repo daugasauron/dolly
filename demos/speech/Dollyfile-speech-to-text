@@ -6,22 +6,22 @@ REQUIRES HOST threads@0
 
 # speech-to-text, linked against the transcribe package, with the model it
 # reads. Silero VAD tells speech from other sound.
-FROM /v0.1.6/Dollyfile-system 33e5bcf65ef4a634da5dbf8e291a379148e7971aa0411fe1bdaa4e0332f24b94
-INSTALL /v0.1.6/demos/speech/Dollyfile-parakeet 5eebe209f7c64d1c88e661f3389e72803be513aeccf68b5ccb2b32d899d19c52
-USE /v0.1.6/demos/speech/Dollyfile-transcribe 895f06c29d205a75bb83f9d30c33db0b75ef22600c10b42d4cf045aab267f40f
-USE /v0.1.6/Dollyfile-libdolly-microphone 3656fd929351a98805bac8398984ab88cd0c944643d700b6a25f2a66009ce2b2
+FROM /v0.1.7/Dollyfile-system 33e5bcf65ef4a634da5dbf8e291a379148e7971aa0411fe1bdaa4e0332f24b94
+INSTALL /v0.1.7/demos/speech/Dollyfile-parakeet 5eebe209f7c64d1c88e661f3389e72803be513aeccf68b5ccb2b32d899d19c52
+USE /v0.1.7/demos/speech/Dollyfile-transcribe 895f06c29d205a75bb83f9d30c33db0b75ef22600c10b42d4cf045aab267f40f
+USE /v0.1.7/Dollyfile-libdolly-microphone 3656fd929351a98805bac8398984ab88cd0c944643d700b6a25f2a66009ce2b2
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL tar
 REQUIRES HEADER transcribe
 REQUIRES LIB transcribe
-SOURCE /v0.1.6/dist/static/speech/programs.tar 8055dd388ad56c7462112366154bd22838a8593e76bbd275e26a598f8d9e3dcb /tmp/speech/programs.tar
+SOURCE /v0.1.7/dist/static/speech/programs.tar 8055dd388ad56c7462112366154bd22838a8593e76bbd275e26a598f8d9e3dcb /tmp/speech/programs.tar
 SLOP tar -xf /tmp/speech/programs.tar -C /
 SLOP cc -pthread -msimd128 -O2 -Wall -Werror -c /tmp/speech/speech-to-text.c -o /tmp/speech/speech-to-text.o
 SLOP c++ -pthread -msimd128 -O2 /tmp/speech/speech-to-text.o /usr/lib/transcribe/libtranscribe.a \
   /usr/lib/transcribe/libggml.a /usr/lib/transcribe/libggml-cpu.a /usr/lib/transcribe/libggml-base.a -lm -o /usr/bin/speech-to-text
 
-SOURCE /v0.1.6/dist/static/speech/silero-vad.gguf 0d871a800c420fdd5d1b17a3aea4296d1c39608f0ff4a9295eb76457eb1c88e6 /usr/share/dolly/speech/silero-vad.gguf
+SOURCE /v0.1.7/dist/static/speech/silero-vad.gguf 0d871a800c420fdd5d1b17a3aea4296d1c39608f0ff4a9295eb76457eb1c88e6 /usr/share/dolly/speech/silero-vad.gguf
 EXPORTS TOOL   speech-to-text
 EXPORTS FILE   silero-vad          /usr/share/dolly/speech/silero-vad.gguf
 EXPORTS FOLDER transcribe-licenses /usr/share/licenses/transcribe.cpp

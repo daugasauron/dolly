@@ -8,7 +8,7 @@ REQUIRES HOST runtime@0
 # editing its own lines as bc does (-s dc.tty_mode): the terminal has no line
 # discipline, so a program that leaves a line to it never gets one. dc is bc
 # under the name it looks for.
-FROM /v0.1.6/demos/tools/Dollyfile-tools-build f0a23271701bb566fdd11375946b1a4159d15510005f66c9781cf5a2f411eb5c
+FROM /v0.1.7/demos/tools/Dollyfile-tools-build f0a23271701bb566fdd11375946b1a4159d15510005f66c9781cf5a2f411eb5c
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
@@ -19,7 +19,7 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.6/dist/static/tools/bc.tar 4b12b7753ab51bd93bd5948e7a854a80b259a5baab2fd69047f1741c9d02afc7 /tmp/bc.tar
+SOURCE /v0.1.7/dist/static/tools/bc.tar 4b12b7753ab51bd93bd5948e7a854a80b259a5baab2fd69047f1741c9d02afc7 /tmp/bc.tar
 SLOP tar -xf /tmp/bc.tar -C /
 
 FILE /tmp/bc.mk

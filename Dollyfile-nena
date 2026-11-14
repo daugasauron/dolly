@@ -5,14 +5,14 @@ REQUIRES HOST nena@0
 
 # nena lists the host modules of a session and enables or disables them. It
 # works where the image declares nena@0, as default does.
-FROM /v0.1.6/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
-USE /v0.1.6/Dollyfile-libdolly-nena 31a3b848ab27a2d576c200bdb594a4292ab8e1a875c34197f0f6569fb6441add
+FROM /v0.1.7/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
+USE /v0.1.7/Dollyfile-libdolly-nena 31a3b848ab27a2d576c200bdb594a4292ab8e1a875c34197f0f6569fb6441add
 
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.6/dist/static/default/commands/nena.c b036175a8ca396de4647a663fb3d81172177b799562355088b01e32904616f37 /tmp/nena.c
+SOURCE /v0.1.7/dist/static/default/commands/nena.c b036175a8ca396de4647a663fb3d81172177b799562355088b01e32904616f37 /tmp/nena.c
 SLOP cc -O2 /tmp/nena.c -o /bin/nena
 SLOP rm /tmp/nena.c
 EXPORTS TOOL nena

@@ -6,15 +6,15 @@ REQUIRES HOST runtime@0
 # for programs the cc package builds: cc links every client archive in
 # /usr/lib/dolly/process, and a program records clipboard@0 only when it calls
 # the client.
-FROM /v0.1.6/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
+FROM /v0.1.7/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.6/host/clipboard/clipboard.h 823c4b44f5ec42dacd1cf82f4e23ac645f9c7a02f445c9563a30092dee8df63f /usr/include/dolly/clipboard.h
-SOURCE /v0.1.6/host/clipboard/clipboard-abi.h a759a4c10641a58a6102e009d3d861932d5687f6b4c59a530ab98059b1c71363 /usr/include/dolly/clipboard-abi.h
-SOURCE /v0.1.6/host/clipboard/client.c d78a0935fa2521f074c9817ce05ce06dbd78a4091f42f0fb5acb93f8afdba2e4 /tmp/libdolly-clipboard/client.c
+SOURCE /v0.1.7/host/clipboard/clipboard.h 823c4b44f5ec42dacd1cf82f4e23ac645f9c7a02f445c9563a30092dee8df63f /usr/include/dolly/clipboard.h
+SOURCE /v0.1.7/host/clipboard/clipboard-abi.h a759a4c10641a58a6102e009d3d861932d5687f6b4c59a530ab98059b1c71363 /usr/include/dolly/clipboard-abi.h
+SOURCE /v0.1.7/host/clipboard/client.c d78a0935fa2521f074c9817ce05ce06dbd78a4091f42f0fb5acb93f8afdba2e4 /tmp/libdolly-clipboard/client.c
 SLOP cc -O1 -c /tmp/libdolly-clipboard/client.c -o /tmp/libdolly-clipboard/client.o
 SLOP ar rcs /usr/lib/dolly/process/libdolly-clipboard.a /tmp/libdolly-clipboard/client.o
 

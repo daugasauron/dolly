@@ -6,8 +6,8 @@ REQUIRES HOST runtime@0
 # run unix/configure, so the flags say what it would find here. The sources
 # are C of 1990, which -std=gnu89 compiles. zip -T starts unzip, so unzip
 # comes with it.
-FROM /v0.1.6/demos/tools/Dollyfile-tools-build f0a23271701bb566fdd11375946b1a4159d15510005f66c9781cf5a2f411eb5c
-INSTALL /v0.1.6/demos/tools/Dollyfile-unzip 8ddac06aaeb9689a2e77ae94ab457c2c166bf9abcb44f42990ebd0527119d092
+FROM /v0.1.7/demos/tools/Dollyfile-tools-build f0a23271701bb566fdd11375946b1a4159d15510005f66c9781cf5a2f411eb5c
+INSTALL /v0.1.7/demos/tools/Dollyfile-unzip 8ddac06aaeb9689a2e77ae94ab457c2c166bf9abcb44f42990ebd0527119d092
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
@@ -19,7 +19,7 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   unzip
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.6/dist/static/tools/zip30.tar.gz f0e8bb1f9b7eb0b01285495a2699df3a4b766784c1765a8f1aeedf63c0806369 /tmp/zip.tar.gz
+SOURCE /v0.1.7/dist/static/tools/zip30.tar.gz f0e8bb1f9b7eb0b01285495a2699df3a4b766784c1765a8f1aeedf63c0806369 /tmp/zip.tar.gz
 SLOP gzip -dc /tmp/zip.tar.gz | tar -xf - -C /tmp
 
 FILE /tmp/zip.mk

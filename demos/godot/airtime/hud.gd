@@ -157,6 +157,16 @@ func _ready() -> void:
 	label("while turning the mouse in the same direction.", 14, MUTED, lines)
 	label("Amber pads drop on touch. Cyan decks are safe.", 14, INK, lines)
 	panel_last = label("", 14, ACCENT, lines)
+	ignore_mouse(self)
+
+
+# The HUD only shows, and the mouse steers the view: a ColorRect, a Control or a panel stops
+# mouse events by default, and one under the crosshair ate the captured mouse's motion.
+func ignore_mouse(node: Node) -> void:
+	if node is Control:
+		node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children():
+		ignore_mouse(child)
 
 
 func show_state(game: Node) -> void:

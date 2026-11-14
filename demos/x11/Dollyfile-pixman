@@ -6,18 +6,18 @@ REQUIRES HOST runtime@0
 # archive, built by its Meson project as a static library: without the SIMD of
 # other machines; Dolly runs no OpenMP. The build compiles, then installs what
 # it compiled (--no-rebuild: Meson's install step would run the build again).
-FROM /v0.1.6/demos/x11/Dollyfile-x11-build d266f99a2cd6c4470dea11dabd9eb92bf34da4899a638cb3a2795f0b9725efb7
+FROM /v0.1.7/demos/x11/Dollyfile-x11-build d266f99a2cd6c4470dea11dabd9eb92bf34da4899a638cb3a2795f0b9725efb7
 # The tar package reads the pax headers of X.Org's archives.
-USE /v0.1.6/demos/tools/Dollyfile-tar 392b105b765eb389f03ba1732ad49547e32c6eaa1639e9fd1eab64a8dfad6f3c
-USE /v0.1.6/demos/tools/Dollyfile-meson 17d576c4dbd2f295e8fd6c051da7d4c4b860dde9455243e5bec8a7243b274d90
-USE /v0.1.6/demos/zero-ad/Dollyfile-pkgconf c23689c5e826c5143377ee1b66de9a5c2830187fa84d6b7cc9bd4fe63e6d2bba
+USE /v0.1.7/demos/tools/Dollyfile-tar 392b105b765eb389f03ba1732ad49547e32c6eaa1639e9fd1eab64a8dfad6f3c
+USE /v0.1.7/demos/tools/Dollyfile-meson 17d576c4dbd2f295e8fd6c051da7d4c4b860dde9455243e5bec8a7243b274d90
+USE /v0.1.7/demos/zero-ad/Dollyfile-pkgconf c23689c5e826c5143377ee1b66de9a5c2830187fa84d6b7cc9bd4fe63e6d2bba
 REQUIRES TOOL meson
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
 REQUIRES TOOL sed
 REQUIRES TOOL mv
 
-SOURCE /v0.1.6/dist/static/x11/pixman-0.46.4.tar.gz d09c44ebc3bd5bee7021c79f922fe8fb2fb57f7320f55e97ff9914d2346a591c /tmp/pixman.tar.gz
+SOURCE /v0.1.7/dist/static/x11/pixman-0.46.4.tar.gz d09c44ebc3bd5bee7021c79f922fe8fb2fb57f7320f55e97ff9914d2346a591c /tmp/pixman.tar.gz
 SLOP gzip -dc /tmp/pixman.tar.gz | tar -xf - -C /tmp
 SLOP meson setup /tmp/build/pixman /tmp/pixman-0.46.4 --prefix=/usr --libdir=lib \
   --buildtype=release -Ddefault_library=static -Dloongson-mmi=disabled -Dmmx=disabled \

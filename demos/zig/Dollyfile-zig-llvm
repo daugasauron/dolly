@@ -7,10 +7,10 @@ REQUIRES HOST threads@0
 # Zig 0.17 with its LLVM backend: zig-llvm-build's objects linked, as
 # upstream's CMake build links zig2, with Zig's C++ glue (zigcpp) and LLVM,
 # Clang and LLD 22, which the build uses and installers do not get.
-FROM /v0.1.6/demos/zig/Dollyfile-zig-llvm-build 696973076d05c916832b4ce5566f39fc13ab6382330c68012aa5f09542ffc262
-USE /v0.1.6/demos/llvm/Dollyfile-llvm22 6f7b96769aada57302d4c12cbe7c787df2faedc7bed17f2896054535fcd29c26
+FROM /v0.1.7/demos/zig/Dollyfile-zig-llvm-build 696973076d05c916832b4ce5566f39fc13ab6382330c68012aa5f09542ffc262
+USE /v0.1.7/demos/llvm/Dollyfile-llvm22 6f7b96769aada57302d4c12cbe7c787df2faedc7bed17f2896054535fcd29c26
 # Zig links a program for this target with cc (zig-0.17.0-dolly-llvm.patch).
-INSTALL /v0.1.6/Dollyfile-cc dd9c3a1f3e39d395d478e5a07e6a01bee97e16e71f4a583a07fe7f8c2356ba8c
+INSTALL /v0.1.7/Dollyfile-cc dd9c3a1f3e39d395d478e5a07e6a01bee97e16e71f4a583a07fe7f8c2356ba8c
 REQUIRES TOOL   c++
 REQUIRES TOOL   ar
 
@@ -48,7 +48,7 @@ FILE /usr/lib/zig/libc.txt
     darwin_sdk_dir=
 EXPORTS ENV    ZIG_LIBC    /usr/lib/zig/libc.txt
 # Emscripten's headers for that target (demos/zig/prepare-sources.sh).
-SOURCE /v0.1.6/dist/static/zig-llvm/emscripten-headers.tar 4249acab21ed33264dd5a0bde210003c8b1f47b2c6938ff60a7c8766bc0d2484 /tmp/emscripten-headers.tar
+SOURCE /v0.1.7/dist/static/zig-llvm/emscripten-headers.tar 4249acab21ed33264dd5a0bde210003c8b1f47b2c6938ff60a7c8766bc0d2484 /tmp/emscripten-headers.tar
 SLOP tar -xf /tmp/emscripten-headers.tar -C /
 FOLDER /usr/include/wasm64-emscripten
 FILE /usr/share/licenses/zig/LICENSE

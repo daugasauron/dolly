@@ -7,11 +7,11 @@ REQUIRES HOST sockets@0
 # tmux from upstream's release archive over the libevent and libterminfo
 # packages. tmux takes Dolly's port (README.md): a patch and its operating
 # system file.
-FROM /v0.1.6/demos/tools/Dollyfile-tools-build f0a23271701bb566fdd11375946b1a4159d15510005f66c9781cf5a2f411eb5c
-USE /v0.1.6/Dollyfile-libdolly-sockets 21a5b6d8d2dea4fa61305f4af76be2773bc8f92fb4e8419ba985bda01efca52a
-USE /v0.1.6/demos/tmux/Dollyfile-libevent fdfcf570a132568f7aefb35d6d3828bb0986b193cb6f987d11376bbef7b3211f
-USE /v0.1.6/demos/tmux/Dollyfile-libterminfo 9d3697aa11d8bc57cf409f95c5fbeb55702ae39c56ab8e5cda6f8c8495843021
-USE /v0.1.6/Dollyfile-libdolly-pty efe053dd7e7f0c006053f02763ebd5fbf2d9a81da6124a904805a03dbb6abd9c
+FROM /v0.1.7/demos/tools/Dollyfile-tools-build f0a23271701bb566fdd11375946b1a4159d15510005f66c9781cf5a2f411eb5c
+USE /v0.1.7/Dollyfile-libdolly-sockets 21a5b6d8d2dea4fa61305f4af76be2773bc8f92fb4e8419ba985bda01efca52a
+USE /v0.1.7/demos/tmux/Dollyfile-libevent fdfcf570a132568f7aefb35d6d3828bb0986b193cb6f987d11376bbef7b3211f
+USE /v0.1.7/demos/tmux/Dollyfile-libterminfo 9d3697aa11d8bc57cf409f95c5fbeb55702ae39c56ab8e5cda6f8c8495843021
+USE /v0.1.7/Dollyfile-libdolly-pty efe053dd7e7f0c006053f02763ebd5fbf2d9a81da6124a904805a03dbb6abd9c
 
 REQUIRES HEADER libc
 REQUIRES HEADER event
@@ -30,8 +30,8 @@ REQUIRES TOOL sleep
 REQUIRES TOOL tar
 REQUIRES TOOL text-page
 
-SOURCE /v0.1.6/dist/static/tmux/tmux-3.8.tar.gz e79c699c7e949dccd0a4a125e17b8d1261e311b16979dbc8eb34542f3966d82e /tmp/tmux.tar.gz
-SOURCE /v0.1.6/dist/static/tmux/port.tar cc83eaa1e2ae12ac98e2415ebd136650eef0997e840394ff4eb3dfbcb46e0296 /tmp/tmux-port.tar
+SOURCE /v0.1.7/dist/static/tmux/tmux-3.8.tar.gz e79c699c7e949dccd0a4a125e17b8d1261e311b16979dbc8eb34542f3966d82e /tmp/tmux.tar.gz
+SOURCE /v0.1.7/dist/static/tmux/port.tar cc83eaa1e2ae12ac98e2415ebd136650eef0997e840394ff4eb3dfbcb46e0296 /tmp/tmux-port.tar
 SLOP gzip -dc /tmp/tmux.tar.gz | tar -xf - -C /tmp
 SLOP tar -xf /tmp/tmux-port.tar -C /
 SLOP patch -p1 -d /tmp/tmux-3.8 -i /tmp/tmux-3.8/tmux-dolly.patch

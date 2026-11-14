@@ -5,14 +5,14 @@ what it changes under it, and the commands that move it. [Dolly from
 npm](npm.md) is the guide to the packages and [the changelog](npm-changelog.md)
 lists every change. The packages of one project are all of one version.
 
-## From 0.1.5 to 0.1.6
+## From 0.1.5 to 0.1.7
 
 ### The upgrade in short
 
 A project `dolly-build init` made (here `my-pi`):
 
 ```sh
-npm install --save-exact @daugasauron/dolly-build@0.1.6
+npm install --save-exact @daugasauron/dolly-build@0.1.7
 npx dolly-build add my-pi
 sed -i 's|/dolly/src/browser.mjs|/dolly/page/browser.mjs|' public/index.html
 npx dolly-build Dollyfile-my-pi my-pi
@@ -21,7 +21,7 @@ npx dolly-build Dollyfile-my-pi my-pi
 A page that runs a prebuilt image with `boot()`:
 
 ```sh
-npm install --save-exact $(npm pkg get dependencies | grep -o '@daugasauron/[a-z0-9-]*' | sed 's/$/@0.1.6/')
+npm install --save-exact $(npm pkg get dependencies | grep -o '@daugasauron/[a-z0-9-]*' | sed 's/$/@0.1.7/')
 sed -i 's|/dolly/src/browser.mjs|/dolly/page/browser.mjs|' index.html
 ```
 
@@ -108,15 +108,15 @@ Sessions:
 
 ### What changes under an existing project
 
-| What | 0.1.5 | 0.1.6 | What to do |
+| What | 0.1.5 | 0.1.7 | What to do |
 | --- | --- | --- | --- |
 | The runtime's page code | `@daugasauron/dolly/src/browser.mjs` | `@daugasauron/dolly/page/browser.mjs` (`src/` is gone: the package holds `page/`, `site/`, `host/` and `dist/`) | Change the import in the page: `./dolly/page/browser.mjs` in a `dolly-build` site, `./node_modules/@daugasauron/dolly/page/browser.mjs` beside `node_modules`. A bare `import "@daugasauron/dolly"` through an import map or a bundler follows the package's `exports` and needs no change |
-| A recipe's pins | `FROM /v0.1.5/… SHA256`, `INSTALL /v0.1.5/… SHA256` | The same rows name `/v0.1.6/…` and other pins | `npx dolly-build add NAME` writes them |
+| A recipe's pins | `FROM /v0.1.5/… SHA256`, `INSTALL /v0.1.5/… SHA256` | The same rows name `/v0.1.7/…` and other pins | `npx dolly-build add NAME` writes them |
 | The base of `init`'s recipe | `FROM` the `pi-minimal` image | `INSTALL` rows of Pi's packages; no `FROM` | Nothing: a recipe that starts `FROM pi-minimal` builds as before, with `@daugasauron/dolly-image-pi-minimal` installed |
 | Module headers (`<dolly/display.h>`, `input.h`, `download.h`, `upload.h`, `nena.h`, `packages.h`, `pty.h`, `sockets.h` and the others) | In the `cc` package | Each module's header and client library is the package `libdolly-NAME`; `cc` holds none | A recipe that compiles against one: `npx dolly-build add NAME libdolly-display` (and the others it includes); the build stops at the `#include` until then |
 | Pi's host modules | `display`, `input`, `download`, `html` | Also `upload`: `pi-dolly` declares `upload@0` for Pi's `upload` tool | `npx dolly-build add NAME` writes `REQUIRES HOST upload@0` into the recipe and installs `@daugasauron/dolly-host-upload`; without the row the build stops with `/bin/upload uses upload@0: add REQUIRES HOST upload@0`. A page that boots `pi-minimal` itself installs that package |
 | The `default` image | Holds `html` and declares `html@0` | Holds no `html` and does not declare `html@0` | A page that runs `default` no longer needs `@daugasauron/dolly-host-html`. For the `html` command, build a recipe that installs the `html` package |
-| Saved sessions | A save opens on the image it was made on | A save records the runtime's image build ID, which 0.1.6 changed | A 0.1.5 save is not found by the 0.1.6 page: see [Saved sessions](#saved-sessions) |
+| Saved sessions | A save opens on the image it was made on | A save records the runtime's image build ID, which 0.1.7 changed | A 0.1.5 save is not found by the 0.1.7 page: see [Saved sessions](#saved-sessions) |
 | `/workspace` in a recipe | Never kept | Kept as any path | A `FILE /workspace/…` row is now in the image; the page's `public/workspace/` still lies over it at a fresh boot |
 | `dolly-build` without `--browser` | Chrome, or it fails | The first of Chrome, Playwright's Chromium and Firefox | Nothing; a CI job that must use one browser names it |
 | `dolly-build`'s dependencies | The runtime and `playwright-core` | Also Pi's packages (`pi-dolly` and what it installs) | Nothing: npm installs them with it |
@@ -135,7 +135,7 @@ In the project's directory, with its 0.1.5 packages installed:
 1. Install the command at the new version, exactly:
 
    ```sh
-   npm install --save-exact @daugasauron/dolly-build@0.1.6
+   npm install --save-exact @daugasauron/dolly-build@0.1.7
    ```
 
 2. Let it move the rest. `add` installs every `@daugasauron` package of
@@ -169,17 +169,17 @@ In the project's directory, with its 0.1.5 packages installed:
    python3 -m http.server -d my-pi -b 127.0.0.1 8080
    ```
 
-The project now runs on 0.1.6 as it was. The rest is optional, each on its
+The project now runs on 0.1.7 as it was. The rest is optional, each on its
 own:
 
 - **Skills as directories.** Move each skill's `FILE` rows out of the recipe
   into `public/skills/NAME/` (the bodies without their four spaces), and have
   the page write them: in the page's script, the block that fetches
-  `workspace.json` becomes the loop of 0.1.6's `main.mjs` over `workspace` and
+  `workspace.json` becomes the loop of 0.1.7's `main.mjs` over `workspace` and
   `skills`. The simplest way to get that file is the next point.
 - **The page without inline code.** In an empty directory, `npm install
-  @daugasauron/dolly-build@0.1.6` and `npx dolly-build init my-pi` write
-  0.1.6's `public/index.html`, `main.mjs`, `page.css` and `icon.svg`, and
+  @daugasauron/dolly-build@0.1.7` and `npx dolly-build init my-pi` write
+  0.1.7's `public/index.html`, `main.mjs`, `page.css` and `icon.svg`, and
   `.github/workflows/my-pi.yml`. Copy them into the project, and carry your
   policy rules from the old `index.html` into `main.mjs`. `theme.json` and
   `workspace/` stay as they are.
@@ -193,7 +193,7 @@ own:
 1. Install every Dolly package of the page at the new version:
 
    ```sh
-   npm install --save-exact $(npm pkg get dependencies | grep -o '@daugasauron/[a-z0-9-]*' | sed 's/$/@0.1.6/')
+   npm install --save-exact $(npm pkg get dependencies | grep -o '@daugasauron/[a-z0-9-]*' | sed 's/$/@0.1.7/')
    ```
 
 2. Change the import of the runtime in the page (and anywhere else it is
@@ -206,7 +206,7 @@ own:
 3. A page that runs `pi-minimal` also installs the module Pi gained:
 
    ```sh
-   npm install --save-exact @daugasauron/dolly-host-upload@0.1.6
+   npm install --save-exact @daugasauron/dolly-host-upload@0.1.7
    ```
 
    A page that runs `default` and listed its modules by hand may drop
@@ -220,20 +220,20 @@ sends the same headers.
 
 A save is kept in the browser, for the page's origin and the version that made
 it, and opens only on a runtime with the image build ID of the one that made
-it. 0.1.6's is another than 0.1.5's (the seed and the process contracts
+it. 0.1.7's is another than 0.1.5's (the seed and the process contracts
 changed). The upgraded page does not find a session a 0.1.5 page saved:
 `?session=NAME` answers `Session 'NAME' was not found in this browser.`
 
 So get the files you want to keep out before the upgrade, on the 0.1.5 page:
 `download FILE` from the shell where the image has it (`default` does), or
 Pi's download tool. After the upgrade, `public/workspace/` puts files into a
-fresh start, and Save makes a save that 0.1.6 opens again.
+fresh start, and Save makes a save that 0.1.7 opens again.
 
 Dolly's own site lists saves at `/sessions/`, where **Recover files** copies
 an older save's files into a new session; a page of your own has that list
 only if it names a `site` that serves those pages. Going back is not a way
 out that was found to work: the 0.1.5 site served again from the same address
-did not open its save in a browser that had visited the 0.1.6 site in
+did not open its save in a browser that had visited the 0.1.7 site in
 between (once, in Chrome).
 
 ### Checks
@@ -252,14 +252,14 @@ between (once, in Chrome).
 A project made with 0.1.5 from the public registry (2026-11-14: `init my-pi
 git python numpy matplotlib`, with a C tool that includes `<dolly/display.h>`,
 a skill as `FILE` rows and a file in the workspace), upgraded to the
-0.1.6-rc.0 packages by the steps above as written (with `add` as 0.1.6 has
+0.1.7-rc.0 packages by the steps above as written (with `add` as 0.1.7 has
 it: rc.0's left `upload@0` out of a recipe that starts `FROM` an image),
 built with Chrome 156, and
 its site served by `python3 -m http.server`. Times are from navigation, on one
 16-core desktop that ran other builds, in headless Chrome 156 and Playwright's
 Firefox 155; each first visit in a fresh profile.
 
-| | 0.1.5 | 0.1.6-rc.0 |
+| | 0.1.5 | 0.1.7-rc.0 |
 | --- | --- | --- |
 | Chrome, first visit: the page ready / Pi's screen | 4.8 s / 6.9 s | 1.5 s / 3.4 s |
 | Chrome, second visit | 5.3 s / 8.1 s | 1.2 s / 3.5 s |
@@ -281,6 +281,6 @@ above: it boots in both browsers with the nine modules the image declares,
 `html` is no longer a command, and its 0.1.5 save is not found.
 
 Not measured: build times against each other (the machine was busy: 54 s for
-the 0.1.5 build, 95 s for the 0.1.6 one), pnpm and Yarn, and the optional
+the 0.1.5 build, 95 s for the 0.1.7 one), pnpm and Yarn, and the optional
 steps (skills as directories, the page without inline code, a recipe of
 packages) on this project.

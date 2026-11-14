@@ -129,7 +129,7 @@ is a static site, and `init` writes the workflow that builds it in CI.
 [Dolly from npm](docs/npm.md) is the guide: the project's files, tools,
 skills, the policy, CI, serving and updating; the
 [npm changelog](docs/npm-changelog.md) lists what changed in the packages, and
-[Upgrading](docs/npm-upgrading.md) moves a 0.1.5 project to 0.1.6.
+[Upgrading](docs/npm-upgrading.md) moves a 0.1.5 project to 0.1.7.
 [Data Pi](demos/pi/data-pi/README.md) is such a project, and
 [An agent in place of a web frontend](docs/agent-frontend.md) goes on from
 there: your backend's API, your model provider and how Pi starts.

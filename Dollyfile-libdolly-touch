@@ -6,15 +6,15 @@ REQUIRES HOST runtime@0
 # programs the cc package builds: cc links every client archive in
 # /usr/lib/dolly/process, and a program records touch@0 only when it calls the
 # client.
-FROM /v0.1.6/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
+FROM /v0.1.7/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.6/host/touch/touch.h e7d7e3acf0378afb216842468a38f553d89915cd8d1ba25752358500a8961773 /usr/include/dolly/touch.h
-SOURCE /v0.1.6/host/touch/touch-abi.h f3d2206411225f1925adcc0c04815f7efcaf8f011c5aad35fd1a4d7313e5198a /usr/include/dolly/touch-abi.h
-SOURCE /v0.1.6/host/touch/client.c c8fc5a30f621312694292785991c38ca2179f1cf30b0ed947ec1287270be98ac /tmp/libdolly-touch/client.c
+SOURCE /v0.1.7/host/touch/touch.h e7d7e3acf0378afb216842468a38f553d89915cd8d1ba25752358500a8961773 /usr/include/dolly/touch.h
+SOURCE /v0.1.7/host/touch/touch-abi.h f3d2206411225f1925adcc0c04815f7efcaf8f011c5aad35fd1a4d7313e5198a /usr/include/dolly/touch-abi.h
+SOURCE /v0.1.7/host/touch/client.c c8fc5a30f621312694292785991c38ca2179f1cf30b0ed947ec1287270be98ac /tmp/libdolly-touch/client.c
 SLOP cc -O1 -c /tmp/libdolly-touch/client.c -o /tmp/libdolly-touch/client.o
 SLOP ar rcs /usr/lib/dolly/process/libdolly-touch.a /tmp/libdolly-touch/client.o
 

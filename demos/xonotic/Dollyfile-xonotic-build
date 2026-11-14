@@ -9,18 +9,18 @@ REQUIRES HOST input@0
 REQUIRES HOST touch@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.6/Dollyfile-system-tools 69127104c12ae52e00d0e0a8787c3c99ece25f59a2c382fc9c811d66a090e5ec
-INSTALL /v0.1.6/demos/sdl2/Dollyfile-sdl2 0cb3d31f4b0eb87610b9d1d5956d1adbc575e67c662b9b8f7d8d50183da65333
+FROM /v0.1.7/Dollyfile-system-tools 69127104c12ae52e00d0e0a8787c3c99ece25f59a2c382fc9c811d66a090e5ec
+INSTALL /v0.1.7/demos/sdl2/Dollyfile-sdl2 0cb3d31f4b0eb87610b9d1d5956d1adbc575e67c662b9b8f7d8d50183da65333
 # FreeType (with its libpng) for the client's fonts, libjpeg for its textures,
 # Vorbis (with its Ogg) for its sounds.
-INSTALL /v0.1.6/demos/xonotic/Dollyfile-libvorbis e096e811ce3b09ac43ccae40dc47e8823d97c46a5540732058f28a51e5da928b
-INSTALL /v0.1.6/demos/xonotic/Dollyfile-libjpeg 18ef3343607565fa359269403c975ff687c6ae154554c111427dad1861294752
-INSTALL /v0.1.6/demos/zero-ad/Dollyfile-freetype a637b97200e1ceeb75232ea15cd62810b10ebd1dc08aef8222012a5cd94c24e3
+INSTALL /v0.1.7/demos/xonotic/Dollyfile-libvorbis e096e811ce3b09ac43ccae40dc47e8823d97c46a5540732058f28a51e5da928b
+INSTALL /v0.1.7/demos/xonotic/Dollyfile-libjpeg 18ef3343607565fa359269403c975ff687c6ae154554c111427dad1861294752
+INSTALL /v0.1.7/demos/zero-ad/Dollyfile-freetype a637b97200e1ceeb75232ea15cd62810b10ebd1dc08aef8222012a5cd94c24e3
 # gmqcc, which compiles the game logic.
-INSTALL /v0.1.6/demos/xonotic/Dollyfile-gmqcc c1e46b42aeaa21c1fe45092bc758132f7d9edbdc876203b05ee02b31d09109ac
+INSTALL /v0.1.7/demos/xonotic/Dollyfile-gmqcc c1e46b42aeaa21c1fe45092bc758132f7d9edbdc876203b05ee02b31d09109ac
 # The gpu@0 client the render path draws with, and its shaders.
-INSTALL /v0.1.6/Dollyfile-libdolly-gpu 4e414e02d7bdbdb758df4be150f49ff2223d992b07249a67da2fca57b291ad88
-INSTALL /v0.1.6/demos/xonotic/Dollyfile-xonotic-shaders 5375606004924682c7933177712b61f63727772043e7c08324ce70e60a3ccae2
+INSTALL /v0.1.7/Dollyfile-libdolly-gpu 4e414e02d7bdbdb758df4be150f49ff2223d992b07249a67da2fca57b291ad88
+INSTALL /v0.1.7/demos/xonotic/Dollyfile-xonotic-shaders 5375606004924682c7933177712b61f63727772043e7c08324ce70e60a3ccae2
 REQUIRES HEADER cpp
 REQUIRES HEADER gpu
 REQUIRES HEADER sdl2
@@ -37,7 +37,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL gzip
 REQUIRES TOOL rm
 
-SOURCE /v0.1.6/dist/static/xonotic/source.tar.gz d7ebe696610cbf8c235c3b4bdb6b062efa9c2cc85beb0a952117aa529f71e534 /tmp/xonotic/source.tar.gz
+SOURCE /v0.1.7/dist/static/xonotic/source.tar.gz d7ebe696610cbf8c235c3b4bdb6b062efa9c2cc85beb0a952117aa529f71e534 /tmp/xonotic/source.tar.gz
 SLOP gzip -dc /tmp/xonotic/source.tar.gz | tar -xf - -C /
 # __DATE__ and __TIME__ are the newest file time of Xonotic 0.8.6's source release, for reproducible builds.
 SLOP SOURCE_DATE_EPOCH=1687230584 make -f /usr/src/dolly/xonotic/Makefile
