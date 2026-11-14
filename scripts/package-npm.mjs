@@ -181,13 +181,14 @@ const { devDependencies } = JSON.parse(await readFile(resolve(projectDir, "packa
 const piPackages = await installedBy("pi-minimal");
 const unlistedPi = piPackages.filter(needed => !listed.includes(needed));
 if (unlistedPi.length) throw new Error(`config/npm-images.txt: dolly-build installs ${unlistedPi.join(", ")}, which it does not list`);
-// The published packages and the device host modules each declares, which init and add
-// install with a package the project lacks.
+// The published packages and images and the device host modules each declares, which init
+// and add install with a package the project lacks or a recipe that names them.
 const catalog = JSON.parse(await imageRegistryJson(projectDir, await selectImageDefinitions(definitions, listed.join(",")))).images;
 await mkdir(join(out, "dolly-build"), { recursive: true });
-await writeFile(join(out, "dolly-build/packages.json"), `${JSON.stringify(Object.fromEntries(catalog
-  .filter(record => record.role === "package" && listed.includes(record.image))
-  .map(record => [record.image, record.hostRequirements.map(value => value.split("@")[0]).filter(name => deviceModules.includes(name))])), null, 1)}\n`);
+const devicesOf = role => Object.fromEntries(catalog.filter(record => record.role === role && listed.includes(record.image))
+  .map(record => [record.image, record.hostRequirements.map(value => value.split("@")[0]).filter(name => deviceModules.includes(name))]));
+await writeFile(join(out, "dolly-build/packages.json"),
+  `${JSON.stringify({ packages: devicesOf("package"), images: devicesOf("application") }, null, 1)}\n`);
 tarballs.push(await writePackage(join(out, "dolly-build"), [...buildFiles, "LICENSE"].map(file => [file, file]), {
   name: `${scope}/dolly-build`, license: "MIT", bin: { "dolly-build": "scripts/dolly-build.mjs" },
   dependencies: { [`${scope}/dolly`]: version, "playwright-core": devDependencies["playwright-core"],

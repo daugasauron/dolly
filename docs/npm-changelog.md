@@ -25,7 +25,7 @@ A project in fewer steps:
   stopped at the first package that was not installed.
 - `dolly-build add NAME [PACKAGE…]` puts packages into an existing recipe,
   writes every row's installed pin, and declares and installs the host modules
-  the recipe's packages have gained since. Before, a package added later needed its
+  the recipe's packages, and the image it starts `FROM`, have gained since. Before, a package added later needed its
   row and SHA-256 written by hand, and after an update of the packages the
   only source of the new pins was `init` in an empty directory.
 - Skills are directories under `public/skills/`, a `SKILL.md` with its scripts

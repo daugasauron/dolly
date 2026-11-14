@@ -252,7 +252,9 @@ between (once, in Chrome).
 A project made with 0.1.5 from the public registry (2026-11-14: `init my-pi
 git python numpy matplotlib`, with a C tool that includes `<dolly/display.h>`,
 a skill as `FILE` rows and a file in the workspace), upgraded to the
-0.1.6-rc.0 packages by the steps above as written, built with Chrome 156, and
+0.1.6-rc.0 packages by the steps above as written (with `add` as 0.1.6 has
+it: rc.0's left `upload@0` out of a recipe that starts `FROM` an image),
+built with Chrome 156, and
 its site served by `python3 -m http.server`. Times are from navigation, on one
 16-core desktop that ran other builds, in headless Chrome 156 and Playwright's
 Firefox 155; each first visit in a fresh profile.
