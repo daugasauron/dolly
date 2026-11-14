@@ -54,17 +54,19 @@ void fragment() {
 	// A vein of crystal follows a contour of a noise: pale by day, alight at night, and the
 	// light runs along it.
 	float contour = abs(noise(p / 46.0 + vec2(300.0, 41.0)) - 0.5);
-	float vein = (1.0 - smoothstep(0.5, 1.0, contour / (0.009 + 0.012 * far))) * (1.0 - sand) * (1.0 - snow);
+	float vein = (1.0 - smoothstep(0.5, 1.0, contour / (0.008 + 0.005 * far))) * (1.0 - sand) * (1.0 - snow) * (1.0 - 0.6 * bare);
 	vec3 vein_colour = mix(vec3(0.05, 0.8, 1.0), vec3(1.0, 0.15, 0.7), smoothstep(0.42, 0.58, here.z));
 	float run = 0.55 + 0.45 * sin(grain * 2.0 + (p.x + p.y) * 0.07 - clock * 1.8);
 	colour = mix(colour, vec3(0.5, 0.62, 0.68), vein * 0.12 * (1.0 - far) * (1.0 - bare));
 
-	ALBEDO = colour * cloud_shade(world);
-	EMISSION = vein_colour * vein * run * (0.04 + 2.4 * night) + vec3(1.0, 0.5, 0.12) * pulse_light(p) * (1.0 + 1.8 * night) * (0.6 + 0.6 * grain);
-	ROUGHNESS = mix(mix(0.9, 0.7, bare), 0.3, max(max(vein * night, snow * 0.6), sand * 0.5));
-	SPECULAR = 0.35;
 	// The grain of the ground, which the grid is too coarse to carry, tilts the light near by.
 	float fine = fbm(p * 0.45 + vec2(70.0, 3.0), 3);
+	// Cracks run through bare rock.
+	colour *= 1.0 - 0.25 * bare * (1.0 - snow) * (1.0 - far) * (1.0 - smoothstep(0.0, 0.02, abs(fine - 0.5)));
 	vec2 tilt = (vec2(fbm(p * 0.45 + vec2(70.4, 3.0), 3), fbm(p * 0.45 + vec2(70.0, 3.4), 3)) - fine) * (0.5 + 1.6 * bare) * (1.0 - far) * (1.0 - 0.6 * snow);
+	ALBEDO = colour * cloud_shade(world);
+	EMISSION = vein_colour * vein * run * (0.02 + 1.7 * night) + vec3(1.0, 0.5, 0.12) * pulse_light(p) * (1.0 + 1.8 * night) * (0.6 + 0.6 * grain);
+	ROUGHNESS = mix(mix(0.9, 0.7, bare), 0.3, max(max(vein * night, snow * 0.6), sand * 0.5));
+	SPECULAR = 0.35;
 	NORMAL = normalize((VIEW_MATRIX * vec4(normalize(normal + vec3(tilt.x, 0.0, tilt.y)), 0.0)).xyz);
 }

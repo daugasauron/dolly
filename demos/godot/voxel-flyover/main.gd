@@ -19,7 +19,7 @@ const DAY_SECONDS := 120.0
 const CRUISE := 30.0
 const BOOST := 26.0
 const CEILING := 190.0
-const BEACON_PLOT := 220.0
+const BEACON_PLOT := 180.0
 const BEACON_REACH := 8.0
 const START := Vector2(2000, -400)
 const WAKE := 64 # the places the wake keeps
@@ -63,7 +63,7 @@ var lit := {} # plot -> where it stands (x, y) and the clock when it was lit (z)
 var helm := false # the player's, after Enter
 var hint_until := 0.0 # the keys show for a while after the board changes hands
 var day := 0.24
-var heading := 0.0
+var heading := PI / 2.0 # east, over the bay
 var turn := 0.0
 var climb := 0.0
 var speed := CRUISE
@@ -372,9 +372,10 @@ func build_flyer() -> void:
 	trail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# The headlight under the nose, and the searchlight it turns on the ground at night.
 	var lantern := part(flyer, ball, paint(Color(1.0, 0.72, 0.3), 0.3, 6.0), Vector3(0, -0.2, -2.6), Vector3.ZERO, Vector3(0.3, 0.3, 0.3))
-	lamp.light_color = Color(0.5, 0.8, 1.0)
-	lamp.omni_range = 9.0
-	lamp.position = Vector3(0, -0.3, 3.2)
+	# A lamp of its own keeps the corgi in sight at night.
+	lamp.light_color = Color(1.0, 0.9, 0.75)
+	lamp.omni_range = 7.0
+	lamp.position = Vector3(-1.6, 3.0, -1.8)
 	flyer.add_child(lamp)
 	searchlight.light_color = Color(1.0, 0.86, 0.6)
 	searchlight.spot_range = 150.0
@@ -564,7 +565,7 @@ func fly(delta: float) -> void:
 static func beacon_place(plot: Vector2i) -> Variant:
 	var p := (Vector2(plot) + Vector2(0.15, 0.15) + Vector2(Terrain.cell_hash(plot.x, plot.y), Terrain.cell_hash(plot.y + 57, plot.x - 31)) * 0.7) * BEACON_PLOT
 	var ground := Terrain.height(p)
-	if ground < Terrain.SEA + 2.0 or ground > Terrain.SEA + 90.0:
+	if ground < Terrain.SEA + 2.0 or ground > Terrain.SEA + 130.0:
 		return null
 	return Vector3(p.x, ground + 16.0, p.y)
 
@@ -706,7 +707,7 @@ func set_day() -> void:
 	environment.ambient_light_energy = lerpf(1.0, 0.55, night)
 	environment.volumetric_fog_albedo = Color(0.75, 0.82, 1.0).lerp(warm, 0.5)
 	searchlight.light_energy = 14.0 * night
-	lamp.light_energy = 1.0 + 3.0 * night
+	lamp.light_energy = 0.2 + 2.2 * night
 
 
 ## For automated runs: the frame rate once the first frames' pipelines are made, the time the
