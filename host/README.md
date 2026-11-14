@@ -37,7 +37,8 @@ a page of the site names those its route uses ([`site.mjs`](../site/site.mjs)).
 | `seed` | A script the build runs in the toolchain container that writes `build/process-sysroot-parts/NAME/`, the module's part of the process sysroot, which the seed holds as `NAME/`: threads@0's is the threaded libc `cc -pthread` links, with the module's client; optional |
 | `package` | The package whose recipe installs the module's headers and clients, which the seed then leaves out; absent when the seed holds them |
 | `fixtures` | A Node script the build runs, given the toolchain container's command, once the contracts are assembled: it builds the module's contract fixtures into `build/` for its tests and checks them (dso@0's hosts and libraries); optional |
-| `requested` | `true` on a module whose client defines names of libc's (`sockets`, `pty`): `cc` links it only when a program asks (`-ldolly-NAME`); absent otherwise |
+| `requested` | `true` on a module whose client defines names of libc's (`sockets`, `pty`): `cc` links it only when a program asks (`-ldolly-NAME`), so its package installs it in `/usr/lib`, not among the clients `cc` links unasked (`/usr/lib/dolly/process`); absent otherwise |
+| `ccExports` | What `cc` exports from a program built with an option: `{"rdynamic": [...]}` (dso@0's allocator, which selects its client), `{"pthread": [...]}` (threads@0's entry); the process sysroot holds each list as `OPTION.exports`; optional |
 
 The core (the kernel, the supervisor, the Workers, `boot()` and the registry)
 names no module but `runtime@0`. A module attaches to it only at these points,

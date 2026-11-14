@@ -830,19 +830,17 @@ bool link_side_module(const std::string &output,
 }
 
 // Every host module's client archive in the process sysroot. The linker pulls
-// only referenced members, so a program records only the modules it uses.
-// Not sockets@0's or pty@0's: each client defines names of libc's (the socket
-// calls, openpty), which a program may reference for a path it never takes
-// here, so it is linked only when the program asks with -ldolly-sockets or
-// -ldolly-pty. That argument comes before these archives, and the linker
-// takes a name from the first archive that has it.
+// only referenced members, so a program records only the modules it uses. A
+// client that defines names of libc's (sockets@0's socket calls, pty@0's
+// openpty) is installed in /usr/lib instead, linked only when a program asks
+// (-ldolly-sockets): that argument comes before these archives, and the
+// linker takes a name from the first archive that has it.
 std::vector<std::string> host_client_libraries() {
   std::vector<std::string> libraries;
   DIR *directory = opendir(kProcessSysroot);
   while (dirent *entry = directory == nullptr ? nullptr : readdir(directory)) {
     const std::string name = entry->d_name;
     if (name.size() > 11 && name.rfind("libdolly-", 0) == 0 && name != "libdolly-process.a" &&
-        name != "libdolly-sockets.a" && name != "libdolly-pty.a" &&
         name.compare(name.size() - 2, 2, ".a") == 0) {
       libraries.push_back("-l" + name.substr(3, name.size() - 5));
     }
@@ -850,6 +848,29 @@ std::vector<std::string> host_client_libraries() {
   if (directory != nullptr) closedir(directory);
   std::sort(libraries.begin(), libraries.end());
   return libraries;
+}
+
+// The symbols a file of the process sysroot lists, one a line
+// (scripts/prepare-process-sysroot.sh); a file that lists none is an error.
+bool read_symbols(const std::string &path, std::vector<std::string> &symbols) {
+  auto buffer = llvm::MemoryBuffer::getFile(path, false, false);
+  if (!buffer) {
+    std::fprintf(stderr, "dolly-cc: cannot read %s: %s\n", path.c_str(),
+                 buffer.getError().message().c_str());
+    return false;
+  }
+  const size_t before = symbols.size();
+  for (llvm::StringRef rest = buffer.get()->getBuffer(); !rest.empty();) {
+    auto [line, remainder] = rest.split('\n');
+    rest = remainder;
+    line = line.trim();
+    if (!line.empty()) symbols.push_back(line.str());
+  }
+  if (symbols.size() == before) {
+    std::fprintf(stderr, "dolly-cc: %s lists no symbol\n", path.c_str());
+    return false;
+  }
+  return true;
 }
 
 bool link_process_executable(const std::string &output,
@@ -886,36 +907,19 @@ bool link_process_executable(const std::string &output,
   };
   arguments.push_back(export_dynamic ? "--export-dynamic"
                                      : "--no-export-dynamic");
-  if (pthread) arguments.push_back("--export=dolly_thread_start");
   if (strip_debug) arguments.push_back("--strip-debug");
-  if (export_dynamic) {
-    // A host of loadable modules: this export selects the dso@0 client and
-    // its record from libdolly-dso.a. Without it dlopen is libc's refusal.
-    arguments.push_back("--export=__dolly_dso_allocate");
-    auto symbols = llvm::MemoryBuffer::getFile(
-        kProcessDynamicProviderSymbols, false, false);
-    if (!symbols) {
-      std::fprintf(stderr,
-                   "dolly-cc: cannot read process runtime provider symbols: %s\n",
-                   symbols.getError().message().c_str());
-      return false;
-    }
-    size_t count = 0;
-    llvm::StringRef contents = symbols.get()->getBuffer();
-    while (!contents.empty()) {
-      auto [line, remainder] = contents.split('\n');
-      contents = remainder;
-      line = line.trim();
-      if (line.empty()) continue;
-      arguments.push_back("--export-if-defined=" + line.str());
-      count++;
-    }
-    if (count == 0) {
-      std::fputs("dolly-cc: process runtime provider symbol set is empty\n",
-                 stderr);
-      return false;
-    }
-  }
+  // What the host modules export from a program built with -pthread or
+  // -rdynamic (their manifests' ccExports): threads@0's entry, and dso@0's
+  // allocator, which selects its client from libdolly-dso.a (without it dlopen
+  // is libc's refusal).
+  std::vector<std::string> exports;
+  if (pthread && !read_symbols(std::string(kProcessSysroot) + "/pthread.exports", exports)) return false;
+  if (export_dynamic && !read_symbols(std::string(kProcessSysroot) + "/rdynamic.exports", exports)) return false;
+  for (const std::string &symbol : exports) arguments.push_back("--export=" + symbol);
+  // A host of loadable modules exports the runtime its modules share.
+  std::vector<std::string> provided;
+  if (export_dynamic && !read_symbols(kProcessDynamicProviderSymbols, provided)) return false;
+  for (const std::string &symbol : provided) arguments.push_back("--export-if-defined=" + symbol);
   arguments.insert(arguments.end(), inputs.begin(), inputs.end());
   arguments.insert(arguments.end(), {
       sysroot + "/libdolly-process.a",

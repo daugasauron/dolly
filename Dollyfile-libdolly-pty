@@ -4,7 +4,8 @@ REQUIRES HOST runtime@0
 
 # The pty@0 module's header and client (pseudo-terminals), for programs the cc
 # package builds: cc links it when a program asks with -ldolly-pty, since it
-# defines libc's openpty.
+# defines libc's openpty; so it is in /usr/lib, not among the clients cc links
+# unasked (/usr/lib/dolly/process).
 FROM /v0.1.6/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
 REQUIRES HEADER libc
 REQUIRES TOOL ar
@@ -15,9 +16,9 @@ SOURCE /v0.1.6/host/pty/pty.h 19659149489e27ccec526807bfebe90f1423440acaaa314bfa
 SOURCE /v0.1.6/host/pty/pty-abi.h e048f616d6b5bbc44caee1eeaba55f6bef7e2ffebfbabe58e3ac53322d7651d1 /usr/include/dolly/pty-abi.h
 SOURCE /v0.1.6/host/pty/client.c 3d657d3dad30591919a51c1c1004d4ffa965bb1ae7b8bef2366d502eac634070 /tmp/libdolly-pty/client.c
 SLOP cc -O1 -c /tmp/libdolly-pty/client.c -o /tmp/libdolly-pty/client.o
-SLOP ar rcs /usr/lib/dolly/process/libdolly-pty.a /tmp/libdolly-pty/client.o
+SLOP ar rcs /usr/lib/libdolly-pty.a /tmp/libdolly-pty/client.o
 
 EXPORTS HEADER pty     /usr/include/dolly/pty.h
 EXPORTS HEADER pty-abi /usr/include/dolly/pty-abi.h
-EXPORTS LIB    dolly-pty /usr/lib/dolly/process/libdolly-pty.a
+EXPORTS LIB    dolly-pty /usr/lib/libdolly-pty.a
 SLOP rm -rf /tmp/libdolly-pty

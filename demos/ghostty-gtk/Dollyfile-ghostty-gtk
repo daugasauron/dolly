@@ -93,7 +93,7 @@ FILE /tmp/ghostty-cc/cc.c
     }
 SLOP cc -O1 /tmp/ghostty-cc/cc.c -o /tmp/ghostty-cc/cc
 # Ghostty's build finds libdolly-sockets and libdolly-pty under a prefix's lib.
-SLOP mkdir -p /tmp/ghostty-prefix && ln -s /usr/lib/dolly/process /tmp/ghostty-prefix/lib
+SLOP mkdir -p /tmp/ghostty-prefix && ln -s /usr/lib /tmp/ghostty-prefix/lib
 
 SOURCE /v0.1.6/dist/static/ghostty-gtk/ghostty.tar.gz f11c48d17b3237e5f8590f6df96a61eac3f5abade37d1b52aaf75f5611600077 /tmp/ghostty.tar.gz
 SLOP gzip -dc /tmp/ghostty.tar.gz | tar -xf - -C /

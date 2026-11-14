@@ -242,6 +242,8 @@ rm -rf -- "${project_dir}/build/process-sysroot-parts"
 while read -r seed; do "${container[@]}" bash "${seed}"; done < <(node scripts/host-modules.mjs seed)
 mapfile -t client_libraries < <(node scripts/host-modules.mjs client | while read -r module _; do
   packaged "${module}" || echo "libdolly-${module}.a"; done | uniq)
+# What cc exports from a program built with -rdynamic or -pthread (the manifests' ccExports).
+for option in rdynamic pthread; do node scripts/host-modules.mjs exports "${option}" > "build/${option}.exports"; done
 process_sysroot_container_dir="$("${container[@]}" ./scripts/prepare-process-sysroot.sh "${client_libraries[@]}")"
 
 node scripts/dolly-abi.mjs stamp-process \

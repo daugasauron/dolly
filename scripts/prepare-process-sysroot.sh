@@ -52,6 +52,15 @@ for library in "${host_libraries[@]}"; do
   cp -- "${project_dir}/build/${library}" "${staging}/${library}"
 done
 cp -- "${reserved_libc_symbols}" "${staging}/libc-provider.symbols"
+# What cc exports from a program built with -rdynamic or -pthread, which build.sh
+# writes from the host module manifests (ccExports).
+for option in rdynamic pthread; do
+  if [[ ! -s "${project_dir}/build/${option}.exports" ]]; then
+    echo "dolly: no module exports for -${option}: build/${option}.exports" >&2
+    exit 1
+  fi
+  cp -- "${project_dir}/build/${option}.exports" "${staging}/${option}.exports"
+done
 # The modules' parts (their manifests' `seed`): build/process-sysroot-parts/NAME/ is NAME/.
 parts=()
 if [[ -d "${project_dir}/build/process-sysroot-parts" ]]; then
@@ -135,6 +144,8 @@ rm -- "${staging}/.libc-defined.symbols"
     "${host_libraries[@]}" \
     libc-provider.symbols \
     dynamic-provider.symbols \
+    rdynamic.exports \
+    pthread.exports \
     "${part_files[@]}"
 ) >"${staging}/SHA256SUMS"
 
