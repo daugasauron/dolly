@@ -17,7 +17,7 @@ one (number of things hit)."
 Branch `feature/flyover-4` (`work/flyover4`, from `v0.1.6`). Brief:
 `work/briefs-2026-11-15/flyover4.md`. Version 3 is `tasks/20261114-081432-flyover-striking`.
 
-## State (2026-11-15, 04:30)
+## State (2026-11-15, 04:45)
 
 Done and committed (`dc773fcfe`, `a867d01c1`, `dcd36b2db`): the pelican on its bicycle, mouse look
 with a captured pointer, the score alone on the screen, and the smoothness work below. The game's
@@ -91,7 +91,7 @@ Each was seen on the frames named, in version 3 as shipped unless it says otherw
 | The camera rose and fell with the ground under it | events at 16.4 and 16.8 s | A hard floor 6 units over the ground at the camera's place | The highest ground under and up to 45 units ahead lifts it, by degrees |
 | A turn of the view cut through the flyer (new with mouse look) | the look test's frames | The camera's place approached its goal along a straight line | It follows the flyer's place and heading a little late, and turns about it exactly |
 | A beacon changed colour and brightness at once when lit | spikes at each lighting | The beacon was rebuilt | It takes its light over about a second |
-| A hitch at each lighting | 22,050 samples of the chime made in script as it rang | | The six notes are made before the flight |
+| A beacon's chime was made as it was lit | by reading: 22,050 samples in a script's loop, in the frame | | The six notes are made before the flight |
 | A beacon's shaft or crystal, or a tree, filled the screen for some frames as the camera flew through | events at 23 s (capture), 55.3 s | | They thin out before the camera |
 | Far shafts and veins flickered as lines thinner than a pixel; the wakes seen on edge were bright lines | heat of the bursts | | A width of a pixel or a few, fainter in proportion; the wake fades as it turns its edge |
 | The ground, sea, crowns and fur shimmered where their detail was finer than a pixel | slow bursts | Noise, flowers, ripples, clumps and hairs sampled once a pixel | Each fades to its mean by the size of the pixel on its surface |
@@ -105,26 +105,30 @@ Not a fault of the platform: a material's uniform set every frame reaches the sc
 
 ## Measurements
 
-Version 3 is `v0.1.6`'s game; "now" is the commit named. Chrome and Firefox draw the same frames at
-a fixed step (mean difference of 87 frames 0.016/255), so one row serves both unless it says so.
+Version 3 is `v0.1.6`'s game, each measure on its own flight and camera; "now" is `dcd36b2db`.
+Chrome and Firefox draw the same frames at a fixed step (mean difference of 87 frames 0.016/255,
+and the same spikes and events to the tile), so one row serves both unless it says so.
 
 | Measure | Version 3 | Now |
 | --- | --- | --- |
-| Spikes over the flight (tiles, frames with one) | 350 in 117 | 80 in 77 (`a867d01c1`), 3 of them of two tiles, none of more |
-| Events of 8 tiles or more | 16 | 8: the six changes of view and two turns toward a beacon, and the flight through a beacon at 55.3 s |
-| Tile jumps | 5,902 in 722 frames | 3,154 in 702 |
-| Slow bursts, shimmer of 20 triples | 0.568 | 0.461 (`dc773fcfe`, before the camera's fix: the triple at the change of view is 5.1 in both); without it 0.327 and 0.215 |
-| Bursts, the same flight and camera with version 3's shaders and with the new | 1.317, flick 24.5 | 1.161, flick 21.9 |
-| Bursts, each version's own flight and camera | 1.273, flick 23.3 | see the last row of the table below |
-| Frame times in Chrome, load 1.2 to 1.6 | median 16.5 ms, p99 20.0, max 38.6, 2 of 3,598 over twice the median | at a load of 11: see below |
-| Frame times in Firefox, load 1.2 | 17.0, 19.9, 37.6, 4 of 3,541 | at a load of 11: see below |
-| The test's flight (30 s), Chrome | 60.0 frames a second, GPU 5.2 ms (version 3's task) | load 1.5: 59.9, GPU 5.1 ms, median 16.7 ms, p99 20.9, max 31.1, no hitch |
-| The test's flight, Firefox | 59.0, GPU 5.5 ms | load 1.5: 59.0, GPU 5.2 ms, 17.0, 20.9, 46.2, 4 hitches |
+| Spikes over the flight (tiles, frames with one) | 350 in 117 | 78 in 76, two of them of two tiles, none of more |
+| Events of 8 tiles or more | 16 | 9: the changes of view at 30, 40 and 50 s (4), two turns toward a beacon, one at 52.6 s that was not looked at, and the flight through a beacon at 55 s (2) |
+| Tile jumps | 5,902 in 722 frames | 3,022 in 686 |
+| Slow bursts: shimmer of 20 triples, the worst triple, flick | 0.431, 2.91, 6.5 per mille | 0.208, 0.50, 2.5 per mille |
+| Bursts: shimmer of 29 triples, flick | 1.273, 23.3 per mille (movement 5.43) | 1.129, 20.9 per mille (movement 5.07) |
+| Bursts on one flight and camera (this version's), with version 3's shaders and the new | 1.317, 24.5 per mille | 1.161, 21.9 per mille (before the last fixes) |
+| GPU time a frame, Godot's measure | 5.2 to 5.5 ms | 5.1 to 5.5 ms |
+| Frame times over the flight, Chrome | load 1.5: median 16.5 ms, p99 20.0, max 38.6, 2 of 3,598 over twice the median | load 7, while its screen was captured: 18.9, 36.5, 59.7, 18 of 3,126 |
+| Frame times over the flight, Firefox | load 1.2: 17.0, 19.9, 37.6, 4 of 3,541 | load 7: 17.0, 24.5, 47.9, 11 of 3,470 |
+| The test's flight (30 s), Chrome | 60.0 frames a second (version 3's task) | load 1.5 (`dc773fcfe`): 59.9, median 16.7 ms, p99 20.9, max 31.1, no hitch; load 11: 52.8 to 54.6 |
+| The test's flight, Firefox | 59.0 | load 1.5 (`dc773fcfe`): 59.0, 17.0, 20.9, 46.2, 4 hitches; load 11: 52.7 to 53.6 |
 
-The GPU's time a frame is unchanged at 5.1 to 5.3 ms with the pelican (some 40 more draws), the
-third grid's shadows and the nine-plot crowns. From 03:00 the machine's load was 9 to 14 (other
-agents' work), and the test then gave 52.8 to 54.6 frames a second in Chrome and 52.7 to 53.6 in
-Firefox, with 2 to 17 hitches of 1,500: the rate follows the load, as version 3's did.
+The GPU's time a frame is unchanged with the pelican (some 40 more draws), the third grid's
+shadows and the nine-plot crowns. From 03:00 the machine's load was 7 to 14 (two other agents'
+Chrome renderers at 400% each), so this version's frame times on a quiet machine are those of
+its first commit alone; the rate follows the load, as version 3's did (its task: 25.9 frames a
+second at a load of 8). The shimmer of the plain bursts follows the movement on screen and says
+little; the slow bursts and the spikes are the measures of what was fixed.
 
 ## Firefox
 
@@ -152,9 +156,9 @@ What was found, in the order it was looked for:
   NVIDIA card), so it says where to look and not what the owner sees. A private display the GPU
   drives was tried with a headless gnome-shell and its Xwayland and given up: it started the
   desktop's services and watched the owner's login session, and its Xwayland never answered.
-- Firefox presents a WebGPU canvas on Linux by reading each frame back and uploading it again,
-  as far as its sources say; if so its screen shows fewer and less even frames than the game
-  draws, whatever the game does.
+- Not looked into: how Firefox hands a WebGPU canvas's frames to its compositor on Linux. If it
+  reads each frame back and uploads it again, its screen would show fewer and less even frames
+  than the game draws, whatever the game does.
 
 Nothing was changed in `host/gpu` for it: a choice of canvas format made by what was seen on
 llvmpipe would be a guess about the owner's screen. The game's own share is done for both
