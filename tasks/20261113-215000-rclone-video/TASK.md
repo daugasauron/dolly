@@ -8,7 +8,7 @@
 
 In the 0.1.6-rc round (`round/0.1.6-rc`, local main `530aeee05`, release `e1c400a5…` on 127.0.0.1:9045), `/v0.1.6/agents/` lists it, and it plays from there in headless Chrome and Firefox
 (1920x1080, 117 s; the x11 workbench's too, 150 s). The owner's login name shows in a path and in
-`ls -l` in this take; a retake is offered.
+`ls -l` in this take; the owner keeps it (2026-11-14: "daug visible is fine").
 
 ## State (2026-11-13, `feature/rclone-video`)
 

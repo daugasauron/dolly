@@ -1,10 +1,18 @@
 # Tests and hygiene the audit found: artifacts in npm test, tests for the boundary cases, task citations
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: tests,hygiene,audit,0.1.6
 
 From the Fable 5.2 audit (`tasks/20261112-074500-audit-fable-core`, section 6 items 5-6, section 7).
+
+## Closed (2026-11-14)
+
+Every group is done or closed with its reason (below). The last, 8, is closed: the commands' option
+loops take long options too (`--help`, mkdir's `--parents`), so `getopt` does not replace them, and
+`getopt_long` would change their messages and, in the native command tests, glibc's argument order;
+the loops are the commands' own behaviour, not duplication. In the 0.1.6-rc round (local main,
+release `e1c400a5…` on 127.0.0.1:9045) the suites pass on all of it.
 
 ## State (2026-11-13, seed round)
 
