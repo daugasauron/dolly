@@ -55,6 +55,7 @@ var beacons := {} # plot -> its node, for the plots around the airship
 var lit := {} # plot -> where it stands (x, y) and the clock when it was lit (z)
 
 var helm := false # the player's, after Enter
+var hint_until := 0.0 # the keys show for a while after the helm changes hands
 var day := 0.24
 var heading := 0.0
 var turn := 0.0
@@ -151,7 +152,7 @@ func build_light() -> void:
 	environment.fog_height = Terrain.SEA + 14.0
 	environment.fog_height_density = 0.006
 	environment.fog_aerial_perspective = 0.7
-	environment.fog_sun_scatter = 0.25
+	environment.fog_sun_scatter = 0.12
 	environment.fog_sky_affect = 0.0
 	environment.volumetric_fog_enabled = true
 	environment.volumetric_fog_density = 0.0011
@@ -168,7 +169,7 @@ func build_light() -> void:
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun.directional_shadow_max_distance = 170.0
-	sun.light_volumetric_fog_energy = 2.2
+	sun.light_volumetric_fog_energy = 1.3
 	add_child(sun)
 
 
@@ -409,6 +410,7 @@ func build_hud() -> void:
 func show_helm() -> void:
 	title.visible = not helm and autopilot_seconds <= 0.0
 	hint.visible = autopilot_seconds <= 0.0
+	hint_until = elapsed + 12.0
 	hint.text = "Arrows or WASD steer, climb and dive    Space: full speed    T: let the hours run    Esc: let go    Q: quit" if helm \
 		else "The airship flies itself. Enter takes the helm.    Q: quit"
 
@@ -449,6 +451,7 @@ func _process(delta: float) -> void:
 	tend_beacons(delta)
 	follow(delta)
 	title.modulate.a = clampf(9.0 - elapsed, 0.0, 1.0)
+	hint.modulate.a = clampf(hint_until - elapsed, 0.0, 1.0)
 	gauge.text = "%02d:%02d    altitude %d    speed %d    beacons lit %d" % [int(day * 24.0), int(fposmod(day * 24.0, 1.0) * 60.0), int(ship.position.y - Terrain.SEA), int(speed), lit.size()]
 	if autopilot_seconds > 0.0:
 		watch()
