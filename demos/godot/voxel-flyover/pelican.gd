@@ -38,6 +38,8 @@ var wheels: Array[Node3D] = []
 var fans: Array[Node3D] = []
 var shaft := Node3D.new()
 var chain: Array[ShaderMaterial] = []
+var steer := Node3D.new() # the handlebar, its stem, the fork and the front wheel, which turn in the head tube
+var wings: Array[Array] = [] # for each side: the upper wing, the forearm, the flight feathers' frame, the tip on the grip
 var bird := Node3D.new()
 var head := Node3D.new()
 var pouch := Node3D.new()
@@ -65,7 +67,7 @@ func _init() -> void:
 	build_bicycle()
 	build_drive()
 	build_bird()
-	pedal(0.0, 1.0)
+	pedal(0.0, 1.0, 0.0)
 
 
 func rod(to: Node3D, material: Material, from: Vector3, end: Vector3, thick: float) -> MeshInstance3D:
@@ -104,17 +106,22 @@ func build_bicycle() -> void:
 	rod(rig, frame, SEAT, HEAD_TOP, 0.075)
 	rod(rig, frame, BRACKET, HEAD_LOW, 0.085)
 	rod(rig, frame, HEAD_LOW, HEAD_TOP + Vector3(0, 0.06, 0.012), 0.095)
-	rod(rig, chrome, HEAD_TOP, BARS, 0.05)
-	rod(rig, chrome, BARS - Vector3(0.38, 0, 0), BARS + Vector3(0.38, 0, 0), 0.045)
+	# What steers turns in the head tube: the stem and the handlebar with its grips, the fork
+	# and the front wheel. Its parts are placed from the head tube's top.
+	steer.position = HEAD_TOP
+	rig.add_child(steer)
+	rod(steer, chrome, Vector3.ZERO, BARS - HEAD_TOP, 0.05)
+	rod(steer, chrome, BARS - HEAD_TOP - Vector3(0.38, 0, 0), BARS - HEAD_TOP + Vector3(0.38, 0, 0), 0.045)
 	for side: float in [-1.0, 1.0]:
 		var out := Vector3(side * 0.075, 0, 0)
 		rod(rig, frame, BRACKET + out * 0.8, REAR + out, 0.05)
 		rod(rig, frame, SEAT, REAR + out, 0.045)
-		rod(rig, frame, HEAD_LOW + out, FRONT + out, 0.055)
-		rod(rig, rubber, BARS + Vector3(side * 0.28, 0, 0), BARS + Vector3(side * 0.42, 0, 0), 0.07)
-		# It hangs from the board by its rear axle, and by its head tube.
+		rod(steer, frame, HEAD_LOW + out - HEAD_TOP, FRONT + out - HEAD_TOP, 0.055)
+		rod(steer, rubber, BARS - HEAD_TOP + Vector3(side * 0.26, 0, 0), BARS - HEAD_TOP + Vector3(side * 0.44, 0, 0), 0.07)
+		# It hangs from the board by its rear axle, and by two rods from its head tube that
+		# pass the rider's head and bill on either side.
 		rod(self, chrome, rig.transform * (REAR + out), Vector3(side * 0.8, -0.2, 1.25), 0.05)
-	rod(self, chrome, rig.transform * HEAD_TOP, Vector3(0, -0.1, -1.3), 0.055)
+		rod(self, chrome, rig.transform * HEAD_TOP, Vector3(side * 0.85, -0.2, -1.25), 0.05)
 	Parts.part(rig, ball, Parts.paint(Color(0.2, 0.09, 0.04), 0.5), SEAT + Vector3(0, 0.05, 0.06), Vector3.ZERO, Vector3(0.26, 0.09, 0.44))
 	var tyre := TorusMesh.new()
 	tyre.inner_radius = 0.42
@@ -125,7 +132,7 @@ func build_bicycle() -> void:
 	spokes.set_shader_parameter("metal", 0.0)
 	spokes.set_shader_parameter("rough", 0.9)
 	for place: Vector3 in [REAR, FRONT]:
-		var wheel := turning(rig, place, 0.43, 0.025, spokes)
+		var wheel := turning(rig if place == REAR else steer, place if place == REAR else FRONT - HEAD_TOP, 0.43, 0.025, spokes)
 		Parts.part(wheel, tyre, rubber, Vector3.ZERO, Vector3(0, 0, 90))
 		Parts.part(wheel, tube, chrome, Vector3.ZERO, Vector3(0, 0, 90), Vector3(0.09, 0.17, 0.09))
 		wheels.append(wheel)
@@ -236,11 +243,17 @@ func build_bird() -> void:
 	var red := Parts.paint(Color(0.8, 0.05, 0.08), 0.6)
 	Parts.part(head, ball, red, Vector3(0, 0.1, 0.02), Vector3.ZERO, Vector3(0.36, 0.2, 0.38))
 	Parts.part(head, ball, red, Vector3(0, 0.08, -0.2), Vector3(12, 0, 0), Vector3(0.25, 0.03, 0.24))
-	# The wings, half folded, with black flight feathers that trail in the wind; a fan of a tail.
+	# The wings reach forward to the handlebar and hold its grips: an upper wing from the
+	# shoulder to the elbow and a forearm from there to the grip, laid each frame as the legs
+	# are; black flight feathers trail from the elbow in the wind, and the wing's black tip
+	# is closed around the grip. A fan of a tail.
 	for side: float in [-1.0, 1.0]:
-		Parts.coated(coats, bird, ball, white, 0.09, Vector2(26, 44), Vector3(side * 0.33, -1.3, 0.3), Vector3(-18, 0, side * -8.0), Vector3(0.16, 0.46, 0.82))
+		var elbow := Node3D.new()
+		rig.add_child(elbow)
 		for feather in 4:
-			plume(bird, Vector3(side * 0.39, -1.2 - feather * 0.09, 0.5), Vector3(side * 0.12, -0.1 - feather * 0.04, 1.0), Vector3(side, 0.25, 0), Vector2(0.15, 0.62 - feather * 0.06), white, black)
+			plume(elbow, Vector3(side * 0.03, -0.02 - feather * 0.07, 0.02), Vector3(side * 0.2, -0.16 - feather * 0.05, 1.0), Vector3(side, 0.25, 0), Vector2(0.15, 0.66 - feather * 0.07), white, black)
+		wings.append([Parts.coated(coats, rig, ball, white, 0.07, Vector2(30, 36), Vector3.ZERO), Parts.coated(coats, rig, ball, white, 0.06, Vector2(26, 30), Vector3.ZERO), elbow,
+			Parts.part(rig, ball, Parts.paint(black, 0.5), Vector3.ZERO, Vector3.ZERO, Vector3(0.15, 0.12, 0.17))])
 	for feather in 3:
 		plume(bird, Vector3((feather - 1) * 0.1, -1.24, 0.7), Vector3((feather - 1) * 0.3, 0.22, 1.0), Vector3.UP, Vector2(0.17, 0.46), white, Color(0.55, 0.55, 0.6))
 	for feather in 3:
@@ -253,9 +266,18 @@ func build_bird() -> void:
 		legs.append(leg)
 
 
+## Lays a unit ball as a flat limb from one point to another: that wide, and that thick toward
+## the side it is on.
+func lay_flat(limb: Node3D, from: Vector3, to: Vector3, side: float, wide: float, thick: float) -> void:
+	var along := to - from
+	var up := along.normalized()
+	var out := (Vector3(side, 0, 0) - up * up.x * side).normalized()
+	limb.transform = Transform3D(Basis(out * thick, along, up.cross(out) * wide), (from + to) / 2.0)
+
+
 ## Turns the cranks: `fast` is the flight's speed over its cruise. Everything the pedalling
 ## drives turns by the cranks' angle, so nothing slips against anything else.
-func pedal(delta: float, fast: float) -> void:
+func pedal(delta: float, fast: float, turn: float) -> void:
 	angle += TAU * 1.05 * fast * delta
 	# Forward: the top of the chainring goes toward the front.
 	cranks.rotation.x = -angle
@@ -272,6 +294,18 @@ func pedal(delta: float, fast: float) -> void:
 	bird.rotation.z = rock * 0.05
 	head.rotation = Vector3(0.05 * cos(angle * 2.0), 0, -rock * 0.07)
 	pouch.rotation.z = rock * 0.1
+	# The handlebar turns into the flight's turn, and the wings stay on its grips.
+	steer.transform = Transform3D(Basis((HEAD_TOP - HEAD_LOW).normalized(), -turn * 0.35), HEAD_TOP)
+	for index in 2:
+		var side := index * 2.0 - 1.0
+		var shoulder := bird.transform * Vector3(side * 0.29, -1.2, -0.04)
+		var grip := steer.transform * (BARS - HEAD_TOP + Vector3(side * 0.35, 0.02, 0))
+		var elbow := (shoulder + grip) / 2.0 + Vector3(side * 0.15, -0.05, 0.08)
+		var wing: Array = wings[index]
+		lay_flat(wing[0], shoulder + (shoulder - elbow) * 0.2, elbow + (elbow - shoulder) * 0.2, side, 0.34, 0.15)
+		lay_flat(wing[1], elbow + (elbow - grip) * 0.2, grip + (grip - elbow) * 0.08, side, 0.25, 0.12)
+		wing[2].position = elbow
+		wing[3].position = grip
 	for index in 2:
 		var side := index * 2.0 - 1.0
 		pedals[index].rotation.x = angle

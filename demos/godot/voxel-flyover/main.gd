@@ -127,8 +127,9 @@ var hint_until := 0.0 # the keys show for a while after the board changes hands
 var day := 0.24
 var year := 0.3 # 0 the first of spring, 0.25 of summer, 0.5 of autumn, 0.75 of winter
 var falls := 0.0 # the rain or snow over the camera
-var rain: Array[ShaderMaterial] = []
-var showers: Array[MeshInstance3D] = [] # the tubes the rain falls down, around the camera
+var falling := ShaderMaterial.new() # the drops and flakes around the camera
+var shower := MultiMeshInstance3D.new()
+var fallen: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO] # how far the rain and the snow have fallen and drifted
 var night_share := 0.0
 var skim := 0.0 # how low the board is over the sea, between 0 and 1
 var heading := PI / 2.0 # east, along the coast
@@ -205,20 +206,17 @@ func _ready() -> void:
 	camera.near = 0.3
 	add_child(camera)
 	build_hud()
-	# The rain: two tubes around the camera, the nearer with fewer and larger streaks.
-	for tube: Array in [[2.5, 60.0], [7.0, 150.0]]:
-		var sides := CylinderMesh.new()
-		sides.top_radius = tube[0]
-		sides.bottom_radius = tube[0]
-		sides.height = tube[0] * 4.0
-		sides.cap_top = false
-		sides.cap_bottom = false
-		var falling := ShaderMaterial.new()
-		falling.shader = preload("res://rain.gdshader")
-		falling.set_shader_parameter("columns", tube[1])
-		rain.append(falling)
-		showers.append(Parts.part(self, sides, falling, Vector3.ZERO))
-		showers[-1].cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# The rain and the snow: cards in a box of air around the camera (rain.gdshader).
+	var card := QuadMesh.new()
+	shower.multimesh = MultiMesh.new()
+	shower.multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	shower.multimesh.mesh = card
+	shower.multimesh.instance_count = 9000
+	falling.shader = preload("res://rain.gdshader")
+	shower.material_override = falling
+	shower.custom_aabb = AABB(Vector3.ONE * -1e6, Vector3.ONE * 2e6)
+	shower.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(shower)
 	flyer.position = Vector3(START.x, Terrain.surface(START) + 30.0, START.y)
 	trail = flyer.position
 	camera.position = flyer.position + view
@@ -260,6 +258,7 @@ func set_level(to: int) -> void:
 		(groves[grove].material_override as ShaderMaterial).set_shader_parameter("sinks", grove == drawn - 1)
 	groves[-1].visible = drawn == GROVES.size()
 	city.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if level < 3 else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	shower.multimesh.visible_instance_count = 9000 if level < 3 else 3600
 	# A weak adapter has simpler crowns near by: the next grid's.
 	groves[0].multimesh.mesh = tree_mesh(GROVES[0 if level < 3 else 1][1])
 	groves[1].multimesh.mesh = tree_mesh(GROVES[1 if level < 3 else 2][1], true)
@@ -490,14 +489,14 @@ func build_flyer() -> void:
 			flames[-1].cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	flyer.add_child(pelican)
 	furs.append_array(pelican.coats)
-	# The corgi: long and low, white in front and under, with a thick coat and large ears.
+	# The corgi: long, low and slim, white in front and under, with a thick coat and large ears.
 	flyer.add_child(dog)
-	Parts.coated(furs, dog, rod, tan_fur, 0.11, Vector2(170, 150), Vector3(0, 0.95, 0.25), Vector3(90, 0, 0), Vector3(1.15, 1.25, 1.1))
-	Parts.coated(furs, dog, ball, white_fur, 0.13, Vector2(150, 75), Vector3(0, 0.82, -0.55), Vector3.ZERO, Vector3(1.0, 0.95, 1.0))
-	Parts.coated(furs, dog, ball, tan_fur, 0.15, Vector2(150, 75), Vector3(0, 0.98, 1.38), Vector3.ZERO, Vector3(1.0, 1.0, 0.8))
-	Parts.coated(furs, dog, ball, white_fur, 0.16, Vector2(130, 65), Vector3(0, 0.72, 1.5), Vector3.ZERO, Vector3(0.8, 0.6, 0.6))
-	tail = Parts.coated(furs, dog, ball, tan_fur, 0.1, Vector2(70, 35), Vector3(0, 1.3, 1.62), Vector3.ZERO, Vector3(0.3, 0.3, 0.42))
-	for x: float in [-0.36, 0.36]:
+	Parts.coated(furs, dog, rod, tan_fur, 0.1, Vector2(140, 150), Vector3(0, 0.92, 0.25), Vector3(90, 0, 0), Vector3(0.8, 1.3, 0.86))
+	Parts.coated(furs, dog, ball, white_fur, 0.12, Vector2(125, 70), Vector3(0, 0.84, -0.6), Vector3.ZERO, Vector3(0.76, 0.84, 0.9))
+	Parts.coated(furs, dog, ball, tan_fur, 0.13, Vector2(125, 70), Vector3(0, 0.95, 1.42), Vector3.ZERO, Vector3(0.76, 0.84, 0.7))
+	Parts.coated(furs, dog, ball, white_fur, 0.14, Vector2(110, 60), Vector3(0, 0.74, 1.52), Vector3.ZERO, Vector3(0.6, 0.5, 0.5))
+	tail = Parts.coated(furs, dog, ball, tan_fur, 0.1, Vector2(70, 35), Vector3(0, 1.24, 1.64), Vector3.ZERO, Vector3(0.28, 0.28, 0.4))
+	for x: float in [-0.26, 0.26]:
 		for z: float in [-0.6, 1.1]:
 			legs.append(Parts.coated(furs, dog, rod, white_fur, 0.05, Vector2(60, 50), Vector3(x, 0.3, z), Vector3.ZERO, Vector3(0.3, 0.32, 0.3)))
 			paws.append(Parts.part(dog, ball, white, Vector3(x, 0.06, z - 0.08), Vector3.ZERO, Vector3(0.34, 0.2, 0.46)))
@@ -508,9 +507,12 @@ func build_flyer() -> void:
 	Parts.part(head, ball, white, Vector3(0, -0.14, -0.5), Vector3.ZERO, Vector3(0.56, 0.46, 0.8))
 	Parts.part(head, ball, white, Vector3(0, 0.1, -0.36), Vector3(20, 0, 0), Vector3(0.22, 0.5, 0.5))
 	Parts.part(head, ball, black, Vector3(0, -0.06, -0.9), Vector3.ZERO, Vector3(0.2, 0.15, 0.14))
-	# The mouth, a dark line under the muzzle, and the tip of the tongue out of its middle.
-	Parts.part(head, ball, black, Vector3(0, -0.33, -0.56), Vector3.ZERO, Vector3(0.4, 0.05, 0.6))
-	tongue = Parts.part(head, ball, pink, Vector3(0, -0.37, -0.84), Vector3(38, 0, 0), Vector3(0.17, 0.05, 0.2))
+	# The mouth, a little open: the lower jaw under the muzzle, dark between them, and the
+	# tongue, which lies in the jaw from the back of the mouth and hangs over its front.
+	var mouth := Parts.paint(Color(0.12, 0.02, 0.03), 0.6)
+	Parts.part(head, ball, mouth, Vector3(0, -0.34, -0.48), Vector3.ZERO, Vector3(0.4, 0.1, 0.62))
+	Parts.part(head, ball, white, Vector3(0, -0.45, -0.44), Vector3(-12, 0, 0), Vector3(0.46, 0.16, 0.66))
+	tongue = Parts.part(head, ball, pink, Vector3(0, -0.39, -0.66), Vector3(-16, 0, 0), Vector3(0.2, 0.045, 0.5))
 	var arm := BoxMesh.new()
 	arm.size = Vector3(0.04, 0.05, 0.62)
 	for x: float in [-1.0, 1.0]:
@@ -582,7 +584,7 @@ func build_flyer() -> void:
 func ride(delta: float) -> void:
 	var fast := speed / CRUISE
 	flutter += delta * fast
-	pelican.pedal(delta, fast)
+	pelican.pedal(delta, fast, turn)
 	var crouch := clampf(0.05 + 0.14 * (fast - 1.0) / (BOOST / CRUISE) + 0.12 * absf(turn) + 0.015 * sin(elapsed * 2.1), 0.0, 0.3)
 	dog.position = Vector3(0, 0.14 - crouch, 0.2)
 	dog.rotation = Vector3(-crouch * 0.5 + climb * 0.008, 0.0, -turn * 0.22)
@@ -596,7 +598,7 @@ func ride(delta: float) -> void:
 	for side in 2:
 		ears[side].rotation = Vector3(0.05 + 0.2 * fast + 0.06 * sin(elapsed * 23.0 + side * 2.0) * fast, 0.0, turn * 0.25)
 	tail.rotation.y = sin(elapsed * 11.0) * 0.6
-	tongue.rotation.x = deg_to_rad(38.0) + 0.12 * sin(elapsed * 5.0)
+	tongue.rotation.x = deg_to_rad(-16.0) + 0.05 * sin(elapsed * 5.0)
 	# The jets burn as the pelican pushes: longer and brighter with each stroke of its legs.
 	var push := pelican.stroke()
 	for flame in flames:
@@ -1101,8 +1103,9 @@ func follow(delta: float) -> void:
 		looked.x = wrapf(looked.x, look.x - PI, look.x + PI)
 	looked = looked.lerp(look, 1.0 - exp(-delta * 14.0))
 	# The camera follows the flyer's place and heading a little late, and turns about it exactly:
-	# a straight way between two places around the flyer would cut through it.
-	var late := 1.0 - exp(-delta * 5.0)
+	# a straight way between two places around the flyer would cut through it. Zoomed in it is
+	# less late, or the flyer would be out of the middle of a close view.
+	var late := 1.0 - exp(-delta * 5.0 / (minf(zoomed, 1.0) * minf(zoomed, 1.0)))
 	trail = trail.lerp(flyer.position, late)
 	turned = lerp_angle(turned, heading, late)
 	zoom = clampf(zoom * exp(key_axis(KEY_Z, KEY_X) * delta * 1.2), 0.45, 3.2)
@@ -1127,13 +1130,19 @@ func follow(delta: float) -> void:
 	# It rains, or in winter snows, where the cloud over the camera is deep.
 	var above := (Vector2(camera.position.x, camera.position.z) + Vector2(9.0, 3.5) * elapsed) / 1000.0
 	falls = lerpf(falls, smoothstep(0.66, 0.78, Terrain.fbm(above + Vector2(31.0, 7.0), 3)), 1.0 - exp(-delta * 1.5))
-	for shower in showers:
-		shower.position = camera.position
 	sky_material.set_shader_parameter("rains", falls)
-	for falling in rain:
-		falling.set_shader_parameter("falls", falls)
-		falling.set_shader_parameter("snows", season_share(0.85))
-		falling.set_shader_parameter("clock", elapsed)
+	# A drop falls 22 units a second and a flake 2.6. The wind carries them, and the flight
+	# slants them back by no more than half of their fall, so on the screen they come down.
+	shower.visible = falls > 0.004
+	shower.position = camera.position
+	for kind in 2:
+		var fall := 2.6 if kind == 1 else 22.0
+		var way := Vector3(WIND.x, 0.0, WIND.y) * fall * 0.12 - Vector3(sin(heading), 0.0, -cos(heading)) * minf(speed * 0.3, fall * 0.5) + Vector3.DOWN * fall
+		fallen[kind] = (fallen[kind] + way * delta).posmod(1320.0)
+		falling.set_shader_parameter("fallen_snow" if kind == 1 else "fallen_rain", fallen[kind])
+		falling.set_shader_parameter("way_snow" if kind == 1 else "way_rain", way)
+	falling.set_shader_parameter("falls", falls)
+	falling.set_shader_parameter("snows", season_share(0.85))
 
 
 ## How much of a season it is, between 0 and 1: all of it within a tenth of a year of its
