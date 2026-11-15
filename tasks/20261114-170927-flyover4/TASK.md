@@ -67,11 +67,10 @@ What was done, by task (`tasks/20261115-*`): `mouth`, `wings`, `camera`, `towns-
 clouds changed at once as the sun handed over to the moon). After midnight: `villages` (houses
 askew, fireworks, high cloud, the sea's swell and colours), `woods` (woods and glades, palms,
 cypresses, birches, a wreck, a keep, a stepped mound, an old tree, a river of stars, the rain's
-and the sea's sound), `dolphins` (with lightning and a cinder cone), `fireflies`, `tower-tops`, lakes along the rivers
-(`research-05`), `landmark-hitch` (a frame of 100 ms in Firefox, 40 in Chrome, each time a
+and the sea's sound), `dolphins` (with lightning and a cinder cone), `fireflies`, `tower-tops`, lakes along the
+rivers (`research-05`), `landmark-hitch` (a frame of 100 ms in Firefox, 40 in Chrome, each time a
 landmark came near: its parts' arrays were read back from the GPU; kept by shape now), and
-`black-frames`: **in
-Chrome on the AMD GPU the game drew black frames some ten times in 20 seconds, before the
+`black-frames`: **in Chrome on the AMD GPU the game drew black frames some ten times in 20 seconds, before the
 night's work too; a power of a number that rounding put under 0, in the sky's shader; fixed.**
 The weakest level draws at 0.30 of the size (0.33 before), which gave back the slack the
 night's additions took on the AMD GPU.
@@ -87,7 +86,7 @@ The game's test (30 s by itself from 09:00), 1920 by 1080 frames:
 | AMD integrated, Firefox 159 | 29.9, median 33.4 ms, p99 37.3 | 30.0, median 33.2 ms, p99 37.2, longest 53, no hitch |
 | AMD integrated, Chrome 156 | 29.8, median 33.4 ms, p99 36.9 | 30.0, median 33.2 ms, p99 36.5, longest 38, no hitch |
 
-Sudden changes over the fixed flight: 24 tiles in 18 frames (17 in 14 at midnight: the more are lightning, at 32.0 and 36.0 s).
+Sudden changes over the fixed flight: 24 tiles in 18 frames (17 in 14 at midnight): the three at 32.0 s are lightning, as meant; the two at 36.0 s were not looked at.
 
 ## Version 6 (2026-11-15, from 18:10): the owner's fixes
 
