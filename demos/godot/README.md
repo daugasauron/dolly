@@ -189,7 +189,7 @@ A plot of 260 units has one landmark at most, by its place (`landmark` in
 [`terrain.gd`](voxel-flyover/terrain.gd), built by [`landmarks.gd`](voxel-flyover/landmarks.gd)):
 a lighthouse with turning beams, a windmill among fields, the tower of a town's kind, an arch of
 stone in the desert, giant mushrooms that glow in a marsh, a ring of standing stones, crystals in
-the mountains, a gate on open ground, an island that floats over the board's ceiling. The forms
+the mountains, a gate on open ground, an island that floats in the board's way, which passes over or under it. The forms
 take after kinds of building found in many places; none copies a building. Life is met by place
 too, each a grid whose shader places its cell's own: sailing boats
 ([`afloat.gdshader`](voxel-flyover/afloat.gdshader)), gulls over the coasts and wedges of geese in
@@ -200,7 +200,8 @@ spring and autumn ([`wings.gdshader`](voxel-flyover/wings.gdshader)), balloons
 The flight keeps what it gains and stays pointless: a dive gives speed and a climb takes it,
 the wind (the clouds' drift) helps at the back, low over the sea the board skims faster in its
 own spray, a slope that faces the wind lifts it, as does the warm air over a town by day
-([`thermal.gdshader`](voxel-flyover/thermal.gdshader)), a beacon gives a push as it is lit, and
+([`thermal.gdshader`](voxel-flyover/thermal.gdshader)), a beacon gives a push of speed as it is lit (anywhere along its beam, within 11 units of it: the
+push comes on in under a second and wears off over six; no key gives speed), and
 a flock of birds ([`bird.gdshader`](voxel-flyover/bird.gdshader)) falls in behind the board
 when it passes and carries it a little faster for a while; in rain or snow the birds close up
 and fly low. Nothing is flown through: the flight looks along its turn for the ground and the
@@ -208,6 +209,14 @@ roofs of the next second and a half and climbs in time to clear them, and the ca
 over the roofs around it. Streaks of air show at speed
 ([`speed.gdshader`](voxel-flyover/speed.gdshader)); the flyer's wash bends the crowns it
 passes low over.
+
+The board flies up to 420 units, over the low clouds and under the high layer. At sunrise and
+sunset the sky is in bands (fire at the horizon on the sun's side, rose over it, violet higher,
+and opposite the sun the earth's shadow under a rose band), the sun's disc is larger with a band
+of light along the horizon, and the clouds are lit from below
+([`sky.gdshader`](voxel-flyover/sky.gdshader)). A landmark's still parts are one mesh
+(`Parts.bake`), as are a beacon's gem and its motes: the renderer's time goes by the number of
+things it draws.
 
 While the game flies itself the camera shows the world: a round of 68 seconds of wide views
 behind, beside, above and ahead of the flyer that glide into one another, and five seconds
