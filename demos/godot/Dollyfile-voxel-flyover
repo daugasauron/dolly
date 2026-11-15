@@ -26,7 +26,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.6/dist/static/godot/voxel-flyover.tar e4dc8a5e0479ad35232d7e4ed2fa3b6a73432ab0d5114ab97ac8519f0126e857 /tmp/voxel-flyover.tar
+SOURCE /v0.1.6/dist/static/godot/voxel-flyover.tar 9a56986beffb011240d96bac6480bdf23b89f5937f3dac4741968e82b4c7069a /tmp/voxel-flyover.tar
 SLOP CWD / tar -xf /tmp/voxel-flyover.tar
 SLOP mkdir -p /usr/share/voxel-flyover
 SLOP cp -r /usr/src/voxel-flyover /usr/share/voxel-flyover/project
@@ -48,7 +48,11 @@ FILE /usr/share/man/cat1/voxel-flyover.1
     takes the board: arrows or WASD steer, climb and dive, Space is full
     speed, T lets the hours run, Escape lets go of the board, Q quits. A
     click also gives the game the pointer, and the mouse then turns the
-    view. The number on the screen counts the beacons lit. With --autopilot
+    view; the wheel, or Z and X, zoom. A dive gives speed and a climb takes
+    it, the wind at the back helps, the board skims fast low over the sea,
+    and slopes that face the wind and towns by day lift it. The world has
+    seasons, weather and towns. On a weak GPU it draws less, at an even
+    rate. The number on the screen counts the beacons lit. With --autopilot
     it flies by itself for that long and prints its frame rate, how even
     its frames were, the milliseconds a frame took the GPU and the
     renderer, the beacons it lit and what its frame shows; --day starts at

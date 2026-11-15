@@ -55,3 +55,24 @@ static func height(p: Vector2) -> float:
 ## The surface a flight stays above: the ground or the sea.
 static func surface(p: Vector2) -> float:
 	return maxf(height(p), SEA)
+
+
+const LOT := 16.0
+
+
+## terrain.gdshaderinc's town_at.
+static func town(p: Vector2, ground: float) -> float:
+	return smoothstep(0.58, 0.66, fbm(p / 760.0 + Vector2(400.0, 109.0), 2)) * smoothstep(SEA + 2.5, SEA + 6.0, ground) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, ground))
+
+
+## What a flight looks ahead for: the surface, or the roof of the building whose lot the place
+## is in (city.gdshader's).
+static func roof(p: Vector2) -> float:
+	var corner := (p / LOT).floor() * LOT
+	var centre := corner + Vector2(LOT, LOT) / 2.0
+	var ground := height(centre)
+	var share := town(centre, ground)
+	if share <= 0.05 or cell_hash(int(corner.x) + 13, int(corner.y) + 13) < 0.22:
+		return surface(p)
+	var lot := cell_hash(int(corner.x) + 7, int(corner.y) + 7)
+	return maxf(surface(p), ground + (3.0 + 34.0 * lot * lot * lot + 8.0 * share) * smoothstep(0.05, 0.6, share))

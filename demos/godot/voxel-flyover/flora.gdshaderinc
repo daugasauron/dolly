@@ -37,7 +37,9 @@ float crown_width(float warmth, float moisture) {
 }
 
 // A crown's colour, and in a how much of its own light it has: desert spires a little, the
-// groves that glow at night all of it.
+// groves that glow at night all of it. The season turns it by degrees: more groves blossom in
+// spring and more turn in autumn, each tree in its own time, and in winter the broad crowns
+// are bare and every crown carries snow.
 vec4 crown_colour(vec2 place, float own, float warmth, float moisture) {
 	if (is_desert(warmth, moisture)) {
 		return vec4(mix(vec3(1.0, 0.45, 0.2), vec3(0.95, 0.2, 0.45), own), 0.35);
@@ -45,14 +47,16 @@ vec4 crown_colour(vec2 place, float own, float warmth, float moisture) {
 	if (noise(place / 190.0 + vec2(57.0, 201.0)) > 0.66) {
 		return vec4(mix(vec3(0.05, 0.85, 0.9), vec3(0.65, 0.2, 1.0), own), 1.0);
 	}
+	vec3 snowy = vec3(0.62, 0.68, 0.78);
 	if (is_cold(warmth)) {
-		return vec4(mix(vec3(0.01, 0.09, 0.08), vec3(0.03, 0.15, 0.1), own), 0.0);
+		return vec4(mix(mix(vec3(0.01, 0.09, 0.08), vec3(0.03, 0.15, 0.1), own), snowy, winter * 0.55), 0.0);
 	}
-	if (noise(place / 240.0 + vec2(7.0, 61.0)) > 0.6) {
-		return vec4(own < 0.4 ? vec3(0.8, 0.2, 0.02) : own < 0.75 ? vec3(0.85, 0.45, 0.03) : vec3(0.45, 0.03, 0.05), 0.0);
-	}
-	if (noise(place / 200.0 + vec2(131.0, 23.0)) > 0.64) {
-		return vec4(mix(vec3(0.9, 0.3, 0.45), vec3(1.0, 0.6, 0.7), own), 0.0);
-	}
-	return vec4(mix(vec3(0.02, 0.2, 0.1), vec3(0.12, 0.3, 0.05), own), 0.0);
+	vec3 leaves = mix(vec3(0.02, 0.2, 0.1), vec3(0.12, 0.3, 0.05), own);
+	vec3 turned = own < 0.4 ? vec3(0.8, 0.2, 0.02) : own < 0.75 ? vec3(0.85, 0.45, 0.03) : vec3(0.45, 0.03, 0.05);
+	vec3 blossom = mix(vec3(0.9, 0.3, 0.45), vec3(1.0, 0.6, 0.7), own);
+	float turns = mix(0.6, 0.12, autumn) + (own - 0.5) * 0.12;
+	float blooms = mix(0.64, 0.3, spring) + (own - 0.5) * 0.12;
+	leaves = mix(leaves, blossom, smoothstep(blooms - 0.05, blooms + 0.05, noise(place / 200.0 + vec2(131.0, 23.0))));
+	leaves = mix(leaves, turned, smoothstep(turns - 0.05, turns + 0.05, noise(place / 240.0 + vec2(7.0, 61.0))));
+	return vec4(mix(leaves, mix(vec3(0.3, 0.24, 0.2), snowy, 0.5), winter * 0.85), 0.0);
 }

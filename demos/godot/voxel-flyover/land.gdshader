@@ -11,6 +11,7 @@ shader_type spatial;
 // A coarser grid lies a little lower under the square a finer one draws, of this half size.
 uniform float hole = 0.0;
 uniform vec2 middle; // of the grids
+uniform float paint_from = 540.0; // where the last trees drawn begin to sink, and their crowns are painted
 
 varying vec3 world;
 
@@ -35,11 +36,14 @@ void fragment() {
 	float warmth = here.y + (blotch - 0.5) * 0.05;
 	float moisture = here.z + (grain - 0.5) * 0.04;
 	float steep = 1.0 - normal.y;
-	float snowline = SEA + 78.0 - (0.5 - warmth) * 70.0;
+	// Winter brings the snow down the slopes, and rain the wet (or in winter more snow).
+	float wet = rain_on(p);
+	float snowline = SEA + 78.0 - (0.5 - warmth) * 70.0 - winter * (52.0 + 14.0 * wet);
 
 	vec3 meadow = mix(vec3(0.4, 0.27, 0.04), mix(vec3(0.015, 0.19, 0.11), vec3(0.1, 0.24, 0.03), blotch), smoothstep(0.36, 0.6, moisture));
 	vec3 heath = mix(vec3(0.17, 0.15, 0.09), mix(vec3(0.17, 0.08, 0.2), vec3(0.04, 0.14, 0.07), smoothstep(0.35, 0.6, blotch)), smoothstep(0.36, 0.6, moisture));
 	vec3 desert = mix(vec3(0.55, 0.13, 0.07), vec3(0.68, 0.3, 0.12), blotch);
+	meadow = mix(meadow, vec3(0.42, 0.33, 0.1), autumn * 0.55);
 	vec3 colour = mix(heath, meadow, smoothstep(0.38, 0.46, warmth));
 	colour = mix(colour, desert, smoothstep(0.55, 0.6, warmth) * smoothstep(0.5, 0.44, moisture));
 	// The ground cover is mottled, and flowers dot it near by.
@@ -54,13 +58,18 @@ void fragment() {
 	colour = mix(colour, rock, bare);
 	float snow = smoothstep(snowline - 3.0, snowline + 3.0, height) * smoothstep(0.42, 0.2, steep);
 	colour = mix(colour, vec3(0.6, 0.67, 0.8) * (0.9 + 0.2 * grain), snow);
+	// A town: paving in lots, with streets between them that their lamps light at night.
+	float town = town_at(p, here.x) * (1.0 - bare);
+	vec2 in_lot = abs(fract(p / LOT) - 0.5);
+	float street = mix(smoothstep(0.36, 0.4 + wide / LOT, max(in_lot.x, in_lot.y)), 0.35, smoothstep(2.0, 8.0, wide));
+	colour = mix(colour, mix(vec3(0.4, 0.38, 0.36), vec3(0.1, 0.1, 0.12), street), town);
 	// Past the last trees that are drawn, their crowns are painted on the ground they stand on.
 	float away = distance(p, flyer);
-	float painted = smoothstep(540.0, 680.0, away);
+	float painted = smoothstep(paint_from, paint_from + 140.0, away);
 	vec3 lit_crowns = vec3(0.0);
 	if (painted > 0.0 && grows(here.x, here.y)) {
 		float crown = crown_width(here.y, here.z) * 1.3;
-		float share = tree_share(here.y, here.z);
+		float share = tree_share(here.y, here.z) * (1.0 - town);
 		// Where a crown is less than a pixel, the ground takes the colour of its share of them.
 		float merged = max(smoothstep(800.0, 1300.0, away), smoothstep(crown * 0.35, crown * 1.4, wide));
 		// A crown is wider than its plot: the pixel is under the nearest of its own plot's tree and
@@ -100,9 +109,9 @@ void fragment() {
 	// The grain of the ground, which the grid is too coarse to carry, tilts the light near by.
 	float fine = fbm(p * 0.45 + vec2(70.0, 3.0), 3);
 	vec2 tilt = (vec2(fbm(p * 0.45 + vec2(70.4, 3.0), 3), fbm(p * 0.45 + vec2(70.0, 3.4), 3)) - fine) * (0.5 + 1.6 * bare) * (1.0 - smoothstep(0.1, 0.4, wide)) * (1.0 - 0.6 * snow);
-	ALBEDO = colour * cloud_shade(world);
-	EMISSION = lit_crowns + vein_colour * vein * run * (0.02 + 1.7 * night) + vec3(1.0, 0.5, 0.12) * pulse_light(p) * (1.0 + 1.8 * night) * (0.6 + 0.6 * grain);
-	ROUGHNESS = mix(mix(0.9, 0.7, bare), 0.3, max(max(vein * night, snow * 0.6), sand * 0.5));
+	ALBEDO = colour * cloud_shade(world) * (1.0 - 0.35 * wet * (1.0 - snow));
+	EMISSION = vec3(1.0, 0.78, 0.45) * town * street * night * 0.5 + lit_crowns + vein_colour * vein * run * (0.02 + 1.7 * night) + vec3(1.0, 0.5, 0.12) * pulse_light(p) * (1.0 + 1.8 * night) * (0.6 + 0.6 * grain);
+	ROUGHNESS = mix(mix(0.9, 0.7, bare), 0.3, max(max(max(vein * night, snow * 0.6), sand * 0.5), wet * 0.8));
 	SPECULAR = 0.35;
 	NORMAL = normalize((VIEW_MATRIX * vec4(normalize(normal + vec3(tilt.x, 0.0, tilt.y)), 0.0)).xyz);
 }

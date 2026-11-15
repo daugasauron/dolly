@@ -27,6 +27,8 @@ const GROVES := [
 ## The trees that cast the shadows, in one grid of plain crowns: a shadow needs no more.
 const SHADES := [128, 3, Vector4(-2, -1, 200, 232)]
 const DAY_SECONDS := 120.0
+const YEAR_DAYS := 3.0 # a year's seasons pass in so many days
+const WIND := Vector2(0.93, 0.36) # the way the clouds drift, and the air with them
 const CRUISE := 30.0
 const BOOST := 26.0
 const CEILING := 190.0
@@ -38,13 +40,29 @@ const WAKE_APART := 1.2
 ## The camera's views while the corgi flies itself, each for SHOT_SECONDS: where it stands in the
 ## flyer's frame, where it looks, and its field of view.
 const SHOTS := [
-	[Vector3(4.6, 3.6, 9.5), Vector3(-2, -0.5, -25), 66.0],
+	[Vector3(0, 3.6, 11.5), Vector3(0, -0.6, -1.5), 62.0],
 	[Vector3(-10.5, -1.2, -6.0), Vector3(4, -1.4, 1), 56.0],
 	[Vector3(-10.0, -3.4, -8.2), Vector3(0.6, -1.1, 0.4), 46.0],
 	[Vector3(9, 26, 34), Vector3(0, -10, -70), 74.0],
 	[Vector3(5.5, 0.6, -11.5), Vector3(-1, -0.4, 6), 58.0],
 ]
 const SHOT_SECONDS := 10.0
+## What an adapter draws, from all of it down: the share of the frame's width and height the
+## scene is drawn at (and scaled up from, smoothly), whether a pixel has four samples (WebGPU
+## knows one or four; with one the edges are smoothed after), whether the fog has its shafts
+## and the ground its ambient occlusion, the shadows' cascades and reach, the shells of a coat,
+## and how many of the trees' grids are drawn, past which their crowns are painted on the land.
+## The game starts at the first and goes down while a frame takes the GPU longer than
+## FRAME_BUDGET, so a weak adapter draws the same picture, softer, at an even rate.
+const LEVELS := [
+	[1.0, true, true, true, DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS, 420.0, 18, 4],
+	[0.8, true, false, true, DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS, 420.0, 14, 4],
+	[0.7, false, false, false, DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS, 300.0, 10, 3],
+	[0.6, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 160.0, 8, 2],
+	[0.55, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 120.0, 6, 2],
+	[0.5, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 90.0, 5, 2],
+]
+const FRAME_BUDGET := 14.0 # milliseconds of the GPU: over it the display's 60 a second are lost
 
 var environment := Environment.new()
 var sky_material := ShaderMaterial.new()
@@ -55,6 +73,7 @@ var lands: Array[MeshInstance3D] = []
 var grounds: Array[SubViewport] = [] # each grid's ground, for the shaders to read
 var groves: Array[MultiMeshInstance3D] = []
 var water := MeshInstance3D.new()
+var city: MultiMeshInstance3D # a building for each lot around the flyer
 var flyer := Node3D.new()
 var dog := Node3D.new()
 var head := Node3D.new()
@@ -93,9 +112,17 @@ var looks_from := 0.0 # the mouse turns the view from then on, a moment after it
 var trail := Vector3.ZERO # the flyer's place and heading as the camera follows them, a little late
 var turned := heading
 var lift := 0.0 # of the camera over the ground under and ahead of it
+var zoom := 1.0 # the camera's distance, as a share of its view's: the wheel, or Z and X
+var zoomed := 1.0 # on its way there
 var shown_score := 0.0
 var hint_until := 0.0 # the keys show for a while after the board changes hands
 var day := 0.24
+var year := 0.3 # 0 the first of spring, 0.25 of summer, 0.5 of autumn, 0.75 of winter
+var falls := 0.0 # the rain or snow over the camera
+var rain: Array[ShaderMaterial] = []
+var showers: Array[MeshInstance3D] = [] # the tubes the rain falls down, around the camera
+var night_share := 0.0
+var skim := 0.0 # how low the board is over the sea, between 0 and 1
 var heading := PI / 2.0 # east, along the coast
 var turn := 0.0
 var climb := 0.0
@@ -113,6 +140,11 @@ var steady_from := 0
 var gpu_milliseconds := 0.0
 var cpu_milliseconds := 0.0
 var frame_began := 0
+var level := 0
+var coats: Array[MultiMeshInstance3D] = [] # the fur's and feathers' shells
+var gpu_window := 0.0 # the GPU's milliseconds over the frames counted since the level was set
+var gpu_frames := -30 # the first frames after a change are not counted
+var calm_windows := 0
 var frame_milliseconds := PackedFloat32Array() # each steady frame's, for a flight by itself
 
 
@@ -125,6 +157,7 @@ func option(name: String, otherwise: float) -> float:
 func _ready() -> void:
 	autopilot_seconds = option("--autopilot", 0.0)
 	day = option("--day", day * 24.0) / 24.0
+	year = option("--season", year)
 	build_light()
 	for ring: Array in RINGS:
 		grounds.append(build_ground(ring[0] + 4, ring[1]))
@@ -150,7 +183,8 @@ func _ready() -> void:
 		groves.append(build_grid(tree_mesh(grove[1]), grove[0], PLOT, reads_ground(preload("res://trees.gdshader"), 0)))
 		materials[-1].set_shader_parameter("ring", grove[2])
 		groves[-1].cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY if grove == SHADES else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		materials[-1].set_shader_parameter("shrinks", grove == SHADES)
+		materials[-1].set_shader_parameter("sinks", grove == SHADES or grove == GROVES[-1])
+	city = build_grid(BoxMesh.new(), 66, Terrain.LOT, reads_ground(preload("res://city.gdshader"), 0))
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(8000, 8000)
 	water.mesh = plane
@@ -163,17 +197,96 @@ func _ready() -> void:
 	camera.near = 0.3
 	add_child(camera)
 	build_hud()
+	# The rain: two tubes around the camera, the nearer with fewer and larger streaks.
+	for tube: Array in [[2.5, 60.0], [7.0, 150.0]]:
+		var sides := CylinderMesh.new()
+		sides.top_radius = tube[0]
+		sides.bottom_radius = tube[0]
+		sides.height = tube[0] * 4.0
+		sides.cap_top = false
+		sides.cap_bottom = false
+		var falling := ShaderMaterial.new()
+		falling.shader = preload("res://rain.gdshader")
+		falling.set_shader_parameter("columns", tube[1])
+		rain.append(falling)
+		showers.append(Parts.part(self, sides, falling, Vector3.ZERO))
+		showers[-1].cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	flyer.position = Vector3(START.x, Terrain.surface(START) + 30.0, START.y)
 	trail = flyer.position
 	camera.position = flyer.position + view
 	wake.resize(WAKE)
 	wake.fill(flyer.position)
 	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
+	for coat in flyer.find_children("*", "MultiMeshInstance3D", true, false):
+		coats.append(coat)
+	set_level(int(option("--level", 0.0)))
 	if autopilot_seconds <= 0.0:
 		# The page gives the pointer at a click, and takes it back at Escape.
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	else:
 		print("FLYOVER adapter ", RenderingServer.get_video_adapter_name(), " ", RenderingServer.get_current_rendering_method())
+
+
+## Sets what the adapter draws (LEVELS).
+func set_level(to: int) -> void:
+	level = clampi(to, 0, LEVELS.size() - 1)
+	var what: Array = LEVELS[level]
+	get_viewport().scaling_3d_scale = what[0]
+	get_viewport().msaa_3d = Viewport.MSAA_4X if what[1] else Viewport.MSAA_DISABLED
+	get_viewport().screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED if what[1] else Viewport.SCREEN_SPACE_AA_FXAA
+	environment.volumetric_fog_enabled = what[2]
+	environment.ssao_enabled = what[3]
+	sun.directional_shadow_mode = what[4]
+	sun.directional_shadow_max_distance = what[5]
+	# A weak adapter has a smaller map for its shadows and a smaller sky to light the scene by.
+	RenderingServer.directional_shadow_atlas_set_size(4096 if level < 2 else 2048, true)
+	environment.sky.radiance_size = Sky.RADIANCE_SIZE_256 if level < 2 else Sky.RADIANCE_SIZE_64
+	for coat in coats:
+		coat.multimesh.visible_instance_count = what[6]
+		(coat.material_override as ShaderMaterial).set_shader_parameter("shells", float(what[6]))
+	# The trees' grids that are drawn: the last of them sinks its trees into the ground where the
+	# land takes over with painted crowns, and the shadows' trees go with the far grids.
+	var drawn: int = what[7]
+	for grove in GROVES.size():
+		groves[grove].visible = grove < drawn
+		(groves[grove].material_override as ShaderMaterial).set_shader_parameter("sinks", grove == drawn - 1)
+	groves[-1].visible = drawn == GROVES.size()
+	city.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if level < 3 else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# A weak adapter has simpler crowns near by: the next grid's.
+	groves[0].multimesh.mesh = tree_mesh(GROVES[0 if level < 3 else 1][1])
+	groves[1].multimesh.mesh = tree_mesh(GROVES[1 if level < 3 else 2][1], true)
+	tell("paint_from", GROVES[drawn - 1][2].z - 20.0)
+	gpu_window = 0.0
+	gpu_frames = -30
+	calm_windows = 0
+
+
+## Follows what the adapter manages: a level down when 20 frames took the GPU over the budget
+## on average (more when far over), a level up after a minute well under it. Below the last
+## level the rate is held even at what the adapter can draw. Where the browser has no GPU
+## timer, the time between frames stands in.
+func pace(delta: float) -> void:
+	var gpu := RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid())
+	gpu_frames += 1
+	if gpu_frames <= 0:
+		return
+	gpu_window += gpu if gpu > 0.0 else maxf(delta * 1000.0 - 6.0, 0.0)
+	if gpu_frames < 20:
+		return
+	var mean := gpu_window / gpu_frames
+	gpu_window = 0.0
+	gpu_frames = 0
+	if mean > FRAME_BUDGET and level < LEVELS.size() - 1:
+		set_level(level + (4 if mean > FRAME_BUDGET * 8.0 else 3 if mean > FRAME_BUDGET * 5.0 else 2 if mean > FRAME_BUDGET * 2.5 else 1))
+	elif mean > FRAME_BUDGET:
+		# Even at the rate the adapter holds: a half, a third or a quarter of the display's.
+		Engine.max_fps = 30 if mean < 18.0 else 20 if mean < 36.0 else 12
+	elif mean < FRAME_BUDGET * 0.35 and level > 0:
+		calm_windows += 1
+		if calm_windows > 120:
+			set_level(level - 1)
+	else:
+		calm_windows = 0
 
 
 ## Tells every shader that draws the world.
@@ -295,14 +408,14 @@ func build_ground(texels: int, cell: float) -> SubViewport:
 
 ## A tree standing on y = 0 for trees.gdshader to shape: a ball of that many rings, around
 ## (0, 2, 0), for its crown, and under it a trunk up to 0.9, which the trees far off go without.
-static func tree_mesh(rings: int) -> ArrayMesh:
+static func tree_mesh(rings: int, stem := rings >= 5) -> ArrayMesh:
 	var crown := SphereMesh.new()
 	crown.radius = 1.0
 	crown.height = 2.0
 	crown.radial_segments = rings + 3
 	crown.rings = rings
 	var tool := SurfaceTool.new()
-	if rings >= 5:
+	if stem:
 		var trunk := CylinderMesh.new()
 		trunk.top_radius = 0.7
 		trunk.bottom_radius = 1.0
@@ -387,7 +500,9 @@ func build_flyer() -> void:
 	Parts.part(head, ball, white, Vector3(0, -0.14, -0.5), Vector3.ZERO, Vector3(0.56, 0.46, 0.8))
 	Parts.part(head, ball, white, Vector3(0, 0.1, -0.36), Vector3(20, 0, 0), Vector3(0.22, 0.5, 0.5))
 	Parts.part(head, ball, black, Vector3(0, -0.06, -0.9), Vector3.ZERO, Vector3(0.2, 0.15, 0.14))
-	tongue = Parts.part(head, ball, pink, Vector3(0.12, -0.38, -0.7), Vector3(25, 0, 0), Vector3(0.2, 0.06, 0.36))
+	# The mouth, a dark line under the muzzle, and the tip of the tongue out of its middle.
+	Parts.part(head, ball, black, Vector3(0, -0.33, -0.56), Vector3.ZERO, Vector3(0.4, 0.05, 0.6))
+	tongue = Parts.part(head, ball, pink, Vector3(0, -0.37, -0.84), Vector3(38, 0, 0), Vector3(0.17, 0.05, 0.2))
 	var arm := BoxMesh.new()
 	arm.size = Vector3(0.04, 0.05, 0.62)
 	for x: float in [-1.0, 1.0]:
@@ -404,11 +519,9 @@ func build_flyer() -> void:
 	var bar := BoxMesh.new()
 	bar.size = Vector3(1.1, 0.05, 0.05)
 	Parts.part(head, bar, gold, Vector3(0, 0.2, -0.52))
-	# The cape, from a red collar.
-	var collar := TorusMesh.new()
-	collar.inner_radius = 0.48
-	collar.outer_radius = 0.68
-	Parts.part(dog, collar, Parts.paint(Color(0.8, 0.05, 0.08), 0.6), Vector3(0, 1.3, -0.62), Vector3(68, 0, 0))
+	# The cape, from a gold clasp at the throat.
+	# The cape's clasp, at the throat.
+	Parts.part(dog, ball, gold, Vector3(0, 1.0, -1.02), Vector3.ZERO, Vector3.ONE * 0.16)
 	var cloth := PlaneMesh.new()
 	cloth.size = Vector2(1.0, 2.5)
 	cloth.center_offset = Vector3(0, 0, 1.25)
@@ -475,7 +588,7 @@ func ride(delta: float) -> void:
 	for side in 2:
 		ears[side].rotation = Vector3(0.05 + 0.2 * fast + 0.06 * sin(elapsed * 23.0 + side * 2.0) * fast, 0.0, turn * 0.25)
 	tail.rotation.y = sin(elapsed * 11.0) * 0.6
-	tongue.rotation.z = 0.3 * sin(elapsed * 19.0) * fast
+	tongue.rotation.x = deg_to_rad(38.0) + 0.12 * sin(elapsed * 5.0)
 	# The jets burn as the pelican pushes: longer and brighter with each stroke of its legs.
 	var push := pelican.stroke()
 	for flame in flames:
@@ -563,8 +676,8 @@ func show_helm() -> void:
 	title.visible = not helm and autopilot_seconds <= 0.0
 	hint.visible = autopilot_seconds <= 0.0
 	hint_until = elapsed + 12.0
-	hint.text = "The corgi flies itself. Enter or a click takes the board.    Q: quit" if not helm \
-		else "Arrows or WASD steer, climb and dive    %s    Space: full speed    T: let the hours run    Esc: let go    Q: quit" % ("The mouse looks around" if captured else "Click: look around with the mouse")
+	hint.text = "The corgi flies itself. Enter or a click takes the board.    Wheel or Z, X: zoom    Q: quit" if not helm \
+		else "Arrows or WASD steer, climb and dive    %s    Space: full speed    Wheel or Z, X: zoom    T: let the hours run    Esc: let go    Q: quit" % ("The mouse looks around" if captured else "Click: look around with the mouse")
 
 
 func _input(event: InputEvent) -> void:
@@ -576,6 +689,12 @@ func _input(event: InputEvent) -> void:
 		var motion := (event as InputEventMouseMotion).relative.limit_length(150.0)
 		look.x += motion.x * 0.0035
 		look.y = clampf(look.y + motion.y * 0.0035, -0.5, 1.0)
+	if event is InputEventMouseButton and event.pressed:
+		match (event as InputEventMouseButton).button_index:
+			MOUSE_BUTTON_WHEEL_UP:
+				zoom = maxf(zoom / 1.12, 0.45)
+			MOUSE_BUTTON_WHEEL_DOWN:
+				zoom = minf(zoom * 1.12, 3.2)
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
 	match (event as InputEventKey).physical_keycode:
@@ -619,8 +738,10 @@ func _process(delta: float) -> void:
 	delta = minf(delta, 0.1)
 	elapsed += delta
 	hold_pointer()
+	pace(delta)
 	var hours := 8.0 if helm and Input.is_physical_key_pressed(KEY_T) else 1.0
 	day = fposmod(day + delta * hours / DAY_SECONDS, 1.0)
+	year = fposmod(year + delta * hours / DAY_SECONDS / YEAR_DAYS, 1.0)
 	tell("clock", elapsed)
 	set_day()
 	fly(delta)
@@ -641,17 +762,28 @@ func fly(delta: float) -> void:
 	var forward := Vector3(sin(heading), 0.0, -cos(heading))
 	var ground := 0.0
 	for step in 5:
-		ground = maxf(ground, Terrain.surface(here + Vector2(forward.x, forward.z) * step * 20.0))
+		ground = maxf(ground, Terrain.roof(here + Vector2(forward.x, forward.z) * step * 20.0))
 	var wanted_turn: float
 	var wanted_climb: float
-	var wanted_speed := CRUISE
+	# The flight keeps what it gains: a dive gives speed and a climb takes it, the wind at the
+	# back gives a little, and low over the sea the board skims and runs faster still.
+	var wanted_speed := CRUISE + clampf(-climb * 1.2, -9.0, 18.0) + 5.0 * WIND.dot(Vector2(forward.x, forward.z))
+	var over_sea := Terrain.height(here) < Terrain.SEA
+	skim = lerpf(skim, smoothstep(13.0, 8.5, flyer.position.y - Terrain.SEA) if over_sea else 0.0, 1.0 - exp(-delta * 3.0))
+	wanted_speed += 14.0 * skim
+	tell("skims", Vector3(flyer.position.x, flyer.position.z, skim))
+	# Where the wind meets a slope it rises, and carries the board up with it near the ground.
+	var slope := (Terrain.height(here + WIND * 14.0) - Terrain.height(here - WIND * 14.0)) / 28.0
+	var updraft := clampf(slope, 0.0, 1.0) * 9.0 * smoothstep(70.0, 20.0, flyer.position.y - ground)
+	# A town's warm air rises by day.
+	updraft += 5.0 * Terrain.town(here, Terrain.height(here)) * (1.0 - night_share)
 	if helm:
 		wanted_turn = Input.get_axis("ui_left", "ui_right") + key_axis(KEY_A, KEY_D)
 		wanted_climb = (Input.get_axis("ui_down", "ui_up") + key_axis(KEY_S, KEY_W)) * 14.0
 		if Input.is_physical_key_pressed(KEY_SPACE):
 			wanted_speed += BOOST
 		# The ground pushes the board up, and its ceiling holds it down.
-		wanted_climb = maxf(wanted_climb, (ground + 14.0 - flyer.position.y) * 2.0)
+		wanted_climb = maxf(wanted_climb, (ground + (8.0 if over_sea else 14.0) - flyer.position.y) * 2.0)
 		wanted_climb = minf(wanted_climb, (CEILING - flyer.position.y) * 2.0)
 	else:
 		# A wandering course at a steady height over the ground ahead, by way of the next beacon.
@@ -670,7 +802,7 @@ func fly(delta: float) -> void:
 	speed = lerpf(speed, wanted_speed, 1.0 - exp(-delta * 1.2))
 	heading += turn * 0.55 * delta
 	flown += speed * delta
-	flyer.position += forward * speed * delta + Vector3.UP * climb * delta
+	flyer.position += forward * speed * delta + Vector3.UP * (climb + updraft) * delta
 	flyer.position.y = maxf(flyer.position.y, Terrain.surface(Vector2(flyer.position.x, flyer.position.z)) + 10.0)
 	# The board banks into its turns and noses up into its climbs.
 	flyer.rotation = Vector3(climb * 0.02, -heading, -turn * 0.6)
@@ -688,6 +820,7 @@ func fly(delta: float) -> void:
 	var among := Vector2(snappedf(flyer.position.x, PLOT * 4.0), snappedf(flyer.position.z, PLOT * 4.0))
 	for grove in groves:
 		grove.position = Vector3(among.x, 0.0, among.y)
+	city.position = Vector3(among.x, 0.0, among.y)
 	tell("flyer", Vector2(flyer.position.x, flyer.position.z))
 	water.position = Vector3(flyer.position.x, Terrain.SEA - 0.2, flyer.position.z)
 
@@ -728,7 +861,8 @@ func tend_beacons(delta: float) -> void:
 		glass.albedo_color = colour
 		glass.emission = colour
 		glass.emission_energy_multiplier = lerpf(1.5, 2.5, alight)
-		beacon.get_child(0).scale = Vector3.ONE * maxf(seen, 0.001)
+		# The crystal draws in before the camera, which may fly through it.
+		beacon.get_child(0).scale = Vector3.ONE * maxf(seen * smoothstep(5.0, 22.0, beacon.position.distance_to(camera.position)), 0.001)
 		var shaft := (beacon.get_child(1) as MeshInstance3D).material_override as ShaderMaterial
 		shaft.set_shader_parameter("colour", colour)
 		shaft.set_shader_parameter("strength", lerpf(0.35, 0.7, alight) * seen)
@@ -768,10 +902,6 @@ func build_beacon(place: Vector3, alight: float) -> Node3D:
 	point.radial_segments = 6
 	point.rings = 1
 	var glass := Parts.paint(colour, 0.15, 1.5)
-	# The crystal thins before the camera, which may fly through it.
-	glass.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_DITHER
-	glass.distance_fade_min_distance = 5.0
-	glass.distance_fade_max_distance = 20.0
 	Parts.part(gem, point, glass, Vector3(0, 1.1, 0))
 	Parts.part(gem, point, glass, Vector3(0, -1.1, 0), Vector3(180, 0, 0))
 	var column := CylinderMesh.new()
@@ -847,8 +977,10 @@ func follow(delta: float) -> void:
 	var late := 1.0 - exp(-delta * 5.0)
 	trail = trail.lerp(flyer.position, late)
 	turned = lerp_angle(turned, heading, late)
+	zoom = clampf(zoom * exp(key_axis(KEY_Z, KEY_X) * delta * 1.2), 0.45, 3.2)
+	zoomed = lerpf(zoomed, zoom, 1.0 - exp(-delta * 6.0))
 	var frame := Basis(Vector3.UP, -turned - looked.x) * Basis(Vector3.RIGHT, -looked.y)
-	var place := trail + frame * view
+	var place := trail + frame * (aim + (view - aim) * zoomed)
 	# The ground lifts the camera before it is reached, by degrees: the highest of where the
 	# camera is and will be in the next second and a half.
 	var ground := 0.0
@@ -860,6 +992,21 @@ func follow(delta: float) -> void:
 	camera.position = place
 	camera.look_at(flyer.position + frame * aim)
 	tell("eye", camera.position)
+	# It rains, or in winter snows, where the cloud over the camera is deep.
+	var above := (Vector2(camera.position.x, camera.position.z) + Vector2(9.0, 3.5) * elapsed) / 1000.0
+	falls = lerpf(falls, smoothstep(0.66, 0.78, Terrain.fbm(above + Vector2(31.0, 7.0), 3)), 1.0 - exp(-delta * 1.5))
+	for shower in showers:
+		shower.position = camera.position
+	for falling in rain:
+		falling.set_shader_parameter("falls", falls)
+		falling.set_shader_parameter("snows", season_share(0.85))
+		falling.set_shader_parameter("clock", elapsed)
+
+
+## How much of a season it is, between 0 and 1: all of it within a tenth of a year of its
+## middle, none of it a quarter of a year away.
+func season_share(middle: float) -> float:
+	return 1.0 - smoothstep(0.1, 0.25, absf(fposmod(year - middle + 0.5, 1.0) - 0.5))
 
 
 ## The light of the hour: the sun's arc, then the moon's, in one light.
@@ -878,9 +1025,14 @@ func set_day() -> void:
 	else:
 		sun.light_color = Color(0.45, 0.6, 1.0)
 		sun.light_energy = 0.7 * smoothstep(0.1, 0.35, -height)
+	# The seasons: each a share that rises and falls around its place in the year.
+	tell("spring", season_share(0.1))
+	tell("autumn", season_share(0.55))
+	tell("winter", season_share(0.85))
 	sky_material.set_shader_parameter("sun_direction", to_sun)
 	sky_material.set_shader_parameter("sun_colour", warm)
 	tell("night", night)
+	night_share = night
 	tell("to_light", to_light)
 	environment.ambient_light_color = Color(0.85, 0.82, 0.78).lerp(Color(0.15, 0.22, 0.5), night)
 	environment.ambient_light_energy = lerpf(1.0, 0.55, night)
@@ -906,6 +1058,7 @@ func watch() -> void:
 		return
 	autopilot_seconds = 0.0
 	var steady := frames - 120
+	print("FLYOVER level %d scale %.2f gpu %.1f" % [level, LEVELS[level][0], RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid())])
 	print("FLYOVER seconds %.1f frames %d fps %.1f gpu %.1f cpu %.1f flown %d beacons %d" % [elapsed, frames, steady * 1000.0 / (Time.get_ticks_msec() - steady_from), gpu_milliseconds / steady, cpu_milliseconds / steady, int(flown), lit.size()])
 	# How even the frames were: a hitch is a frame of over twice the median.
 	frame_milliseconds.sort()

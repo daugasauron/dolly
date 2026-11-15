@@ -5,10 +5,9 @@
 // whose crowns glow at night. The fragment stage roughens the crown's light as foliage does.
 //
 // Several grids draw the same trees, each with a mesh of less detail over a ring further from
-// the flyer. Where two rings overlap, one's trees thin out pixel by pixel as the other's fill in,
-// so no tree appears or goes at once; past the last ring land.gdshader paints the crowns. The
-// grid that casts the shadows has no pixels to thin: its trees shrink into the ground instead,
-// and a shadow's edge stays whole. A tree the camera flies into thins out before it.
+// the flyer. Where two rings overlap, the coarser tree grows inside the finer, which then draws back,
+// so no tree appears or goes at once and none is thinned pixel by pixel; past the last ring
+// land.gdshader paints the crowns.
 shader_type spatial;
 #include "res://terrain.gdshaderinc"
 #include "res://ground.gdshaderinc"
@@ -16,12 +15,11 @@ shader_type spatial;
 
 // How far from the flyer this grid's trees fill in (from x to y) and thin out (from z to w).
 uniform vec4 ring = vec4(-2.0, -1.0, 64.0, 80.0);
-uniform bool shrinks = false; // the grid that casts the shadows
+uniform bool sinks = false; // the last grid of trees, and the shadows'
 uniform vec3 eye; // where the camera is
 
 varying flat vec3 colour;
 varying flat float glow;
-varying flat vec2 shown; // how much of the tree has filled in, and how much is left
 varying float crown; // 0 on the trunk; on the crown, from just over 0 at its foot to 1 at its tip
 varying vec3 world;
 
@@ -30,12 +28,18 @@ void vertex() {
 	vec2 place = tree.xy;
 	float kind = tree.w;
 	float away = distance(place, flyer);
-	shown = vec2(smoothstep(ring.x, ring.y, away), 1.0 - smoothstep(ring.z, ring.w, away));
-	vec4 here = ground_here(place);
+	float come = smoothstep(ring.x, ring.y, away);
+	float gone = smoothstep(ring.z, ring.w, away);
+	// A plot outside the grid's ring has no tree here: its ground is not looked up.
+	bool in_ring = come > 0.0 && gone < 1.0;
+	vec4 here = in_ring ? ground_here(place) : vec4(0.0);
 	float top = here.x;
 	float warmth = here.y;
 	float moisture = here.z;
-	float steep = abs(ground_here(place + vec2(4.0, 0.0)).x - top) + abs(ground_here(place + vec2(0.0, 4.0)).x - top);
+	float steep = 100.0;
+	if (in_ring) {
+		steep = abs(ground_here(place + vec2(4.0, 0.0)).x - top) + abs(ground_here(place + vec2(0.0, 4.0)).x - top);
+	}
 	bool desert = is_desert(warmth, moisture);
 	bool cold = is_cold(warmth);
 	bool leafy = VERTEX.y > 0.95;
@@ -45,7 +49,7 @@ void vertex() {
 	colour = vec3(0.0);
 	glow = 0.0;
 	crown = leafy ? 0.02 + 0.98 * up : 0.0;
-	if (shown.x <= 0.0 || shown.y <= 0.0 || !grows(top, warmth) || steep > 3.4 || tree.z > tree_share(warmth, moisture)) {
+	if (come <= 0.0 || gone >= 1.0 || !grows(top, warmth) || steep > 3.4 || tree.z > tree_share(warmth, moisture) * (1.0 - town_at(place, top))) {
 		VERTEX = vec3(0.0);
 	} else {
 		vec4 leaves = crown_colour(place, kind, warmth, moisture);
@@ -80,17 +84,18 @@ void vertex() {
 		}
 		colour *= cloud_shade(vec3(place.x, top, place.y));
 		NORMAL = facing;
-		VERTEX = at * tree_size(kind) * (shrinks ? shown.y : 1.0) + vec3(place.x, top - 0.15, place.y) - MODEL_MATRIX[3].xyz;
+		// A coarser grid's tree comes inside the finer one's and grows to its size; the finer one then draws
+		// back inside it and goes. No pixel is thinned: the tree is whole at every distance. The last
+		// grid's trees, and the shadows', sink into the ground, and a tree the camera flies into draws in.
+		vec3 size = vec3(mix(0.8, 1.0, smoothstep(0.0, 0.6, come)));
+		size *= sinks ? vec3(1.0, 1.0 - gone, 1.0) : vec3(mix(1.0, 0.8, smoothstep(0.6, 1.0, gone)));
+		size *= smoothstep(2.0, 10.0, distance(vec3(place.x, top + 3.0, place.y), eye));
+		VERTEX = at * tree_size(kind) * size + vec3(place.x, top - 0.15, place.y) - MODEL_MATRIX[3].xyz;
 	}
 	world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
 void fragment() {
-	// One ring's pixels go as the next ring's come: both ask the same number of the pixel.
-	float pixel = fract(52.9829189 * fract(dot(FRAGCOORD.xy, vec2(0.06711056, 0.00583715))));
-	if (!shrinks && (pixel >= min(shown.y, smoothstep(2.0, 9.0, distance(world, eye))) || pixel < 1.0 - shown.x)) {
-		discard;
-	}
 	float leafy = step(0.001, crown);
 	// Leaves: clumps lighter and darker, deeper toward the crown's foot and inside, and a light
 	// that does not fall as on a smooth ball.

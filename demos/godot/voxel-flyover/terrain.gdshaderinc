@@ -2,10 +2,15 @@
 // which flies over it, computes the same heights. The hash is integer arithmetic, so both agree.
 const float SEA = 24.0;
 const float CLOUD_HEIGHT = 520.0;
+const float LOT = 16.0; // a building's lot
 
 // What main.gd tells every shader each frame.
 uniform float clock = 0.0; // seconds flown
 uniform float night = 0.0;
+// The season, as three shares between 0 and 1 that rise and fall through the year.
+uniform float spring = 0.0;
+uniform float autumn = 0.0;
+uniform float winter = 0.0;
 uniform vec3 to_light = vec3(0.0, 1.0, 0.0); // toward the sun, or the moon once it has set
 // The lit beacons around the flyer: where each stands (xy), how long ago its ring set off (z),
 // and how strong its rings are (w), which is less the further it is from the flyer.
@@ -81,10 +86,32 @@ vec2 climate(vec2 p) {
 	return vec2(fbm(p / 900.0 + vec2(211.0, 57.0), 2), fbm(p / 560.0 + vec2(13.0, 143.0), 2));
 }
 
+// How much of a town stands at a place whose ground is that high, between 0 and 1: on the low
+// land of some plains, thinning toward its outskirts. terrain.gd computes the same.
+float town_at(vec2 p, float height) {
+	return smoothstep(0.58, 0.66, fbm(p / 760.0 + vec2(400.0, 109.0), 2)) * smoothstep(SEA + 2.5, SEA + 6.0, height) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, height));
+}
+
+// How tall the building of a lot is, where the town's share is that: some lots are squares.
+float building_height(vec2 corner, float town) {
+	float lot = hash(corner + 7.0);
+	return step(0.22, hash(corner + 13.0)) * (3.0 + 34.0 * lot * lot * lot + 8.0 * town) * smoothstep(0.05, 0.6, town);
+}
+
+// How deep the cloud layer is over a place: cloud shows from a half, and rain falls from 0.68.
+float cloud_depth(vec2 p, int octaves) {
+	vec2 q = (p + vec2(9.0, 3.5) * clock) / 1000.0;
+	return fbm(q + vec2(31.0, 7.0), octaves);
+}
+
 // How much cloud stands over a place of the cloud layer, between 0 and 1.
 float cloud_cover(vec2 p, int octaves) {
-	vec2 q = (p + vec2(9.0, 3.5) * clock) / 1000.0;
-	return smoothstep(0.5, 0.7, fbm(q + vec2(31.0, 7.0), octaves));
+	return smoothstep(0.5, 0.7, cloud_depth(p, octaves));
+}
+
+// How hard it rains (or in winter snows) on a place, between 0 and 1: under the deep of a cloud.
+float rain_on(vec2 p) {
+	return smoothstep(0.66, 0.78, cloud_depth(p, 3));
 }
 
 // The clouds' shade on a place of the ground, along the light.

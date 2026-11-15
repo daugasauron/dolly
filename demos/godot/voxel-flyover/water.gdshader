@@ -7,6 +7,7 @@ shader_type spatial;
 
 uniform vec3 shallow : source_color = vec3(0.05, 0.5, 0.48);
 uniform vec3 deep : source_color = vec3(0.004, 0.035, 0.1);
+uniform vec3 skims; // the flyer low over the sea: its place (xy) and how low, between 0 and 1 (z)
 
 varying vec3 world_position;
 
@@ -30,6 +31,12 @@ void fragment() {
 	vec2 slope = vec2(ripples(p + vec2(0.4, 0.0), wide) - here, ripples(p + vec2(0.0, 0.4), wide) - here) * 0.9 * calm;
 	NORMAL = normalize((VIEW_MATRIX * vec4(normalize(vec3(-slope.x, 1.0, -slope.y)), 0.0)).xyz);
 	float foam = smoothstep(1.5, 0.3, depth + (ripples(p, 0.0) - 0.9) * 1.1 * (1.0 - smoothstep(0.5, 3.0, wide)));
+	// The flyer's spray: the sea under it is beaten white, and a ring runs out from it.
+	float under = distance(p, skims.xy);
+	float ring = under - 9.0 - 2.5 * sin(clock * 5.0);
+	foam = max(foam, skims.z * max(exp(-under * under / 30.0), 0.6 * exp(-ring * ring / 5.0)));
+	// Rain pocks the sea.
+	foam = max(foam, 0.25 * rain_on(p) * smoothstep(0.7, 0.9, noise(p * 1.7 + vec2(clock * 0.9, -clock * 0.7))) * (1.0 - smoothstep(0.3, 1.0, wide)));
 	vec3 colour = mix(shallow, deep, 1.0 - exp(-depth * 0.2)) * cloud_shade(world_position);
 	ALBEDO = mix(colour, vec3(0.9, 0.95, 1.0), foam * 0.8);
 	// The ripples a pixel no longer shows still spread the light it reflects.

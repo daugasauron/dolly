@@ -45,9 +45,9 @@ for (const name of browsers) {
     await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
     const flight = await page.evaluate(() => __dolly.visibleTerminalText());
     const [, view] = flight.match(/^FLYOVER flown \d+ beacons \d+ view (-?\d+) -?\d+$/m) ?? [];
-    // 60 degrees on a quiet machine; on a loaded one Firefox has reported up to half as much again
-    // for the same moves.
-    assert.ok(Number(view) >= 30 && Number(view) <= 150, `the captured mouse turns the view: ${flight}`);
+    // 300 pixels at 0.0035 rad a pixel are 60 degrees; Firefox takes the first of the 30 moves to place the
+    // captured pointer, which leaves 58. A machine too loaded to deliver the moves as made fails here.
+    assert.ok(Number(view) >= 54 && Number(view) <= 63, `the captured mouse turns the view: ${flight}`);
     assert.equal(await page.evaluate(() => document.pointerLockElement), null, "the pointer is the page's again once the game has quit");
     const run = async command => assert.equal(await page.evaluate(text => __dolly.submit(text), command), 0, command);
     await run("voxel-flyover -- --autopilot 30 --day 9 > /tmp/flyover.out 2>&1");
