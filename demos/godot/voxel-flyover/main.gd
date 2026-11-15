@@ -777,9 +777,16 @@ func _process(delta: float) -> void:
 func fly(delta: float) -> void:
 	var here := Vector2(flyer.position.x, flyer.position.z)
 	var forward := Vector3(sin(heading), 0.0, -cos(heading))
+	# What stands on the way of the next second and a half, along the turn the board is in: the
+	# highest of it, and the climb that clears all of it in the time the board takes to reach it.
 	var ground := 0.0
-	for step in 5:
-		ground = maxf(ground, Terrain.roof(here + Vector2(forward.x, forward.z) * step * 20.0))
+	var must := -INF
+	for step in 12:
+		var time := step * 0.14
+		var way := heading + turn * 0.55 * time / 2.0
+		var top := Terrain.roof(here + Vector2(sin(way), -cos(way)) * maxf(speed, 30.0) * time)
+		ground = maxf(ground, top)
+		must = maxf(must, (top + 5.0 - flyer.position.y) / maxf(time, 0.25))
 	var wanted_turn: float
 	var wanted_climb: float
 	# The flight keeps what it gains: a dive gives speed and a climb takes it, the wind at the
@@ -818,13 +825,15 @@ func fly(delta: float) -> void:
 	var ease := 1.0 - exp(-delta * 2.5)
 	turn = lerpf(turn, clampf(wanted_turn, -1.0, 1.0), ease)
 	climb = lerpf(climb, wanted_climb, ease)
+	if must > climb:
+		climb = lerpf(climb, minf(must, 60.0), 1.0 - exp(-delta * 12.0))
 	speed = lerpf(speed, wanted_speed, 1.0 - exp(-delta * 1.2))
 	heading += turn * 0.55 * delta
 	flown += speed * delta
 	flyer.position += forward * speed * delta + Vector3.UP * (climb + updraft) * delta
 	flyer.position.y = maxf(flyer.position.y, Terrain.surface(Vector2(flyer.position.x, flyer.position.z)) + 10.0)
 	# The board banks into its turns and noses up into its climbs.
-	flyer.rotation = Vector3(climb * 0.02, -heading, -turn * 0.6)
+	flyer.rotation = Vector3(clampf(climb, -20.0, 24.0) * 0.02, -heading, -turn * 0.6)
 	engine.pitch_scale = 0.8 + speed / CRUISE * 0.3
 	ride(delta)
 	var middle := Vector2(snappedf(flyer.position.x, STEP), snappedf(flyer.position.z, STEP))
@@ -1097,13 +1106,17 @@ func follow(delta: float) -> void:
 	zoomed = lerpf(zoomed, zoom, 1.0 - exp(-delta * 6.0))
 	var frame := Basis(Vector3.UP, -turned - looked.x) * Basis(Vector3.RIGHT, -looked.y)
 	var place := trail + frame * (aim + (view - aim) * zoomed)
-	# The ground lifts the camera before it is reached, by degrees: the highest of where the
-	# camera is and will be in the next second and a half.
+	# The ground and the roofs lift the camera before they are reached, by degrees: the highest
+	# of where the camera is and will be in the next second and a half, and of what stands
+	# around it, since a turn of the view moves it sideways. It rises faster than it settles.
 	var ground := 0.0
 	for step in 4:
-		ground = maxf(ground, Terrain.surface(Vector2(place.x, place.z) + Vector2(sin(heading), -cos(heading)) * step * 15.0))
+		ground = maxf(ground, Terrain.roof(Vector2(place.x, place.z) + Vector2(sin(heading), -cos(heading)) * step * 15.0))
+	for beside in 6:
+		ground = maxf(ground, Terrain.roof(Vector2(place.x, place.z) + Vector2.from_angle(beside * TAU / 6.0) * 14.0))
 	var over := place.y - ground - 6.0
-	lift = lerpf(lift, (sqrt(over * over + 9.0) - over) / 2.0, 1.0 - exp(-delta * 3.0))
+	var wanted_lift := (sqrt(over * over + 9.0) - over) / 2.0
+	lift = lerpf(lift, wanted_lift, 1.0 - exp(-delta * (9.0 if wanted_lift > lift else 3.0)))
 	place.y += lift
 	camera.position = place
 	camera.look_at(flyer.position + frame * aim)
