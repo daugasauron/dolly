@@ -20,7 +20,7 @@ Branch `feature/flyover-4` (`work/flyover4`, from `v0.1.6`). Brief:
 ## State (2026-11-16, morning)
 
 Version 7 (the night of 15 to 16 November, below) is committed on `feature/flyover-4`; the game's
-code is at `a87989175`. The game's test passes in Chrome 156 and Firefox 159 on the NVIDIA card
+code is at `9a7f8f11a`. The game's test passes in Chrome 156 and Firefox 159 on the NVIDIA card
 and on the integrated AMD GPU, and the source suite passes. The current take is
 `work/videos-2026-11-15/voxel-flyover-7/take4.mp4` (its README beside it), and the demos page carries
 its cut; it is of `037cb521f`, and `take5.mp4` of `7e641eb1e` is kept beside it, not shown (the
@@ -42,8 +42,8 @@ Left (each in its task where it has one):
   heard by anyone: for the owner to judge (`tasks/20261115-162254-woods`).
 - Town layouts of their own for each kind (the houses of towns and villages now stand askew);
   roads between towns, bridges, harbours.
-- Firefox on the NVIDIA card still has one frame of some 115 ms and 6 to 8 hitches in the
-  test's 30 seconds, where Chrome has none or one.
+- Firefox on the NVIDIA card still has four frames of 40 to 66 ms in the test's 30 seconds,
+  not traced (the frames of over 100 ms were the landmarks': `landmark-hitch`).
 - What Firefox's compositor shows is still unseen; Firefox's mouse turn still varies.
 - `docs/gpu.md`'s two sentences for the next round of pins (see "The evening's round").
 
@@ -64,7 +64,9 @@ clouds changed at once as the sun handed over to the moon). After midnight: `vil
 askew, fireworks, high cloud, the sea's swell and colours), `woods` (woods and glades, palms,
 cypresses, birches, a wreck, a keep, a stepped mound, an old tree, a river of stars, the rain's
 and the sea's sound), `dolphins` (with lightning and a cinder cone), `fireflies`, `tower-tops`, lakes along the rivers
-(`research-05`), and `black-frames`: **in
+(`research-05`), `landmark-hitch` (a frame of 100 ms in Firefox, 40 in Chrome, each time a
+landmark came near: its parts' arrays were read back from the GPU; kept by shape now), and
+`black-frames`: **in
 Chrome on the AMD GPU the game drew black frames some ten times in 20 seconds, before the
 night's work too; a power of a number that rounding put under 0, in the sky's shader; fixed.**
 The weakest level draws at 0.30 of the size (0.33 before), which gave back the slack the
@@ -74,12 +76,12 @@ night's additions took on the AMD GPU.
 
 The game's test (30 s by itself from 09:00), 1920 by 1080 frames:
 
-| | Version 6 | Version 7 (`a87989175`) |
+| | Version 6 | Version 7 (`9a7f8f11a`) |
 | --- | --- | --- |
-| NVIDIA RTX 5070, Chrome 156 | 60.0 a second, GPU 5.7 ms | 59.6 a second, GPU 6.8 ms (median 16.8 ms, p99 20.9) |
-| NVIDIA RTX 5070, Firefox 159 | 58.9, GPU 5.8 ms | 56.9, GPU 7.3 ms (one frame of 114 ms, 8 hitches) |
-| AMD integrated, Firefox 159 | 29.9, median 33.4 ms, p99 37.3 | 29.9, median 33.0 ms, p99 37.0 |
-| AMD integrated, Chrome 156 | 29.8, median 33.4 ms, p99 36.9 | 29.5, median 33.5 ms, p99 37.6 |
+| NVIDIA RTX 5070, Chrome 156 | 60.0 a second, GPU 5.7 ms | 59.6 a second, GPU 6.8 ms (median 16.8 ms, p99 21.2, longest 32, no hitch) |
+| NVIDIA RTX 5070, Firefox 159 | 58.9, GPU 5.8 ms | 57.4, GPU 7.1 ms (longest frame 66 ms, 4 hitches) |
+| AMD integrated, Firefox 159 | 29.9, median 33.4 ms, p99 37.3 | 30.0, median 33.2 ms, p99 37.3, longest 59 |
+| AMD integrated, Chrome 156 | 29.8, median 33.4 ms, p99 36.9 | 29.6, median 33.6 ms, p99 37.5, longest 46 |
 
 Sudden changes over the fixed flight: 22 tiles in 17 frames (17 in 14 at midnight: the more are lightning, at 32.0 s).
 
