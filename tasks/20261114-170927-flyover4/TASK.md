@@ -20,10 +20,10 @@ Branch `feature/flyover-4` (`work/flyover4`, from `v0.1.6`). Brief:
 ## State (2026-11-16, morning)
 
 Version 7 (the night of 15 to 16 November, below) is committed on `feature/flyover-4`; the game's
-code is at `9a7f8f11a`. The game's test passes in Chrome 156 and Firefox 159 on the NVIDIA card
+code is at `0b79b7786`. The game's test passes in Chrome 156 and Firefox 159 on the NVIDIA card
 and on the integrated AMD GPU, and the source suite passes. The current take is
 `work/videos-2026-11-15/voxel-flyover-7/take4.mp4` (its README beside it), and the demos page carries
-its cut; it is of `037cb521f`, and `take6.mp4` of `9a7f8f11a` is kept beside it, not shown (the
+its cut; it is of `037cb521f`, and `take7.mp4` of `0b79b7786` is kept beside it, not shown (the
 takes' README says why). The night's work is tracked in its own tasks: `tatr ls :flyover` (and `tatr ls -c
 :flyover` for the closed ones), the research's fifteen steps among them (`tatr ls :research`).
 
@@ -44,6 +44,9 @@ Left (each in its task where it has one):
   roads between towns, bridges, harbours.
 - Firefox on the NVIDIA card still has four frames of 40 to 66 ms in the test's 30 seconds,
   not traced (the frames of over 100 ms were the landmarks': `landmark-hitch`).
+- The way the flight takes by itself depends on its frames' times: recorded at 47 a second
+  it went another way than at 60 (the takes' README). A flight that is the same whatever the
+  frame rate would need its steering stepped at a fixed rate.
 - What Firefox's compositor shows is still unseen; Firefox's mouse turn still varies.
 - `docs/gpu.md`'s two sentences for the next round of pins (see "The evening's round").
 
@@ -76,14 +79,14 @@ night's additions took on the AMD GPU.
 
 The game's test (30 s by itself from 09:00), 1920 by 1080 frames:
 
-| | Version 6 | Version 7 (`9a7f8f11a`) |
+| | Version 6 | Version 7 (`0b79b7786`) |
 | --- | --- | --- |
-| NVIDIA RTX 5070, Chrome 156 | 60.0 a second, GPU 5.7 ms | 59.6 a second, GPU 6.8 ms (median 16.8 ms, p99 21.2, longest 32, no hitch) |
-| NVIDIA RTX 5070, Firefox 159 | 58.9, GPU 5.8 ms | 57.4, GPU 7.1 ms (longest frame 66 ms, 4 hitches) |
-| AMD integrated, Firefox 159 | 29.9, median 33.4 ms, p99 37.3 | 30.0, median 33.2 ms, p99 37.3, longest 59 |
-| AMD integrated, Chrome 156 | 29.8, median 33.4 ms, p99 36.9 | 29.6, median 33.6 ms, p99 37.5, longest 46 |
+| NVIDIA RTX 5070, Chrome 156 | 60.0 a second, GPU 5.7 ms | 59.6 a second, GPU 7.0 ms (median 16.9 ms, p99 20.6, longest 29, no hitch) |
+| NVIDIA RTX 5070, Firefox 159 | 58.9, GPU 5.8 ms | 57.9, GPU 7.1 ms (longest frame 61 ms, 5 hitches) |
+| AMD integrated, Firefox 159 | 29.9, median 33.4 ms, p99 37.3 | 30.0, median 33.2 ms, p99 37.2, longest 53, no hitch |
+| AMD integrated, Chrome 156 | 29.8, median 33.4 ms, p99 36.9 | 30.0, median 33.2 ms, p99 36.5, longest 38, no hitch |
 
-Sudden changes over the fixed flight: 22 tiles in 17 frames (17 in 14 at midnight: the more are lightning, at 32.0 s).
+Sudden changes over the fixed flight: 24 tiles in 18 frames (17 in 14 at midnight: the more are lightning, at 32.0 and 36.0 s).
 
 ## Version 6 (2026-11-15, from 18:10): the owner's fixes
 
