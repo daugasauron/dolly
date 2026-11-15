@@ -68,7 +68,7 @@ static func build(found: Array) -> Node3D:
 			mark.set_meta("beam", beam)
 			mark.set_meta("turns", lamp)
 			for way: float in [-1.0, 1.0]:
-				var ray := Parts.part(lamp, cylinder(7.0, 0.4, 10), beam, Vector3(way * 70, 0, 0), Vector3(0, 0, way * -90), Vector3(1, 140, 1))
+				var ray := Parts.part(lamp, cylinder(3.2, 0.4, 10), beam, Vector3(way * 60, 0, 0), Vector3(0, 0, way * -90), Vector3(1, 120, 1))
 				ray.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		Terrain.WINDMILL:
 			# A tapered tower under a cap, and four sails that turn in the wind.
@@ -212,7 +212,7 @@ static func tend(mark: Node3D, elapsed: float, night: float, seen: float) -> voi
 		(mark.get_meta("sails") as Node3D).rotation.z = elapsed * 0.9
 	if mark.has_meta("turns"):
 		(mark.get_meta("turns") as Node3D).rotation.y = elapsed * 0.7
-		(mark.get_meta("beam") as StandardMaterial3D).albedo_color.a = 0.16 * night
+		(mark.get_meta("beam") as StandardMaterial3D).albedo_color.a = 0.06 * night
 	if mark.get_meta("kind") == Terrain.FLOATING:
 		mark.position.y = mark.get_meta("rests") + 3.0 * sin(elapsed * 0.4 + mark.rotation.y)
 	for light: StandardMaterial3D in mark.get_meta("lights"):

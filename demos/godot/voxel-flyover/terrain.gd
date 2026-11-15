@@ -187,7 +187,7 @@ static func landmark(plot: Vector2i) -> Array:
 		elif level and air.x > 0.57 and air.y < 0.47:
 			if chance < 0.4:
 				found = [p, ground, ARCH, 0, 1.05 * (18.0 + 22.0 * own), 20.0 + 24.0 * own, own]
-		elif air.y > 0.6 and ground < SEA + 8.0 and share < 0.02:
+		elif air.y > 0.6 and ground < SEA + 8.0 and people < 0.5:
 			if chance < 0.45 * wonder:
 				found = [p, ground, MUSHROOMS, 0, 34.0, 18.0, own]
 		elif level and air.x < 0.42 and ground < SEA + 70.0 and chance < 0.3:
