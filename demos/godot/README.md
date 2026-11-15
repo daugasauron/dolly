@@ -167,9 +167,10 @@ The world is large by slow fields (`slow` in
 2.7, 5.1, 7.3, 11, 19 and 53 thousand units, each turned and placed by itself, so their
 combinations do not come round again. Oceans and continents of 7.3 thousand units and lands of
 2.7 thousand shift the coasts of 520, so an ocean has islands only; the relief of a region makes
-its ranges low or high; a massif, a tenth of the world, raises its peaks to two and a half times
-(one begins three thousand units east of the start); rivers at the sea's level follow a
-meandering noise's contour through valleys and narrow to their springs in the hills; warmth and
+its ranges low or high; a massif, rare, raises its peaks to two and a half times
+(the nearest is some eleven thousand units from the start); rivers at the sea's level follow a
+meandering noise's contour through valleys, widen into lakes in some stretches, and narrow to
+their springs in the hills; warmth and
 moisture have countries of 19 and 11 thousand units; and a realm of wonders, a tenth of the
 world at 53 thousand (the nearest fourteen thousand north of the start), has a sea alight at
 night, groves that mostly glow and bright veins. The ground's textures also carry the realm, and

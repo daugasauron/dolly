@@ -76,7 +76,8 @@ static func height(p: Vector2) -> float:
 		return high
 	var gate := 1.0 - smoothstep(SEA + 45.0, SEA + 90.0, high)
 	var w := p / 900.0 + 0.35 * Vector2(noise(p / 310.0 + Vector2(7.0, 3.0)), noise(p / 310.0 + Vector2(51.0, 23.0)))
-	var valley := smoothstep(0.012 * gate, 0.1, absf(noise(w + Vector2(140.0, 77.0)) - 0.5))
+	var lake := 0.05 * smoothstep(0.6, 0.72, noise(p / 1300.0 + Vector2(61.0, 9.0)))
+	var valley := smoothstep((0.012 + lake) * gate, 0.1 + lake, absf(noise(w + Vector2(140.0, 77.0)) - 0.5))
 	return lerpf(high, SEA - 2.5 + (high - SEA + 2.5) * valley, gate)
 
 

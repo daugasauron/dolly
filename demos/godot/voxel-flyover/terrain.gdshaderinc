@@ -106,7 +106,8 @@ float river_at(vec2 p) {
 // mountains whose spurs stand on their crests and whose gullies on their spurs; the relief of a
 // region (1.9 thousand units) makes its ranges low or high, and in a massif they are more than
 // twice as high on a raised base. Rivers at the sea's level run in valleys through the low
-// land and narrow to their springs in the hills. terrain.gd computes the same.
+// land, widen into lakes in some stretches, and narrow to their springs in the hills.
+// terrain.gd computes the same.
 float terrain_height(vec2 p) {
 	float shift = (slow(p, 7300.0, 0.7, vec2(34.0, 62.0)) - 0.5) * 0.9 + (slow(p, 2700.0, 1.9, vec2(104.0, 42.0)) - 0.5) * 0.5;
 	float relief = mix(0.22, 1.0, smoothstep(0.3, 0.5, slow(p, 1900.0, 2.6, vec2(38.0, 77.0))));
@@ -121,7 +122,8 @@ float terrain_height(vec2 p) {
 	float height = SEA - 13.0 - 24.0 * smoothstep(-0.05, -0.3, shift) + land * (16.0 + 45.0 * massif) + hills * 20.0 * (0.35 + land) + peaks * 125.0 * land * ranges * (relief + 1.5 * massif);
 	float gate = (1.0 - smoothstep(SEA + 45.0, SEA + 90.0, height)) * step(SEA - 2.5, height);
 	if (gate > 0.0) {
-		float valley = smoothstep(0.012 * gate, 0.1, river_at(p));
+		float lake = 0.05 * smoothstep(0.6, 0.72, noise(p / 1300.0 + vec2(61.0, 9.0)));
+		float valley = smoothstep((0.012 + lake) * gate, 0.1 + lake, river_at(p));
 		height = mix(height, SEA - 2.5 + (height - SEA + 2.5) * valley, gate);
 	}
 	return height;

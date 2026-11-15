@@ -29,6 +29,6 @@ It is in the game on `feature/flyover-4`, checked by looking (screenshots at nea
 zoom) and in a take, with frame times on NVIDIA in Chrome and Firefox and on the AMD GPU no worse
 than before it (60, 59 and 30 a second) and no new pop, flicker or hitch over the fixed flight.
 
-## State (2026-11-16, 03:22)
+## State (2026-11-16, 04:45)
 
-Partly done: rivers at the sea's level in valleys. Not done: lakes above the sea (a lake's level has to be one for the whole lake, which a height that is a function of the place alone does not give without a field of basins: not found a way that is surely right in the time), a flow drawn on the water, waterfalls, bridges.
+Partly done: rivers at the sea's level in valleys, and since 04:45 lakes: in some stretches (a field of 1,300 units) the river's width in its noise grows from 0.012 to 0.062, so the valley's floor is water (`terrain_height` and its twin; maps before and after by `map.mjs`). The lakes are at the sea's level, as the rivers are. Not done: lakes above the sea (a lake's one level for all of it is not a function of the place alone), a flow drawn on the water, waterfalls, bridges.
