@@ -35,14 +35,16 @@ void fragment() {
 	float blotch = noise(p / 27.0 + vec2(9.0, 120.0));
 	float height = here.x + (grain - 0.5) * 1.5;
 	float warmth = here.y + (blotch - 0.5) * 0.05;
-	float moisture = here.z + (grain - 0.5) * 0.04;
+	// The relief: a hollow is wetter than a spur, darker, and keeps its snow longer.
+	float relief = clamp(ground_relief(p), -4.0, 4.0);
+	float moisture = here.z + (grain - 0.5) * 0.04 - relief * 0.012;
 	float steep = 1.0 - normal.y;
 	// Winter brings the snow down the slopes, and rain the wet (or in winter more snow).
 	// A shower leaves the ground wet behind it for a while. A lit beacon warms the ground
 	// around it: the snow draws back up the slope there, and more flowers stand.
 	float wet = max(rain_on(p), 0.7 * rained_on(p));
 	float warmed = beacon_warmth(p);
-	float snowline = SEA + 78.0 - (0.5 - warmth) * 70.0 - winter * (52.0 + 14.0 * wet) + 70.0 * warmed;
+	float snowline = SEA + 78.0 - (0.5 - warmth) * 70.0 - winter * (52.0 + 14.0 * wet) + 70.0 * warmed + relief * 2.5;
 
 	vec3 meadow = mix(vec3(0.4, 0.27, 0.04), mix(vec3(0.015, 0.19, 0.11), vec3(0.1, 0.24, 0.03), blotch), smoothstep(0.36, 0.6, moisture));
 	vec3 heath = mix(vec3(0.17, 0.15, 0.09), mix(vec3(0.17, 0.08, 0.2), vec3(0.04, 0.14, 0.07), smoothstep(0.35, 0.6, blotch)), smoothstep(0.36, 0.6, moisture));
@@ -155,7 +157,9 @@ void fragment() {
 	// The grain of the ground, which the grid is too coarse to carry, tilts the light near by.
 	float fine = fbm(p * 0.45 + vec2(70.0, 3.0), 3);
 	vec2 tilt = (vec2(fbm(p * 0.45 + vec2(70.4, 3.0), 3), fbm(p * 0.45 + vec2(70.0, 3.4), 3)) - fine) * (0.5 + 1.6 * bare) * (1.0 - smoothstep(0.1, 0.4, wide)) * (1.0 - 0.6 * snow);
-	ALBEDO = colour * cloud_shade(world) * (1.0 - 0.35 * wet * (1.0 - snow));
+	// A gust shows on grass and crops as a band of paler green that crosses them.
+	float blown = gust(p) * (1.0 - bare) * (1.0 - snow) * (1.0 - town) * (1.0 - sand) * (1.0 - smoothstep(10.0, 40.0, wide));
+	ALBEDO = colour * (1.0 + 0.5 * blown) * (1.0 + 0.07 * min(relief, 0.0) + 0.03 * max(relief, 0.0)) * cloud_shade(world) * (1.0 - 0.35 * wet * (1.0 - snow));
 	// A town's lamps are warm; in winter each lot hangs out lights of its own colour.
 	vec3 lamps = mix(vec3(1.0, 0.78, 0.45), 0.5 + 0.5 * cos(6.2832 * (hash(floor(p / LOT) + 21.0) + vec3(0.0, 0.33, 0.67))), winter * 0.8);
 	EMISSION = lamps * town * street * night * (0.5 + 0.5 * winter) + lit_crowns + vein_colour * vein * run * (0.02 + 0.5 * sandy + 1.7 * night) + vec3(1.0, 0.5, 0.12) * pulse_light(p) * (1.0 + 1.8 * night) * (0.6 + 0.6 * grain);

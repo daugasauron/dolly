@@ -134,6 +134,9 @@ var hint_until := 0.0 # the keys show for a while after the board changes hands
 var day := 0.24
 var year := 0.3 # 0 the first of spring, 0.25 of summer, 0.5 of autumn, 0.75 of winter
 var falls := 0.0 # the rain or snow over the camera
+var curtains: MultiMeshInstance3D # the rain seen from afar
+var boats: MultiMeshInstance3D # the boats on the sea around the flyer
+var birds_of_place: MultiMeshInstance3D # gulls over the coasts and geese over the land
 var landmarks := {} # plot -> the landmark built there, or null
 var clouds: Array[MultiMeshInstance3D] = [] # the low clouds, and the mist
 var clouded := 0.0 # how deep in a cloud the camera is
@@ -240,16 +243,31 @@ func _ready() -> void:
 		puff.rings = 6
 		var bank := build_grid(puff, 13, CLOUD_CELL, reads_ground(preload("res://cloud.gdshader"), 2))
 		(bank.material_override as ShaderMaterial).set_shader_parameter("mist", mist)
-		var cells := bank.multimesh.buffer
-		var puffs := PackedFloat32Array()
-		for cell in cells.size() / 12:
-			for ball in 9:
-				puffs.append_array(cells.slice(cell * 12, cell * 12 + 12))
-		bank.multimesh.instance_count = puffs.size() / 12
-		bank.multimesh.buffer = puffs
-		bank.custom_aabb = AABB(Vector3.ONE * -1e6, Vector3.ONE * 2e6)
-		bank.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		nine_each(bank)
 		clouds.append(bank)
+	# The rain seen from afar (curtain.gdshader): a column for each cell of a grid.
+	var column := CylinderMesh.new()
+	column.top_radius = 1.0
+	column.bottom_radius = 1.0
+	column.height = 1.0
+	column.radial_segments = 20
+	column.rings = 3
+	column.cap_top = false
+	column.cap_bottom = false
+	var veil := ShaderMaterial.new()
+	veil.shader = preload("res://curtain.gdshader")
+	materials.append(veil)
+	curtains = build_grid(column, 13, 300.0, veil)
+	curtains.custom_aabb = AABB(Vector3.ONE * -1e6, Vector3.ONE * 2e6)
+	curtains.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# The boats (afloat.gdshader) and the birds of a place (wings.gdshader): a grid each.
+	boats = build_grid(boat_mesh(), 16, 180.0, reads_ground(preload("res://afloat.gdshader"), 2))
+	boats.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var wing := PlaneMesh.new()
+	wing.size = Vector2(1.6, 0.5)
+	wing.subdivide_width = 6
+	birds_of_place = build_grid(wing, 9, 360.0, reads_ground(preload("res://wings.gdshader"), 2))
+	nine_each(birds_of_place)
 	# The rain and the snow: cards in a box of air around the camera (rain.gdshader).
 	var card := QuadMesh.new()
 	shower.multimesh = MultiMesh.new()
@@ -313,6 +331,7 @@ func set_level(to: int) -> void:
 	tell("city_reach", lots * Terrain.LOT)
 	# A weak adapter has the dawn's haze without its banks of mist.
 	clouds[1].visible = level < 5
+	curtains.visible = level < 5
 	# A weak adapter has simpler crowns near by: the next grid's.
 	groves[0].multimesh.mesh = tree_mesh(GROVES[0 if level < 3 else 1][1])
 	groves[1].multimesh.mesh = tree_mesh(GROVES[1 if level < 3 else 2][1], true)
@@ -415,6 +434,43 @@ func reads_ground(shader: Shader, ring: int) -> ShaderMaterial:
 	material.set_shader_parameter("reach", (RINGS[ring][0] * RINGS[ring][1] - STEP) / 2.0)
 	materials.append(material)
 	return material
+
+
+## Gives a grid nine instances for each of its plots (a shader tells them apart by their number).
+func nine_each(grid: MultiMeshInstance3D) -> void:
+	var plots := grid.multimesh.buffer
+	var all := PackedFloat32Array()
+	for plot in plots.size() / 12:
+		for copy in 9:
+			all.append_array(plots.slice(plot * 12, plot * 12 + 12))
+	grid.multimesh.instance_count = all.size() / 12
+	grid.multimesh.buffer = all
+	grid.custom_aabb = AABB(Vector3.ONE * -1e6, Vector3.ONE * 2e6)
+	grid.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+## A boat before afloat.gdshader sails it: a hull that narrows to its bow (toward -z), a mast, a
+## three-cornered sail and a lamp at the bow, told apart by their colour's red.
+static func boat_mesh() -> ArrayMesh:
+	var tool := SurfaceTool.new()
+	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	tool.set_normal(Vector3.UP)
+	var corners := func(points: Array, red: float) -> void:
+		tool.set_color(Color(red, 0, 0))
+		for index: int in ([0, 1, 2] if points.size() == 3 else [0, 1, 2, 0, 2, 3]):
+			tool.add_vertex(points[index])
+	var bow := Vector3(0, 0.9, -3.4)
+	var keel := Vector3(0, -0.3, -2.6)
+	for side: float in [-1.0, 1.0]:
+		corners.call([Vector3(side * 0.9, 0.8, 2.6), Vector3(side * 0.9, 0.8, -0.8), bow], 0.0)
+		corners.call([Vector3(side * 0.9, 0.8, 2.6), Vector3(side * 0.9, 0.8, -0.8), Vector3(side * 0.5, -0.3, -0.6), Vector3(side * 0.5, -0.3, 2.3)], 0.0)
+		corners.call([Vector3(side * 0.9, 0.8, -0.8), bow, keel, Vector3(side * 0.5, -0.3, -0.6)], 0.0)
+	corners.call([Vector3(-0.9, 0.8, 2.6), Vector3(0.9, 0.8, 2.6), Vector3(0.5, -0.3, 2.3), Vector3(-0.5, -0.3, 2.3)], 0.0)
+	corners.call([Vector3(-0.9, 0.8, 2.6), Vector3(0.9, 0.8, 2.6), Vector3(0.9, 0.8, -0.8), Vector3(-0.9, 0.8, -0.8)], 0.0)
+	corners.call([Vector3(-0.07, 0.8, -0.6), Vector3(0.07, 0.8, -0.6), Vector3(0.07, 6.4, -0.6), Vector3(-0.07, 6.4, -0.6)], 0.5)
+	corners.call([Vector3(0, 6.2, -0.6), Vector3(0, 1.4, -0.6), Vector3(0, 1.6, 2.5)], 1.0)
+	corners.call([Vector3(-0.15, 1.2, -3.0), Vector3(0.15, 1.2, -3.0), Vector3(0.15, 0.9, -3.0), Vector3(-0.15, 0.9, -3.0)], 0.75)
+	return tool.commit()
 
 
 ## A building before city.gdshader shapes it: four walls of a unit box, and over them a roof of
@@ -940,6 +996,9 @@ func fly(delta: float) -> void:
 		grove.position = Vector3(among.x, 0.0, among.y)
 	for town in cities:
 		town.position = Vector3(among.x, 0.0, among.y)
+	boats.position = Vector3(snappedf(flyer.position.x, 180.0), 0.0, snappedf(flyer.position.z, 180.0))
+	birds_of_place.position = Vector3(snappedf(flyer.position.x, 360.0), 0.0, snappedf(flyer.position.z, 360.0))
+	curtains.position = Vector3(snappedf(flyer.position.x, 300.0), 0.0, snappedf(flyer.position.z, 300.0))
 	# The clouds drift with the wind.
 	tell("adrift", WIND * elapsed * 4.0)
 	tell("flyer", Vector2(flyer.position.x, flyer.position.z))
@@ -1260,7 +1319,9 @@ func follow(delta: float) -> void:
 	zoom = clampf(zoom * exp(key_axis(KEY_Z, KEY_X) * delta * 1.2), 0.45, 3.2)
 	zoomed = lerpf(zoomed, zoom, 1.0 - exp(-delta * 6.0))
 	var frame := Basis(Vector3.UP, -turned - looked.x) * Basis(Vector3.RIGHT, -looked.y)
-	var place := trail + frame * (aim + (view - aim) * zoomed)
+	# A close view looks at the corgi, from its own height.
+	var close := Vector3(0, 2.4, 0) * (1.0 - smoothstep(0.45, 1.0, zoomed)) * (1.0 if helm else 0.0)
+	var place := trail + frame * (aim + close + (view - aim) * zoomed)
 	# The ground and the roofs lift the camera before they are reached, by degrees: the highest
 	# of where the camera is and will be in the next second and a half, and of what stands
 	# around it, since a turn of the view moves it sideways. It rises faster than it settles.
@@ -1274,7 +1335,7 @@ func follow(delta: float) -> void:
 	lift = lerpf(lift, wanted_lift, 1.0 - exp(-delta * (9.0 if wanted_lift > lift else 3.0)))
 	place.y += lift
 	camera.position = place
-	camera.look_at(flyer.position + frame * aim)
+	camera.look_at(flyer.position + frame * (aim + close))
 	tell("eye", camera.position)
 	# It rains, or in winter snows, where the cloud over the camera is deep.
 	var above := (Vector2(camera.position.x, camera.position.z) + Vector2(9.0, 3.5) * elapsed) / 1000.0

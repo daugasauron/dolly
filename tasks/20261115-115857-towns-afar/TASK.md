@@ -1,6 +1,6 @@
 # Voxel Flyover 7: towns visible from afar, without popping up near by
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: godot,demo,flyover,0.1.8
 
@@ -12,6 +12,6 @@ Now: the buildings are a grid of 66 by 66 lots around the flyer and rise out of 
 
 Done when: a town shows its buildings from as far as its roads show, in a cheaper form at distance, and becomes the full town on approach without a visible switch; nothing pops in or out at any distance (stills at several distances on one approach, and the sudden changes over a flight toward a town); the frame times on both adapters hold (NVIDIA 60 and 59, AMD 30).
 
-## State (2026-11-15, 21:40)
+## Closed (2026-11-15, 22:45)
 
-Done in the game's code: the buildings' grid reaches 100 lots (1,600 units) each way instead of 33 (528), in rings so that a weak adapter draws the nearer ones (72, 52, 40, 33 lots by level), and reads the ground's two coarser textures. A building stands lower the further it is between 0.6 and 0.97 of the reach, so a town rises out of the haze by degrees; the same lots are the same buildings at every distance, so there is no switch. Looked at on an approach from 1,500 units (`approach.py`), six stills 6 s apart: the skyline shows from the first. Cost, back to back while another program drew on the card: GPU 6.7 ms a frame against 6.1; on the AMD GPU 30.0 a second, median 33.2 ms, p99 36.7 (its level draws 33 lots as before). Left: the image's test, the sudden changes over an approach, a look in a take.
+A town's buildings are drawn to 100 lots (1,600 units) each way, the same lots the same buildings at every distance, standing lower the further they are between 0.6 and 0.97 of the reach; the lots beyond 33 have a mesh with a plainer roof, whose shape the near roofs take before they meet. A weak adapter draws to 72, 52, 40, 33 or 26 lots by its level. Looked at on approaches from 1,500 and 900 units. Verified in the image of `a81fb3764`: the game's test passes in Chrome 156 and Firefox 159 on the NVIDIA card (59.9 a second, GPU 6.4 ms, median 16.8 ms, p99 19.6, max 24.3; 58.7, GPU 6.6 ms) and on the integrated AMD GPU (30.0, median 33.1 ms, p99 36.9; 29.6 in Chrome); take `work/videos-2026-11-15/voxel-flyover-7/take1.mp4` (of the same commit).

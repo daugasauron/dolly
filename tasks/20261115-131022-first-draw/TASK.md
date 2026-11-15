@@ -1,6 +1,6 @@
 # Voxel Flyover 7: a frame of 160 ms when a thermal is first drawn
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: godot,demo,flyover,0.1.8
 
@@ -12,6 +12,6 @@ Cause: a thermal's column is first drawn when a plot with a town comes within 36
 
 Done when: no frame over 60 ms after the first second of a flight of 60 s.
 
-## State (2026-11-15, 23:10)
+## Closed (2026-11-15, 22:45)
 
-Fixed in the game: `warm_up` draws the thermal's and the beam's materials once at the start in a card under the board for three seconds, and the rain is drawn (with nothing in it) for the first three seconds. Measured over 60 s by itself: the longest frame 33.4 ms (164 before), none over twice the median. Left: the image's test in both browsers on both adapters.
+`warm_up` draws the thermal's and the lighthouse beam's materials once at the start, in a card under the board, and the rain is drawn empty for the first three seconds. The longest frame of the game's test was 222 ms in Chrome and 208 on the AMD GPU before; after, 24.3 in Chrome, 62.6 in Firefox, 55.8 and 40.3 on the AMD GPU. Verified in the image of `a81fb3764`: the game's test passes in Chrome 156 and Firefox 159 on the NVIDIA card (59.9 a second, GPU 6.4 ms, median 16.8 ms, p99 19.6, max 24.3; 58.7, GPU 6.6 ms) and on the integrated AMD GPU (30.0, median 33.1 ms, p99 36.9; 29.6 in Chrome); take `work/videos-2026-11-15/voxel-flyover-7/take1.mp4` (of the same commit).

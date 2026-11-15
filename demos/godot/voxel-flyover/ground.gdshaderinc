@@ -30,6 +30,14 @@ vec4 ground_here(vec2 p) {
 	return own > 0.0 ? mix(beyond, ground_in(ground, p, cell), own) : beyond;
 }
 
+// How far the ground at a place stands over the ground around it: over zero on a spur or a
+// knoll, under it in a gully or a hollow. The coarser texture is the finer one's mean, so it is
+// their difference, near the flyer where the finer one is read.
+float ground_relief(vec2 p) {
+	float own = ground_own(p);
+	return own > 0.0 ? (ground_in(ground, p, cell).x - ground_in(ground_beyond, p, cell_beyond).x) * own : 0.0;
+}
+
 // The ground's normal, from the heights that far to each side.
 vec3 ground_normal(vec2 p, float apart) {
 	return normalize(vec3(ground_here(p - vec2(apart, 0.0)).x - ground_here(p + vec2(apart, 0.0)).x, 2.0 * apart,

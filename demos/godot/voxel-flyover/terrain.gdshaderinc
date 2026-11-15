@@ -200,6 +200,12 @@ float cloud_cover(vec2 p, int octaves) {
 	return smoothstep(0.5, 0.7, cloud_depth(p, octaves));
 }
 
+// The wind's gusts at a place, between 0 and 1: bands some 60 units wide that cross the land
+// and the sea with the wind, stronger in patches of some 220 units that drift after them.
+float gust(vec2 p) {
+	return noise((p - vec2(0.93, 0.36) * clock * 14.0) / 60.0) * noise((p - vec2(0.93, 0.36) * clock * 5.0) / 220.0 + 40.0);
+}
+
 // How hard it rains (or in winter snows) on a place, between 0 and 1: under the deep of a cloud.
 float rain_on(vec2 p) {
 	return smoothstep(0.66, 0.78, cloud_depth(p, 3));
