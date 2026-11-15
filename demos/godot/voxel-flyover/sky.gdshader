@@ -55,6 +55,17 @@ void sky() {
 		vec3 cell = floor(EYEDIR * 300.0);
 		float star = step(0.9965, star_hash(cell)) * star_hash(cell + 7.0);
 		colour += vec3(0.9, 0.93, 1.0) * star * dark * smoothstep(0.0, 0.25, up) * (3.0 + 2.0 * sin(clock * 3.0 + star * 90.0));
+		// A river of stars across the sky: a band of faint light with dark lanes in it, and
+		// in it many more and fainter stars.
+		vec3 pole = normalize(vec3(0.55, 0.45, -0.7));
+		vec3 across = normalize(cross(pole, vec3(0.0, 1.0, 0.0)));
+		float off_band = dot(EYEDIR, pole);
+		float band = exp(-off_band * off_band * 22.0) * smoothstep(0.0, 0.25, up) * dark;
+		vec2 along = vec2(atan(dot(EYEDIR, cross(pole, across)), dot(EYEDIR, across) + 0.0001) * 4.0, off_band * 9.0);
+		float lanes = smoothstep(0.25, 0.7, noise(along * 1.7 + 3.0) * 0.6 + noise(along * 4.3) * 0.4);
+		colour += mix(vec3(0.05, 0.07, 0.16), vec3(0.16, 0.12, 0.2), noise(along + 20.0)) * band * lanes * 0.55;
+		vec3 fine = floor(EYEDIR * 520.0);
+		colour += vec3(0.85, 0.9, 1.0) * step(1.0 - 0.02 * band * lanes, star_hash(fine)) * star_hash(fine + 3.0) * 1.6;
 		// A shooting star every six seconds: a point that crosses a part of the sky in a second,
 		// with what it has just crossed still alight behind it.
 		float turn = floor(clock / 6.0);
@@ -81,10 +92,10 @@ void sky() {
 	if (!AT_CUBEMAP_PASS && up > 0.03) {
 		vec2 high = POSITION.xz + EYEDIR.xz * (2600.0 - POSITION.y) / up - vec2(0.93, 0.36) * clock * 30.0;
 		float streaks = noise(vec2(dot(high, vec2(0.36, -0.93)) / 240.0, dot(high, vec2(0.93, 0.36)) / 2400.0) + noise(high / 1700.0) * 2.0);
-		float thin = smoothstep(0.45, 0.95, streaks) * smoothstep(0.42, 0.75, noise(high / 8000.0 + 17.0)) * smoothstep(0.03, 0.22, up);
+		float thin = smoothstep(0.45, 0.95, streaks) * smoothstep(0.42, 0.75, noise(high / 8000.0 + 17.0)) * smoothstep(0.03, 0.22, up) * (1.0 - 0.85 * dark);
 		vec3 lit = sun * 0.9 + horizon * 0.35 + vec3(0.05, 0.07, 0.12) * dark;
 		lit = mix(lit, mix(vec3(1.0, 0.5, 0.62), vec3(1.6, 0.6, 0.2), smoothstep(0.3, 0.95, sunward)) * smoothstep(-0.3, -0.05, sun_height), low);
-		colour = mix(colour, lit, thin * 0.42);
+		colour = mix(colour, lit, thin * 0.36);
 	}
 	if (up > 0.012) {
 		float far = (CLOUD_HEIGHT - POSITION.y) / up;

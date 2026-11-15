@@ -3,7 +3,8 @@ extends RefCounted
 ## fits its place (terrain.gd's landmark): a lighthouse on a coast, a windmill among fields, the
 ## tower of a town's kind, an arch of stone in the desert, giant mushrooms in a marsh, a ring of
 ## standing stones in the cold, crystals in the mountains, a gate on open ground, an island that
-## floats over the sea. Each is built of painted primitives when its plot comes near, and some
+## floats over the sea, a wreck on a shore, a keep on a hill, a stepped mound in the hot wet
+## lands, a tree far older than its wood. Each is built of painted primitives when its plot comes near, and some
 ## move or glow: `tend` turns the sails and the lamp and lights what glows at night.
 ## The forms take after kinds of building found in many places; none copies a building.
 
@@ -131,6 +132,56 @@ static func build(found: Array, paint: ShaderMaterial) -> Node3D:
 			Parts.part(mark, box, red, Vector3(0, 7.6, 0), Vector3.ZERO, Vector3(9.6, 0.7, 0.7))
 			Parts.part(mark, box, dark, Vector3(0, 10.4, 0), Vector3.ZERO, Vector3(13.0, 0.9, 1.3))
 			Parts.part(mark, box, red, Vector3(0, 9.7, 0), Vector3.ZERO, Vector3(11.4, 0.6, 0.9))
+		Terrain.WRECK:
+			# A ship aground on the shore, heeled over, its masts bare.
+			var timber := Parts.paint(Color(0.2, 0.13, 0.09), 0.9)
+			var hull := Node3D.new()
+			hull.rotation_degrees = Vector3(0, 0, 22)
+			mark.add_child(hull)
+			Parts.part(hull, ball, timber, Vector3(0, 1.0, 0), Vector3.ZERO, Vector3(7, 6, 24))
+			Parts.part(hull, box, Parts.paint(Color(0.45, 0.36, 0.25), 0.9), Vector3(0, 2.7, 0), Vector3.ZERO, Vector3(5.4, 0.5, 19))
+			for mast: float in [-5.5, 3.5]:
+				Parts.part(hull, cylinder(0.18, 0.34, 6), timber, Vector3(0, 9, mast), Vector3.ZERO, Vector3(1, 13, 1))
+				Parts.part(hull, box, timber, Vector3(0, 12.0, mast), Vector3.ZERO, Vector3(7, 0.3, 0.3))
+		Terrain.KEEP:
+			# A keep on a hill: a square tower, a round one beside it, and a ring of wall with the
+			# gaps where it fell.
+			Parts.part(mark, box, stone, Vector3(0, 6, 0), Vector3.ZERO, Vector3(9, 20, 9))
+			for corner in 4:
+				Parts.part(mark, box, stone, Vector3((corner % 2 * 2 - 1) * 3.7, 16.8, (corner / 2 * 2 - 1) * 3.7), Vector3.ZERO, Vector3(1.6, 1.8, 1.6))
+			Parts.part(mark, cylinder(2.6, 3.0, 10), stone, Vector3(9, 4, -7), Vector3.ZERO, Vector3(1, 16, 1))
+			Parts.part(mark, cylinder(0.0, 3.3, 10), red, Vector3(9, 14.2, -7), Vector3.ZERO, Vector3(1, 4.5, 1))
+			for piece in 10:
+				if piece == 3 or piece == 7:
+					continue
+				var around := piece * TAU / 10.0
+				var tall := 4.0 + 2.5 * Terrain.cell_hash(piece + int(own * 1000.0), 13)
+				Parts.part(mark, box, stone, Vector3(cos(around) * 17.0, tall / 2.0 - 4.0, sin(around) * 17.0), Vector3(0, -rad_to_deg(around), 0), Vector3(1.4, tall + 8.0, 11.0))
+		Terrain.MOUND:
+			# A stepped mound of stone, mossy, with a stair up one side and a small house on top.
+			var mossy := Parts.paint(Color(0.34, 0.36, 0.26), 0.95)
+			for step in 5:
+				var wide := 34.0 - step * 6.0
+				Parts.part(mark, box, mossy, Vector3(0, step * 4.0, 0), Vector3.ZERO, Vector3(wide, 8.0, wide))
+			Parts.part(mark, box, stone, Vector3(0, 10.2, 9.6), Vector3(53, 0, 0), Vector3(4.0, 0.8, 25.0))
+			Parts.part(mark, box, stone, Vector3(0, 22.5, 0), Vector3.ZERO, Vector3(6, 5, 6))
+			Parts.part(mark, box, mossy, Vector3(0, 25.5, 0), Vector3.ZERO, Vector3(8, 1, 8))
+		Terrain.OLD_TREE:
+			# A tree far older and larger than the wood around it: roots, a trunk, boughs and
+			# heads of leaves, in blossom for a few.
+			var bark := Parts.paint(Color(0.2, 0.13, 0.08), 0.9)
+			var leaf := Parts.paint(Color(0.75, 0.3, 0.45) if own > 0.7 else Color(0.1, 0.36, 0.1), 0.85)
+			Parts.part(mark, cylinder(2.6, 5.0, 9), bark, Vector3(0, 14, 0), Vector3.ZERO, Vector3(1, 32, 1))
+			for root in 5:
+				var around := root * TAU / 5.0
+				Parts.part(mark, cylinder(0.6, 1.8, 6), bark, Vector3(cos(around) * 5.0, 1.5, sin(around) * 5.0), Vector3(-sin(around) * 35.0, 0, cos(around) * 35.0), Vector3(1, 9, 1))
+			for bough in 6:
+				var around := bough * 1.05 + own * 6.0
+				var out := 9.0 + 7.0 * Terrain.cell_hash(bough + int(own * 1000.0), 3)
+				var up := 30.0 + 5.0 * (bough % 3)
+				Parts.part(mark, cylinder(0.7, 1.5, 6), bark, Vector3(cos(around) * out * 0.5, up - 4.0, sin(around) * out * 0.5), Vector3(sin(around) * 55.0, 0, -cos(around) * 55.0), Vector3(1, out * 1.2, 1))
+				Parts.part(mark, ball, leaf, Vector3(cos(around) * out, up + 2.0, sin(around) * out), Vector3.ZERO, Vector3(17, 11, 17))
+			Parts.part(mark, ball, leaf, Vector3(0, 41, 0), Vector3.ZERO, Vector3(22, 14, 22))
 		Terrain.FLOATING:
 			# An island that floats: rock that narrows downward under a grassy top, a few trees, and
 			# a thread of water that falls from its rim.

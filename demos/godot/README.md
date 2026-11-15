@@ -73,8 +73,8 @@ shapes into firs with tiers of boughs in the cold, broad lumpy crowns in the wet
 blossom or autumn colours, slender spires in the desert, and groves that glow at night; the
 fragment stage roughens a crown's light as leaves do. The sea mirrors the sky, with the sun's
 glitter on its ripples and foam that glows at night along the shore
-([`water.gdshader`](voxel-flyover/water.gdshader)). The sky follows the hour, with stars, the
-moon and an aurora, and carries a layer of cloud lit from the sun's side, whose shade falls on the
+([`water.gdshader`](voxel-flyover/water.gdshader)). The sky follows the hour, with stars, a river of
+them across the night, the moon and an aurora, and carries a layer of cloud lit from the sun's side, whose shade falls on the
 ground ([`sky.gdshader`](voxel-flyover/sky.gdshader)). A day lasts two minutes: one light is the
 sun and then the moon, with four shadow cascades over 420 units that every grid of land casts
 into, 4x MSAA, SSAO, glow, haze that thickens toward the sea, and volumetric fog, in which the low
@@ -193,7 +193,8 @@ A plot of 260 units has one landmark at most, by its place (`landmark` in
 [`terrain.gd`](voxel-flyover/terrain.gd), built by [`landmarks.gd`](voxel-flyover/landmarks.gd)):
 a lighthouse with turning beams, a windmill among fields, the tower of a town's kind, an arch of
 stone in the desert, giant mushrooms that glow in a marsh, a ring of standing stones, crystals in
-the mountains, a gate on open ground, an island that floats in the board's way, which passes over or under it. The forms
+the mountains, a gate on open ground, a wreck on a shore, a keep with its fallen wall on a hill,
+a stepped mound in the hot wet lands, a tree far older than its wood, an island that floats in the board's way, which passes over or under it. The forms
 take after kinds of building found in many places; none copies a building. Life is met by place
 too, each a grid whose shader places its cell's own: sailing boats
 ([`afloat.gdshader`](voxel-flyover/afloat.gdshader)), gulls over the coasts and wedges of geese in
@@ -203,6 +204,11 @@ spring and autumn ([`wings.gdshader`](voxel-flyover/wings.gdshader)), balloons
 ([`herd.gdshader`](voxel-flyover/herd.gdshader)), and at night fireworks over the towns
 ([`fireworks.gdshader`](voxel-flyover/fireworks.gdshader)). A house that is not a city's tower
 stands a little off its lot's middle at an angle of its own, so a village is not a grid.
+Trees stand in woods with glades between them (patches cut from the climate's two fields, which
+the ground's texture already holds), and among the broad crowns stand palms in the hot wet
+lowlands, cypresses where it is warm and dry, and birches toward the cold. The game makes its
+sounds before the flight: the jets' drone, a note for each beacon, the rain's patter and the
+wash of the sea under a low flight.
 
 The flight keeps what it gains and stays pointless: a dive gives speed and a climb takes it,
 the wind (the clouds' drift) helps at the back, low over the sea the board skims faster in its

@@ -107,6 +107,8 @@ var hint := Label.new()
 var score := Label.new()
 var engine := AudioStreamPlayer.new()
 var bell := AudioStreamPlayer.new()
+var patter := AudioStreamPlayer.new() # the rain
+var wash := AudioStreamPlayer.new() # the sea under a low flight
 var chimes: Array[AudioStreamWAV] = [] # a note for each beacon lit, made before the flight
 var leaving := false # after Q, or a flight by itself that has ended
 var beacons := {} # plot -> its node, for the plots around the flyer
@@ -152,6 +154,7 @@ var shower := MultiMeshInstance3D.new()
 var fallen: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO] # how far the rain and the snow have fallen and drifted
 var night_share := 0.0
 var skim := 0.0 # how low the board is over the sea, between 0 and 1
+var sea_heard := 0.0 # how loud the sea is
 var heading := PI / 2.0 # east, along the coast
 var turn := 0.0
 var climb := 0.0
@@ -795,6 +798,12 @@ func build_flyer() -> void:
 	engine.volume_db = -16.0
 	add_child(engine)
 	engine.play()
+	patter.stream = murmur(2.0, 0.85, 0.0)
+	wash.stream = murmur(6.0, 0.05, 1.0)
+	for weather: AudioStreamPlayer in [patter, wash]:
+		weather.volume_db = -80.0
+		add_child(weather)
+		weather.play()
 	bell.volume_db = -6.0
 	for note: int in [0, 2, 4, 7, 9, 12]:
 		chimes.append(chime(440.0 * pow(2.0, note / 12.0)))
@@ -847,6 +856,30 @@ func ride(delta: float) -> void:
 		wake_material.set_shader_parameter("lead", wake[0].distance_to(wake[1]) / WAKE_APART)
 		wake_material.set_shader_parameter("clock", elapsed)
 		wake_material.set_shader_parameter("strokes", pelican.angle / PI)
+
+
+## A loop of noise for the weather, made here. Of each sample `kept` is new: near 1 the noise
+## is bright (rain), near 0 deep (the sea). With `swells` it comes and draws back every three
+## seconds, and is still where the loop joins.
+static func murmur(seconds: float, kept: float, swells: float) -> AudioStreamWAV:
+	const RATE := 22050
+	var count := int(RATE * seconds)
+	var data := PackedByteArray()
+	data.resize(count * 2)
+	var air := 0.0
+	var random := RandomNumberGenerator.new()
+	random.seed = 11
+	for i in count:
+		air = lerpf(air, random.randf_range(-1.0, 1.0), kept)
+		var value := air * 0.35 / sqrt(kept) * (1.0 - swells * (0.5 + 0.5 * cos(TAU * i / (RATE * 3.0))))
+		data.encode_s16(i * 2, int(clampf(value, -1.0, 1.0) * 32767.0))
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = RATE
+	stream.data = data
+	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	stream.loop_end = count
+	return stream
 
 
 ## The jets' drone and the wind around them, made here: two seconds that loop.
@@ -967,6 +1000,8 @@ func leave() -> void:
 	leaving = true
 	engine.stop()
 	bell.stop()
+	patter.stop()
+	wash.stop()
 	await get_tree().create_timer(0.3).timeout
 	get_tree().quit()
 
@@ -1499,6 +1534,12 @@ func follow(delta: float) -> void:
 	var above := (Vector2(camera.position.x, camera.position.z) + Vector2(9.0, 3.5) * elapsed) / 1000.0
 	falls = lerpf(falls, smoothstep(0.66, 0.78, Terrain.fbm(above + Vector2(31.0, 7.0), 3)), 1.0 - exp(-delta * 1.5))
 	sky_material.set_shader_parameter("rains", falls)
+	# Rain is heard (snow is not), and so is the sea under a low flight.
+	patter.volume_db = linear_to_db(maxf(0.22 * falls * (1.0 - season_share(0.85)), 0.0001))
+	var over_sea_by := flyer.position.y - Terrain.SEA
+	var sea_near := (1.0 - smoothstep(14.0, 70.0, over_sea_by)) if Terrain.height(Vector2(flyer.position.x, flyer.position.z)) < Terrain.SEA + 1.5 else 0.0
+	sea_heard = lerpf(sea_heard, sea_near, 1.0 - exp(-delta * 1.2))
+	wash.volume_db = linear_to_db(maxf(0.35 * sea_heard, 0.0001))
 	# In a cloud the air is white.
 	clouded = lerpf(clouded, in_cloud(camera.position), 1.0 - exp(-delta * 1.5))
 	environment.fog_density = lerpf(0.0006, 0.01, clouded)

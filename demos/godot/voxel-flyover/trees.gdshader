@@ -45,6 +45,12 @@ void vertex() {
 	bool desert = is_desert(warmth, moisture);
 	bool cold = is_cold(warmth);
 	bool savanna = is_savanna(warmth, moisture);
+	// Among the broad crowns: palms in the hot wet lowlands, cypresses where it is warm and
+	// dry, birches toward the cold.
+	bool broad = !desert && !cold && !savanna;
+	bool palm = broad && warmth > 0.6 && top < SEA + 14.0 && kind < 0.8;
+	bool cypress = broad && !palm && warmth > 0.5 && moisture < 0.5 && kind > 0.55;
+	bool birch = broad && warmth < 0.48 && kind > 0.4;
 	bool leafy = VERTEX.y > 0.95;
 	// On the crown's unit sphere: its height from foot to tip.
 	vec3 ball = VERTEX - vec3(0.0, 2.0, 0.0);
@@ -59,8 +65,10 @@ void vertex() {
 		vec3 at;
 		vec3 facing = NORMAL;
 		if (!leafy) {
-			at = VERTEX * vec3(0.16, desert ? 0.0 : cold ? 1.6 : savanna ? 4.6 : 2.6, 0.16);
-			colour = leaves.a > 0.9 ? vec3(0.1, 0.11, 0.16) : vec3(0.1, 0.06, 0.04);
+			at = VERTEX * vec3(palm || birch ? 0.11 : 0.16, desert ? 0.0 : cold ? 1.6 : savanna ? 4.6 : palm ? 6.2 : birch ? 3.6 : 2.6, palm || birch ? 0.11 : 0.16);
+			// A palm's stem leans.
+			at.xz += palm ? vec2(cos(kind * 50.0), sin(kind * 50.0)) * at.y * at.y * 0.035 : vec2(0.0);
+			colour = leaves.a > 0.9 ? vec3(0.1, 0.11, 0.16) : birch ? vec3(0.62, 0.6, 0.55) : palm ? vec3(0.2, 0.14, 0.08) : vec3(0.1, 0.06, 0.04);
 		} else {
 			vec2 around = length(ball.xz) > 0.001 ? normalize(ball.xz) : vec2(0.0);
 			float wide = crown_width(warmth, moisture);
@@ -78,13 +86,27 @@ void vertex() {
 				// An acacia: a flat head, wide on a tall stem.
 				at = ball * vec3(wide, 0.45, wide) * (1.0 + 0.12 * sin(ball.x * 5.0 + kind * 40.0) * sin(ball.z * 5.0 + kind * 29.0)) + vec3(0.0, 4.4, 0.0);
 				facing = normalize(ball + vec3(0.0, 0.6, 0.0));
+			} else if (palm) {
+				// A palm: fronds that spread from the stem's top and droop at their ends.
+				float out_to = length(ball.xz) * (0.35 + 0.65 * abs(cos(atan(ball.z, ball.x) * 2.5 + kind * 9.0))) * 3.0;
+				at = vec3(around.x * out_to, 5.7 + ball.y * 0.3 - out_to * out_to * 0.16, around.y * out_to) + vec3(cos(kind * 50.0), 0.0, sin(kind * 50.0)) * 1.1;
+				facing = normalize(vec3(around.x * 0.4, 1.0, around.y * 0.4));
+			} else if (cypress) {
+				// A cypress: a slim flame.
+				at = ball * vec3(0.6, 3.1, 0.6) * (1.0 - 0.25 * up) + vec3(0.0, 4.0, 0.0);
+				facing = normalize(vec3(around.x, 0.3, around.y));
+			} else if (birch) {
+				// A birch: a light, narrow head high on a pale stem.
+				float lump = sin(ball.x * 3.3 + kind * 40.0) * sin(ball.y * 2.9 + kind * 17.0) * sin(ball.z * 3.1 + kind * 29.0);
+				at = ball * (1.0 + 0.3 * lump) * vec3(1.2, 1.9, 1.2) + vec3(0.0, 4.6, 0.0);
+				facing = normalize(ball + vec3(0.0, 0.25, 0.0));
 			} else {
 				// A broad head, lumpy as a crown of leaves is.
 				float lump = sin(ball.x * 3.3 + kind * 40.0) * sin(ball.y * 2.9 + kind * 17.0) * sin(ball.z * 3.1 + kind * 29.0);
 				at = ball * (1.0 + 0.32 * lump) * vec3(wide - 0.3, 1.35, wide - 0.3) + vec3(0.0, 3.4, 0.0);
 				facing = normalize(ball + vec3(0.0, 0.25, 0.0));
 			}
-			colour = leaves.rgb;
+			colour = cypress && leaves.a < 0.5 ? mix(leaves.rgb, vec3(0.01, 0.07, 0.04), 0.7 * (1.0 - winter * 0.5)) : palm && leaves.a < 0.5 ? vec3(0.05, 0.26, 0.06) : leaves.rgb;
 			glow = leaves.a;
 			// The wind.
 			at.xz += sin(clock * 1.4 + place.x * 0.21 + place.y * 0.17) * 0.03 * at.y;

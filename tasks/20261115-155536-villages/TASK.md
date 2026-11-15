@@ -1,6 +1,6 @@
 # Voxel Flyover 7: villages off the grid, fireworks over towns at night, high cloud
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: godot,demo,flyover,0.1.8
 
@@ -14,6 +14,6 @@ Done when: each is in the game, looked at in stills, measured on both adapters, 
 - The sea (`water.gdshader`): a swell on deep water, white horses on its crests in a gust, the sea's colour by its country's climate, light on the bed of the shallows.
 - Found by the AMD run: `visible_instance_count` was set negative on the weakest level (26 lots under the near 33), an error printed each time the level changed; now 0.
 
-## State (2026-11-16, 01:15)
+## Closed (2026-11-16, 01:12)
 
-All five are in the tree and looked at in stills (a gabled town at night, a coast at midday and dusk, two seas). AMD Firefox with them: 29.7 a second by day and by night (median 33.0 and 33.3 ms). The image's build and test are next.
+In the image built at 01:03 the game's test passes: Chrome 156 on the NVIDIA card 59.5 a second (GPU 7.0 ms, median 16.8, p99 20.4), Firefox 159 57.0 (GPU 7.2 ms); on the AMD GPU Firefox 29.8 (median 33.1 ms, p99 39.3) and Chrome 29.0 (34.2, 39.1). Sudden changes over the fixed flight: 18 tiles in 15 frames (17 in 14 before). Commit b8dea9b14.

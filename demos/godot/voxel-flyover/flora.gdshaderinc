@@ -22,9 +22,16 @@ bool is_cold(float warmth) {
 	return warmth < 0.42;
 }
 
+// Woods and glades, between 0 (a glade) and 1 (a wood): patches some 60 units across, cut
+// from the two fields of the climate, which the ground's texture already holds, so a tree
+// pays nothing for them.
+float woods(float warmth, float moisture) {
+	return smoothstep(-0.3, 0.2, sin(warmth * 90.0) * sin(moisture * 60.0));
+}
+
 // The share of plots that hold a tree.
 float tree_share(float warmth, float moisture) {
-	return is_desert(warmth, moisture) ? 0.12 : is_savanna(warmth, moisture) ? 0.07 : is_cold(warmth) ? 0.5 : mix(0.1, 0.7, smoothstep(0.35, 0.62, moisture));
+	return is_desert(warmth, moisture) ? 0.12 : is_savanna(warmth, moisture) ? 0.07 : mix(0.12, 1.3, woods(warmth, moisture)) * (is_cold(warmth) ? 0.5 : mix(0.1, 0.7, smoothstep(0.35, 0.62, moisture)));
 }
 
 // How much of a marsh a place is, between 0 and 1: wet ground a little above the sea. Few
