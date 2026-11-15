@@ -26,7 +26,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.6/dist/static/godot/voxel-flyover.tar df20076bdd7191236a0ccfa63e515f9d6ae2638391f1d1be2dd13e3ed69a9f8a /tmp/voxel-flyover.tar
+SOURCE /v0.1.6/dist/static/godot/voxel-flyover.tar 078964124da0474c8f17905d3eb9da89c8485d17679092af2739f293aab69fb9 /tmp/voxel-flyover.tar
 SLOP CWD / tar -xf /tmp/voxel-flyover.tar
 SLOP mkdir -p /usr/share/voxel-flyover
 SLOP cp -r /usr/src/voxel-flyover /usr/share/voxel-flyover/project
@@ -51,8 +51,9 @@ FILE /usr/share/man/cat1/voxel-flyover.1
     view; the wheel, or Z and X, zoom. A dive gives speed and a climb takes
     it, the wind at the back helps, the board skims fast low over the sea,
     and slopes that face the wind and towns by day lift it. The world has
-    seasons, weather and towns. On a weak GPU it draws less, at an even
-    rate. The number on the screen counts the beacons lit. With --autopilot
+    seasons, rain and snow, low clouds, mist and towns. On a weak GPU it
+    draws less, at an even rate. The number on the screen counts the
+    beacons lit. With --autopilot
     it flies by itself for that long and prints its frame rate, how even
     its frames were, the milliseconds a frame took the GPU and the
     renderer, the beacons it lit and what its frame shows; --day starts at

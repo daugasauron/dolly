@@ -108,8 +108,8 @@ mirrored sunglasses and a red cape, crouched on a teal surfboard that two small 
 coat is fur in 18 shells ([`fur.gdshader`](voxel-flyover/fur.gdshader)): each furred part is drawn
 again and again a little further out along its normals, keeping the pixels where a hair is that
 long, and the hairs lean and shiver in the air the flight drives past. It crouches lower the
-faster it goes and the harder it turns, leans and looks into its turns, its ears lie back and
-its tongue flaps; the cape is a cloth its vertex stage flutters and swings out of a turn
+faster it goes and the harder it turns, leans and looks into its turns, its ears lie back, and
+its tongue lies in its open mouth and hangs over the lower jaw; the cape is a cloth its vertex stage flutters and swings out of a turn
 ([`cape.gdshader`](voxel-flyover/cape.gdshader)), and each jet leaves a wake, a ribbon the vertex
 stage lays along the places the board has been ([`wake.gdshader`](voxel-flyover/wake.gdshader)).
 The board banks into its turns.
@@ -118,7 +118,10 @@ Under the board hangs a bicycle, and on it a pelican pedals for the jets
 ([`pelican.gd`](voxel-flyover/pelican.gd)), also of primitive meshes: a white bird in a cyclist's
 red cap, with a long bill and its pouch, feathers in the same shells as the corgi's fur, and long
 black-tipped flight feathers, a tail and a crest of the cape's cloth, which trail and flutter in
-the wind. Its legs are laid from hip to knee to pedal each frame. A chain runs from the chainring
+the wind. Its legs are laid from hip to knee to pedal each frame, and its wings from shoulder to
+elbow to the handlebar's grips, which they hold: the handlebar, the fork and the front wheel
+turn in the head tube with the flight's turn. The bicycle hangs from the board by its rear axle
+and by two rods from its head tube that pass the rider's head on either side. A chain runs from the chainring
 up to a sprocket on a shaft between the two engines, and a fan turns in each engine's intake;
 chain, shaft, fans and wheels turn by the cranks' one angle, so nothing slips, and they are
 striped or sectored so the turning shows ([`drive.gdshader`](voxel-flyover/drive.gdshader)). The
@@ -130,12 +133,20 @@ The world has a year of three days and weather. The seasons are three shares the
 told: more groves blossom in spring and more turn in autumn, each tree in its own time; in winter
 the broad crowns are bare, snow comes down the slopes and lies on crowns and roofs, and the rain
 is snow ([`flora.gdshaderinc`](voxel-flyover/flora.gdshaderinc)). Under the deep of a cloud it
-rains: the land is darker and glossier, the sea pocked, streaks fall around the camera
-([`rain.gdshader`](voxel-flyover/rain.gdshader)), and with the sun out a rainbow stands opposite
-it. Towns stand on some low plains ([`city.gdshader`](voxel-flyover/city.gdshader)): a building
-for each lot of a grid that follows the flight, taller toward the town's middle, with windows
-lit at night, streets with lamps, and around them fields in strips between hedges, green in
-spring and gold by late summer. The desert's sand lies in rippled dunes, its veins are lava, and
+rains: the land is darker and glossier, the sea pocked, and drops fall through a box of air
+around the camera ([`rain.gdshader`](voxel-flyover/rain.gdshader)): each a card that faces the
+camera, a thin soft streak along its way for a drop and a soft round dot for a flake. The wind
+carries them and the flight slants them back by no more than half of their fall, so they come
+down on the screen. With the sun out a rainbow stands opposite it. Low clouds drift under the
+high layer ([`cloud.gdshader`](voxel-flyover/cloud.gdshader)): clusters of soft balls, one for a
+cell of a grid, that the board flies under, beside and through; a ball draws in before the
+camera and the air whitens inside one. Mist of the same balls, flat, lies on the sea and the low
+ground, and the haze over the sea thickens with it at dawn. Towns stand on some low plains
+([`city.gdshader`](voxel-flyover/city.gdshader)): blocks of four lots by five between avenues,
+a building on most lots (none on a steep one, and a lawn on one in ten), of four to twenty
+storeys, taller toward the town's middle, with shop fronts, a line between storeys, a row of
+windows each that are lit at night, a parapet and a roof. No tree stands in a town or near it.
+Around a town lie fields in strips between hedges, green in spring and gold by late summer. The desert's sand lies in rippled dunes, its veins are lava, and
 at night a shooting star crosses every six seconds. Between the desert and the meadows lies
 savanna, grass with a few flat-headed trees, gold for most of the year and green in spring and
 after rain. Low wet ground by the sea is marsh, with few trees and pools that mirror the sky. In
