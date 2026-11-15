@@ -1,6 +1,6 @@
 # Voxel Flyover research 11: Fantasy regions, two first
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 189
 - TAGS: godot,demo,flyover,research,0.1.8
 
@@ -28,3 +28,7 @@ functions; afl_ext's ocean is MIT by its header, to be confirmed on its page and
 It is in the game on `feature/flyover-4`, checked by looking (screenshots at near, middle and far
 zoom) and in a take, with frame times on NVIDIA in Chrome and Firefox and on the AMD GPU no worse
 than before it (60, 59 and 30 a second) and no new pop, flicker or hitch over the fixed flight.
+
+## Closed (2026-11-16, 00:20)
+
+Done with the landmarks task: a realm of wonders (a slow field of 53 thousand units) with a sea alight at night, groves that mostly glow, bright veins, and six times the mushrooms, crystals and floating islands; arches of stone in the deserts. Verified in the image of `d6993c1b2` (2026-11-16, 00:15): the game's test passes in Chrome 156 and Firefox 159 on the NVIDIA card (59.6 a second, GPU 6.7 ms; 57.7, GPU 7.2 ms) and on the integrated AMD GPU (29.5 and 29.8, median 33.3 and 33.2 ms).

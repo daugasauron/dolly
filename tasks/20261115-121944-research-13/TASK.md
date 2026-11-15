@@ -26,3 +26,7 @@ functions; afl_ext's ocean is MIT by its header, to be confirmed on its page and
 It is in the game on `feature/flyover-4`, checked by looking (screenshots at near, middle and far
 zoom) and in a take, with frame times on NVIDIA in Chrome and Firefox and on the AMD GPU no worse
 than before it (60, 59 and 30 a second) and no new pop, flicker or hitch over the fixed flight.
+
+## State (2026-11-16, 00:20)
+
+Not started, but for this: few trees stand on farmed land, none in or near a town, few in a marsh, and flat-headed trees on the savanna.

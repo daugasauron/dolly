@@ -1,6 +1,6 @@
 # Voxel Flyover research 1: World-scale fields and rarity tiers
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 199
 - TAGS: godot,demo,flyover,research,0.1.8
 
@@ -34,3 +34,7 @@ functions; afl_ext's ocean is MIT by its header, to be confirmed on its page and
 It is in the game on `feature/flyover-4`, checked by looking (screenshots at near, middle and far
 zoom) and in a take, with frame times on NVIDIA in Chrome and Firefox and on the AMD GPU no worse
 than before it (60, 59 and 30 a second) and no new pop, flicker or hitch over the fixed flight.
+
+## Closed (2026-11-16, 00:20)
+
+Done with `tasks/20261115-115857-landscape` and `-balance`: slow fields at 1.9, 2.7, 5.1, 7.3, 11, 19 and 53 thousand units, each with its own turn and place; oceans and continents, relief, rare massifs, countries of climate, a culture field, a realm of wonders; heights kept around 110 in the half floats. Latitude in the climate was not added (the 19 thousand field gives cold and hot countries). Far from the start measured at 100 thousand and a million units: whole; no recentring. Verified in the image of `d6993c1b2` (2026-11-16, 00:15): the game's test passes in Chrome 156 and Firefox 159 on the NVIDIA card (59.6 a second, GPU 6.7 ms; 57.7, GPU 7.2 ms) and on the integrated AMD GPU (29.5 and 29.8, median 33.3 and 33.2 ms).
