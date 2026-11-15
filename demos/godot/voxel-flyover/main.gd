@@ -364,7 +364,10 @@ func set_level(to: int) -> void:
 	# A weak adapter has simpler crowns near by: the next grid's.
 	groves[0].multimesh.mesh = tree_mesh(GROVES[0 if level < 3 else 1][1])
 	groves[1].multimesh.mesh = tree_mesh(GROVES[1 if level < 3 else 2][1], true)
-	tell("paint_from", GROVES[drawn - 1][2].z - 20.0)
+	# The weakest level's second grid of trees ends sooner, where the land paints their crowns.
+	var second: Vector4 = GROVES[1][2] if level < 6 else Vector4(64, 80, 150, 176)
+	(groves[1].material_override as ShaderMaterial).set_shader_parameter("ring", second)
+	tell("paint_from", (second.z if drawn == 2 else GROVES[drawn - 1][2].z) - 20.0)
 	gpu_window = 0.0
 	gpu_frames = -8
 	calm_windows = 0
@@ -1121,6 +1124,13 @@ func warm_up() -> void:
 	flyer.add_child(warm)
 	for material: Material in [air, beam]:
 		Parts.part(warm, card, material, Vector3(0, -0.2, 0)).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# A landmark's one mesh has its colours in its vertices: so has this grain of one.
+	var grain := Node3D.new()
+	var speck := BoxMesh.new()
+	speck.size = Vector3.ONE * 0.01
+	Parts.part(grain, speck, Parts.paint(Color.WHITE, 0.5), Vector3.ZERO)
+	Parts.part(warm, Parts.bake(grain), baked, Vector3(0, -0.2, 0)).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	grain.free()
 	get_tree().create_timer(3.0).timeout.connect(warm.queue_free)
 
 
