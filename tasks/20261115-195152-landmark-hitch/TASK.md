@@ -19,3 +19,7 @@ Seen while looking at the lighthouse for it: its two red bands were inside its t
 ## Closed (2026-11-16, 05:00)
 
 Fixed. In the image built at 04:52 the game's test: Chrome 156 on the NVIDIA card 59.6 a second, longest frame 32 ms, no hitch (40 ms and 3 before); Firefox 159 57.4, longest 66 ms, 4 hitches (114 ms and 8); on the AMD GPU Firefox 30.0, longest 59 ms, no hitch (130 ms and 2), Chrome 29.6, longest 46 ms, no hitch (101 ms and 2).
+
+## Closed (2026-11-16, 05:40)
+
+Fixed (commit 9a7f8f11a). In the image built at 04:52 the game's test: Chrome 156 on the NVIDIA card 59.6 a second, longest frame 32 ms, no hitch (40 ms and 3 before); Firefox 159 57.4, longest 66 ms, 4 hitches (114 ms and 8); on the AMD GPU Firefox 30.0, longest 59 ms, no hitch (130 ms and 2), Chrome 29.6, longest 46 ms, no hitch (101 ms and 2). What Firefox has left: a frame of about 60 ms every ten seconds (7.0, 17.0 and 27.5 s into the flight, in each run). Not the game's script (its per-frame functions timed: none over 12 ms after the start) and not the beacon's chime (the same without it). A ten-second period points at the browser or the page's host, not at what the flight passes; not traced further.

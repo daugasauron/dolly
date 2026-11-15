@@ -42,8 +42,9 @@ Left (each in its task where it has one):
   heard by anyone: for the owner to judge (`tasks/20261115-162254-woods`).
 - Town layouts of their own for each kind (the houses of towns and villages now stand askew);
   roads between towns, bridges, harbours.
-- Firefox on the NVIDIA card still has four frames of 40 to 66 ms in the test's 30 seconds,
-  not traced (the frames of over 100 ms were the landmarks': `landmark-hitch`).
+- Firefox on the NVIDIA card still has a frame of about 60 ms every ten seconds, not the
+  game's script's and not traced further (the frames of over 100 ms were the landmarks':
+  `landmark-hitch`).
 - The way the flight takes by itself depends on its frames' times: recorded at 47 a second
   it went another way than at 60 (the takes' README). A flight that is the same whatever the
   frame rate would need its steering stepped at a fixed rate.
