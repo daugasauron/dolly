@@ -54,7 +54,7 @@ void vertex() {
 	if (come <= 0.0 || gone >= 1.0 || !grows(top, warmth) || steep > 3.4 || tree.z > tree_share(warmth, moisture) * (1.0 - 0.85 * marsh_at(top, moisture)) * (1.0 - 0.94 * farmed_at(place, top)) || town_near(place, top) > 0.0) {
 		VERTEX = vec3(0.0);
 	} else {
-		vec4 leaves = crown_colour(place, kind, warmth, moisture);
+		vec4 leaves = crown_colour(place, kind, warmth, moisture, here.w);
 		vec3 at;
 		vec3 facing = NORMAL;
 		if (!leafy) {

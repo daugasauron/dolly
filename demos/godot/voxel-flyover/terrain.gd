@@ -57,7 +57,7 @@ static func slow_here(p: Vector2) -> Vector3:
 		slow_place = p
 		slow_fields = Vector3((slow(p, 7300.0, 0.7, Vector2(34.0, 62.0)) - 0.5) * 0.9 + (slow(p, 2700.0, 1.9, Vector2(104.0, 42.0)) - 0.5) * 0.5,
 			lerpf(0.3, 1.0, smoothstep(0.3, 0.5, slow(p, 1900.0, 2.6, Vector2(38.0, 77.0)))),
-			smoothstep(0.72, 0.83, slow(p, 19000.0, 0.3, Vector2(64.0, 22.0))))
+			smoothstep(0.72, 0.83, slow(p, 19000.0, 0.3, Vector2(22.0, 12.0))))
 	return slow_fields
 
 
@@ -168,7 +168,7 @@ static func landmark(plot: Vector2i) -> Array:
 	var chance := cell_hash(plot.x + 15, plot.y + 83)
 	var p := (Vector2(plot) + Vector2(0.2, 0.2) + Vector2(cell_hash(plot.x + 5, plot.y + 90), cell_hash(plot.x + 60, plot.y + 12)) * 0.6) * MARK_PLOT
 	var ground := height(p)
-	var wonder := 1.0 + 5.0 * smoothstep(0.72, 0.82, slow(p, 53000.0, 0.9, Vector2(65.0, 80.0)))
+	var wonder := 1.0 + 5.0 * smoothstep(0.72, 0.82, slow(p, 53000.0, 0.9, Vector2(10.0, 28.0)))
 	if ground < SEA:
 		if chance < 0.04 * wonder:
 			found = [p, SEA + 215.0 + 60.0 * own, FLOATING, 0, 0.0, 0.0, own]

@@ -52,5 +52,8 @@ void fragment() {
 	float blown = gust(p) * (1.0 - smoothstep(10.0, 40.0, wide));
 	ROUGHNESS = mix(mix(0.04 + 0.3 * smoothstep(0.15, 2.5, wide) + 0.3 * blown, 0.5, foam), 0.55, floe);
 	SPECULAR = 0.8;
-	EMISSION = vec3(0.1, 0.7, 0.9) * foam * here * night * 0.9 * (1.0 - floe) + vec3(1.0, 0.55, 0.16) * pulse_light(p) * (0.4 + 0.8 * night);
+	// In a realm of wonders the sea is alight at night: its surf, and sparks in the swell.
+	float alight = ground_here(p).w * night * (1.0 - floe);
+	float sparks = smoothstep(0.75, 0.95, noise(p * 0.9 + vec2(clock * 0.4, -clock * 0.3))) * (1.0 - smoothstep(0.3, 1.2, wide)) * exp(-depth * 0.08);
+	EMISSION = vec3(0.1, 0.7, 0.9) * foam * here * night * 0.9 * (1.0 - floe) + vec3(0.05, 0.9, 0.75) * alight * (3.0 * foam + 1.5 * sparks + 0.5 * exp(-depth * 0.25)) + vec3(1.0, 0.55, 0.16) * pulse_light(p) * (0.4 + 0.8 * night);
 }

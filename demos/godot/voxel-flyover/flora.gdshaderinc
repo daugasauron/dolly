@@ -51,11 +51,11 @@ float crown_width(float warmth, float moisture) {
 // groves that glow at night all of it. The season turns it by degrees: more groves blossom in
 // spring and more turn in autumn, each tree in its own time, and in winter the broad crowns
 // are bare and every crown carries snow.
-vec4 crown_colour(vec2 place, float own, float warmth, float moisture) {
+vec4 crown_colour(vec2 place, float own, float warmth, float moisture, float realm) {
 	if (is_desert(warmth, moisture)) {
 		return vec4(mix(vec3(1.0, 0.45, 0.2), vec3(0.95, 0.2, 0.45), own), 0.35);
 	}
-	if (noise(place / 190.0 + vec2(57.0, 201.0)) > 0.66) {
+	if (noise(place / 190.0 + vec2(57.0, 201.0)) > 0.66 - 0.45 * realm) {
 		return vec4(mix(vec3(0.05, 0.85, 0.9), vec3(0.65, 0.2, 1.0), own), 1.0);
 	}
 	vec3 snowy = vec3(0.62, 0.68, 0.78);

@@ -147,7 +147,7 @@ void fragment() {
 			}
 		}
 		float under = mix(disc, share * 0.6, merged) * (1.0 - bare) * painted;
-		vec4 leaves = mix(crown_colour(tree.xy, tree.w, here.y, here.z), crown_colour(p, 0.5, here.y, here.z), merged);
+		vec4 leaves = mix(crown_colour(tree.xy, tree.w, here.y, here.z, here.w), crown_colour(p, 0.5, here.y, here.z, here.w), merged);
 		colour = mix(colour, leaves.rgb * 0.75 * (1.0 - 0.5 * leaves.a), under);
 		lit_crowns = leaves.rgb * leaves.a * under * (0.1 + 1.5 * night) * 0.75;
 	}
@@ -158,7 +158,7 @@ void fragment() {
 	float contour = abs(noise(p / 46.0 + vec2(300.0, 41.0)) - 0.5);
 	// A vein is never thinner than a pixel; where the pixel is wider, it is as much fainter.
 	float thick = max(0.008, wide / 46.0);
-	float vein = (1.0 - smoothstep(0.5, 1.0, contour / thick)) * (0.008 / thick) * (1.0 - sand) * (1.0 - snow) * (1.0 - 0.6 * bare);
+	float vein = (1.0 - smoothstep(0.5, 1.0, contour / thick)) * (0.008 / thick) * (1.0 - sand) * (1.0 - snow) * (1.0 - 0.6 * bare) * (1.0 + 2.5 * here.w);
 	// In the desert the veins are lava, which glows by day too.
 	vec3 vein_colour = mix(mix(vec3(0.05, 0.8, 1.0), vec3(1.0, 0.15, 0.7), smoothstep(0.42, 0.58, here.z)), vec3(1.0, 0.28, 0.02), sandy);
 	float run = 0.55 + 0.45 * sin(grain * 2.0 + (p.x + p.y) * 0.07 - clock * 1.8);

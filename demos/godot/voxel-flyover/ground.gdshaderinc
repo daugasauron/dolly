@@ -23,7 +23,7 @@ float ground_spacing(vec2 p) {
 	return mix(cell_beyond, cell, ground_own(p));
 }
 
-// x: the height, y: warmth, z: moisture.
+// x: the height, y: warmth, z: moisture, w: how much of a realm of wonders the place is.
 vec4 ground_here(vec2 p) {
 	float own = ground_own(p);
 	vec4 beyond = ground_in(ground_beyond, p, cell_beyond);

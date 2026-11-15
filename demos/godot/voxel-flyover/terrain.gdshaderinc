@@ -81,7 +81,14 @@ float slow(vec2 p, float size, float turn, vec2 place) {
 
 // How much of a massif a place is: a country of high mountains, rare, 19 thousand units a field.
 float massif_at(vec2 p) {
-	return smoothstep(0.72, 0.83, slow(p, 19000.0, 0.3, vec2(64.0, 22.0)));
+	return smoothstep(0.72, 0.83, slow(p, 19000.0, 0.3, vec2(22.0, 12.0)));
+}
+
+// How much of a realm of wonders a place is: a rare kind of world, 53 thousand units a field,
+// where most groves glow at night, the ground's veins are bright, the surf is alight and
+// mushrooms, crystals and floating islands are many.
+float realm_at(vec2 p) {
+	return smoothstep(0.72, 0.82, slow(p, 53000.0, 0.9, vec2(10.0, 28.0)));
 }
 
 // How far from a river's middle a place is, as a share of a noise whose contour the river
