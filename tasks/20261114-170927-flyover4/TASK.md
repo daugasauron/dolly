@@ -17,36 +17,119 @@ one (number of things hit)."
 Branch `feature/flyover-4` (`work/flyover4`, from `v0.1.6`). Brief:
 `work/briefs-2026-11-15/flyover4.md`. Version 3 is `tasks/20261114-081432-flyover-striking`.
 
-## State (2026-11-15, 05:30)
+## State (2026-11-15, evening)
 
-Done and committed on `feature/flyover-4`: the pelican on its bicycle, mouse look with a captured
-pointer, the score alone on the screen, the smoothness work below, and the demos page's video,
-poster and section. The game's test passes in Chrome 156 and Firefox 159 on the RTX 5070, and the
-source suite passes. Nothing changed the seed, `host/gpu` or Godot's platform: `voxel-flyover` and
-`godot-voxel-flyover` are the only images to rebuild (50 to 160 s).
-
-The current take is `work/videos-2026-11-15/voxel-flyover-4/take3.mp4`; its README says how it
-was made. The game drew 53.1 frames a second while recorded, at a machine load of 7.7 (two other
-agents' Chrome renderers at 400% each); the 4.9 s after the click, in which Chrome's notice named
-the page's local address, are out of the file. The demos page's video is its cut (2:19, 60 frames
-a second, 24.4 MiB), and plays from the page in headless Chrome and Firefox.
+Version 5 (the owner's second round, below) is committed on `feature/flyover-4` at `ae9e67dc4`; the
+game's test passes in Chrome 156 and Firefox 159 on the NVIDIA card and in Firefox on the
+integrated AMD GPU, and the source suite passes. Nothing changed the seed, `host/gpu` or Godot's
+platform. The current take is `work/videos-2026-11-15/voxel-flyover-5/take2.mp4` (its README beside
+it); the demos page still carries version 4's video.
 
 Left:
 
-- **What the owner sees in Firefox is not known.** See "Firefox" below: Godot's frames are the same
-  in both browsers to the pixel and as evenly timed, and what Firefox does with them on a display
-  the GPU drives could not be seen here. A screenshot or a few seconds of screen recording from
-  the owner's Firefox would settle it.
-- A take on a quiet machine: this one stutters where the machine did (53 frames a second shown
-  at 60).
-- The test failed twice in Firefox while an x264 encode of mine ran beside it (load 12): once
-  the game did not reach its 120th frame in 180 s (not looked into; the wait is now 300 s), and
-  once the view had turned 92 degrees and 9 up where 300 pixels make 60 (see "Mouse look").
-- Not done: the trees' rings still cross-fade by a screen-door of pixels (grainy in the bands at
-  64 to 80 and 200 to 232 units); the shadows' edges crawl as the sun moves 3 degrees a second;
-  the fur's hair edges are not antialiased near the camera (alpha to coverage puts the shells in
-  Godot's transparent pass: not tried further); the camera still flies through a beacon it
-  lights in its view from ahead, which thins before it but fills the frame for a quarter second.
+- **Firefox on the AMD GPU draws 20 even frames a second**, not 60: the GPU takes 21 ms a frame at
+  the last level of the ladder. A further level (no shadows from the far grids, a smaller sky)
+  might reach 30; it was not tried. Chrome could not be started on the AMD adapter here
+  (`--use-webgpu-power-preference=force-low-power` on Xvfb: the page's GPU never became active).
+- What Firefox's compositor shows of the frames is still unseen (see "Firefox").
+- Firefox reports 45 to 92 degrees of view for the same 300 pixels of Playwright's mouse; not
+  explained (see "Mouse look"); the test holds Chrome to 57 to 63 and Firefox to 40 to 100.
+- The flight passes through a town's buildings if steered into them: the flight by itself and
+  the board's soft floor look ahead over the roofs, the hard floor is the ground's.
+- Not done: the shadows' edges crawl as the sun moves; the fur's hair edges near the camera.
+
+## Version 5 (2026-11-15, afternoon)
+
+Owner (14:55): "This is turning into the main feature of this whole project [...] 1. I want zoom
+in/out, and the camera to be centered better instead of a bit behind the character. 2: More
+shaders ! 3: On firefox that can't use my nvidia, it looks incredibly hacky/laggy, not sure what
+to do about that I prefer if it's slow over hacky or like lower resolution. Not sure. 4: Make the
+flying a bit more interesting from a game mechanics perspective, but keep the game itself
+intentionally pointless. 5: Add more variations, ideally interactions that interact with each
+other, seasons, cities, deserts, etc. [...] 6: Just fix up the characters... what is that dog
+tongue? And what is the red circle thing that comes out of it's neck?.. Go."
+
+Brief: `work/briefs-2026-11-15/flyover5.md`.
+
+### The weak adapter
+
+Reproduced as the brief says, in Firefox pinned to the AMD GPU
+(`MESA_VK_DEVICE_SELECT='1002:13c0!'`), with version 4's game: **5.0 frames a second**, the GPU
+124 ms a frame, and the frames exactly 200 ms apart (median 200.1, p99 201.3, max 216.9): Firefox
+learns that a frame is done on a 100 ms timer once the provider's own polls (at 2 to 40 ms) are
+past, so a frame of 41 to 100 ms shows at 100 and one of 101 to 200 at 200. That is the lag.
+What read as hacky there was also in the game: the trees' rings and the beacons' crystals faded
+by a screen-door of pixels, which at five frames a second is a crawling grain.
+
+What costs on that adapter, by leaving parts out at 0.4 of the scene's size and one sample: the
+trees 28 ms of 55 (some 4 million vertices through a vertex stage that reads the ground), the
+shadows 10, the land 6, the sky's light for the scene 4, the rest 5. The size of the picture is
+the least of it, so the ladder cuts the fixed work and keeps the picture at half size or more:
+
+| Level | Scene's size | Samples | Fog shafts, AO | Shadows | Coat's shells | Trees' grids | Crowns near by |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1.0 | 4 | both | 4 cascades to 420, 4096 | 18 | 4, painted from 540 | 12 rings |
+| 1 | 0.8 | 4 | AO | 4 cascades to 420 | 14 | 4 | 12 |
+| 2 | 0.7 | 1, FXAA | none | 2 cascades to 300, 2048, sky light 64 | 10 | 3, painted from 360 | 12 |
+| 3 | 0.6 | 1, FXAA | none | 1 to 160 | 8 | 2, painted from 180 | 5 |
+| 4 | 0.55 | 1, FXAA | none | 1 to 120 | 6 | 2 | 5 |
+| 5 | 0.5 | 1, FXAA | none | 1 to 90 | 5 | 2 | 5 |
+
+The game starts at level 0 and measures the GPU's time over 20 frames (Godot's timer; where a
+browser has none, the time between frames stands in): over 14 ms it goes down, by up to four
+levels at once when far over, and after a minute well under it goes up one. Below the last level
+it holds an even rate (30, 20 or 12 a second) by what the adapter manages. So the choice is by
+what is measured, not by the browser. WebGPU has one or four samples a pixel and no two: Godot's
+2x there draws nothing (an invalid bind group, a black frame at 59 a second), which the test's
+count of the frame's colours catches.
+
+The screen-door is gone at every level: where two grids of trees overlap, the coarser tree comes
+inside the finer one and grows to its size, and the finer one then draws back inside it; the last
+grid's trees and the shadows' sink into the ground where the land paints their crowns; a tree or
+a crystal the camera flies into draws in.
+
+### Numbers on both adapters
+
+The game's test (30 s by itself from 09:00), 1920 by 1080 frames, a quiet machine:
+
+| | Version 4 (`bf8903e34`) | Version 5 (`ae9e67dc4`) |
+| --- | --- | --- |
+| NVIDIA RTX 5070, Chrome 156 | 59.3 to 60.0 frames a second, GPU 5.2 ms | 60.0 frames a second, GPU 5.5 ms (16.5 ms a frame at the median, p99 20.1) |
+| NVIDIA RTX 5070, Firefox 159 | 58.6 to 59.0, GPU 5.2 to 5.5 ms | 59.0, GPU 5.6 ms (17.0, p99 18.9) |
+| AMD integrated, Firefox 159 | 5.0, GPU 124 ms, frames 200 ms apart (median 200.1, p99 201.3, max 216.9) | 20.2 at the ladder's last level, GPU 22.4 ms, frames 50 ms apart (median 49.9, p99 53.6, max 54.4, none over twice the median) |
+| AMD integrated, Chrome | not started (see State) | not started |
+
+Sudden changes over the fixed flight (spikes, as above) with the new world: 92 tiles in 74 frames,
+against version 4's 78 in 76 and version 3's 350 in 117; none over four tiles.
+
+### What else changed
+
+- **Camera**: it looks at the flyer from straight behind (the view's aim is the flyer, not a
+  point 25 units ahead of it), and the wheel or Z and X zoom between 0.45 and 3.2 of the view's
+  distance, eased; let go, the zoom comes back with the view.
+- **Characters**: the red circle was the cape's collar, a torus wider than the neck's fur, which
+  stood out of it as a ring: gone, for a gold clasp at the throat. The tongue was a flat pink
+  ball at the side of the muzzle that flapped 19 times a second: now a tip under a dark mouth
+  line, that moves a little.
+- **Flying**: a dive gives speed and a climb takes it (through the same easing, so it is kept
+  for a while); the wind, which is the clouds' drift, gives a little at the back; low over the
+  sea the board skims 14 units a second faster in its own spray; a slope that faces the wind
+  lifts it, and a thermal over a town by day; a lit beacon gives a push that wears off; a flock
+  of sixteen birds falls in behind the board when it passes and their company carries it a
+  little faster for a quarter of a minute. Streaks of air show at speed. No goal, no failure;
+  the one number is still the beacons lit.
+- **The world**: a year of three days, whose seasons are three shares the shaders are told:
+  more groves blossom in spring and more turn in autumn, each tree in its own time; in winter
+  the broad crowns are bare, snow comes 52 units down the slopes and lies on crowns and roofs,
+  and the rain is snow. Under the deep of a cloud it rains: the land is darker and glossier, the
+  sea pocked, streaks fall around the camera, and with the sun out a rainbow stands opposite it.
+  Towns stand on some low plains: a building for each lot of 16 units, taller toward the middle,
+  with windows that are lit at night and streets with lamps; around them fields in strips with
+  hedges, green in spring and gold by late summer. The desert's sand lies in rippled dunes; at
+  night a shooting star crosses every six seconds. The flyer's wash bends the crowns it passes
+  low over. All of it is a function of the place and the clock, as before.
+- **Shaders added**: `city`, `rain`, `thermal`, `speed`, `bird` (with version 4's `flame` and
+  `drive`), and the seasons, fields, dunes, wet, rainbow and shooting stars in the existing ones.
 
 ## How it is measured
 

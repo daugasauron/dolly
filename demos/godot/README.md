@@ -125,13 +125,47 @@ striped or sectored so the turning shows ([`drive.gdshader`](voxel-flyover/drive
 cranks turn faster the faster the board flies, the flames
 ([`flame.gdshader`](voxel-flyover/flame.gdshader)) lengthen with each stroke of a leg and carry a
 ring of brighter gas for it, the nozzles glow with it, and a pulse runs down each wake.
+
+The world has a year of three days and weather. The seasons are three shares the shaders are
+told: more groves blossom in spring and more turn in autumn, each tree in its own time; in winter
+the broad crowns are bare, snow comes down the slopes and lies on crowns and roofs, and the rain
+is snow ([`flora.gdshaderinc`](voxel-flyover/flora.gdshaderinc)). Under the deep of a cloud it
+rains: the land is darker and glossier, the sea pocked, streaks fall around the camera
+([`rain.gdshader`](voxel-flyover/rain.gdshader)), and with the sun out a rainbow stands opposite
+it. Towns stand on some low plains ([`city.gdshader`](voxel-flyover/city.gdshader)): a building
+for each lot of a grid that follows the flight, taller toward the town's middle, with windows
+lit at night, streets with lamps, and around them fields in strips between hedges, green in
+spring and gold by late summer. The desert's sand lies in rippled dunes, and at night a shooting
+star crosses every six seconds.
+
+The flight keeps what it gains and stays pointless: a dive gives speed and a climb takes it,
+the wind (the clouds' drift) helps at the back, low over the sea the board skims faster in its
+own spray, a slope that faces the wind lifts it, as does the warm air over a town by day
+([`thermal.gdshader`](voxel-flyover/thermal.gdshader)), a beacon gives a push as it is lit, and
+a flock of birds ([`bird.gdshader`](voxel-flyover/bird.gdshader)) falls in behind the board
+when it passes and carries it a little faster for a while. Streaks of air show at speed
+([`speed.gdshader`](voxel-flyover/speed.gdshader)); the flyer's wash bends the crowns it
+passes low over.
+
+What an adapter draws is a ladder of six levels (`LEVELS` in
+[`main.gd`](voxel-flyover/main.gd)): the scene's size (scaled up smoothly), four samples a pixel
+or one with smoothed edges, the fog's shafts and ambient occlusion, the shadows' cascades, reach
+and map, the sky's light, the coats' shells, and how many of the trees' grids are drawn before
+the land paints their crowns. The game starts at the top and goes down while a frame takes the
+GPU over 14 ms by Godot's timer, and below the last level holds an even rate. No level thins
+anything by a screen-door of pixels: where two grids of trees overlap, the coarser tree grows
+inside the finer one, which then draws back. In Firefox on an integrated AMD GPU, where the
+first level drew 5 frames a second 200 ms apart, the game settles on the last level and draws 20
+a second 50 ms apart (2026-11-15); on the NVIDIA RTX 5070 it stays on the first, at 60 in Chrome
+and 59 in Firefox with the GPU at 5.5 ms a frame.
 [`terrain.gd`](voxel-flyover/terrain.gd) computes the world's function for the flight, with the
 same integer hash, so the board clears the ground the GPU draws and finds the beacons that float
 over it. The corgi flies itself until Enter or a click takes the board, and until then the camera
 glides between five views of it, one of them the pelican's. The click also gives the game the
 pointer (the page captures it at a person's click alone), and the mouse then turns the view
-around the flyer while the keys steer; Escape gives the pointer and the board back, and the view
-comes round again. The one number on the screen is the score, the beacons lit.
+around the flyer while the keys steer, and the wheel or Z and X zoom; Escape gives the pointer
+and the board back, and the view and its zoom come round again. The player's view looks at the
+flyer from straight behind it. The one number on the screen is the score, the beacons lit.
 `-- --autopilot SECONDS` prints its frame rate, how even its frames were (median, 99th percentile,
 maximum, and the frames of over twice the median), the time a frame took, the beacons it lit and
 what its frame shows.
