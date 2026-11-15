@@ -103,11 +103,16 @@ Firefox settles `mapAsync` and `onSubmittedWorkDone` when its queue next
 submits, or on a 100 ms timer
 ([bug 1870699](https://bugzilla.mozilla.org/show_bug.cgi?id=1870699)). While a
 presented frame, a `WAIT` or a map is pending, the provider makes empty
-submissions (at 2, 5, 10, 20 and 40 ms): in Godot's editor a submission's
-completion came at p90 10 ms instead of 74 (2026-11-09).
+submissions (every 3 ms up to 100): in Godot's editor a submission's
+completion came at p90 10 ms instead of 74 with five of them, at 2 to 40 ms
+(2026-11-09); every 3 ms, a frame an integrated AMD GPU takes 23 ms for shows
+at 33 ms instead of 44.5 (2026-11-15).
 
 To force an adapter for a test: Chrome takes
-`--use-webgpu-power-preference=force-low-power` (the integrated GPU) or
+`--use-webgpu-power-preference=force-low-power` (the integrated GPU; on Xvfb
+with ANGLE on Vulkan the page's GPU never became active with it, and
+`VK_DRIVER_FILES=/usr/share/vulkan/icd.d/radeon_icd.x86_64.json` in Chrome's
+environment, which leaves the Radeon driver alone, gave `amd rdna-2`) or
 `--use-webgpu-adapter=swiftshader`; Firefox takes the Mesa device-select layer,
 `MESA_VK_DEVICE_SELECT='1002:13c0!'` (or the NVIDIA `10de:2f04!`, or `10005:0!`
 for the lavapipe software adapter), with PCI IDs from `lspci -nn`. Playwright

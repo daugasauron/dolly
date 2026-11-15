@@ -135,19 +135,29 @@ rains: the land is darker and glossier, the sea pocked, streaks fall around the 
 it. Towns stand on some low plains ([`city.gdshader`](voxel-flyover/city.gdshader)): a building
 for each lot of a grid that follows the flight, taller toward the town's middle, with windows
 lit at night, streets with lamps, and around them fields in strips between hedges, green in
-spring and gold by late summer. The desert's sand lies in rippled dunes, and at night a shooting
-star crosses every six seconds.
+spring and gold by late summer. The desert's sand lies in rippled dunes, its veins are lava, and
+at night a shooting star crosses every six seconds. Between the desert and the meadows lies
+savanna, grass with a few flat-headed trees, gold for most of the year and green in spring and
+after rain. Low wet ground by the sea is marsh, with few trees and pools that mirror the sky. In
+winter the pools and the seas of the cold lands carry ice
+([`water.gdshader`](voxel-flyover/water.gdshader)), and a town's lamps are each lot's own
+colour. A shower leaves the ground wet behind it for three quarters of a minute. A lit beacon
+warms the ground some 90 units around it: the snow and the ice draw back there and more flowers
+stand.
 
 The flight keeps what it gains and stays pointless: a dive gives speed and a climb takes it,
 the wind (the clouds' drift) helps at the back, low over the sea the board skims faster in its
 own spray, a slope that faces the wind lifts it, as does the warm air over a town by day
 ([`thermal.gdshader`](voxel-flyover/thermal.gdshader)), a beacon gives a push as it is lit, and
 a flock of birds ([`bird.gdshader`](voxel-flyover/bird.gdshader)) falls in behind the board
-when it passes and carries it a little faster for a while. Streaks of air show at speed
+when it passes and carries it a little faster for a while; in rain or snow the birds close up
+and fly low. Nothing is flown through: the flight looks along its turn for the ground and the
+roofs of the next second and a half and climbs in time to clear them, and the camera is lifted
+over the roofs around it. Streaks of air show at speed
 ([`speed.gdshader`](voxel-flyover/speed.gdshader)); the flyer's wash bends the crowns it
 passes low over.
 
-What an adapter draws is a ladder of six levels (`LEVELS` in
+What an adapter draws is a ladder of seven levels (`LEVELS` in
 [`main.gd`](voxel-flyover/main.gd)): the scene's size (scaled up smoothly), four samples a pixel
 or one with smoothed edges, the fog's shafts and ambient occlusion, the shadows' cascades, reach
 and map, the sky's light, the coats' shells, and how many of the trees' grids are drawn before
@@ -155,9 +165,10 @@ the land paints their crowns. The game starts at the top and goes down while a f
 GPU over 14 ms by Godot's timer, and below the last level holds an even rate. No level thins
 anything by a screen-door of pixels: where two grids of trees overlap, the coarser tree grows
 inside the finer one, which then draws back. In Firefox on an integrated AMD GPU, where the
-first level drew 5 frames a second 200 ms apart, the game settles on the last level and draws 20
-a second 50 ms apart (2026-11-15); on the NVIDIA RTX 5070 it stays on the first, at 60 in Chrome
-and 59 in Firefox with the GPU at 5.5 ms a frame.
+first level drew 5 frames a second 200 ms apart, the game settles on the last level within four
+seconds and draws 30 a second 33 ms apart, as it does in Chrome on that GPU (2026-11-15); on the
+NVIDIA RTX 5070 it stays on the first, at 60 in Chrome and 59 in Firefox with the GPU at 5.5 ms
+a frame.
 [`terrain.gd`](voxel-flyover/terrain.gd) computes the world's function for the flight, with the
 same integer hash, so the board clears the ground the GPU draws and finds the beacons that float
 over it. The corgi flies itself until Enter or a click takes the board, and until then the camera
