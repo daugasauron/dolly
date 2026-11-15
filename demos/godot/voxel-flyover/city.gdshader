@@ -87,7 +87,11 @@ void vertex() {
 	if (tall < 0.4) {
 		VERTEX = vec3(0.0);
 	} else if (roof < 0.5) {
-		VERTEX = vec3(VERTEX.x * wide.x, (VERTEX.y + 0.5) * (tall + 8.0), VERTEX.z * wide.y) + vec3(centre.x, here.x - 8.0, centre.y) - MODEL_MATRIX[3].xyz;
+		// A wall's top goes up to the roof over it: a gable's end is wall, not a gap.
+		bool turned = hash(corner + 23.0) > 0.5;
+		float eaves = domed > 0.5 ? 1.0 : kind == 1 ? 1.1 : kind == 3 ? 1.12 : kind == 4 ? 1.34 : kind == 7 ? 1.3 : kind == 5 ? 1.28 : 1.0;
+		float under = COLOR.g * roof_rise(VERTEX.xz / eaves, kind, domed, turned, turned ? wide.y : wide.x, min(wide.x, wide.y)) * low;
+		VERTEX = vec3(VERTEX.x * wide.x, (VERTEX.y + 0.5) * (tall + 8.0) + under, VERTEX.z * wide.y) + vec3(centre.x, here.x - 8.0, centre.y) - MODEL_MATRIX[3].xyz;
 	} else {
 		// The roof, by the kind: how far it rises over the walls at this place of it, and how
 		// far its eaves stand out. Far buildings have a roof of 2 by 2 squares; a near one's 4

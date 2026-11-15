@@ -208,6 +208,18 @@ static func landmark(plot: Vector2i) -> Array:
 	return found
 
 
+## The island that floats over a place: Vector2(its underside, its top with its trees), or
+## Vector2.ZERO where none does. landmarks.gd's island is as wide as twice 30 to 70 units.
+static func island(p: Vector2) -> Vector2:
+	var mark := landmark(Vector2i((p / MARK_PLOT).floor()))
+	if mark.is_empty() or mark[2] != FLOATING:
+		return Vector2.ZERO
+	var across: float = 30.0 + 40.0 * mark[6]
+	if p.distance_to(mark[0]) > across + 8.0:
+		return Vector2.ZERO
+	return Vector2(mark[1] - 0.85 * across - 4.0, mark[1] + 18.0)
+
+
 ## What a flight looks ahead for: the surface, the roof of the building whose lot the place is
 ## in, or the top of the landmark that stands there.
 static func roof(p: Vector2) -> float:

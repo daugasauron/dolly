@@ -35,9 +35,9 @@ const YEAR_DAYS := 3.0 # a year's seasons pass in so many days
 const WIND := Vector2(0.93, 0.36) # the way the clouds drift, and the air with them
 const CRUISE := 30.0
 const BOOST := 26.0
-const CEILING := 190.0
+const CEILING := 420.0
 const BEACON_PLOT := 180.0
-const BEACON_REACH := 8.0
+const BEACON_REACH := 11.0 # how near its beam the board lights a beacon, at any height of the beam
 const START := Vector2(2250, 4750)
 const WAKE := 64 # the places the wakes keep
 const WAKE_APART := 1.2
@@ -111,7 +111,7 @@ var chimes: Array[AudioStreamWAV] = [] # a note for each beacon lit, made before
 var leaving := false # after Q, or a flight by itself that has ended
 var beacons := {} # plot -> its node, for the plots around the flyer
 var thermals := {} # plot -> the column of warm air over the town there
-var rush := 0.0 # the push a beacon gives the board that lights it, which wears off
+var pushed := -100.0 # when a beacon last gave the board its push
 var speed_lines := ShaderMaterial.new() # the streaks of the air at speed
 var flock := MultiMeshInstance3D.new() # birds that fly along with the board for a while
 var flock_at := Vector3.ZERO # where their leader is
@@ -130,6 +130,7 @@ var lift := 0.0 # of the camera over the ground under and ahead of it
 var zoom := 1.0 # the camera's distance, as a share of its view's: the wheel, or Z and X
 var zoomed := 1.0 # on its way there
 var shown_score := 0.0
+var helm_shown := false # who had the board when the keys were last shown
 var hint_until := 0.0 # the keys show for a while after the board changes hands
 var day := 0.24
 var year := 0.3 # 0 the first of spring, 0.25 of summer, 0.5 of autumn, 0.75 of winter
@@ -506,7 +507,10 @@ static func house_mesh(squares: int) -> ArrayMesh:
 		var out := Vector3.RIGHT.rotated(Vector3.UP, side * PI / 2.0)
 		var along := Vector3.BACK.rotated(Vector3.UP, side * PI / 2.0)
 		tool.set_normal(out)
-		for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+		# A wall's top has a point at its middle and its top is marked (green): the vertex stage
+		# raises it to the roof over it, so a gable is closed.
+		for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, -1), Vector2(1, 1), Vector2(0, 1), Vector2(-1, -1), Vector2(0, 1), Vector2(-1, 1)]:
+			tool.set_color(Color(0, 1, 0) if corner.y > 0 else Color.BLACK)
 			tool.add_vertex(out * 0.5 + along * 0.5 * corner.x + Vector3.UP * 0.5 * corner.y)
 	tool.set_color(Color.RED)
 	tool.set_normal(Vector3.UP)
@@ -858,9 +862,10 @@ func build_hud() -> void:
 func show_helm() -> void:
 	title.visible = not helm and autopilot_seconds <= 0.0
 	hint.visible = autopilot_seconds <= 0.0
-	hint_until = elapsed + 12.0
+	hint_until = elapsed + 7.0
+	helm_shown = helm
 	hint.text = "The corgi flies itself. Enter or a click takes the board.    Wheel or Z, X: zoom    Q: quit" if not helm \
-		else "Arrows or WASD: steer, climb, dive    %s    Wheel or Z, X: zoom    Space: full speed    T: hours    Esc: let go    Q: quit" % ("Mouse: look" if captured else "Click: mouse look")
+		else "Arrows or WASD: steer, climb, dive    %s    Wheel or Z, X: zoom    T: hours    Esc: let go    Q: quit" % ("Mouse: look" if captured else "Click: mouse look")
 
 
 func _input(event: InputEvent) -> void:
@@ -888,7 +893,8 @@ func _input(event: InputEvent) -> void:
 		KEY_Q:
 			print("FLYOVER flown %d beacons %d view %d %d" % [int(flown), lit.size(), int(rad_to_deg(looked.x)), int(rad_to_deg(looked.y))])
 			leave()
-	show_helm()
+	if helm != helm_shown:
+		show_helm()
 
 
 ## The pointer comes with a click on the page, which takes the board too, and goes at Escape,
@@ -950,10 +956,18 @@ func fly(delta: float) -> void:
 	# highest of it, and the climb that clears all of it in the time the board takes to reach it.
 	var ground := 0.0
 	var must := -INF
+	var under := INF
 	for step in 12:
 		var time := step * 0.14
 		var way := heading + turn * 0.55 * time / 2.0
 		var top := Terrain.roof(here + Vector2(sin(way), -cos(way)) * maxf(speed, 30.0) * time)
+		# An island that floats on the way is passed over or under, by where the board is.
+		var isle := Terrain.island(here + Vector2(sin(way), -cos(way)) * maxf(speed, 30.0) * time)
+		if isle != Vector2.ZERO:
+			if flyer.position.y > (isle.x + isle.y) / 2.0:
+				top = maxf(top, isle.y)
+			else:
+				under = minf(under, isle.x)
 		ground = maxf(ground, top)
 		must = maxf(must, (top + 5.0 - flyer.position.y) / maxf(time, 0.25))
 	var wanted_turn: float
@@ -969,14 +983,13 @@ func fly(delta: float) -> void:
 	var slope := (Terrain.height(here + WIND * 14.0) - Terrain.height(here - WIND * 14.0)) / 28.0
 	var updraft := clampf(slope, 0.0, 1.0) * 9.0 * smoothstep(70.0, 20.0, flyer.position.y - ground)
 	updraft += tend_thermals()
-	rush = maxf(rush - delta * 0.4, 0.0)
-	wanted_speed += 16.0 * rush * rush
+	# A beacon's push: it comes on in under a second and wears off over the next six.
+	var since := elapsed - pushed
+	wanted_speed += BOOST * smoothstep(0.0, 0.7, since) * (1.0 - smoothstep(2.5, 6.5, since))
 	wanted_speed += fly_flock(delta, forward)
 	if helm:
 		wanted_turn = Input.get_axis("ui_left", "ui_right") + key_axis(KEY_A, KEY_D)
 		wanted_climb = (Input.get_axis("ui_down", "ui_up") + key_axis(KEY_S, KEY_W)) * 14.0
-		if Input.is_physical_key_pressed(KEY_SPACE):
-			wanted_speed += BOOST
 		# The ground pushes the board up, and its ceiling holds it down.
 		wanted_climb = maxf(wanted_climb, (ground + (8.0 if over_sea else 14.0) - flyer.position.y) * 2.0)
 		wanted_climb = minf(wanted_climb, (maxf(CEILING, ground + 45.0) - flyer.position.y) * 2.0)
@@ -991,6 +1004,9 @@ func fly(delta: float) -> void:
 			if Vector2(to.x, to.z).length() < 110.0:
 				height = maxf(ground + 10.0, beacon.position.y)
 		wanted_climb = clampf((height - flyer.position.y) * 0.7, -9.0, 14.0)
+	if under < INF:
+		wanted_climb = minf(wanted_climb, (under - 9.0 - flyer.position.y) * 2.0)
+		must = -INF
 	var ease := 1.0 - exp(-delta * 2.5)
 	turn = lerpf(turn, clampf(wanted_turn, -1.0, 1.0), ease)
 	climb = lerpf(climb, wanted_climb, ease)
@@ -1183,7 +1199,11 @@ static func beacon_place(plot: Vector2i) -> Variant:
 	var ground := Terrain.height(p)
 	if ground < Terrain.SEA + 2.0 or ground > Terrain.SEA + 130.0:
 		return null
-	return Vector3(p.x, ground + 16.0, p.y)
+	# Its gem floats clear of what stands around it, and never over the board's reach.
+	var clear := ground
+	for beside in 5:
+		clear = maxf(clear, Terrain.roof(p + (Vector2.from_angle(beside * TAU / 4.0) * 14.0 if beside < 4 else Vector2.ZERO)))
+	return Vector3(p.x, clear + 18.0, p.y)
 
 
 ## Keeps the beacons of the 25 plots around the flyer, which come into sight by degrees as it
@@ -1203,12 +1223,23 @@ func tend_beacons(delta: float) -> void:
 					beacons[plot] = build_beacon(place, 1.0 if lit.has(plot) else 0.0)
 	for plot: Vector2i in beacons:
 		var beacon: Node3D = beacons[plot]
-		beacon.get_child(0).rotate_y(delta * 1.3)
+		var own: float = beacon.get_meta("own")
+		beacon.get_child(0).rotate_y(delta * (0.8 + own))
+		beacon.get_child(0).position.y = 1.5 * sin(elapsed * 1.1 + own * 30.0)
+		# Its motes circle it, faster once it is lit; as it is lit a ring of light bursts out of it.
+		var motes := beacon.get_child(3) as Node3D
+		motes.rotate_y(delta * (1.2 + 2.5 * float(beacon.get_meta("alight"))) * (1.0 if own > 0.5 else -1.0))
+		motes.position.y = beacon.get_child(0).position.y
+		var burst := beacon.get_child(4) as MeshInstance3D
+		var bursting: float = elapsed - lit[plot].z if lit.has(plot) else 100.0
+		burst.visible = bursting < 1.6
+		burst.scale = Vector3.ONE * (1.0 + 26.0 * (1.0 - exp(-bursting * 2.2)))
+		(burst.material_override as StandardMaterial3D).albedo_color.a = 0.8 * (1.0 - smoothstep(0.2, 1.6, bursting))
 		var seen := 1.0 - smoothstep(230.0, 340.0, Vector2(beacon.position.x - flyer.position.x, beacon.position.z - flyer.position.z).length())
 		# A beacon takes its light by degrees once it is lit.
 		var alight: float = lerpf(beacon.get_meta("alight"), 1.0 if lit.has(plot) else 0.0, 1.0 - exp(-delta * 3.0))
 		beacon.set_meta("alight", alight)
-		var colour := Color(0.2, 0.8, 1.0).lerp(Color(1.0, 0.62, 0.15), alight)
+		var colour: Color = (beacon.get_meta("hue") as Color).lerp(Color(1.0, 0.62, 0.15), alight)
 		var glass := ((beacon.get_child(0).get_child(0) as MeshInstance3D).material_override as StandardMaterial3D)
 		glass.albedo_color = colour
 		glass.emission = colour
@@ -1220,9 +1251,9 @@ func tend_beacons(delta: float) -> void:
 		shaft.set_shader_parameter("strength", lerpf(0.35, 0.7, alight) * seen)
 		(beacon.get_child(2) as OmniLight3D).light_color = colour
 		(beacon.get_child(2) as OmniLight3D).light_energy = lerpf(3.0, 8.0, alight) * seen
-		if not leaving and not lit.has(plot) and beacon.position.distance_to(flyer.position) < BEACON_REACH:
+		if not leaving and not lit.has(plot) and Vector2(beacon.position.x - flyer.position.x, beacon.position.z - flyer.position.z).length() < BEACON_REACH and flyer.position.y > beacon.position.y - 24.0 and flyer.position.y < beacon.position.y + 150.0:
 			lit[plot] = Vector4(beacon.position.x, beacon.position.z, elapsed, 1.0)
-			rush = 1.0
+			pushed = elapsed
 			bell.stream = chimes[(lit.size() - 1) % chimes.size()]
 			bell.play()
 	# The shaders run rings of light out from the lit beacons around the flyer, every nine seconds
@@ -1242,10 +1273,14 @@ func tend_beacons(delta: float) -> void:
 
 ## A crystal that turns over the ground, a light, and a shaft of light seen from far off.
 func build_beacon(place: Vector3, alight: float) -> Node3D:
-	var colour := Color(0.2, 0.8, 1.0)
+	# Each beacon has a number of its own: its colour before it is lit, its gem's shape and turn.
+	var own := Terrain.cell_hash(int(place.x), int(place.z))
+	var colour: Color = [Color(0.2, 0.8, 1.0), Color(0.75, 0.3, 1.0), Color(0.25, 1.0, 0.5), Color(1.0, 0.35, 0.6)][int(own * 4.0) % 4]
 	var beacon := Node3D.new()
 	beacon.position = place
 	beacon.set_meta("alight", alight)
+	beacon.set_meta("own", own)
+	beacon.set_meta("hue", colour)
 	var gem := Node3D.new()
 	beacon.add_child(gem)
 	var point := CylinderMesh.new()
@@ -1272,6 +1307,28 @@ func build_beacon(place: Vector3, alight: float) -> Node3D:
 	glow.light_color = colour
 	glow.omni_range = 50.0
 	beacon.add_child(glow)
+	# Three motes that circle the gem, and the ring that bursts out of it as it is lit.
+	var motes := Node3D.new()
+	beacon.add_child(motes)
+	var mote := SphereMesh.new()
+	mote.radial_segments = 8
+	mote.rings = 4
+	for index in 3:
+		Parts.part(motes, mote, glass, Vector3(cos(index * TAU / 3.0) * 4.5, 0.8 * sin(index * 2.0), sin(index * TAU / 3.0) * 4.5), Vector3.ZERO, Vector3.ONE * 0.7).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.9
+	ring.outer_radius = 1.0
+	ring.rings = 32
+	ring.ring_segments = 6
+	var flash := StandardMaterial3D.new()
+	flash.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	flash.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	flash.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	flash.cull_mode = BaseMaterial3D.CULL_DISABLED
+	flash.albedo_color = Color(1.0, 0.8, 0.4, 0.0)
+	var burst := Parts.part(beacon, ring, flash, Vector3.ZERO)
+	burst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	burst.visible = false
 	add_child(beacon)
 	return beacon
 

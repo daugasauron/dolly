@@ -109,7 +109,7 @@ coat is fur in 18 shells ([`fur.gdshader`](voxel-flyover/fur.gdshader)): each fu
 again and again a little further out along its normals, keeping the pixels where a hair is that
 long, and the hairs lean and shiver in the air the flight drives past. It crouches lower the
 faster it goes and the harder it turns, leans and looks into its turns, its ears lie back, and
-its tongue lies in its open mouth and hangs over the lower jaw; the cape is a cloth its vertex stage flutters and swings out of a turn
+its tongue, a strip of the cape's cloth, trails back from the side of its mouth; the cape is a cloth its vertex stage flutters and swings out of a turn
 ([`cape.gdshader`](voxel-flyover/cape.gdshader)), and each jet leaves a wake, a ribbon the vertex
 stage lays along the places the board has been ([`wake.gdshader`](voxel-flyover/wake.gdshader)).
 The board banks into its turns.
@@ -118,8 +118,10 @@ Under the board hangs a bicycle, and on it a pelican pedals for the jets
 ([`pelican.gd`](voxel-flyover/pelican.gd)), also of primitive meshes: a white bird in a cyclist's
 red cap, with a long bill and its pouch, feathers in the same shells as the corgi's fur, and long
 black-tipped flight feathers, a tail and a crest of the cape's cloth, which trail and flutter in
-the wind. Its legs are laid from hip to knee to pedal each frame, and its wings from shoulder to
-elbow to the handlebar's grips, which they hold: the handlebar, the fork and the front wheel
+the wind. Its legs are laid from hip to knee to pedal each frame, and so is the leading edge of
+each wing, from shoulder to elbow to the wrist at a grip of the handlebar; the wing's
+black-tipped flight feathers hang from all along that edge and its last feathers are closed over
+the grip. The handlebar, the fork and the front wheel
 turn in the head tube with the flight's turn. The bicycle hangs from the board by its rear axle
 and by two rods from its head tube that pass the rider's head on either side. A chain runs from the chainring
 up to a sprocket on a shaft between the two engines, and a fan turns in each engine's intake;
@@ -141,20 +143,59 @@ down on the screen. With the sun out a rainbow stands opposite it. Low clouds dr
 high layer ([`cloud.gdshader`](voxel-flyover/cloud.gdshader)): clusters of soft balls, one for a
 cell of a grid, that the board flies under, beside and through; a ball draws in before the
 camera and the air whitens inside one. Mist of the same balls, flat, lies on the sea and the low
-ground, and the haze over the sea thickens with it at dawn. Towns stand on some low plains
-([`city.gdshader`](voxel-flyover/city.gdshader)): blocks of four lots by five between avenues,
-a building on most lots (none on a steep one, and a lawn on one in ten), of four to twenty
-storeys, taller toward the town's middle, with shop fronts, a line between storeys, a row of
-windows each that are lit at night, a parapet and a roof. No tree stands in a town or near it.
-Around a town lie fields in strips between hedges, green in spring and gold by late summer. The desert's sand lies in rippled dunes, its veins are lava, and
-at night a shooting star crosses every six seconds. Between the desert and the meadows lies
-savanna, grass with a few flat-headed trees, gold for most of the year and green in spring and
-after rain. Low wet ground by the sea is marsh, with few trees and pools that mirror the sky. In
-winter the pools and the seas of the cold lands carry ice
-([`water.gdshader`](voxel-flyover/water.gdshader)), and a town's lamps are each lot's own
-colour. A shower leaves the ground wet behind it for three quarters of a minute. A lit beacon
-warms the ground some 90 units around it: the snow and the ice draw back there and more flowers
-stand.
+ground, and the haze over the sea thickens with it at dawn. Where it rains a curtain hangs from
+the cloud to the ground, seen from afar ([`curtain.gdshader`](voxel-flyover/curtain.gdshader)),
+and the wind's gusts cross the grass, the crops and the sea as paler and rougher bands.
+
+The desert's sand lies in rippled dunes, its veins are lava, and at night a shooting star crosses
+every six seconds. Between the desert and the meadows lies savanna, grass with a few flat-headed
+trees, gold for most of the year and green in spring and after rain. Low wet ground by the sea
+is marsh, with few trees and pools that mirror the sky. In winter the pools and the seas of the
+cold lands carry ice ([`water.gdshader`](voxel-flyover/water.gdshader)), and a town's lamps are
+each lot's own colour. A shower leaves the ground wet behind it for three quarters of a minute.
+A lit beacon warms the ground some 90 units around it: the snow and the ice draw back there and
+more flowers stand. A hollow of the ground is wetter and darker than a spur and keeps its snow
+longer (the difference of the ground's two textures).
+
+The world is large by slow fields (`slow` in
+[`terrain.gdshaderinc`](voxel-flyover/terrain.gdshaderinc)): two octaves of noise each, of 1.9,
+2.7, 5.1, 7.3, 11, 19 and 53 thousand units, each turned and placed by itself, so their
+combinations do not come round again. Oceans and continents of 7.3 thousand units and lands of
+2.7 thousand shift the coasts of 520, so an ocean has islands only; the relief of a region makes
+its ranges low or high; a massif, a tenth of the world, raises its peaks to two and a half times
+(one begins three thousand units east of the start); rivers at the sea's level follow a
+meandering noise's contour through valleys and narrow to their springs in the hills; warmth and
+moisture have countries of 19 and 11 thousand units; and a realm of wonders, a tenth of the
+world at 53 thousand (the nearest fourteen thousand north of the start), has a sea alight at
+night, groves that mostly glow and bright veins. The ground's textures also carry the realm, and
+keep heights around 110 so the half floats stay fine on a massif.
+
+Towns stand on some low plains ([`city.gdshader`](voxel-flyover/city.gdshader)), of eight kinds by
+their climate, their ground and the culture of their region (`town_kind`): a city of towers on
+blocks of four lots by five between asphalt avenues; a town of gabled timber-frame houses under
+red tiles; a desert town of mud-brick cubes, some under whitewashed domes; a village of dark
+timber under steep turf roofs in the cold; a town of walls between red posts under wide roofs
+with upturned eaves; thatched houses on posts over the shallows of a warm wet coast; a
+whitewashed town with blue domes on a warm coast; round thatched huts on the savanna. All are
+one mesh, four walls and a roof of 4 by 4 squares, that the vertex stage shapes by the kind;
+the fragment stage draws storeys, windows lit at night, frames, planks, tiles, turf or thatch.
+The buildings are drawn to 1,600 units (a weak adapter draws fewer), the same lots the same
+buildings at every distance, lower the further they are; beyond 33 lots the mesh has a plainer
+roof whose shape the near roofs take before they meet. No tree stands in a town or near it, and
+few on its fields, which lie in strips between hedges, green in spring and gold by late summer,
+or on warm wet slopes in terraces along the contours that are flooded in spring.
+
+A plot of 260 units has one landmark at most, by its place (`landmark` in
+[`terrain.gd`](voxel-flyover/terrain.gd), built by [`landmarks.gd`](voxel-flyover/landmarks.gd)):
+a lighthouse with turning beams, a windmill among fields, the tower of a town's kind, an arch of
+stone in the desert, giant mushrooms that glow in a marsh, a ring of standing stones, crystals in
+the mountains, a gate on open ground, an island that floats over the board's ceiling. The forms
+take after kinds of building found in many places; none copies a building. Life is met by place
+too, each a grid whose shader places its cell's own: sailing boats
+([`afloat.gdshader`](voxel-flyover/afloat.gdshader)), gulls over the coasts and wedges of geese in
+spring and autumn ([`wings.gdshader`](voxel-flyover/wings.gdshader)), balloons
+([`aloft.gdshader`](voxel-flyover/aloft.gdshader)) and whales that blow
+([`whale.gdshader`](voxel-flyover/whale.gdshader)).
 
 The flight keeps what it gains and stays pointless: a dive gives speed and a climb takes it,
 the wind (the clouds' drift) helps at the back, low over the sea the board skims faster in its
@@ -167,6 +208,10 @@ roofs of the next second and a half and climbs in time to clear them, and the ca
 over the roofs around it. Streaks of air show at speed
 ([`speed.gdshader`](voxel-flyover/speed.gdshader)); the flyer's wash bends the crowns it
 passes low over.
+
+While the game flies itself the camera shows the world: a round of 68 seconds of wide views
+behind, beside, above and ahead of the flyer that glide into one another, and five seconds
+close beside the pelican.
 
 What an adapter draws is a ladder of seven levels (`LEVELS` in
 [`main.gd`](voxel-flyover/main.gd)): the scene's size (scaled up smoothly), four samples a pixel
