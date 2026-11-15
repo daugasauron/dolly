@@ -65,14 +65,22 @@ static func town(p: Vector2, ground: float) -> float:
 	return smoothstep(0.58, 0.66, fbm(p / 760.0 + Vector2(400.0, 109.0), 2)) * smoothstep(SEA + 4.5, SEA + 8.0, ground) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, ground))
 
 
-## What a flight looks ahead for: the surface, or the roof of the building whose lot the place
-## is in (city.gdshader's).
-static func roof(p: Vector2) -> float:
-	var corner := (p / LOT).floor() * LOT
+## The top of the building that stands on the lot at a corner (terrain.gdshaderinc's
+## building_height, and city.gdshader's steep lots), or -INF where none does.
+static func building_top(corner: Vector2) -> float:
 	var centre := corner + Vector2(LOT, LOT) / 2.0
 	var ground := height(centre)
 	var share := town(centre, ground)
-	if share <= 0.05 or cell_hash(int(corner.x) + 13, int(corner.y) + 13) < 0.22:
-		return surface(p)
-	var lot := cell_hash(int(corner.x) + 7, int(corner.y) + 7)
-	return maxf(surface(p), ground + (3.0 + 34.0 * lot * lot * lot + 8.0 * share) * smoothstep(0.05, 0.6, share))
+	var lot := Vector2i((corner / LOT + Vector2(0.5, 0.5)).floor())
+	if share < 0.1 or posmod(lot.x, 5) == 0 or posmod(lot.y, 6) == 0 or cell_hash(int(corner.x) + 13, int(corner.y) + 13) < 0.1:
+		return -INF
+	if absf(height(centre + Vector2(LOT / 2.0, 0)) - height(centre - Vector2(LOT / 2.0, 0))) + absf(height(centre + Vector2(0, LOT / 2.0)) - height(centre - Vector2(0, LOT / 2.0))) > 9.0:
+		return -INF
+	var own := cell_hash(int(corner.x) + 7, int(corner.y) + 7)
+	return ground + 3.0 * floorf(4.0 + 11.0 * own * own * own + 5.0 * share * cell_hash(int(corner.x) + 17, int(corner.y) + 17)) + 1.0
+
+
+## What a flight looks ahead for: the surface, or the roof of the building whose lot the place
+## is in.
+static func roof(p: Vector2) -> float:
+	return maxf(surface(p), building_top((p / LOT).floor() * LOT))

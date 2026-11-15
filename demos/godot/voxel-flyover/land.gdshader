@@ -90,14 +90,25 @@ void fragment() {
 	colour = mix(colour, mix(vec3(0.015, 0.05, 0.07), vec3(0.62, 0.72, 0.82), winter), pool);
 	vec2 in_lot = abs(fract(p / LOT) - 0.5);
 	float street = mix(smoothstep(0.36, 0.4 + wide / LOT, max(in_lot.x, in_lot.y)), 0.35, smoothstep(2.0, 8.0, wide));
-	colour = mix(colour, mix(vec3(0.4, 0.38, 0.36), vec3(0.1, 0.1, 0.12), street), town);
+	// The lots of an avenue are road: asphalt, with a broken line along its middle. A square
+	// is a lawn. From afar a town is the mean of them.
+	vec2 lot = floor(p / LOT);
+	ivec2 number = ivec2(lot);
+	bool north = (number.x % 5 + 5) % 5 == 0;
+	bool road = north || (number.y % 6 + 6) % 6 == 0;
+	float dash = (1.0 - smoothstep(0.012, 0.012 + wide / LOT, north ? in_lot.x : in_lot.y)) * step(0.5, fract((north ? p.y : p.x) / 6.0)) * near;
+	float lawn = step(hash(lot * LOT + 13.0), 0.1) * (1.0 - street);
+	vec3 built = mix(mix(vec3(0.4, 0.38, 0.36), vec3(0.14, 0.3, 0.08), lawn), vec3(0.1, 0.1, 0.12), street);
+	built = mix(road ? mix(vec3(0.07, 0.07, 0.08), vec3(0.75, 0.7, 0.5), dash) : built, vec3(0.22, 0.21, 0.21), smoothstep(3.0, 12.0, wide));
+	street = mix(road ? 0.7 : street, 0.45, smoothstep(3.0, 12.0, wide));
+	colour = mix(colour, built, town);
 	// Past the last trees that are drawn, their crowns are painted on the ground they stand on.
 	float away = distance(p, flyer);
 	float painted = smoothstep(paint_from, paint_from + 140.0, away);
 	vec3 lit_crowns = vec3(0.0);
 	if (painted > 0.0 && grows(here.x, here.y)) {
 		float crown = crown_width(here.y, here.z) * 1.3;
-		float share = tree_share(here.y, here.z) * (1.0 - town) * (1.0 - 0.85 * marsh_at(here.x, here.z));
+		float share = tree_share(here.y, here.z) * step(town_near(p, here.x), 0.0) * (1.0 - 0.85 * marsh_at(here.x, here.z));
 		// Where a crown is less than a pixel, the ground takes the colour of its share of them.
 		float merged = max(smoothstep(800.0, 1300.0, away), smoothstep(crown * 0.35, crown * 1.4, wide));
 		// A crown is wider than its plot: the pixel is under the nearest of its own plot's tree and

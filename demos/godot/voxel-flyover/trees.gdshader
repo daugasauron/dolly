@@ -51,7 +51,7 @@ void vertex() {
 	colour = vec3(0.0);
 	glow = 0.0;
 	crown = leafy ? 0.02 + 0.98 * up : 0.0;
-	if (come <= 0.0 || gone >= 1.0 || !grows(top, warmth) || steep > 3.4 || tree.z > tree_share(warmth, moisture) * (1.0 - town_at(place, top)) * (1.0 - 0.85 * marsh_at(top, moisture))) {
+	if (come <= 0.0 || gone >= 1.0 || !grows(top, warmth) || steep > 3.4 || tree.z > tree_share(warmth, moisture) * (1.0 - 0.85 * marsh_at(top, moisture)) || town_near(place, top) > 0.0) {
 		VERTEX = vec3(0.0);
 	} else {
 		vec4 leaves = crown_colour(place, kind, warmth, moisture);

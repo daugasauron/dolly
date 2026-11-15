@@ -98,10 +98,27 @@ float town_at(vec2 p, float height) {
 	return smoothstep(0.58, 0.66, settled(p)) * smoothstep(SEA + 4.5, SEA + 8.0, height) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, height));
 }
 
-// How tall the building of a lot is, where the town's share is that: some lots are squares.
+// Where no tree stands for a town: the town itself and a margin around it.
+float town_near(vec2 p, float height) {
+	return smoothstep(0.56, 0.575, settled(p)) * smoothstep(SEA + 2.5, SEA + 4.0, height) * (1.0 - smoothstep(SEA + 62.0, SEA + 70.0, height));
+}
+
+// Whether a lot is a stretch of road: every fifth line of lots one way and every sixth the
+// other is an avenue, so a town is blocks of four lots by five.
+bool road_lot(vec2 corner) {
+	ivec2 lot = ivec2(floor(corner / LOT + 0.5));
+	return (lot.x % 5 + 5) % 5 == 0 || (lot.y % 6 + 6) % 6 == 0;
+}
+
+// How tall the building of a lot is, where the town's share is that: none on a road, on the
+// one lot in ten that is a square, or at a town's thin edge; else 4 to 20 storeys of 3 units,
+// taller toward the town's middle, and a parapet. terrain.gd computes the same.
 float building_height(vec2 corner, float town) {
+	if (town < 0.1 || road_lot(corner) || hash(corner + 13.0) < 0.1) {
+		return 0.0;
+	}
 	float lot = hash(corner + 7.0);
-	return step(0.22, hash(corner + 13.0)) * (3.0 + 34.0 * lot * lot * lot + 8.0 * town) * smoothstep(0.05, 0.6, town);
+	return 3.0 * floor(4.0 + 11.0 * lot * lot * lot + 5.0 * town * hash(corner + 17.0)) + 1.0;
 }
 
 // How deep the cloud layer is over a place: cloud shows from a half, and rain falls from 0.68.
