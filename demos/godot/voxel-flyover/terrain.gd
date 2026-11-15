@@ -140,8 +140,12 @@ static func building_top(corner: Vector2) -> float:
 		return -INF
 	var own := cell_hash(int(corner.x) + 7, int(corner.y) + 7)
 	if kind == 0:
-		# (and the most a tower's pointed top rises: city.gdshader's roof_rise)
-		return ground + 3.0 * floorf(4.0 + 11.0 * own * own * own + 5.0 * share * cell_hash(int(corner.x) + 17, int(corner.y) + 17)) + 1.0 + 0.84 * LOT
+		# Three towers in ten end in a point (city.gdshader's roof_rise): as high as half of
+		# its narrower side, times 0.7 to 2.1.
+		var point := 0.0
+		if cell_hash(int(corner.x) + 33, int(corner.y) + 33) < 0.3:
+			point = (0.7 + 1.4 * cell_hash(int(corner.x) + 35, int(corner.y) + 35)) * 0.5 * LOT * (0.5 + 0.3 * minf(cell_hash(int(corner.x) + 11, int(corner.y) + 11), cell_hash(int(corner.x) + 19, int(corner.y) + 19)))
+		return ground + 3.0 * floorf(4.0 + 11.0 * own * own * own + 5.0 * share * cell_hash(int(corner.x) + 17, int(corner.y) + 17)) + 1.0 + point
 	return ground + 3.0 * floorf(2.0 + 1.9 * own if kind == 3 or kind == 7 else 3.0 + 2.9 * own) + 1.0 + 10.0
 
 
