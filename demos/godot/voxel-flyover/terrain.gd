@@ -124,8 +124,14 @@ static func building_top(corner: Vector2) -> float:
 	var ground := height(centre)
 	var share := town(centre, ground)
 	var lot := Vector2i((corner / LOT + Vector2(0.5, 0.5)).floor())
-	if share < 0.1 or posmod(lot.x, 5) == 0 or posmod(lot.y, 6) == 0:
+	if posmod(lot.x, 5) == 0 or posmod(lot.y, 6) == 0:
 		return -INF
+	if share < 0.1:
+		# A stilt village's house (terrain.gdshaderinc's stilts_at), with its roof.
+		if ground < SEA - 4.5 or ground > SEA + 1.5 or settled(centre) < 0.6 or cell_hash(int(corner.x) + 13, int(corner.y) + 13) < 0.45:
+			return -INF
+		var air := climate(centre)
+		return SEA + 2.5 + 3.0 * floorf(1.0 + 1.9 * cell_hash(int(corner.x) + 7, int(corner.y) + 7)) + 1.0 + 7.0 if air.x > 0.5 and air.y > 0.5 else -INF
 	var kind := town_kind(centre, ground)
 	if cell_hash(int(corner.x) + 13, int(corner.y) + 13) < (0.1 if kind == 0 else 0.2 if kind == 1 or kind == 4 else 0.32):
 		return -INF

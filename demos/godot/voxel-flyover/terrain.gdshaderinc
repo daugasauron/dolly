@@ -182,6 +182,16 @@ int town_kind(vec2 p, float height) {
 	return culture < 0.42 ? 4 : 1;
 }
 
+// Whether a stilt village stands at a place: off the shore of a settled coast in a warm wet
+// land, where the water is shallow. Its houses stand on posts over the water (kind 5).
+bool stilts_at(vec2 p, float height) {
+	if (height < SEA - 4.5 || height > SEA + 1.5 || settled(p) < 0.6) {
+		return false;
+	}
+	vec2 air = climate(p);
+	return air.x > 0.5 && air.y > 0.5;
+}
+
 // How tall the walls of a lot's building are, where the town's share is that and its kind is
 // that: none on a road, on a lot left open (one in ten in a city, more in a town or a village),
 // or at a town's thin edge; a city's towers have 4 to 20 storeys of 3 units, taller toward its

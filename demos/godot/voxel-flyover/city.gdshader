@@ -42,6 +42,9 @@ float roof_rise(vec2 at, int of_kind, float is_domed, bool turned, float span, f
 	if (of_kind == 4) {
 		return pow(1.0 - out_to, 1.6) * 0.5 * least + 1.6 * pow(abs(at.x * at.y) * 4.0, 2.0);
 	}
+	if (of_kind == 5) {
+		return (1.0 - out_to) * 0.6 * least;
+	}
 	if (of_kind == 7) {
 		return (1.0 - min(length(at) * 2.0, 1.0)) * least;
 	}
@@ -59,13 +62,18 @@ void vertex() {
 	float tall = 0.0;
 	// No building stands on a steep lot.
 	float tilt = 0.0;
-	if (share >= 0.1) {
+	foot = here.x;
+	if (share < 0.1 && stilts_at(centre, here.x)) {
+		// A house on posts over the water: its floor 2.5 units over the sea, one storey or two.
+		kind = 5;
+		foot = SEA + 2.5;
+		tall = (road_lot(corner) || hash(corner + 13.0) < 0.45) ? 0.0 : foot - here.x + 3.0 * floor(1.0 + 1.9 * hash(corner + 7.0)) + 1.0;
+	} else if (share >= 0.1) {
 		kind = town_kind(centre, here.x);
 		tall = building_height(corner, share, kind);
 		tilt = abs(ground_here(centre + vec2(LOT * 0.5, 0.0)).x - ground_here(centre - vec2(LOT * 0.5, 0.0)).x) + abs(ground_here(centre + vec2(0.0, LOT * 0.5)).x - ground_here(centre - vec2(0.0, LOT * 0.5)).x);
 	}
-	foot = here.x;
-	storeys = (tall - 1.0) / 3.0;
+	storeys = (tall - 1.0 - foot + here.x) / 3.0;
 	// The furthest buildings drawn stand lower the further they are, down to the ground, where
 	// the land's shader paints the town: a town rises out of the haze by degrees.
 	float low = (1.0 - smoothstep(city_reach * 0.6, city_reach * 0.97, away)) * step(tilt, 9.0);
@@ -98,7 +106,7 @@ void vertex() {
 				mix(roof_rise(from + vec2(0.0, 0.5), kind, domed, turned, span, least), roof_rise(from + vec2(0.5, 0.5), kind, domed, turned, span, least), within.x), within.y);
 			rise = mix(rise, flat_rise, plain);
 		}
-		float eaves = domed > 0.5 ? 1.0 : kind == 1 ? 1.1 : kind == 3 ? 1.12 : kind == 4 ? 1.34 : kind == 7 ? 1.3 : 1.0;
+		float eaves = domed > 0.5 ? 1.0 : kind == 1 ? 1.1 : kind == 3 ? 1.12 : kind == 4 ? 1.34 : kind == 7 ? 1.3 : kind == 5 ? 1.28 : 1.0;
 		VERTEX = vec3(VERTEX.x * wide.x * eaves, tall + rise * low, VERTEX.z * wide.y * eaves) + vec3(centre.x, here.x, centre.y) - MODEL_MATRIX[3].xyz;
 	}
 	world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -119,7 +127,7 @@ void fragment() {
 	float shop = city ? 1.0 - step(1.0, storey) : 0.0;
 	float above = step(storeys, storey);
 	// The windows, by the kind: a city's wide, a house's smaller, a mud-brick wall's few and small.
-	float half_wide = city ? mix(0.3, 0.42, shop) : (kind == 2 || kind == 7) ? 0.1 : 0.19;
+	float half_wide = city ? mix(0.3, 0.42, shop) : (kind == 2 || kind == 7 || kind == 5) ? 0.1 : 0.19;
 	float half_tall = city ? 0.28 : (kind == 2 || kind == 7) ? 0.12 : 0.24;
 	float window = (1.0 - smoothstep(half_wide - fine, half_wide + fine, in_pane.x)) * (1.0 - smoothstep(half_tall - fine, half_tall + fine, in_pane.y - 0.06 * shop));
 	float glass = 4.0 * half_wide * half_tall + 0.06;
@@ -158,6 +166,13 @@ void fragment() {
 		// Whitewash, and blue domes.
 		wall = vec3(0.92, 0.92, 0.9) * (1.0 - 0.1 * line);
 		top = mix(vec3(0.9, 0.9, 0.88), vec3(0.08, 0.3, 0.75), domed);
+	} else if (kind == 5) {
+		// Woven walls under thatch, on posts: under the floor only the corners' posts are drawn.
+		if (is_roof < 0.5 && world.y < SEA + 2.3 && min(abs(on_roof.x), abs(on_roof.y)) < 0.78) {
+			discard;
+		}
+		wall = mix(vec3(0.5, 0.38, 0.2), vec3(0.62, 0.5, 0.28), fract(own * 5.0)) * (0.85 + 0.15 * step(0.5, fract(world.y * 3.0)) * (1.0 - merged));
+		top = vec3(0.5, 0.4, 0.18) * (0.8 + 0.2 * step(0.5, fract(length(on_roof) * 5.0)) * (1.0 - merged));
 	} else if (kind == 7) {
 		// Earth walls under thatch.
 		wall = mix(vec3(0.5, 0.3, 0.16), vec3(0.62, 0.4, 0.22), fract(own * 5.0));
