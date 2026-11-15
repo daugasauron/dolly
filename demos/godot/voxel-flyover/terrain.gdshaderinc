@@ -137,6 +137,12 @@ float town_at(vec2 p, float height) {
 	return smoothstep(0.58, 0.66, settled(p)) * smoothstep(SEA + 4.5, SEA + 8.0, height) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, height));
 }
 
+// How much of a place is farmed: the fields around a town, on its low land. Few trees stand
+// in them.
+float farmed_at(vec2 p, float height) {
+	return smoothstep(0.49, 0.53, settled(p)) * smoothstep(SEA + 4.5, SEA + 8.0, height) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, height));
+}
+
 // Where no tree stands for a town: the town itself and a margin around it.
 float town_near(vec2 p, float height) {
 	return smoothstep(0.56, 0.575, settled(p)) * smoothstep(SEA + 2.5, SEA + 4.0, height) * (1.0 - smoothstep(SEA + 62.0, SEA + 70.0, height));

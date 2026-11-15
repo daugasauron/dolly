@@ -84,6 +84,16 @@ void fragment() {
 	float rows = 0.5 + 0.5 * sin((crop > 0.5 ? p.x : p.y) * 2.2) * (1.0 - smoothstep(0.3, 1.0, wide));
 	vec3 crops = mix(mix(vec3(0.16, 0.36, 0.08), vec3(0.3, 0.42, 0.1), crop), mix(vec3(0.62, 0.5, 0.16), vec3(0.45, 0.33, 0.14), autumn), smoothstep(0.3, 0.75, fract(crop * 7.0) + autumn - spring));
 	colour = mix(colour, mix(crops * (0.85 + 0.3 * rows), vec3(0.03, 0.12, 0.05), hedge), farmed);
+	// Where the farmed land is warm, wet and sloping it is terraced: level steps of 2.5 units
+	// that follow the slope's contours behind low walls, flooded in spring so that they mirror
+	// the sky, green in summer, gold in autumn.
+	float terraced = farmed * smoothstep(0.012, 0.04, steep) * smoothstep(0.47, 0.54, warmth) * smoothstep(0.44, 0.52, moisture);
+	float step_of = here.x / 2.5;
+	float step_wide = fwidth(step_of);
+	float wall = (1.0 - smoothstep(0.1, 0.1 + step_wide, fract(step_of))) * (1.0 - smoothstep(0.4, 1.2, step_wide));
+	float flooded = terraced * spring * (1.0 - wall);
+	vec3 paddy = mix(mix(vec3(0.2, 0.42, 0.1), vec3(0.6, 0.5, 0.15), autumn), vec3(0.16, 0.24, 0.27), spring) * (0.9 + 0.2 * hash(floor(vec2(step_of, 0.0))));
+	colour = mix(colour, mix(paddy, vec3(0.2, 0.17, 0.1), wall), terraced);
 	// A marsh on low, wet, level ground: reeds, and pools between them that mirror the sky, with
 	// ice on them in winter.
 	float marsh = marsh_at(height, moisture) * smoothstep(0.07, 0.03, steep) * (1.0 - town) * (1.0 - farmed);
@@ -116,7 +126,7 @@ void fragment() {
 	vec3 lit_crowns = vec3(0.0);
 	if (painted > 0.0 && grows(here.x, here.y)) {
 		float crown = crown_width(here.y, here.z) * 1.3;
-		float share = tree_share(here.y, here.z) * step(town_near(p, here.x), 0.0) * (1.0 - 0.85 * marsh_at(here.x, here.z));
+		float share = tree_share(here.y, here.z) * step(town_near(p, here.x), 0.0) * (1.0 - 0.85 * marsh_at(here.x, here.z)) * (1.0 - 0.94 * farmed);
 		// Where a crown is less than a pixel, the ground takes the colour of its share of them.
 		float merged = max(smoothstep(800.0, 1300.0, away), smoothstep(crown * 0.35, crown * 1.4, wide));
 		// A crown is wider than its plot: the pixel is under the nearest of its own plot's tree and
@@ -163,7 +173,7 @@ void fragment() {
 	// A town's lamps are warm; in winter each lot hangs out lights of its own colour.
 	vec3 lamps = mix(vec3(1.0, 0.78, 0.45), 0.5 + 0.5 * cos(6.2832 * (hash(floor(p / LOT) + 21.0) + vec3(0.0, 0.33, 0.67))), winter * 0.8);
 	EMISSION = lamps * town * street * night * (0.5 + 0.5 * winter) + lit_crowns + vein_colour * vein * run * (0.02 + 0.5 * sandy + 1.7 * night) + vec3(1.0, 0.5, 0.12) * pulse_light(p) * (1.0 + 1.8 * night) * (0.6 + 0.6 * grain);
-	ROUGHNESS = mix(mix(mix(0.9, 0.7, bare), 0.3, max(max(max(vein * night, snow * 0.6), sand * 0.5), wet * 0.8)), mix(0.05, 0.35, winter), pool);
+	ROUGHNESS = mix(mix(mix(0.9, 0.7, bare), 0.3, max(max(max(vein * night, snow * 0.6), sand * 0.5), wet * 0.8)), mix(0.05, 0.35, winter), max(pool, flooded));
 	SPECULAR = 0.35;
 	NORMAL = normalize((VIEW_MATRIX * vec4(normalize(mix(normal + vec3(tilt.x, 0.0, tilt.y), vec3(0.0, 1.0, 0.0), pool)), 0.0)).xyz);
 }
