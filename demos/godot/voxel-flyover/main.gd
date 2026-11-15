@@ -102,6 +102,8 @@ var bell := AudioStreamPlayer.new()
 var chimes: Array[AudioStreamWAV] = [] # a note for each beacon lit, made before the flight
 var leaving := false # after Q, or a flight by itself that has ended
 var beacons := {} # plot -> its node, for the plots around the flyer
+var thermals := {} # plot -> the column of warm air over the town there
+var rush := 0.0 # the push a beacon gives the board that lights it, which wears off
 var lit := {} # plot -> where it stands (x, y) and the clock when it was lit (z)
 
 var helm := false # the player's, after Enter or a click
@@ -684,9 +686,9 @@ func _input(event: InputEvent) -> void:
 	if autopilot_seconds > 0.0:
 		return
 	# A browser may report the pointer's way to where it was captured as its first motion: the
-	# first moments' are left, and no one motion turns the view far.
+	# first moments' are left.
 	if event is InputEventMouseMotion and captured and elapsed > looks_from:
-		var motion := (event as InputEventMouseMotion).relative.limit_length(150.0)
+		var motion := (event as InputEventMouseMotion).relative
 		look.x += motion.x * 0.0035
 		look.y = clampf(look.y + motion.y * 0.0035, -0.5, 1.0)
 	if event is InputEventMouseButton and event.pressed:
@@ -775,8 +777,9 @@ func fly(delta: float) -> void:
 	# Where the wind meets a slope it rises, and carries the board up with it near the ground.
 	var slope := (Terrain.height(here + WIND * 14.0) - Terrain.height(here - WIND * 14.0)) / 28.0
 	var updraft := clampf(slope, 0.0, 1.0) * 9.0 * smoothstep(70.0, 20.0, flyer.position.y - ground)
-	# A town's warm air rises by day.
-	updraft += 5.0 * Terrain.town(here, Terrain.height(here)) * (1.0 - night_share)
+	updraft += tend_thermals()
+	rush = maxf(rush - delta * 0.4, 0.0)
+	wanted_speed += 16.0 * rush * rush
 	if helm:
 		wanted_turn = Input.get_axis("ui_left", "ui_right") + key_axis(KEY_A, KEY_D)
 		wanted_climb = (Input.get_axis("ui_down", "ui_up") + key_axis(KEY_S, KEY_W)) * 14.0
@@ -822,7 +825,52 @@ func fly(delta: float) -> void:
 		grove.position = Vector3(among.x, 0.0, among.y)
 	city.position = Vector3(among.x, 0.0, among.y)
 	tell("flyer", Vector2(flyer.position.x, flyer.position.z))
+	tell("flyer_at", flyer.position)
 	water.position = Vector3(flyer.position.x, Terrain.SEA - 0.2, flyer.position.z)
+
+
+## Keeps the thermals of the plots around the flyer: over a town, by day, a column of warm air
+## rises, which shows faintly from afar as beacons do. Returns the lift of those the flyer is in.
+func tend_thermals() -> float:
+	var middle := Vector2i((Vector2(flyer.position.x, flyer.position.z) / BEACON_PLOT).floor())
+	for plot: Vector2i in thermals.keys():
+		if absi(plot.x - middle.x) > 2 or absi(plot.y - middle.y) > 2:
+			thermals[plot].queue_free()
+			thermals.erase(plot)
+	for x in range(middle.x - 2, middle.x + 3):
+		for y in range(middle.y - 2, middle.y + 3):
+			var plot := Vector2i(x, y)
+			if not thermals.has(plot):
+				var p := (Vector2(plot) + Vector2(0.2, 0.2) + Vector2(Terrain.cell_hash(plot.x + 19, plot.y), Terrain.cell_hash(plot.y, plot.x + 43)) * 0.6) * BEACON_PLOT
+				var ground := Terrain.height(p)
+				var column := Node3D.new()
+				column.position = Vector3(p.x, ground, p.y)
+				if Terrain.town(p, ground) > 0.4:
+					var sides := CylinderMesh.new()
+					sides.top_radius = 26.0
+					sides.bottom_radius = 14.0
+					sides.height = 170.0
+					sides.radial_segments = 24
+					sides.cap_top = false
+					sides.cap_bottom = false
+					var air := ShaderMaterial.new()
+					air.shader = preload("res://thermal.gdshader")
+					Parts.part(column, sides, air, Vector3(0, 85, 0)).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				add_child(column)
+				thermals[plot] = column
+	var rising := 0.0
+	for plot: Vector2i in thermals:
+		var column: Node3D = thermals[plot]
+		if column.get_child_count() == 0:
+			continue
+		var apart := Vector2(column.position.x - flyer.position.x, column.position.z - flyer.position.z).length()
+		var strength := (1.0 - night_share) * (1.0 - smoothstep(230.0, 340.0, apart))
+		var air := (column.get_child(0) as MeshInstance3D).material_override as ShaderMaterial
+		air.set_shader_parameter("strength", strength)
+		air.set_shader_parameter("clock", elapsed)
+		if flyer.position.y < column.position.y + 170.0:
+			rising += 13.0 * strength * (1.0 - smoothstep(6.0, 24.0, apart))
+	return rising
 
 
 ## The beacon of a plot of the world: where it floats, or nothing where the plot's place is sea.
@@ -870,6 +918,7 @@ func tend_beacons(delta: float) -> void:
 		(beacon.get_child(2) as OmniLight3D).light_energy = lerpf(3.0, 8.0, alight) * seen
 		if not leaving and not lit.has(plot) and beacon.position.distance_to(flyer.position) < BEACON_REACH:
 			lit[plot] = Vector4(beacon.position.x, beacon.position.z, elapsed, 1.0)
+			rush = 1.0
 			bell.stream = chimes[(lit.size() - 1) % chimes.size()]
 			bell.play()
 	# The shaders run rings of light out from the lit beacons around the flyer, every nine seconds
@@ -997,6 +1046,7 @@ func follow(delta: float) -> void:
 	falls = lerpf(falls, smoothstep(0.66, 0.78, Terrain.fbm(above + Vector2(31.0, 7.0), 3)), 1.0 - exp(-delta * 1.5))
 	for shower in showers:
 		shower.position = camera.position
+	sky_material.set_shader_parameter("rains", falls)
 	for falling in rain:
 		falling.set_shader_parameter("falls", falls)
 		falling.set_shader_parameter("snows", season_share(0.85))

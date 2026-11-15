@@ -17,6 +17,7 @@ shader_type spatial;
 uniform vec4 ring = vec4(-2.0, -1.0, 64.0, 80.0);
 uniform bool sinks = false; // the last grid of trees, and the shadows'
 uniform vec3 eye; // where the camera is
+uniform vec3 flyer_at; // where the flyer is: its wash bends the crowns it passes low over
 
 varying flat vec3 colour;
 varying flat float glow;
@@ -81,6 +82,9 @@ void vertex() {
 			glow = leaves.a;
 			// The wind.
 			at.xz += sin(clock * 1.4 + place.x * 0.21 + place.y * 0.17) * 0.03 * at.y;
+			// The flyer's wash, away from where it is.
+			vec3 from = vec3(place.x, top + 4.0, place.y) - flyer_at;
+			at.xz += normalize(from.xz + vec2(0.001)) * (1.0 - smoothstep(6.0, 30.0, length(from))) * (0.12 + 0.05 * sin(clock * 9.0 + place.x)) * at.y;
 		}
 		colour *= cloud_shade(vec3(place.x, top, place.y));
 		NORMAL = facing;

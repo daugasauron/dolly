@@ -7,6 +7,7 @@ shader_type sky;
 
 uniform vec3 sun_direction = vec3(0.0, 1.0, 0.0);
 uniform vec3 sun_colour : source_color = vec3(1.0);
+uniform float rains = 0.0; // the rain over the camera: with the sun out it stands a rainbow in it
 
 float star_hash(vec3 p) {
 	p = fract(p * 0.3183099 + 0.1);
@@ -67,6 +68,12 @@ void sky() {
 			vec3 lit = sun * (1.15 + 2.5 * pow(toward, 6.0) * (1.0 - cover)) + horizon * 0.25 + moonlight;
 			colour = mix(colour, mix(shadow, lit, bright), cover * exp(-far / 7000.0));
 		}
+	}
+	// The rainbow: a bow 42 degrees around the point opposite the sun, red outside, while it rains
+	// in sunlight.
+	float bow = (dot(EYEDIR, -sun_direction) - 0.72) / 0.05;
+	if (!AT_CUBEMAP_PASS && rains > 0.0 && bow > 0.0 && bow < 1.0 && up > 0.0) {
+		colour += (0.5 + 0.5 * cos(6.2832 * (bow * 0.75 + vec3(0.0, 0.33, 0.67)))) * sin(bow * 3.1416) * rains * smoothstep(0.02, 0.3, sun_height) * smoothstep(0.0, 0.12, up) * 0.3;
 	}
 	COLOR = colour;
 }

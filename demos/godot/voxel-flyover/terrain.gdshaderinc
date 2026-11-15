@@ -89,7 +89,7 @@ vec2 climate(vec2 p) {
 // How much of a town stands at a place whose ground is that high, between 0 and 1: on the low
 // land of some plains, thinning toward its outskirts. terrain.gd computes the same.
 float town_at(vec2 p, float height) {
-	return smoothstep(0.58, 0.66, fbm(p / 760.0 + vec2(400.0, 109.0), 2)) * smoothstep(SEA + 2.5, SEA + 6.0, height) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, height));
+	return smoothstep(0.58, 0.66, fbm(p / 760.0 + vec2(400.0, 109.0), 2)) * smoothstep(SEA + 4.5, SEA + 8.0, height) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, height));
 }
 
 // How tall the building of a lot is, where the town's share is that: some lots are squares.

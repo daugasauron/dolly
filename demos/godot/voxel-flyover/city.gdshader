@@ -44,6 +44,8 @@ void fragment() {
 	window = mix(window, 0.34, smoothstep(0.35, 0.9, fine)) * step(abs(facing.y), 0.5);
 	float lit = step(0.55, hash(floor(pane) + own * 97.0)) * (1.0 - smoothstep(0.35, 0.9, fine)) + 0.45 * smoothstep(0.35, 0.9, fine);
 	vec3 wall = tint * (0.8 + 0.2 * fract(own * 7.0)) * cloud_shade(world);
+	// Snow lies on the roofs in winter.
+	wall = mix(wall, vec3(0.62, 0.68, 0.78), winter * 0.85 * step(0.5, facing.y));
 	ALBEDO = mix(wall, vec3(0.05, 0.08, 0.12), window);
 	ROUGHNESS = mix(0.85, 0.15, window);
 	METALLIC = 0.3 * window;

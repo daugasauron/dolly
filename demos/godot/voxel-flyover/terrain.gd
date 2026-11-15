@@ -62,7 +62,7 @@ const LOT := 16.0
 
 ## terrain.gdshaderinc's town_at.
 static func town(p: Vector2, ground: float) -> float:
-	return smoothstep(0.58, 0.66, fbm(p / 760.0 + Vector2(400.0, 109.0), 2)) * smoothstep(SEA + 2.5, SEA + 6.0, ground) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, ground))
+	return smoothstep(0.58, 0.66, fbm(p / 760.0 + Vector2(400.0, 109.0), 2)) * smoothstep(SEA + 4.5, SEA + 8.0, ground) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, ground))
 
 
 ## What a flight looks ahead for: the surface, or the roof of the building whose lot the place
