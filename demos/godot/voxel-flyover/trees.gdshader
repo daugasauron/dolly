@@ -15,6 +15,7 @@ shader_type spatial;
 
 // How far from the flyer this grid's trees fill in (from x to y) and thin out (from z to w).
 uniform vec4 ring = vec4(-2.0, -1.0, 64.0, 80.0);
+uniform bool sways = true; // whether the gusts bend the crowns
 uniform bool sinks = false; // the last grid of trees, and the shadows'
 uniform vec3 eye; // where the camera is
 uniform vec3 flyer_at; // where the flyer is: its wash bends the crowns it passes low over
@@ -87,6 +88,10 @@ void vertex() {
 			glow = leaves.a;
 			// The wind.
 			at.xz += sin(clock * 1.4 + place.x * 0.21 + place.y * 0.17) * 0.03 * at.y;
+			// A gust bends the crowns it crosses, along the wind (not on a weak adapter).
+			if (sways) {
+				at.xz += vec2(0.93, 0.36) * gust(place) * 0.22 * at.y;
+			}
 			// The flyer's wash, away from where it is.
 			vec3 from = vec3(place.x, top + 4.0, place.y) - flyer_at;
 			at.xz += normalize(from.xz + vec2(0.001)) * (1.0 - smoothstep(6.0, 30.0, length(from))) * (0.12 + 0.05 * sin(clock * 9.0 + place.x)) * at.y;

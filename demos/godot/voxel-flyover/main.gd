@@ -136,6 +136,7 @@ var day := 0.24
 var year := 0.3 # 0 the first of spring, 0.25 of summer, 0.5 of autumn, 0.75 of winter
 var falls := 0.0 # the rain or snow over the camera
 var drifters: Array[MultiMeshInstance3D] = [] # the balloons, and the whales
+var herds: MultiMeshInstance3D # the animals on the open land
 var curtains: MultiMeshInstance3D # the rain seen from afar
 var boats: MultiMeshInstance3D # the boats on the sea around the flyer
 var birds_of_place: MultiMeshInstance3D # gulls over the coasts and geese over the land
@@ -278,6 +279,9 @@ func _ready() -> void:
 	wing.subdivide_width = 6
 	birds_of_place = build_grid(wing, 9, 360.0, reads_ground(preload("res://wings.gdshader"), 2))
 	nine_each(birds_of_place)
+	# Herds on the open land (herd.gdshader).
+	herds = build_grid(animal_mesh(), 9, 300.0, reads_ground(preload("res://herd.gdshader"), 1))
+	nine_each(herds)
 	# Balloons in the sky (aloft.gdshader) and whales in the deep sea (whale.gdshader).
 	var round_ball := SphereMesh.new()
 	round_ball.radial_segments = 16
@@ -359,6 +363,8 @@ func set_level(to: int) -> void:
 	cities[1].multimesh.visible_instance_count = 4 * (lots * lots - CITY_NEAR * CITY_NEAR)
 	tell("city_reach", lots * Terrain.LOT)
 	# A weak adapter has the dawn's haze without its banks of mist.
+	tell("sways", level < 2)
+	herds.visible = level < 6
 	clouds[1].visible = level < 5
 	curtains.visible = level < 5
 	# A weak adapter has simpler crowns near by: the next grid's.
@@ -479,6 +485,32 @@ func nine_each(grid: MultiMeshInstance3D) -> void:
 	grid.multimesh.buffer = all
 	grid.custom_aabb = AABB(Vector3.ONE * -1e6, Vector3.ONE * 2e6)
 	grid.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+## An animal before herd.gdshader walks it: a body, a head on a neck toward -z, and four legs,
+## of boxes, told apart by their colour's red (0 the body, 1 the head, 0.5 a leg) and a leg's
+## pace by its green.
+static func animal_mesh() -> ArrayMesh:
+	var tool := SurfaceTool.new()
+	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	tool.set_normal(Vector3.UP)
+	var box := func(middle: Vector3, size: Vector3, colour: Color) -> void:
+		tool.set_color(colour)
+		for face in 6:
+			var axis := face / 2
+			var out := Vector3.ZERO
+			out[axis] = 1.0 if face % 2 == 0 else -1.0
+			var one := Vector3.ZERO
+			one[(axis + 1) % 3] = 1.0
+			var two := Vector3.ZERO
+			two[(axis + 2) % 3] = 1.0
+			for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+				tool.add_vertex(middle + (out + one * corner.x + two * corner.y) * size / 2.0)
+	box.call(Vector3(0, 1.55, 0), Vector3(0.9, 0.9, 2.2), Color(0, 0, 0))
+	box.call(Vector3(0, 2.1, -1.35), Vector3(0.45, 0.55, 0.8), Color(1, 0, 0))
+	for leg in 4:
+		box.call(Vector3(0.3 if leg % 2 == 0 else -0.3, 0.55, 0.8 if leg < 2 else -0.8), Vector3(0.2, 1.1, 0.2), Color(0.5, float((leg + leg / 2) % 2), 0))
+	return tool.commit()
 
 
 ## A boat before afloat.gdshader sails it: a hull that narrows to its bow (toward -z), a mast, a
@@ -1046,6 +1078,7 @@ func fly(delta: float) -> void:
 	boats.position = Vector3(snappedf(flyer.position.x, 180.0), 0.0, snappedf(flyer.position.z, 180.0))
 	birds_of_place.position = Vector3(snappedf(flyer.position.x, 360.0), 0.0, snappedf(flyer.position.z, 360.0))
 	curtains.position = Vector3(snappedf(flyer.position.x, 300.0), 0.0, snappedf(flyer.position.z, 300.0))
+	herds.position = Vector3(snappedf(flyer.position.x, 300.0), 0.0, snappedf(flyer.position.z, 300.0))
 	drifters[0].position = Vector3(snappedf(flyer.position.x, 520.0), 0.0, snappedf(flyer.position.z, 520.0))
 	drifters[1].position = Vector3(snappedf(flyer.position.x, 420.0), 0.0, snappedf(flyer.position.z, 420.0))
 	# The clouds drift with the wind.
