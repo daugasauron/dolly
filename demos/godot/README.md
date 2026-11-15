@@ -176,7 +176,7 @@ night, groves that mostly glow and bright veins. The ground's textures also carr
 keep heights around 110 so the half floats stay fine on a massif.
 
 Towns stand on some low plains ([`city.gdshader`](voxel-flyover/city.gdshader)), of eight kinds by
-their climate, their ground and the culture of their region (`town_kind`): a city of towers on
+their climate, their ground and the culture of their region (`town_kind`): a city of towers (three in ten end in a point of green copper or slate) on
 blocks of four lots by five between asphalt avenues; a town of gabled timber-frame houses under
 red tiles; a desert town of mud-brick cubes, some under whitewashed domes; a village of dark
 timber under steep turf roofs in the cold; a town of walls between red posts under wide roofs

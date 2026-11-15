@@ -93,7 +93,7 @@ void sky() {
 	// kilometres. It keeps the sun's light after the ground has lost it: fire and rose.
 	if (!AT_CUBEMAP_PASS && up > 0.03) {
 		vec2 high = POSITION.xz + EYEDIR.xz * (2600.0 - POSITION.y) / up - vec2(0.93, 0.36) * clock * 30.0;
-		float streaks = noise(vec2(dot(high, vec2(0.36, -0.93)) / 240.0, dot(high, vec2(0.93, 0.36)) / 2400.0) + noise(high / 1700.0) * 2.0);
+		float streaks = noise(vec2(dot(high, vec2(0.36, -0.93)) / 240.0, dot(high, vec2(0.93, 0.36)) / 1000.0) + noise(high / 1700.0) * 2.0);
 		float thin = smoothstep(0.45, 0.95, streaks) * smoothstep(0.42, 0.75, noise(high / 8000.0 + 17.0)) * smoothstep(0.03, 0.22, up) * (1.0 - 0.85 * dark);
 		vec3 lit = sun * 0.9 + horizon * 0.35 + vec3(0.05, 0.07, 0.12) * dark;
 		lit = mix(lit, mix(vec3(1.0, 0.5, 0.62), vec3(1.6, 0.6, 0.2), smoothstep(0.3, 0.95, sunward)) * smoothstep(-0.3, -0.05, sun_height), low);

@@ -20,7 +20,7 @@ varying flat float own; // the building's number
 varying flat float foot; // the height its storeys are counted from
 varying flat float storeys;
 varying flat int kind;
-varying flat float domed;
+varying flat float domed; // a dome (1), or on a city's tower how high its pointed top is (0: flat)
 varying vec3 world;
 varying vec3 facing;
 varying vec2 on_roof;
@@ -30,6 +30,10 @@ varying float roof;
 float roof_rise(vec2 at, int of_kind, float is_domed, bool turned, float span, float least) {
 	float across = abs(turned ? at.y : at.x) * 2.0;
 	float out_to = max(abs(at.x), abs(at.y)) * 2.0;
+	if (of_kind == 0) {
+		// A tower's pointed top: four faces to a point, as the roof of 2 by 2 squares has it too.
+		return is_domed * (1.0 - out_to) * 0.5 * least;
+	}
 	if (is_domed > 0.5) {
 		return sqrt(max(1.0 - 4.0 * dot(at, at), 0.0)) * 0.5 * least;
 	}
@@ -84,6 +88,10 @@ void vertex() {
 	on_roof = VERTEX.xz * 2.0;
 	roof = COLOR.r;
 	domed = float((kind == 2 && own < 0.14) || (kind == 6 && own < 0.3));
+	// Three towers in ten end in a point, low or high.
+	if (kind == 0) {
+		domed = hash(corner + 33.0) < 0.3 ? 0.7 + 1.4 * hash(corner + 35.0) : 0.0;
+	}
 	// A house of a town or a village (not a city's tower) stands a little off its lot's middle
 	// and is turned by an angle of its own, so their rows are not a grid's.
 	float askew = kind == 0 ? 0.0 : (hash(corner + 27.0) - 0.5) * 1.2;
@@ -195,6 +203,10 @@ void fragment() {
 		float rim = smoothstep(0.82, 0.9, max(abs(on_roof.x), abs(on_roof.y)));
 		float head = step(max(abs(on_roof.x - 0.3 + 0.6 * own), abs(on_roof.y + 0.25)), 0.22);
 		top = mix(top * (1.0 - 0.35 * head), wall, rim);
+		if (domed > 0.0) {
+			// A pointed top is of green copper or of slate.
+			top = mix(vec3(0.1, 0.27, 0.22), vec3(0.14, 0.15, 0.19), step(0.5, fract(own * 13.0)));
+		}
 	}
 	// Snow lies on the roofs in winter.
 	top = mix(top, vec3(0.62, 0.68, 0.78), winter * snowy);
