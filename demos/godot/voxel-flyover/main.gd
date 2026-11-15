@@ -134,6 +134,7 @@ var hint_until := 0.0 # the keys show for a while after the board changes hands
 var day := 0.24
 var year := 0.3 # 0 the first of spring, 0.25 of summer, 0.5 of autumn, 0.75 of winter
 var falls := 0.0 # the rain or snow over the camera
+var drifters: Array[MultiMeshInstance3D] = [] # the balloons, and the whales
 var curtains: MultiMeshInstance3D # the rain seen from afar
 var boats: MultiMeshInstance3D # the boats on the sea around the flyer
 var birds_of_place: MultiMeshInstance3D # gulls over the coasts and geese over the land
@@ -273,6 +274,22 @@ func _ready() -> void:
 	wing.subdivide_width = 6
 	birds_of_place = build_grid(wing, 9, 360.0, reads_ground(preload("res://wings.gdshader"), 2))
 	nine_each(birds_of_place)
+	# Balloons in the sky (aloft.gdshader) and whales in the deep sea (whale.gdshader).
+	var round_ball := SphereMesh.new()
+	round_ball.radial_segments = 16
+	round_ball.rings = 12
+	drifters.append(build_grid(round_ball, 7, 520.0, reads_ground(preload("res://aloft.gdshader"), 2)))
+	drifters.append(build_grid(round_ball, 7, 420.0, reads_ground(preload("res://whale.gdshader"), 2)))
+	var whales := drifters[1].multimesh.buffer
+	var parts := PackedFloat32Array()
+	for plot in whales.size() / 12:
+		for part in 3:
+			parts.append_array(whales.slice(plot * 12, plot * 12 + 12))
+	drifters[1].multimesh.instance_count = parts.size() / 12
+	drifters[1].multimesh.buffer = parts
+	for drifter in drifters:
+		drifter.custom_aabb = AABB(Vector3.ONE * -1e6, Vector3.ONE * 2e6)
+		drifter.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# The rain and the snow: cards in a box of air around the camera (rain.gdshader).
 	var card := QuadMesh.new()
 	shower.multimesh = MultiMesh.new()
@@ -1005,6 +1022,8 @@ func fly(delta: float) -> void:
 	boats.position = Vector3(snappedf(flyer.position.x, 180.0), 0.0, snappedf(flyer.position.z, 180.0))
 	birds_of_place.position = Vector3(snappedf(flyer.position.x, 360.0), 0.0, snappedf(flyer.position.z, 360.0))
 	curtains.position = Vector3(snappedf(flyer.position.x, 300.0), 0.0, snappedf(flyer.position.z, 300.0))
+	drifters[0].position = Vector3(snappedf(flyer.position.x, 520.0), 0.0, snappedf(flyer.position.z, 520.0))
+	drifters[1].position = Vector3(snappedf(flyer.position.x, 420.0), 0.0, snappedf(flyer.position.z, 420.0))
 	# The clouds drift with the wind.
 	tell("adrift", WIND * elapsed * 4.0)
 	tell("flyer", Vector2(flyer.position.x, flyer.position.z))
