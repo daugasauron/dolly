@@ -61,6 +61,7 @@ const LEVELS := [
 	[0.6, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 160.0, 8, 2],
 	[0.55, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 120.0, 6, 2],
 	[0.5, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 90.0, 5, 2],
+	[0.4, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 90.0, 5, 2],
 ]
 const FRAME_BUDGET := 14.0 # milliseconds of the GPU: over it the display's 60 a second are lost
 
@@ -150,7 +151,7 @@ var frame_began := 0
 var level := 0
 var coats: Array[MultiMeshInstance3D] = [] # the fur's and feathers' shells
 var gpu_window := 0.0 # the GPU's milliseconds over the frames counted since the level was set
-var gpu_frames := -30 # the first frames after a change are not counted
+var gpu_frames := -8 # the first frames after a change are not counted
 var calm_windows := 0
 var frame_milliseconds := PackedFloat32Array() # each steady frame's, for a flight by itself
 
@@ -264,7 +265,7 @@ func set_level(to: int) -> void:
 	groves[1].multimesh.mesh = tree_mesh(GROVES[1 if level < 3 else 2][1], true)
 	tell("paint_from", GROVES[drawn - 1][2].z - 20.0)
 	gpu_window = 0.0
-	gpu_frames = -30
+	gpu_frames = -8
 	calm_windows = 0
 
 
@@ -278,7 +279,7 @@ func pace(delta: float) -> void:
 	if gpu_frames <= 0:
 		return
 	gpu_window += gpu if gpu > 0.0 else maxf(delta * 1000.0 - 6.0, 0.0)
-	if gpu_frames < 20:
+	if gpu_frames < 20 and gpu_window < 1500.0:
 		return
 	var mean := gpu_window / gpu_frames
 	gpu_window = 0.0
@@ -287,7 +288,7 @@ func pace(delta: float) -> void:
 		set_level(level + (4 if mean > FRAME_BUDGET * 8.0 else 3 if mean > FRAME_BUDGET * 5.0 else 2 if mean > FRAME_BUDGET * 2.5 else 1))
 	elif mean > FRAME_BUDGET:
 		# Even at the rate the adapter holds: a half, a third or a quarter of the display's.
-		Engine.max_fps = 30 if mean < 18.0 else 20 if mean < 36.0 else 12
+		Engine.max_fps = 30 if mean < 24.0 else 20 if mean < 36.0 else 12
 	elif mean < FRAME_BUDGET * 0.35 and level > 0:
 		calm_windows += 1
 		if calm_windows > 120:
