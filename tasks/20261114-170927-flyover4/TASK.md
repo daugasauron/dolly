@@ -86,7 +86,7 @@ The game's test (30 s by itself from 09:00), 1920 by 1080 frames:
 | AMD integrated, Firefox 159 | 29.9, median 33.4 ms, p99 37.3 | 30.0, median 33.2 ms, p99 37.2, longest 53, no hitch |
 | AMD integrated, Chrome 156 | 29.8, median 33.4 ms, p99 36.9 | 30.0, median 33.2 ms, p99 36.5, longest 38, no hitch |
 
-Sudden changes over the fixed flight: 24 tiles in 18 frames (17 in 14 at midnight): the three at 32.0 s are lightning, as meant; the two at 36.0 s were not looked at.
+Sudden changes over the fixed flight: 24 tiles in 18 frames (17 in 14 at midnight): the three at 32.0 s are lightning, as meant; the two at 36.0 s show nothing to the eye in the thumbnails.
 
 ## Version 6 (2026-11-15, from 18:10): the owner's fixes
 
