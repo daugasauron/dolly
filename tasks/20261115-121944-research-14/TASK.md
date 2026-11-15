@@ -27,6 +27,6 @@ It is in the game on `feature/flyover-4`, checked by looking (screenshots at nea
 zoom) and in a take, with frame times on NVIDIA in Chrome and Firefox and on the AMD GPU no worse
 than before it (60, 59 and 30 a second) and no new pop, flicker or hitch over the fixed flight.
 
-## State (2026-11-16, 00:20)
+## State (2026-11-16, 03:22)
 
-Not started.
+Not started. (The glint of the sea was suspected of the black frames in Chrome on the AMD GPU and cleared: `tasks/20261115-180054-black-frames`.)

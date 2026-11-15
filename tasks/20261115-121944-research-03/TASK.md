@@ -1,6 +1,6 @@
 # Voxel Flyover research 3: One wind-gust field for grass, crops, trees, water, cloth
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 197
 - TAGS: godot,demo,flyover,research,0.1.8
 
@@ -27,6 +27,6 @@ It is in the game on `feature/flyover-4`, checked by looking (screenshots at nea
 zoom) and in a take, with frame times on NVIDIA in Chrome and Firefox and on the AMD GPU no worse
 than before it (60, 59 and 30 a second) and no new pop, flicker or hitch over the fixed flight.
 
-## State (2026-11-16, 00:20)
+## Closed (2026-11-16, 03:22)
 
-Partly done: `gust` in `terrain.gdshaderinc` crosses grass, crops and the sea as paler and rougher bands. Left: the trees' sway (two noise calls a tree vertex, which the AMD GPU has no room for; measure), the cape and the coats.
+Done: `gust` crosses grass, crops and the sea, bends the trees' crowns on the two strongest levels (two noise calls a tree vertex are too many for the AMD GPU), throws the cape higher and lays the coats flatter (`ride` in `main.gd` computes the same gust at the flyers). Image built at 03:13: the game's test passes in Chrome 156 and Firefox 159 on the NVIDIA card (59.5 and 56.9 a second) and on the AMD GPU (29.8 and 29.6, median 33.2 and 33.4 ms).

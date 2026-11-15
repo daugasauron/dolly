@@ -27,6 +27,6 @@ It is in the game on `feature/flyover-4`, checked by looking (screenshots at nea
 zoom) and in a take, with frame times on NVIDIA in Chrome and Firefox and on the AMD GPU no worse
 than before it (60, 59 and 30 a second) and no new pop, flicker or hitch over the fixed flight.
 
-## State (2026-11-16, 00:20)
+## State (2026-11-16, 03:22)
 
-Partly done by measurement: the weakest level draws the scene at a third of its size, 26 lots of buildings, no banks of mist and no curtains of rain, and holds 30 a second with slack (it leaves 30 for 20 over 27 ms of the GPU and returns under 22). Left: the slope in the ground's texture, FSR 1.
+Partly done by measurement: the weakest level draws the scene at 0.30 of its size (0.33 until 03:15, when the night's additions had taken its slack), 26 lots of buildings, no banks of mist, curtains of rain, herds or fireworks, and holds 30 a second. Left: the slope in the ground's texture, FSR 1.

@@ -29,6 +29,6 @@ It is in the game on `feature/flyover-4`, checked by looking (screenshots at nea
 zoom) and in a take, with frame times on NVIDIA in Chrome and Firefox and on the AMD GPU no worse
 than before it (60, 59 and 30 a second) and no new pop, flicker or hitch over the fixed flight.
 
-## State (2026-11-16, 00:20)
+## State (2026-11-16, 03:22)
 
-Not started: the hills are the plain fractal sum. The derivative-damped sum would change every height, so it wants its own round with the flight's twin.
+Not done, by choice: the mountains are a ridged sum whose spurs stand on their crests and whose gullies on their spurs, and the owner likes them as they are ("I do love the mountains and how they look"). A derivative-damped sum would change every height of the world, with the flight's twin in `terrain.gd`: a round of its own if it is wanted.
