@@ -17,3 +17,7 @@ Done when: each is in the game, looked at in stills, measured on both adapters, 
 ## Closed (2026-11-16, 01:12)
 
 In the image built at 01:03 the game's test passes: Chrome 156 on the NVIDIA card 59.5 a second (GPU 7.0 ms, median 16.8, p99 20.4), Firefox 159 57.0 (GPU 7.2 ms); on the AMD GPU Firefox 29.8 (median 33.1 ms, p99 39.3) and Chrome 29.0 (34.2, 39.1). Sudden changes over the fixed flight: 18 tiles in 15 frames (17 in 14 before). Commit b8dea9b14.
+
+## Closed (2026-11-16, 04:25)
+
+Closed at 01:12 (commit b8dea9b14). Since then the fireworks rise for a second as a short streak before they burst, the burst is a quarter larger and its sparks twinkle as they fade: in the image built at 04:16 the game's test passes in Chrome 156 and Firefox 159 on the NVIDIA card (59.6 and 57.0 a second) and on the AMD GPU (29.8 and 29.9).
