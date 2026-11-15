@@ -1,6 +1,6 @@
 # Voxel Flyover research 14: Specular anti-aliasing and analytic line filtering
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 186
 - TAGS: godot,demo,flyover,research,0.1.8
 
@@ -27,6 +27,6 @@ It is in the game on `feature/flyover-4`, checked by looking (screenshots at nea
 zoom) and in a take, with frame times on NVIDIA in Chrome and Firefox and on the AMD GPU no worse
 than before it (60, 59 and 30 a second) and no new pop, flicker or hitch over the fixed flight.
 
-## State (2026-11-16, 03:22)
+## Closed (2026-11-16, 04:08)
 
-Not started. (The glint of the sea was suspected of the black frames in Chrome on the AMD GPU and cleared: `tasks/20261115-180054-black-frames`.)
+Tried and not kept. The roughness-variance formula in the sea and the land (`sqrt(r² + min(2·variance, 0.18))`, the variance from the normal's screen derivatives) left the task's shimmer measure over the fixed flight as it was: 1.007 (max 2.436) before, 1.007 (max 2.431) with it, flicker 17.24 and 17.23 per mille. The sea's roughness already widens with what a pixel covers, and the ripples finer than a pixel already give way to their mean; the walls' normals are flat. Not needed; the lines were taken out again.
