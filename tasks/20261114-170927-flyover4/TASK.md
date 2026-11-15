@@ -23,7 +23,7 @@ Version 7 (the night of 15 to 16 November, below) is committed on `feature/flyov
 code is at `9a7f8f11a`. The game's test passes in Chrome 156 and Firefox 159 on the NVIDIA card
 and on the integrated AMD GPU, and the source suite passes. The current take is
 `work/videos-2026-11-15/voxel-flyover-7/take4.mp4` (its README beside it), and the demos page carries
-its cut; it is of `037cb521f`, and `take5.mp4` of `7e641eb1e` is kept beside it, not shown (the
+its cut; it is of `037cb521f`, and `take6.mp4` of `9a7f8f11a` is kept beside it, not shown (the
 takes' README says why). The night's work is tracked in its own tasks: `tatr ls :flyover` (and `tatr ls -c
 :flyover` for the closed ones), the research's fifteen steps among them (`tatr ls :research`).
 
