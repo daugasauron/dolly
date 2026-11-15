@@ -32,6 +32,9 @@ void fragment() {
 	vec2 slope = vec2(ripples(p + vec2(0.4, 0.0), wide) - here, ripples(p + vec2(0.0, 0.4), wide) - here) * 0.9 * calm;
 	NORMAL = normalize((VIEW_MATRIX * vec4(normalize(vec3(-slope.x, 1.0, -slope.y)), 0.0)).xyz);
 	float foam = smoothstep(1.5, 0.3, depth + (ripples(p, 0.0) - 0.9) * 1.1 * (1.0 - smoothstep(0.5, 3.0, wide)));
+	// Surf: lines of foam that roll in over the shallows, one behind another, toward the shore.
+	float surf = smoothstep(5.0, 0.6, depth) * smoothstep(0.78, 0.96, sin(depth * 2.1 + clock * 1.2 + 5.0 * noise(p * 0.03))) * (1.0 - smoothstep(0.5, 2.5, wide));
+	foam = max(foam, 0.75 * surf);
 	// The flyer's spray: the sea under it is beaten white, and a ring runs out from it.
 	float under = distance(p, skims.xy);
 	float ring = under - 9.0 - 2.5 * sin(clock * 5.0);
