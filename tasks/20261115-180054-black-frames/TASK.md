@@ -23,3 +23,7 @@ Reproduce: `build/flyover4/amdc.sh NAME 20 0.2` (Chrome on the AMD GPU, a still 
 ## Closed (2026-11-16, 03:12)
 
 Fixed. In the image built at 03:01 the game's test passes in all four (Chrome and Firefox on the NVIDIA card, both on the AMD GPU), and the read-back of every frame of the fixed flight in Chrome on the AMD GPU gives 13 tiles of sudden change in 7 frames and 7 events of 8 tiles or more, as Firefox on that GPU gives (6,155 tiles in 210 frames and 42 events before the fix).
+
+## Closed (2026-11-16, 05:32)
+
+Fixed (closed at 03:12, commit e65f96bdf). Checked again on the night's last game (`0b79b7786`) from dusk into night: 0 of 77 stills in 20 seconds of Chrome on the AMD GPU are black or white, and the image's test passed there in each of the six runs since the fix (it had failed in two of five before).
