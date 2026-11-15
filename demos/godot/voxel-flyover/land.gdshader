@@ -42,7 +42,8 @@ void fragment() {
 
 	vec3 meadow = mix(vec3(0.4, 0.27, 0.04), mix(vec3(0.015, 0.19, 0.11), vec3(0.1, 0.24, 0.03), blotch), smoothstep(0.36, 0.6, moisture));
 	vec3 heath = mix(vec3(0.17, 0.15, 0.09), mix(vec3(0.17, 0.08, 0.2), vec3(0.04, 0.14, 0.07), smoothstep(0.35, 0.6, blotch)), smoothstep(0.36, 0.6, moisture));
-	vec3 desert = mix(vec3(0.55, 0.13, 0.07), vec3(0.68, 0.3, 0.12), blotch);
+	// The desert's sand lies in dunes, whose ripples the wind draws across it.
+	vec3 desert = mix(vec3(0.55, 0.13, 0.07), vec3(0.68, 0.3, 0.12), blotch) * (1.0 + 0.1 * near * sin((p.x * 0.93 + p.y * 0.36) * 0.9 + 4.0 * blotch));
 	meadow = mix(meadow, vec3(0.42, 0.33, 0.1), autumn * 0.55);
 	vec3 colour = mix(heath, meadow, smoothstep(0.38, 0.46, warmth));
 	colour = mix(colour, desert, smoothstep(0.55, 0.6, warmth) * smoothstep(0.5, 0.44, moisture));
@@ -59,7 +60,19 @@ void fragment() {
 	float snow = smoothstep(snowline - 3.0, snowline + 3.0, height) * smoothstep(0.42, 0.2, steep);
 	colour = mix(colour, vec3(0.6, 0.67, 0.8) * (0.9 + 0.2 * grain), snow);
 	// A town: paving in lots, with streets between them that their lamps light at night.
-	float town = town_at(p, here.x) * (1.0 - bare);
+	float people = settled(p);
+	float low = smoothstep(SEA + 4.5, SEA + 8.0, here.x) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, here.x));
+	float town = smoothstep(0.58, 0.66, people) * low * (1.0 - bare);
+	// Around a town its fields: strips of crops, each field its own, green in spring, gold by
+	// late summer, stubble in autumn; hedges between them.
+	float farmed = smoothstep(0.49, 0.53, people) * low * (1.0 - bare) * (1.0 - town) * (1.0 - snow);
+	vec2 in_field = p / vec2(52.0, 34.0) + 0.6 * noise(p / 140.0);
+	float crop = hash(floor(in_field) + 77.0);
+	vec2 to_hedge = abs(fract(in_field) - 0.5);
+	float hedge = smoothstep(0.44, 0.47 + wide / 34.0, max(to_hedge.x, to_hedge.y)) * near;
+	float rows = 0.5 + 0.5 * sin((crop > 0.5 ? p.x : p.y) * 2.2) * (1.0 - smoothstep(0.3, 1.0, wide));
+	vec3 crops = mix(mix(vec3(0.16, 0.36, 0.08), vec3(0.3, 0.42, 0.1), crop), mix(vec3(0.62, 0.5, 0.16), vec3(0.45, 0.33, 0.14), autumn), smoothstep(0.3, 0.75, fract(crop * 7.0) + autumn - spring));
+	colour = mix(colour, mix(crops * (0.85 + 0.3 * rows), vec3(0.03, 0.12, 0.05), hedge), farmed);
 	vec2 in_lot = abs(fract(p / LOT) - 0.5);
 	float street = mix(smoothstep(0.36, 0.4 + wide / LOT, max(in_lot.x, in_lot.y)), 0.35, smoothstep(2.0, 8.0, wide));
 	colour = mix(colour, mix(vec3(0.4, 0.38, 0.36), vec3(0.1, 0.1, 0.12), street), town);

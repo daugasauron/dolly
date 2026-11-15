@@ -104,6 +104,11 @@ var leaving := false # after Q, or a flight by itself that has ended
 var beacons := {} # plot -> its node, for the plots around the flyer
 var thermals := {} # plot -> the column of warm air over the town there
 var rush := 0.0 # the push a beacon gives the board that lights it, which wears off
+var speed_lines := ShaderMaterial.new() # the streaks of the air at speed
+var flock := MultiMeshInstance3D.new() # birds that fly along with the board for a while
+var flock_at := Vector3.ZERO # where their leader is
+var flock_with := 0.0 # how long they have flown with the board
+var birds: Array[Vector3] = []
 var lit := {} # plot -> where it stands (x, y) and the clock when it was lit (z)
 
 var helm := false # the player's, after Enter or a click
@@ -657,7 +662,7 @@ func build_hud() -> void:
 	title.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	title.position.y = 110
 	title.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	hint.add_theme_font_size_override("font_size", 28)
+	hint.add_theme_font_size_override("font_size", 24)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	hint.grow_horizontal = Control.GROW_DIRECTION_BOTH
@@ -671,6 +676,14 @@ func build_hud() -> void:
 	crystal.color = Color(1.0, 0.62, 0.15)
 	crystal.position = Vector2(52, 58)
 	hud.add_child(crystal)
+	# The air at speed, over the scene and under the words; it takes no part in the mouse.
+	var streaks := ColorRect.new()
+	streaks.set_anchors_preset(Control.PRESET_FULL_RECT)
+	streaks.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	speed_lines.shader = preload("res://speed.gdshader")
+	streaks.material = speed_lines
+	hud.add_child(streaks)
+	hud.move_child(streaks, 0)
 	show_helm()
 
 
@@ -679,7 +692,7 @@ func show_helm() -> void:
 	hint.visible = autopilot_seconds <= 0.0
 	hint_until = elapsed + 12.0
 	hint.text = "The corgi flies itself. Enter or a click takes the board.    Wheel or Z, X: zoom    Q: quit" if not helm \
-		else "Arrows or WASD steer, climb and dive    %s    Space: full speed    Wheel or Z, X: zoom    T: let the hours run    Esc: let go    Q: quit" % ("The mouse looks around" if captured else "Click: look around with the mouse")
+		else "Arrows or WASD: steer, climb, dive    %s    Wheel or Z, X: zoom    Space: full speed    T: hours    Esc: let go    Q: quit" % ("Mouse: look" if captured else "Click: mouse look")
 
 
 func _input(event: InputEvent) -> void:
@@ -749,6 +762,8 @@ func _process(delta: float) -> void:
 	fly(delta)
 	tend_beacons(delta)
 	follow(delta)
+	speed_lines.set_shader_parameter("rush", clampf((speed - CRUISE - 4.0) / 30.0, 0.0, 1.0))
+	speed_lines.set_shader_parameter("clock", elapsed)
 	title.modulate.a = clampf(9.0 - elapsed, 0.0, 1.0)
 	hint.modulate.a = clampf(hint_until - elapsed, 0.0, 1.0)
 	# The score swells as a beacon is lit.
@@ -780,6 +795,7 @@ func fly(delta: float) -> void:
 	updraft += tend_thermals()
 	rush = maxf(rush - delta * 0.4, 0.0)
 	wanted_speed += 16.0 * rush * rush
+	wanted_speed += fly_flock(delta, forward)
 	if helm:
 		wanted_turn = Input.get_axis("ui_left", "ui_right") + key_axis(KEY_A, KEY_D)
 		wanted_climb = (Input.get_axis("ui_down", "ui_up") + key_axis(KEY_S, KEY_W)) * 14.0
@@ -827,6 +843,55 @@ func fly(delta: float) -> void:
 	tell("flyer", Vector2(flyer.position.x, flyer.position.z))
 	tell("flyer_at", flyer.position)
 	water.position = Vector3(flyer.position.x, Terrain.SEA - 0.2, flyer.position.z)
+
+
+## The flock: sixteen birds that wait ahead of the board, fall in behind it in a wedge when it
+## comes by, fly with it for a quarter of a minute, in which their company carries it a little
+## faster, and then peel away to wait ahead again. Returns the speed they give.
+func fly_flock(delta: float, forward: Vector3) -> float:
+	if birds.is_empty():
+		var wings := PlaneMesh.new()
+		wings.size = Vector2(1.6, 0.5)
+		wings.subdivide_width = 6
+		var feathers := ShaderMaterial.new()
+		feathers.shader = preload("res://bird.gdshader")
+		flock.multimesh = MultiMesh.new()
+		flock.multimesh.transform_format = MultiMesh.TRANSFORM_3D
+		flock.multimesh.mesh = wings
+		flock.multimesh.instance_count = 16
+		flock.material_override = feathers
+		flock.custom_aabb = AABB(Vector3.ONE * -1e6, Vector3.ONE * 2e6)
+		add_child(flock)
+		flock_at = flyer.position + forward * 420.0 + Vector3(60, 14, 0)
+		for bird in 16:
+			birds.append(flock_at)
+	(flock.material_override as ShaderMaterial).set_shader_parameter("clock", elapsed)
+	var apart := flock_at.distance_to(flyer.position)
+	var together := flock_with > 0.0 and flock_with < 16.0
+	if together or (flock_with == 0.0 and apart < 70.0):
+		flock_with += delta
+		flock_at = flock_at.lerp(flyer.position + Vector3.UP * 3.0 - forward * 9.0, 1.0 - exp(-delta * 1.6))
+	elif flock_with >= 16.0:
+		# Away, up and to the side; once far behind, they wait ahead again.
+		flock_at += (forward * 0.6 + Vector3(forward.z, 0.5, -forward.x)).normalized() * speed * 0.9 * delta
+		if apart > 380.0:
+			flock_with = 0.0
+			flock_at = flyer.position + forward * 520.0 + Vector3(forward.z, 0.0, -forward.x) * 50.0 + Vector3.UP * 12.0
+			birds.fill(flock_at)
+	else:
+		# Waiting: a slow circle, at a height that clears the ground.
+		flock_at.y = lerpf(flock_at.y, Terrain.surface(Vector2(flock_at.x, flock_at.z)) + 40.0, 1.0 - exp(-delta))
+		if apart > 700.0:
+			flock_at = flyer.position + forward * 520.0 + Vector3(forward.z, 0.0, -forward.x) * 50.0 + Vector3.UP * 12.0
+			birds.fill(flock_at)
+	var side := Vector3(forward.z, 0.0, -forward.x)
+	for bird in birds.size():
+		# A wedge behind the leader: each bird a place back and out, alternately left and right.
+		var row := (bird + 1) / 2
+		var slot := flock_at - forward * row * 2.4 + side * row * 2.0 * (1.0 if bird % 2 == 0 else -1.0) + Vector3.UP * 0.5 * sin(elapsed * 1.3 + bird)
+		birds[bird] = birds[bird].lerp(slot, 1.0 - exp(-delta * (5.0 - row * 0.3)))
+		flock.multimesh.set_instance_transform(bird, Transform3D(Basis(Vector3.UP, -heading), birds[bird]))
+	return 5.0 * smoothstep(0.0, 2.0, flock_with) * (1.0 - smoothstep(14.0, 16.0, flock_with))
 
 
 ## Keeps the thermals of the plots around the flyer: over a town, by day, a column of warm air
@@ -1018,6 +1083,8 @@ func follow(delta: float) -> void:
 	# The mouse turns the view around the flyer while the player has the board; let go, the view
 	# comes back the short way round.
 	if not helm:
+		# Let go, the view and its zoom come back.
+		zoom = lerpf(zoom, 1.0, 1.0 - exp(-delta * 1.0))
 		look = Vector2(wrapf(look.x, -PI, PI), look.y).lerp(Vector2.ZERO, 1.0 - exp(-delta * 2.0))
 		looked.x = wrapf(looked.x, look.x - PI, look.x + PI)
 	looked = looked.lerp(look, 1.0 - exp(-delta * 14.0))

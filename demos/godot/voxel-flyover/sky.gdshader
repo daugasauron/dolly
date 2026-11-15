@@ -44,6 +44,16 @@ void sky() {
 		vec3 cell = floor(EYEDIR * 300.0);
 		float star = step(0.9965, star_hash(cell)) * star_hash(cell + 7.0);
 		colour += vec3(0.9, 0.93, 1.0) * star * dark * smoothstep(0.0, 0.25, up) * (3.0 + 2.0 * sin(clock * 3.0 + star * 90.0));
+		// A shooting star every six seconds: a point that crosses a part of the sky in a second,
+		// with what it has just crossed still alight behind it.
+		float turn = floor(clock / 6.0);
+		float since = fract(clock / 6.0) * 6.0;
+		vec3 from = normalize(vec3(star_hash(vec3(turn, 1.0, 2.0)) * 2.0 - 1.0, 0.45 + 0.4 * star_hash(vec3(turn, 3.0, 4.0)), star_hash(vec3(turn, 5.0, 6.0)) * 2.0 - 1.0));
+		vec3 way = normalize(cross(from, vec3(0.3, 1.0, 0.2)));
+		for (int trail = 0; trail < 4; trail++) {
+			vec3 head = normalize(from + way * (since - float(trail) * 0.035) * 0.5);
+			colour += vec3(0.9, 0.95, 1.0) * dark * exp(-(1.0 - dot(EYEDIR, head)) * 90000.0) * sin(clamp(since, 0.0, 1.0) * 3.1416) * (3.0 - float(trail) * 0.7);
+		}
 		// The moon, opposite the sun.
 		float moon = dot(EYEDIR, -sun_direction);
 		colour += vec3(0.8, 0.88, 1.0) * dark * (smoothstep(0.9993, 0.9996, moon) * 2.5 + pow(max(moon, 0.0), 400.0) * 0.15);
