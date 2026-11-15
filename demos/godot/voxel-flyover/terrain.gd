@@ -56,8 +56,8 @@ static func slow_here(p: Vector2) -> Vector3:
 	if p.distance_squared_to(slow_place) > 2500.0:
 		slow_place = p
 		slow_fields = Vector3((slow(p, 7300.0, 0.7, Vector2(34.0, 62.0)) - 0.5) * 0.9 + (slow(p, 2700.0, 1.9, Vector2(104.0, 42.0)) - 0.5) * 0.5,
-			lerpf(0.3, 1.0, smoothstep(0.3, 0.5, slow(p, 1900.0, 2.6, Vector2(38.0, 77.0)))),
-			smoothstep(0.72, 0.83, slow(p, 19000.0, 0.3, Vector2(22.0, 12.0))))
+			lerpf(0.22, 1.0, smoothstep(0.3, 0.5, slow(p, 1900.0, 2.6, Vector2(38.0, 77.0)))),
+			smoothstep(0.81, 0.9, slow(p, 19000.0, 0.3, Vector2(8.0, 97.0))))
 	return slow_fields
 
 
@@ -66,12 +66,12 @@ static func height(p: Vector2) -> float:
 	var massif := fields.z
 	var land := smoothstep(0.36, 0.52, fbm(p / 520.0, 3) + fields.x)
 	var hills := fbm(p / 130.0 + Vector2(17.0, 5.0), 4)
-	var ranges := smoothstep(0.36, 0.58, fbm(p / 640.0 + Vector2(80.0, 31.0), 2) + 0.3 * massif)
+	var ranges := smoothstep(0.56, 0.73, fbm(p / 640.0 + Vector2(80.0, 31.0), 2) + 0.3 * massif)
 	var q := p / 260.0 + Vector2(40.0, 12.0)
 	var crest := ridge(q)
 	var spur := ridge(q * 2.3 + Vector2(9.0, 77.0)) * crest
 	var peaks := crest * 0.6 + spur * 0.3 + ridge(q * 5.1 + Vector2(3.0, 41.0)) * spur * 0.16
-	var high := SEA - 13.0 - 24.0 * smoothstep(-0.05, -0.3, fields.x) + land * (16.0 + 45.0 * massif) + hills * 22.0 * (0.35 + land) + peaks * 125.0 * land * ranges * (fields.y + 1.5 * massif)
+	var high := SEA - 13.0 - 24.0 * smoothstep(-0.05, -0.3, fields.x) + land * (16.0 + 45.0 * massif) + hills * 20.0 * (0.35 + land) + peaks * 125.0 * land * ranges * (fields.y + 1.5 * massif)
 	if high < SEA - 2.5 or high > SEA + 90.0:
 		return high
 	var gate := 1.0 - smoothstep(SEA + 45.0, SEA + 90.0, high)

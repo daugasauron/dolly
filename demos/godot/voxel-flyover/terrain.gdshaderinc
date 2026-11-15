@@ -79,9 +79,10 @@ float slow(vec2 p, float size, float turn, vec2 place) {
 	return fbm(vec2(cos(turn) * p.x - sin(turn) * p.y, sin(turn) * p.x + cos(turn) * p.y) / size + place, 2);
 }
 
-// How much of a massif a place is: a country of high mountains, rare, 19 thousand units a field.
+// How much of a massif a place is: a country of high mountains, rare (a fiftieth of the land
+// is over 140 units there), 19 thousand units a field.
 float massif_at(vec2 p) {
-	return smoothstep(0.72, 0.83, slow(p, 19000.0, 0.3, vec2(22.0, 12.0)));
+	return smoothstep(0.81, 0.9, slow(p, 19000.0, 0.3, vec2(8.0, 97.0)));
 }
 
 // How much of a realm of wonders a place is: a rare kind of world, 53 thousand units a field,
@@ -108,16 +109,16 @@ float river_at(vec2 p) {
 // land and narrow to their springs in the hills. terrain.gd computes the same.
 float terrain_height(vec2 p) {
 	float shift = (slow(p, 7300.0, 0.7, vec2(34.0, 62.0)) - 0.5) * 0.9 + (slow(p, 2700.0, 1.9, vec2(104.0, 42.0)) - 0.5) * 0.5;
-	float relief = mix(0.3, 1.0, smoothstep(0.3, 0.5, slow(p, 1900.0, 2.6, vec2(38.0, 77.0))));
+	float relief = mix(0.22, 1.0, smoothstep(0.3, 0.5, slow(p, 1900.0, 2.6, vec2(38.0, 77.0))));
 	float massif = massif_at(p);
 	float land = smoothstep(0.36, 0.52, fbm(p / 520.0, 3) + shift);
 	float hills = fbm(p / 130.0 + vec2(17.0, 5.0), 4);
-	float ranges = smoothstep(0.36, 0.58, fbm(p / 640.0 + vec2(80.0, 31.0), 2) + 0.3 * massif);
+	float ranges = smoothstep(0.56, 0.73, fbm(p / 640.0 + vec2(80.0, 31.0), 2) + 0.3 * massif);
 	vec2 q = p / 260.0 + vec2(40.0, 12.0);
 	float crest = ridge(q);
 	float spur = ridge(q * 2.3 + vec2(9.0, 77.0)) * crest;
 	float peaks = crest * 0.6 + spur * 0.3 + ridge(q * 5.1 + vec2(3.0, 41.0)) * spur * 0.16;
-	float height = SEA - 13.0 - 24.0 * smoothstep(-0.05, -0.3, shift) + land * (16.0 + 45.0 * massif) + hills * 22.0 * (0.35 + land) + peaks * 125.0 * land * ranges * (relief + 1.5 * massif);
+	float height = SEA - 13.0 - 24.0 * smoothstep(-0.05, -0.3, shift) + land * (16.0 + 45.0 * massif) + hills * 20.0 * (0.35 + land) + peaks * 125.0 * land * ranges * (relief + 1.5 * massif);
 	float gate = (1.0 - smoothstep(SEA + 45.0, SEA + 90.0, height)) * step(SEA - 2.5, height);
 	if (gate > 0.0) {
 		float valley = smoothstep(0.012 * gate, 0.1, river_at(p));
