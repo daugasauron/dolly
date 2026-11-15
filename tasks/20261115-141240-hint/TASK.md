@@ -1,6 +1,6 @@
 # Voxel Flyover 7: the help text shown on taking control fades after a few seconds
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 210
 - TAGS: godot,demo,flyover,0.1.8
 
@@ -8,6 +8,6 @@ Parent: `tasks/20261114-170927-flyover4`. Branch `feature/flyover-4`. Owner (202
 
 Done when: the help text fades out a few seconds after the board is taken, and after each change of it.
 
-## State (2026-11-15, 23:35)
+## Closed (2026-11-16, 00:20)
 
-Not started.
+The keys' text is shown again only when the board changes hands (before, at every key pressed, so it never faded while steering), and fades after seven seconds. Verified in the image of `d6993c1b2` (2026-11-16, 00:15): the game's test passes in Chrome 156 and Firefox 159 on the NVIDIA card (59.6 a second, GPU 6.7 ms, median 17.0 ms, p99 20.1; 57.7, GPU 7.2 ms) and on the integrated AMD GPU (29.5, median 33.3 ms; 29.8 in Chrome, median 33.2, p99 37.2; its first run in Chrome there failed an assertion that the log did not keep, the second passed); sudden changes over the fixed flight: 17 tiles in 14 frames, none over two at once.

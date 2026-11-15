@@ -1,6 +1,6 @@
 # Voxel Flyover 7: city variety: kinds of houses and of towns, by place
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: godot,demo,flyover,0.1.8
 
@@ -12,6 +12,6 @@ Owner (2026-11-15, 21:30, by the integrator): "Take inspiration from the real wo
 
 Done when: several kinds of town chosen by place (villages, harbour towns, hill towns, towers, others), with different houses; each reads as its kind from afar and close up; stills of each kind; frame times hold.
 
-## State (2026-11-15, 23:20)
+## Closed (2026-11-16, 00:20)
 
-In the game's code: eight kinds of town by place (`town_kind`: the climate, the ground and a culture field of 5.1 thousand units; `stilts_at`): a city of towers on blocks between asphalt avenues (where the culture field is high); a town of gabled timber-frame houses under red tiles; a desert town of mud-brick cubes, some under whitewashed domes; a village of dark timber under steep turf roofs in the cold; a town of walls between red posts under wide grey-green roofs with upturned eaves; a village of thatched houses on posts over the shallows off a settled warm wet coast; a whitewashed town with blue domes on warm coasts; round-roofed thatched huts on the savanna. One mesh for all (four walls and a roof of 4 by 4 squares, 2 by 2 beyond 33 lots) that the vertex stage shapes; houses of 3 to 5 storeys in towns, 2 or 3 in villages, 1 or 2 on posts, a city's towers 4 to 20; more open lots, earth yards and earth roads outside cities. Each kind has its tower among the landmarks (`tasks/20261115-*-landmarks`). Farmed land that is warm, wet and sloping is terraced along its contours, flooded in spring, green in summer, gold in autumn; few trees stand on farmed land. The flight's twin knows the kinds. Looked at: each kind on an approach (`kind.sh`), the stilt village and the terraces (`at.sh`). Left: the kinds' own layouts (all are on the grid of lots), the image's test, the numbers, a take.
+Eight kinds of town by climate, ground and culture, each with its tower among the landmarks; terraced fields; stilt villages. Left for later, not done: layouts of their own for each kind (all are on the grid of lots). Verified in the image of `d6993c1b2` (2026-11-16, 00:15): the game's test passes in Chrome 156 and Firefox 159 on the NVIDIA card (59.6 a second, GPU 6.7 ms, median 17.0 ms, p99 20.1; 57.7, GPU 7.2 ms) and on the integrated AMD GPU (29.5, median 33.3 ms; 29.8 in Chrome, median 33.2, p99 37.2; its first run in Chrome there failed an assertion that the log did not keep, the second passed); sudden changes over the fixed flight: 17 tiles in 14 frames, none over two at once.

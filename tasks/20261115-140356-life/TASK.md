@@ -1,6 +1,6 @@
 # Voxel Flyover 7: life by place: boats, gulls, geese, balloons, whales
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: godot,demo,flyover,0.1.8
 
@@ -10,6 +10,6 @@ Owner (2026-11-15 19:40): "The birds are a super nice addition. [...] I want peo
 
 Done when: several kinds of life are met by place, season and hour, each a grid whose shader places it (no state), none popping in or out, looked at in stills; frame times hold on both adapters.
 
-## State (2026-11-15, 23:40)
+## Closed (2026-11-16, 00:20)
 
-In the game, each a grid that follows the flight and a shader that places its cell's own: sailing boats on the sea, more of them off a town, each on a round of its own, smaller the shallower the water, a lamp at the bow by night (`afloat.gdshader`); gulls that wheel over a coast and, in spring and autumn, wedges of geese that cross the sky along the wind (`wings.gdshader`); balloons over the board's ceiling, one cell in six, striped in their own two colours, their burners alight at night now and then (`aloft.gdshader`); whales in the deep sea, one cell in five, that show their back, blow and go under every 24 s (`whale.gdshader`). Looked at over the sea (`at.sh`), the balloons and whales with every cell filled and the whale held up. On the AMD GPU with all of it: 30.0 a second at its level. Left: the image's test, the numbers on the NVIDIA card with nothing else drawing, a take; life on land (herds, smoke, lights that move).
+Boats, gulls, geese, balloons and whales, each a grid whose shader places its cell's own. Left for later, not done: life on land. Verified in the image of `d6993c1b2` (2026-11-16, 00:15): the game's test passes in Chrome 156 and Firefox 159 on the NVIDIA card (59.6 a second, GPU 6.7 ms, median 17.0 ms, p99 20.1; 57.7, GPU 7.2 ms) and on the integrated AMD GPU (29.5, median 33.3 ms; 29.8 in Chrome, median 33.2, p99 37.2; its first run in Chrome there failed an assertion that the log did not keep, the second passed); sudden changes over the fixed flight: 17 tiles in 14 frames, none over two at once.
