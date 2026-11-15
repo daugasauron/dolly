@@ -84,6 +84,11 @@ void vertex() {
 	on_roof = VERTEX.xz * 2.0;
 	roof = COLOR.r;
 	domed = float((kind == 2 && own < 0.14) || (kind == 6 && own < 0.3));
+	// A house of a town or a village (not a city's tower) stands a little off its lot's middle
+	// and is turned by an angle of its own, so their rows are not a grid's.
+	float askew = kind == 0 ? 0.0 : (hash(corner + 27.0) - 0.5) * 1.2;
+	vec2 aside = kind == 0 ? vec2(0.0) : (vec2(hash(corner + 29.0), hash(corner + 31.0)) - 0.5) * LOT * 0.28;
+	mat2 turn = mat2(vec2(cos(askew), sin(askew)), vec2(-sin(askew), cos(askew)));
 	if (tall < 0.4) {
 		VERTEX = vec3(0.0);
 	} else if (roof < 0.5) {
@@ -112,6 +117,10 @@ void vertex() {
 		}
 		float eaves = domed > 0.5 ? 1.0 : kind == 1 ? 1.1 : kind == 3 ? 1.12 : kind == 4 ? 1.34 : kind == 7 ? 1.3 : kind == 5 ? 1.28 : 1.0;
 		VERTEX = vec3(VERTEX.x * wide.x * eaves, tall + rise * low, VERTEX.z * wide.y * eaves) + vec3(centre.x, here.x, centre.y) - MODEL_MATRIX[3].xyz;
+	}
+	if (tall >= 0.4 && kind != 0) {
+		vec2 from_middle = VERTEX.xz + MODEL_MATRIX[3].xz - centre;
+		VERTEX.xz = turn * from_middle + centre + aside - MODEL_MATRIX[3].xz;
 	}
 	world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }

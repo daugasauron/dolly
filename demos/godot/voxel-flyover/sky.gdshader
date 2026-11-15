@@ -76,6 +76,16 @@ void sky() {
 		float sheet = smoothstep(0.5, 0.95, curtain) * rays * smoothstep(0.05, 0.3, up) * smoothstep(0.9, 0.35, up) * smoothstep(-0.2, 0.5, -EYEDIR.z);
 		colour += mix(vec3(0.1, 1.0, 0.45), vec3(0.6, 0.2, 0.9), smoothstep(0.25, 0.75, up)) * sheet * dark * 1.1;
 	}
+	// High cloud: thin streaks far over the clouds, across the wind, in patches of some
+	// kilometres. It keeps the sun's light after the ground has lost it: fire and rose.
+	if (!AT_CUBEMAP_PASS && up > 0.03) {
+		vec2 high = POSITION.xz + EYEDIR.xz * (2600.0 - POSITION.y) / up - vec2(0.93, 0.36) * clock * 30.0;
+		float streaks = noise(vec2(dot(high, vec2(0.36, -0.93)) / 240.0, dot(high, vec2(0.93, 0.36)) / 2400.0) + noise(high / 1700.0) * 2.0);
+		float thin = smoothstep(0.45, 0.95, streaks) * smoothstep(0.42, 0.75, noise(high / 8000.0 + 17.0)) * smoothstep(0.03, 0.22, up);
+		vec3 lit = sun * 0.9 + horizon * 0.35 + vec3(0.05, 0.07, 0.12) * dark;
+		lit = mix(lit, mix(vec3(1.0, 0.5, 0.62), vec3(1.6, 0.6, 0.2), smoothstep(0.3, 0.95, sunward)) * smoothstep(-0.3, -0.05, sun_height), low);
+		colour = mix(colour, lit, thin * 0.42);
+	}
 	if (up > 0.012) {
 		float far = (CLOUD_HEIGHT - POSITION.y) / up;
 		vec2 over = POSITION.xz + EYEDIR.xz * far;

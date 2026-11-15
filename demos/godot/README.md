@@ -145,7 +145,11 @@ cell of a grid, that the board flies under, beside and through; a ball draws in 
 camera and the air whitens inside one. Mist of the same balls, flat, lies on the sea and the low
 ground, and the haze over the sea thickens with it at dawn. Where it rains a curtain hangs from
 the cloud to the ground, seen from afar ([`curtain.gdshader`](voxel-flyover/curtain.gdshader)),
-and the wind's gusts cross the grass, the crops and the sea as paler and rougher bands.
+and the wind's gusts cross the grass, the crops and the sea as paler and rougher bands, and bend
+the trees' crowns on a strong adapter. High over the clouds lie thin streaks of cloud that hold
+the sun's fire after the ground has lost it. The open sea has a swell whose crests break white
+in a gust, surf rolls in lines over the shallows, light dances on their bed, and the sea is
+turquoise in the hot countries and grey-green in the cold ones.
 
 The desert's sand lies in rippled dunes, its veins are lava, and at night a shooting star crosses
 every six seconds. Between the desert and the meadows lies savanna, grass with a few flat-headed
@@ -194,8 +198,11 @@ take after kinds of building found in many places; none copies a building. Life 
 too, each a grid whose shader places its cell's own: sailing boats
 ([`afloat.gdshader`](voxel-flyover/afloat.gdshader)), gulls over the coasts and wedges of geese in
 spring and autumn ([`wings.gdshader`](voxel-flyover/wings.gdshader)), balloons
-([`aloft.gdshader`](voxel-flyover/aloft.gdshader)) and whales that blow
-([`whale.gdshader`](voxel-flyover/whale.gdshader)).
+([`aloft.gdshader`](voxel-flyover/aloft.gdshader)), whales that blow
+([`whale.gdshader`](voxel-flyover/whale.gdshader)), herds on the open land
+([`herd.gdshader`](voxel-flyover/herd.gdshader)), and at night fireworks over the towns
+([`fireworks.gdshader`](voxel-flyover/fireworks.gdshader)). A house that is not a city's tower
+stands a little off its lot's middle at an angle of its own, so a village is not a grid.
 
 The flight keeps what it gains and stays pointless: a dive gives speed and a climb takes it,
 the wind (the clouds' drift) helps at the back, low over the sea the board skims faster in its
