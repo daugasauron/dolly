@@ -2,7 +2,8 @@
 // (ground.gdshader). The fragment stage takes the slope from the same heights and dresses the
 // ground by it: meadow, heath or desert by the climate, bare rock where it is steep, snow where
 // it is high and lies, sand by the sea. Veins of crystal glow at night, the clouds lay their
-// shade, and rings of light run out from lit beacons.
+// shade, and rings of light run out from lit beacons, around which the snow melts. Low wet
+// plains are marsh, with pools that mirror the sky and freeze in winter.
 shader_type spatial;
 #include "res://terrain.gdshaderinc"
 #include "res://ground.gdshaderinc"
@@ -37,8 +38,11 @@ void fragment() {
 	float moisture = here.z + (grain - 0.5) * 0.04;
 	float steep = 1.0 - normal.y;
 	// Winter brings the snow down the slopes, and rain the wet (or in winter more snow).
-	float wet = rain_on(p);
-	float snowline = SEA + 78.0 - (0.5 - warmth) * 70.0 - winter * (52.0 + 14.0 * wet);
+	// A shower leaves the ground wet behind it for a while. A lit beacon warms the ground
+	// around it: the snow draws back up the slope there, and more flowers stand.
+	float wet = max(rain_on(p), 0.7 * rained_on(p));
+	float warmed = beacon_warmth(p);
+	float snowline = SEA + 78.0 - (0.5 - warmth) * 70.0 - winter * (52.0 + 14.0 * wet) + 70.0 * warmed;
 
 	vec3 meadow = mix(vec3(0.4, 0.27, 0.04), mix(vec3(0.015, 0.19, 0.11), vec3(0.1, 0.24, 0.03), blotch), smoothstep(0.36, 0.6, moisture));
 	vec3 heath = mix(vec3(0.17, 0.15, 0.09), mix(vec3(0.17, 0.08, 0.2), vec3(0.04, 0.14, 0.07), smoothstep(0.35, 0.6, blotch)), smoothstep(0.36, 0.6, moisture));
@@ -50,7 +54,7 @@ void fragment() {
 	// The ground cover is mottled, and flowers dot it near by.
 	colour *= mix(0.95, 1.5, smoothstep(SEA, SEA + 45.0, height)) * (0.9 + 0.2 * grain) * (0.72 + 0.56 * fbm(p / 17.0 + vec2(5.0, 90.0), 3));
 	vec2 bloom = floor(p * 2.5);
-	float flower = step(0.975, hash(bloom)) * (1.0 - smoothstep(0.06, 0.2, wide));
+	float flower = step(0.975 - 0.02 * spring * wet - 0.06 * warmed, hash(bloom)) * (1.0 - smoothstep(0.06, 0.2, wide));
 	colour = mix(colour, 0.25 + 0.75 * vec3(hash(bloom + 3.0), hash(bloom + 5.0) * 0.6, hash(bloom + 7.0)), flower * 0.8);
 	// Rock shows where the ground is steep and toward the snow, in strata.
 	float strata = 1.0 - 0.22 * near * (0.5 + 0.5 * sin(here.x * 1.3 + blotch * 7.0));
@@ -73,6 +77,12 @@ void fragment() {
 	float rows = 0.5 + 0.5 * sin((crop > 0.5 ? p.x : p.y) * 2.2) * (1.0 - smoothstep(0.3, 1.0, wide));
 	vec3 crops = mix(mix(vec3(0.16, 0.36, 0.08), vec3(0.3, 0.42, 0.1), crop), mix(vec3(0.62, 0.5, 0.16), vec3(0.45, 0.33, 0.14), autumn), smoothstep(0.3, 0.75, fract(crop * 7.0) + autumn - spring));
 	colour = mix(colour, mix(crops * (0.85 + 0.3 * rows), vec3(0.03, 0.12, 0.05), hedge), farmed);
+	// A marsh on low, wet, level ground: reeds, and pools between them that mirror the sky, with
+	// ice on them in winter.
+	float marsh = marsh_at(height, moisture) * smoothstep(0.07, 0.03, steep) * (1.0 - town) * (1.0 - farmed);
+	float pool = marsh * smoothstep(0.5, 0.54 + wide * 0.03, fbm_seen(p / 11.0 + vec2(60.0, 14.0), 2, wide / 11.0));
+	colour = mix(colour, mix(vec3(0.07, 0.13, 0.03), vec3(0.2, 0.19, 0.06), grain) * (1.0 - 0.4 * winter), marsh * 0.85);
+	colour = mix(colour, mix(vec3(0.015, 0.05, 0.07), vec3(0.62, 0.72, 0.82), winter), pool);
 	vec2 in_lot = abs(fract(p / LOT) - 0.5);
 	float street = mix(smoothstep(0.36, 0.4 + wide / LOT, max(in_lot.x, in_lot.y)), 0.35, smoothstep(2.0, 8.0, wide));
 	colour = mix(colour, mix(vec3(0.4, 0.38, 0.36), vec3(0.1, 0.1, 0.12), street), town);
@@ -82,7 +92,7 @@ void fragment() {
 	vec3 lit_crowns = vec3(0.0);
 	if (painted > 0.0 && grows(here.x, here.y)) {
 		float crown = crown_width(here.y, here.z) * 1.3;
-		float share = tree_share(here.y, here.z) * (1.0 - town);
+		float share = tree_share(here.y, here.z) * (1.0 - town) * (1.0 - 0.85 * marsh_at(here.x, here.z));
 		// Where a crown is less than a pixel, the ground takes the colour of its share of them.
 		float merged = max(smoothstep(800.0, 1300.0, away), smoothstep(crown * 0.35, crown * 1.4, wide));
 		// A crown is wider than its plot: the pixel is under the nearest of its own plot's tree and
@@ -123,8 +133,10 @@ void fragment() {
 	float fine = fbm(p * 0.45 + vec2(70.0, 3.0), 3);
 	vec2 tilt = (vec2(fbm(p * 0.45 + vec2(70.4, 3.0), 3), fbm(p * 0.45 + vec2(70.0, 3.4), 3)) - fine) * (0.5 + 1.6 * bare) * (1.0 - smoothstep(0.1, 0.4, wide)) * (1.0 - 0.6 * snow);
 	ALBEDO = colour * cloud_shade(world) * (1.0 - 0.35 * wet * (1.0 - snow));
-	EMISSION = vec3(1.0, 0.78, 0.45) * town * street * night * 0.5 + lit_crowns + vein_colour * vein * run * (0.02 + 1.7 * night) + vec3(1.0, 0.5, 0.12) * pulse_light(p) * (1.0 + 1.8 * night) * (0.6 + 0.6 * grain);
-	ROUGHNESS = mix(mix(0.9, 0.7, bare), 0.3, max(max(max(vein * night, snow * 0.6), sand * 0.5), wet * 0.8));
+	// A town's lamps are warm; in winter each lot hangs out lights of its own colour.
+	vec3 lamps = mix(vec3(1.0, 0.78, 0.45), 0.5 + 0.5 * cos(6.2832 * (hash(floor(p / LOT) + 21.0) + vec3(0.0, 0.33, 0.67))), winter * 0.8);
+	EMISSION = lamps * town * street * night * (0.5 + 0.5 * winter) + lit_crowns + vein_colour * vein * run * (0.02 + 1.7 * night) + vec3(1.0, 0.5, 0.12) * pulse_light(p) * (1.0 + 1.8 * night) * (0.6 + 0.6 * grain);
+	ROUGHNESS = mix(mix(mix(0.9, 0.7, bare), 0.3, max(max(max(vein * night, snow * 0.6), sand * 0.5), wet * 0.8)), mix(0.05, 0.35, winter), pool);
 	SPECULAR = 0.35;
-	NORMAL = normalize((VIEW_MATRIX * vec4(normalize(normal + vec3(tilt.x, 0.0, tilt.y)), 0.0)).xyz);
+	NORMAL = normalize((VIEW_MATRIX * vec4(normalize(mix(normal + vec3(tilt.x, 0.0, tilt.y), vec3(0.0, 1.0, 0.0), pool)), 0.0)).xyz);
 }

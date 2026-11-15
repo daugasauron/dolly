@@ -895,10 +895,12 @@ func fly_flock(delta: float, forward: Vector3) -> float:
 			flock_at = flyer.position + forward * 520.0 + Vector3(forward.z, 0.0, -forward.x) * 50.0 + Vector3.UP * 12.0
 			birds.fill(flock_at)
 	var side := Vector3(forward.z, 0.0, -forward.x)
+	# In rain or snow the birds close up and fly low.
+	var huddle := 1.0 - 0.5 * falls
 	for bird in birds.size():
 		# A wedge behind the leader: each bird a place back and out, alternately left and right.
 		var row := (bird + 1) / 2
-		var slot := flock_at - forward * row * 2.4 + side * row * 2.0 * (1.0 if bird % 2 == 0 else -1.0) + Vector3.UP * 0.5 * sin(elapsed * 1.3 + bird)
+		var slot := flock_at - forward * row * 2.4 * huddle + side * row * 2.0 * huddle * (1.0 if bird % 2 == 0 else -1.0) + Vector3.UP * (0.5 * sin(elapsed * 1.3 + bird) - 2.5 * falls)
 		birds[bird] = birds[bird].lerp(slot, 1.0 - exp(-delta * (5.0 - row * 0.3)))
 		flock.multimesh.set_instance_transform(bird, Transform3D(Basis(Vector3.UP, -heading), birds[bird]))
 	return 5.0 * smoothstep(0.0, 2.0, flock_with) * (1.0 - smoothstep(14.0, 16.0, flock_with))
@@ -1006,7 +1008,7 @@ func tend_beacons(delta: float) -> void:
 	for at: Vector4 in newest:
 		var strength := 1.0 - smoothstep(520.0, 760.0, Vector2(at.x, at.y).distance_to(here))
 		if strength > 0.0 and pulses.size() < 8:
-			pulses.append(Vector4(at.x, at.y, fposmod(elapsed - at.z, 9.0), strength))
+			pulses.append(Vector4(at.x, at.y, elapsed - at.z, strength))
 	pulses.resize(8)
 	tell("pulses", pulses)
 

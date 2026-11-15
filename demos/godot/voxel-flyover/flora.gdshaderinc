@@ -22,6 +22,12 @@ float tree_share(float warmth, float moisture) {
 	return is_desert(warmth, moisture) ? 0.12 : is_cold(warmth) ? 0.5 : mix(0.1, 0.7, smoothstep(0.35, 0.62, moisture));
 }
 
+// How much of a marsh a place is, between 0 and 1: wet ground a little above the sea. Few
+// trees stand in it.
+float marsh_at(float height, float moisture) {
+	return smoothstep(0.56, 0.63, moisture) * smoothstep(SEA + 7.0, SEA + 4.5, height);
+}
+
 // Where trees grow: above the shore, below the bare heights.
 bool grows(float height, float warmth) {
 	return height > SEA + 2.0 && height < SEA + 62.0 - (0.5 - warmth) * 70.0;

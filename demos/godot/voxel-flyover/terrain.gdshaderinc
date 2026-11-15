@@ -13,7 +13,8 @@ uniform float autumn = 0.0;
 uniform float winter = 0.0;
 uniform vec3 to_light = vec3(0.0, 1.0, 0.0); // toward the sun, or the moon once it has set
 // The lit beacons around the flyer: where each stands (xy), how long ago its ring set off (z),
-// and how strong its rings are (w), which is less the further it is from the flyer.
+// how long ago it was lit (z), and how strong its rings are (w), which is less the further it
+// is from the flyer.
 uniform vec4 pulses[8];
 
 float hash(vec2 cell) {
@@ -126,12 +127,29 @@ float cloud_shade(vec3 place) {
 	return 1.0 - 0.55 * cloud_cover(under, 3) * smoothstep(0.03, 0.16, to_light.y);
 }
 
+// How hard it rained on a place three quarters of a minute ago: the cloud has drifted on since,
+// and the ground it left is still wet.
+float rained_on(vec2 p) {
+	return rain_on(p - vec2(9.0, 3.5) * 45.0);
+}
+
+// The warmth of the lit beacons on a place, between 0 and 1: it spreads from a beacon in the
+// seconds after it is lit, to some 90 units around, where the snow melts and the ground flowers.
+float beacon_warmth(vec2 p) {
+	float warmth = 0.0;
+	for (int i = 0; i < 8; i++) {
+		float spread = min(pulses[i].z * 14.0, 90.0);
+		warmth = max(warmth, min(pulses[i].w * 3.0, 1.0) * (1.0 - smoothstep(spread * 0.5, spread + 1.0, distance(p, pulses[i].xy))));
+	}
+	return warmth;
+}
+
 // The light of the rings that run out from lit beacons, every nine seconds each.
 float pulse_light(vec2 p) {
 	float light = 0.0;
 	for (int i = 0; i < 8; i++) {
 		if (pulses[i].w > 0.0) {
-			float age = pulses[i].z;
+			float age = mod(pulses[i].z, 9.0);
 			float radius = age * 75.0;
 			float behind = radius - distance(p, pulses[i].xy);
 			float off = behind / (6.0 + radius * 0.04);

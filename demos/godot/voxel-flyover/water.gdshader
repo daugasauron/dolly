@@ -1,6 +1,7 @@
 // The sea, a mirror for the sky: its colour deepens with the ground under it, which the ground's
 // texture gives, and ripples break the reflection. Foam follows the shore and glows at night, as
-// do the rings from lit beacons that cross the water.
+// do the rings from lit beacons that cross the water. In winter the cold seas carry ice: floes
+// that drift with the wind, with open water between them.
 shader_type spatial;
 #include "res://terrain.gdshaderinc"
 #include "res://ground.gdshaderinc"
@@ -37,10 +38,17 @@ void fragment() {
 	foam = max(foam, skims.z * max(exp(-under * under / 30.0), 0.6 * exp(-ring * ring / 5.0)));
 	// Rain pocks the sea.
 	foam = max(foam, 0.25 * rain_on(p) * smoothstep(0.7, 0.9, noise(p * 1.7 + vec2(clock * 0.9, -clock * 0.7))) * (1.0 - smoothstep(0.3, 1.0, wide)));
+	// Ice: plates of a noise that drifts slowly, on the seas of the cold lands in winter; a lit
+	// beacon's warmth opens the water around it.
+	float cold = winter * smoothstep(0.52, 0.42, climate(p).x) * (1.0 - beacon_warmth(p));
+	vec2 adrift = p - vec2(0.93, 0.36) * clock * 0.6;
+	float floe = cold > 0.0 ? cold * smoothstep(0.47, 0.5 + wide * 0.02, fbm_seen(adrift / 26.0 + vec2(7.0, 51.0), 3, wide / 26.0)) : 0.0;
+	NORMAL = normalize(mix(NORMAL, (VIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz, floe));
 	vec3 colour = mix(shallow, deep, 1.0 - exp(-depth * 0.2)) * cloud_shade(world_position);
-	ALBEDO = mix(colour, vec3(0.9, 0.95, 1.0), foam * 0.8);
+	colour = mix(colour, vec3(0.9, 0.95, 1.0), foam * 0.8 * (1.0 - floe));
+	ALBEDO = mix(colour, vec3(0.6, 0.7, 0.82) * (0.85 + 0.3 * noise(adrift / 3.0)) * cloud_shade(world_position), floe);
 	// The ripples a pixel no longer shows still spread the light it reflects.
-	ROUGHNESS = mix(0.04 + 0.3 * smoothstep(0.15, 2.5, wide), 0.5, foam);
+	ROUGHNESS = mix(mix(0.04 + 0.3 * smoothstep(0.15, 2.5, wide), 0.5, foam), 0.55, floe);
 	SPECULAR = 0.8;
-	EMISSION = vec3(0.1, 0.7, 0.9) * foam * here * night * 0.9 + vec3(1.0, 0.55, 0.16) * pulse_light(p) * (0.4 + 0.8 * night);
+	EMISSION = vec3(0.1, 0.7, 0.9) * foam * here * night * 0.9 * (1.0 - floe) + vec3(1.0, 0.55, 0.16) * pulse_light(p) * (0.4 + 0.8 * night);
 }
