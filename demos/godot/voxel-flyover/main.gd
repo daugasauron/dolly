@@ -155,6 +155,8 @@ var fallen: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO] # how far the rain and
 var night_share := 0.0
 var skim := 0.0 # how low the board is over the sea, between 0 and 1
 var sea_heard := 0.0 # how loud the sea is
+var pod: Array[Node3D] = [] # dolphins that leap beside a board that skims the sea
+var pod_out := 0.0 # how far up from the deep they are, between 0 and 1
 var heading := PI / 2.0 # east, along the coast
 var turn := 0.0
 var climb := 0.0
@@ -240,6 +242,7 @@ func _ready() -> void:
 	water.material_override = reads_ground(preload("res://water.gdshader"), 1)
 	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(water)
+	build_pod()
 	build_flyer()
 	camera.far = 3000.0
 	camera.fov = fov_led
@@ -839,7 +842,12 @@ func ride(delta: float) -> void:
 	for fire in fires:
 		fire.set_shader_parameter("strokes", pelican.angle / PI)
 	# The air comes from ahead, and from the outside of a turn.
-	var air := flyer.global_basis * Vector3(turn * 0.5, 0.0, 0.9 * fast)
+	# A gust that crosses the flyers (terrain.gdshaderinc's gust) lays the coats flatter and
+	# throws the cape higher.
+	var over := Vector2(flyer.position.x, flyer.position.z)
+	var blown := Terrain.noise((over - WIND * elapsed * 14.0) / 60.0) * Terrain.noise((over - WIND * elapsed * 5.0) / 220.0 + Vector2(40.0, 40.0))
+	var air := flyer.global_basis * Vector3(turn * 0.5, 0.0, 0.9 * fast) * (1.0 + 1.5 * blown)
+	cape_material.set_shader_parameter("flaps", 1.0 + 1.2 * blown)
 	for fur in furs:
 		fur.set_shader_parameter("wind", air)
 	for cloth: ShaderMaterial in pelican.plumes + [cape_material, tongue]:
@@ -880,6 +888,28 @@ static func murmur(seconds: float, kept: float, swells: float) -> AudioStreamWAV
 	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
 	stream.loop_end = count
 	return stream
+
+
+## Five dolphins of one mesh, hidden until the board skims the sea.
+func build_pod() -> void:
+	var dolphin := Node3D.new()
+	var round := SphereMesh.new()
+	round.radial_segments = 10
+	round.rings = 5
+	var grey := Parts.paint(Color(0.05, 0.08, 0.13), 0.25)
+	Parts.part(dolphin, round, grey, Vector3.ZERO, Vector3.ZERO, Vector3(0.95, 0.95, 3.8))
+	Parts.part(dolphin, round, Parts.paint(Color(0.45, 0.48, 0.52), 0.35), Vector3(0, -0.14, -0.2), Vector3.ZERO, Vector3(0.8, 0.75, 3.1))
+	Parts.part(dolphin, round, grey, Vector3(0, -0.05, -2.0), Vector3.ZERO, Vector3(0.3, 0.26, 0.9))
+	Parts.part(dolphin, Landmarks.cylinder(0.0, 0.5, 4), grey, Vector3(0, 0.65, 0.3), Vector3(-28, 0, 0), Vector3(0.3, 0.8, 1.0))
+	Parts.part(dolphin, round, grey, Vector3(0, 0, 2.0), Vector3.ZERO, Vector3(1.5, 0.12, 0.55))
+	var mesh := Parts.bake(dolphin)
+	dolphin.free()
+	for index in 5:
+		var one := Node3D.new()
+		Parts.part(one, mesh, baked, Vector3.ZERO).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		one.visible = false
+		add_child(one)
+		pod.append(one)
 
 
 ## The jets' drone and the wind around them, made here: two seconds that loop.
@@ -1066,6 +1096,15 @@ func fly(delta: float) -> void:
 	skim = lerpf(skim, smoothstep(13.0, 8.5, flyer.position.y - Terrain.SEA) if over_sea else 0.0, 1.0 - exp(-delta * 3.0))
 	wanted_speed += 14.0 * skim
 	tell("skims", Vector3(flyer.position.x, flyer.position.z, skim))
+	# Dolphins come up beside a board that skims the sea, and leap along with it.
+	pod_out = move_toward(pod_out, 1.0 if skim > 0.5 else 0.0, delta * 0.5)
+	for index in pod.size():
+		var one := pod[index]
+		var phase := elapsed * 2.2 + index * 1.9
+		var at := flyer.position + Vector3(-forward.z, 0, forward.x) * (index % 2 * 2 - 1) * (10.0 + 4.0 * (index / 2)) - forward * (5.0 * index - 14.0)
+		one.visible = pod_out > 0.0 and Terrain.height(Vector2(at.x, at.z)) < Terrain.SEA - 2.5
+		one.position = Vector3(at.x, Terrain.SEA - 1.6 + 3.4 * sin(phase) * pod_out - 4.0 * (1.0 - pod_out), at.z)
+		one.rotation = Vector3(cos(phase) * 0.7, -heading, 0)
 	# Where the wind meets a slope it rises, and carries the board up with it near the ground.
 	var slope := (Terrain.height(here + WIND * 14.0) - Terrain.height(here - WIND * 14.0)) / 28.0
 	var updraft := clampf(slope, 0.0, 1.0) * 9.0 * smoothstep(70.0, 20.0, flyer.position.y - ground)
@@ -1127,7 +1166,8 @@ func fly(delta: float) -> void:
 	curtains.position = Vector3(snappedf(flyer.position.x, 300.0), 0.0, snappedf(flyer.position.z, 300.0))
 	herds.position = Vector3(snappedf(flyer.position.x, 300.0), 0.0, snappedf(flyer.position.z, 300.0))
 	sparks.position = Vector3(snappedf(flyer.position.x, 200.0), 0.0, snappedf(flyer.position.z, 200.0))
-	sparks.visible = level < 5 and night_share > 0.01
+	# Drawn through the first seconds too (no spark shows by day), so their pipeline is made before the flight.
+	sparks.visible = level < 5 and (night_share > 0.01 or elapsed < 3.0)
 	drifters[0].position = Vector3(snappedf(flyer.position.x, 520.0), 0.0, snappedf(flyer.position.z, 520.0))
 	drifters[1].position = Vector3(snappedf(flyer.position.x, 420.0), 0.0, snappedf(flyer.position.z, 420.0))
 	# The clouds drift with the wind.

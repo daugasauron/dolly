@@ -49,7 +49,8 @@ void fragment() {
 	float surf = smoothstep(5.0, 0.6, depth) * smoothstep(0.78, 0.96, sin(depth * 2.1 + clock * 1.2 + 5.0 * noise(p * 0.03))) * (1.0 - smoothstep(0.5, 2.5, wide));
 	foam = max(foam, 0.75 * surf);
 	// White horses: in a gust the swell's crests break.
-	foam = max(foam, 0.7 * open * smoothstep(0.3, 0.55, gust(p)) * smoothstep(0.72, 0.98, crest) * smoothstep(0.35, 0.7, noise(p * 0.5 + vec2(clock * 0.3, 0.0))));
+	float horses = 0.7 * open * smoothstep(0.3, 0.55, gust(p)) * smoothstep(0.72, 0.98, crest) * smoothstep(0.35, 0.7, noise(p * 0.5 + vec2(clock * 0.3, 0.0))); // they do not glow at night
+	foam = max(foam, horses);
 	// The flyer's spray: the sea under it is beaten white, and a ring runs out from it.
 	float under = distance(p, skims.xy);
 	float ring = under - 9.0 - 2.5 * sin(clock * 5.0);
@@ -77,13 +78,13 @@ void fragment() {
 	vec3 colour = mix(over_sand, over_deep, 1.0 - exp(-depth * mix(0.2, 0.13, tropic))) * cloud_shade(world_position);
 	colour = mix(colour, vec3(0.9, 0.95, 1.0), foam * 0.8 * (1.0 - floe));
 	ALBEDO = mix(colour, vec3(0.6, 0.7, 0.82) * (0.85 + 0.3 * noise(adrift / 3.0)) * cloud_shade(world_position), floe);
-	// The ripples a pixel no longer shows still spread the light it reflects.
 	// A gust roughens the sea where it passes, a darker patch that moves with the wind.
 	float blown = gust(p) * (1.0 - smoothstep(10.0, 40.0, wide));
 	ROUGHNESS = mix(mix(0.04 + 0.3 * smoothstep(0.15, 2.5, wide) + 0.3 * blown, 0.5, foam), 0.55, floe);
 	SPECULAR = 0.8;
 	// In a realm of wonders the sea is alight at night: its surf, and sparks in the swell.
 	float alight = ground_here(p).w * night * (1.0 - floe);
+	float shore_foam = foam * (1.0 - smoothstep(0.0, 0.3, horses));
 	float sparks = smoothstep(0.75, 0.95, noise(p * 0.9 + vec2(clock * 0.4, -clock * 0.3))) * (1.0 - smoothstep(0.3, 1.2, wide)) * exp(-depth * 0.08);
-	EMISSION = vec3(0.1, 0.7, 0.9) * foam * here * night * 0.9 * (1.0 - floe) + vec3(0.05, 0.9, 0.75) * alight * (3.0 * foam + 1.5 * sparks + 0.5 * exp(-depth * 0.25)) + vec3(1.0, 0.55, 0.16) * pulse_light(p) * (0.4 + 0.8 * night);
+	EMISSION = vec3(0.1, 0.7, 0.9) * shore_foam * here * night * 0.9 * (1.0 - floe) + vec3(0.05, 0.9, 0.75) * alight * (3.0 * shore_foam + 1.5 * sparks + 0.5 * exp(-depth * 0.25)) + vec3(1.0, 0.55, 0.16) * pulse_light(p) * (0.4 + 0.8 * night);
 }

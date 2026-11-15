@@ -146,7 +146,8 @@ camera and the air whitens inside one. Mist of the same balls, flat, lies on the
 ground, and the haze over the sea thickens with it at dawn. Where it rains a curtain hangs from
 the cloud to the ground, seen from afar ([`curtain.gdshader`](voxel-flyover/curtain.gdshader)),
 and the wind's gusts cross the grass, the crops and the sea as paler and rougher bands, and bend
-the trees' crowns on a strong adapter. High over the clouds lie thin streaks of cloud that hold
+the trees' crowns on a strong adapter. The deepest clouds stand together as a storm and are lit
+from within by lightning now and then. High over the clouds lie thin streaks of cloud that hold
 the sun's fire after the ground has lost it. The open sea has a swell whose crests break white
 in a gust, surf rolls in lines over the shallows, light dances on their bed, and the sea is
 turquoise in the hot countries and grey-green in the cold ones.
@@ -194,14 +195,15 @@ A plot of 260 units has one landmark at most, by its place (`landmark` in
 a lighthouse with turning beams, a windmill among fields, the tower of a town's kind, an arch of
 stone in the desert, giant mushrooms that glow in a marsh, a ring of standing stones, crystals in
 the mountains, a gate on open ground, a wreck on a shore, a keep with its fallen wall on a hill,
-a stepped mound in the hot wet lands, a tree far older than its wood, an island that floats in the board's way, which passes over or under it. The forms
+a stepped mound in the hot wet lands, a tree far older than its wood, a cinder cone that smokes in the dry lands, an island that floats in the board's way, which passes over or under it. The forms
 take after kinds of building found in many places; none copies a building. Life is met by place
 too, each a grid whose shader places its cell's own: sailing boats
 ([`afloat.gdshader`](voxel-flyover/afloat.gdshader)), gulls over the coasts and wedges of geese in
 spring and autumn ([`wings.gdshader`](voxel-flyover/wings.gdshader)), balloons
 ([`aloft.gdshader`](voxel-flyover/aloft.gdshader)), whales that blow
 ([`whale.gdshader`](voxel-flyover/whale.gdshader)), herds on the open land
-([`herd.gdshader`](voxel-flyover/herd.gdshader)), and at night fireworks over the towns
+([`herd.gdshader`](voxel-flyover/herd.gdshader)), dolphins that come up and leap beside a board
+that skims the sea, and at night fireworks over the towns
 ([`fireworks.gdshader`](voxel-flyover/fireworks.gdshader)). A house that is not a city's tower
 stands a little off its lot's middle at an angle of its own, so a village is not a grid.
 Trees stand in woods with glades between them (patches cut from the climate's two fields, which

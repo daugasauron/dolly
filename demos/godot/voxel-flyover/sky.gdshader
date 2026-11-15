@@ -39,7 +39,9 @@ void sky() {
 	// At sunrise and sunset the sky is in bands. On the sun's side: fire at the horizon, rose
 	// over it, violet higher. Opposite the sun: the earth's shadow, blue-grey along the
 	// horizon, and over it a rose band. Between the two sides they turn into one another.
-	float sunward = 0.5 + 0.5 * dot(normalize(EYEDIR.xz + vec2(0.0001)), normalize(sun_direction.xz + vec2(0.0001)));
+	// (Kept within 0 and 1: rounding puts it a hair under 0 opposite the sun, where a power of it is
+	// no number; in Chrome on an AMD GPU that went from the radiance map into every lit pixel.)
+	float sunward = clamp(0.5 + 0.5 * dot(normalize(EYEDIR.xz + vec2(0.0001)), normalize(sun_direction.xz + vec2(0.0001))), 0.0, 1.0);
 	vec3 dusk = mix(mix(vec3(1.0, 0.33, 0.04), vec3(1.0, 0.42, 0.45), smoothstep(0.0, 0.16, up)), vec3(0.42, 0.26, 0.7), smoothstep(0.1, 0.42, up));
 	vec3 away = mix(vec3(0.24, 0.28, 0.48), vec3(0.95, 0.52, 0.6), smoothstep(0.02, 0.1, up) * (1.0 - smoothstep(0.12, 0.32, up)));
 	colour = mix(colour, mix(away, dusk, smoothstep(0.15, 0.85, sunward)), low * (1.0 - smoothstep(0.2, 0.65, up)) * 0.85);

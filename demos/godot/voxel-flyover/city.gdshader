@@ -40,7 +40,7 @@ float roof_rise(vec2 at, int of_kind, float is_domed, bool turned, float span, f
 		return (1.0 - across) * 0.95 * span;
 	}
 	if (of_kind == 4) {
-		return pow(1.0 - out_to, 1.6) * 0.5 * least + 1.6 * pow(abs(at.x * at.y) * 4.0, 2.0);
+		return pow(max(1.0 - out_to, 0.0), 1.6) * 0.5 * least + 1.6 * pow(abs(at.x * at.y) * 4.0, 2.0);
 	}
 	if (of_kind == 5) {
 		return (1.0 - out_to) * 0.6 * least;

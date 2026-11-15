@@ -144,7 +144,7 @@ static func building_top(corner: Vector2) -> float:
 
 
 const MARK_PLOT := 260.0 # a plot of the world has one landmark at most
-enum { LIGHTHOUSE, WINDMILL, TOWER, ARCH, MUSHROOMS, STONES, CRYSTALS, GATE, FLOATING, WRECK, KEEP, MOUND, OLD_TREE }
+enum { LIGHTHOUSE, WINDMILL, TOWER, ARCH, MUSHROOMS, STONES, CRYSTALS, GATE, FLOATING, WRECK, KEEP, MOUND, OLD_TREE, CONE }
 static var marks := {} # plot -> its landmark, found once
 
 
@@ -192,6 +192,8 @@ static func landmark(plot: Vector2i) -> Array:
 		elif level and people > 0.5 and people < 0.58 and ground < SEA + 46.0:
 			if chance < 0.7:
 				found = [p, ground, WINDMILL, 0, 27.0, 12.0, own]
+		elif level and air.x > 0.5 and air.y < 0.52 and people < 0.45 and ground > SEA + 6.0 and ground < SEA + 40.0 and chance > 0.93:
+			found = [p, ground, CONE, 0, 46.0, 58.0, own]
 		elif level and air.x > 0.57 and air.y < 0.47:
 			if chance < 0.4:
 				found = [p, ground, ARCH, 0, 1.05 * (18.0 + 22.0 * own), 20.0 + 24.0 * own, own]

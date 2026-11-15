@@ -140,7 +140,7 @@ void fragment() {
 	float clump = mix(0.5, noise(world.xz * 1.9 + world.y * 1.3), seen);
 	float fleck = mix(0.5, noise(world.zy * 2.3 + world.x * 1.7), seen);
 	vec3 shade = colour * mix(1.0, (0.55 + 0.6 * crown) * (0.78 + 0.44 * clump), leafy);
-	float edge = pow(1.0 - abs(dot(NORMAL, VIEW)), 2.0);
+	float edge = pow(max(1.0 - abs(dot(NORMAL, VIEW)), 0.0), 2.0);
 	ALBEDO = (shade + colour * edge * 0.2 * leafy) * (1.0 - 0.5 * glow);
 	EMISSION = colour * glow * (0.1 + 1.5 * night) * mix(0.5, 1.0, crown);
 	ROUGHNESS = glow > 0.2 ? 0.3 : 0.85;

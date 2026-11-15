@@ -4,7 +4,7 @@ extends RefCounted
 ## tower of a town's kind, an arch of stone in the desert, giant mushrooms in a marsh, a ring of
 ## standing stones in the cold, crystals in the mountains, a gate on open ground, an island that
 ## floats over the sea, a wreck on a shore, a keep on a hill, a stepped mound in the hot wet
-## lands, a tree far older than its wood. Each is built of painted primitives when its plot comes near, and some
+## lands, a tree far older than its wood, a cinder cone in the dry lands. Each is built of painted primitives when its plot comes near, and some
 ## move or glow: `tend` turns the sails and the lamp and lights what glows at night.
 ## The forms take after kinds of building found in many places; none copies a building.
 
@@ -182,6 +182,15 @@ static func build(found: Array, paint: ShaderMaterial) -> Node3D:
 				Parts.part(mark, cylinder(0.7, 1.5, 6), bark, Vector3(cos(around) * out * 0.5, up - 4.0, sin(around) * out * 0.5), Vector3(sin(around) * 55.0, 0, -cos(around) * 55.0), Vector3(1, out * 1.2, 1))
 				Parts.part(mark, ball, leaf, Vector3(cos(around) * out, up + 2.0, sin(around) * out), Vector3.ZERO, Vector3(17, 11, 17))
 			Parts.part(mark, ball, leaf, Vector3(0, 41, 0), Vector3.ZERO, Vector3(22, 14, 22))
+		Terrain.CONE:
+			# A cinder cone: dark rock, a crater alight, lava down one side, smoke over it.
+			var basalt := Parts.paint(Color(0.07, 0.06, 0.06), 0.95)
+			Parts.part(mark, cylinder(14.0, 60.0, 14), basalt, Vector3(0, 20, 0), Vector3.ZERO, Vector3(1, 48, 1))
+			glowing(mark, mark, cylinder(12.0, 12.0, 14), Color(1.0, 0.3, 0.04), Vector3(0, 44.0, 0), Vector3.ZERO, Vector3(1, 0.6, 1))
+			glowing(mark, mark, box, Color(1.0, 0.3, 0.04), Vector3(37.3, 21.3, 0), Vector3(0, 0, -46.2), Vector3(66.0, 0.5, 2.6))
+			var smoke := Parts.paint(Color(0.2, 0.19, 0.19), 1.0)
+			for puff in 5:
+				Parts.part(mark, ball, smoke, Vector3(3.5 * puff, 51.0 + 10.0 * puff, 2.0 * puff), Vector3.ZERO, Vector3.ONE * (11.0 + 5.0 * puff))
 		Terrain.FLOATING:
 			# An island that floats: rock that narrows downward under a grassy top, a few trees, and
 			# a thread of water that falls from its rim.

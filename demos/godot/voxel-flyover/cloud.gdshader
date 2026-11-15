@@ -24,6 +24,7 @@ uniform vec3 shade : source_color = vec3(0.5, 0.55, 0.65); // the sky's, under a
 
 varying vec3 from_centre;
 varying float strength;
+varying float flash; // lightning inside the cluster
 
 void vertex() {
 	vec2 own = floor(MODEL_MATRIX[3].xz / CELL) + 6.0;
@@ -32,7 +33,13 @@ void vertex() {
 	vec2 at = (cell_number + 0.5) * CELL + adrift;
 	vec2 number = cell_number + (mist ? 40.0 : 0.0);
 	float puff = float(INSTANCE_ID % int(PUFFS));
-	float cover = smoothstep(mist ? 0.4 : 0.53, mist ? 0.5 : 0.65, fbm(number * 0.31 + vec2(71.0, 19.0), 2));
+	float deep = fbm(number * 0.31 + vec2(71.0, 19.0), 2);
+	float cover = smoothstep(mist ? 0.4 : 0.53, mist ? 0.5 : 0.65, deep);
+	// Lightning: the deepest clouds stand together as a storm, and in three of ten turns of
+	// six seconds a cluster of one is lit from within, twice in quick succession.
+	float turn = clock / 6.0 + hash(number + 3.0);
+	float since = fract(turn) * 6.0;
+	flash = mist ? 0.0 : (0.3 + 0.7 * night) * smoothstep(0.8, 0.84, deep) * step(hash(number + floor(turn) * 7.0), 0.3) * (exp(-since * 7.0) + 0.7 * exp(-(since - 0.3) * (since - 0.3) * 250.0));
 	vec2 seed = number * 16.0 + vec2(puff * 3.0, 5.0);
 	vec2 offset = (vec2(hash(seed), hash(seed + 1.0)) - 0.5) * CELL * (mist ? 0.9 : 0.62);
 	vec2 place = at + offset;
@@ -65,7 +72,7 @@ void fragment() {
 	// Lit from the light's side and from above.
 	float toward = 0.5 + 0.5 * dot(normalize(from_centre), to_light) * handover;
 	vec3 colour = mix(shade, light * 1.15, 0.3 + 0.7 * toward) * (0.85 + 0.15 * from_centre.y);
-	ALBEDO = mist ? mix(shade, light, 0.5) : colour;
+	ALBEDO = mist ? mix(shade, light, 0.5) : colour + vec3(0.7, 0.78, 1.0) * flash * (0.6 + 0.9 * (1.0 - facing));
 	// Mist has no rim: it thins from its middle outwards.
 	float thin = mist ? 1.0 - smoothstep(0.15, 1.0, length(from_centre.xz)) : soft;
 	ALPHA = thin * strength * (mist ? 0.24 : 0.8) * smoothstep(4.0, mist ? 90.0 : 32.0, length(VERTEX));
