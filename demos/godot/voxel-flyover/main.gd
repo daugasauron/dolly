@@ -874,11 +874,8 @@ func fly(delta: float) -> void:
 	for grove in groves:
 		grove.position = Vector3(among.x, 0.0, among.y)
 	city.position = Vector3(among.x, 0.0, among.y)
-	# The clouds' grid drifts with the wind, and steps under the flight by whole cells.
-	var adrift := WIND * elapsed * 4.0
-	tell("adrift", adrift)
-	for bank in clouds:
-		bank.position = Vector3(snappedf(flyer.position.x - adrift.x, CLOUD_CELL) + adrift.x, 0.0, snappedf(flyer.position.z - adrift.y, CLOUD_CELL) + adrift.y)
+	# The clouds drift with the wind.
+	tell("adrift", WIND * elapsed * 4.0)
 	tell("flyer", Vector2(flyer.position.x, flyer.position.z))
 	tell("flyer_at", flyer.position)
 	water.position = Vector3(flyer.position.x, Terrain.SEA - 0.2, flyer.position.z)
@@ -1159,8 +1156,8 @@ func follow(delta: float) -> void:
 	falls = lerpf(falls, smoothstep(0.66, 0.78, Terrain.fbm(above + Vector2(31.0, 7.0), 3)), 1.0 - exp(-delta * 1.5))
 	sky_material.set_shader_parameter("rains", falls)
 	# In a cloud the air is white.
-	clouded = lerpf(clouded, in_cloud(camera.position), 1.0 - exp(-delta * 4.0))
-	environment.fog_density = lerpf(0.0006, 0.05, clouded)
+	clouded = lerpf(clouded, in_cloud(camera.position), 1.0 - exp(-delta * 1.5))
+	environment.fog_density = lerpf(0.0006, 0.03, clouded)
 	# A drop falls 22 units a second and a flake 2.6. The wind carries them, and the flight
 	# slants them back by no more than half of their fall, so on the screen they come down.
 	shower.visible = falls > 0.004
@@ -1192,12 +1189,12 @@ func in_cloud(place: Vector3) -> float:
 			var at := (number + Vector2(0.5, 0.5)) * CLOUD_CELL + adrift + (Vector2(Terrain.cell_hash(x + puff * 3, y + 5), Terrain.cell_hash(x + puff * 3 + 1, y + 6)) - Vector2(0.5, 0.5)) * CLOUD_CELL * 0.62
 			var radius := (24.0 + 30.0 * Terrain.cell_hash(x + puff * 3 + 2, y + 7)) * cover
 			var beside := Vector2(place.x, place.z).distance_to(at) / radius
-			if beside > 1.3:
+			if beside > 1.6:
 				continue
 			var base := maxf(Terrain.SEA + 100.0 + 45.0 * Terrain.cell_hash(x + 9, y + 9) + 14.0 * Terrain.cell_hash(x + puff * 3 + 3, y + 8), Terrain.surface(at) + 50.0)
 			var over := (place.y - base) / radius / (0.25 if place.y < base else 0.6)
-			deep = maxf(deep, 1.3 - sqrt(beside * beside + over * over))
-	return clampf(deep * 2.0, 0.0, 1.0)
+			deep = maxf(deep, 1.6 - sqrt(beside * beside + over * over))
+	return clampf(deep * 1.3, 0.0, 1.0)
 
 
 ## How much of a season it is, between 0 and 1: all of it within a tenth of a year of its

@@ -1,5 +1,8 @@
-// Low clouds, and mist: soft balls in clusters, one cluster for each cell of a grid that follows
-// the flight and drifts with the wind. A cell has a cloud where a noise of its number says so,
+// Low clouds, and mist: soft balls in clusters, one cluster for each cell of a grid that drifts
+// with the wind. Its 13 by 13 clusters are the cells around the flyer, each cluster always a
+// cell of its own place in the 13 (the cell's number, modulo 13): as the flight goes on, a
+// cluster far behind becomes the cell far ahead and no other changes, so the clusters keep the
+// order they are drawn in, which shows where one soft ball is seen through another. A cell has a cloud where a noise of its number says so,
 // so a cloud is where it was when the flight comes back to it. A cloud's balls are flat under
 // and stand above the ground below them; the mist's are flatter still and lie on the sea and
 // the low ground, thickest at dawn. A ball is soft at its rim and draws in before the camera,
@@ -13,6 +16,7 @@ const float CELL = 240.0;
 const float PUFFS = 9.0;
 
 uniform vec2 adrift; // how far the wind has carried the grid
+uniform vec3 eye; // where the camera is
 uniform bool mist = false;
 uniform float thick = 1.0; // of the mist: more at dawn
 uniform vec3 light : source_color = vec3(1.0); // the sun's, or the moon's
@@ -22,8 +26,11 @@ varying vec3 from_centre;
 varying float strength;
 
 void vertex() {
-	vec2 at = MODEL_MATRIX[3].xz;
-	vec2 number = floor((at - adrift) / CELL) + (mist ? 40.0 : 0.0);
+	vec2 own = floor(MODEL_MATRIX[3].xz / CELL) + 6.0;
+	vec2 middle = floor((flyer - adrift) / CELL);
+	vec2 cell_number = middle + mod(own - middle + 6.0, 13.0) - 6.0;
+	vec2 at = (cell_number + 0.5) * CELL + adrift;
+	vec2 number = cell_number + (mist ? 40.0 : 0.0);
 	float puff = float(INSTANCE_ID % int(PUFFS));
 	float cover = smoothstep(mist ? 0.4 : 0.53, mist ? 0.5 : 0.65, fbm(number * 0.31 + vec2(71.0, 19.0), 2));
 	vec2 seed = number * 16.0 + vec2(puff * 3.0, 5.0);
@@ -36,9 +43,13 @@ void vertex() {
 	if (mist) {
 		radius *= (1.0 - smoothstep(SEA + 5.0, SEA + 14.0, ground_height)) * thick;
 	}
-	radius *= 1.0 - smoothstep(1250.0, 1500.0, distance(place, flyer));
+	radius *= 1.0 - smoothstep(1050.0, 1240.0, distance(place, flyer));
 	from_centre = VERTEX * 2.0;
-	strength = step(0.5, radius);
+	// A ball the camera comes up to thins out whole, and is gone before the camera is in it:
+	// its far side would else go at once as the camera passed its near one.
+	vec3 to_eye = eye - vec3(place.x, base, place.y);
+	to_eye.y /= mist ? 0.06 : (to_eye.y < 0.0 ? 0.25 : 0.6);
+	strength = step(0.5, radius) * (mist ? 1.0 : smoothstep(1.05, 1.6, length(to_eye) / max(radius, 0.5)));
 	vec3 flat_ball = from_centre * vec3(1.0, mist ? 0.06 : (from_centre.y < 0.0 ? 0.25 : 0.6), 1.0);
 	VERTEX = flat_ball * radius + vec3(place.x, base, place.y) - MODEL_MATRIX[3].xyz;
 	if (radius < 0.5) {
