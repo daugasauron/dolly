@@ -71,7 +71,7 @@ void sky() {
 		float cover = cloud_cover(over, AT_CUBEMAP_PASS ? 3 : 5);
 		if (cover > 0.0) {
 			// A cloud is bright where little cloud stands between it and the light.
-			float before = cloud_cover(over + to_light.xz * 140.0, 3);
+			float before = cloud_cover(over + to_light.xz * 140.0 * handover, 3);
 			float bright = exp(-before * 2.2) * (0.6 + 0.4 * (1.0 - cover));
 			vec3 moonlight = vec3(0.05, 0.07, 0.12) * dark;
 			vec3 shadow = mix(zenith, horizon, 0.35) * 0.55 + moonlight * 0.4;

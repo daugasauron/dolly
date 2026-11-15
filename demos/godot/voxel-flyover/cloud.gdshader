@@ -63,7 +63,7 @@ void fragment() {
 	float facing = abs(dot(out_of, normalize(-VERTEX)));
 	float soft = smoothstep(0.05, mist ? 0.9 : 0.6, facing);
 	// Lit from the light's side and from above.
-	float toward = 0.5 + 0.5 * dot(normalize(from_centre), to_light);
+	float toward = 0.5 + 0.5 * dot(normalize(from_centre), to_light) * handover;
 	vec3 colour = mix(shade, light * 1.15, 0.3 + 0.7 * toward) * (0.85 + 0.15 * from_centre.y);
 	ALBEDO = mist ? mix(shade, light, 0.5) : colour;
 	// Mist has no rim: it thins from its middle outwards.

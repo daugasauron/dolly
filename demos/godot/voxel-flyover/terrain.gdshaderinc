@@ -13,6 +13,7 @@ uniform float spring = 0.0;
 uniform float autumn = 0.0;
 uniform float winter = 0.0;
 uniform vec3 to_light = vec3(0.0, 1.0, 0.0); // toward the sun, or the moon once it has set
+uniform float handover = 1.0; // 0 at the moment the sun hands over to the moon, 1 away from it: what the light's side lights fades through it
 // The lit beacons around the flyer: where each stands (xy), how long ago its ring set off (z),
 // how long ago it was lit (z), and how strong its rings are (w), which is less the further it
 // is from the flyer.

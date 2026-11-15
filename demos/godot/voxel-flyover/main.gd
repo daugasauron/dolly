@@ -243,6 +243,10 @@ func _ready() -> void:
 		puff.rings = 6
 		var bank := build_grid(puff, 13, CLOUD_CELL, reads_ground(preload("res://cloud.gdshader"), 2))
 		(bank.material_override as ShaderMaterial).set_shader_parameter("mist", mist)
+		# What is seen through is drawn in a fixed order, the curtains of rain first, then the
+		# clouds, the mist, and all else by its distance: an order by distance would change
+		# as the flight goes on, and with it the picture where two of them overlap.
+		(bank.material_override as ShaderMaterial).render_priority = -2 if mist else -3
 		nine_each(bank)
 		clouds.append(bank)
 	# The rain seen from afar (curtain.gdshader): a column for each cell of a grid.
@@ -256,6 +260,7 @@ func _ready() -> void:
 	column.cap_bottom = false
 	var veil := ShaderMaterial.new()
 	veil.shader = preload("res://curtain.gdshader")
+	veil.render_priority = -4
 	materials.append(veil)
 	curtains = build_grid(column, 13, 300.0, veil)
 	curtains.custom_aabb = AABB(Vector3.ONE * -1e6, Vector3.ONE * 2e6)
@@ -275,6 +280,7 @@ func _ready() -> void:
 	shower.multimesh.mesh = card
 	shower.multimesh.instance_count = 9000
 	falling.shader = preload("res://rain.gdshader")
+	falling.render_priority = 2
 	shower.material_override = falling
 	shower.custom_aabb = AABB(Vector3.ONE * -1e6, Vector3.ONE * 2e6)
 	shower.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -1414,6 +1420,7 @@ func set_day() -> void:
 	tell("night", night)
 	night_share = night
 	tell("to_light", to_light)
+	tell("handover", smoothstep(0.0, 0.1, absf(height + 0.06)))
 	environment.ambient_light_color = Color(0.85, 0.82, 0.78).lerp(Color(0.15, 0.22, 0.5), night)
 	environment.ambient_light_energy = lerpf(1.0, 0.55, night)
 	environment.volumetric_fog_albedo = Color(0.75, 0.82, 1.0).lerp(warm, 0.5)
