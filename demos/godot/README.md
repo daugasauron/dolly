@@ -203,7 +203,8 @@ spring and autumn ([`wings.gdshader`](voxel-flyover/wings.gdshader)), balloons
 ([`aloft.gdshader`](voxel-flyover/aloft.gdshader)), whales that blow
 ([`whale.gdshader`](voxel-flyover/whale.gdshader)), herds on the open land
 ([`herd.gdshader`](voxel-flyover/herd.gdshader)), dolphins that come up and leap beside a board
-that skims the sea, and at night fireworks over the towns
+that skims the sea, fireflies over the warm wet land at night
+([`fireflies.gdshader`](voxel-flyover/fireflies.gdshader)), and at night fireworks over the towns
 ([`fireworks.gdshader`](voxel-flyover/fireworks.gdshader)). A house that is not a city's tower
 stands a little off its lot's middle at an angle of its own, so a village is not a grid.
 Trees stand in woods with glades between them (patches cut from the climate's two fields, which

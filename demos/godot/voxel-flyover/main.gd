@@ -139,6 +139,7 @@ var year := 0.3 # 0 the first of spring, 0.25 of summer, 0.5 of autumn, 0.75 of 
 var falls := 0.0 # the rain or snow over the camera
 var drifters: Array[MultiMeshInstance3D] = [] # the balloons, and the whales
 var sparks: MultiMeshInstance3D # the fireworks over towns at night
+var fireflies: MultiMeshInstance3D # over the warm wet land at night
 var herds: MultiMeshInstance3D # the animals on the open land
 var curtains: MultiMeshInstance3D # the rain seen from afar
 var boats: MultiMeshInstance3D # the boats on the sea around the flyer
@@ -260,7 +261,7 @@ func _ready() -> void:
 		# clouds, the mist, and all else by its distance: an order by distance would change
 		# as the flight goes on, and with it the picture where two of them overlap.
 		(bank.material_override as ShaderMaterial).render_priority = -2 if mist else -3
-		nine_each(bank)
+		some_each(bank, 9)
 		clouds.append(bank)
 	# The rain seen from afar (curtain.gdshader): a column for each cell of a grid.
 	var column := CylinderMesh.new()
@@ -285,21 +286,16 @@ func _ready() -> void:
 	wing.size = Vector2(1.6, 0.5)
 	wing.subdivide_width = 6
 	birds_of_place = build_grid(wing, 9, 360.0, reads_ground(preload("res://wings.gdshader"), 2))
-	nine_each(birds_of_place)
+	some_each(birds_of_place, 9)
 	# Fireworks over towns at night (fireworks.gdshader): 48 sparks for each cell of a grid.
 	sparks = build_grid(QuadMesh.new(), 15, 200.0, reads_ground(preload("res://fireworks.gdshader"), 2))
-	var cells := sparks.multimesh.buffer
-	var all := PackedFloat32Array()
-	for cell in cells.size() / 12:
-		for spark in 48:
-			all.append_array(cells.slice(cell * 12, cell * 12 + 12))
-	sparks.multimesh.instance_count = all.size() / 12
-	sparks.multimesh.buffer = all
-	sparks.custom_aabb = AABB(Vector3.ONE * -1e6, Vector3.ONE * 2e6)
-	sparks.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	some_each(sparks, 48)
+	# Fireflies over the warm wet land at night (fireflies.gdshader): 12 for each cell of a grid.
+	fireflies = build_grid(QuadMesh.new(), 13, 36.0, reads_ground(preload("res://fireflies.gdshader"), 0))
+	some_each(fireflies, 12)
 	# Herds on the open land (herd.gdshader).
 	herds = build_grid(animal_mesh(), 9, 300.0, reads_ground(preload("res://herd.gdshader"), 1))
-	nine_each(herds)
+	some_each(herds, 9)
 	# Balloons in the sky (aloft.gdshader) and whales in the deep sea (whale.gdshader).
 	var round_ball := SphereMesh.new()
 	round_ball.radial_segments = 16
@@ -492,12 +488,12 @@ func reads_ground(shader: Shader, ring: int) -> ShaderMaterial:
 	return material
 
 
-## Gives a grid nine instances for each of its plots (a shader tells them apart by their number).
-func nine_each(grid: MultiMeshInstance3D) -> void:
+## Gives a grid so many instances for each of its plots (a shader tells them apart by their number).
+func some_each(grid: MultiMeshInstance3D, each: int) -> void:
 	var plots := grid.multimesh.buffer
 	var all := PackedFloat32Array()
 	for plot in plots.size() / 12:
-		for copy in 9:
+		for copy in each:
 			all.append_array(plots.slice(plot * 12, plot * 12 + 12))
 	grid.multimesh.instance_count = all.size() / 12
 	grid.multimesh.buffer = all
@@ -1168,6 +1164,8 @@ func fly(delta: float) -> void:
 	sparks.position = Vector3(snappedf(flyer.position.x, 200.0), 0.0, snappedf(flyer.position.z, 200.0))
 	# Drawn through the first seconds too (no spark shows by day), so their pipeline is made before the flight.
 	sparks.visible = level < 5 and (night_share > 0.01 or elapsed < 3.0)
+	fireflies.position = Vector3(snappedf(flyer.position.x, 36.0), 0.0, snappedf(flyer.position.z, 36.0))
+	fireflies.visible = sparks.visible
 	drifters[0].position = Vector3(snappedf(flyer.position.x, 520.0), 0.0, snappedf(flyer.position.z, 520.0))
 	drifters[1].position = Vector3(snappedf(flyer.position.x, 420.0), 0.0, snappedf(flyer.position.z, 420.0))
 	# The clouds drift with the wind.
