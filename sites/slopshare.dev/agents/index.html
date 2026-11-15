@@ -28,12 +28,12 @@
   <a href="../">← Dolly</a>
   <h1>Demos</h1>
   <p class="lead">Dolly in Chrome: Godot playing one of its demos on the GPU, recorded on 8 November 2026, a game
-    changed in Godot's editor and a C compiler at work on Wine's desktop, recorded on 12 November 2026, a terminal
-    workbench installed on an X desktop and a folder kept in step with a machine's, recorded on 13 November 2026, and Claude
+    changed in Godot's editor, a C compiler at work on Wine's desktop, a terminal workbench installed on an X desktop
+    and a folder kept in step with a machine's, recorded on 15 November 2026 on this site, and Claude
     Opus 5.5 at high effort working in Dolly, recorded on 1 and 2 November 2026. Each video's caption bar names its
     speed-ups.</p>
   <h2><a href="../godot-voxel-flyover/">Voxel Flyover</a>: a world computed by the GPU</h2>
-  <p class="lead">A Godot game made for Dolly, recorded on 14 November 2026: a corgi on a jet surfboard flies over an
+  <p class="lead">A Godot game made for Dolly, recorded on 15 November 2026 on this site: a corgi on a jet surfboard flies over an
     endless world of mountains, forests and sea through a day and a night. The world is one function in a shader.
     As the flight goes on, a pass draws the ground into textures, the vertex stages raise grids of land to it and
     stand trees on it, and nothing of the world is stored. The same trees are drawn in less and less detail the
@@ -45,25 +45,25 @@
       <video controls playsinline preload="none" poster="posters/voxel-flyover.jpg" aria-label="Voxel Flyover recording"><source src="videos/voxel-flyover.mp4" type="video/mp4"></video>
       <div>
         <h3>From dawn into night</h3>
-        <p>The godot-voxel-flyover image: the corgi flies itself along a coast and over snowy ranges and lights beacons, whose rings of light run out over land and sea; Enter takes the board, and the day runs through sunset into a night of stars, an aurora, and veins and groves that glow; then the project's 1,511 lines and the function that is the world, 60.0 frames a second while recorded · 2:09</p>
+        <p>The godot-voxel-flyover image: the corgi flies itself along a coast and over snowy ranges and lights beacons, whose rings of light run out over land and sea; Enter takes the board, and the day runs through sunset into a night of stars, an aurora, and veins and groves that glow; then the project's 1,511 lines and the function that is the world, 60.0 frames a second while recorded · 2:10</p>
       </div>
     </article>
   </div>
   <h2><a href="../pi-local/">Pi on a local model</a>: an agent with no model outside the tab</h2>
   <p class="lead">The pi-local image holds the Pi coding agent and the weights of Qwen3.5-2B. llama.cpp, built inside
-    Dolly, runs as an ordinary process of the session and computes on the GPU through gpu@0. Recorded on 14 November
-    2026: the page made no request but to the server that served the image.</p>
+    Dolly, runs as an ordinary process of the session and computes on the GPU through gpu@0. Recorded on 15 November
+    2026 on this site: the image is a download of 1,567 MiB, and the page made no request but to the site that served it.</p>
   <div class="grid">
     <article>
       <video controls playsinline preload="none" poster="posters/local-model.jpg" aria-label="Pi on a local model recording"><source src="videos/local-model.mp4" type="video/mp4"></video>
       <div>
         <h3>squares.c, written, compiled and run</h3>
-        <p>One prompt: the model lists the directory, writes a C program, compiles it with Dolly's cc, runs it and reports its output about 50 s later, at 12 to 16 tokens a second while recorded · 1:09</p>
+        <p>One prompt: the model lists the directory, writes a C program, compiles it with Dolly's cc, runs it and reports its output about 35 s later, at 17 to 25 tokens a second while recorded · 1:07</p>
       </div>
     </article>
   </div>
   <h2><a href="../sessions/">Sessions</a>: saved in Chrome, opened in Firefox</h2>
-  <p class="lead">A session is a save of every file of a tab, kept in the browser. Recorded on 14 November 2026 with
+  <p class="lead">A session is a save of every file of a tab, kept in the browser. Recorded on 15 November 2026 on this site, with
     the two browsers side by side: Chrome's session installs the C compiler and builds a program, the sessions
     page exports the save as one file, and Firefox imports it and boots from it.</p>
   <div class="grid">
@@ -71,7 +71,7 @@
       <video controls playsinline preload="none" poster="posters/session-travel.jpg" aria-label="A session from Chrome to Firefox recording"><source src="videos/session-travel.mp4" type="video/mp4"></video>
       <div>
         <h3>One session, two browsers</h3>
-        <p>amy install cc, a Mandelbrot set in C compiled and run in Chrome, Ctrl+Shift+S, an export of 39.3 MiB; in Firefox the import, the same files, the program running and the compiler answering · 1:00</p>
+        <p>amy install cc, a Mandelbrot set in C compiled and run in Chrome, Ctrl+Shift+S, an export of 39.3 MiB; in Firefox the import, the same files, the program running and the compiler answering · 1:05</p>
       </div>
     </article>
   </div>
@@ -97,7 +97,7 @@
       <video controls playsinline preload="none" poster="posters/godot-airtime.jpg" aria-label="Airtime in Godot's editor recording"><source src="videos/godot-airtime.mp4" type="video/mp4"></video>
       <div>
         <h3>The foundry turned blue</h3>
-        <p>godot-editor -e, an edit of foundry.gd and molten.gdshader, Run Project, --export-pack in 4.7 s, godot --main-pack: the game's autopilot runs the course in 20.83 s at 44 frames a second while recorded · 2:10</p>
+        <p>godot-editor -e, an edit of foundry.gd and molten.gdshader, Run Project, --export-pack in 2.3 s, godot --main-pack: the game's autopilot runs the course in 20.83 s at 59 frames a second while recorded · 2:08</p>
       </div>
     </article>
   </div>
@@ -124,7 +124,7 @@
       <video controls playsinline preload="none" poster="posters/x11-workbench.jpg" aria-label="X11 workbench recording"><source src="videos/x11-workbench.mp4" type="video/mp4"></video>
       <div>
         <h3>A Julia set in Ghostty</h3>
-        <p>amy install ghostty-gtk, zsh, tmux, nvim and mojo; julia.mojo in Neovim, mojo build, and the program on 514 by 155 cells of Ghostty, drawn by Mesa's software OpenGL at 24 frames a second while recorded · 2:30</p>
+        <p>amy install ghostty-gtk, zsh, tmux, nvim and mojo; julia.mojo in Neovim, mojo build, and the program on 514 by 155 cells of Ghostty, drawn by Mesa's software OpenGL at more than 25 frames a second while recorded · 2:32</p>
       </div>
     </article>
   </div>
@@ -132,13 +132,14 @@
   <p class="lead">A machine serves a folder with upstream's rclone over WebDAV, with the CORS headers the page needs.
     In the default image, amy installs rclone, built inside Dolly from its release by the Go toolchain, and rclone
     bisync copies what changed on either side to the other. Dolly has no sockets: each of its requests goes through
-    the page's HTTP broker.</p>
+    the page's HTTP broker. Recorded on 15 November 2026 with the page served by this site: the address 127.0.0.1:8090 in it
+    is the machine's own server.</p>
   <div class="grid">
     <article>
       <video controls playsinline preload="none" poster="posters/rclone-sync.jpg" aria-label="rclone bisync recording"><source src="videos/rclone-sync.mp4" type="video/mp4"></video>
       <div>
         <h3>One folder, two sides</h3>
-        <p>rclone serve webdav on the machine, amy install rclone and rclone bisync in the session; files written, edited and removed on each side reach the other, then a loop in the background carries them every ten seconds · 1:57</p>
+        <p>rclone serve webdav on the machine, amy install rclone and rclone bisync in the session, which Chrome lets reach the machine once its prompt is allowed; files written, edited and removed on each side reach the other, then a loop in the background carries them every ten seconds · 2:19</p>
       </div>
     </article>
   </div>
