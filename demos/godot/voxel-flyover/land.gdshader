@@ -97,9 +97,15 @@ void fragment() {
 	bool north = (number.x % 5 + 5) % 5 == 0;
 	bool road = north || (number.y % 6 + 6) % 6 == 0;
 	float dash = (1.0 - smoothstep(0.012, 0.012 + wide / LOT, north ? in_lot.x : in_lot.y)) * step(0.5, fract((north ? p.y : p.x) / 6.0)) * near;
-	float lawn = step(hash(lot * LOT + 13.0), 0.1) * (1.0 - street);
-	vec3 built = mix(mix(vec3(0.4, 0.38, 0.36), vec3(0.14, 0.3, 0.08), lawn), vec3(0.1, 0.1, 0.12), street);
-	built = mix(road ? mix(vec3(0.07, 0.07, 0.08), vec3(0.75, 0.7, 0.5), dash) : built, vec3(0.22, 0.21, 0.21), smoothstep(3.0, 12.0, wide));
+	// A city is paved, with asphalt roads; a town or a village has yards of earth and grass
+	// and roads of packed earth, of its ground's colour in the desert.
+	int town_is = town > 0.0 ? town_kind((lot + 0.5) * LOT, here.x) : 0;
+	float open = town_is == 0 ? 0.1 : (town_is == 1 || town_is == 4) ? 0.2 : 0.32;
+	float lawn = step(hash(lot * LOT + 13.0), open) * (1.0 - street);
+	vec3 yard = town_is == 0 ? vec3(0.4, 0.38, 0.36) : (town_is == 2 || town_is == 7) ? vec3(0.6, 0.44, 0.27) : town_is == 6 ? vec3(0.7, 0.66, 0.58) : vec3(0.36, 0.34, 0.2);
+	vec3 way = town_is == 0 ? vec3(0.1, 0.1, 0.12) : (town_is == 2 || town_is == 7) ? vec3(0.5, 0.36, 0.22) : vec3(0.42, 0.34, 0.24);
+	vec3 built = mix(mix(yard, town_is == 2 ? yard : vec3(0.14, 0.3, 0.08), lawn), way, street);
+	built = mix(road ? mix(town_is == 0 ? vec3(0.07, 0.07, 0.08) : way, vec3(0.75, 0.7, 0.5), town_is == 0 ? dash : 0.0) : built, mix(yard, way, 0.4), smoothstep(3.0, 12.0, wide));
 	street = mix(road ? 0.7 : street, 0.45, smoothstep(3.0, 12.0, wide));
 	colour = mix(colour, built, town);
 	// Past the last trees that are drawn, their crowns are painted on the ground they stand on.

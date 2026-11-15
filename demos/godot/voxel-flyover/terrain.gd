@@ -93,19 +93,48 @@ static func town(p: Vector2, ground: float) -> float:
 	return smoothstep(0.58, 0.66, fbm(p / 760.0 + Vector2(400.0, 109.0), 2)) * smoothstep(SEA + 4.5, SEA + 8.0, ground) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, ground))
 
 
+## terrain.gdshaderinc's climate. x: warmth, y: moisture.
+static func climate(p: Vector2) -> Vector2:
+	return Vector2(fbm(p / 900.0 + Vector2(211.0, 57.0), 2) + (slow(p, 19000.0, 1.3, Vector2(37.0, 14.0)) - 0.5) * 0.55,
+		fbm(p / 560.0 + Vector2(13.0, 143.0), 2) + (slow(p, 11000.0, 2.2, Vector2(89.0, 44.0)) - 0.5) * 0.45)
+
+
+## terrain.gdshaderinc's town_kind.
+static func town_kind(p: Vector2, ground: float) -> int:
+	var air := climate(p)
+	if air.x > 0.57 and air.y < 0.47:
+		return 2
+	if air.x < 0.42:
+		return 3
+	var culture := slow(p, 5100.0, 1.1, Vector2(3.0, 8.0))
+	if culture > 0.6:
+		return 0
+	if air.x > 0.52 and air.y < 0.57:
+		return 7
+	if air.x > 0.5 and ground < SEA + 13.0:
+		return 6
+	return 4 if culture < 0.42 else 1
+
+
 ## The top of the building that stands on the lot at a corner (terrain.gdshaderinc's
-## building_height, and city.gdshader's steep lots), or -INF where none does.
+## building_height, city.gdshader's steep lots, and the most a roof of its kind rises), or -INF
+## where none does.
 static func building_top(corner: Vector2) -> float:
 	var centre := corner + Vector2(LOT, LOT) / 2.0
 	var ground := height(centre)
 	var share := town(centre, ground)
 	var lot := Vector2i((corner / LOT + Vector2(0.5, 0.5)).floor())
-	if share < 0.1 or posmod(lot.x, 5) == 0 or posmod(lot.y, 6) == 0 or cell_hash(int(corner.x) + 13, int(corner.y) + 13) < 0.1:
+	if share < 0.1 or posmod(lot.x, 5) == 0 or posmod(lot.y, 6) == 0:
+		return -INF
+	var kind := town_kind(centre, ground)
+	if cell_hash(int(corner.x) + 13, int(corner.y) + 13) < (0.1 if kind == 0 else 0.2 if kind == 1 or kind == 4 else 0.32):
 		return -INF
 	if absf(height(centre + Vector2(LOT / 2.0, 0)) - height(centre - Vector2(LOT / 2.0, 0))) + absf(height(centre + Vector2(0, LOT / 2.0)) - height(centre - Vector2(0, LOT / 2.0))) > 9.0:
 		return -INF
 	var own := cell_hash(int(corner.x) + 7, int(corner.y) + 7)
-	return ground + 3.0 * floorf(4.0 + 11.0 * own * own * own + 5.0 * share * cell_hash(int(corner.x) + 17, int(corner.y) + 17)) + 1.0
+	if kind == 0:
+		return ground + 3.0 * floorf(4.0 + 11.0 * own * own * own + 5.0 * share * cell_hash(int(corner.x) + 17, int(corner.y) + 17)) + 1.0
+	return ground + 3.0 * floorf(2.0 + 1.9 * own if kind == 3 or kind == 7 else 3.0 + 2.9 * own) + 1.0 + 10.0
 
 
 ## What a flight looks ahead for: the surface, or the roof of the building whose lot the place

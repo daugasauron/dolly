@@ -200,7 +200,7 @@ func _ready() -> void:
 		materials[-1].set_shader_parameter("ring", grove[2])
 		groves[-1].cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY if grove == SHADES else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		materials[-1].set_shader_parameter("sinks", grove == SHADES or grove == GROVES[-1])
-	city = build_grid(BoxMesh.new(), 2 * CITY_REACH, Terrain.LOT, reads_ground(preload("res://city.gdshader"), 1))
+	city = build_grid(house_mesh(), 2 * CITY_REACH, Terrain.LOT, reads_ground(preload("res://city.gdshader"), 1))
 	# Its lots are in the order of their distance from the middle, so the first so many are
 	# those within a distance: a weak adapter draws the nearer ones (set_level).
 	var rings := PackedFloat32Array()
@@ -400,6 +400,28 @@ func reads_ground(shader: Shader, ring: int) -> ShaderMaterial:
 	material.set_shader_parameter("reach", (RINGS[ring][0] * RINGS[ring][1] - STEP) / 2.0)
 	materials.append(material)
 	return material
+
+
+## A building before city.gdshader shapes it: four walls of a unit box, and over them a roof of
+## 4 by 4 squares, marked by its colour.
+static func house_mesh() -> ArrayMesh:
+	var tool := SurfaceTool.new()
+	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	tool.set_color(Color.BLACK)
+	for side in 4:
+		var out := Vector3.RIGHT.rotated(Vector3.UP, side * PI / 2.0)
+		var along := Vector3.BACK.rotated(Vector3.UP, side * PI / 2.0)
+		tool.set_normal(out)
+		for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+			tool.add_vertex(out * 0.5 + along * 0.5 * corner.x + Vector3.UP * 0.5 * corner.y)
+	tool.set_color(Color.RED)
+	tool.set_normal(Vector3.UP)
+	for x in 4:
+		for z in 4:
+			for corner: Vector2 in [Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 0), Vector2(1, 1), Vector2(0, 1)]:
+				tool.add_vertex(Vector3((x + corner.x) / 4.0 - 0.5, 0.5, (z + corner.y) / 4.0 - 0.5))
+	tool.index()
+	return tool.commit()
 
 
 ## A square grid of one mesh, a plot for each; its shader places each instance by the plot it

@@ -148,15 +148,45 @@ bool road_lot(vec2 corner) {
 	return (lot.x % 5 + 5) % 5 == 0 || (lot.y % 6 + 6) % 6 == 0;
 }
 
-// How tall the building of a lot is, where the town's share is that: none on a road, on the
-// one lot in ten that is a square, or at a town's thin edge; else 4 to 20 storeys of 3 units,
-// taller toward the town's middle, and a parapet. terrain.gd computes the same.
-float building_height(vec2 corner, float town) {
-	if (town < 0.1 || road_lot(corner) || hash(corner + 13.0) < 0.1) {
+// The kind of town a place has, by its climate, its ground and the culture of its region (a
+// slow field of 5.1 thousand units): 0 a city of towers, 1 a town of gabled houses in timber
+// frame under tiled roofs, 2 a desert town of mud-brick cubes and domes, 3 a village of dark
+// timber under steep roofs of turf in the cold, 4 a town of white walls under wide tiled roofs
+// with upturned eaves, 6 a whitewashed town with blue domes on a warm coast, 7 round thatched
+// huts on the savanna. terrain.gd computes the same.
+int town_kind(vec2 p, float height) {
+	vec2 air = climate(p);
+	if (air.x > 0.57 && air.y < 0.47) {
+		return 2;
+	}
+	if (air.x < 0.42) {
+		return 3;
+	}
+	float culture = slow(p, 5100.0, 1.1, vec2(3.0, 8.0));
+	if (culture > 0.6) {
+		return 0;
+	}
+	if (air.x > 0.52 && air.y < 0.57) {
+		return 7;
+	}
+	if (air.x > 0.5 && height < SEA + 13.0) {
+		return 6;
+	}
+	return culture < 0.42 ? 4 : 1;
+}
+
+// How tall the walls of a lot's building are, where the town's share is that and its kind is
+// that: none on a road, on a lot left open (one in ten in a city, more in a town or a village),
+// or at a town's thin edge; a city's towers have 4 to 20 storeys of 3 units, taller toward its
+// middle, a town's houses 3 to 5 and a village's 2 or 3. terrain.gd computes the same.
+float building_height(vec2 corner, float town, int kind) {
+	float open = kind == 0 ? 0.1 : (kind == 1 || kind == 4) ? 0.2 : 0.32;
+	if (town < 0.1 || road_lot(corner) || hash(corner + 13.0) < open) {
 		return 0.0;
 	}
 	float lot = hash(corner + 7.0);
-	return 3.0 * floor(4.0 + 11.0 * lot * lot * lot + 5.0 * town * hash(corner + 17.0)) + 1.0;
+	float storeys = kind == 0 ? floor(4.0 + 11.0 * lot * lot * lot + 5.0 * town * hash(corner + 17.0)) : (kind == 3 || kind == 7) ? floor(2.0 + 1.9 * lot) : floor(3.0 + 2.9 * lot);
+	return 3.0 * storeys + 1.0;
 }
 
 // How deep the cloud layer is over a place: cloud shows from a half, and rain falls from 0.68.
