@@ -39,7 +39,7 @@ var fans: Array[Node3D] = []
 var shaft := Node3D.new()
 var chain: Array[ShaderMaterial] = []
 var steer := Node3D.new() # the handlebar, its stem, the fork and the front wheel, which turn in the head tube
-var wings: Array[Array] = [] # for each side: the upper wing, the forearm, the flight feathers' frame, the tip on the grip
+var wings: Array[Array] = [] # for each side: the leading edge's two parts, the flight feathers' roots, the tip on the grip
 var bird := Node3D.new()
 var head := Node3D.new()
 var pouch := Node3D.new()
@@ -243,17 +243,23 @@ func build_bird() -> void:
 	var red := Parts.paint(Color(0.8, 0.05, 0.08), 0.6)
 	Parts.part(head, ball, red, Vector3(0, 0.1, 0.02), Vector3.ZERO, Vector3(0.36, 0.2, 0.38))
 	Parts.part(head, ball, red, Vector3(0, 0.08, -0.2), Vector3(12, 0, 0), Vector3(0.25, 0.03, 0.24))
-	# The wings reach forward to the handlebar and hold its grips: an upper wing from the
-	# shoulder to the elbow and a forearm from there to the grip, laid each frame as the legs
-	# are; black flight feathers trail from the elbow in the wind, and the wing's black tip
-	# is closed around the grip. A fan of a tail.
+	# The wings are stretched forward to the handlebar and hold its grips. A wing's leading
+	# edge runs from the shoulder to the elbow and on to the wrist at the grip, laid each frame
+	# as the legs are; its flight feathers hang from all along that edge and trail in the wind,
+	# black-tipped, longest at the elbow, and its last feathers are closed over the grip.
 	for side: float in [-1.0, 1.0]:
-		var elbow := Node3D.new()
-		rig.add_child(elbow)
-		for feather in 4:
-			plume(elbow, Vector3(side * 0.03, -0.02 - feather * 0.07, 0.02), Vector3(side * 0.2, -0.16 - feather * 0.05, 1.0), Vector3(side, 0.25, 0), Vector2(0.15, 0.66 - feather * 0.07), white, black)
-		wings.append([Parts.coated(coats, rig, ball, white, 0.07, Vector2(30, 36), Vector3.ZERO), Parts.coated(coats, rig, ball, white, 0.06, Vector2(26, 30), Vector3.ZERO), elbow,
-			Parts.part(rig, ball, Parts.paint(black, 0.5), Vector3.ZERO, Vector3.ZERO, Vector3(0.15, 0.12, 0.17))])
+		var feathers: Array[Node3D] = []
+		for feather in 8:
+			var root := Node3D.new()
+			rig.add_child(root)
+			var along := feather / 7.0
+			plume(root, Vector3.ZERO, Vector3(side * (0.25 - 0.1 * along), -0.55 + 0.2 * along, 1.0 - 0.5 * along), Vector3(side, 0.3, 0), Vector2(0.17, 0.62 - 0.3 * absf(along - 0.45)), white, black)
+			feathers.append(root)
+		var tip := Node3D.new()
+		rig.add_child(tip)
+		for finger in 3:
+			plume(tip, Vector3(side * (finger - 1) * 0.05, 0.03, 0.03), Vector3(side * (finger - 1) * 0.25, -0.75, -1.0), Vector3(0, 1, -0.6), Vector2(0.075, 0.2), black, black)
+		wings.append([Parts.coated(coats, rig, ball, white, 0.05, Vector2(26, 30), Vector3.ZERO), Parts.coated(coats, rig, ball, white, 0.045, Vector2(22, 26), Vector3.ZERO), feathers, tip])
 	for feather in 3:
 		plume(bird, Vector3((feather - 1) * 0.1, -1.24, 0.7), Vector3((feather - 1) * 0.3, 0.22, 1.0), Vector3.UP, Vector2(0.17, 0.46), white, Color(0.55, 0.55, 0.6))
 	for feather in 3:
@@ -302,9 +308,12 @@ func pedal(delta: float, fast: float, turn: float) -> void:
 		var grip := steer.transform * (BARS - HEAD_TOP + Vector3(side * 0.35, 0.02, 0))
 		var elbow := (shoulder + grip) / 2.0 + Vector3(side * 0.15, -0.05, 0.08)
 		var wing: Array = wings[index]
-		lay_flat(wing[0], shoulder + (shoulder - elbow) * 0.2, elbow + (elbow - shoulder) * 0.2, side, 0.34, 0.15)
-		lay_flat(wing[1], elbow + (elbow - grip) * 0.2, grip + (grip - elbow) * 0.08, side, 0.25, 0.12)
-		wing[2].position = elbow
+		lay_flat(wing[0], shoulder + (shoulder - elbow) * 0.2, elbow + (elbow - shoulder) * 0.15, side, 0.2, 0.1)
+		lay_flat(wing[1], elbow + (elbow - grip) * 0.15, grip + (grip - elbow) * 0.05, side, 0.15, 0.08)
+		var feathers: Array = wing[2]
+		for feather in feathers.size():
+			var along := feather / 7.0 * 2.0
+			feathers[feather].position = (shoulder.lerp(elbow, along) if along < 1.0 else elbow.lerp(grip, along - 1.0)) + Vector3(0, -0.02, 0.03)
 		wing[3].position = grip
 	for index in 2:
 		var side := index * 2.0 - 1.0

@@ -38,16 +38,19 @@ const BEACON_REACH := 8.0
 const START := Vector2(2250, 4750)
 const WAKE := 64 # the places the wakes keep
 const WAKE_APART := 1.2
-## The camera's views while the corgi flies itself, each for SHOT_SECONDS: where it stands in the
-## flyer's frame, where it looks, and its field of view.
+## The camera's views: where it stands in the flyer's frame, what it aims at, its angle of view,
+## and for how many seconds the flight by itself holds it. The first is the player's. By itself
+## the camera shows the world, from wide views behind, beside, above and ahead of the flyer, and
+## comes close to the flyers for a few seconds a round.
 const SHOTS := [
-	[Vector3(0, 3.6, 11.5), Vector3(0, -0.6, -1.5), 62.0],
-	[Vector3(-10.5, -1.2, -6.0), Vector3(4, -1.4, 1), 56.0],
-	[Vector3(-10.0, -3.4, -8.2), Vector3(0.6, -1.1, 0.4), 46.0],
-	[Vector3(9, 26, 34), Vector3(0, -10, -70), 74.0],
-	[Vector3(5.5, 0.6, -11.5), Vector3(-1, -0.4, 6), 58.0],
+	[Vector3(0, 3.6, 11.5), Vector3(0, -0.6, -1.5), 62.0, 0.0],
+	[Vector3(0, 9, 30), Vector3(0, -2, -30), 68.0, 14.0],
+	[Vector3(-34, 10, 6), Vector3(10, -4, -22), 64.0, 12.0],
+	[Vector3(12, 30, 50), Vector3(0, -12, -80), 74.0, 13.0],
+	[Vector3(-10.0, -3.0, -8.2), Vector3(0.6, -0.9, 0.4), 48.0, 5.0],
+	[Vector3(20, 7, -40), Vector3(-6, -2, 20), 66.0, 11.0],
+	[Vector3(-16, 16, 46), Vector3(4, -8, -70), 70.0, 13.0],
 ]
-const SHOT_SECONDS := 10.0
 ## What an adapter draws, from all of it down: the share of the frame's width and height the
 ## scene is drawn at (and scaled up from, smoothly), whether a pixel has four samples (WebGPU
 ## knows one or four; with one the edges are smoothed after), whether the fog has its shafts
@@ -83,7 +86,7 @@ var legs: Array[MeshInstance3D] = []
 var paws: Array[MeshInstance3D] = []
 var ears: Array[Node3D] = []
 var tail: MeshInstance3D
-var tongue: MeshInstance3D
+var tongue := ShaderMaterial.new() # the corgi's, a cloth in the wind
 var furs: Array[ShaderMaterial] = []
 var cape_material := ShaderMaterial.new()
 var pelican := Pelican.new()
@@ -529,12 +532,23 @@ func build_flyer() -> void:
 	Parts.part(head, ball, white, Vector3(0, -0.14, -0.5), Vector3.ZERO, Vector3(0.56, 0.46, 0.8))
 	Parts.part(head, ball, white, Vector3(0, 0.1, -0.36), Vector3(20, 0, 0), Vector3(0.22, 0.5, 0.5))
 	Parts.part(head, ball, black, Vector3(0, -0.06, -0.9), Vector3.ZERO, Vector3(0.2, 0.15, 0.14))
-	# The mouth, a little open: the lower jaw under the muzzle, dark between them, and the
-	# tongue, which lies in the jaw from the back of the mouth and hangs over its front.
-	var mouth := Parts.paint(Color(0.12, 0.02, 0.03), 0.6)
-	Parts.part(head, ball, mouth, Vector3(0, -0.34, -0.48), Vector3.ZERO, Vector3(0.4, 0.1, 0.62))
-	Parts.part(head, ball, white, Vector3(0, -0.45, -0.44), Vector3(-12, 0, 0), Vector3(0.46, 0.16, 0.66))
-	tongue = Parts.part(head, ball, pink, Vector3(0, -0.39, -0.66), Vector3(-16, 0, 0), Vector3(0.2, 0.045, 0.5))
+	# The mouth: the lower jaw closed under the muzzle, and the tongue, a strip of the cape's
+	# cloth that comes out of the mouth's left side and trails back in the wind.
+	Parts.part(head, ball, white, Vector3(0, -0.4, -0.44), Vector3(-5, 0, 0), Vector3(0.46, 0.16, 0.66))
+	var lick := PlaneMesh.new()
+	lick.size = Vector2.ONE
+	lick.center_offset = Vector3(0, 0, 0.5)
+	lick.subdivide_width = 2
+	lick.subdivide_depth = 10
+	tongue.shader = preload("res://cape.gdshader")
+	tongue.set_shader_parameter("colour", Color(0.9, 0.38, 0.48))
+	tongue.set_shader_parameter("tip", Color(0.96, 0.5, 0.58))
+	tongue.set_shader_parameter("widens", Vector2(1.0, -0.75))
+	tongue.set_shader_parameter("flaps", 0.3)
+	tongue.set_shader_parameter("own", 3.1)
+	var back := Vector3(-0.8, -0.2, 1.0).normalized()
+	var across := Vector3(-0.75, 0.65, 0.0).cross(back).normalized()
+	Parts.part(head, lick, tongue, Vector3.ZERO).transform = Transform3D(Basis(across * 0.24, back.cross(across), back * 0.85), Vector3(-0.06, -0.345, -0.68))
 	var arm := BoxMesh.new()
 	arm.size = Vector3(0.04, 0.05, 0.62)
 	for x: float in [-1.0, 1.0]:
@@ -620,7 +634,6 @@ func ride(delta: float) -> void:
 	for side in 2:
 		ears[side].rotation = Vector3(0.05 + 0.2 * fast + 0.06 * sin(elapsed * 23.0 + side * 2.0) * fast, 0.0, turn * 0.25)
 	tail.rotation.y = sin(elapsed * 11.0) * 0.6
-	tongue.rotation.x = deg_to_rad(-16.0) + 0.05 * sin(elapsed * 5.0)
 	# The jets burn as the pelican pushes: longer and brighter with each stroke of its legs.
 	var push := pelican.stroke()
 	for flame in flames:
@@ -634,7 +647,7 @@ func ride(delta: float) -> void:
 	var air := flyer.global_basis * Vector3(turn * 0.5, 0.0, 0.9 * fast)
 	for fur in furs:
 		fur.set_shader_parameter("wind", air)
-	for cloth: ShaderMaterial in pelican.plumes + [cape_material]:
+	for cloth: ShaderMaterial in pelican.plumes + [cape_material, tongue]:
 		cloth.set_shader_parameter("phase", flutter)
 		cloth.set_shader_parameter("lean", turn)
 	# The wakes keep a place for every stretch flown, the newest at the board's tail: each exactly
@@ -1108,7 +1121,15 @@ static func chime(frequency: float) -> AudioStreamWAV:
 ## The camera trails the board in the player's hands; while the corgi flies itself the camera
 ## glides from one of its views to the next, and never under the ground.
 func follow(delta: float) -> void:
-	var shot: Array = SHOTS[0 if helm else int(elapsed / SHOT_SECONDS) % SHOTS.size()]
+	var shot: Array = SHOTS[0]
+	if not helm:
+		# The round of the flight's own views, by the time flown.
+		var since := fmod(elapsed, 68.0)
+		for index in range(1, SHOTS.size()):
+			shot = SHOTS[index]
+			since -= shot[3]
+			if since < 0.0:
+				break
 	# Each follows a point that follows the next view, so the camera neither sets off nor arrives
 	# at once.
 	var glide := 1.0 - exp(-delta * 1.7)
@@ -1157,7 +1178,7 @@ func follow(delta: float) -> void:
 	sky_material.set_shader_parameter("rains", falls)
 	# In a cloud the air is white.
 	clouded = lerpf(clouded, in_cloud(camera.position), 1.0 - exp(-delta * 1.5))
-	environment.fog_density = lerpf(0.0006, 0.03, clouded)
+	environment.fog_density = lerpf(0.0006, 0.018, clouded)
 	# A drop falls 22 units a second and a flake 2.6. The wind carries them, and the flight
 	# slants them back by no more than half of their fall, so on the screen they come down.
 	shower.visible = falls > 0.004
@@ -1191,7 +1212,7 @@ func in_cloud(place: Vector3) -> float:
 			var beside := Vector2(place.x, place.z).distance_to(at) / radius
 			if beside > 1.6:
 				continue
-			var base := maxf(Terrain.SEA + 100.0 + 45.0 * Terrain.cell_hash(x + 9, y + 9) + 14.0 * Terrain.cell_hash(x + puff * 3 + 3, y + 8), Terrain.surface(at) + 50.0)
+			var base := maxf(Terrain.SEA + 135.0 + 50.0 * Terrain.cell_hash(x + 9, y + 9) + 14.0 * Terrain.cell_hash(x + puff * 3 + 3, y + 8), Terrain.surface(at) + 50.0)
 			var over := (place.y - base) / radius / (0.25 if place.y < base else 0.6)
 			deep = maxf(deep, 1.6 - sqrt(beside * beside + over * over))
 	return clampf(deep * 1.3, 0.0, 1.0)

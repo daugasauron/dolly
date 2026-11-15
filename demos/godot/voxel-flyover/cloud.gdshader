@@ -38,7 +38,7 @@ void vertex() {
 	vec2 place = at + offset;
 	float ground_height = max(ground_here(place).x, SEA);
 	float radius = (mist ? 75.0 + 60.0 * hash(seed + 2.0) : 24.0 + 30.0 * hash(seed + 2.0)) * cover;
-	float base = mist ? ground_height + 2.0 : max(SEA + 100.0 + 45.0 * hash(number * 16.0 + 9.0) + 14.0 * hash(seed + 3.0), ground_height + 50.0);
+	float base = mist ? ground_height + 2.0 : max(SEA + 135.0 + 50.0 * hash(number * 16.0 + 9.0) + 14.0 * hash(seed + 3.0), ground_height + 50.0);
 	// Mist lies on the sea and the low ground only.
 	if (mist) {
 		radius *= (1.0 - smoothstep(SEA + 5.0, SEA + 14.0, ground_height)) * thick;
