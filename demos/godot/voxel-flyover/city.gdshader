@@ -13,6 +13,7 @@ render_mode cull_disabled;
 #include "res://ground.gdshaderinc"
 
 uniform float city_reach = 528.0; // how far from the flyer the buildings are drawn
+uniform bool coarse = false; // the far buildings' mesh, whose roof is 2 by 2 squares
 
 varying flat vec3 tint;
 varying flat float own; // the building's number
@@ -24,6 +25,28 @@ varying vec3 world;
 varying vec3 facing;
 varying vec2 on_roof;
 varying float roof;
+
+// How far a roof of a kind rises over its walls at a place of it (between -0.5 and 0.5 each way).
+float roof_rise(vec2 at, int of_kind, float is_domed, bool turned, float span, float least) {
+	float across = abs(turned ? at.y : at.x) * 2.0;
+	float out_to = max(abs(at.x), abs(at.y)) * 2.0;
+	if (is_domed > 0.5) {
+		return sqrt(max(1.0 - 4.0 * dot(at, at), 0.0)) * 0.5 * least;
+	}
+	if (of_kind == 1) {
+		return (1.0 - across) * 0.5 * span;
+	}
+	if (of_kind == 3) {
+		return (1.0 - across) * 0.95 * span;
+	}
+	if (of_kind == 4) {
+		return pow(1.0 - out_to, 1.6) * 0.5 * least + 1.6 * pow(abs(at.x * at.y) * 4.0, 2.0);
+	}
+	if (of_kind == 7) {
+		return (1.0 - min(length(at) * 2.0, 1.0)) * least;
+	}
+	return 0.0;
+}
 
 void vertex() {
 	vec2 corner = floor(MODEL_MATRIX[3].xz / LOT) * LOT;
@@ -59,28 +82,23 @@ void vertex() {
 		VERTEX = vec3(VERTEX.x * wide.x, (VERTEX.y + 0.5) * (tall + 8.0), VERTEX.z * wide.y) + vec3(centre.x, here.x - 8.0, centre.y) - MODEL_MATRIX[3].xyz;
 	} else {
 		// The roof, by the kind: how far it rises over the walls at this place of it, and how
-		// far its eaves stand out.
+		// far its eaves stand out. Far buildings have a roof of 2 by 2 squares; a near one's 4
+		// by 4 take that shape before the far ones begin, so nothing changes where they meet.
 		bool turned = hash(corner + 23.0) > 0.5;
-		vec2 at = turned ? VERTEX.zx : VERTEX.xz;
 		float span = turned ? wide.y : wide.x;
-		float out_to = max(abs(VERTEX.x), abs(VERTEX.z)) * 2.0;
-		float rise = 0.0;
-		float eaves = 1.0;
-		if (domed > 0.5) {
-			rise = sqrt(max(1.0 - 4.0 * dot(VERTEX.xz, VERTEX.xz), 0.0)) * 0.5 * min(wide.x, wide.y);
-		} else if (kind == 1) {
-			rise = (1.0 - abs(at.x) * 2.0) * 0.5 * span;
-			eaves = 1.1;
-		} else if (kind == 3) {
-			rise = (1.0 - abs(at.x) * 2.0) * 0.95 * span;
-			eaves = 1.12;
-		} else if (kind == 4) {
-			rise = pow(1.0 - out_to, 1.6) * 0.5 * min(wide.x, wide.y) + 1.6 * pow(abs(VERTEX.x * VERTEX.z) * 4.0, 2.0);
-			eaves = 1.34;
-		} else if (kind == 7) {
-			rise = (1.0 - min(length(VERTEX.xz) * 2.0, 1.0)) * 1.0 * min(wide.x, wide.y);
-			eaves = 1.3;
+		float least = min(wide.x, wide.y);
+		float rise = roof_rise(VERTEX.xz, kind, domed, turned, span, least);
+		float plain = coarse ? 1.0 : smoothstep(360.0, 500.0, away);
+		if (plain > 0.0 && !coarse) {
+			// What the 2 by 2 roof is here: between its nearest points, which are a half apart.
+			vec2 square = clamp(floor(VERTEX.xz * 2.0 + 1.0), 0.0, 1.0);
+			vec2 within = VERTEX.xz * 2.0 + 1.0 - square;
+			vec2 from = (square - 1.0) * 0.5;
+			float flat_rise = mix(mix(roof_rise(from, kind, domed, turned, span, least), roof_rise(from + vec2(0.5, 0.0), kind, domed, turned, span, least), within.x),
+				mix(roof_rise(from + vec2(0.0, 0.5), kind, domed, turned, span, least), roof_rise(from + vec2(0.5, 0.5), kind, domed, turned, span, least), within.x), within.y);
+			rise = mix(rise, flat_rise, plain);
 		}
+		float eaves = domed > 0.5 ? 1.0 : kind == 1 ? 1.1 : kind == 3 ? 1.12 : kind == 4 ? 1.34 : kind == 7 ? 1.3 : 1.0;
 		VERTEX = vec3(VERTEX.x * wide.x * eaves, tall + rise * low, VERTEX.z * wide.y * eaves) + vec3(centre.x, here.x, centre.y) - MODEL_MATRIX[3].xyz;
 	}
 	world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;

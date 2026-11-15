@@ -9,6 +9,7 @@ extends Node3D
 ## starts at that hour of 24. Q prints how far the flight went and where the view was turned.
 
 const Terrain := preload("res://terrain.gd")
+const Landmarks := preload("res://landmarks.gd")
 const Parts := preload("res://parts.gd")
 const Pelican := preload("res://pelican.gd")
 ## The grids of land around the flyer, each around the one before: cells across, a cell's width.
@@ -27,6 +28,7 @@ const GROVES := [
 ## The trees that cast the shadows, in one grid of plain crowns: a shadow needs no more.
 const SHADES := [128, 3, Vector4(-2, -1, 200, 232)]
 const CITY_REACH := 100 # the lots a town's buildings are drawn to, each way from the flyer
+const CITY_NEAR := 33 # the lots that have the whole mesh
 const CLOUD_CELL := 240.0 # a cell of the low clouds' grid (cloud.gdshader's)
 const DAY_SECONDS := 120.0
 const YEAR_DAYS := 3.0 # a year's seasons pass in so many days
@@ -66,7 +68,7 @@ const LEVELS := [
 	[0.6, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 160.0, 8, 2],
 	[0.55, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 120.0, 6, 2],
 	[0.5, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 90.0, 5, 2],
-	[0.4, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 90.0, 5, 2],
+	[0.38, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 90.0, 5, 2],
 ]
 const FRAME_BUDGET := 14.0 # milliseconds of the GPU: over it the display's 60 a second are lost
 
@@ -79,7 +81,7 @@ var lands: Array[MeshInstance3D] = []
 var grounds: Array[SubViewport] = [] # each grid's ground, for the shaders to read
 var groves: Array[MultiMeshInstance3D] = []
 var water := MeshInstance3D.new()
-var city: MultiMeshInstance3D # a building for each lot around the flyer
+var cities: Array[MultiMeshInstance3D] = [] # the towns' buildings, a lot each: the near ones, and the far
 var flyer := Node3D.new()
 var dog := Node3D.new()
 var head := Node3D.new()
@@ -132,6 +134,7 @@ var hint_until := 0.0 # the keys show for a while after the board changes hands
 var day := 0.24
 var year := 0.3 # 0 the first of spring, 0.25 of summer, 0.5 of autumn, 0.75 of winter
 var falls := 0.0 # the rain or snow over the camera
+var landmarks := {} # plot -> the landmark built there, or null
 var clouds: Array[MultiMeshInstance3D] = [] # the low clouds, and the mist
 var clouded := 0.0 # how deep in a cloud the camera is
 var falling := ShaderMaterial.new() # the drops and flakes around the camera
@@ -200,16 +203,24 @@ func _ready() -> void:
 		materials[-1].set_shader_parameter("ring", grove[2])
 		groves[-1].cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY if grove == SHADES else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		materials[-1].set_shader_parameter("sinks", grove == SHADES or grove == GROVES[-1])
-	city = build_grid(house_mesh(), 2 * CITY_REACH, Terrain.LOT, reads_ground(preload("res://city.gdshader"), 1))
-	# Its lots are in the order of their distance from the middle, so the first so many are
-	# those within a distance: a weak adapter draws the nearer ones (set_level).
-	var rings := PackedFloat32Array()
-	for ring in CITY_REACH:
-		for x in range(-ring - 1, ring + 1):
-			for z in range(-ring - 1, ring + 1):
-				if maxi(x if x >= 0 else -x - 1, z if z >= 0 else -z - 1) == ring:
-					rings.append_array([1, 0, 0, (x + 0.5) * Terrain.LOT, 0, 1, 0, 0, 0, 0, 1, (z + 0.5) * Terrain.LOT])
-	city.multimesh.buffer = rings
+	# The towns' buildings: the lots within CITY_NEAR of the flyer each way have the whole
+	# mesh, those beyond to CITY_REACH one with a plainer roof. The far lots are in the order
+	# of their distance, so the first so many are those within a distance: a weak adapter
+	# draws fewer (set_level).
+	for far: bool in [false, true]:
+		var town := build_grid(house_mesh(2 if far else 4), 2, Terrain.LOT, reads_ground(preload("res://city.gdshader"), 1))
+		(town.material_override as ShaderMaterial).set_shader_parameter("coarse", far)
+		var rings := PackedFloat32Array()
+		for ring in range(CITY_NEAR if far else 0, CITY_REACH if far else CITY_NEAR):
+			for x in range(-ring - 1, ring + 1):
+				for z in range(-ring - 1, ring + 1):
+					if maxi(x if x >= 0 else -x - 1, z if z >= 0 else -z - 1) == ring:
+						rings.append_array([1, 0, 0, (x + 0.5) * Terrain.LOT, 0, 1, 0, 0, 0, 0, 1, (z + 0.5) * Terrain.LOT])
+		town.multimesh.instance_count = rings.size() / 12
+		town.multimesh.buffer = rings
+		var half := CITY_REACH * Terrain.LOT
+		town.custom_aabb = AABB(Vector3(-half, 0, -half), Vector3(half * 2.0, 500, half * 2.0))
+		cities.append(town)
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(8000, 8000)
 	water.mesh = plane
@@ -251,6 +262,7 @@ func _ready() -> void:
 	shower.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(shower)
 	flyer.position = Vector3(START.x, Terrain.surface(START) + 30.0, START.y)
+	warm_up()
 	trail = flyer.position
 	camera.position = flyer.position + view
 	wake.resize(WAKE)
@@ -290,11 +302,14 @@ func set_level(to: int) -> void:
 		groves[grove].visible = grove < drawn
 		(groves[grove].material_override as ShaderMaterial).set_shader_parameter("sinks", grove == drawn - 1)
 	groves[-1].visible = drawn == GROVES.size()
-	city.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if level < 3 else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	cities[0].cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if level < 3 else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	cities[1].cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	shower.multimesh.visible_instance_count = 9000 if level < 3 else 3600
 	# How far a town's buildings are drawn: 1,600 units, less on a weak adapter.
-	var lots: int = [CITY_REACH, CITY_REACH, 72, 52, 40, 33, 33][level]
-	city.multimesh.visible_instance_count = 4 * lots * lots
+	var lots: int = [CITY_REACH, CITY_REACH, 72, 52, 40, 33, 26][level]
+	cities[0].multimesh.visible_instance_count = 4 * mini(lots, CITY_NEAR) * mini(lots, CITY_NEAR)
+	cities[1].visible = lots > CITY_NEAR
+	cities[1].multimesh.visible_instance_count = 4 * (lots * lots - CITY_NEAR * CITY_NEAR)
 	tell("city_reach", lots * Terrain.LOT)
 	# A weak adapter has the dawn's haze without its banks of mist.
 	clouds[1].visible = level < 5
@@ -403,8 +418,8 @@ func reads_ground(shader: Shader, ring: int) -> ShaderMaterial:
 
 
 ## A building before city.gdshader shapes it: four walls of a unit box, and over them a roof of
-## 4 by 4 squares, marked by its colour.
-static func house_mesh() -> ArrayMesh:
+## so many squares each way, marked by its colour.
+static func house_mesh(squares: int) -> ArrayMesh:
 	var tool := SurfaceTool.new()
 	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
 	tool.set_color(Color.BLACK)
@@ -416,10 +431,10 @@ static func house_mesh() -> ArrayMesh:
 			tool.add_vertex(out * 0.5 + along * 0.5 * corner.x + Vector3.UP * 0.5 * corner.y)
 	tool.set_color(Color.RED)
 	tool.set_normal(Vector3.UP)
-	for x in 4:
-		for z in 4:
+	for x in squares:
+		for z in squares:
 			for corner: Vector2 in [Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 0), Vector2(1, 1), Vector2(0, 1)]:
-				tool.add_vertex(Vector3((x + corner.x) / 4.0 - 0.5, 0.5, (z + corner.y) / 4.0 - 0.5))
+				tool.add_vertex(Vector3((x + corner.x) / squares - 0.5, 0.5, (z + corner.y) / squares - 0.5))
 	tool.index()
 	return tool.commit()
 
@@ -835,6 +850,7 @@ func _process(delta: float) -> void:
 	set_day()
 	fly(delta)
 	tend_beacons(delta)
+	tend_landmarks()
 	follow(delta)
 	speed_lines.set_shader_parameter("rush", clampf((speed - CRUISE - 4.0) / 30.0, 0.0, 1.0))
 	speed_lines.set_shader_parameter("clock", elapsed)
@@ -922,7 +938,8 @@ func fly(delta: float) -> void:
 	var among := Vector2(snappedf(flyer.position.x, PLOT * 4.0), snappedf(flyer.position.z, PLOT * 4.0))
 	for grove in groves:
 		grove.position = Vector3(among.x, 0.0, among.y)
-	city.position = Vector3(among.x, 0.0, among.y)
+	for town in cities:
+		town.position = Vector3(among.x, 0.0, among.y)
 	# The clouds drift with the wind.
 	tell("adrift", WIND * elapsed * 4.0)
 	tell("flyer", Vector2(flyer.position.x, flyer.position.z))
@@ -979,6 +996,57 @@ func fly_flock(delta: float, forward: Vector3) -> float:
 		birds[bird] = birds[bird].lerp(slot, 1.0 - exp(-delta * (5.0 - row * 0.3)))
 		flock.multimesh.set_instance_transform(bird, Transform3D(Basis(Vector3.UP, -heading), birds[bird]))
 	return 5.0 * smoothstep(0.0, 2.0, flock_with) * (1.0 - smoothstep(14.0, 16.0, flock_with))
+
+
+## What is first drawn late in a flight (a thermal over a town, a lighthouse's beam) would have
+## its pipeline made then, in a frame of 160 ms. Each is drawn once at the start, unseen, in a
+## card under the board, for three seconds.
+func warm_up() -> void:
+	var card := QuadMesh.new()
+	card.size = Vector2.ONE * 0.01
+	var air := ShaderMaterial.new()
+	air.shader = preload("res://thermal.gdshader")
+	var beam := StandardMaterial3D.new()
+	beam.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	beam.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	beam.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	beam.cull_mode = BaseMaterial3D.CULL_DISABLED
+	beam.albedo_color = Color(1, 1, 1, 0)
+	var warm := Node3D.new()
+	flyer.add_child(warm)
+	for material: Material in [air, beam]:
+		Parts.part(warm, card, material, Vector3(0, -0.2, 0)).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	get_tree().create_timer(3.0).timeout.connect(warm.queue_free)
+
+
+## Keeps the landmarks of the 49 plots around the flyer: builds one a frame as plots come near,
+## frees those left behind, and lets each grow out of the distance.
+func tend_landmarks() -> void:
+	var here := Vector2(flyer.position.x, flyer.position.z)
+	var middle := Vector2i((here / Terrain.MARK_PLOT).floor())
+	for plot: Vector2i in landmarks.keys():
+		if absi(plot.x - middle.x) > 3 or absi(plot.y - middle.y) > 3:
+			if landmarks[plot]:
+				landmarks[plot].queue_free()
+			landmarks.erase(plot)
+	var built := false
+	for x in range(middle.x - 3, middle.x + 4):
+		for y in range(middle.y - 3, middle.y + 4):
+			var plot := Vector2i(x, y)
+			if built or landmarks.has(plot):
+				continue
+			var found := Terrain.landmark(plot)
+			landmarks[plot] = null
+			if not found.is_empty():
+				var mark := Landmarks.build(found)
+				mark.set_meta("rests", mark.position.y)
+				add_child(mark)
+				landmarks[plot] = mark
+				built = true
+	for plot: Vector2i in landmarks:
+		var mark: Node3D = landmarks[plot]
+		if mark:
+			Landmarks.tend(mark, elapsed, night_share, 1.0 - smoothstep(700.0, 880.0, Vector2(mark.position.x, mark.position.z).distance_to(here)))
 
 
 ## Keeps the thermals of the plots around the flyer: over a town, by day, a column of warm air
@@ -1217,7 +1285,7 @@ func follow(delta: float) -> void:
 	environment.fog_density = lerpf(0.0006, 0.01, clouded)
 	# A drop falls 22 units a second and a flake 2.6. The wind carries them, and the flight
 	# slants them back by no more than half of their fall, so on the screen they come down.
-	shower.visible = falls > 0.004
+	shower.visible = falls > 0.004 or elapsed < 3.0
 	shower.position = camera.position
 	for kind in 2:
 		var fall := 2.6 if kind == 1 else 22.0

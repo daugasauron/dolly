@@ -137,7 +137,76 @@ static func building_top(corner: Vector2) -> float:
 	return ground + 3.0 * floorf(2.0 + 1.9 * own if kind == 3 or kind == 7 else 3.0 + 2.9 * own) + 1.0 + 10.0
 
 
-## What a flight looks ahead for: the surface, or the roof of the building whose lot the place
-## is in.
+const MARK_PLOT := 260.0 # a plot of the world has one landmark at most
+enum { LIGHTHOUSE, WINDMILL, TOWER, ARCH, MUSHROOMS, STONES, CRYSTALS, GATE, FLOATING }
+static var marks := {} # plot -> its landmark, found once
+
+
+## How settled a place is (terrain.gdshaderinc's): a town over 0.58, its fields from 0.5.
+static func settled(p: Vector2) -> float:
+	return fbm(p / 760.0 + Vector2(400.0, 109.0), 2)
+
+
+## The landmark of a plot of the world, by what its place is: [where, the height of its foot,
+## its kind, the kind of its town, how far it rises, how wide it is, a number of its own]; empty
+## where the plot has none. Most plots have none; in a realm of wonders (a slow field of 53
+## thousand units over 0.72, a tenth of the world) mushrooms, crystals and floating islands are
+## six times as frequent. landmarks.gd builds them.
+static func landmark(plot: Vector2i) -> Array:
+	if marks.has(plot):
+		return marks[plot]
+	if marks.size() > 600:
+		marks.clear()
+	var found: Array = []
+	var own := cell_hash(plot.x + 71, plot.y + 37)
+	var chance := cell_hash(plot.x + 15, plot.y + 83)
+	var p := (Vector2(plot) + Vector2(0.2, 0.2) + Vector2(cell_hash(plot.x + 5, plot.y + 90), cell_hash(plot.x + 60, plot.y + 12)) * 0.6) * MARK_PLOT
+	var ground := height(p)
+	var wonder := 1.0 + 5.0 * smoothstep(0.72, 0.82, slow(p, 53000.0, 0.9, Vector2(65.0, 80.0)))
+	if ground < SEA:
+		if chance < 0.04 * wonder:
+			found = [p, SEA + 215.0 + 60.0 * own, FLOATING, 0, 0.0, 0.0, own]
+	else:
+		var air := climate(p)
+		var share := town(p, ground)
+		var people := settled(p)
+		var around := [height(p + Vector2(50, 0)), height(p - Vector2(50, 0)), height(p + Vector2(0, 50)), height(p - Vector2(0, 50))]
+		var level: bool = absf(around[0] - around[1]) + absf(around[2] - around[3]) < 22.0
+		if share > 0.5:
+			if chance < 0.8:
+				p = (p / LOT).floor() * LOT + Vector2(LOT, LOT) / 2.0
+				ground = height(p)
+				var kind := town_kind(p, ground)
+				found = [p, ground, TOWER, kind, [82.0, 34.0, 33.0, 29.0, 38.0, 0.0, 23.0, 19.0][kind], 8.0, own]
+		elif level and ground > SEA + 2.0 and ground < SEA + 10.0 and around.min() < SEA - 1.0:
+			if chance < 0.75:
+				found = [p, ground, LIGHTHOUSE, 0, 31.0, 5.0, own]
+		elif level and people > 0.5 and people < 0.58 and ground < SEA + 46.0:
+			if chance < 0.7:
+				found = [p, ground, WINDMILL, 0, 27.0, 12.0, own]
+		elif level and air.x > 0.57 and air.y < 0.47:
+			if chance < 0.4:
+				found = [p, ground, ARCH, 0, 1.05 * (18.0 + 22.0 * own), 20.0 + 24.0 * own, own]
+		elif air.y > 0.6 and ground < SEA + 8.0 and share < 0.02:
+			if chance < 0.45 * wonder:
+				found = [p, ground, MUSHROOMS, 0, 34.0, 18.0, own]
+		elif level and air.x < 0.42 and ground < SEA + 70.0 and chance < 0.3:
+			found = [p, ground, STONES, 0, 9.0, 13.0, own]
+		elif ground > SEA + 60.0 and ground < SEA + 140.0 and chance < 0.25 * wonder:
+			found = [p, ground, CRYSTALS, 0, 28.0, 13.0, own]
+		elif chance < 0.05 * wonder:
+			found = [p, maxf(ground + 190.0, SEA + 230.0) + 40.0 * own, FLOATING, 0, 0.0, 0.0, own]
+		elif level and chance < 0.14 and ground < SEA + 50.0:
+			found = [p, ground, GATE, 0, 12.0, 7.0, own]
+	marks[plot] = found
+	return found
+
+
+## What a flight looks ahead for: the surface, the roof of the building whose lot the place is
+## in, or the top of the landmark that stands there.
 static func roof(p: Vector2) -> float:
-	return maxf(surface(p), building_top((p / LOT).floor() * LOT))
+	var top := maxf(surface(p), building_top((p / LOT).floor() * LOT))
+	var mark := landmark(Vector2i((p / MARK_PLOT).floor()))
+	if not mark.is_empty() and mark[2] != FLOATING and p.distance_to(mark[0]) < mark[5] + 4.0:
+		top = maxf(top, mark[1] + mark[4])
+	return top
