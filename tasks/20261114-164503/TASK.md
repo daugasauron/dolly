@@ -1,14 +1,8 @@
 # 0.1.7: npm installs again (a package name npm refused broke 0.1.6)
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: npm,release,0.1.7
-
-## State (2026-11-15 02:00)
-
-The fix and the version are on `release/0.1.7`; the 0.1.7 round builds and tests them. Left: the
-round, the release checklist, the npm publish (the owner's approvals: npm takes no token from this
-account, below), and a mouse-look check of Airtime in a browser.
 
 ## What happened
 
@@ -39,3 +33,13 @@ on and npm's browser sign-in, approved on the owner's phone (`work/release-0.1.6
 
 `npm install @daugasauron/dolly-build@0.1.7` and the npm guide's flow work from the registry, every
 0.1.7 package on npm holds its tested tarball's bytes, and `latest` is 0.1.7.
+
+## Closed (2026-11-15)
+
+Released as `v0.1.7` (`8a99bb4ea`; the demos page merged at `b09b1e243`). The owner published the
+63 packages with `work/release-0.1.7-npm-web.sh` in the packager's order; the registry holds each
+tested tarball's bytes (its check: "every package is published at 0.1.7, byte for byte the tested
+tarball"), and `latest` is 0.1.7. From the registry: `npm install @daugasauron/dolly-build@0.1.7`
+added 22 packages with `dolly-package-libdolly-save`, Janis and Pi; `npx dolly-build init my-pi
+git python` and `npx dolly-build Dollyfile-my-pi my-pi` built the site in 351 s, which booted
+in Chrome. Airtime's mouse look in a browser is left to `tasks/20261115-115901-airtime-mouse`.
