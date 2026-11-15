@@ -9,7 +9,7 @@ uniform float reach = 180.0; // the grid reaches at least this far from the flye
 uniform vec2 flyer; // where the flyer is over the ground
 
 vec4 ground_in(sampler2D map, vec2 p, float size) {
-	return textureLod(map, (p / size + 0.5) / vec2(textureSize(map, 0)), 0.0);
+	return textureLod(map, (p / size + 0.5) / vec2(textureSize(map, 0)), 0.0) + vec4(HEIGHT_KEPT, 0.0, 0.0, 0.0);
 }
 
 // How much of the ground at a place is the grid's own: all of it near the flyer, none past its reach.

@@ -13,5 +13,6 @@ uniform vec2 first; // the grid's first point, in cells
 
 void fragment() {
 	vec2 p = (first + mod(floor(UV * texels) - first, texels)) * cell;
-	COLOR = vec4(terrain_height(p), climate(p), 1.0);
+	// The height is kept around the middle of what it may be: a half float is finer near zero.
+	COLOR = vec4(terrain_height(p) - HEIGHT_KEPT, climate(p), 1.0);
 }

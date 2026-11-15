@@ -862,7 +862,7 @@ func fly(delta: float) -> void:
 			wanted_speed += BOOST
 		# The ground pushes the board up, and its ceiling holds it down.
 		wanted_climb = maxf(wanted_climb, (ground + (8.0 if over_sea else 14.0) - flyer.position.y) * 2.0)
-		wanted_climb = minf(wanted_climb, (CEILING - flyer.position.y) * 2.0)
+		wanted_climb = minf(wanted_climb, (maxf(CEILING, ground + 45.0) - flyer.position.y) * 2.0)
 	else:
 		# A wandering course at a steady height over the ground ahead, by way of the next beacon.
 		wanted_turn = sin(flown * 0.0037) * 0.5 + sin(flown * 0.0013 + 1.0) * 0.4
@@ -1192,7 +1192,7 @@ func follow(delta: float) -> void:
 	sky_material.set_shader_parameter("rains", falls)
 	# In a cloud the air is white.
 	clouded = lerpf(clouded, in_cloud(camera.position), 1.0 - exp(-delta * 1.5))
-	environment.fog_density = lerpf(0.0006, 0.018, clouded)
+	environment.fog_density = lerpf(0.0006, 0.01, clouded)
 	# A drop falls 22 units a second and a flake 2.6. The wind carries them, and the flight
 	# slants them back by no more than half of their fall, so on the screen they come down.
 	shower.visible = falls > 0.004

@@ -3,6 +3,7 @@
 const float SEA = 24.0;
 const float CLOUD_HEIGHT = 520.0;
 const float LOT = 16.0; // a building's lot
+const float HEIGHT_KEPT = 110.0; // the height the ground's textures keep as zero
 
 // What main.gd tells every shader each frame.
 uniform float clock = 0.0; // seconds flown
@@ -69,22 +70,59 @@ float ridge(vec2 p) {
 	return n * n;
 }
 
-// The ground's height: sea and continents, hills, and ranges of mountains where the land allows
-// them, whose spurs stand on their crests and whose gullies on their spurs.
+// A slow field of the world: two octaves of noise at a size of its own, turned and placed by
+// itself. The fields' sizes have no common measure (1.9, 2.7, 7.3, 11, 19 and 53 thousand
+// units), so their combinations do not come round again. Half of a field is under 0.5, a tenth
+// over 0.73, a twentieth over 0.78, a hundredth over 0.86: what is rare is a threshold on one.
+float slow(vec2 p, float size, float turn, vec2 place) {
+	return fbm(vec2(cos(turn) * p.x - sin(turn) * p.y, sin(turn) * p.x + cos(turn) * p.y) / size + place, 2);
+}
+
+// How much of a massif a place is: a country of high mountains, rare, 19 thousand units a field.
+float massif_at(vec2 p) {
+	return smoothstep(0.72, 0.83, slow(p, 19000.0, 0.3, vec2(64.0, 22.0)));
+}
+
+// How far from a river's middle a place is, as a share of a noise whose contour the river
+// follows: a river is under 0.012 of it and its valley under 0.1. The contour meanders with a
+// second noise.
+float river_at(vec2 p) {
+	vec2 q = p / 900.0 + 0.35 * vec2(noise(p / 310.0 + vec2(7.0, 3.0)), noise(p / 310.0 + vec2(51.0, 23.0)));
+	return abs(noise(q + vec2(140.0, 77.0)) - 0.5);
+}
+
+// The ground's height. Seas and continents come at three sizes: oceans and continents of 7.3
+// thousand units, lands of 2.7 thousand in them, and the coasts, bays and islands of 520; in an
+// ocean only the highest of the last stand out, as islands. On the land, hills, and ranges of
+// mountains whose spurs stand on their crests and whose gullies on their spurs; the relief of a
+// region (1.9 thousand units) makes its ranges low or high, and in a massif they are more than
+// twice as high on a raised base. Rivers at the sea's level run in valleys through the low
+// land and narrow to their springs in the hills. terrain.gd computes the same.
 float terrain_height(vec2 p) {
-	float land = smoothstep(0.36, 0.52, fbm(p / 520.0, 3));
+	float shift = (slow(p, 7300.0, 0.7, vec2(34.0, 62.0)) - 0.5) * 0.9 + (slow(p, 2700.0, 1.9, vec2(104.0, 42.0)) - 0.5) * 0.5;
+	float relief = mix(0.3, 1.0, smoothstep(0.3, 0.5, slow(p, 1900.0, 2.6, vec2(38.0, 77.0))));
+	float massif = massif_at(p);
+	float land = smoothstep(0.36, 0.52, fbm(p / 520.0, 3) + shift);
 	float hills = fbm(p / 130.0 + vec2(17.0, 5.0), 4);
-	float ranges = smoothstep(0.36, 0.58, fbm(p / 640.0 + vec2(80.0, 31.0), 2));
+	float ranges = smoothstep(0.36, 0.58, fbm(p / 640.0 + vec2(80.0, 31.0), 2) + 0.3 * massif);
 	vec2 q = p / 260.0 + vec2(40.0, 12.0);
 	float crest = ridge(q);
 	float spur = ridge(q * 2.3 + vec2(9.0, 77.0)) * crest;
 	float peaks = crest * 0.6 + spur * 0.3 + ridge(q * 5.1 + vec2(3.0, 41.0)) * spur * 0.16;
-	return SEA - 13.0 + land * 16.0 + hills * 22.0 * (0.35 + land) + peaks * 125.0 * land * ranges;
+	float height = SEA - 13.0 - 24.0 * smoothstep(-0.05, -0.3, shift) + land * (16.0 + 45.0 * massif) + hills * 22.0 * (0.35 + land) + peaks * 125.0 * land * ranges * (relief + 1.5 * massif);
+	float gate = (1.0 - smoothstep(SEA + 45.0, SEA + 90.0, height)) * step(SEA - 2.5, height);
+	if (gate > 0.0) {
+		float valley = smoothstep(0.012 * gate, 0.1, river_at(p));
+		height = mix(height, SEA - 2.5 + (height - SEA + 2.5) * valley, gate);
+	}
+	return height;
 }
 
-// x: warmth, y: moisture, both between 0 and 1.
+// x: warmth, y: moisture, both between 0 and 1. Each has its region of 19 and of 11 thousand
+// units: cold countries and hot ones, wet ones and dry.
 vec2 climate(vec2 p) {
-	return vec2(fbm(p / 900.0 + vec2(211.0, 57.0), 2), fbm(p / 560.0 + vec2(13.0, 143.0), 2));
+	return vec2(fbm(p / 900.0 + vec2(211.0, 57.0), 2) + (slow(p, 19000.0, 1.3, vec2(37.0, 14.0)) - 0.5) * 0.55,
+		fbm(p / 560.0 + vec2(13.0, 143.0), 2) + (slow(p, 11000.0, 2.2, vec2(89.0, 44.0)) - 0.5) * 0.45);
 }
 
 // How settled a place is: over 0.58 a town stands, and around it, from 0.5, its fields lie.
