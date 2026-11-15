@@ -33,22 +33,24 @@
     Opus 5.5 at high effort working in Dolly, recorded on 1 and 2 November 2026. Each video's caption bar names its
     speed-ups.</p>
   <h2><a href="../godot-voxel-flyover/">Voxel Flyover</a>: a world computed by the GPU</h2>
-  <p class="lead">A Godot game made for Dolly, recorded on 15 November 2026: a corgi on a jet surfboard flies over an
+  <p class="lead">A Godot game made for Dolly, recorded on 16 November 2026: a corgi on a jet surfboard flies over an
     endless world through a day and a night, and under the board a pelican on a bicycle pedals for the jets, its
-    wings on the handlebar. The world is one function in a shader, of the place and the clock: mountains, forests,
-    deserts with veins of lava, savanna, marshes, towns of blocks between avenues with fields around them, a year
-    of seasons, low clouds to fly through, mist at dawn, and rain and snow that fall around the camera. As the
-    flight goes on, a pass draws the ground into textures, the vertex stages raise grids of land to it and stand
-    trees and buildings on it, and nothing of the world is stored. The flight is pointless and keeps what it gains:
-    a dive gives speed, the wind, a thermal over a town and a flock of birds carry the board, and a lit beacon
-    melts the snow around it. Godot 4.7's Forward+ renderer draws it at 1920 by 1080 on gpu@0, with shadows, 4x
-    MSAA, glow, SSAO and volumetric fog; on a weak GPU the game draws less of it at an even rate.</p>
+    wings on the handlebar. The world is one function in a shader, of the place and the clock, and large: oceans
+    with islands, continents, rivers in valleys, plains, hills, and rare countries of high mountains, by slow fields
+    whose sizes have no common measure, so their combinations do not come round again. On it stand towns of eight
+    kinds by their climate and region, from cities of towers to villages on posts over the water, with fields and
+    terraces around them; landmarks, a lighthouse here, a windmill, a ring of stones, an island that floats; and
+    there is life: boats, gulls, geese, balloons, whales. A year of seasons, clouds to fly through, rain that falls
+    from them, mist at dawn, a sunset in bands of fire and rose. Nothing of the world is stored: as the flight goes
+    on, a pass draws the ground into textures and the vertex stages raise land, trees and buildings to it. The
+    flight is pointless and keeps what it gains; a beacon gives a push of speed as it is lit. Godot 4.7's Forward+
+    renderer draws it at 1920 by 1080 on gpu@0; on a weak GPU the game draws less of it at an even rate.</p>
   <div class="grid">
     <article>
       <video controls playsinline preload="none" poster="posters/voxel-flyover.jpg" aria-label="Voxel Flyover recording"><source src="videos/voxel-flyover.mp4" type="video/mp4"></video>
       <div>
         <h3>From dawn into night</h3>
-        <p>The godot-voxel-flyover image: the corgi flies itself from dawn over a coast, a town and snowy ranges, under and through low clouds, while the camera glides through its views, the pelican's among them, and lights beacons, whose rings of light run out over land and sea; the day runs into a night of stars, an aurora and lit windows, and a morning of rain; a click takes the board and the pointer, the mouse looks around and zooms in on the flyers while the arrows steer; then the project's 2,950 lines, the pelican's pedalling in its script, and a flight at dusk in winter, over snow and sea ice, 59.0 frames a second while recorded · 2:48</p>
+        <p>The godot-voxel-flyover image: the corgi flies itself from dawn while the camera holds wide views of the world, over a coast, fields and towns of several kinds, lights beacons, each a push of speed, and flies on through sunset into a night of stars, an aurora and lit windows; a click takes the board and the pointer, the mouse looks around and zooms in on the flyers, the board climbs over the clouds and dives; then the project's 4,299 lines, the pelican's pedalling in its script, and a flight at dusk in winter, 51.2 frames a second while recorded · 2:55</p>
       </div>
     </article>
   </div>
