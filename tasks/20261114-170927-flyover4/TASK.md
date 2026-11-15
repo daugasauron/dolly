@@ -17,26 +17,106 @@ one (number of things hit)."
 Branch `feature/flyover-4` (`work/flyover4`, from `v0.1.6`). Brief:
 `work/briefs-2026-11-15/flyover4.md`. Version 3 is `tasks/20261114-081432-flyover-striking`.
 
-## State (2026-11-15, evening)
+## State (2026-11-15, night)
 
-Version 5 (the owner's second round, below) is committed on `feature/flyover-4` at `ae9e67dc4`; the
-game's test passes in Chrome 156 and Firefox 159 on the NVIDIA card and in Firefox on the
-integrated AMD GPU, and the source suite passes. Nothing changed the seed, `host/gpu` or Godot's
-platform. The current take is `work/videos-2026-11-15/voxel-flyover-5/take2.mp4` (its README beside
-it); the demos page still carries version 4's video.
+The evening's round (the integrator's five points, below) is committed on `feature/flyover-4`;
+the game's code is at `82fe24c09`. The game's test passes in Chrome 156 and Firefox 159 on the
+NVIDIA card and on the integrated AMD GPU, the source suite passes, and `test/gpu-render`,
+`gpu-explicit` and `gpu-indicator` pass in both browsers after the change in `host/gpu`.
+`demos/godot/test/godot-gpu-browser.mjs` was not run: this tree's catalog is narrowed to 52 images
+and lacks the ones it composes. The current take is
+`work/videos-2026-11-15/voxel-flyover-5/take3.mp4` (its README beside it), and the demos page carries
+its cut.
 
 Left:
 
-- **Firefox on the AMD GPU draws 20 even frames a second**, not 60: the GPU takes 21 ms a frame at
-  the last level of the ladder. A further level (no shadows from the far grids, a smaller sky)
-  might reach 30; it was not tried. Chrome could not be started on the AMD adapter here
-  (`--use-webgpu-power-preference=force-low-power` on Xvfb: the page's GPU never became active).
+- **The AMD GPU draws 30 even frames a second**, not 60, at 0.4 of the scene's size: soft, clean.
 - What Firefox's compositor shows of the frames is still unseen (see "Firefox").
 - Firefox reports 45 to 92 degrees of view for the same 300 pixels of Playwright's mouse; not
   explained (see "Mouse look"); the test holds Chrome to 57 to 63 and Firefox to 40 to 100.
-- The flight passes through a town's buildings if steered into them: the flight by itself and
-  the board's soft floor look ahead over the roofs, the hard floor is the ground's.
-- Not done: the shadows' edges crawl as the sun moves; the fur's hair edges near the camera.
+- The shadows' edges and the coats' hair edges are as they were: see below for what was
+  measured and tried.
+- Trees are flown through at the board's lowest (10 units over the ground); their crowns draw
+  in before the camera.
+- Savanna is rare near the start (the nearest plain of it is 2,600 units away).
+- `docs/gpu.md` still gives the provider's empty submissions as "at 2, 5, 10, 20 and 40 ms" and
+  Chrome's integrated adapter by `--use-webgpu-power-preference=force-low-power` alone: the
+  document is pinned by `Dollyfile-dolly-docs`, whose pin is in turn `pi-dolly`'s and ten more
+  recipes', so its two sentences belong to the next round of pins. They are: the submissions
+  come every 3 ms up to 100; and `VK_DRIVER_FILES` naming the Radeon driver alone selects the
+  AMD adapter in Chrome where the flag leaves the page's GPU inactive.
+
+## The evening's round (2026-11-15)
+
+Integrator (16:40): buildings must not be flown through; an even 30 a second on the AMD GPU at
+the clean look, and at most 30 minutes on Chrome there; the shadows' crawl and the fur's edges;
+more variety and interaction; a take and the demos page.
+
+### Buildings
+
+The flight looked 80 units ahead in a straight line at five places 20 apart, and a lot is 16
+wide. It now looks along the turn it is in at twelve places of the next 1.5 s, and besides the
+height it steers for takes the climb that clears every roof on the way in the time the board
+needs to reach it. The camera's lift takes the roofs for ground, looks around itself as well as
+ahead, and rises three times as fast as it settles. Measured by a copy of the game that starts
+beside a town, dives at full speed and reverses its turn every 2.6 s, for 45 s (`dive.py`,
+`dive2.py` in `work/videos-2026-11-15/voxel-flyover-4/tools/`): the board was never inside a building before or after, and its
+least height over a lot's roof went from 3.2 to 10.0 units; a camera orbiting the flyer zoomed
+out was inside a building in 10 of 2,680 frames before, in none after. A wall that pushes the
+board aside was written and removed: in those flights it never acted.
+
+### The AMD GPU
+
+| | Before (`f22007958`) | After |
+| --- | --- | --- |
+| AMD integrated, Firefox 159 | 20.2 a second at level 5, frames 50 ms apart; 10 s at 5 a second before it settles | 30.0 at level 6, median 33.3 ms, p99 37.1, max 48.9, no hitch; settles in 3.5 s |
+| AMD integrated, Chrome 156 | not started | 29.8, median 33.4 ms, p99 36.5, max 53.0, no hitch |
+| NVIDIA RTX 5070, Chrome 156 | 60.0, GPU 5.5 ms | 60.0, GPU 5.7 ms, median 16.2 ms, p99 19.9 |
+| NVIDIA RTX 5070, Firefox 159 | 59.0, GPU 5.6 ms | 58.9, GPU 5.9 ms, median 17.0 ms, p99 18.9 |
+
+- At level 5 without a cap Firefox drew a frame every 44.5 ms whether the GPU took 19 or 23 ms:
+  the provider's empty submissions, which make Firefox settle a completion, came 2, 5, 10, 20
+  and 40 ms after it, so a frame done at 23 ms was seen at 40. `host/gpu/worker.mjs` now makes
+  one every 3 ms up to 100: the same frame shows at 33 ms.
+- What a part costs there, by leaving it out at level 5 (GPU 23.1 ms): the second grid of trees
+  3.4, the shadows 2, glow 1.4, a scene at 0.4 instead of 0.5 3.9; the sky's light, the sea, the
+  coats and simpler crowns under 0.6 each. A seventh level draws the scene at 0.4: GPU 19 to
+  20 ms, and the game holds 30 a second (it holds that rate while the GPU's mean is under 24 ms).
+- The game counted 30 frames before its first window of 20; it now counts 8, and a window ends
+  after 1.5 s of frames at the latest.
+- Chrome on the AMD adapter: `--use-webgpu-power-preference=force-low-power` leaves the page's
+  GPU inactive on Xvfb with ANGLE on Vulkan. With `VK_DRIVER_FILES` (and `VK_ICD_FILENAMES`)
+  naming `/usr/share/vulkan/icd.d/radeon_icd.x86_64.json` alone in Chrome's environment, the
+  adapter is `amd rdna-2` and the game runs as above. Five minutes of the thirty.
+
+### Shadows and fur: measured, not changed
+
+- With the flight held in place at 16:30 (`crawl.sh`), three consecutive frames reverse 0.046
+  to 0.058 (shimmer) in the views the shadows fill, 0.012 with the sun held still between steps of
+  0.1 or 0.5 s, 0.036 with Godot's soft filter at its high quality, 0.033 with that and a wider
+  blur. So the sun's motion does make the edges crawl. Over the fixed flight (29 bursts at
+  16:30 to 17:30) the shimmer is 1.231 with the sun moving and 1.231 with it stepped: the flight
+  itself moves every edge, and a step of 0.1 s would jump a tower's shadow by some 3 pixels ten
+  times a second. Nothing was changed.
+- The coats' hairs with alpha to coverage (four samples) instead of a discard: the same frame
+  looks the same, and three consecutive frames reverse 6.464 against 6.485. The steps along a
+  coat's outline are its shells. Removed.
+
+### Variety
+
+- **Marsh**: low wet ground by the sea has few trees, reeds, and pools that mirror the sky and
+  carry ice in winter.
+- **Savanna** between the desert and the meadows: grass, gold for most of the year, green in
+  spring and after rain, with a few flat-headed trees.
+- **Sea ice**: in winter the seas of the cold lands carry floes that drift with the wind.
+- **The desert's veins are lava**, and glow by day.
+- **What ties things together**: a shower leaves the ground wet behind it for 45 s, and in
+  spring more flowers stand there; a lit beacon warms the ground 90 units around it, where the
+  snow and the sea's ice draw back and flowers stand; in winter a town's lamps are each lot's
+  own colour and brighter; in rain or snow the flock closes up and flies low.
+- Cost: the GPU's 5.5 ms a frame on the NVIDIA card became 5.7 (Chrome), and on the AMD GPU at
+  level 6 19.2 became 20.1.
+- Sudden changes over the fixed flight (spikes, as below): 77 tiles in 62 frames and 10 events, against 92 in 74 and 12 before the round.
 
 ## Version 5 (2026-11-15, afternoon)
 

@@ -34,20 +34,20 @@
     speed-ups.</p>
   <h2><a href="../godot-voxel-flyover/">Voxel Flyover</a>: a world computed by the GPU</h2>
   <p class="lead">A Godot game made for Dolly, recorded on 15 November 2026: a corgi on a jet surfboard flies over an
-    endless world of mountains, forests and sea through a day and a night, and under the board a pelican on a
-    bicycle pedals for the jets: a chain runs from its chainring up to a shaft between the two engines, and the
-    flames lengthen with each stroke of its legs. The world is one function in a shader. As the flight goes on, a
-    pass draws the ground into textures, the vertex stages raise grids of land to it and stand trees on it, and
-    nothing of the world is stored. The same trees are drawn in less and less detail the further off they stand,
-    each level fading into the next, and detail finer than a pixel gives way to its mean. Godot 4.7's Forward+
-    renderer draws it at 1920 by 1080 on gpu@0, with shadows, 4x MSAA, glow, SSAO and volumetric fog. The corgi and
-    the pelican are characters of our own, with fur and feathers in shells that the wind lays back.</p>
+    endless world through a day and a night, and under the board a pelican on a bicycle pedals for the jets. The
+    world is one function in a shader, of the place and the clock: mountains, forests, deserts with veins of lava,
+    savanna, marshes, towns with fields around them, a year of seasons, and clouds whose rain wets the ground under
+    them. As the flight goes on, a pass draws the ground into textures, the vertex stages raise grids of land to it
+    and stand trees and buildings on it, and nothing of the world is stored. The flight is pointless and keeps what
+    it gains: a dive gives speed, the wind, a thermal over a town and a flock of birds carry the board, and a lit
+    beacon melts the snow around it. Godot 4.7's Forward+ renderer draws it at 1920 by 1080 on gpu@0, with shadows,
+    4x MSAA, glow, SSAO and volumetric fog; on a weak GPU the game draws less of it at an even rate.</p>
   <div class="grid">
     <article>
       <video controls playsinline preload="none" poster="posters/voxel-flyover.jpg" aria-label="Voxel Flyover recording"><source src="videos/voxel-flyover.mp4" type="video/mp4"></video>
       <div>
         <h3>From dawn into night</h3>
-        <p>The godot-voxel-flyover image: the corgi flies itself along a coast and over snowy ranges while the camera glides through its views, the pelican's among them, and lights beacons, whose rings of light run out over land and sea; a click takes the board and the pointer, the mouse looks around while the arrows steer, and the day runs through sunset into a night of stars, an aurora, and veins and groves that glow; then the project's 2,084 lines and the pelican's pedalling in its script, 53 frames a second while recorded · 2:19</p>
+        <p>The godot-voxel-flyover image: the corgi flies itself from dawn over a coast, a town and snowy ranges while the camera glides through its views, the pelican's among them, and lights beacons, whose rings of light run out over land and sea; a click takes the board and the pointer, the mouse looks around and zooms while the arrows steer, and the day runs into a night of stars, an aurora and lit windows; then the project's 2,692 lines, the pelican's pedalling in its script, and a flight at dusk in winter, over snow and sea ice, 59.7 frames a second while recorded · 2:31</p>
       </div>
     </article>
   </div>
