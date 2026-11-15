@@ -36,9 +36,20 @@ void sky() {
 	zenith = mix(zenith, vec3(0.14, 0.1, 0.4), low * 0.65);
 	float rise = 1.0 - pow(1.0 - clamp(up, 0.0, 1.0), 5.0);
 	vec3 colour = mix(horizon, zenith, rise);
+	// At sunrise and sunset the sky is in bands. On the sun's side: fire at the horizon, rose
+	// over it, violet higher. Opposite the sun: the earth's shadow, blue-grey along the
+	// horizon, and over it a rose band. Between the two sides they turn into one another.
+	float sunward = 0.5 + 0.5 * dot(normalize(EYEDIR.xz + vec2(0.0001)), normalize(sun_direction.xz + vec2(0.0001)));
+	vec3 dusk = mix(mix(vec3(1.0, 0.33, 0.04), vec3(1.0, 0.42, 0.45), smoothstep(0.0, 0.16, up)), vec3(0.42, 0.26, 0.7), smoothstep(0.1, 0.42, up));
+	vec3 away = mix(vec3(0.24, 0.28, 0.48), vec3(0.95, 0.52, 0.6), smoothstep(0.02, 0.1, up) * (1.0 - smoothstep(0.12, 0.32, up)));
+	colour = mix(colour, mix(away, dusk, smoothstep(0.15, 0.85, sunward)), low * (1.0 - smoothstep(0.2, 0.65, up)) * 0.85);
 	colour = mix(colour, horizon * 0.7, smoothstep(0.0, -0.25, up));
 	vec3 sun = sun_colour * smoothstep(-0.08, 0.02, sun_height);
-	colour += sun * (smoothstep(0.9992, 0.9996, toward) * 14.0 + pow(toward, 64.0) * 1.2 + pow(toward, 8.0) * 0.25);
+	// The sun: its disc, larger and redder when it is low, a glow around it, and at the
+	// horizon a band of its light to either side.
+	float disc = mix(0.9992, 0.9978, low);
+	colour += sun * (smoothstep(disc, disc + 0.0004, toward) * 14.0 + pow(toward, 64.0) * (1.2 + 1.5 * low) + pow(toward, 8.0) * (0.25 + 0.35 * low));
+	colour += vec3(1.0, 0.45, 0.12) * low * exp(-abs(up - max(sun_height, 0.0)) * 16.0) * pow(sunward, 5.0) * 0.6 * smoothstep(-0.2, 0.0, sun_height);
 	float dark = 1.0 - smoothstep(-0.3, -0.06, sun_height);
 	if (!AT_CUBEMAP_PASS && dark > 0.0 && up > 0.0) {
 		vec3 cell = floor(EYEDIR * 300.0);
@@ -76,6 +87,10 @@ void sky() {
 			vec3 moonlight = vec3(0.05, 0.07, 0.12) * dark;
 			vec3 shadow = mix(zenith, horizon, 0.35) * 0.55 + moonlight * 0.4;
 			vec3 lit = sun * (1.15 + 2.5 * pow(toward, 6.0) * (1.0 - cover)) + horizon * 0.25 + moonlight;
+			// A low sun lights the clouds from below: fire toward it, rose away from it, and
+			// their shadowed parts are violet.
+			lit = mix(lit, mix(vec3(0.95, 0.5, 0.6), vec3(1.5, 0.55, 0.16), smoothstep(0.3, 0.95, sunward)) * smoothstep(-0.16, 0.0, sun_height), low * 0.8);
+			shadow = mix(shadow, vec3(0.24, 0.16, 0.36) * (0.5 + 0.5 * smoothstep(-0.2, 0.05, sun_height)), low * 0.7);
 			colour = mix(colour, mix(shadow, lit, bright), cover * exp(-far / 7000.0));
 		}
 	}

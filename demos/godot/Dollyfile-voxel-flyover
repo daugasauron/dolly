@@ -45,15 +45,17 @@ FILE /usr/share/man/cat1/voxel-flyover.1
     dawn through the day into night, and lights the beacons it reaches, which
     send rings of light over the ground; under the board a pelican on a
     bicycle pedals for the jets. It flies itself until Enter or a click
-    takes the board: arrows or WASD steer, climb and dive, Space is full
-    speed, T lets the hours run, Escape lets go of the board, Q quits. A
-    click also gives the game the pointer, and the mouse then turns the
-    view; the wheel, or Z and X, zoom. A dive gives speed and a climb takes
-    it, the wind at the back helps, the board skims fast low over the sea,
-    and slopes that face the wind and towns by day lift it. The world has
-    seasons, rain and snow, low clouds, mist and towns. On a weak GPU it
-    draws less, at an even rate. The number on the screen counts the
-    beacons lit. With --autopilot
+    takes the board: arrows or WASD steer, climb and dive, T lets the hours
+    run, Escape lets go of the board, Q quits. A click also gives the game
+    the pointer, and the mouse then turns the view; the wheel, or Z and X,
+    zoom. A dive gives speed and a climb takes it, the wind at the back
+    helps, the board skims fast low over the sea, slopes that face the wind
+    and towns by day lift it, and a beacon gives a push of speed as it is
+    lit, anywhere along its beam. The board flies up to 420 units, over the
+    low clouds. The world has seasons, rain and snow, clouds, mist, oceans,
+    rivers, high mountains, towns of several kinds, landmarks, boats, birds
+    and whales. On a weak GPU it draws less, at an even rate. The number on
+    the screen counts the beacons lit. With --autopilot
     it flies by itself for that long and prints its frame rate, how even
     its frames were, the milliseconds a frame took the GPU and the
     renderer, the beacons it lit and what its frame shows; --day starts at

@@ -1476,7 +1476,8 @@ func set_day() -> void:
 	var angle := TAU * (day - 0.25)
 	var to_sun := Vector3(cos(angle), sin(angle) * 0.85, 0.42).normalized()
 	var height := to_sun.y
-	var sunlight := smoothstep(-0.03, 0.2, height)
+	var sunlight := smoothstep(-0.04, 0.12, height)
+	var low_sun := smoothstep(-0.25, 0.0, height) * (1.0 - smoothstep(0.05, 0.45, height))
 	var night := smoothstep(0.02, 0.3, -height)
 	var warm := Color(1.0, 0.42, 0.18).lerp(Color(1.0, 0.95, 0.86), smoothstep(0.0, 0.45, height))
 	var to_light := to_sun if height > -0.06 else -to_sun
@@ -1507,8 +1508,8 @@ func set_day() -> void:
 	for bank in clouds:
 		var cloud := bank.material_override as ShaderMaterial
 		cloud.set_shader_parameter("thick", 0.2 + 0.8 * dawn)
-		cloud.set_shader_parameter("light", (warm * (0.25 + 0.75 * sunlight)).lerp(Color(0.2, 0.26, 0.42), night))
-		cloud.set_shader_parameter("shade", Color(0.5, 0.56, 0.7).lerp(warm * 0.6, 0.35 * (1.0 - sunlight)).lerp(Color(0.02, 0.03, 0.07), night))
+		cloud.set_shader_parameter("light", (warm * (0.25 + 0.75 * sunlight)).lerp(Color(1.4, 0.55, 0.2), low_sun * 0.8).lerp(Color(0.2, 0.26, 0.42), night))
+		cloud.set_shader_parameter("shade", Color(0.5, 0.56, 0.7).lerp(Color(0.32, 0.2, 0.42), low_sun * 0.85).lerp(Color(0.02, 0.03, 0.07), night))
 	searchlight.light_energy = 14.0 * night
 	lamp.light_energy = 0.2 + 2.2 * night
 
