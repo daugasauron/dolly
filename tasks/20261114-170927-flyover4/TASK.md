@@ -17,34 +17,115 @@ one (number of things hit)."
 Branch `feature/flyover-4` (`work/flyover4`, from `v0.1.6`). Brief:
 `work/briefs-2026-11-15/flyover4.md`. Version 3 is `tasks/20261114-081432-flyover-striking`.
 
-## State (2026-11-15, night)
+## State (2026-11-15, late evening)
 
-The evening's round (the integrator's five points, below) is committed on `feature/flyover-4`;
-the game's code is at `82fe24c09`. The game's test passes in Chrome 156 and Firefox 159 on the
-NVIDIA card and on the integrated AMD GPU, the source suite passes, and `test/gpu-render`,
-`gpu-explicit` and `gpu-indicator` pass in both browsers after the change in `host/gpu`.
-`demos/godot/test/godot-gpu-browser.mjs` was not run: this tree's catalog is narrowed to 52 images
-and lacks the ones it composes. The current take is
-`work/videos-2026-11-15/voxel-flyover-5/take3.mp4` (its README beside it), and the demos page carries
-its cut.
+Version 6 (the owner's seven fixes, below) is committed on `feature/flyover-4`; the game's code is
+at `4627d207e`. The game's test passes in Chrome 156 and Firefox 159 on the NVIDIA card and on the
+integrated AMD GPU, and the source suite passes. The current take is
+`work/videos-2026-11-15/voxel-flyover-6/take1.mp4` (its README beside it), and the demos page carries
+its cut. The owner's local server (`dolly-serve-flyover4`) was restarted after each image build
+and its page loaded in headless Chrome with no failed request (166 responses).
 
 Left:
 
-- **The AMD GPU draws 30 even frames a second**, not 60, at 0.4 of the scene's size: soft, clean.
+- The AMD GPU draws 30 even frames a second at 0.4 of the scene's size, without the banks of
+  mist (it has the dawn's haze).
 - What Firefox's compositor shows of the frames is still unseen (see "Firefox").
 - Firefox reports 45 to 92 degrees of view for the same 300 pixels of Playwright's mouse; not
-  explained (see "Mouse look"); the test holds Chrome to 57 to 63 and Firefox to 40 to 100.
-- The shadows' edges and the coats' hair edges are as they were: see below for what was
-  measured and tried.
-- Trees are flown through at the board's lowest (10 units over the ground); their crowns draw
-  in before the camera.
-- Savanna is rare near the start (the nearest plain of it is 2,600 units away).
+  explained (see "Mouse look").
+- Trees outside towns are flown through at the board's lowest.
+- A low cloud's balls meet a mountain they touch in a line; they stand 50 units over the ground
+  under each, so it is rare.
 - `docs/gpu.md` still gives the provider's empty submissions as "at 2, 5, 10, 20 and 40 ms" and
   Chrome's integrated adapter by `--use-webgpu-power-preference=force-low-power` alone: the
   document is pinned by `Dollyfile-dolly-docs`, whose pin is in turn `pi-dolly`'s and ten more
-  recipes', so its two sentences belong to the next round of pins. They are: the submissions
-  come every 3 ms up to 100; and `VK_DRIVER_FILES` naming the Radeon driver alone selects the
-  AMD adapter in Chrome where the flag leaves the page's GPU inactive.
+  recipes', so its two sentences belong to the next round of pins (see the evening's round).
+
+## Version 6 (2026-11-15, from 18:10): the owner's fixes
+
+Owner (18:10): "Fixes: 1) make the city more realistic, there should not be any trees growing out
+of buildings or super close by. Each building should have at least 4 levels. 2) the pelicans
+head is going through a pole right now - fix it 3) make the pelican hold the steering handles of
+the bicycle with his wings 4) fix the tongue of the corgi, it looks detached right now 5) make
+the corgis body more skinny 6) when its snowing or raining, it should be heading downwards, and
+the drops are too rectangular 7) add clouds and mist 8) use FABLE 9) this game is now the TOP
+PRIORITY". Brief: `work/briefs-2026-11-15/flyover6.md`.
+
+How each was looked at: a copy of the game whose camera stands at a given place in the flyer's
+frame (`studio.py`, `studio.sh` in `work/videos-2026-11-15/voxel-flyover-4/tools/`), stills a
+second apart at a fixed 60 steps a second, so at different phases of the pedals; the game's own
+five views (near, beside, the pelican's, high and far, ahead); and the take.
+
+1. **Towns.** A town is blocks of four lots by five between avenues (every fifth line of lots
+   one way, every sixth the other), which are asphalt with a broken middle line. A building
+   stands on most lots: none on an avenue, on a lot that tilts more than 9 units, at a town's
+   thin edge, or on the one lot in ten that is a lawn. It has 4 to 20 storeys of 3 units (before:
+   from under one storey up, by the town's share), a footprint of its own in each direction,
+   shop fronts on its ground floor, a line between storeys, a row of windows a storey, a
+   parapet, and a roof with a rim and a stair head. Its base goes 8 units into the ground, so
+   none shows a gap on a slope. No tree stands where a town or a margin around it is
+   (`town_near`): before, trees thinned with the town's share and stood in lots. The flight
+   and the camera look ahead for the same roofs (`terrain.gd`). Looked at: a dive into a town
+   (`dive.py`) and a flight at cloud height over one, stills from above and beside.
+2. **The pole through the pelican's head** was the bicycle's front hanger: one rod from the
+   head tube's top to the board, up the bicycle's middle, where the bill and the front of the
+   head are. Two rods now go from the head tube to the board's sides and pass the head 0.4 of
+   the rig's units to either side. Looked at from the front left at four phases, and with the
+   handlebar turned each way.
+3. **The wings hold the grips.** Each wing is an upper wing from shoulder to elbow and a
+   forearm from elbow to grip, laid each frame as the legs are, with its black tip closed
+   around the grip and the flight feathers trailing from the elbow. The handlebar, its stem,
+   the fork and the front wheel turn in the head tube with the flight's turn, by 20 degrees at
+   the most, and the wings follow. Looked at as above, turned each way.
+4. **The tongue** was a flat disc under the front of the muzzle, in the air. The mouth is now
+   open: a lower jaw under the muzzle, dark between them, and a tongue that lies in the jaw
+   from the back of the mouth and hangs over its front. Looked at from the front left at 40
+   degrees of view, and in the game's views.
+5. **The corgi's body** is 0.8 wide where it was 1.15 (and 0.86 high for 1.1), its chest and
+   rump as much slimmer, its legs closer together; as long as before, the legs as short.
+6. **Rain and snow** were streaks painted on two tubes around the camera, which slid along the
+   tubes' sides. They are 9,000 cards (3,600 on a weak adapter) in a box of air 44 by 30 by 44
+   around the camera, each facing it: a drop a thin streak along its way, soft across and
+   toward its ends, a flake a soft round dot, near ones large and far ones small; between
+   seasons some are drops and some flakes. A drop falls 22 units a second and a flake 2.6;
+   the wind carries them and the flight slants them back by no more than half of their fall,
+   so on a level view they come down wherever they are on the screen. Measured with the flight
+   and the camera held still, from the pixels that went dark in the later of two frames and
+   those that went bright (`fallcheck.mjs`): rain 34 pixels down and 2 right in one frame (4,660 pixels line up at that shift, 171 at the opposite one); snow 17 pixels down and none sideways in six frames (8,191 against 2,703).
+7. **Clouds and mist.** Low clouds (`cloud.gdshader`): for each cell of 240 units of a grid
+   that drifts with the wind, where a noise of the cell's number says so, nine soft balls, flat
+   under, 100 to 160 units over the sea and never less than 50 over the ground below, under
+   the board's ceiling of 190. A ball is soft toward its rim, draws in within 32 units of the
+   camera, and the air whitens as the camera comes into one (`in_cloud` in `main.gd` computes
+   the same balls), so a cloud is flown through without a pop. Two things popped on the
+   way and were found by the measures: the clusters were drawn in the order of a grid that
+   stepped with the flight, so where one soft ball showed through another the picture changed
+   at each step (each cluster is now always a cell of its own place in the grid, and only a
+   far one changes its cell); and a ball's far side went at once as the camera passed its near
+   one (a ball the camera comes up to now thins out whole). Mist is the same balls, flat,
+   on the sea and on ground under 14 units over it, thin by day and thick at dawn, when the
+   haze over the sea thickens as well (the existing height fog, 0.006 to 0.022). Cost on the
+   AMD GPU at its level: clouds 1.3 ms, mist 1.1; the clouds' balls have fewer faces for it
+   and that level leaves the banks of mist out: 20.4 ms a frame, against 20.1 before.
+   The rate it holds there now has slack: it goes from 30 to 20 a second when the GPU's mean
+   is over 27 ms and back when it is under 22.
+
+A close view was off its middle: the camera follows the flyer's place a fifth of a second
+late, which at 40 units a second is 8 units, more than a close view's distance. The lag now
+shrinks with the square of the zoom.
+
+### Numbers
+
+The game's test (30 s by itself from 09:00), 1920 by 1080 frames:
+
+| | The evening's round | Version 6 (`4627d207e`) |
+| --- | --- | --- |
+| NVIDIA RTX 5070, Chrome 156 | 60.0 a second, GPU 5.7 ms (quiet) | 60.0 a second, GPU 5.7 ms, median 16.2 ms, p99 20.0 |
+| NVIDIA RTX 5070, Firefox 159 | 58.9, GPU 5.9 ms (quiet) | 58.9, GPU 5.8 ms, median 17.0 ms, p99 20.1 |
+| AMD integrated, Firefox 159 | 30.0, median 33.3 ms, p99 37.1 | 29.9, GPU 19.8 ms, median 33.4 ms, p99 37.3, max 49.2, no hitch |
+| AMD integrated, Chrome 156 | 29.8, median 33.4 ms, p99 36.5 | 29.8, GPU 19.4 ms, median 33.4 ms, p99 36.9, max 53.9, no hitch |
+
+Sudden changes over the fixed flight (spikes): 70 tiles in 55 frames and 12 events, against 77 in 62 and 10 before the round, and 28 frames whose mean brightness steps, as before (measured a commit earlier, before a ball thinned whole; while the air whitened at once in a cloud, 61 such frames).
 
 ## The evening's round (2026-11-15)
 
