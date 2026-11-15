@@ -9,6 +9,8 @@ shader_type spatial;
 #include "res://terrain.gdshaderinc"
 #include "res://ground.gdshaderinc"
 
+uniform float city_reach = 528.0; // how far from the flyer the buildings are drawn
+
 varying flat vec3 tint;
 varying flat float own; // the building's number
 varying flat float foot; // the height its storeys are counted from
@@ -25,11 +27,15 @@ void vertex() {
 	vec4 here = ground_here(centre);
 	float tall = building_height(corner, town_at(centre, here.x));
 	// No building stands on a steep lot.
-	float tilt = abs(ground_here(centre + vec2(LOT * 0.5, 0.0)).x - ground_here(centre - vec2(LOT * 0.5, 0.0)).x) + abs(ground_here(centre + vec2(0.0, LOT * 0.5)).x - ground_here(centre - vec2(0.0, LOT * 0.5)).x);
+	float tilt = 0.0;
+	if (tall > 0.0) {
+		tilt = abs(ground_here(centre + vec2(LOT * 0.5, 0.0)).x - ground_here(centre - vec2(LOT * 0.5, 0.0)).x) + abs(ground_here(centre + vec2(0.0, LOT * 0.5)).x - ground_here(centre - vec2(0.0, LOT * 0.5)).x);
+	}
 	foot = here.x;
 	storeys = (tall - 1.0) / 3.0;
-	// The grid's last buildings sink into the ground, where the land's shader paints the town.
-	tall *= (1.0 - smoothstep(400.0, 520.0, away)) * step(tilt, 9.0);
+	// The furthest buildings drawn stand lower the further they are, down to the ground, where
+	// the land's shader paints the town: a town rises out of the haze by degrees.
+	tall *= (1.0 - smoothstep(city_reach * 0.6, city_reach * 0.97, away)) * step(tilt, 9.0);
 	vec2 wide = LOT * (0.5 + 0.3 * vec2(hash(corner + 11.0), hash(corner + 19.0)));
 	tint = mix(mix(vec3(0.55, 0.5, 0.45), vec3(0.6, 0.32, 0.22), hash(corner + 5.0)), vec3(0.3, 0.4, 0.5), step(0.7, own));
 	facing = NORMAL;

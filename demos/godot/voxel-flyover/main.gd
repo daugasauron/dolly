@@ -26,6 +26,7 @@ const GROVES := [
 ]
 ## The trees that cast the shadows, in one grid of plain crowns: a shadow needs no more.
 const SHADES := [128, 3, Vector4(-2, -1, 200, 232)]
+const CITY_REACH := 100 # the lots a town's buildings are drawn to, each way from the flyer
 const CLOUD_CELL := 240.0 # a cell of the low clouds' grid (cloud.gdshader's)
 const DAY_SECONDS := 120.0
 const YEAR_DAYS := 3.0 # a year's seasons pass in so many days
@@ -199,7 +200,16 @@ func _ready() -> void:
 		materials[-1].set_shader_parameter("ring", grove[2])
 		groves[-1].cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY if grove == SHADES else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		materials[-1].set_shader_parameter("sinks", grove == SHADES or grove == GROVES[-1])
-	city = build_grid(BoxMesh.new(), 66, Terrain.LOT, reads_ground(preload("res://city.gdshader"), 0))
+	city = build_grid(BoxMesh.new(), 2 * CITY_REACH, Terrain.LOT, reads_ground(preload("res://city.gdshader"), 1))
+	# Its lots are in the order of their distance from the middle, so the first so many are
+	# those within a distance: a weak adapter draws the nearer ones (set_level).
+	var rings := PackedFloat32Array()
+	for ring in CITY_REACH:
+		for x in range(-ring - 1, ring + 1):
+			for z in range(-ring - 1, ring + 1):
+				if maxi(x if x >= 0 else -x - 1, z if z >= 0 else -z - 1) == ring:
+					rings.append_array([1, 0, 0, (x + 0.5) * Terrain.LOT, 0, 1, 0, 0, 0, 0, 1, (z + 0.5) * Terrain.LOT])
+	city.multimesh.buffer = rings
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(8000, 8000)
 	water.mesh = plane
@@ -282,6 +292,10 @@ func set_level(to: int) -> void:
 	groves[-1].visible = drawn == GROVES.size()
 	city.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if level < 3 else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	shower.multimesh.visible_instance_count = 9000 if level < 3 else 3600
+	# How far a town's buildings are drawn: 1,600 units, less on a weak adapter.
+	var lots: int = [CITY_REACH, CITY_REACH, 72, 52, 40, 33, 33][level]
+	city.multimesh.visible_instance_count = 4 * lots * lots
+	tell("city_reach", lots * Terrain.LOT)
 	# A weak adapter has the dawn's haze without its banks of mist.
 	clouds[1].visible = level < 5
 	# A weak adapter has simpler crowns near by: the next grid's.
