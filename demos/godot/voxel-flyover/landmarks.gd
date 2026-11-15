@@ -53,7 +53,8 @@ static func build(found: Array, paint: ShaderMaterial) -> Node3D:
 			# A white tower with red bands, a gallery, a lantern and its turning beams.
 			Parts.part(mark, cylinder(1.8, 3.2, 16), white, Vector3(0, 12, 0), Vector3.ZERO, Vector3(1, 26, 1))
 			for band: float in [6.0, 15.0]:
-				Parts.part(mark, cylinder(2.5 - band * 0.05, 2.75 - band * 0.05, 16), red, Vector3(0, band, 0), Vector3.ZERO, Vector3(1, 3.5, 1))
+				# (a hair wider than the tower there, which narrows by 0.0538 a unit)
+				Parts.part(mark, cylinder(3.26 - 0.0538 * (band + 2.75), 3.26 - 0.0538 * (band - 0.75), 16), red, Vector3(0, band, 0), Vector3.ZERO, Vector3(1, 3.5, 1))
 			Parts.part(mark, cylinder(2.9, 2.9, 16), dark, Vector3(0, 25.2, 0), Vector3.ZERO, Vector3(1, 0.5, 1))
 			glowing(mark, mark, cylinder(1.3, 1.3, 12), Color(1.0, 0.9, 0.6), Vector3(0, 27, 0), Vector3.ZERO, Vector3(1, 3, 1))
 			Parts.part(mark, cylinder(0.0, 2.0, 12), red, Vector3(0, 29.6, 0), Vector3.ZERO, Vector3(1, 2.2, 1))

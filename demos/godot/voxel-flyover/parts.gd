@@ -3,6 +3,8 @@ extends RefCounted
 
 const SHELLS := 18 # of a coat
 
+static var shapes := {} # arrays_of's
+
 
 static func paint(colour: Color, roughness: float, glow := 0.0) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
@@ -60,6 +62,19 @@ static func lay(rod: Node3D, from: Vector3, to: Vector3, thick: float) -> void:
 	rod.transform = Transform3D(Basis(side * thick, along, side.cross(up) * thick), (from + to) / 2.0)
 
 
+## A primitive mesh's arrays. The engine reads them back from the GPU, some 10 ms each time (a
+## landmark's dozen parts cost a frame of 100 ms as it came near), so they are kept by the
+## primitive's kind and measures.
+static func arrays_of(mesh: PrimitiveMesh) -> Array:
+	var shape := mesh.get_class()
+	for property in mesh.get_property_list():
+		if property.usage & PROPERTY_USAGE_STORAGE:
+			shape += "|" + str(mesh.get(property.name))
+	if not shapes.has(shape):
+		shapes[shape] = mesh.get_mesh_arrays()
+	return shapes[shape]
+
+
 ## Makes one mesh of the painted parts under a node (those under `apart` are left as they are)
 ## and frees the parts: a thing of many parts that stands still costs the renderer as one. A
 ## part's colour goes into its vertices, with alpha 1 where its paint glows.
@@ -80,7 +95,7 @@ static func bake(root: Node3D, apart: Array = []) -> ArrayMesh:
 			above = above.get_parent()
 		if kept or paint == null or paint.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
 			continue
-		var arrays := (part.mesh as PrimitiveMesh).get_mesh_arrays()
+		var arrays := arrays_of(part.mesh as PrimitiveMesh)
 		var first := vertices.size()
 		var turned := place.basis.inverse().transposed()
 		var colour := Color(paint.albedo_color, 1.0 if paint.emission_enabled else 0.0)
