@@ -43,6 +43,7 @@ void vertex() {
 	}
 	bool desert = is_desert(warmth, moisture);
 	bool cold = is_cold(warmth);
+	bool savanna = is_savanna(warmth, moisture);
 	bool leafy = VERTEX.y > 0.95;
 	// On the crown's unit sphere: its height from foot to tip.
 	vec3 ball = VERTEX - vec3(0.0, 2.0, 0.0);
@@ -57,7 +58,7 @@ void vertex() {
 		vec3 at;
 		vec3 facing = NORMAL;
 		if (!leafy) {
-			at = VERTEX * vec3(0.16, desert ? 0.0 : cold ? 1.6 : 2.6, 0.16);
+			at = VERTEX * vec3(0.16, desert ? 0.0 : cold ? 1.6 : savanna ? 4.6 : 2.6, 0.16);
 			colour = leaves.a > 0.9 ? vec3(0.1, 0.11, 0.16) : vec3(0.1, 0.06, 0.04);
 		} else {
 			vec2 around = length(ball.xz) > 0.001 ? normalize(ball.xz) : vec2(0.0);
@@ -72,6 +73,10 @@ void vertex() {
 				float boughs = (1.0 - up) * (wide - 0.15 + 0.3 * sin(up * 21.0 + kind * 6.0)) * step(0.001, up) + 0.02;
 				at = vec3(around.x * boughs, 1.0 + up * 6.2, around.y * boughs);
 				facing = normalize(vec3(around.x, 0.45, around.y));
+			} else if (savanna) {
+				// An acacia: a flat head, wide on a tall stem.
+				at = ball * vec3(wide, 0.45, wide) * (1.0 + 0.12 * sin(ball.x * 5.0 + kind * 40.0) * sin(ball.z * 5.0 + kind * 29.0)) + vec3(0.0, 4.4, 0.0);
+				facing = normalize(ball + vec3(0.0, 0.6, 0.0));
 			} else {
 				// A broad head, lumpy as a crown of leaves is.
 				float lump = sin(ball.x * 3.3 + kind * 40.0) * sin(ball.y * 2.9 + kind * 17.0) * sin(ball.z * 3.1 + kind * 29.0);

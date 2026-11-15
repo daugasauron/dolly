@@ -13,13 +13,18 @@ bool is_desert(float warmth, float moisture) {
 	return warmth > 0.57 && moisture < 0.47;
 }
 
+// Warm land between the desert and the meadows: grass, and a few flat-headed trees.
+bool is_savanna(float warmth, float moisture) {
+	return warmth > 0.52 && moisture >= 0.47 && moisture < 0.57 && !is_desert(warmth, moisture);
+}
+
 bool is_cold(float warmth) {
 	return warmth < 0.42;
 }
 
 // The share of plots that hold a tree.
 float tree_share(float warmth, float moisture) {
-	return is_desert(warmth, moisture) ? 0.12 : is_cold(warmth) ? 0.5 : mix(0.1, 0.7, smoothstep(0.35, 0.62, moisture));
+	return is_desert(warmth, moisture) ? 0.12 : is_savanna(warmth, moisture) ? 0.07 : is_cold(warmth) ? 0.5 : mix(0.1, 0.7, smoothstep(0.35, 0.62, moisture));
 }
 
 // How much of a marsh a place is, between 0 and 1: wet ground a little above the sea. Few
@@ -39,7 +44,7 @@ float tree_size(float own) {
 
 // How wide a crown is, for a tree of size 1.
 float crown_width(float warmth, float moisture) {
-	return is_desert(warmth, moisture) ? 0.34 : is_cold(warmth) ? 1.2 : 2.2;
+	return is_desert(warmth, moisture) ? 0.34 : is_savanna(warmth, moisture) ? 3.1 : is_cold(warmth) ? 1.2 : 2.2;
 }
 
 // A crown's colour, and in a how much of its own light it has: desert spires a little, the
@@ -54,6 +59,9 @@ vec4 crown_colour(vec2 place, float own, float warmth, float moisture) {
 		return vec4(mix(vec3(0.05, 0.85, 0.9), vec3(0.65, 0.2, 1.0), own), 1.0);
 	}
 	vec3 snowy = vec3(0.62, 0.68, 0.78);
+	if (is_savanna(warmth, moisture)) {
+		return vec4(mix(mix(vec3(0.16, 0.22, 0.03), vec3(0.3, 0.3, 0.05), own), snowy, winter * 0.3), 0.0);
+	}
 	if (is_cold(warmth)) {
 		return vec4(mix(mix(vec3(0.01, 0.09, 0.08), vec3(0.03, 0.15, 0.1), own), snowy, winter * 0.55), 0.0);
 	}

@@ -50,7 +50,12 @@ void fragment() {
 	vec3 desert = mix(vec3(0.55, 0.13, 0.07), vec3(0.68, 0.3, 0.12), blotch) * (1.0 + 0.1 * near * sin((p.x * 0.93 + p.y * 0.36) * 0.9 + 4.0 * blotch));
 	meadow = mix(meadow, vec3(0.42, 0.33, 0.1), autumn * 0.55);
 	vec3 colour = mix(heath, meadow, smoothstep(0.38, 0.46, warmth));
-	colour = mix(colour, desert, smoothstep(0.55, 0.6, warmth) * smoothstep(0.5, 0.44, moisture));
+	float sandy = smoothstep(0.55, 0.6, warmth) * smoothstep(0.5, 0.44, moisture);
+	colour = mix(colour, desert, sandy);
+	// Savanna between the desert and the meadows: grass, gold for most of the year and green
+	// in spring and where it has rained.
+	vec3 grass = mix(mix(vec3(0.5, 0.36, 0.1), vec3(0.62, 0.5, 0.18), blotch), vec3(0.2, 0.34, 0.07), clamp(0.7 * spring + 0.6 * wet, 0.0, 1.0));
+	colour = mix(colour, grass, smoothstep(0.49, 0.54, warmth) * smoothstep(0.44, 0.5, moisture) * smoothstep(0.6, 0.54, moisture));
 	// The ground cover is mottled, and flowers dot it near by.
 	colour *= mix(0.95, 1.5, smoothstep(SEA, SEA + 45.0, height)) * (0.9 + 0.2 * grain) * (0.72 + 0.56 * fbm(p / 17.0 + vec2(5.0, 90.0), 3));
 	vec2 bloom = floor(p * 2.5);
@@ -125,7 +130,8 @@ void fragment() {
 	// A vein is never thinner than a pixel; where the pixel is wider, it is as much fainter.
 	float thick = max(0.008, wide / 46.0);
 	float vein = (1.0 - smoothstep(0.5, 1.0, contour / thick)) * (0.008 / thick) * (1.0 - sand) * (1.0 - snow) * (1.0 - 0.6 * bare);
-	vec3 vein_colour = mix(vec3(0.05, 0.8, 1.0), vec3(1.0, 0.15, 0.7), smoothstep(0.42, 0.58, here.z));
+	// In the desert the veins are lava, which glows by day too.
+	vec3 vein_colour = mix(mix(vec3(0.05, 0.8, 1.0), vec3(1.0, 0.15, 0.7), smoothstep(0.42, 0.58, here.z)), vec3(1.0, 0.28, 0.02), sandy);
 	float run = 0.55 + 0.45 * sin(grain * 2.0 + (p.x + p.y) * 0.07 - clock * 1.8);
 	colour = mix(colour, vec3(0.5, 0.62, 0.68), vein * 0.12 * near * (1.0 - bare));
 
@@ -135,7 +141,7 @@ void fragment() {
 	ALBEDO = colour * cloud_shade(world) * (1.0 - 0.35 * wet * (1.0 - snow));
 	// A town's lamps are warm; in winter each lot hangs out lights of its own colour.
 	vec3 lamps = mix(vec3(1.0, 0.78, 0.45), 0.5 + 0.5 * cos(6.2832 * (hash(floor(p / LOT) + 21.0) + vec3(0.0, 0.33, 0.67))), winter * 0.8);
-	EMISSION = lamps * town * street * night * (0.5 + 0.5 * winter) + lit_crowns + vein_colour * vein * run * (0.02 + 1.7 * night) + vec3(1.0, 0.5, 0.12) * pulse_light(p) * (1.0 + 1.8 * night) * (0.6 + 0.6 * grain);
+	EMISSION = lamps * town * street * night * (0.5 + 0.5 * winter) + lit_crowns + vein_colour * vein * run * (0.02 + 0.5 * sandy + 1.7 * night) + vec3(1.0, 0.5, 0.12) * pulse_light(p) * (1.0 + 1.8 * night) * (0.6 + 0.6 * grain);
 	ROUGHNESS = mix(mix(mix(0.9, 0.7, bare), 0.3, max(max(max(vein * night, snow * 0.6), sand * 0.5), wet * 0.8)), mix(0.05, 0.35, winter), pool);
 	SPECULAR = 0.35;
 	NORMAL = normalize((VIEW_MATRIX * vec4(normalize(mix(normal + vec3(tilt.x, 0.0, tilt.y), vec3(0.0, 1.0, 0.0), pool)), 0.0)).xyz);
