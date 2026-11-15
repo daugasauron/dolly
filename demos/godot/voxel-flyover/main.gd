@@ -26,6 +26,7 @@ const GROVES := [
 ]
 ## The trees that cast the shadows, in one grid of plain crowns: a shadow needs no more.
 const SHADES := [128, 3, Vector4(-2, -1, 200, 232)]
+const CLOUD_CELL := 240.0 # a cell of the low clouds' grid (cloud.gdshader's)
 const DAY_SECONDS := 120.0
 const YEAR_DAYS := 3.0 # a year's seasons pass in so many days
 const WIND := Vector2(0.93, 0.36) # the way the clouds drift, and the air with them
@@ -127,6 +128,8 @@ var hint_until := 0.0 # the keys show for a while after the board changes hands
 var day := 0.24
 var year := 0.3 # 0 the first of spring, 0.25 of summer, 0.5 of autumn, 0.75 of winter
 var falls := 0.0 # the rain or snow over the camera
+var clouds: Array[MultiMeshInstance3D] = [] # the low clouds, and the mist
+var clouded := 0.0 # how deep in a cloud the camera is
 var falling := ShaderMaterial.new() # the drops and flakes around the camera
 var shower := MultiMeshInstance3D.new()
 var fallen: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO] # how far the rain and the snow have fallen and drifted
@@ -206,6 +209,23 @@ func _ready() -> void:
 	camera.near = 0.3
 	add_child(camera)
 	build_hud()
+	# The low clouds and the mist (cloud.gdshader): nine balls for each cell of a grid.
+	for mist: bool in [false, true]:
+		var puff := SphereMesh.new()
+		puff.radial_segments = 12
+		puff.rings = 6
+		var bank := build_grid(puff, 13, CLOUD_CELL, reads_ground(preload("res://cloud.gdshader"), 2))
+		(bank.material_override as ShaderMaterial).set_shader_parameter("mist", mist)
+		var cells := bank.multimesh.buffer
+		var puffs := PackedFloat32Array()
+		for cell in cells.size() / 12:
+			for ball in 9:
+				puffs.append_array(cells.slice(cell * 12, cell * 12 + 12))
+		bank.multimesh.instance_count = puffs.size() / 12
+		bank.multimesh.buffer = puffs
+		bank.custom_aabb = AABB(Vector3.ONE * -1e6, Vector3.ONE * 2e6)
+		bank.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		clouds.append(bank)
 	# The rain and the snow: cards in a box of air around the camera (rain.gdshader).
 	var card := QuadMesh.new()
 	shower.multimesh = MultiMesh.new()
@@ -259,6 +279,8 @@ func set_level(to: int) -> void:
 	groves[-1].visible = drawn == GROVES.size()
 	city.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if level < 3 else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	shower.multimesh.visible_instance_count = 9000 if level < 3 else 3600
+	# A weak adapter has the dawn's haze without its banks of mist.
+	clouds[1].visible = level < 5
 	# A weak adapter has simpler crowns near by: the next grid's.
 	groves[0].multimesh.mesh = tree_mesh(GROVES[0 if level < 3 else 1][1])
 	groves[1].multimesh.mesh = tree_mesh(GROVES[1 if level < 3 else 2][1], true)
@@ -287,7 +309,7 @@ func pace(delta: float) -> void:
 		set_level(level + (4 if mean > FRAME_BUDGET * 8.0 else 3 if mean > FRAME_BUDGET * 5.0 else 2 if mean > FRAME_BUDGET * 2.5 else 1))
 	elif mean > FRAME_BUDGET:
 		# Even at the rate the adapter holds: a half, a third or a quarter of the display's.
-		Engine.max_fps = 30 if mean < 24.0 else 20 if mean < 36.0 else 12
+		Engine.max_fps = 30 if mean < (27.0 if Engine.max_fps == 30 else 22.0) else 20 if mean < 36.0 else 12
 	elif mean < FRAME_BUDGET * 0.35 and level > 0:
 		calm_windows += 1
 		if calm_windows > 120:
@@ -852,6 +874,11 @@ func fly(delta: float) -> void:
 	for grove in groves:
 		grove.position = Vector3(among.x, 0.0, among.y)
 	city.position = Vector3(among.x, 0.0, among.y)
+	# The clouds' grid drifts with the wind, and steps under the flight by whole cells.
+	var adrift := WIND * elapsed * 4.0
+	tell("adrift", adrift)
+	for bank in clouds:
+		bank.position = Vector3(snappedf(flyer.position.x - adrift.x, CLOUD_CELL) + adrift.x, 0.0, snappedf(flyer.position.z - adrift.y, CLOUD_CELL) + adrift.y)
 	tell("flyer", Vector2(flyer.position.x, flyer.position.z))
 	tell("flyer_at", flyer.position)
 	water.position = Vector3(flyer.position.x, Terrain.SEA - 0.2, flyer.position.z)
@@ -1131,6 +1158,9 @@ func follow(delta: float) -> void:
 	var above := (Vector2(camera.position.x, camera.position.z) + Vector2(9.0, 3.5) * elapsed) / 1000.0
 	falls = lerpf(falls, smoothstep(0.66, 0.78, Terrain.fbm(above + Vector2(31.0, 7.0), 3)), 1.0 - exp(-delta * 1.5))
 	sky_material.set_shader_parameter("rains", falls)
+	# In a cloud the air is white.
+	clouded = lerpf(clouded, in_cloud(camera.position), 1.0 - exp(-delta * 4.0))
+	environment.fog_density = lerpf(0.0006, 0.05, clouded)
 	# A drop falls 22 units a second and a flake 2.6. The wind carries them, and the flight
 	# slants them back by no more than half of their fall, so on the screen they come down.
 	shower.visible = falls > 0.004
@@ -1143,6 +1173,31 @@ func follow(delta: float) -> void:
 		falling.set_shader_parameter("way_snow" if kind == 1 else "way_rain", way)
 	falling.set_shader_parameter("falls", falls)
 	falling.set_shader_parameter("snows", season_share(0.85))
+
+
+## How deep in a low cloud a place is, between 0 and 1, from a little outside it: cloud.gdshader's
+## balls of the four cells nearest, computed here.
+func in_cloud(place: Vector3) -> float:
+	var adrift := WIND * elapsed * 4.0
+	var deep := 0.0
+	var first := ((Vector2(place.x, place.z) - adrift) / CLOUD_CELL - Vector2(0.5, 0.5)).floor()
+	for cell in 4:
+		var number := first + Vector2(cell % 2, cell / 2)
+		var cover := smoothstep(0.53, 0.65, Terrain.fbm(number * 0.31 + Vector2(71.0, 19.0), 2))
+		if cover <= 0.0:
+			continue
+		var x := int(number.x) * 16
+		var y := int(number.y) * 16
+		for puff in 9:
+			var at := (number + Vector2(0.5, 0.5)) * CLOUD_CELL + adrift + (Vector2(Terrain.cell_hash(x + puff * 3, y + 5), Terrain.cell_hash(x + puff * 3 + 1, y + 6)) - Vector2(0.5, 0.5)) * CLOUD_CELL * 0.62
+			var radius := (24.0 + 30.0 * Terrain.cell_hash(x + puff * 3 + 2, y + 7)) * cover
+			var beside := Vector2(place.x, place.z).distance_to(at) / radius
+			if beside > 1.3:
+				continue
+			var base := maxf(Terrain.SEA + 100.0 + 45.0 * Terrain.cell_hash(x + 9, y + 9) + 14.0 * Terrain.cell_hash(x + puff * 3 + 3, y + 8), Terrain.surface(at) + 50.0)
+			var over := (place.y - base) / radius / (0.25 if place.y < base else 0.6)
+			deep = maxf(deep, 1.3 - sqrt(beside * beside + over * over))
+	return clampf(deep * 2.0, 0.0, 1.0)
 
 
 ## How much of a season it is, between 0 and 1: all of it within a tenth of a year of its
@@ -1179,6 +1234,15 @@ func set_day() -> void:
 	environment.ambient_light_color = Color(0.85, 0.82, 0.78).lerp(Color(0.15, 0.22, 0.5), night)
 	environment.ambient_light_energy = lerpf(1.0, 0.55, night)
 	environment.volumetric_fog_albedo = Color(0.75, 0.82, 1.0).lerp(warm, 0.5)
+	# Mist lies low at dawn, and a little at dusk: the haze over the sea thickens, and the banks
+	# of mist with it. The clouds take the light's colour and the sky's.
+	var dawn := smoothstep(-0.1, 0.03, height) * (1.0 - smoothstep(0.08, 0.42, height)) * (1.0 if day < 0.5 else 0.4)
+	environment.fog_height_density = lerpf(0.006, 0.022, dawn)
+	for bank in clouds:
+		var cloud := bank.material_override as ShaderMaterial
+		cloud.set_shader_parameter("thick", 0.2 + 0.8 * dawn)
+		cloud.set_shader_parameter("light", (warm * (0.25 + 0.75 * sunlight)).lerp(Color(0.2, 0.26, 0.42), night))
+		cloud.set_shader_parameter("shade", Color(0.5, 0.56, 0.7).lerp(warm * 0.6, 0.35 * (1.0 - sunlight)).lerp(Color(0.02, 0.03, 0.07), night))
 	searchlight.light_energy = 14.0 * night
 	lamp.light_energy = 0.2 + 2.2 * night
 
