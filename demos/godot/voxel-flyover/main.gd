@@ -140,6 +140,9 @@ var curtains: MultiMeshInstance3D # the rain seen from afar
 var boats: MultiMeshInstance3D # the boats on the sea around the flyer
 var birds_of_place: MultiMeshInstance3D # gulls over the coasts and geese over the land
 var landmarks := {} # plot -> the landmark built there, or null
+var baked := ShaderMaterial.new() # the landmarks' one material (baked.gdshader)
+var gem_mesh: ArrayMesh # a beacon's gem, and its motes
+var motes_mesh: ArrayMesh
 var clouds: Array[MultiMeshInstance3D] = [] # the low clouds, and the mist
 var clouded := 0.0 # how deep in a cloud the camera is
 var falling := ShaderMaterial.new() # the drops and flakes around the camera
@@ -304,6 +307,8 @@ func _ready() -> void:
 	shower.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(shower)
 	flyer.position = Vector3(START.x, Terrain.surface(START) + 30.0, START.y)
+	baked.shader = preload("res://baked.gdshader")
+	materials.append(baked)
 	warm_up()
 	trail = flyer.position
 	camera.position = flyer.position + view
@@ -1138,7 +1143,7 @@ func tend_landmarks() -> void:
 			var found := Terrain.landmark(plot)
 			landmarks[plot] = null
 			if not found.is_empty():
-				var mark := Landmarks.build(found)
+				var mark := Landmarks.build(found, baked)
 				mark.set_meta("rests", mark.position.y)
 				add_child(mark)
 				landmarks[plot] = mark
@@ -1191,6 +1196,18 @@ func tend_thermals() -> float:
 		if flyer.position.y < column.position.y + 170.0:
 			rising += 13.0 * strength * (1.0 - smoothstep(6.0, 24.0, apart))
 	return rising
+
+
+## A beacon's gem and its motes are one mesh each, made of the first beacon's parts: gives the
+## node that mesh in place of its parts, and returns it.
+func one_mesh(of: Node3D, mesh: ArrayMesh, paint: Material) -> ArrayMesh:
+	if mesh == null:
+		mesh = Parts.bake(of)
+	for part in of.get_children():
+		of.remove_child(part)
+		part.queue_free()
+	Parts.part(of, mesh, paint, Vector3.ZERO).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mesh
 
 
 ## The beacon of a plot of the world: where it floats, or nothing where the plot's place is sea.
@@ -1292,6 +1309,7 @@ func build_beacon(place: Vector3, alight: float) -> Node3D:
 	var glass := Parts.paint(colour, 0.15, 1.5)
 	Parts.part(gem, point, glass, Vector3(0, 1.1, 0))
 	Parts.part(gem, point, glass, Vector3(0, -1.1, 0), Vector3(180, 0, 0))
+	gem_mesh = one_mesh(gem, gem_mesh, glass)
 	var column := CylinderMesh.new()
 	column.top_radius = 0.9
 	column.bottom_radius = 0.9
@@ -1315,6 +1333,7 @@ func build_beacon(place: Vector3, alight: float) -> Node3D:
 	mote.rings = 4
 	for index in 3:
 		Parts.part(motes, mote, glass, Vector3(cos(index * TAU / 3.0) * 4.5, 0.8 * sin(index * 2.0), sin(index * TAU / 3.0) * 4.5), Vector3.ZERO, Vector3.ONE * 0.7).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	motes_mesh = one_mesh(motes, motes_mesh, glass)
 	var ring := TorusMesh.new()
 	ring.inner_radius = 0.9
 	ring.outer_radius = 1.0

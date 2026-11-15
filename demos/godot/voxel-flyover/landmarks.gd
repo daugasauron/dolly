@@ -30,7 +30,7 @@ static func glowing(mark: Node3D, to: Node3D, mesh: Mesh, colour: Color, place: 
 
 
 ## Builds the landmark terrain.gd found: [place, base, kind, the town's kind, top, radius, own].
-static func build(found: Array) -> Node3D:
+static func build(found: Array, paint: ShaderMaterial) -> Node3D:
 	var mark := Node3D.new()
 	var place: Vector2 = found[0]
 	var kind: int = found[2]
@@ -142,6 +142,15 @@ static func build(found: Array) -> Node3D:
 				Parts.part(mark, cylinder(0.3, 0.4, 6), dark, at + Vector3(0, 2, 0), Vector3.ZERO, Vector3(1.4, 4, 1.4))
 				Parts.part(mark, ball, Parts.paint(Color(0.1, 0.5, 0.2).lerp(Color(0.9, 0.5, 0.7), float(tree % 2)), 0.8), at + Vector3(0, 6.5, 0), Vector3.ZERO, Vector3(6, 6, 6))
 			glowing(mark, mark, cylinder(0.25, 0.9, 6), Color(0.6, 0.85, 1.0), Vector3(across * 0.86, -across * 0.5, 0), Vector3.ZERO, Vector3(1, across, 1))
+	# Its still parts become one mesh, and a windmill's sails another.
+	var apart: Array = []
+	if mark.has_meta("sails"):
+		var hub: Node3D = mark.get_meta("sails")
+		apart.append(hub)
+		Parts.part(hub, Parts.bake(hub), paint, Vector3.ZERO)
+	if mark.has_meta("turns"):
+		apart.append(mark.get_meta("turns"))
+	Parts.part(mark, Parts.bake(mark, apart), paint, Vector3.ZERO)
 	for child in mark.find_children("*", "MeshInstance3D", true, false):
 		(child as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return mark
@@ -215,5 +224,3 @@ static func tend(mark: Node3D, elapsed: float, night: float, seen: float) -> voi
 		(mark.get_meta("beam") as StandardMaterial3D).albedo_color.a = 0.06 * night
 	if mark.get_meta("kind") == Terrain.FLOATING:
 		mark.position.y = mark.get_meta("rests") + 3.0 * sin(elapsed * 0.4 + mark.rotation.y)
-	for light: StandardMaterial3D in mark.get_meta("lights"):
-		light.emission_energy_multiplier = 0.15 + 3.0 * night
