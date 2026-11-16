@@ -33,8 +33,8 @@ Dolly, as it exported Dodge the Creeps for `amy install dodge-the-creeps`
 - `godot-lantern-drift`: Lantern Drift on the page at once; Q leaves a shell where `godot-editor -e --path ~/lantern-drift` opens a copy of its project in Godot's editor, the islands in its 3D view. The eye beside HUD in the Scene dock hides the game's display, F5 plays the game so, and Ctrl+S saves the scene.
 - `airtime-godot`: Airtime: Foundry in Godot, the strafe trials of bhop on Airtime's own movement and course, drawn by Forward+ on `gpu@0` as a foundry at night over molten metal; `airtime-godot` plays it.
 - `godot-airtime`: Airtime in Godot on the page, which starts at once; Q leaves a shell where `godot-editor -e --path ~/airtime` opens a copy of its project in Godot's editor, the course in its 3D view. The eye beside Hud in the Scene dock hides the game's display, F5 plays the game so, and Ctrl+S saves the scene.
-- `voxel-flyover`: Voxel Flyover, a corgi's flight on a jet surfboard over an endless world of mountains, forests and sea through a day and a night, which the GPU builds in its shaders, drawn by Forward+ on `gpu@0`; `voxel-flyover` plays it.
-- `godot-voxel-flyover`: Voxel Flyover on the page at once: the corgi flies itself until Enter takes the board, and Q leaves a shell.
+- `voxel-flyover`: Voxel Flyover, a corgi's flight on a jet surfboard, with a pelican on a bicycle pedalling under it for the jets, over an endless world of mountains, forests and sea through a day and a night, which the GPU builds in its shaders, drawn by Forward+ on `gpu@0`; `voxel-flyover` plays it.
+- `godot-voxel-flyover`: Voxel Flyover on the page at once: the corgi flies itself until Enter or a click takes the board, the mouse then turns the view, and Q leaves a shell.
 
 ## Lantern Drift
 
@@ -73,36 +73,195 @@ shapes into firs with tiers of boughs in the cold, broad lumpy crowns in the wet
 blossom or autumn colours, slender spires in the desert, and groves that glow at night; the
 fragment stage roughens a crown's light as leaves do. The sea mirrors the sky, with the sun's
 glitter on its ripples and foam that glows at night along the shore
-([`water.gdshader`](voxel-flyover/water.gdshader)). The sky follows the hour, with stars, the
-moon and an aurora, and carries a layer of cloud lit from the sun's side, whose shade falls on the
+([`water.gdshader`](voxel-flyover/water.gdshader)). The sky follows the hour, with stars, a river of
+them across the night, the moon and an aurora, and carries a layer of cloud lit from the sun's side, whose shade falls on the
 ground ([`sky.gdshader`](voxel-flyover/sky.gdshader)). A day lasts two minutes: one light is the
-sun and then the moon, with four shadow cascades over 420 units, 4x MSAA, SSAO, glow, haze that
-thickens toward the sea, and volumetric fog, in which the low sun draws shafts and the board's
-searchlight shows at night.
+sun and then the moon, with four shadow cascades over 420 units that every grid of land casts
+into, 4x MSAA, SSAO, glow, haze that thickens toward the sea, and volumetric fog, in which the low
+sun draws shafts and the board's searchlight shows at night.
 
 Nothing appears or goes at once. The same trees are drawn by four grids, each a ring further from
 the flyer with a simpler mesh: a crown of 12 rings to 80 units, of 5 to 232, of 3 without a trunk
 to 420, and eight triangles to 690. Where two rings overlap, one's trees thin out pixel by pixel as
 the other's fill in, both asking the same number of the pixel, and past the last ring the land's
-shader paints the same crowns on the ground they stand on, and further still the colour of the
-climate's share of them. The land's grids blend their heights by the distance from the flyer,
-which moves smoothly while the grids step, and the beacons brighten from 340 units to 230.
+shader paints the same crowns on the ground they stand on, round over their plots' edges, and
+further still the colour of the climate's share of them. The land's grids blend their heights by
+the distance from the flyer, which moves smoothly while the grids step, and the beacons brighten
+from 340 units to 230. A beacon takes its light by degrees when it is lit, its ring of light grows
+out of nothing and is gone before the next sets off, and the rings of a beacon fade with its
+distance from the flyer. A tree, a beacon's crystal or its shaft thins out before the camera,
+which may fly through it. The camera follows a point that follows the next of its views, so it
+neither sets off nor arrives at once, and the ground lifts it by degrees before it is reached.
+
+Nothing finer than a pixel is drawn as it is, since the flight would carry it across the pixels as
+flicker. Each shader measures how much of its surface a pixel covers (the derivatives of the
+place, or of the hairs' own coordinates) and lets detail finer than that give way to its mean: the
+octaves of the ground's grain one by one, its flowers, the tilt of its light, the sea's three
+sizes of ripple (whose lost slope becomes roughness, so the sun's glitter widens into a glare),
+the clumps of a crown's leaves, the fur's hairs, which merge into a coat of their mean length, and
+the links of the pelican's chain. A vein of crystal and a far beacon's shaft keep a width of a
+pixel or a few and grow fainter in proportion; a wake seen on edge fades; the painted crowns merge
+into their share's colour where a pixel covers a crown.
 
 The flyer is a character of our own, drawn for this game from Godot's primitive meshes: a corgi in
 mirrored sunglasses and a red cape, crouched on a teal surfboard that two small jets carry. Its
 coat is fur in 18 shells ([`fur.gdshader`](voxel-flyover/fur.gdshader)): each furred part is drawn
 again and again a little further out along its normals, keeping the pixels where a hair is that
 long, and the hairs lean and shiver in the air the flight drives past. It crouches lower the
-faster it goes and the harder it turns, leans and looks into its turns, its ears lie back and
-its tongue flaps; the cape is a cloth its vertex stage flutters and swings out of a turn
+faster it goes and the harder it turns, leans and looks into its turns, its ears lie back, and
+its tongue, a strip of the cape's cloth, trails back from the side of its mouth; the cape is a cloth its vertex stage flutters and swings out of a turn
 ([`cape.gdshader`](voxel-flyover/cape.gdshader)), and each jet leaves a wake, a ribbon the vertex
 stage lays along the places the board has been ([`wake.gdshader`](voxel-flyover/wake.gdshader)).
 The board banks into its turns.
+
+Under the board hangs a bicycle, and on it a pelican pedals for the jets
+([`pelican.gd`](voxel-flyover/pelican.gd)), also of primitive meshes: a white bird in a cyclist's
+red cap, with a long bill and its pouch, feathers in the same shells as the corgi's fur, and long
+black-tipped flight feathers, a tail and a crest of the cape's cloth, which trail and flutter in
+the wind. Its legs are laid from hip to knee to pedal each frame, and so is the leading edge of
+each wing, from shoulder to elbow to the wrist at a grip of the handlebar; the wing's
+black-tipped flight feathers hang from all along that edge and its last feathers are closed over
+the grip. The handlebar, the fork and the front wheel
+turn in the head tube with the flight's turn. The bicycle hangs from the board by its rear axle
+and by two rods from its head tube that pass the rider's head on either side. A chain runs from the chainring
+up to a sprocket on a shaft between the two engines, and a fan turns in each engine's intake;
+chain, shaft, fans and wheels turn by the cranks' one angle, so nothing slips, and they are
+striped or sectored so the turning shows ([`drive.gdshader`](voxel-flyover/drive.gdshader)). The
+cranks turn faster the faster the board flies, the flames
+([`flame.gdshader`](voxel-flyover/flame.gdshader)) lengthen with each stroke of a leg and carry a
+ring of brighter gas for it, the nozzles glow with it, and a pulse runs down each wake.
+
+The world has a year of three days and weather. The seasons are three shares the shaders are
+told: more groves blossom in spring and more turn in autumn, each tree in its own time; in winter
+the broad crowns are bare, snow comes down the slopes and lies on crowns and roofs, and the rain
+is snow ([`flora.gdshaderinc`](voxel-flyover/flora.gdshaderinc)). Under the deep of a cloud it
+rains: the land is darker and glossier, the sea pocked, and drops fall through a box of air
+around the camera ([`rain.gdshader`](voxel-flyover/rain.gdshader)): each a card that faces the
+camera, a thin soft streak along its way for a drop and a soft round dot for a flake. The wind
+carries them and the flight slants them back by no more than half of their fall, so they come
+down on the screen. With the sun out a rainbow stands opposite it. Low clouds drift under the
+high layer ([`cloud.gdshader`](voxel-flyover/cloud.gdshader)): clusters of soft balls, one for a
+cell of a grid, that the board flies under, beside and through; a ball draws in before the
+camera and the air whitens inside one. Mist of the same balls, flat, lies on the sea and the low
+ground, and the haze over the sea thickens with it at dawn. Where it rains a curtain hangs from
+the cloud to the ground, seen from afar ([`curtain.gdshader`](voxel-flyover/curtain.gdshader)),
+and the wind's gusts cross the grass, the crops and the sea as paler and rougher bands, and bend
+the trees' crowns on a strong adapter. The deepest clouds stand together as a storm and are lit
+from within by lightning now and then. High over the clouds lie thin streaks of cloud that hold
+the sun's fire after the ground has lost it. The open sea has a swell whose crests break white
+in a gust, surf rolls in lines over the shallows, light dances on their bed, and the sea is
+turquoise in the hot countries and grey-green in the cold ones.
+
+The desert's sand lies in rippled dunes, its veins are lava, and at night a shooting star crosses
+every six seconds. Between the desert and the meadows lies savanna, grass with a few flat-headed
+trees, gold for most of the year and green in spring and after rain. Low wet ground by the sea
+is marsh, with few trees and pools that mirror the sky. In winter the pools and the seas of the
+cold lands carry ice ([`water.gdshader`](voxel-flyover/water.gdshader)), and a town's lamps are
+each lot's own colour. A shower leaves the ground wet behind it for three quarters of a minute.
+A lit beacon warms the ground some 90 units around it: the snow and the ice draw back there and
+more flowers stand. A hollow of the ground is wetter and darker than a spur and keeps its snow
+longer (the difference of the ground's two textures).
+
+The world is large by slow fields (`slow` in
+[`terrain.gdshaderinc`](voxel-flyover/terrain.gdshaderinc)): two octaves of noise each, of 1.9,
+2.7, 5.1, 7.3, 11, 19 and 53 thousand units, each turned and placed by itself, so their
+combinations do not come round again. Oceans and continents of 7.3 thousand units and lands of
+2.7 thousand shift the coasts of 520, so an ocean has islands only; the relief of a region makes
+its ranges low or high; a massif, rare, raises its peaks to two and a half times
+(the nearest is some eleven thousand units from the start); rivers at the sea's level follow a
+meandering noise's contour through valleys, widen into lakes in some stretches, and narrow to
+their springs in the hills; warmth and
+moisture have countries of 19 and 11 thousand units; and a realm of wonders, a tenth of the
+world at 53 thousand (the nearest fourteen thousand north of the start), has a sea alight at
+night, groves that mostly glow and bright veins. The ground's textures also carry the realm, and
+keep heights around 110 so the half floats stay fine on a massif.
+
+Towns stand on some low plains ([`city.gdshader`](voxel-flyover/city.gdshader)), of eight kinds by
+their climate, their ground and the culture of their region (`town_kind`): a city of towers (three in ten end in a point of green copper or slate) on
+blocks of four lots by five between asphalt avenues; a town of gabled timber-frame houses under
+red tiles; a desert town of mud-brick cubes, some under whitewashed domes; a village of dark
+timber under steep turf roofs in the cold; a town of walls between red posts under wide roofs
+with upturned eaves; thatched houses on posts over the shallows of a warm wet coast; a
+whitewashed town with blue domes on a warm coast; round thatched huts on the savanna. All are
+one mesh, four walls and a roof of 4 by 4 squares, that the vertex stage shapes by the kind;
+the fragment stage draws storeys, windows lit at night, frames, planks, tiles, turf or thatch.
+The buildings are drawn to 1,600 units (a weak adapter draws fewer), the same lots the same
+buildings at every distance, lower the further they are; beyond 33 lots the mesh has a plainer
+roof whose shape the near roofs take before they meet. No tree stands in a town or near it, and
+few on its fields, which lie in strips between hedges, green in spring and gold by late summer,
+or on warm wet slopes in terraces along the contours that are flooded in spring.
+
+A plot of 260 units has one landmark at most, by its place (`landmark` in
+[`terrain.gd`](voxel-flyover/terrain.gd), built by [`landmarks.gd`](voxel-flyover/landmarks.gd)):
+a lighthouse with turning beams, a windmill among fields, the tower of a town's kind, an arch of
+stone in the desert, giant mushrooms that glow in a marsh, a ring of standing stones, crystals in
+the mountains, a gate on open ground, a wreck on a shore, a keep with its fallen wall on a hill,
+a stepped mound in the hot wet lands, a tree far older than its wood, a cinder cone that smokes in the dry lands, an island that floats in the board's way, which passes over or under it. The forms
+take after kinds of building found in many places; none copies a building. Life is met by place
+too, each a grid whose shader places its cell's own: sailing boats
+([`afloat.gdshader`](voxel-flyover/afloat.gdshader)), gulls over the coasts and wedges of geese in
+spring and autumn ([`wings.gdshader`](voxel-flyover/wings.gdshader)), balloons
+([`aloft.gdshader`](voxel-flyover/aloft.gdshader)), whales that blow
+([`whale.gdshader`](voxel-flyover/whale.gdshader)), herds on the open land
+([`herd.gdshader`](voxel-flyover/herd.gdshader)), dolphins that come up and leap beside a board
+that skims the sea, fireflies over the warm wet land at night
+([`fireflies.gdshader`](voxel-flyover/fireflies.gdshader)), and at night fireworks over the towns
+([`fireworks.gdshader`](voxel-flyover/fireworks.gdshader)). A house that is not a city's tower
+stands a little off its lot's middle at an angle of its own, so a village is not a grid.
+Trees stand in woods with glades between them (patches cut from the climate's two fields, which
+the ground's texture already holds), and among the broad crowns stand palms in the hot wet
+lowlands, cypresses where it is warm and dry, and birches toward the cold. The game makes its
+sounds before the flight: the jets' drone, a note for each beacon, the rain's patter and the
+wash of the sea under a low flight.
+
+The flight keeps what it gains and stays pointless: a dive gives speed and a climb takes it,
+the wind (the clouds' drift) helps at the back, low over the sea the board skims faster in its
+own spray, a slope that faces the wind lifts it, as does the warm air over a town by day
+([`thermal.gdshader`](voxel-flyover/thermal.gdshader)), a beacon gives a push of speed as it is lit (anywhere along its beam, within 11 units of it: the
+push comes on in under a second and wears off over six; no key gives speed), and
+a flock of birds ([`bird.gdshader`](voxel-flyover/bird.gdshader)) falls in behind the board
+when it passes and carries it a little faster for a while; in rain or snow the birds close up
+and fly low. Nothing is flown through: the flight looks along its turn for the ground and the
+roofs of the next second and a half and climbs in time to clear them, and the camera is lifted
+over the roofs around it. Streaks of air show at speed
+([`speed.gdshader`](voxel-flyover/speed.gdshader)); the flyer's wash bends the crowns it
+passes low over.
+
+The board flies up to 420 units, over the low clouds and under the high layer. At sunrise and
+sunset the sky is in bands (fire at the horizon on the sun's side, rose over it, violet higher,
+and opposite the sun the earth's shadow under a rose band), the sun's disc is larger with a band
+of light along the horizon, and the clouds are lit from below
+([`sky.gdshader`](voxel-flyover/sky.gdshader)). A landmark's still parts are one mesh
+(`Parts.bake`), as are a beacon's gem and its motes: the renderer's time goes by the number of
+things it draws.
+
+While the game flies itself the camera shows the world: a round of 68 seconds of wide views
+behind, beside, above and ahead of the flyer that glide into one another, and five seconds
+close beside the pelican.
+
+What an adapter draws is a ladder of seven levels (`LEVELS` in
+[`main.gd`](voxel-flyover/main.gd)): the scene's size (scaled up smoothly), four samples a pixel
+or one with smoothed edges, the fog's shafts and ambient occlusion, the shadows' cascades, reach
+and map, the sky's light, the coats' shells, and how many of the trees' grids are drawn before
+the land paints their crowns. The game starts at the top and goes down while a frame takes the
+GPU over 14 ms by Godot's timer, and below the last level holds an even rate. No level thins
+anything by a screen-door of pixels: where two grids of trees overlap, the coarser tree grows
+inside the finer one, which then draws back. In Firefox on an integrated AMD GPU, where the
+first level drew 5 frames a second 200 ms apart, the game settles on the last level within four
+seconds and draws 30 a second 33 ms apart, as it does in Chrome on that GPU (2026-11-15); on the
+NVIDIA RTX 5070 it stays on the first, at 60 in Chrome and 59 in Firefox with the GPU at 5.5 ms
+a frame.
 [`terrain.gd`](voxel-flyover/terrain.gd) computes the world's function for the flight, with the
 same integer hash, so the board clears the ground the GPU draws and finds the beacons that float
-over it. The corgi flies itself until Enter takes the board, and until then the camera glides
-between four views of it. `-- --autopilot SECONDS` prints its frame rate, the time a frame took,
-the beacons it lit and what its frame shows.
+over it. The corgi flies itself until Enter or a click takes the board, and until then the camera
+glides between five views of it, one of them the pelican's. The click also gives the game the
+pointer (the page captures it at a person's click alone), and the mouse then turns the view
+around the flyer while the keys steer, and the wheel or Z and X zoom; Escape gives the pointer
+and the board back, and the view and its zoom come round again. The player's view looks at the
+flyer from straight behind it. The one number on the screen is the score, the beacons lit.
+`-- --autopilot SECONDS` prints its frame rate, how even its frames were (median, 99th percentile,
+maximum, and the frames of over twice the median), the time a frame took, the beacons it lit and
+what its frame shows.
 
 The world was blocks, then hexagonal columns, and is now smooth land. Its 1920 by 1080 frames take
 the GPU 5.2 to 5.5 ms by Godot's own measure and its renderer's thread 0.6 to 0.8 ms, and it draws
@@ -265,8 +424,9 @@ Both games passed in both browsers on 2026-11-13, the editor's log without an er
 
 [`test/godot-flyover-browser.mjs`](test/godot-flyover-browser.mjs) opens `godot-voxel-flyover` from
 the front page's list of applications, on a hardware adapter, in Chrome and Firefox: the game
-draws on `gpu@0`, Q leaves the shell, and a flight by itself through a morning reaches a beacon
-and reports a frame with the sky along its top.
+draws on `gpu@0`, a click captures the pointer and 300 pixels of the mouse turn the view 60
+degrees, Q leaves the shell, and a flight by itself through a morning reaches a beacon and
+reports even frames and a frame with the sky along its top.
 
 [`test/godot-x11-browser.mjs`](test/godot-x11-browser.mjs) installs the editor and Lantern Drift
 with amy in `x11-desktop`'s xterm: the game and then the editor open windows of their own on the

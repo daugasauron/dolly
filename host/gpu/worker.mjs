@@ -83,7 +83,7 @@ async function show(scope) {
 function settled(device, promise) {
   let done = false;
   promise.then(() => { done = true; }, () => { done = true; });
-  for (const ms of [2, 5, 10, 20, 40]) setTimeout(() => { if (!done) device.queue.submit([]); }, ms);
+  for (let ms = 2; ms < 100; ms += 3) setTimeout(() => { if (!done) device.queue.submit([]); }, ms);
   return promise;
 }
 // What a scope may have queued before its next batch waits: 64 submissions, and

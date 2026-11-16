@@ -66,6 +66,7 @@ ffmpeg, The FFmpeg port
 filesystem, File and path semantics
 firefox, Seen in Firefox only
 flaky, A test that fails some runs
+flyover, The Voxel Flyover game
 frontend, The page's own JavaScript
 game, The Slopyard game
 gamedev, Game engine ports

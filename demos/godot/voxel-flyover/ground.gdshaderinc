@@ -9,15 +9,33 @@ uniform float reach = 180.0; // the grid reaches at least this far from the flye
 uniform vec2 flyer; // where the flyer is over the ground
 
 vec4 ground_in(sampler2D map, vec2 p, float size) {
-	return textureLod(map, (p / size + 0.5) / vec2(textureSize(map, 0)), 0.0);
+	return textureLod(map, (p / size + 0.5) / vec2(textureSize(map, 0)), 0.0) + vec4(HEIGHT_KEPT, 0.0, 0.0, 0.0);
 }
 
-// x: the height, y: warmth, z: moisture.
-vec4 ground_here(vec2 p) {
+// How much of the ground at a place is the grid's own: all of it near the flyer, none past its reach.
+float ground_own(vec2 p) {
 	vec2 away = abs(p - flyer);
-	float own = 1.0 - smoothstep(reach - cell_beyond * 4.0, reach, max(away.x, away.y));
+	return 1.0 - smoothstep(reach - cell_beyond * 4.0, reach, max(away.x, away.y));
+}
+
+// How far apart the ground's points are at a place.
+float ground_spacing(vec2 p) {
+	return mix(cell_beyond, cell, ground_own(p));
+}
+
+// x: the height, y: warmth, z: moisture, w: how much of a realm of wonders the place is.
+vec4 ground_here(vec2 p) {
+	float own = ground_own(p);
 	vec4 beyond = ground_in(ground_beyond, p, cell_beyond);
 	return own > 0.0 ? mix(beyond, ground_in(ground, p, cell), own) : beyond;
+}
+
+// How far the ground at a place stands over the ground around it: over zero on a spur or a
+// knoll, under it in a gully or a hollow. The coarser texture is the finer one's mean, so it is
+// their difference, near the flyer where the finer one is read.
+float ground_relief(vec2 p) {
+	float own = ground_own(p);
+	return own > 0.0 ? (ground_in(ground, p, cell).x - ground_in(ground_beyond, p, cell_beyond).x) * own : 0.0;
 }
 
 // The ground's normal, from the heights that far to each side.
