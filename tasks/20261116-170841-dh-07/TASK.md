@@ -9,7 +9,7 @@ tested: the demo's test needs a GPU window, so `npm run test:demos` skips it.
 
 ## State 2026-11-17
 
-Reproduction, headless Chrome 138 (`--disable-gpu --enable-unsafe-webgpu`, adapter "google
+Reproduction, headless Chrome 156 (`--disable-gpu --enable-unsafe-webgpu`, adapter "google
 swiftshader"), the `mojo-gpu` image, `demos/deep-hedger/dh-fit.mojo` built there with `mojo build`:
 
 - `./dh-fit time CHAIN 64` on a 56-contract chain ends with `enqueue_function: gpu@0: I/O error`

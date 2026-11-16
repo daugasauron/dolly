@@ -79,7 +79,7 @@ dh-fit time /tmp/dh/chain.txt 1024       # seconds of an iteration's parts
 
 ## What was measured
 
-On an RTX 5070 in Chrome 138 (Vulkan), AAPL's chain of 2026-11-13 as loaded on
+On an RTX 5070 in Chrome 156 (Vulkan), AAPL's chain of 2026-11-13 as loaded on
 2026-11-17 (the last session's closing quotes: 208 contracts, 8 expiries from
 3 to 45 business days), 1,024 paths, stock cost 0.25 bp, risk price 0.01.
 
@@ -122,10 +122,14 @@ On an RTX 5070 in Chrome 138 (Vulkan), AAPL's chain of 2026-11-13 as loaded on
   carried more risk than unhedged ones. With it: forwards 1.0000, 38% of the
   unhedged risk left, 24.6% to 25.1% a year.
 
-Software adapters cannot run it: headless Chrome's SwiftShader takes 25 s for
-what the GPU does in 0.05 s, and its GPU process ends creating `adjoint`'s
-pipeline. The test therefore needs a GPU window:
-`DISPLAY=:N node demos/deep-hedger/test/deep-hedger-browser.mjs`.
+The test ([`test/`](test)) drives the image as a user does, the service's
+answer being a lognormal chain of its own, and then runs `dh-fit check` and a
+fit of 600 iterations: it passes in Chrome 156 and in Firefox 159 with the
+same numbers to the last digit (loss 248.469 to 0.773, 37% of the unhedged
+risk left, forward and daily deviation the chain's). Software adapters cannot
+run it: headless Chrome's SwiftShader takes 25 s for what the GPU does in
+0.05 s, and its GPU process ends creating `adjoint`'s pipeline. So it needs a
+GPU window: `DISPLAY=:N node demos/deep-hedger/test/deep-hedger-browser.mjs`.
 
 ## Key files
 

@@ -14,7 +14,7 @@ by hand, the host keeping the parameters and Adam. Compiled by `mojo build` in t
 
 ## State 2026-11-17
 
-Measured on the RTX 5070 in Chrome 138 (Vulkan), AAPL's chain of 2026-11-13 as dh-gui wrote it
+Measured on the RTX 5070 in Chrome 156 (Vulkan), AAPL's chain of 2026-11-13 as dh-gui wrote it
 (208 contracts, 416 books, 8 expiries to 45 business days), 1,024 paths, unless said otherwise.
 Logs: `build/dh-evidence/` (this machine).
 

@@ -30,7 +30,7 @@ request, `?expiration=all&from=…&to=…&strikeLimit=60`, returns the chain as 
 Monday before the open; status 203). With the owner's token in the GUI any symbol and current
 quotes. SPX or SPY, European or more liquid, need that token.
 
-Done: in the image, `curl` through the broker loads that chain in Chrome 138, headless and on
+Done: in the image, `curl` through the broker loads that chain in Chrome 156, headless and on
 the GPU, with no failed request (`work/dh-evidence/shot.mjs`: 208 contracts of 8 expiries kept).
 
 What the quotes are, which the fit has to live with: the last session's closing quotes have
