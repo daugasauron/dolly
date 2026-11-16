@@ -128,6 +128,11 @@ On an RTX 5070 in Chrome 156 (Vulkan), AAPL's chain of 2026-11-13 as loaded on
   the hedged books' deviation 0.0273 of the forward against the kernels'
   0.0271, unhedged 0.0597 against 0.0592, the model's mean spread 0.00036
   against 0.00034.
+- **What the hedger holds** (the Hedge tab, iteration 400 of a fit in the
+  image): short the 20-day call 15% in the money, 0.8 of a share on every
+  path from the second day; at the forward, 0.3 at first, then toward 0.6 to
+  0.8 on the paths that end in the money and to nothing on those that end
+  out of it; 13% out of the money, under 0.1 throughout.
 - **The hedger against the delta.** On that reference, a lognormal 25% chain,
   600 iterations: the hedger leaves 0.64, 0.51, 0.41 and 0.35 of the unhedged
   risk at 5, 10, 21 and 42 days; the Black-Scholes delta at the true
