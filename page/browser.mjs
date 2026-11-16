@@ -68,7 +68,8 @@ export function boot(mount, { images, image, modules, site, http = {}, files = {
 }
 
 // What boot() does, for the routes of the site too (site.mjs), which build and
-// restore images of their own. `route(registry)` selects what runs:
+// restore images of their own and give the host modules the site's
+// `imageBuilder` (host/README.md). `route(registry)` selects what runs:
 // - image, label: the route's image ("custom" for none) and its boot log line;
 // - required, enabled: the host modules the image requires, and those the page
 //   enables (by default the required ones), which a build alone may set;
@@ -81,7 +82,7 @@ export function boot(mount, { images, image, modules, site, http = {}, files = {
 // - message(message): each message of the Worker;
 // - running(host): the context host modules' entryStarted is given beside
 //   `image`, and members of the page's handle.
-export async function run(mount, { images, modules, site, http }, route) {
+export async function run(mount, { images, modules, site, http, imageBuilder }, route) {
   // Adopted once, which a page's style-src without 'unsafe-inline' allows.
   if (!document.adoptedStyleSheets.includes(pageStyle)) document.adoptedStyleSheets = [...document.adoptedStyleSheets, pageStyle];
   const canvas = element("canvas", { id: "display", hidden: true }, { "aria-label": "Dolly sandbox framebuffer" });
@@ -173,8 +174,8 @@ export async function run(mount, { images, modules, site, http }, route) {
     appendBootstrap(`DOLLY / ${image.toUpperCase()} / ${selected.label}\n\n`);
     host = await registry.createHost("browser", selected.enabled ?? selected.required, {
       send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),
-      resources: { mount, canvas, keyboard, applicationBase: imageBase, site: site && new URL(site), showStatus, fatal,
-        indicators: { hold: holdIndicators, show: showIndicators } },
+      resources: { mount, canvas, keyboard, applicationBase: imageBase, site: site && new URL(site), imageBuilder,
+        showStatus, fatal, indicators: { hold: holdIndicators, show: showIndicators } },
       configuration: { ...selected.configuration, http: { ...selected.configuration?.http, embedding: http,
         sources: bootstrapSources(), inherited: selected.inherited } },
     });

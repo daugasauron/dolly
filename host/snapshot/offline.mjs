@@ -5,7 +5,7 @@
 // answers from it only when a request fails (coi-serviceworker.js). The page
 // alone writes it, each file checked against the list's SHA-256 for it; nothing
 // of the guest reaches it. A cache is complete once it holds the list itself.
-import { sha256 } from "../page/static-asset.mjs";
+import { sha256 } from "../../page/static-asset.mjs";
 
 const prefix = site => `dolly-offline ${new URL(site).href} `;
 const listUrl = site => new URL("dist/dolly-offline.json", site).href;

@@ -11,5 +11,6 @@
   "headers": ["packages.h", "packages-abi.h"],
   "kernel": ["kernel.c"],
   "client": ["client.c"],
+  "files": ["service.mjs", "transport.mjs", "worker.mjs"],
   "package": "libdolly-packages"
 }

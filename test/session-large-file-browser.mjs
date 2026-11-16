@@ -17,7 +17,7 @@ await browserTest("session large file", { image: "system", timeout: 300_000 }, a
 
   // Recover files takes the same save, as one of another build has no other way in.
   await page.evaluate(async name => {
-    const store = await import("/site/session-store.mjs");
+    const store = await import("/host/snapshot/session-store.mjs");
     await store.saveStoredSession({ ...await store.loadStoredSession(name), name: `${name}-old`, buildId: "another-build" });
   }, name);
   await page.goto(`${server.origin}/session/?name=${name}-old&recover=1`);

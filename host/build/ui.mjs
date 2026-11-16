@@ -1,27 +1,11 @@
 import { ImageBuildService } from "./service.mjs";
-import { buildImage } from "../../site/image-builder.mjs";
-import { hostModuleUrls } from "../manifests.mjs";
-import { prepareImageArtifacts } from "../../site/image-build.mjs";
-import { loadImageArtifactDescriptor } from "../../site/image-artifact.mjs";
-import { openCustomImage } from "../../site/custom-image.mjs";
 import { buildLog } from "../../page/build-log.mjs";
 
-export function mountImageBuild(http, mount, keyboard) {
-  const builders = { http: http.builder };
-  const service = new ImageBuildService(async (source, report, signal) => {
-    const artifacts = await prepareImageArtifacts("custom", source,
-      (image, artifacts) => buildImage(image, artifacts, builders, report, { modules: hostModuleUrls, signal }),
-      text => report(text + "\n"), signal);
-    signal.throwIfAborted();
-    const artifact = await buildImage("custom", artifacts, builders, report,
-      { modules: hostModuleUrls, signal, customSource: source, consume: true });
-    signal.throwIfAborted();
-    const descriptor = await loadImageArtifactDescriptor(artifact.recipeSha256, artifact.inputs);
-    if (!descriptor || descriptor.sha256 !== artifact.sha256) {
-      throw new Error("Image built, but could not be saved for opening. Free browser storage and rebuild.");
-    }
-    return descriptor;
-  });
+// BUILDER is what the page's imageBuilder resolves to (README.md).
+export function mountImageBuild(http, builder, mount, keyboard) {
+  const configuration = { http: http.builder };
+  const service = new ImageBuildService(builder.inspect,
+    (source, report, signal) => builder.build(source, configuration, report, signal));
   const panel = document.createElement("section");
   panel.id = "image-build";
   panel.hidden = true;
@@ -59,7 +43,7 @@ export function mountImageBuild(http, mount, keyboard) {
     const action = event.target.dataset.action;
     if (action === "cancel") service.cancel();
     else if (action === "open" && service.state === "ready") {
-      try { openCustomImage({ ...service.result, ...http.inherited }); }
+      try { builder.open({ ...service.result, ...http.inherited }); }
       catch (error) { panel.querySelector('[role="status"]').textContent = error.message; }
     } else if (action === "close") panel.hidden = true;
     if (action) keyboard?.focus({ preventScroll: true });

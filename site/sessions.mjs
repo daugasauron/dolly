@@ -4,10 +4,11 @@ import {
   DOLLY_SESSION_FORMAT_VERSION, listStoredSessions, sessionCompatible,
   sessionLoadUrl, validSessionName,
   loadStoredSession, saveStoredSession, deleteStoredSession,
-} from "./session-store.mjs";
+} from "../host/snapshot/session-store.mjs";
 import { exportSessionFile, importSessionFile } from "./session-file.mjs";
 import { clearPackStore, packStoreSize } from "../page/pack-store.mjs";
-import { clearRuntime, keepRuntime, runtimeKept } from "./offline.mjs";
+import { clearRuntime, keepRuntime, runtimeKept } from "../host/snapshot/offline.mjs";
+import { alphabetical } from "./alphabetical.mjs";
 
 const site = new URL("../", import.meta.url);
 
@@ -34,7 +35,7 @@ async function operation(action) {
 }
 
 async function refresh() {
-  const sessions = await listStoredSessions();
+  const sessions = (await listStoredSessions()).sort((left, right) => alphabetical(left.name, right.name));
   const list = document.querySelector("#sessions");
   list.replaceChildren();
   for (const record of sessions) {

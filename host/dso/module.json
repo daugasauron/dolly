@@ -13,6 +13,7 @@
   "headers": ["dso.h", "dso-abi.h"],
   "kernel": [],
   "client": ["client.c", "ffi.c"],
+  "files": ["ffi.mjs", "interface.mjs", "threads.mjs"],
   "ccExports": { "rdynamic": ["__dolly_dso_allocate"] },
-  "fixtures": "../../test/build-dso-fixtures.mjs"
+  "fixtures": "fixtures.mjs"
 }

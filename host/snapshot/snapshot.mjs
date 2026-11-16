@@ -5,7 +5,7 @@ import { DOLLY_IMAGE_BUILD_ID } from "../../page/generated.mjs";
 import { DOLLY_IMAGES } from "../../page/images.mjs";
 import { sha256 } from "../../page/static-asset.mjs";
 import { DOLLY_SESSION_FORMAT_VERSION, loadStoredSession, sessionCompatible,
-  sessionLoadUrl, validSessionName, DOLLY_SESSION_MAX_BYTES } from "../../site/session-store.mjs";
+  sessionLoadUrl, validSessionName, DOLLY_SESSION_MAX_BYTES } from "./session-store.mjs";
 
 // A session route (/session/?name=NAME), or boot()'s session option on a page
 // of one's own, boots the saved session's image from the save, which is its whole

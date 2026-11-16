@@ -1,10 +1,10 @@
 import { readFile, writeFile, mkdtemp, rm } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { resolve, relative } from "node:path";
-import { appendCustomSection } from "../page/wasm-interface.mjs";
-import { readWasmInterface } from "../scripts/wasm-interface.mjs";
-import { validateDsoInterface } from "../host/dso/interface.mjs";
-import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
+import { appendCustomSection } from "../../page/wasm-interface.mjs";
+import { readWasmInterface } from "../../scripts/wasm-interface.mjs";
+import { validateDsoInterface } from "./interface.mjs";
+import { DOLLY_PROCESS_ABI_DIGEST } from "../../dist/dolly-process-abi.mjs";
 
 // The build passes its pinned container command; one launch assembles every
 // fixture. All staging is owned here and removed even on failure; fixtures

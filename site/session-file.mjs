@@ -1,5 +1,5 @@
 import { DOLLY_SESSION_MAX_BYTES, DOLLY_SESSION_METADATA_MAX_BYTES as metadataLimit,
-  validateSessionRecord } from "./session-store.mjs";
+  validateSessionRecord } from "../host/snapshot/session-store.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
 import { Sha256 } from "../page/sha256.mjs";
 import { DOLLY_VERSION } from "../page/version.mjs";

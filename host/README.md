@@ -1,7 +1,9 @@
 # Host modules
 
 A host module is one bridge between the Wasm userspace and the browser, in one
-directory. Each `NAME/module.json` names every file of its module. A page has
+directory. Each `NAME/module.json` names every file of its module, which are
+the files of its directory but itself and its generated `abi.mjs`; only a
+runtime's names files elsewhere ([Runtimes](#runtimes)). A page has
 the modules its embedding names, by the URLs of their manifests: the registry
 ([`modules.mjs`](modules.mjs), `hostRegistry`) loads those and no other, on the
 page and in the Worker. [`manifests.mjs`](manifests.mjs) lists the modules this
@@ -39,6 +41,7 @@ a page of the site names those its route uses ([`site.mjs`](../site/site.mjs)).
 | `fixtures` | A Node script the build runs, given the toolchain container's command, once the contracts are assembled: it builds the module's contract fixtures into `build/` for its tests and checks them (dso@0's hosts and libraries); optional |
 | `requested` | `true` on a module whose client defines names of libc's (`sockets`, `pty`): `cc` links it only when a program asks (`-ldolly-NAME`), so its package installs it in `/usr/lib`, not among the clients `cc` links unasked (`/usr/lib/dolly/process`); absent otherwise |
 | `ccExports` | What `cc` exports from a program built with an option: `{"rdynamic": [...]}` (dso@0's allocator, which selects its client), `{"pthread": [...]}` (threads@0's entry); the process sysroot holds each list as `OPTION.exports`; optional |
+| `files` | The module's other files: the JavaScript its `host` and `processWorker` import, the headers its C includes that programs do not (input's `ring.h`) and the sources its `seed` builds (threads@0's client and libc pthreads); optional |
 
 The core (the kernel, the supervisor, the Workers, `boot()` and the registry)
 names no module but `runtime@0`. A module attaches to it only at these points,
@@ -67,7 +70,11 @@ each a field of its manifest or a member of its provider:
 
 A provider's `browser()` receives the page's shared resources (`mount`,
 `canvas`, `keyboard`, `applicationBase` (the image directory), `site` (the
-root of the site's routes, when the embedding has one), `showStatus`, `fatal`
+root of the site's routes, when the embedding has one), `imageBuilder` (on
+the site's routes, what build@0 builds with: it resolves to `inspect(source)`,
+a Dollyfile's parse, `build(source, configuration, report, signal)`, which
+builds its custom image and resolves to the image's descriptor in the image
+cache, and `open(record)`, which opens a completed one in a tab), `showStatus`, `fatal`
 and `indicators` (`hold(holder, held)` and `show()`, the page's corner
 indicators)), and `claimsKey(event)` and `surfaceSize()`, what the other
 modules' `claimsKey` and `surfaceSize` (below) say; its `worker()` receives
@@ -87,13 +94,20 @@ notified, `leaseBridge(lease, mailbox, send)` for a device
 leased per process ([`runtime/lease-bridge.mjs`](runtime/lease-bridge.mjs)) and
 `kernelPlugin(bytes, kernel)` for a resident library linked into the
 kernel. A device module imports only its own files, so it can be delivered on
-its own: its generated `abi.mjs` carries its contracts' constants and the
+its own (the npm packager refuses one that imports more): its generated
+`abi.mjs` carries its contracts' constants and the
 process contract's errno numbers, as its C includes `<dolly/process.h>`. It is
 admitted also where the browser has no such device (no WebGPU adapter, no
 Web Audio): it grants nothing then, OPEN fails with `ENODEV`, and a program
 goes on without it. The
 modules that are the runtime's own machinery (`runtime`, `http`, `threads`,
-`dso`, `stack`, `nena`, `snapshot`, `packages`, `build`) also use the runtime's files. They return an instance whose optional members the registry
+`dso`, `stack`, `nena`, `snapshot`, `packages`, `build`) also import the
+runtime's files: `page/`, `host/*.mjs` and a runtime's directory. What the page
+and its Workers load of a module (its `host`, its `processWorker` and what they
+import) reaches nothing else outside its directory, no other module's files and
+none of the site's: the site gives a module what it uses as resources (`site`,
+`imageBuilder`) ([`host-modules.test.mjs`](../test/host-modules.test.mjs)).
+A provider returns an instance whose optional members the registry
 calls: `start` (Worker/page handshake), `messages`, `bindings` (kernel
 imports), `service` (periodic work), `imageRestored(context)` (after the system
 image is restored, before image-phase starts), `claimsKey(event)` (take a key
@@ -231,6 +245,9 @@ thereby declared. A runtime provides:
 - the seed (`dist/dolly.data`, a snapshot in the image format: the compiler,
   libc adapter and bootstrap commands built for its process ABI), which a
   build restores when a recipe has no `FROM`.
+
+Its manifest names these files where the checkout keeps them (`abi/`,
+`include/dolly/`, `kernel/`, `process/`), and its directory holds its provider.
 
 Images and packages record their runtime as they record any module: the line
 goes into the artifact and its receipt. The page refuses an image whose

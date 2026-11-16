@@ -41,8 +41,8 @@ const version = process.argv[3] ?? checkout;
 if (version !== checkout && !version.startsWith(`${checkout}-`)) throw new Error(`VERSION is ${checkout} or a prerelease of it`);
 const scope = "@daugasauron";
 // The modules that are the runtime's own machinery, and the device modules each
-// published on its own: the rest of host/manifests.mjs but build@0, the site's
-// image builder, which is not published.
+// published on its own: the rest of host/manifests.mjs but build@0, which builds
+// with the site's image builder (host/README.md, `imageBuilder`) and is not published.
 const runtimeModules = ["runtime", "http", "threads", "dso", "stack", "nena", "snapshot", "packages"];
 const deviceModules = hostManifests.map(({ name }) => name).filter(name => ![...runtimeModules, "build"].includes(name));
 const hostPackage = name => npmPackageName("host", name);

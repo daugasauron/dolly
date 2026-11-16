@@ -3,7 +3,7 @@
 // a session and of the list of saves, the page's and the Workers' code, the host
 // modules and the kernel; no image, since a save is its whole filesystem, and
 // not the compiler seed a root build starts from (dist/dolly.data). The
-// page keeps them when a session is saved (site/offline.mjs), each checked
+// page keeps them when a session is saved (host/snapshot/offline.mjs), each checked
 // against its SHA-256 here. Usage: offline-files.mjs SITE > SITE/dist/dolly-offline.json
 import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
