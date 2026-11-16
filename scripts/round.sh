@@ -47,8 +47,9 @@ log() { echo "== $* $(date +%H:%M)"; }
 # Commits what the pins changed, in the recipes and config/source-pins.sh.
 commit_pins() {
   [[ -n "$(git status --porcelain)" ]] || return 0
-  git add -u -- ':(glob)**/Dollyfile*' config/source-pins.sh && git commit -q -m "$1" &&
-    [[ -z "$(git status --porcelain)" ]] && log "committed $(git rev-parse --short HEAD): $1"
+  git add -u -- ':(glob)**/Dollyfile*' config/source-pins.sh
+  [[ -z "$(git status --porcelain | grep -v '^M  ')" ]] || { echo "dolly: the stage changed more than pins:"; git status --porcelain; return 1; }
+  git commit -q -m "$1" && log "committed $(git rev-parse --short HEAD): $1"
 }
 seed_compiler() { sed -n 's/^DOLLY_SEED_COMPILER_SHA256=//p' config/source-pins.sh; }
 # The stages' steps: each runs to its end and fails on any step that failed.
