@@ -4,8 +4,9 @@
 // input. From the page's own directory the index, amy-index.txt, and the
 // snapshots come over this module's own mailbox (dolly-packages-0.wat,
 // transport.mjs); another directory is read through http@0's broker, as
-// https://packages.dolly.invalid/v1/… (host/http/local-services.mjs), only
-// where the page's HTTP policy admits it, as a request of the guest's would be.
+// https://packages.dolly.invalid/v1/… (host/http/local-services.mjs), each of
+// its files only where the page's HTTP policy admits it, as a request of the
+// guest's (worker.mjs).
 import { PackageService } from "./service.mjs";
 import { PackagesTransport } from "./transport.mjs";
 export { DOLLY_PACKAGES_ABI_DIGEST as digest } from "./abi.mjs";

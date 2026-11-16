@@ -29,10 +29,11 @@ function directoryOf(segment) {
 // amy's server unless the session names another. GET /v1/packages/SHA256/from/
 // DIRECTORY is the exact snapshot of the package whose recipe has that pin in
 // that directory's catalog, verified from its packs and merged as the guest
-// reads it. Another directory than the page's is read only where the page's
-// HTTP policy admits a GET of it (`admit`), and only packages built for this
-// runtime pass. One snapshot is served at a time, until the guest has read it
-// or the broker's timeout cancels it.
+// reads it. Of another directory than the page's, the Worker reads each file
+// only where the page's HTTP policy admits a GET of it (`admit`, which counts
+// it), as the broker reads the guest's (worker.mjs), and only packages built
+// for this runtime pass. One snapshot is served at a time, until the guest has
+// read it or the broker's timeout cancels it.
 export class PackageService {
   constructor(admit) {
     this.admit = admit;
@@ -49,11 +50,6 @@ export class PackageService {
     const [, sha256, segment] = packagePath.exec(url.pathname);
     const directory = directoryOf(segment);
     if (!directory) return reply("not the URL of an image directory\n", 400);
-    if (directory.href !== imageBase.href) {
-      try { this.admit(directory); } catch {
-        return reply(`this page's HTTP policy does not admit ${directory.href}\n`, 403);
-      }
-    }
     if (this.active) return reply("another package snapshot is being served\n", 409);
     if (this.served >= PACKAGE_LIMITS.maxSnapshots) return reply("this page's package snapshot quota is spent\n", 429);
     this.active = true;
@@ -61,7 +57,17 @@ export class PackageService {
     // package found and its packs checked, every later one with the snapshot's
     // next chunk.
     const worker = new Worker(new URL("./worker.mjs", import.meta.url), { type: "module", name: "dolly-packages" });
-    let released = false, refuse;
+    let released = false, refuse, refusal;
+    // A file the Worker would read: the rule's limits, or the refusal that ends the transfer.
+    const judge = ({ admit, id }) => {
+      try {
+        const { maxResponseBytes, timeoutMilliseconds } = this.admit(new URL(admit));
+        worker.postMessage({ admitted: id, limits: { maxResponseBytes, timeoutMilliseconds } });
+      } catch (error) {
+        refusal ??= `${admit}: ${error.message}\n`;
+        worker.postMessage({ admitted: id, refused: error.message });
+      }
+    };
     const release = () => {
       if (released) return;
       released = true;
@@ -72,19 +78,20 @@ export class PackageService {
     init.signal?.addEventListener("abort", release, { once: true });
     const ask = message => new Promise((resolve, reject) => {
       refuse = reject;
-      worker.onmessage = ({ data }) => data.error === undefined ? resolve(data) : reject(new Error(data.error));
+      worker.onmessage = ({ data }) => data.admit !== undefined ? judge(data)
+        : data.error === undefined ? resolve(data) : reject(new Error(data.error));
       worker.onerror = event => { event.preventDefault(); reject(new Error(event.message || "package Worker failed")); };
       if (released) reject(new Error("the package transfer ended"));
       else worker.postMessage(message);
     });
     try {
-      if ((await ask({ directory: directory.href, sha256 })).missing) {
+      if ((await ask({ directory: directory.href, sha256, judged: directory.href !== imageBase.href })).missing) {
         release();
         return reply(`${directory.href} publishes no package with that recipe pin\n`, 404);
       }
     } catch (error) {
       release();
-      return reply(`${directory.href}: ${error.message}\n`, 502);
+      return refusal ? reply(refusal, 403) : reply(`${directory.href}: ${error.message}\n`, 502);
     }
     // A package found counts against the quota; a miss or an offline directory does not.
     this.served += 1;

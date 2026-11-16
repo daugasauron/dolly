@@ -80,14 +80,15 @@ const indexRule = origin => ({ origin, path: "/amy-index.txt", methods: ["GET"] 
 // While set, the site answers with this index, as after a newer release.
 const site = { index: null };
 // Another image directory: the checkout's catalog, packs and index again under
-// /mirror/, which records what it served.
-const mirror = { served: [] };
+// /mirror/, which records what it served and what it served to a request with cookies.
+const mirror = { served: [], cookies: [] };
 async function handle(request, response, path, headers) {
   const file = path.startsWith("/mirror/") ? path.slice("/mirror/".length) : null;
   if (file !== null && /^(?:amy-index\.txt|dist\/[\w.-]+(?:\/[\w.-]+)?)$/.test(file)) {
     const bytes = await readFile(new URL(`../${file}`, import.meta.url)).catch(() => null);
     if (bytes === null) return false;
     mirror.served.push(file);
+    if (request.headers.cookie !== undefined) mirror.cookies.push(file);
     response.writeHead(200, { ...headers, "content-type": file.endsWith(".json") ? "application/json" : "application/octet-stream" }).end(bytes);
     return true;
   }
@@ -203,6 +204,30 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   await run("test \"$(python3 -c 'print(6 * 7)')\" = 42 && test \"$PYTHONUTF8\" = 1 && test \"$PYTHONDONTWRITEBYTECODE\" = 1");
   await run(`amy installed | grep -qx "python ${pin("python")}" && test "$(cat /usr/share/connects)" = 'needs sockets'`);
   await run(`test "$(cat /usr/share/needs)" = top && amy installed | grep -qx "needed ${newer.url} ${newer.sha256}"`);
+});
+
+// Another directory is read as the guest's own GETs are: each file judged by
+// the page's HTTP policy and counted, without the cookies of the page's origin.
+await browserTest("amy another directory", { image: "default", server: { handle } }, async ({ server, open }) => {
+  const snapshot = directory => "https://packages.dolly.invalid/v1/packages/" +
+    `${indexed("less")[2]}/from/${encodeURIComponent(`${server.origin}/${directory}/`)}`;
+  const refused = directory => `test "$(curl -s -o /dev/null -w '%{http_code}' ${snapshot(directory)})" = 403`;
+  const requests = directory => [...server.requests].filter(([path]) => path.startsWith(`/${directory}/`))
+    .reduce((sum, [, count]) => sum + count, 0);
+  const rules = [{ origin: server.origin, path: "/exact/", methods: ["GET"] },
+    { origin: server.origin, pathPrefix: "/mirror/", methods: ["GET"] }];
+  const session = await open({ policy: { rules },
+    setup: page => page.context().addCookies([{ name: "probe", value: "page-cookie", url: server.origin }]) });
+  // A rule for the directory's own URL admits none of its files; one for all
+  // of them admits the package, read without the page's cookie.
+  assert.equal(await session.submit(refused("exact")), 0);
+  assert.equal(requests("exact"), 0);
+  assert.equal(await session.submit(`curl -fsS ${snapshot("mirror")} -o /tmp/less.snapshot`), 0);
+  assert.deepEqual(mirror.cookies, []);
+  // Each file is a request of the page's quota: two hold no package.
+  const counted = await open({ policy: { maxRequests: 2, rules } }), before = requests("mirror");
+  assert.equal(await counted.submit(refused("mirror")), 0);
+  assert.ok(requests("mirror") - before <= 2);
 });
 
 // default declares no module for a package it does not hold: amy has nena

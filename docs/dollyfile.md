@@ -379,11 +379,11 @@ EXPORTS TOOL rg
   session lacks (it reads them from the package's receipt, the image's and
   `/etc/dolly/enabled`) and says so: `amy install tmux` in `default` enables
   `pty@0` and `sockets@0`; the page makes each switch. Looking
-  a name up in the index is the only unpinned step. The service reads a
-  directory other than the page's only where the page's HTTP policy admits a
-  GET of the directory's URL, and passes only packages built for the page's
-  runtime: a pin the server does not publish, or publishes for another, fails
-  by name and installs nothing.
+  a name up in the index is the only unpinned step. The service reads each
+  file of a directory other than the page's only where the page's HTTP policy
+  admits a GET of it, as a request of the guest's, and passes only packages
+  built for the page's runtime: a pin the server does not publish, or
+  publishes for another, fails by name and installs nothing.
 - `amy install` then says what it added (files, bytes and the commands now in
   `/bin` or `/usr/bin`) and keeps the list in `/etc/dolly/files/NAME`, one
   `SIZE PATH` line per file or link the snapshot holds outside `/etc/dolly`,
