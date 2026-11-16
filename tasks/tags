@@ -41,6 +41,7 @@ core, Shared runtime or platform substrate
 corpus, Measurements over a set of real upstream programs
 decisions, Choices only the owner makes
 demo, A demo under demos/
+dh, The deep hedger demo (demos/deep-hedger) and its theory
 deployment, Publishing a site
 design, A decision about shape to make before code
 diagnostics, Telling a player or agent why something happened
