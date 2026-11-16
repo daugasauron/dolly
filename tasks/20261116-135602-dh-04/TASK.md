@@ -1,6 +1,6 @@
 # Deep hedger: the image and its GUI
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 180
 - TAGS: dh,demo
 
@@ -19,7 +19,7 @@ hedger hedges (sig-mmd, 2026-07-08); a start that is not a loaded checkpoint ("I
 suspicious how good the 'starting point' is", 2026-08-07): every fit starts from equal kernel
 weights and a random hedger.
 
-## State 2026-11-17
+## Closed 2026-11-17
 
 Done: `demos/deep-hedger/`: the `deep-hedger-build` package (dh-gui with ImGui over SDL2, dh-fit
 with `mojo build`, both compiled in the image's build) and the `deep-hedger` application (curl,
@@ -27,13 +27,16 @@ with `mojo build`, both compiled in the image's build) and the `deep-hedger` app
 reads what dh-fit reports every 20 iterations; six tabs: Volatility, Price, Law, Hedge, Quotes,
 Fit. Served on 127.0.0.1:9050 (`dolly-serve-dh`).
 
-Checked: in Chrome 156 on the GPU, with the live chain, the fit runs at 2.6 iterations a second
-beside the GUI and no request fails; without a GPU the status line says `enqueue_function:
-gpu@0: I/O error` and the button is Fit again. The test (a fixture for the service, clicks on the
-frame, then `dh-fit check` and a fit) passed in Chrome 156 and Firefox 159 before the Hedge and
-Quotes tabs were added.
+Checked on the last image (commit 209e8819c): in Chrome 156 on the GPU, with the live chain, the
+fit runs at 2.6 iterations a second beside the GUI and no request fails; the Hedge tab shows the
+hedger holding 0.8 of a share against a call deep in the money, nothing against one far out, and
+at the forward a position that follows the path (`build/dh-evidence/shots/`, this machine).
+Without a GPU the status line says `enqueue_function: gpu@0: I/O error` and the button is Fit
+again. `demos/deep-hedger/test/deep-hedger-browser.mjs` (a fixture for the service, clicks on
+the frame, then `dh-fit check` and a fit) passes in Chrome 156 and in Firefox 159 with the same
+numbers: loss 248.469 to 0.773, 37% of the unhedged risk left.
 
-Left: the test and a look at the Hedge tab on the last image.
+Not checked: a token, and so any symbol but AAPL.
 
 Findings:
 
@@ -47,6 +50,7 @@ Findings:
   is lost: the test waits for dh-gui's labels.
 - Playwright's screenshot of the page is blank in the installed Firefox; the test reads the
   frame through `waitForDisplay` instead.
-- The plain `npm run image` stages every image's sources again (5 GB in `build/` and
-  `dist/.image-sources.*` before it was stopped, with 12 GB left on the disk), so this tree's
-  catalog stays narrowed to `deep-hedger`, `default` and `mojo-gpu`.
+- The plain `npm run image` does not finish in this tree: it stages every image's sources
+  again (5 GB while it runs) and stops at "no verified Go seed: run
+  demos/go/build-go-toolchain.sh once". The tree's catalog stays narrowed to `deep-hedger`,
+  `default` and `mojo-gpu`; what the run left in `build/` was removed.
