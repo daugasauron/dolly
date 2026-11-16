@@ -98,8 +98,14 @@ terms relative to the stock, the time left, the side, the position held
 
 A book is one contract on one side. Short the option, the dealer owes the
 payoff `Y`; long, the dealer receives it. From an empty book the hedger trades
-to expiry and ends with trading cash `W`, costs included. What is left with
-the dealer is the residual `L = Y - W` (short) or `L = -Y - W` (long).
+to expiry and ends with trading cash `W`, costs included. With the stock as
+the one instrument, `q_u` the position decided on day `u - 1` and bought at
+day `u`'s price, `q_0 = 0` and `T` the expiry:
+
+    W = sum_u q_u (x_{u+1} - x_u) - c sum_u |q_u - q_{u-1}| x_u - c |q_{T-1}| x_T
+
+What is left with the dealer is the residual `L = Y - W` (short) or
+`L = -Y - W` (long).
 
 **The price is the funding of the residual** (decision 14): `ask = rho(Y - W)`,
 `bid = -rho(-Y - W)`.
@@ -144,7 +150,8 @@ remove, and has the hedger minimize `rho` itself. Then:
   to the market? The implied hedge cost/risk aversion in the market?" (mano,
   09-07). For a normal residual `lambda` maps to an Expected Shortfall level;
   the standard deviation is used because it is the replication error itself
-  and needs no sort.
+  and needs no sort. It has a known defect that Expected Shortfall has not:
+  it is not monotone, a residual that is never worse can be charged more.
 
 **Calibration.** The generator's loss is, over today's contracts, the distance
 of the model's bid and of its ask outside the market's band, zero inside

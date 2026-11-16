@@ -436,15 +436,15 @@ static void law_tab() {
 }
 
 static void fit_tab(double risk) {
-  if (ImGui::BeginTable("fit", 11, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+  if (ImGui::BeginTable("fit", 12, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
     for (const char *name : {"expiry", "days", "forward, quotes", "forward, model", "discount", "contracts", "bids and asks in band", "market spread", "model spread",
-                             "of it hedge cost", "risk price the market implies"})
+                             "of it hedge cost", "risk left of unhedged", "risk price the market implies"})
       ImGui::TableSetupColumn(name);
     ImGui::TableHeadersRow();
     for (int e = 0; e <= (int)state.expiries.size(); e++) {
       bool all = e == (int)state.expiries.size();
       int count = 0, inside = 0, fitted = 0;
-      double market = 0, model = 0, cost = 0, deviation = 0;
+      double market = 0, model = 0, cost = 0, deviation = 0, unhedged = 0;
       for (const Contract &c : state.contracts) {
         if (!all && c.expiry != e) continue;
         const Expiry &expiry = state.expiries[c.expiry];
@@ -453,7 +453,7 @@ static void fit_tab(double risk) {
         if (!c.fitted) continue;
         fitted++;
         for (int side = 0; side < 2; side++) inside += c.model[side] * unit >= c.bid - 1e-9 && c.model[side] * unit <= c.ask + 1e-9;
-        model += (c.model[1] - c.model[0]) * unit, cost += (c.model[2] + c.model[3]) * unit, deviation += (c.model[4] + c.model[5]) * unit;
+        model += (c.model[1] - c.model[0]) * unit, cost += (c.model[2] + c.model[3]) * unit, deviation += (c.model[4] + c.model[5]) * unit, unhedged += 2 * c.model[7] * unit;
       }
       ImGui::TableNextRow();
       if (all) {
@@ -480,12 +480,14 @@ static void fit_tab(double risk) {
       ImGui::TableNextColumn();
       if (fitted) ImGui::Text("%.3f", cost / fitted);
       ImGui::TableNextColumn();
+      if (fitted && unhedged > 0) ImGui::Text("%.0f%%", 100 * deviation / unhedged);
+      ImGui::TableNextColumn();
       // The risk price at which this hedger's costs and risks add up to the market's spreads.
       if (fitted && deviation > 0) ImGui::Text("%.3f", (market / count * fitted - cost) / deviation);
     }
     ImGui::EndTable();
   }
-  ImGui::Text("Spreads are means, in currency. A model spread is hedge cost plus the risk price (%.3g) times the risk daily hedging leaves, both sides.", risk);
+  ImGui::Text("Spreads are means, in currency. A model spread is hedge cost plus the risk price (%.3g) times the risk daily hedging leaves, both sides: the deviation of what is left, here as a share of the payoff's own.", risk);
   if (state.losses.size() > 1) {
     ImVec2 available = ImGui::GetContentRegionAvail();
     double low = 1e30, high = -1e30;
@@ -512,12 +514,11 @@ int main(int, char **) {
 
   char symbol[16] = "AAPL", token[128] = "";
   float cost_bp = 1.0f, risk = 0.05f;
-  int paths = 4096, seed = 1;
+  int paths = 1024, seed = 1;
   pid_t download = -1, fit = -1;
   FILE *output = nullptr;
   std::string pending;
   State staged;
-  bool autostart = getenv("DH_AUTOSTART") != nullptr;
   for (bool done = false; !done;) {
     for (SDL_Event event; SDL_PollEvent(&event);) {
       ImGui_ImplSDL2_ProcessEvent(&event);
@@ -540,7 +541,7 @@ int main(int, char **) {
     ImGui::SetNextItemWidth(70), ImGui::InputText("symbol", symbol, sizeof symbol, ImGuiInputTextFlags_CharsUppercase);
     ImGui::SameLine(), ImGui::SetNextItemWidth(150), ImGui::InputText("marketdata.app token", token, sizeof token, ImGuiInputTextFlags_Password);
     ImGui::SameLine();
-    bool load = ImGui::Button("Load quotes") || (autostart && state.contracts.empty() && download <= 0 && state.status[0] == 'L');
+    bool load = ImGui::Button("Load quotes");
     if (load && download <= 0) {
       stop(fit);
       // The contracts of the next 100 days around the money, in one request.
@@ -558,8 +559,7 @@ int main(int, char **) {
     ImGui::SameLine(), ImGui::SetNextItemWidth(60), ImGui::InputFloat("risk price", &risk, 0, 0, "%.3f");
     ImGui::SameLine(), ImGui::SetNextItemWidth(70), ImGui::InputInt("paths", &paths, 0);
     ImGui::SameLine();
-    bool begin = autostart && fit <= 0 && !state.contracts.empty() && !output;
-    if (fit > 0 ? ImGui::Button("Stop") : (ImGui::Button("Fit") || begin) && !state.contracts.empty()) {
+    if (fit > 0 ? ImGui::Button("Stop") : ImGui::Button("Fit") && !state.contracts.empty()) {
       if (fit > 0) stop(fit);
       else {
         paths = std::max(64, paths / 64 * 64);

@@ -5,7 +5,8 @@ the only hedge instrument. Every number of an iteration is made by the kernels
 below; the host keeps the two parameter vectors and their Adam moments.
 
   dh-fit CHAIN PATHS SEED [ITERATIONS]     fit, reporting on stdout until killed
-  dh-fit check CHAIN PATHS                 both gradients against finite differences
+  dh-fit check CHAIN PATHS [ITERATIONS]    both gradients against finite differences
+  dh-fit time CHAIN PATHS                  seconds of an iteration's parts
 """
 
 from std.collections.array import Array
@@ -42,7 +43,7 @@ comptime GROUPS = 8
 comptime BLOCK = 64
 # A contract is strike, expiry day, +1 call or -1 put, bid, ask, band unit.
 comptime CONTRACT = 6
-# A contract's results: bid, ask, cost short, cost long, risk short, risk long, loss, payoff.
+# A contract's results: bid, ask, cost short, cost long, risk short, risk long, loss, risk unhedged.
 comptime RESULT = 8
 # A book's statistics for the backward pass: mean, deviation, the loss's derivative.
 comptime BOOK = 4
@@ -112,8 +113,12 @@ def policy(
     mut inputs: Array[Float32, INPUTS],
     mut first: Array[Float32, HIDDEN],
     mut second: Array[Float32, HIDDEN],
+    hidden: Int,
 ) -> Float32:
-    """The position to hold from tomorrow, from what is seen today."""
+    """The position to hold from tomorrow, from what is seen today. `hidden`
+    is HIDDEN, as a value the compiler does not know: with constant bounds it
+    unrolls every loop of the network, and the adjoint kernel is then more
+    WGSL than a software adapter compiles before the browser gives up on it."""
     var horizon = sqrt(days_left / Float32(MAX_DAYS))
     inputs[0] = 8 * moneyness
     inputs[1] = horizon
@@ -121,28 +126,25 @@ def policy(
     inputs[3] = call
     inputs[4] = side
     inputs[5] = held
-    for i in range(HIDDEN):
+    for i in range(hidden):
         var z = phi[unsafe_offset=B1 + i]
-        for m in range(INPUTS):
+        for m in range(INPUTS + hidden - HIDDEN):
             z += phi[unsafe_offset=i * INPUTS + m] * inputs[m]
         first[i] = max(z, 0)
-    for j in range(HIDDEN):
+    for j in range(hidden):
         var z = phi[unsafe_offset=B2 + j]
-        for i in range(HIDDEN):
+        for i in range(hidden):
             z += phi[unsafe_offset=W2 + j * HIDDEN + i] * first[i]
         second[j] = max(z, 0)
     var out = phi[unsafe_offset=B3]
-    for j in range(HIDDEN):
+    for j in range(hidden):
         out += phi[unsafe_offset=W3 + j] * second[j]
     return tanh(out)
 
 
 def direction(value: Float32) -> Float32:
-    if value > 0:
-        return 1
-    if value < 0:
-        return -1
-    return 0
+    """1, -1 or 0 as the value's sign, without a branch."""
+    return max(min(value * 1e30, 1), -1)
 
 
 def roll(
@@ -155,19 +157,21 @@ def roll(
     days: Int,
     books: Int,
     cost: Float32,
+    hidden: Int,
 ):
     """Every book of a path, hedged from empty to its expiry: what is left
     with the dealer, and what the hedge paid in costs. A position decided on
-    day u-1 is bought at day u's price and held from then."""
+    day u-1 is bought at day u's price and held from then. Neighbouring threads
+    are neighbouring paths on the same books, so a block runs in step."""
     var thread = global_idx.x
-    var p = thread // GROUPS
-    if p >= paths:
+    if thread >= paths * GROUPS:
         return
+    var p = thread % paths
     var inputs = Array[Float32, INPUTS](fill=0)
     var first = Array[Float32, HIDDEN](fill=0)
     var second = Array[Float32, HIDDEN](fill=0)
     var row = p * (days + 1)
-    var b = thread % GROUPS
+    var b = thread // paths
     while b < books:
         var c = (b // 2) * CONTRACT
         var side = Float32(1 - 2 * (b % 2))
@@ -190,6 +194,7 @@ def roll(
                 inputs,
                 first,
                 second,
+                hidden,
             )
             var fee = cost * abs(target - position) * price
             cash += target * (exp(logx[unsafe_offset=row + u + 1]) - price) - fee
@@ -269,13 +274,18 @@ def quote(
     book_stats[unsafe_offset=2 * i * BOOK + 2] = 2 * min(max(ask_error, -1), 1) / (unit * contracts_count)
     book_stats[unsafe_offset=(2 * i + 1) * BOOK + 2] = -2 * min(max(bid_error, -1), 1) / (unit * contracts_count)
     var expiry = Int(contracts[unsafe_offset=c + 1])
+    # The payoff's own deviation: the risk of a book that does not hedge.
     var payoff = Float32(0)
+    var payoff_squares = Float32(0)
     for p in range(paths):
-        payoff += max(
+        var paid_out = max(
             contracts[unsafe_offset=c + 2]
             * (exp(logx[unsafe_offset=p * (days + 1) + expiry]) - contracts[unsafe_offset=c]),
             0,
         )
+        payoff += paid_out
+        payoff_squares += paid_out * paid_out
+    payoff /= Float32(paths)
     var r = offset + i * RESULT
     result[unsafe_offset=r] = bid
     result[unsafe_offset=r + 1] = ask
@@ -284,7 +294,7 @@ def quote(
     result[unsafe_offset=r + 4] = deviation[0]
     result[unsafe_offset=r + 5] = deviation[1]
     result[unsafe_offset=r + 6] = beyond(ask_error) + beyond(bid_error)
-    result[unsafe_offset=r + 7] = payoff / Float32(paths)
+    result[unsafe_offset=r + 7] = sqrt(max(payoff_squares / Float32(paths) - payoff * payoff, 0))
 
 
 def adjoint(
@@ -300,6 +310,7 @@ def adjoint(
     books: Int,
     cost: Float32,
     risk: Float32,
+    hidden: Int,
 ):
     """The backward pass of roll and quote for a thread's books. For the
     hedger, the derivative of the sum of all fundings by its parameters,
@@ -309,11 +320,11 @@ def adjoint(
     its own in the three buffers, beside its neighbours' words for the same
     parameter or day: a block's threads then store side by side."""
     var thread = global_idx.x
-    var p = thread // GROUPS
-    if p >= paths:
+    if thread >= paths * GROUPS:
         return
+    var p = thread % paths
     var threads = paths * GROUPS
-    for n in range(PARAMS):
+    for n in range(PARAMS + hidden - HIDDEN):
         gradient_rows[unsafe_offset=n * threads + thread] = 0
     for u in range(MAX_DAYS + 1):
         level_rows[unsafe_offset=u * threads + thread] = 0
@@ -322,7 +333,7 @@ def adjoint(
     var second = Array[Float32, HIDDEN](fill=0)
     var back_second = Array[Float32, HIDDEN](fill=0)
     var row = p * (days + 1)
-    var b = thread % GROUPS
+    var b = thread // paths
     while b < books:
         var c = (b // 2) * CONTRACT
         var side = Float32(1 - 2 * (b % 2))
@@ -345,6 +356,7 @@ def adjoint(
                 inputs,
                 first,
                 second,
+                hidden,
             )
             held_rows[unsafe_offset=u * threads + thread] = after
             cash += after * (exp(logx[unsafe_offset=row + u + 1]) - price) - cost * abs(after - before) * price
@@ -356,7 +368,7 @@ def adjoint(
         var seed = (1 + risk * (left - book_stats[unsafe_offset=b * BOOK]) / book_stats[unsafe_offset=b * BOOK + 1]) / Float32(paths)
 
         var loss_seed = book_stats[unsafe_offset=b * BOOK + 2] * seed
-        var in_the_money = Float32(1) if call * (last - strike) > 0 else Float32(0)
+        var in_the_money = max(direction(call * (last - strike)), 0)
         level_rows[unsafe_offset=expiry * threads + thread] += loss_seed * (side * call * in_the_money - closing + cost * abs(closing))
 
         var carry = seed * cost * direction(closing) * last
@@ -378,25 +390,27 @@ def adjoint(
                 inputs,
                 first,
                 second,
+                hidden,
             )
             var on_out = on_position * (1 - now * now)
             gradient_rows[unsafe_offset=B3 * threads + thread] += on_out
-            for j in range(HIDDEN):
+            for j in range(hidden):
                 gradient_rows[unsafe_offset=(W3 + j) * threads + thread] += on_out * second[j]
-                back_second[j] = on_out * phi[unsafe_offset=W3 + j] if second[j] > 0 else Float32(0)
+                back_second[j] = on_out * phi[unsafe_offset=W3 + j] * direction(second[j])
                 gradient_rows[unsafe_offset=(B2 + j) * threads + thread] += back_second[j]
             var on_held = Float32(0)
-            for i in range(HIDDEN):
+            for i in range(hidden):
                 var back = Float32(0)
-                for j in range(HIDDEN):
+                for j in range(hidden):
                     back += back_second[j] * phi[unsafe_offset=W2 + j * HIDDEN + i]
-                if first[i] > 0:
-                    for j in range(HIDDEN):
-                        gradient_rows[unsafe_offset=(W2 + j * HIDDEN + i) * threads + thread] += back_second[j] * first[i]
-                    gradient_rows[unsafe_offset=(B1 + i) * threads + thread] += back
-                    for m in range(INPUTS):
-                        gradient_rows[unsafe_offset=(i * INPUTS + m) * threads + thread] += back * inputs[m]
-                    on_held += back * phi[unsafe_offset=i * INPUTS + INPUTS - 1]
+                    gradient_rows[unsafe_offset=(W2 + j * HIDDEN + i) * threads + thread] += back_second[j] * first[i]
+                # A unit that is off passes nothing back: a factor, not a branch,
+                # so that the block's threads stay in step.
+                back *= direction(first[i])
+                gradient_rows[unsafe_offset=(B1 + i) * threads + thread] += back
+                for m in range(INPUTS + hidden - HIDDEN):
+                    gradient_rows[unsafe_offset=(i * INPUTS + m) * threads + thread] += back * inputs[m]
+                on_held += back * phi[unsafe_offset=i * INPUTS + INPUTS - 1]
             carry = on_held - seed * cost * turn * price
             u -= 1
         b += GROUPS
@@ -422,7 +436,7 @@ def return_adjoint(level_rows: Floats, logx: Floats, on_return: Floats, paths: I
     while u >= 1:
         var on_level = Float32(0)
         for group in range(GROUPS):
-            on_level += level_rows[unsafe_offset=u * paths * GROUPS + p * GROUPS + group]
+            on_level += level_rows[unsafe_offset=u * paths * GROUPS + group * paths + p]
         later += on_level * exp(logx[unsafe_offset=p * (days + 1) + u])
         on_return[unsafe_offset=p * days + u - 1] = later
         u -= 1
@@ -695,7 +709,7 @@ struct Model(Movable):
         )
         self.ctx.enqueue_function[roll](
             self.logx_buffer, self.contracts_buffer, self.phi_buffer, self.residual_buffer, self.paid_buffer,
-            self.paths, self.days, self.books, self.cost, grid_dim=threads // BLOCK, block_dim=BLOCK,
+            self.paths, self.days, self.books, self.cost, HIDDEN, grid_dim=threads // BLOCK, block_dim=BLOCK,
         )
         self.ctx.enqueue_function[quote](
             self.residual_buffer, self.paid_buffer, self.contracts_buffer, self.logx_buffer, self.book_buffer,
@@ -712,7 +726,7 @@ struct Model(Movable):
         var threads = self.paths * GROUPS
         self.ctx.enqueue_function[adjoint](
             self.logx_buffer, self.contracts_buffer, self.phi_buffer, self.book_buffer, self.gradient_rows,
-            self.level_rows, self.held_rows, self.paths, self.days, self.books, self.cost, self.risk,
+            self.level_rows, self.held_rows, self.paths, self.days, self.books, self.cost, self.risk, HIDDEN,
             grid_dim=threads // BLOCK, block_dim=BLOCK,
         )
 
@@ -771,10 +785,55 @@ struct Model(Movable):
         return gradient^
 
 
-def check(mut model: Model) raises:
+struct Training(Movable):
+    """The two optimizers and one joint step: fresh paths, both gradients from
+    the same parameters, then both updates."""
+
+    var hedger: Adam
+    var generator: Adam
+
+    def __init__(out self, intervals: Int):
+        self.hedger = Adam(PARAMS, 0.002)
+        self.generator = Adam(intervals * KERNELS, 0.03)
+
+    def step(mut self, mut model: Model, seed: UInt32) raises:
+        model.forward(seed)
+        model.backward()
+        model.read()
+        var hedger_gradient = model.hedger_gradient()
+        var generator_gradient = model.generator_gradient()
+        self.hedger.step(model.phi, hedger_gradient)
+        self.generator.step(model.logits, generator_gradient)
+
+
+def generator_differences(mut model: Model, seed: UInt32) raises:
+    """The generator's gradient beside a central difference of its loss."""
+    model.forward(seed)
+    model.backward()
+    model.read()
+    var gradient = model.generator_gradient()
+    for n in [3, 20, 24, 25, 30, 45, KERNELS + 24]:
+        if n < len(model.logits):
+            var kept = model.logits[n]
+            var step = Float32(0.05)
+            model.logits[n] = kept + step
+            model.forward(seed)
+            model.read()
+            var up = model.loss()
+            model.logits[n] = kept - step
+            model.forward(seed)
+            model.read()
+            var down = model.loss()
+            model.logits[n] = kept
+            print("DH check", n, gradient[n], (up - down) / Float64(2 * step))
+
+
+def check(mut model: Model, iterations: Int) raises:
     """Each gradient beside a central difference of what it differentiates.
-    The generator's holds positions fixed, so it is checked with a hedger whose
-    position is one constant."""
+    The generator's holds positions fixed: it is exact with a hedger whose
+    position is one constant, and after `iterations` of fitting the two
+    columns differ by what the hedger's response to the paths adds, which is
+    nothing at a hedger that cannot be improved (THEORY.md, section 4)."""
     var seed = UInt32(7)
     model.forward(seed)
     model.backward()
@@ -794,28 +853,19 @@ def check(mut model: Model) raises:
         var down = model.funding()
         model.phi[n] = kept
         print("DH check", n, hedger[n], (up - down) / Float64(2 * step))
+    var trained = model.phi.copy()
     for n in range(W3, B3):
         model.phi[n] = 0
     model.phi[B3] = 0.3
-    model.forward(seed)
-    model.backward()
-    model.read()
-    var generator = model.generator_gradient()
-    print("DH check generator: logit, gradient, difference")
-    for n in [3, 20, 24, 25, 30, 45, KERNELS + 24]:
-        if n < len(model.logits):
-            var kept = model.logits[n]
-            var step = Float32(0.05)
-            model.logits[n] = kept + step
-            model.forward(seed)
-            model.read()
-            var up = model.loss()
-            model.logits[n] = kept - step
-            model.forward(seed)
-            model.read()
-            var down = model.loss()
-            model.logits[n] = kept
-            print("DH check", n, generator[n], (up - down) / Float64(2 * step))
+    print("DH check generator, one constant position: logit, gradient, difference")
+    generator_differences(model, seed)
+    model.phi = trained^
+    if iterations > 0:
+        var training = Training(model.intervals)
+        for iteration in range(iterations):
+            training.step(model, UInt32(1000 + iteration))
+        print("DH check generator, the hedger of", iterations, "iterations: logit, gradient, difference")
+        generator_differences(model, seed)
 
 
 def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
@@ -824,8 +874,7 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
     last one."""
     comptime REPORT = 20
     comptime SHOWN_PATHS = 48
-    var hedger = Adam(PARAMS, 0.002)
-    var generator = Adam(len(model.logits), 0.03)
+    var training = Training(model.intervals)
     var contracts = chain.count()
     var window = List[Float64](length=contracts * RESULT, fill=0)
     var window_loss = Float64(0)
@@ -837,25 +886,21 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
     var iteration = 0
     while iterations == 0 or iteration < iterations:
         iteration += 1
-        model.forward(UInt32((seed + UInt64(iteration)) * 2654435761 & 0xFFFFFFFF))
-        model.backward()
-        model.read()
-        var hedger_gradient = model.hedger_gradient()
-        var generator_gradient = model.generator_gradient()
-        hedger.step(model.phi, hedger_gradient)
-        generator.step(model.logits, generator_gradient)
+        training.step(model, UInt32((seed + UInt64(iteration)) * 2654435761 & 0xFFFFFFFF))
         window_loss += model.loss()
         for i in range(contracts * RESULT):
             window[i] += Float64(model.result[PARAMS + model.intervals * KERNELS + i])
         if iteration % REPORT == 0:
             var seconds = Float64(perf_counter_ns() - started) / 1e9
             # Of the window's mean bids and asks, the share inside the market's band;
-            # mean spreads of the market and of the model, and the model's two parts.
+            # mean spreads of the market and of the model, the model's two parts (costs,
+            # and the deviation the risk price multiplies), and that deviation unhedged.
             var inside = 0
             var market = Float64(0)
             var spread = Float64(0)
             var fees = Float64(0)
             var deviations = Float64(0)
+            var unhedged = Float64(0)
             for i in range(contracts):
                 var bid = Float64(chain.contracts[i * CONTRACT + 3])
                 var ask = Float64(chain.contracts[i * CONTRACT + 4])
@@ -867,11 +912,12 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
                 spread += (window[i * RESULT + 1] - window[i * RESULT]) / REPORT
                 fees += (window[i * RESULT + 2] + window[i * RESULT + 3]) / REPORT
                 deviations += (window[i * RESULT + 4] + window[i * RESULT + 5]) / REPORT
+                unhedged += 2 * window[i * RESULT + 7] / REPORT
             print(
                 "DH iteration", iteration, "loss", window_loss / REPORT, "seconds", seconds,
                 "inside", Float64(inside) / Float64(2 * contracts), "market", market / Float64(contracts),
                 "model", spread / Float64(contracts), "cost", fees / Float64(contracts),
-                "risk", deviations / Float64(contracts), flush=True,
+                "risk", deviations / Float64(contracts), "unhedged", unhedged / Float64(contracts), flush=True,
             )
             for i in range(contracts):
                 line = String("DH quote ") + String(i)
@@ -926,7 +972,7 @@ def time(mut model: Model) raises:
 def main() raises:
     var arguments = argv()
     if len(arguments) < 4:
-        raise Error("usage: dh-fit CHAIN PATHS SEED [ITERATIONS] | dh-fit check CHAIN PATHS | dh-fit time CHAIN PATHS")
+        raise Error("usage: dh-fit CHAIN PATHS SEED [ITERATIONS] | dh-fit check CHAIN PATHS [ITERATIONS] | dh-fit time CHAIN PATHS")
     var mode = String(arguments[1])
     var fitting = mode != "check" and mode != "time"
     var chain = Chain(String(arguments[1 if fitting else 2]))
@@ -937,7 +983,7 @@ def main() raises:
     var model = Model(chain, paths, seed)
     print("DH start contracts", chain.count(), "intervals", model.intervals, "days", model.days, "paths", paths, flush=True)
     if mode == "check":
-        check(model)
+        check(model, Int(number(String(arguments[4]))) if len(arguments) > 4 else 0)
     elif mode == "time":
         time(model)
     else:
