@@ -148,7 +148,9 @@ remove, and has the hedger minimize `rho` itself. Then:
 
 **Calibration.** The generator's loss is, over today's contracts, the distance
 of the model's bid and of its ask outside the market's band, zero inside
-(decision 16), in units of that quote's own width. The hedger's loss is the
+(decision 16), in units of that quote's own width, squared up to one width
+and linear beyond ("it should not explose by a few outliers if the general
+fit is good", cher-sim, 04-26). The hedger's loss is the
 sum of `rho` over all books; it has no quote in it (decisions 7, 15). The
 quote levels pin each expiry's distribution; the widths pin what hedging
 between the expiries costs, which is where the path, and not only the

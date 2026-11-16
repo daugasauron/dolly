@@ -211,6 +211,13 @@ def outside(price: Float32, bid: Float32, ask: Float32, unit: Float32) -> Float3
     return 0
 
 
+def beyond(error: Float32) -> Float32:
+    """The loss of a distance outside the band: its square up to one band
+    width, linear from there, so that a few quotes far out do not rule the fit."""
+    var size = abs(error)
+    return size * size if size <= 1 else 2 * size - 1
+
+
 def quote(
     residual: Floats,
     paid: Floats,
@@ -259,8 +266,8 @@ def quote(
     var ask_error = outside(ask, market_bid, market_ask, unit)
     var bid_error = outside(bid, market_bid, market_ask, unit)
     var contracts_count = Float32(books // 2)
-    book_stats[unsafe_offset=2 * i * BOOK + 2] = 2 * ask_error / (unit * contracts_count)
-    book_stats[unsafe_offset=(2 * i + 1) * BOOK + 2] = -2 * bid_error / (unit * contracts_count)
+    book_stats[unsafe_offset=2 * i * BOOK + 2] = 2 * min(max(ask_error, -1), 1) / (unit * contracts_count)
+    book_stats[unsafe_offset=(2 * i + 1) * BOOK + 2] = -2 * min(max(bid_error, -1), 1) / (unit * contracts_count)
     var expiry = Int(contracts[unsafe_offset=c + 1])
     var payoff = Float32(0)
     for p in range(paths):
@@ -276,7 +283,7 @@ def quote(
     result[unsafe_offset=r + 3] = fees[1]
     result[unsafe_offset=r + 4] = deviation[0]
     result[unsafe_offset=r + 5] = deviation[1]
-    result[unsafe_offset=r + 6] = ask_error * ask_error + bid_error * bid_error
+    result[unsafe_offset=r + 6] = beyond(ask_error) + beyond(bid_error)
     result[unsafe_offset=r + 7] = payoff / Float32(paths)
 
 
@@ -287,6 +294,7 @@ def adjoint(
     book_stats: Floats,
     gradient_rows: Floats,
     level_rows: Floats,
+    held_rows: Floats,
     paths: Int,
     days: Int,
     books: Int,
@@ -297,14 +305,18 @@ def adjoint(
     hedger, the derivative of the sum of all fundings by its parameters,
     through every day's position and the position it was decided from. For the
     generator, the derivative of the loss by the path's levels with the
-    positions held fixed (THEORY.md, section 4)."""
+    positions held fixed (THEORY.md, section 4). A thread sums into words of
+    its own in the three buffers, beside its neighbours' words for the same
+    parameter or day: a block's threads then store side by side."""
     var thread = global_idx.x
     var p = thread // GROUPS
     if p >= paths:
         return
-    var gradient = Array[Float32, PARAMS](fill=0)
-    var level_adjoint = Array[Float32, MAX_DAYS + 1](fill=0)
-    var held = Array[Float32, MAX_DAYS + 1](fill=0)
+    var threads = paths * GROUPS
+    for n in range(PARAMS):
+        gradient_rows[unsafe_offset=n * threads + thread] = 0
+    for u in range(MAX_DAYS + 1):
+        level_rows[unsafe_offset=u * threads + thread] = 0
     var inputs = Array[Float32, INPUTS](fill=0)
     var first = Array[Float32, HIDDEN](fill=0)
     var second = Array[Float32, HIDDEN](fill=0)
@@ -319,10 +331,10 @@ def adjoint(
         var call = contracts[unsafe_offset=c + 2]
         var log_strike = log(strike)
         var cash = Float32(0)
-        held[0] = 0
+        var before = Float32(0)
+        held_rows[unsafe_offset=thread] = 0
         for u in range(1, expiry):
             var price = exp(logx[unsafe_offset=row + u])
-            var before = held[u - 1]
             var after = policy(
                 phi,
                 logx[unsafe_offset=row + u - 1] - log_strike,
@@ -334,25 +346,27 @@ def adjoint(
                 first,
                 second,
             )
-            held[u] = after
+            held_rows[unsafe_offset=u * threads + thread] = after
             cash += after * (exp(logx[unsafe_offset=row + u + 1]) - price) - cost * abs(after - before) * price
+            before = after
         var last = exp(logx[unsafe_offset=row + expiry])
-        var closing = held[expiry - 1]
+        var closing = before
         var left = side * max(call * (last - strike), 0) - (cash - cost * abs(closing) * last)
         # The funding's derivative by this path's residual.
         var seed = (1 + risk * (left - book_stats[unsafe_offset=b * BOOK]) / book_stats[unsafe_offset=b * BOOK + 1]) / Float32(paths)
 
         var loss_seed = book_stats[unsafe_offset=b * BOOK + 2] * seed
         var in_the_money = Float32(1) if call * (last - strike) > 0 else Float32(0)
-        level_adjoint[expiry] += loss_seed * (side * call * in_the_money - closing + cost * abs(closing))
-        for u in range(1, expiry):
-            level_adjoint[u] += loss_seed * (held[u] - held[u - 1] + cost * abs(held[u] - held[u - 1]))
+        level_rows[unsafe_offset=expiry * threads + thread] += loss_seed * (side * call * in_the_money - closing + cost * abs(closing))
 
         var carry = seed * cost * direction(closing) * last
         var u = expiry - 1
         while u >= 1:
             var price = exp(logx[unsafe_offset=row + u])
-            var turn = direction(held[u] - held[u - 1])
+            var now = held_rows[unsafe_offset=u * threads + thread]
+            var earlier = held_rows[unsafe_offset=(u - 1) * threads + thread]
+            var turn = direction(now - earlier)
+            level_rows[unsafe_offset=u * threads + thread] += loss_seed * (now - earlier + cost * abs(now - earlier))
             var on_position = carry - seed * (exp(logx[unsafe_offset=row + u + 1]) - price - cost * turn * price)
             _ = policy(
                 phi,
@@ -360,35 +374,32 @@ def adjoint(
                 Float32(expiry - u + 1),
                 call,
                 side,
-                held[u - 1],
+                earlier,
                 inputs,
                 first,
                 second,
             )
-            var on_out = on_position * (1 - held[u] * held[u])
-            gradient[B3] += on_out
+            var on_out = on_position * (1 - now * now)
+            gradient_rows[unsafe_offset=B3 * threads + thread] += on_out
             for j in range(HIDDEN):
-                gradient[W3 + j] += on_out * second[j]
+                gradient_rows[unsafe_offset=(W3 + j) * threads + thread] += on_out * second[j]
                 back_second[j] = on_out * phi[unsafe_offset=W3 + j] if second[j] > 0 else Float32(0)
-                gradient[B2 + j] += back_second[j]
+                gradient_rows[unsafe_offset=(B2 + j) * threads + thread] += back_second[j]
             var on_held = Float32(0)
             for i in range(HIDDEN):
                 var back = Float32(0)
                 for j in range(HIDDEN):
-                    gradient[W2 + j * HIDDEN + i] += back_second[j] * first[i]
                     back += back_second[j] * phi[unsafe_offset=W2 + j * HIDDEN + i]
                 if first[i] > 0:
-                    gradient[B1 + i] += back
+                    for j in range(HIDDEN):
+                        gradient_rows[unsafe_offset=(W2 + j * HIDDEN + i) * threads + thread] += back_second[j] * first[i]
+                    gradient_rows[unsafe_offset=(B1 + i) * threads + thread] += back
                     for m in range(INPUTS):
-                        gradient[i * INPUTS + m] += back * inputs[m]
+                        gradient_rows[unsafe_offset=(i * INPUTS + m) * threads + thread] += back * inputs[m]
                     on_held += back * phi[unsafe_offset=i * INPUTS + INPUTS - 1]
             carry = on_held - seed * cost * turn * price
             u -= 1
         b += GROUPS
-    for n in range(PARAMS):
-        gradient_rows[unsafe_offset=thread * PARAMS + n] = gradient[n]
-    for u in range(days + 1):
-        level_rows[unsafe_offset=thread * (MAX_DAYS + 1) + u] = level_adjoint[u]
 
 
 def sum_gradient(gradient_rows: Floats, result: Floats, rows: Int):
@@ -397,7 +408,7 @@ def sum_gradient(gradient_rows: Floats, result: Floats, rows: Int):
         return
     var sum = Float32(0)
     for r in range(rows):
-        sum += gradient_rows[unsafe_offset=r * PARAMS + n]
+        sum += gradient_rows[unsafe_offset=n * rows + r]
     result[unsafe_offset=n] = sum
 
 
@@ -411,7 +422,7 @@ def return_adjoint(level_rows: Floats, logx: Floats, on_return: Floats, paths: I
     while u >= 1:
         var on_level = Float32(0)
         for group in range(GROUPS):
-            on_level += level_rows[unsafe_offset=(p * GROUPS + group) * (MAX_DAYS + 1) + u]
+            on_level += level_rows[unsafe_offset=u * paths * GROUPS + p * GROUPS + group]
         later += on_level * exp(logx[unsafe_offset=p * (days + 1) + u])
         on_return[unsafe_offset=p * days + u - 1] = later
         u -= 1
@@ -596,6 +607,7 @@ struct Model(Movable):
     var book_buffer: DeviceBuffer[DType.float32]
     var gradient_rows: DeviceBuffer[DType.float32]
     var level_rows: DeviceBuffer[DType.float32]
+    var held_rows: DeviceBuffer[DType.float32]
     var return_buffer: DeviceBuffer[DType.float32]
     var result_buffer: DeviceBuffer[DType.float32]
 
@@ -646,6 +658,7 @@ struct Model(Movable):
         self.book_buffer = self.ctx.enqueue_create_buffer[DType.float32](self.books * BOOK)
         self.gradient_rows = self.ctx.enqueue_create_buffer[DType.float32](paths * GROUPS * PARAMS)
         self.level_rows = self.ctx.enqueue_create_buffer[DType.float32](paths * GROUPS * (MAX_DAYS + 1))
+        self.held_rows = self.ctx.enqueue_create_buffer[DType.float32](paths * GROUPS * (MAX_DAYS + 1))
         self.return_buffer = self.ctx.enqueue_create_buffer[DType.float32](paths * self.days)
         self.result_buffer = self.ctx.enqueue_create_buffer[DType.float32](len(self.result))
 
@@ -692,12 +705,19 @@ struct Model(Movable):
 
     def backward(mut self) raises:
         """Both gradients, into the result beside the quotes."""
+        self.differentiate()
+        self.sum()
+
+    def differentiate(mut self) raises:
         var threads = self.paths * GROUPS
         self.ctx.enqueue_function[adjoint](
             self.logx_buffer, self.contracts_buffer, self.phi_buffer, self.book_buffer, self.gradient_rows,
-            self.level_rows, self.paths, self.days, self.books, self.cost, self.risk,
+            self.level_rows, self.held_rows, self.paths, self.days, self.books, self.cost, self.risk,
             grid_dim=threads // BLOCK, block_dim=BLOCK,
         )
+
+    def sum(mut self) raises:
+        var threads = self.paths * GROUPS
         self.ctx.enqueue_function[sum_gradient](
             self.gradient_rows, self.result_buffer, threads, grid_dim=(PARAMS + BLOCK - 1) // BLOCK, block_dim=BLOCK,
         )
@@ -829,7 +849,30 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
             window[i] += Float64(model.result[PARAMS + model.intervals * KERNELS + i])
         if iteration % REPORT == 0:
             var seconds = Float64(perf_counter_ns() - started) / 1e9
-            print("DH iteration", iteration, "loss", window_loss / REPORT, "seconds", seconds, flush=True)
+            # Of the window's mean bids and asks, the share inside the market's band;
+            # mean spreads of the market and of the model, and the model's two parts.
+            var inside = 0
+            var market = Float64(0)
+            var spread = Float64(0)
+            var fees = Float64(0)
+            var deviations = Float64(0)
+            for i in range(contracts):
+                var bid = Float64(chain.contracts[i * CONTRACT + 3])
+                var ask = Float64(chain.contracts[i * CONTRACT + 4])
+                for side in range(2):
+                    var price = window[i * RESULT + side] / REPORT
+                    if price >= bid and price <= ask:
+                        inside += 1
+                market += ask - bid
+                spread += (window[i * RESULT + 1] - window[i * RESULT]) / REPORT
+                fees += (window[i * RESULT + 2] + window[i * RESULT + 3]) / REPORT
+                deviations += (window[i * RESULT + 4] + window[i * RESULT + 5]) / REPORT
+            print(
+                "DH iteration", iteration, "loss", window_loss / REPORT, "seconds", seconds,
+                "inside", Float64(inside) / Float64(2 * contracts), "market", market / Float64(contracts),
+                "model", spread / Float64(contracts), "cost", fees / Float64(contracts),
+                "risk", deviations / Float64(contracts), flush=True,
+            )
             for i in range(contracts):
                 line = String("DH quote ") + String(i)
                 for field in range(RESULT):
@@ -857,19 +900,45 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
             window_loss = 0
 
 
+def time(mut model: Model) raises:
+    """Seconds of the forward kernels, of the adjoint kernel, of the sums and
+    of reading the result, the second iteration: the first compiles the kernels."""
+    for round in range(2):
+        var started = perf_counter_ns()
+        model.forward(UInt32(round))
+        model.ctx.synchronize()
+        var rolled = perf_counter_ns()
+        model.differentiate()
+        model.ctx.synchronize()
+        var differentiated = perf_counter_ns()
+        model.sum()
+        model.ctx.synchronize()
+        var summed = perf_counter_ns()
+        model.read()
+        var done = perf_counter_ns()
+        if round == 1:
+            print(
+                "DH time forward", Float64(rolled - started) / 1e9, "adjoint", Float64(differentiated - rolled) / 1e9,
+                "sums", Float64(summed - differentiated) / 1e9, "read", Float64(done - summed) / 1e9,
+            )
+
+
 def main() raises:
     var arguments = argv()
     if len(arguments) < 4:
-        raise Error("usage: dh-fit CHAIN PATHS SEED [ITERATIONS] | dh-fit check CHAIN PATHS")
-    var checking = String(arguments[1]) == "check"
-    var chain = Chain(String(arguments[2 if checking else 1]))
-    var paths = Int(number(String(arguments[3 if checking else 2])))
+        raise Error("usage: dh-fit CHAIN PATHS SEED [ITERATIONS] | dh-fit check CHAIN PATHS | dh-fit time CHAIN PATHS")
+    var mode = String(arguments[1])
+    var fitting = mode != "check" and mode != "time"
+    var chain = Chain(String(arguments[1 if fitting else 2]))
+    var paths = Int(number(String(arguments[2 if fitting else 3])))
     if paths % BLOCK != 0:
         raise Error("PATHS is a multiple of ", BLOCK)
-    var seed = UInt64(1) if checking else UInt64(Int(number(String(arguments[3]))))
+    var seed = UInt64(Int(number(String(arguments[3])))) if fitting else UInt64(1)
     var model = Model(chain, paths, seed)
     print("DH start contracts", chain.count(), "intervals", model.intervals, "days", model.days, "paths", paths, flush=True)
-    if checking:
+    if mode == "check":
         check(model)
+    elif mode == "time":
+        time(model)
     else:
         fit(model, chain, seed, Int(number(String(arguments[4]))) if len(arguments) > 4 else 0)

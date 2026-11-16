@@ -19,6 +19,7 @@ const limit = 4;
 const together = ["python", "rts", "pi", "closed-source-agent", "codex", "javascript", "cmake", "tmux", "emacs", "neovim", "sdl2"];
 const window = "DISPLAY: a GPU window";
 const needs = new Map([
+  ["deep-hedger/test/deep-hedger-browser.mjs", `${window} on a hardware adapter, in Chrome and the installed Firefox`],
   ["godot/test/godot-flyover-browser.mjs", `${window} on a hardware adapter, in Chrome and the installed Firefox`],
   ["godot/test/godot-gpu-browser.mjs", `${window} on a hardware adapter, in Chrome and the installed Firefox`],
   ["llvm/test/stage2-browser.mjs", "about 50 minutes and 7 GB: it is run on demand"],
