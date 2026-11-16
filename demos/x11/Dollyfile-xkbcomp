@@ -10,7 +10,7 @@ REQUIRES HOST sockets@0
 FROM /v0.1.7/demos/x11/Dollyfile-x11-build 8ef7c6c39c46ae6290eb8cae2970560c9451d67832b941f814fa1c498dd29176
 USE /v0.1.7/demos/tools/Dollyfile-meson fb60ceced3a0491525af8579957675061f8748cf2c7949189fb95e95543b5478
 USE /v0.1.7/demos/zero-ad/Dollyfile-pkgconf fdb291181297a70fc73950b9122322458fa73450d2f713b931eeefe0f46f6f02
-USE /v0.1.7/demos/x11/Dollyfile-libxkbfile c8513bc07e1003b7bdf5181dae2c9633df98b8176f085a9803a336bfdc438e58
+USE /v0.1.7/demos/x11/Dollyfile-libxkbfile 0912e5f1ce7103c568ce521e92cae4ab5967dae826d9917987c468ef7c2140fe
 USE /v0.1.7/demos/tools/Dollyfile-yacc 32b94f77d2e844d124649229a8da1aceca5800704a97df8581cea8bb1fcffca1
 REQUIRES TOOL meson
 REQUIRES TOOL byacc

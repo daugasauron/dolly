@@ -10,9 +10,12 @@ REQUIRES HOST touch@0
 # its custom platform): InitWindow shows the frames through display@0, keys,
 # text, the pointer and the wheel come from input@0, fingers from touch@0, and
 # GetTime reads the monotonic clock. <dolly/raylib.h> serves a program that holds the display
-# itself. For programs the cc package builds.
+# itself. For programs the cc package builds; <dolly/raylib.h> includes the
+# display and input headers, whose packages come with it.
 FROM /v0.1.7/Dollyfile-system 53019922324696a18a573eededf9b475fe22e783d58f35585fe5c73943b926ae
 INSTALL /v0.1.7/Dollyfile-libdolly-touch 882f7e0ec09bfc107a545e9b16378a042806bdbff8cd07548de659083d22e8ef
+INSTALL /v0.1.7/Dollyfile-libdolly-display dca7d4755a50b8dbaa6abc4fd5b8fa34cccbb6400a4fd167d90e9a0f1bcee9ad
+INSTALL /v0.1.7/Dollyfile-libdolly-input 80f7d6d7b775fa542711f6d0205280a3d3f4c5a68eb0f3223f81fc2fe64df08e
 REQUIRES HEADER libc
 REQUIRES HEADER display
 REQUIRES HEADER input

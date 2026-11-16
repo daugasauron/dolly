@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # .lst files it adds need Perl).
 FROM /v0.1.7/demos/x11/Dollyfile-x11-build 8ef7c6c39c46ae6290eb8cae2970560c9451d67832b941f814fa1c498dd29176
 # The tar package reads the pax headers of X.Org's archives.
-USE /v0.1.7/demos/tools/Dollyfile-tar 2caf674d1e2c6fada2d9a0556f72fb087f0b7920642ccd28671dd98459b18634
+USE /v0.1.7/demos/tools/Dollyfile-tar f96d977a15d4cef99fe590fd09afdf6f19f4dd7d3a91589df5690e0c33b37a54
 USE /v0.1.7/demos/tools/Dollyfile-xz d07bf61b88901661d5f75bc5000003f0df152c88dad282c46e57bd55f3a5adbb
 REQUIRES TOOL python3
 REQUIRES TOOL xz

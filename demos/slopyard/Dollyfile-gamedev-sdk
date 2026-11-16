@@ -11,7 +11,7 @@ REQUIRES HOST upload@0
 REQUIRES HOST threads@0
 
 FROM /v0.1.7/Dollyfile-system 53019922324696a18a573eededf9b475fe22e783d58f35585fe5c73943b926ae
-INSTALL /v0.1.7/demos/slopyard/Dollyfile-raylib 91918f1c708ada3731d3081f1e98efc9f97eba6e1e1b4239d40a3be5a3eb5080
+INSTALL /v0.1.7/demos/slopyard/Dollyfile-raylib cb5ea42abed48693844e5f62935266ef0bef05a6bbd14f97f30a37bde984ab25
 INSTALL /v0.1.7/demos/slopyard/Dollyfile-box3d f961674ce46d2be7c9be265456c4e5ae9abc193ba17c5cfea298316e10fc2067
 REQUIRES TOOL   tar
 

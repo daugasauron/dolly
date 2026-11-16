@@ -341,7 +341,7 @@ const elsewhere = {
   openblas: "demos/python", numpy: "demos/python", pandas: "demos/python: python-data installs it",
   matplotlib: "demos/python: python-data installs it", seaborn: "demos/python: python-data installs it",
   "python-dateutil": "demos/python: pandas and matplotlib install it", libjpeg: "demos/xonotic", "xonotic-shaders": "demos/xonotic: xonotic-build installs it", spidermonkey: "demos/zero-ad",
-  "xorg-server": "demos/x11", twm: "demos/x11", xclock: "demos/x11", xeyes: "demos/x11", xterm: "demos/x11",
+  "xorg-server": "demos/x11", "x11-libs": "x11-window installs it", twm: "demos/x11", xclock: "demos/x11", xeyes: "demos/x11", xterm: "demos/x11",
   imgui: "demos/sdl2", "imgui-x11": "demos/x11", llvm22: "demos/zig: zig-llvm uses it", "zig-llvm": "demos/zig",
   ffmpeg: "demos/ffmpeg", zsh: "demos/zsh", binaryen: "demos/zsh: zsh's build uses it", "ghostty-gtk": "demos/ghostty-gtk", ocaml: "demos/ocaml", lean: "demos/lean",
   "lean-std": "demos/lean: lean installs it", "lean-meta": "demos/lean: lean installs it",

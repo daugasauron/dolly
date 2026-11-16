@@ -1,0 +1,64 @@
+DOLLY 7
+PACKAGE x11-libs
+REQUIRES HOST runtime@0
+REQUIRES HOST sockets@0
+
+# The X Window System's client libraries as x11-build builds them, for what a
+# session or another package compiles: Xlib over libxcb and libXau, the
+# extension libraries and the Athena toolkit's stack, static, with their
+# headers, X.Org's protocol headers and the pkg-config files of both. xcb and
+# ICE reach the X server through sockets@0's client, which comes with them.
+FROM /v0.1.7/demos/x11/Dollyfile-x11-build 8ef7c6c39c46ae6290eb8cae2970560c9451d67832b941f814fa1c498dd29176
+INSTALL /v0.1.7/Dollyfile-libdolly-sockets c6b3e098f7bd988e69bdfdda8306af2e6c565b0e7abcdb9bda5dba2a48a2bfa9
+
+EXPORTS HEADER x11 /usr/include/X11
+EXPORTS HEADER xcb /usr/include/xcb
+EXPORTS LIB Xau /usr/lib/libXau.a
+EXPORTS LIB xcb /usr/lib/libxcb.a
+EXPORTS LIB X11 /usr/lib/libX11.a
+EXPORTS LIB X11-xcb /usr/lib/libX11-xcb.a
+EXPORTS LIB Xext /usr/lib/libXext.a
+EXPORTS LIB Xrender /usr/lib/libXrender.a
+EXPORTS LIB Xfixes /usr/lib/libXfixes.a
+EXPORTS LIB Xi /usr/lib/libXi.a
+EXPORTS LIB ICE /usr/lib/libICE.a
+EXPORTS LIB SM /usr/lib/libSM.a
+EXPORTS LIB Xt /usr/lib/libXt.a
+EXPORTS LIB Xmu /usr/lib/libXmu.a
+EXPORTS LIB Xmuu /usr/lib/libXmuu.a
+EXPORTS LIB Xpm /usr/lib/libXpm.a
+EXPORTS LIB Xaw7 /usr/lib/libXaw7.a
+EXPORTS LIB Xaw /usr/lib/libXaw.a
+FILE /usr/lib/pkgconfig/xau.pc
+FILE /usr/lib/pkgconfig/xcb.pc
+FILE /usr/lib/pkgconfig/x11.pc
+FILE /usr/lib/pkgconfig/x11-xcb.pc
+FILE /usr/lib/pkgconfig/xext.pc
+FILE /usr/lib/pkgconfig/xrender.pc
+FILE /usr/lib/pkgconfig/xfixes.pc
+FILE /usr/lib/pkgconfig/xi.pc
+FILE /usr/lib/pkgconfig/ice.pc
+FILE /usr/lib/pkgconfig/sm.pc
+FILE /usr/lib/pkgconfig/xt.pc
+FILE /usr/lib/pkgconfig/xmu.pc
+FILE /usr/lib/pkgconfig/xmuu.pc
+FILE /usr/lib/pkgconfig/xpm.pc
+FILE /usr/lib/pkgconfig/xaw7.pc
+FOLDER /usr/share/pkgconfig
+FILE /usr/share/X11/XErrorDB
+FOLDER /usr/share/licenses/xorgproto
+FOLDER /usr/share/licenses/xtrans
+FOLDER /usr/share/licenses/xcb-proto
+FOLDER /usr/share/licenses/libXau
+FOLDER /usr/share/licenses/libxcb
+FOLDER /usr/share/licenses/libX11
+FOLDER /usr/share/licenses/libXext
+FOLDER /usr/share/licenses/libXrender
+FOLDER /usr/share/licenses/libXfixes
+FOLDER /usr/share/licenses/libXi
+FOLDER /usr/share/licenses/libICE
+FOLDER /usr/share/licenses/libSM
+FOLDER /usr/share/licenses/libXt
+FOLDER /usr/share/licenses/libXmu
+FOLDER /usr/share/licenses/libXpm
+FOLDER /usr/share/licenses/libXaw
