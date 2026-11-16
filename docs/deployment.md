@@ -168,8 +168,7 @@ It never tags, pushes, publishes, uploads or deploys.
    version boots `default` from its own files) and
    `published-version.mjs verify SITE OUT vX.Y.Z` (every file of the new
    version, and every older version's list).
-8. Move the new version's directory from `OUT` into the archive; move
-   `DOLLY_VERSION` in `page/version.mjs` to the next version.
+8. Move the new version's directory from `OUT` into the archive.
 
 The showcase follows, its recordings made on the published version and
 committed to `sites/slopshare.dev/agents/`: `package-pages.sh RELEASES
@@ -178,7 +177,8 @@ which checks that the commits since the tag change the showcase alone and
 assembles the deployment in which the version adds it; its printed steps 6 to
 8 deploy it, check its new files live (`verify SITE OUT vX.Y.Z ARCHIVE`: the
 files of the earlier deployment are not fetched again), put it in the archive
-in place of the first and push `main`.
+in place of the first and push `main`. Then `DOLLY_VERSION` in
+`page/version.mjs` moves to the next version.
 
 ## Delivery contract
 

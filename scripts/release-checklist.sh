@@ -42,7 +42,8 @@ else
      -f "${seed_compiler}" ]] || stop "the seed compiler is not pinned to this release's asset (docs/sources.md)"
   # A deployment assembled without a version removes it: each the site serves is in the archive,
   # or retired beside it.
-  for live in $(curl -fsS "${site}/robots.txt" | sed -n 's|^Disallow: /\(v[0-9.]*\)/dist/$|\1|p'); do
+  robots="$(curl -fsS "${site}/robots.txt")" || stop "${site}/robots.txt does not say which versions the site serves"
+  for live in $(sed -n 's|^Disallow: /\(v[0-9.]*\)/dist/$|\1|p' <<< "${robots}"); do
     [[ -d "${archive}/${live}" || -d "${archive}/../retired/${live}" ]] || stop "${site} serves ${live}, which ${archive} lacks"
   done
 fi
@@ -104,7 +105,7 @@ node scripts/published-version.mjs boot "${deployment}" ${versions} || stop "a v
 if [[ -n "${showcase}" ]]; then
 cat <<COMMANDS
 == checked at ${commit} ($(((SECONDS - began) / 60)) min): deployment $(find "${deployment}" -type f | wc -l) files.
-   Nothing was pushed or deployed. The owner runs:
+   Nothing was pushed or deployed. The owner runs, in ${project_dir}:
 6  with CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN set, where nothing interrupts it (an
    interrupted upload keeps nothing: never restart it):
    npx wrangler@4.129.1 pages deploy ${deployment} --project-name dolly --branch main > build/deploy-${version}-showcase.log 2>&1
@@ -115,12 +116,13 @@ cat <<COMMANDS
    git push origin main
    gh release edit ${version} --notes-file NOTES, which names ${version}'s list as deployed now:
    $(sha256sum "${deployment}/${version}/deployment.sha256" | cut -d' ' -f1)
+   Then the next version: DOLLY_VERSION in page/version.mjs, the one line that names it.
 COMMANDS
   exit
 fi
 cat <<COMMANDS
 == checked at ${commit} ($(((SECONDS - began) / 60)) min): deployment $(find "${deployment}" -type f | wc -l) files.
-   Nothing was tagged, pushed, published or deployed. The owner runs:
+   Nothing was tagged, pushed, published or deployed. The owner runs, in ${project_dir}:
 4  git tag -a ${version} -m "Dolly ${version#v}" ${commit}
    git push origin main ${version}
 5  gh release create ${version} ${seed_compiler} --verify-tag --title "Dolly ${version}" --notes-file NOTES
@@ -133,7 +135,7 @@ cat <<COMMANDS
    node scripts/published-version.mjs verify ${site} ${deployment} ${version}
 8  mv ${deployment}/${version} ${archive}/ && rm -rf ${deployment}
    ${version}'s list, for the release notes: $(sha256sum "${deployment}/${version}/deployment.sha256" | cut -d' ' -f1)
-   Then its showcase, recorded on ${site}/${version}/ and committed to sites/slopshare.dev/agents/:
+   Then its showcase, recorded on ${site}/${version}/ and committed to sites/slopshare.dev/agents/,
+   before the version moves on:
    bash scripts/package-pages.sh RELEASES slopshare.dev && bash scripts/release-checklist.sh --showcase RELEASES ${archive}
-   And the next version: DOLLY_VERSION in page/version.mjs, the one line that names it.
 COMMANDS
