@@ -36,7 +36,27 @@ Logs: `build/dh-evidence/` (this machine).
   them), the second evaluation of the policy 0.06 s, and the forward half 0.055 s. One thread a
   path (no groups): 1.78 s; 32 groups: 0.195 s.
 
-Left: the fit's convergence on the chain, in the image, in both browsers.
+- **The fit converges on the chain** (`dh-fit CHAIN 1024 1 900`, stock cost 0.25 bp, risk price
+  0.01): 900 iterations in 287 s, loss 4.7 at iteration 200, 1.8 at 500, 1.4 at 900; 70% of
+  the model's bids and asks inside the market's bands; forwards 1.0002, 1.0007, 1.0004, 1.0004,
+  1.0015, 0.9993, 0.9983, 1.0002 of the quotes' own; a day's deviation 1.2% to 1.6%; the hedger
+  leaves 46% of the unhedged risk. In the image with dh-gui beside it: 2.6 iterations a second.
+- **The generator's gradient at a fitted hedger** (`dh-fit check CHAIN 256 300`): against
+  central differences that let the hedger respond, same sign at all seven logits, sizes -0.052
+  and -0.038, 0.056 and 0.039, 0.013 and 0.009, 0.010 and 0.007, -0.066 and -0.090, 0.0165 and
+  0.0165, 0.029 and 0.018. Holding positions fixed is an approximation there, as THEORY.md says.
+- **The forward has to be in the ledger.** A PyTorch reference of the same model
+  (`work/dh-evidence/proto.py`, CPU, this machine) on a driftless 25% chain, positions earning
+  the day's whole move: after 360 iterations the forwards were 0.994 in one run and 1.006 in
+  another, the hedged books carried 0.10 to 0.13 of deviation against 0.077 unhedged, and the
+  loss stood at 4 to 5. With the day's mean move taken out of what a position earns: forwards
+  1.0000, 0.029 against 0.078, 24.6% to 25.1% a year.
+- **Settings tried on the reference**: hedger rate 0.005 against 0.002 (47% against 54% of the
+  unhedged risk left at 140 and 200 iterations); 8 hidden units against 16 (56% against 47% at
+  160 and 140); generator rate 0.1 against 0.03 (the deviation reaches the chain's by
+  iteration 60 instead of 160). dh-fit has 0.005, 16 and 0.05.
+
+Left: the image's test in both browsers (task dh-04).
 
 Findings about Mojo kernels in Dolly:
 

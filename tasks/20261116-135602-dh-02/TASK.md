@@ -11,7 +11,7 @@ A Dolly program reaches the network through the HTTP broker, which is the page's
 response without CORS headers is an `EIO` (`docs/http.md`). So the source has to send
 `Access-Control-Allow-Origin` to any origin. No relay, no broader authority.
 
-## State 2026-11-16
+## State 2026-11-17
 
 Measured with `curl -D - -H 'Origin: http://127.0.0.1:9050'` on 2026-11-16, 13:45 UTC:
 
@@ -25,9 +25,17 @@ Measured with `curl -D - -H 'Origin: http://127.0.0.1:9050'` on 2026-11-16, 13:4
 
 Decision: marketdata.app. AAPL is the name it serves without an account, it is among the most
 liquid single names, and it is the name every earlier attempt used (the Dubach AAPL data). One
-request, `?expiration=all&from=…&to=…&strikeLimit=…`, returns the chain as columns (960 contracts,
-159 kB). Without a token the quotes are the last session's (`updated` was Friday's close on Monday
-before the open; status 203). With the owner's token in the GUI any symbol and current quotes.
-SPX or SPY, European or more liquid, need that token.
+request, `?expiration=all&from=…&to=…&strikeLimit=60`, returns the chain as columns (231 kB for
+100 days). Without a token the quotes are the last session's (`updated` was Friday's close on
+Monday before the open; status 203). With the owner's token in the GUI any symbol and current
+quotes. SPX or SPY, European or more liquid, need that token.
 
-Left: the request from the page itself in Chrome and Firefox (the image's test).
+Done: in the image, `curl` through the broker loads that chain in Chrome 138, headless and on
+the GPU, with no failed request (`work/dh-evidence/shot.mjs`: 208 contracts of 8 expiries kept).
+
+What the quotes are, which the fit has to live with: the last session's closing quotes have
+bands of one cent to 3.88 dollars; the wide ones are in the money. An in-the-money put's bid
+sits on its exercise value, 0.4% of the forward above what the payoff at expiry is worth at 45
+days (THEORY.md, conflict 6).
+
+Left: the same in Firefox.
