@@ -54,7 +54,7 @@ Logs: `build/dh-evidence/` (this machine).
 - **Settings tried on the reference**: hedger rate 0.005 against 0.002 (47% against 54% of the
   unhedged risk left at 140 and 200 iterations); 8 hidden units against 16 (56% against 47% at
   160 and 140); generator rate 0.1 against 0.03 (the deviation reaches the chain's by
-  iteration 60 instead of 160). dh-fit has 0.005, 16 and 0.05.
+  iteration 100 instead of 160). dh-fit has 0.005, 16 and 0.05.
 
 Left: the image's test in both browsers (task dh-04).
 
