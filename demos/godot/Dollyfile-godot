@@ -22,7 +22,7 @@ USE /v0.1.7/demos/tools/Dollyfile-scons dba0542258dcf6384aa0e457af3a410d754caa67
 USE /v0.1.7/Dollyfile-mandoc fdcd60b702db22d8823eb0b1ad8afaba884e97d493760d1c91bc87894a9febb9
 USE /v0.1.7/Dollyfile-libdolly-gpu b13690913448e04e3795994af89d032f7a1537ce13b54c0c73f696ee4375c6d0
 USE /v0.1.7/Dollyfile-libdolly-sockets c6b3e098f7bd988e69bdfdda8306af2e6c565b0e7abcdb9bda5dba2a48a2bfa9
-USE /v0.1.7/demos/godot/Dollyfile-spirv-wgsl d4444e5aa047cadf9fa290618d6060af586174a228790bd8fa9542a479f42c36
+USE /v0.1.7/demos/godot/Dollyfile-spirv-wgsl e54ced79acff23211290fd6dfe9266eb4b4ce6576cc158075082b16921fc390c
 USE /v0.1.7/Dollyfile-libdolly-audio 5b508cabd2df8a3106a8788b1ff75da3ae63d8acc002fa5b8c1120722520deac
 USE /v0.1.7/Dollyfile-libdolly-clipboard 2e385abeefaaf674a33ac178323df84ea08ec231f8a59e7fb95ba0d175e12b3b
 USE /v0.1.7/demos/x11/Dollyfile-x11-window 1bb040a31974a724e6bec150063dfdccedc1b8b7e5e44b421a1b1b20c1ac5949
