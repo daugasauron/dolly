@@ -31,8 +31,10 @@ Not started in the demo. What it takes, from what the stock-only build measured:
    recursion over the days of a path, and the day's mean move a number of each path.
    One trial, on a PyTorch reference of the demo's model (`work/dh-evidence/proto2.py`, this
    machine): the day's logits as base + f1 * a + f1^2 * b with f1 = tanh(previous return / 2%).
-   On AAPL's chain of 2026-11-13 after 460 iterations its loss was 5.31 against 5.43 without
-   memory, with more risk left to the hedger (0.033 against 0.026): no gain at that length, so
-   it was not ported. Independent returns do reach the chain's forwards and levels, in about
-   700 iterations.
+   On AAPL's chain of 2026-11-13, 256 paths, the same rates: at a risk price of 0.05 its loss
+   after 460 iterations was 5.31 against 5.43 without memory; at 0.01 after 800 iterations it
+   was 9.4 against 3.2, with two forwards 6% and 2% off and 43% against 65% of the quotes in
+   band. Its days were calmer where it fitted (excess kurtosis 2 to 28 against 30 to 70), which
+   is what memory is for, but in this form and at these rates it fits worse, so it was not
+   ported. Independent returns reach the chain's forwards and levels in about 700 iterations.
 4. Conflict 4 of THEORY.md (pathwise against state-conditional fill prices) is then measurable.
