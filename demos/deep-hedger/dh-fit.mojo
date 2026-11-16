@@ -1044,11 +1044,14 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
                     line += " " + String(model.weights[interval * KERNELS + k])
                 print(line)
             var logx = model.logx_buffer.to_host()
+            var growth = model.growth()
+            var forward = Float64(1)
+            var day = 0
             for interval in range(model.intervals):
-                var day = chain.expiry_days[interval]
-                var mean = Float64(0)
-                for p in range(model.paths):
-                    mean += exp(Float64(logx[p * (model.days + 1) + day]))
+                # The law's forward at the expiry: its days' mean moves, multiplied.
+                while day < chain.expiry_days[interval]:
+                    forward *= Float64(growth[day])
+                    day += 1
                 # The deviation of one day's return in the interval, from its weights: a hat's
                 # mean is that of its three nodes, its variance (a2 + b2 + c2 - ab - ac - bc) / 18.
                 var first = Float64(0)
@@ -1061,7 +1064,7 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
                     var weight = Float64(model.weights[interval * KERNELS + k])
                     first += weight * centre
                     second += weight * ((a * a + b * b + c * c - a * b - a * c - b * c) / 18 + centre * centre)
-                print("DH forward", interval, mean / Float64(model.paths), sqrt(second - first * first))
+                print("DH forward", interval, forward, sqrt(second - first * first))
             # The first paths, which are any paths, then the batch's ten lowest at the
             # last day and its ten highest.
             var shown = List[Int]()
