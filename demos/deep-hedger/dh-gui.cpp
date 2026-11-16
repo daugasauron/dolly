@@ -447,8 +447,8 @@ static void law_tab() {
 
 static void fit_tab(double risk) {
   if (ImGui::BeginTable("fit", 12, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
-    for (const char *name : {"expiry", "days", "forward, quotes", "forward, model", "discount", "contracts", "bids and asks in band", "market spread", "model spread",
-                             "of it hedge cost", "risk left of unhedged", "risk price the market implies"})
+    for (const char *name : {"expiry", "days", "forward, quotes", "forward, model", "discount", "contracts", "in band", "market spread", "model spread", "hedge cost",
+                             "risk left", "implied risk price"})
       ImGui::TableSetupColumn(name);
     ImGui::TableHeadersRow();
     for (int e = 0; e <= (int)state.expiries.size(); e++) {
@@ -497,7 +497,9 @@ static void fit_tab(double risk) {
     }
     ImGui::EndTable();
   }
-  ImGui::Text("Spreads are means, in currency. A model spread is hedge cost plus the risk price (%.3g) times the risk daily hedging leaves, both sides: the deviation of what is left, here as a share of the payoff's own.", risk);
+  ImGui::TextWrapped("In band: the model's bids and asks inside the market's. Spreads are means, in currency: a model spread is the hedge's cost plus the risk price (%.3g) times "
+                     "the deviation of what daily hedging leaves, both sides. Risk left: that deviation as a share of the payoff's own. Implied risk price: the one at which this "
+                     "hedger's costs and risks add up to the market's spreads.", risk);
   if (state.losses.size() > 1) {
     ImVec2 available = ImGui::GetContentRegionAvail();
     double low = 1e30, high = -1e30;
