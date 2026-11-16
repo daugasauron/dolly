@@ -18,13 +18,13 @@ FROM /v0.1.7/demos/x11/Dollyfile-x11-build 8ef7c6c39c46ae6290eb8cae2970560c9451d
 USE /v0.1.7/demos/tools/Dollyfile-meson fb60ceced3a0491525af8579957675061f8748cf2c7949189fb95e95543b5478
 USE /v0.1.7/demos/zero-ad/Dollyfile-pkgconf fdb291181297a70fc73950b9122322458fa73450d2f713b931eeefe0f46f6f02
 USE /v0.1.7/demos/sdl2/Dollyfile-sdl2 3eb6c82723eb26957a9a9b6ab8dc196609762ebda2b32b33152d4d30d77fac78
-USE /v0.1.7/demos/x11/Dollyfile-pixman 7b031db0e4fc22cde3fd3784a9e8cbf99881cfb78543f07bab33ce46de44bd54
-USE /v0.1.7/demos/x11/Dollyfile-libxkbfile c8513bc07e1003b7bdf5181dae2c9633df98b8176f085a9803a336bfdc438e58
+USE /v0.1.7/demos/x11/Dollyfile-pixman 165b62cc721740bca85fda768b09c72b21cd48397b28a44ff08e5241c36224a1
+USE /v0.1.7/demos/x11/Dollyfile-libxkbfile 0912e5f1ce7103c568ce521e92cae4ab5967dae826d9917987c468ef7c2140fe
 USE /v0.1.7/Dollyfile-zlib 8de0bd7abb3a8237405fbbe378e6565c995a24694e5a3b55ef24873c5786bdb5
 USE /v0.1.7/demos/tools/Dollyfile-xz d07bf61b88901661d5f75bc5000003f0df152c88dad282c46e57bd55f3a5adbb
 USE /v0.1.7/demos/tools/Dollyfile-yacc 32b94f77d2e844d124649229a8da1aceca5800704a97df8581cea8bb1fcffca1
-INSTALL /v0.1.7/demos/x11/Dollyfile-xkbcomp deb6e17e71116825b8587401f97f57cd91ca118465c25ddd01ea10a3beb782d4
-INSTALL /v0.1.7/demos/x11/Dollyfile-xkeyboard-config 7cc0466213fc44c74dd4abed16b5d40cca00e895842ecfba886fe2ec3a2c0c40
+INSTALL /v0.1.7/demos/x11/Dollyfile-xkbcomp 4a2af469eaad25db4bb5ac05079227595990bb9287b25858281a47254dbe1629
+INSTALL /v0.1.7/demos/x11/Dollyfile-xkeyboard-config ee8db4fe6ecd0052f1fabb25f6959940db609960d1f11875333ea9cfc04b74d0
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2
 REQUIRES LIB z

@@ -17,7 +17,7 @@ REQUIRES HOST clipboard@0
 # browser grants WebGPU, and its Compatibility renderer on Mesa's OpenGL (EGL
 # and softpipe, linked in from mesa-build) where it does not, with its sound on
 # audio@0. It plays on the page or runs a project with --headless.
-FROM /v0.1.7/demos/ghostty-gtk/Dollyfile-mesa-build 60df67c2cec05569eb4a466f2c2928bf67d3ce273baf4e0fcb1f2c7c9ddb040a
+FROM /v0.1.7/demos/ghostty-gtk/Dollyfile-mesa-build 1778b7ae49ab4457cd50906b01f88fa3246022878b5f0dcd6faa4524214374cf
 USE /v0.1.7/demos/tools/Dollyfile-scons e0c235940683213af7e43e3718aaf308c3d4fca734109f9c785b66e51a8232fd
 USE /v0.1.7/Dollyfile-mandoc fdcd60b702db22d8823eb0b1ad8afaba884e97d493760d1c91bc87894a9febb9
 USE /v0.1.7/Dollyfile-libdolly-gpu b13690913448e04e3795994af89d032f7a1537ce13b54c0c73f696ee4375c6d0
@@ -25,7 +25,7 @@ USE /v0.1.7/Dollyfile-libdolly-sockets c6b3e098f7bd988e69bdfdda8306af2e6c565b0e7
 USE /v0.1.7/demos/godot/Dollyfile-spirv-wgsl 2fe8abd93560146daabf342e60e073dd82dcb028f91147fbb10b6b2847252d22
 USE /v0.1.7/Dollyfile-libdolly-audio 5b508cabd2df8a3106a8788b1ff75da3ae63d8acc002fa5b8c1120722520deac
 USE /v0.1.7/Dollyfile-libdolly-clipboard 2e385abeefaaf674a33ac178323df84ea08ec231f8a59e7fb95ba0d175e12b3b
-USE /v0.1.7/demos/x11/Dollyfile-x11-window f4819f49f8d73b66506e90cd5ef1c14c60b927d3f462b43730310c00a25f011d
+USE /v0.1.7/demos/x11/Dollyfile-x11-window 38b7407f9fa29e9dce3d10866dc9e318222834fc16568552ed72c7ed36e52a2f
 USE /v0.1.7/Dollyfile-libdolly-display dca7d4755a50b8dbaa6abc4fd5b8fa34cccbb6400a4fd167d90e9a0f1bcee9ad
 USE /v0.1.7/Dollyfile-libdolly-input 80f7d6d7b775fa542711f6d0205280a3d3f4c5a68eb0f3223f81fc2fe64df08e
 

@@ -39,11 +39,12 @@ export function browser({ applicationBase, configuration, mount, keyboard, send,
         Atomics.notify(admission, 0);
       },
     },
-    // A GET a host module makes for the guest, judged by the page's policy as
-    // the guest's own requests are, and shown as theirs when refused.
+    // A GET a host module makes for the guest, judged and counted by the page's
+    // policy as the guest's own requests are, and shown as theirs when refused:
+    // the rule that admits it.
     admit(url) {
       try {
-        network.policy.authorize(url, "GET", new Headers(), 0);
+        return network.policy.authorize(url, "GET", new Headers(), 0);
       } catch (error) {
         refusals.refused({ method: "GET", target: url, reason: error.message });
         throw error;

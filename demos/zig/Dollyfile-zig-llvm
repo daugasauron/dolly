@@ -26,14 +26,22 @@ SLOP CWD /usr/lib/zig-llvm-build ar rcs libzigcpp.a zig_llvm.o zig_llvm-ar.o zig
 # as upstream's Findclang, Findlld and Findllvm do. The stack is what upstream
 # gives the compiler it ships (46 MB, build.zig) rounded up; with 58 MB of data
 # that is 128 MB of initial memory.
-SLOP CWD /usr/lib/zig-llvm-build slop -c 'c++ -o /usr/bin/zig -Wl,-z,stack-size=50331648 -Wl,--initial-memory=134217728 zig2.o compiler_rt.o libzigcpp.a -L $(/usr/lib/llvm22/bin/llvm-config --libdir) \
+SLOP CWD /usr/lib/zig-llvm-build slop -c 'mkdir -p /usr/lib/zig-llvm && c++ -o /usr/lib/zig-llvm/zig -Wl,-z,stack-size=50331648 -Wl,--initial-memory=134217728 zig2.o compiler_rt.o libzigcpp.a -L $(/usr/lib/llvm22/bin/llvm-config --libdir) \
   -lclangFrontendTool -lclangCodeGen -lclangStaticAnalyzerFrontend -lclangStaticAnalyzerCheckers -lclangStaticAnalyzerCore -lclangCrossTU -lclangFrontend -lclangDriver -lclangOptions -lclangSerialization -lclangSema -lclangAnalysisLifetimeSafety -lclangAnalysis -lclangASTMatchers -lclangParse -lclangAPINotes -lclangEdit -lclangLex -lclangRewriteFrontend -lclangRewrite -lclangIndex -lclangFormat -lclangToolingInclusions -lclangToolingCore -lclangExtractAPI -lclangSupport -lclangInstallAPI -lclangAST -lclangBasic -llldMinGW -llldELF -llldCOFF -llldWasm -llldMachO -llldCommon \
   $(/usr/lib/llvm22/bin/llvm-config --link-static --libs) $(/usr/lib/llvm22/bin/llvm-config --link-static --system-libs)'
+FILE /usr/lib/zig-llvm/zig
+# /usr/bin/zig starts it with its lib directory and the libc below, where the
+# caller names none: a session that installs it has them at once, where a
+# package's variables apply once the session is next loaded.
+FILE /usr/bin/zig
+    #!/bin/slop
+    export ZIG_LIB_DIR="${ZIG_LIB_DIR:-/usr/lib/zig}"
+    export ZIG_LIBC="${ZIG_LIBC:-/usr/lib/zig/libc.txt}"
+    exec /usr/lib/zig-llvm/zig "$@"
 SLOP zig version
 
 EXPORTS TOOL   zig
 EXPORTS FOLDER zig-lib     /usr/lib/zig
-EXPORTS ENV    ZIG_LIB_DIR /usr/lib/zig
 # The libc Zig links for this target, which it does not find by asking cc:
 # Emscripten's headers (below), which C compiled for Emscripten includes, and
 # the crt directory, which Zig does not look for on this host; cc's link adds
@@ -46,7 +54,6 @@ FILE /usr/lib/zig/libc.txt
     kernel32_lib_dir=
     cc_dir=
     darwin_sdk_dir=
-EXPORTS ENV    ZIG_LIBC    /usr/lib/zig/libc.txt
 # Emscripten's headers for that target (demos/zig/prepare-sources.sh).
 SOURCE /v0.1.7/dist/static/zig-llvm/emscripten-headers.tar 4249acab21ed33264dd5a0bde210003c8b1f47b2c6938ff60a7c8766bc0d2484 /tmp/emscripten-headers.tar
 SLOP tar -xf /tmp/emscripten-headers.tar -C /

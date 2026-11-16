@@ -94,7 +94,7 @@ Worker URL.
 | `dso@0` | process Worker of an executable that records it, each thread's in a program using `threads@0` | Instantiate Wasm the process supplies into its own memory and function table (each thread's, in the order of the records in that memory), call its table entries with signatures chosen at run time, and wait on a word of its memory (libc's futex in a threaded host); no import, no kernel entry, nothing outside that process | [`host/dso/`](../host/dso/module.json) ([`process.mjs`](../host/dso/process.mjs)) |
 | `stack@0` | process Worker of an executable that records it, each thread's in a program using `threads@0` | Call the program's own `dolly_stack_continue` on a fresh stack (`WebAssembly.promising`, through a trusted module of three functions that catches what it throws) and set its `dolly_stack_room` global; no import, no kernel entry, nothing outside that process | [`host/stack/`](../host/stack/module.json) ([`process.mjs`](../host/stack/process.mjs)) |
 | `build@0` | reserved URL via `http@0` | Start a disposable image build that writes the image cache | [`host/build/`](../host/build/module.json) |
-| `packages@0` | mailbox; reserved URL via `http@0` | Hand over the page's image directory's URL, its `amy-index.txt` (one chunk) and the verified snapshot of a package it publishes over the module's mailbox, 2 GiB in 1 MiB chunks into a file of the guest's that must not exist; another directory's, where the page's HTTP policy admits it, through `http@0`'s reserved URL; one at a time, 64 snapshots per page | [`host/packages/`](../host/packages/module.json) |
+| `packages@0` | mailbox; reserved URL via `http@0` | Hand over the page's image directory's URL, its `amy-index.txt` (one chunk) and the verified snapshot of a package it publishes over the module's mailbox, 2 GiB in 1 MiB chunks into a file of the guest's that must not exist; another directory's through `http@0`'s reserved URL, each of its files read only where the page's HTTP policy admits it; one process at a time, another's request waiting until that process ends; 1024 snapshots per page load by each, past which the page says a reload gives more | [`host/packages/`](../host/packages/module.json) |
 
 - `REQUIRES HOST` lines and executable `dolly.host` records
   ([`dolly-host-0.wat`](../abi/dolly-host-0.wat)) are compatibility demands, not
@@ -157,12 +157,16 @@ Worker URL.
   into a file of the guest's that must not exist, as upload@0 does; another
   directory there is `EACCES`. Another directory's snapshot goes through
   `http@0`, as `…/v1/packages/SHA256/from/DIRECTORY` after ENTRY starts
-  ([`service.mjs`](../host/packages/service.mjs)), read only where the page's HTTP policy admits a GET of its URL,
+  ([`service.mjs`](../host/packages/service.mjs)). The package Worker
+  ([`worker.mjs`](../host/packages/worker.mjs)) reads each file of it (the
+  catalog, every metadata file, pack and pack part) as the broker reads the
+  guest's: only where the page's HTTP policy admits a GET of that URL,
   counted and shown as the guest's request (`admit` in
-  [`http.mjs`](../host/http/http.mjs)), else 403, and only metadata for this
-  runtime passes. A pin the directory does not publish is 404, a second
-  concurrent snapshot 409, the 65th per page 429; the bytes are ordinary
-  sandbox data and grant nothing ([amy](dollyfile.md#packages-and-amy)).
+  [`http.mjs`](../host/http/http.mjs)), without credentials, within the rule's
+  `maxResponseBytes` and timeout; a refusal ends the transfer with 403. Only
+  metadata for this runtime passes. A pin the directory does not publish is
+  404, a second concurrent snapshot 409, the 65th per page 429; the bytes are
+  ordinary sandbox data and grant nothing ([amy](dollyfile.md#packages-and-amy)).
   The index of package names is not the service's: it is the site's public
   `amy-index.txt`, an ordinary request under the HTTP policy.
 - Builders ([`image-builder.mjs`](../site/image-builder.mjs)) run the build
@@ -271,7 +275,8 @@ identities and ABI constants the runtime's build writes (`dist/dolly-build-id.mj
 loads the bundle of [`process-worker.mjs`](../page/process-worker.mjs) and the
 modules it serves. An image directory is data: the page and the Worker import its catalog
 (`dist/dolly-images.json`) and image metadata
-(`dist/dolly-IMAGE-system-snapshot.json`) as JSON, and check its packs, recipes
+(`dist/dolly-IMAGE-system-snapshot.json`) as JSON (the package Worker fetches
+another directory's, as above), and check its packs, recipes
 and sources against them. A page runs none of its code, so an embedding may
 boot a directory it does not trust: its programs get only the host modules the
 embedding lists.

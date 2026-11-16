@@ -16,8 +16,8 @@ REQUIRES HOST clipboard@0
 # project (demos/godot/voxel-flyover) is imported and exported here by Godot's editor, and
 # voxel-flyover plays the pack with godot, which installs with it. The project installs too.
 FROM /v0.1.7/Dollyfile-system 53019922324696a18a573eededf9b475fe22e783d58f35585fe5c73943b926ae
-INSTALL /v0.1.7/demos/godot/Dollyfile-godot 63accca6cf7ff3f8cd2d5ae75c9eee66dadc07734e9ecfe0d357c47edf0350b7
-USE /v0.1.7/demos/godot/Dollyfile-godot-editor 82210d364770aa50a70a7b57e12b3ab105a85f64ccbda7074a39b6a3c985b812
+INSTALL /v0.1.7/demos/godot/Dollyfile-godot b920c8797a640c4fd38dd3ab23b7eb55c216f9fb2852492071716fcd78f5239f
+USE /v0.1.7/demos/godot/Dollyfile-godot-editor fcc588eab82c0bd4013b286ff616ad9e48280a4f8b638dd0ac3c5b537c3960f6
 
 REQUIRES TOOL cp
 REQUIRES TOOL godot-editor
