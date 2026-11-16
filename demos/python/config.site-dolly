@@ -1,5 +1,74 @@
-# Upstream's answers for Emscripten, then Dolly's: every id is 0, so os.geteuid
-# and os.getegid report root, as Dolly's libc does.
-. Platforms/emscripten/config.site-wasm32-emscripten
-ac_cv_func_geteuid=yes
-ac_cv_func_getegid=yes
+# CPython's configure probes the Emscripten container's libc. Where Dolly's
+# process libc answers otherwise, its answer: a function that never succeeds
+# in Dolly is absent, so CPython takes its fallback (docs/process-model.md).
+
+# Cross builds cannot run these checks.
+ac_cv_buggy_getaddrinfo=no
+ac_cv_file__dev_ptmx=no
+ac_cv_file__dev_ptc=no
+
+# The embedded compiler accepts __uint128_t but cannot yet link compiler-rt's
+# multiplication and division helpers with their Wasm signatures: libmpdec
+# then takes its portable CONFIG_64 arithmetic instead of emitting broken
+# __multi3/__udivti3 imports.
+ac_cv_type___uint128_t=no
+
+# Dolly's own, which Emscripten's libc lacks.
+ac_cv_func_posix_spawnp=yes
+
+# The one user holds no privilege to change its root, its groups or the clock,
+# which is the browser's.
+ac_cv_func_chroot=no
+ac_cv_func_setgroups=no
+ac_cv_func_clock_settime=no
+ac_cv_lib_rt_clock_settime=no
+# No copy of a process, no /proc/self/fd to exec, no session to start (each
+# process leads its own) and no other group to give a terminal to. Limits are
+# getrlimit's and setrlimit's alone, and no load average is kept.
+ac_cv_func_fork=no
+ac_cv_func_vfork=no
+ac_cv_func_fexecve=no
+ac_cv_func_setsid=no
+ac_cv_func_tcsetpgrp=no
+ac_cv_func_prlimit=no
+ac_cv_func_getloadavg=no
+
+# Handlers run on the stack of the call they interrupt, and no signal goes to
+# one thread, which has no CPU clock either. sigwait, sigwaitinfo and
+# sigtimedwait fail with ENOTSUP but stay: signalmodule.c compiles
+# pthread_sigmask and sigpending only beside one of them (posixmodule.h).
+ac_cv_func_sigaltstack=no
+ac_cv_func_pthread_kill=no
+ac_cv_func_pthread_getcpuclockid=no
+
+# No hard links, device nodes, FIFOs or epoll, no mode to change on a link (as
+# on Linux), and a mapping neither moves nor grows.
+ac_cv_func_link=no
+ac_cv_func_linkat=no
+ac_cv_func_mknod=no
+ac_cv_func_mknodat=no
+ac_cv_func_mkfifo=no
+ac_cv_func_mkfifoat=no
+ac_cv_func_lchmod=no
+ac_cv_func_memfd_create=no
+ac_cv_func_mremap=no
+ac_cv_func_epoll_create=no
+ac_cv_func_epoll_create1=no
+
+# A terminal has no name of its own. Pseudo-terminals need -ldolly-pty, which
+# python does not link.
+ac_cv_func_ttyname_r=no
+ac_cv_func_openpty=no
+ac_cv_func_forkpty=no
+ac_cv_search_login_tty=no
+ac_cv_func_posix_openpt=no
+ac_cv_func_grantpt=no
+ac_cv_func_unlockpt=no
+ac_cv_func_ptsname=no
+ac_cv_func_ptsname_r=no
+# getlogin_r is getlogin's answer copied, but posixmodule sizes its buffer by
+# <utmp.h>, which it includes only beside a pseudo-terminal function.
+ac_cv_func_getlogin_r=no
+
+# Local stream sockets only (sockets@0).
+ac_cv_header_netpacket_packet_h=no

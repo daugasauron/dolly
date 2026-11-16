@@ -71,7 +71,7 @@ print(f"\033_Ga=T,f=100;{base64.b64encode(open('/tmp/plot.png', 'rb').read()).de
 
 - [`Dollyfile-python`](Dollyfile-python), [`cpython-dolly.patch`](cpython-dolly.patch),
   [`prepare-cpython.sh`](prepare-cpython.sh): the interpreter; preparation only
-  configures the pinned tree.
+  configures the pinned tree, with the libc's answers in [`config.site-dolly`](config.site-dolly).
 - [`Dollyfile-libffi`](Dollyfile-libffi), [`libffi-dolly.c`](libffi-dolly.c): FFI over process-local calls.
 - [`cpython-http.c`](cpython-http.c), [`cpython-transport.py`](cpython-transport.py):
   the built-in `_dolly_http` (start, poll, cancel of
