@@ -389,12 +389,12 @@ export class DollyProcessSupervisor {
   // or one compiled from the bytes, found by their SHA-256 or compiled now.
   async #compiledImage(pid) {
     const version = BigInt(this.kernel.dolly_process_image_version(pid));
-    const key = this.compiledVersions.get(version);
-    if (version !== 0n && this.compiledModules.has(key)) {
+    const known = version !== 0n && this.#knownModule(this.compiledVersions.get(version));
+    if (known) {
       if (this.kernel.dolly_process_image_consumed(pid) !== 0) {
         throw new Error(`kernel did not release executable ${pid}`);
       }
-      return this.#cachedModule(key);
+      return known;
     }
     const compiled = await this.#compileProcess(this.#takeImage(pid), pid);
     if (version !== 0n) {
@@ -407,12 +407,24 @@ export class DollyProcessSupervisor {
     return compiled;
   }
 
-  // A cached module, made the most recently used.
-  #cachedModule(key) {
-    const cached = this.compiledModules.get(key);
-    this.compiledModules.delete(key);
-    this.compiledModules.set(key, cached);
-    return cached;
+  // The module compiled from the bytes KEY names, made the most recently used:
+  // the cache's, or one the cache let go that a process still runs. A second
+  // copy would be compiled in full: in Firefox, whose Workers share one budget
+  // of code memory, three copies of rustc (254.5 MiB) left none for its linker.
+  #knownModule(key) {
+    const running = [...this.processes.values()].map(process => process.compiled).filter(Boolean);
+    const known = this.compiledModules.get(key) ?? running.find(compiled => compiled.key === key);
+    if (known) this.#remember(known);
+    return known;
+  }
+
+  // Makes a module the cache's most recently used, if it fits.
+  #remember(compiled) {
+    if (this.compiledModules.delete(compiled.key)) this.compiledModuleBytes -= compiled.byteLength;
+    if (compiled.byteLength > compiledModuleCacheBytes) return;
+    this.#evict(compiled.byteLength);
+    this.compiledModules.set(compiled.key, compiled);
+    this.compiledModuleBytes += compiled.byteLength;
   }
 
   // The notices of a slow compile go to process `pid`, whose launch started it.
@@ -420,7 +432,8 @@ export class DollyProcessSupervisor {
     const byteLength = bytes.byteLength;
     const digest = hex(await crypto.subtle.digest("SHA-256", bytes));
     const key = `${byteLength}:${digest}`;
-    if (this.compiledModules.has(key)) return this.#cachedModule(key);
+    const known = this.#knownModule(key);
+    if (known) return known;
     // What this module will replace in the cache goes before it is compiled.
     if (byteLength <= compiledModuleCacheBytes) this.#evict(byteLength);
 
@@ -462,12 +475,7 @@ export class DollyProcessSupervisor {
       }
     }
     const compiled = { key, module, memoryRequirements, processInterface, threaded, largeStack, requirements, byteLength };
-    if (byteLength <= compiledModuleCacheBytes) {
-      // An exec's compile may have run beside this one.
-      this.#evict(byteLength);
-      this.compiledModules.set(key, compiled);
-      this.compiledModuleBytes += byteLength;
-    }
+    this.#remember(compiled);
     return compiled;
   }
 
@@ -649,8 +657,12 @@ export class DollyProcessSupervisor {
     worker.addEventListener("messageerror", thread.messageErrorHandler, { once: true });
     // local: the modules this executable records that are served in its own
     // Worker (host/dso), each as the bundle it imports and its configuration.
-    // A held module comes from its Worker, on a channel of this Worker's own.
+    // A held module comes from its Worker, on a channel of this Worker's own,
+    // which the thread keeps: once this Worker collects the ports it handed on,
+    // Firefox forgets what the holder posted that the thread's Worker has not
+    // read yet, and the Worker gets a messageerror (measured 2026-11-17, Firefox 155).
     const channel = module instanceof Worker ? new MessageChannel() : null;
+    thread.moduleChannel = channel;
     channel && module.postMessage({ port: channel.port1 }, [channel.port1]);
     worker.postMessage({ type: "configure", pid, tid: thread.tid, argument, threaded, control,
       threadOperations: threaded ? this.threadHost.operations : undefined,
@@ -955,7 +967,7 @@ export class DollyProcessSupervisor {
     thread.mailbox = 0;
     thread.worker = null;
     thread.control = null;
-    thread.messageHandler = thread.errorHandler = thread.messageErrorHandler = null;
+    thread.messageHandler = thread.errorHandler = thread.messageErrorHandler = thread.moduleChannel = null;
     process.threads.delete(thread.tid);
   }
 
