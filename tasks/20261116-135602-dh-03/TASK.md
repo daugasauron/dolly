@@ -25,7 +25,9 @@ Logs: `build/dh-evidence/` (this machine).
   and 1.7157, 1.02856 and 1.02848, the small ones to 2% to 9%), the generator's seven logits to
   0.01% to 0.3% with that constant-position hedger, where holding positions fixed is exact.
 - **Speed.** An iteration is 0.33 s: forward kernels 0.054 s, `adjoint` 0.25 s, the three sums
-  0.027 s, reading the result 0.001 s (`dh-fit time`). 4,096 paths: 0.15, 0.74, 0.08 s.
+  0.027 s, reading the result 0.001 s (`dh-fit time`). 4,096 paths: 0.15, 0.74, 0.08 s. Firefox
+  159 on the same card: 0.064, 0.30, 0.023 s, and the same numbers to the last digit (loss
+  15.671573899424828 at iteration 80 in both).
 - **What made `adjoint` slow was threads out of step.** It took 3.43 s at first, 66 times the
   forward kernels. Not the cause: a thread's gradient kept in a local array of 401 floats (the
   same time as sums into a storage buffer), nor where a block's threads store (side by side or

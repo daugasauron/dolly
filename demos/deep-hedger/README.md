@@ -99,7 +99,8 @@ On an RTX 5070 in Chrome 156 (Vulkan), AAPL's chain of 2026-11-13 as loaded on
   thirds in size.
 - **Speed.** An iteration is 0.32 s: the forward kernels 0.05 s, `adjoint`
   0.25 s, the sums 0.02 s. With `dh-gui` drawing beside it, 2.6 iterations a
-  second. With 4,096 paths an iteration is 0.97 s.
+  second. With 4,096 paths an iteration is 0.97 s. Firefox 159 takes 0.39 s
+  (0.06, 0.30, 0.02) and gives the same numbers to the last digit.
 - **The fit**, from equal weights and a random hedger, 900 iterations in
   287 s (`dh-fit CHAIN 1024 1 900`): the loss fell from over 300 to 1.4 band
   widths squared; 70% of the model's bids and asks are inside the market's
