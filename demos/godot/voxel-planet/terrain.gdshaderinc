@@ -439,7 +439,7 @@ float cloud_cover(vec2 p, int octaves) {
 
 // The same where a pixel covers `wide` units: the share of the clouds it cannot tell apart.
 float cloud_cover_seen(vec2 p, int octaves, float wide) {
-	return smoothstep(mix(0.5, 0.42, smoothstep(400.0, 1500.0, wide)), 0.7, cloud_depth_seen(p, octaves, wide));
+	return smoothstep(0.5, 0.7, cloud_depth_seen(p, octaves, wide)) * mix(1.0, 0.8, smoothstep(400.0, 1500.0, wide));
 }
 
 // The wind's gusts at a place, between 0 and 1: bands some 60 units wide that cross the land
@@ -539,4 +539,11 @@ float from_above(vec3 place, float wide, vec3 up_seen, vec3 to_eye_seen, inout v
 		level = max(level, veil);
 	}
 	return level;
+}
+
+// How far a place on the ground is from the flyer, by the ground and by the flyer's height over
+// what lives near it: what is drawn around the flyer (trees, houses, boats, birds) goes by
+// degrees as the flyer climbs, as it does with distance along the ground.
+float far_from(vec2 place) {
+	return length(vec2(distance(place, flyer_over), max(altitude - 150.0, 0.0)));
 }

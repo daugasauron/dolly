@@ -104,6 +104,7 @@ var lands: Array[MeshInstance3D] = []
 var grounds: Array[SubViewport] = [] # each near grid's ground, for the shaders to read
 var planet: SubViewport # the whole planet's ground
 var planet_frames := 0 # the frames since it was drawn
+var rebake := 0.0
 var ground_life := Node3D.new() # the grids of what lives near the ground: trees, towns, clouds, boats, birds; not drawn from high up
 var charts: Array[ShaderMaterial] = [] # the materials that draw the grounds: they are told the chart's anchor
 var stale: Array[bool] = [true, true, true, true, true, true, true, true] # the grids whose grounds are to be drawn anew: all at the start and when the chart's anchor moves
@@ -241,6 +242,7 @@ func _ready() -> void:
 	sun_frame = Terrain.anchor
 	tour = option("--tour", 0.0)
 	tour_top = option("--top", tour_top)
+	rebake = option("--rebake", 0.0)
 	for ring in OWN:
 		grounds.append(build_ground(RINGS[ring][0] + 4, RINGS[ring][1]))
 	build_planet()
@@ -582,6 +584,11 @@ func build_planet() -> void:
 ## Once the planet's ground is drawn, the far grids show.
 func draw_planet() -> void:
 	planet_frames += 1
+	# With --rebake SECOND the planet's ground is drawn again then: that frame's time is its cost.
+	if rebake > 0.0 and elapsed > rebake:
+		rebake = 0.0
+		planet.render_target_update_mode = SubViewport.UPDATE_ONCE
+		print("PLANET rebake at frame ", planet_frames)
 	if planet_frames == 3:
 		for ring in range(OWN, RINGS.size()):
 			lands[ring].visible = true
@@ -1780,9 +1787,12 @@ func follow(delta: float) -> void:
 	zoom = clampf(zoom * exp(key_axis(KEY_Z, KEY_X) * delta * 1.2), 0.45, 3.2)
 	zoomed = lerpf(zoomed, zoom, 1.0 - exp(-delta * 6.0))
 	# From high up the camera looks down: the planet's rim lies under eye level by the dip of
-	# the horizon, and most of that is added to the view's pitch, so the planet stays in it.
+	# the horizon. Most of the dip is added to the view's pitch, and from space more than
+	# that, toward straight down: the flyer is then seen over the planet, which is near the
+	# view's middle and round in it (a sphere at a wide view's edge is drawn out).
 	var dip := acos(Terrain.RADIUS / (Terrain.RADIUS + maxf(flyer.position.y + lowered, 0.0)))
-	var frame := Basis(Vector3.UP, -turned - looked.x) * Basis(Vector3.RIGHT, -looked.y - dip * 0.8 * smoothstep(0.03, 0.3, dip))
+	var down := smoothstep(0.03, 0.9, dip)
+	var frame := Basis(Vector3.UP, -turned - looked.x) * Basis(Vector3.RIGHT, -looked.y - dip * 0.9 * down - (PI / 2.0 - dip) * 0.6 * down * down)
 	# A close view looks at the corgi, from its own height.
 	var close := Vector3(0, 2.4, 0) * (1.0 - smoothstep(0.45, 1.0, zoomed)) * (1.0 if helm else 0.0)
 	var place := trail + frame * (aim + close + (view - aim) * zoomed)

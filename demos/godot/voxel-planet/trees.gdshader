@@ -28,7 +28,7 @@ void vertex() {
 	vec4 tree = plot_tree(MODEL_MATRIX[3].xz);
 	vec2 place = tree.xy;
 	float kind = tree.w;
-	float away = distance(place, flyer);
+	float away = far_from(place);
 	float come = smoothstep(ring.x, ring.y, away);
 	float gone = smoothstep(ring.z, ring.w, away);
 	// A plot outside the grid's ring has no tree here: its ground is not looked up.

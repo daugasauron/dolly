@@ -22,7 +22,7 @@ void vertex() {
 	vec2 place = home + round * vec2(cos(angle), sin(angle));
 	vec2 ahead = vec2(-sin(angle), cos(angle));
 	float depth = SEA - ground_here(place).x;
-	float there = step(own, 0.2) * smoothstep(9.0, 16.0, depth) * (1.0 - smoothstep(1100.0, 1350.0, distance(place, flyer)));
+	float there = step(own, 0.2) * smoothstep(9.0, 16.0, depth) * (1.0 - smoothstep(1100.0, 1350.0, far_from(place)));
 	// Its round of 24 seconds: up for five of them.
 	float when = mod(clock + own * 240.0, 24.0);
 	float up = smoothstep(0.0, 2.0, when) * (1.0 - smoothstep(3.5, 5.5, when));

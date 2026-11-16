@@ -58,7 +58,7 @@ float roof_rise(vec2 at, int of_kind, float is_domed, bool turned, float span, f
 void vertex() {
 	vec2 corner = floor(MODEL_MATRIX[3].xz / LOT) * LOT;
 	vec2 centre = corner + LOT * 0.5;
-	float away = distance(centre, flyer);
+	float away = far_from(centre);
 	own = hash(corner + 3.0);
 	vec4 here = ground_here(centre);
 	float share = town_at(centre, here.x);

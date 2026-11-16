@@ -23,7 +23,7 @@ void vertex() {
 	vec2 place = home + round * vec2(cos(angle), sin(angle));
 	vec2 ahead = way * vec2(-sin(angle), cos(angle));
 	float depth = SEA - ground_here(place).x;
-	float size = step(own, 0.22 + 0.6 * harbour) * smoothstep(1.5, 5.0, depth) * (1.0 - smoothstep(1150.0, 1400.0, distance(place, flyer))) * (1.7 + 1.3 * hash(number + 13.0));
+	float size = step(own, 0.22 + 0.6 * harbour) * smoothstep(1.5, 5.0, depth) * (1.0 - smoothstep(1150.0, 1400.0, far_from(place))) * (1.7 + 1.3 * hash(number + 13.0));
 	part = COLOR.r;
 	vec3 at = VERTEX;
 	// The sail fills away from its mast.

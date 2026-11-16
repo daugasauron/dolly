@@ -25,7 +25,7 @@ void vertex() {
 	vec2 place = home + (5.0 + 16.0 * own) * vec2(cos(animal * 0.7 + own * 6.0), sin(animal * 0.7 + own * 6.0)) + round * vec2(cos(angle), sin(angle));
 	vec2 ahead = way * vec2(-sin(angle), cos(angle));
 	float ground_height = ground_here(place).x;
-	float size = open * step(SEA + 1.0, ground_height) * (1.0 - smoothstep(900.0, 1200.0, distance(place, flyer))) * (0.8 + 0.5 * own);
+	float size = open * step(SEA + 1.0, ground_height) * (1.0 - smoothstep(900.0, 1200.0, far_from(place))) * (0.8 + 0.5 * own);
 	coat = here.y < 0.42 ? mix(vec3(0.3, 0.26, 0.22), vec3(0.5, 0.46, 0.4), own) : here.y > 0.52 ? mix(vec3(0.62, 0.42, 0.2), vec3(0.75, 0.55, 0.3), own) : mix(vec3(0.85, 0.83, 0.78), vec3(0.7, 0.66, 0.6), own);
 	part = COLOR.r;
 	vec3 at = VERTEX;
