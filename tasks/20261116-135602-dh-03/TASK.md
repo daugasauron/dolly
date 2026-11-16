@@ -1,6 +1,6 @@
 # Deep hedger: the model fitted in Mojo kernels on WebGPU
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 190
 - TAGS: dh,demo,gpu,mojo
 
@@ -12,7 +12,7 @@ setup" (braut, 2026-08-11); "I want the implementation to be in GPU kernels, spe
 `demos/deep-hedger/dh-fit.mojo`: seven kernels (the README's table), forward and backward written
 by hand, the host keeping the parameters and Adam. Compiled by `mojo build` in the image's build.
 
-## State 2026-11-17
+## Closed 2026-11-17
 
 Measured on the RTX 5070 in Chrome 156 (Vulkan), AAPL's chain of 2026-11-13 as dh-gui wrote it
 (208 contracts, 416 books, 8 expiries to 45 business days), 1,024 paths, unless said otherwise.
@@ -68,7 +68,12 @@ Logs: `build/dh-evidence/` (this machine).
   160 and 140); generator rate 0.1 against 0.03 (the deviation reaches the chain's by
   iteration 100 instead of 160). dh-fit has 0.005, 16 and 0.05.
 
-Left: the image's test in both browsers (task dh-04).
+The image's test passes in Chrome 156 and Firefox 159 (task dh-04; commit 209e8819c is the
+image it ran on). What the model still lacks is task dh-06; what the kernels cannot do on a
+software adapter is task dh-07.
+
+Ending dh-gui with Ctrl+C ends its dh-fit: the fit's output stopped growing and a timing run
+afterwards had the card to itself (Chrome).
 
 Findings about Mojo kernels in Dolly:
 
