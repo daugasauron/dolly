@@ -85,8 +85,7 @@ await browserTest("nena", { image: "default", timeout: 300_000, server: { fixtur
   // The browsers' fake microphone, given without a prompt.
   launch: { chromium: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
     firefox: { "media.navigator.streams.fake": true, "media.navigator.permission.disabled": true } } }, async ({ server, open }) => {
-  const session = await open({ policy: { maxRequests: 256, rules: [{ origin: server.origin, path: "/amy-index.txt", methods: ["GET"] },
-    { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
+  const session = await open({ policy: { maxRequests: 256, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
     // Every stream the page is given, to count its live tracks after the
     // provider is gone, and every AudioContext, to see each closed.
     setup: async page => {

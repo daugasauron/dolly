@@ -75,8 +75,6 @@ Object.assign(fixtures, { "dollyfile.c": "programs/dollyfile.c", "sha256.h": "pr
 const artifact = `/etc/dolly/artifacts/${connects.sha256}.snapshot`;
 const row = `INSTALL ${connects.url} ${connects.sha256}`;
 const check = ({ submit, text }) => async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
-// What a restricted page adds for amy: its own site's index.
-const indexRule = origin => ({ origin, path: "/amy-index.txt", methods: ["GET"] });
 // While set, the site answers with this index, as after a newer release.
 const site = { index: null };
 // Another image directory: the checkout's catalog, packs and index again under
@@ -98,12 +96,12 @@ async function handle(request, response, path, headers) {
 }
 const timed = async (run, command) => { const started = performance.now(); await run(command); return Math.round(performance.now() - started); };
 
-// amy in a live default session: the index is the site's public file, an
-// install is the INSTALL row executed by the engine, served by packages@0,
-// recorded, and kept by a saved session.
+// amy in a live default session: the index is the page's directory's, which
+// packages@0 hands over without an HTTP rule, an install is the INSTALL row
+// executed by the engine, served by packages@0, recorded, and kept by a saved session.
 try {
 await browserTest("amy", { image: "default", timeout: 300_000, server: { fixtures, handle } }, async ({ server, open }) => {
-  const policy = { maxRequests: 512, rules: [indexRule(server.origin),
+  const policy = { maxRequests: 512, rules: [
     { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] },
     { origin: server.origin, pathPrefix: "/mirror/", methods: ["GET"] }] };
   const session = await open({ policy });
@@ -385,8 +383,7 @@ await browserTest("amy cc", { image: "default", timeout: 300_000 }, async ({ ope
 // An image that does not declare a package's host module refuses it, naming
 // the module, before any file changes; without packages@0 there is no service.
 await browserTest("amy refusal", { image: "system", server: { fixtures } }, async ({ server, open }) => {
-  const policy = { maxRequests: 256, rules: [indexRule(server.origin),
-    { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
+  const policy = { maxRequests: 256, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
   const system = await open({ policy });
   const refuse = async command => assert.equal(await system.submit(command), 0, `${command}\n${await system.text()}`);
   await refuse(`mkdir -p /etc/dolly/artifacts && curl -fsS ${server.origin}/fixture/connects.snapshot -o ${artifact}`);

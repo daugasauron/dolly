@@ -7,9 +7,18 @@
 From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`).
 
-## State (2026-11-16)
+## State (2026-11-17)
 
-Reproduced in Chrome on `work/round1113/dist/`. Nothing changed yet: prose and test rules.
+Done on `cleanup/0.1.8`, except the browser runs. The three documents say the page's own
+directory's index comes from `packages@0` and another directory's goes through the broker, under
+a rule. `amy-browser` drops `indexRule` (its "amy" and "amy refusal" policies; the "amy" one
+keeps `/mirror/`) and `nena-browser` its index rule. Checked without `dist/`: `node --check` of
+both tests, `platform-documents.test.mjs` after re-pinning `dolly-docs`, `lint:dollyfiles`.
+
+Left: `node test/amy-browser.mjs` and `node test/nena-browser.mjs` on a built `dist/` (none in
+this tree). Eleven demos' browser tests (`git grep amy-index.txt demos/`) add the same rule, and
+`pi-browser`'s comment says a page "admits the package index itself"; they are outside this
+task's list and unchecked.
 
 ## Found
 

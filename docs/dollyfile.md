@@ -354,8 +354,9 @@ EXPORTS TOOL rg
   the site for its own pages; a host names its own), which `packages@0` gives,
   unless `amy server URL` names another for the session in
   `/etc/dolly/packages-server` (removing the file goes back). `amy server`
-  prints it. `amy` reads the server's `amy-index.txt` through the
-  [HTTP broker](http.md#transport) and keeps no copy: a published version
+  prints it. `amy` reads the server's `amy-index.txt`, the page's own
+  directory's from `packages@0` and another's through the
+  [HTTP broker](http.md#transport), and keeps no copy: a published version
   serves it, as all its files, as immutable (`npm run serve` sends `no-store`),
   and `amy list`, `info` and `install` name the URL they could not read.
   `amy list` prints each name,

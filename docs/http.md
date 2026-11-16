@@ -89,10 +89,9 @@ const policy = {
 ```
 
 - The site's own files have no rule of their own. Without a policy object
-  the default admits them, so `amy` reads its site's `amy-index.txt`; an
-  embedding with a policy that wants `amy list` adds
-  `{ origin: location.origin, path: "/amy-index.txt" }`, with the site's
-  prefix in the path. Package snapshots come from `packages@0`, not from here.
+  the default admits them. `amy` needs none for the page's own image
+  directory: its `amy-index.txt` and package snapshots come from `packages@0`,
+  not from here. Another directory `amy server` names is read under a rule.
 - A request under a rule carries an ordinary request's headers (`accept`,
   `accept-language`, `content-encoding`, `content-language`, `content-type`, `range`, the
   conditional ones, `cache-control`, `pragma`) and those its rule lists in

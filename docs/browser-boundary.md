@@ -167,8 +167,7 @@ Worker URL.
   metadata for this runtime passes. A pin the directory does not publish is
   404, a second concurrent snapshot 409, the 65th per page 429; the bytes are
   ordinary sandbox data and grant nothing ([amy](dollyfile.md#packages-and-amy)).
-  The index of package names is not the service's: it is the site's public
-  `amy-index.txt`, an ordinary request under the HTTP policy.
+  Another directory's `amy-index.txt` is an ordinary request under the HTTP policy.
 - Builders ([`image-builder.mjs`](../site/image-builder.mjs)) run the build
   host's modules as the page's modules configure them (`host.builder`): the
   page's HTTP policy without local services, no display, file picker or
