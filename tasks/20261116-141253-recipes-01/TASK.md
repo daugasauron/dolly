@@ -1,6 +1,6 @@
 # raylib's header includes dolly/display.h and dolly/input.h, which amy install raylib does not bring
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 260
 - TAGS: audit,recipes,amy,0.1.8
 
@@ -9,14 +9,7 @@ From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/rou
 
 ## State (2026-11-17)
 
-Fixed in source on `fix/amy` (`work/fix-amy`, commit `183b064ef`): `demos/slopyard/Dollyfile-raylib`
-INSTALLs libdolly-display and libdolly-input beside libdolly-touch, pins refreshed (raylib,
-gamedev-sdk, slopyard-build, slopyard-game, slopyard rebuild). By the audit's method on round1113's
-dist (`amy install raylib libdolly-display libdolly-input cc`, then amy-programs.json's raylib
-program): compiles, links and exits 0 in Chromium and Firefox
-(`work/audit-1116-evidence/recipes/fix-amy/byhand-*.jsonl`, case `raylib-fixed`). Waits for the
-round to rebuild raylib; `test/amy-browser.mjs`'s raylib session (raylib alone, then cc) then
-confirms it; it fails on today's image in both browsers.
+Closed: confirmed on `ws/recipes`, below.
 
 ## Found
 
@@ -52,3 +45,14 @@ In `demos/slopyard/Dollyfile-raylib`, beside line 15: `INSTALL` `Dollyfile-libdo
 
 In a fresh `default` session, `amy install raylib`, then `amy install cc`, and amy-programs.json's
 raylib program compiles, links and exits 0, with no other package installed.
+
+## Closed (2026-11-17)
+
+Merged into `integrate/0.1.8` (02b7ba436). Confirmed on `ws/recipes` (branch `work/recipes`):
+raylib rebuilt with the two rows (1,895,381 bytes, `build1.log`), then `test/amy-browser.mjs`'s
+"amy programs" with only its raylib session (raylib alone in a fresh `default`, then cc, then
+amy-programs.json's three raylib programs, the keys and the two fingers) passed in Chromium and
+Firefox (14.7 s and 19.1 s with the x11-window session beside it). Evidence:
+`work/audit-1116-evidence/recipes/ws-recipes/logs/a-programs.log`; the scratch copy of the test
+that runs named sessions is `ws-recipes/scratch-test.sh`. The 0.1.8 round rebuilds raylib once more
+(cc's change) and runs the whole test.

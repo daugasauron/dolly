@@ -1,6 +1,6 @@
 # Two amy commands at once: the second fails at once with "the page's image directory: Resource busy"
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 160
 - TAGS: audit,amy,packages,0.1.8
 
@@ -9,23 +9,7 @@ From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/rou
 
 ## State (2026-11-17)
 
-Fixed on `fix/amy` (`work/fix-amy`, commit `9351b7fca`), kernel only (image inputs unchanged,
-`87c27243`; a runtime build ships it). Deferring each request, as Do says, removed the EBUSY but
-was not enough: amy fetches a package and the rows it needs into `/etc/dolly/artifacts/PIN.snapshot`
-and removes that directory after each, so two installs sharing a row (python installs cc) broke
-each other (cc: `dollyfile: execution failed: No such file or directory`; python: ENOENT at the
-kernel's rename). `host/packages/kernel.c` now serves one process from its first request until it
-ends (`holder`, cleared in `packages_release`); another process's request is deferred and retried
-each scheduling turn, so amy commands run one after another and amy needs no change. A pipeline that
-makes an amy command wait for output another amy has not written yet would wait for good; amy
-commands do not do that. The review map's `packages@0` row says so.
-
-Checked with the audit's cases, every status asserted (`fix-amy/cases-concurrent-fixed.json`), on
-round1113's images with this kernel: the two backgrounded installs both end with 0 and both are
-recorded; `amy list` and `amy server` run a second into `amy install python` wait, then list;
-Chromium and Firefox (`fix-amy/conc-chromium.jsonl`, `conc-ff.jsonl`). `test/amy-browser.mjs`'s amy
-session installs python and cc at once beside `amy list` (passes in Chromium, `rest-chromium.log`).
-Close once merged.
+Closed: confirmed on `ws/recipes`, below.
 
 ## Found
 
@@ -58,3 +42,11 @@ request completes, so concurrent amy commands run one after another; `amy` itsel
 
 The two backgrounded installs above both end with status 0, and `amy list` run while an install
 is fetching waits and then lists.
+
+## Closed (2026-11-17)
+
+Merged into `integrate/0.1.8` (02b7ba436, `fix/amy`). Confirmed on `ws/recipes` with the kernel
+built from it (`npm run build:runtime`, runtime `8917011b…`, image inputs `87c27243…` unchanged):
+`test/amy-browser.mjs`'s "amy" session, which installs python and cc at once beside `amy list`
+and asserts every status, passed in Chromium (23.6 s) and Firefox (26.3 s), with "amy another
+directory", "amy cc", "amy refusal" and "USE" (`work/audit-1116-evidence/recipes/ws-recipes/logs/a-amy.log`).

@@ -9,29 +9,17 @@ From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/rou
 
 ## State (2026-11-17)
 
-Changed on `fix/amy` (`work/fix-amy`, commit `1d917da0b`): a step marked `fresh` begins a new
-default session; `test/amy-browser.mjs` runs each such session in a page of its own, four at once
-per browser, and names every package that failed. Each package installs alone, then `cc` (and
-`pkgconf`) where its use compiles; the uses stand alone (fd makes its own directory, pigz needs no
-gzip, tar packs with `-z`, `-j`, `-J` itself, sdl2 and sdl2-image link with pkg-config; CMake finding
-their CMake packages is cmake's session). x11-window has a session; the "alone" tests (cargo, mojo,
-meson, typescript) are cases now. A host that ignores `fresh` (Donna's `tests/cases.rs`) runs the
-steps in one session as before.
+Merged into `integrate/0.1.8` (02b7ba436). On `ws/recipes` (`work/recipes`), with raylib, tar,
+x11-libs and x11-window rebuilt, the sessions of the packages it found missing a dependency now
+pass alone, in Chromium and Firefox: raylib and x11-window ("amy programs", 14.7 s and 19.1 s for
+the two) and tar ("amy tools", 2.2 s and 3.9 s), run through a copy of the test that keeps the
+named sessions (`work/audit-1116-evidence/recipes/ws-recipes/scratch-test.sh`, `PACKAGES=`;
+`logs/a-programs.log`, `logs/a-tools.log`). Before the fixes the same sessions failed
+(`fix-amy/amy-before-chromium.log`, `tools-before-*.log`).
 
-Run on today's recipes (round1113's dist): Chromium fails raylib and x11-window (programs, 28
-sessions, about 95 s) and tar (tools, 40 sessions, 68 s); Firefox fails raylib, x11-window, cargo
-(programs, 130 s) and tar (tools, 78 s). Firefox's cargo: `rustc -vV` refused with "the program's
-module was not provided" (`page/process-worker.mjs`'s 10 s wait for a held module), in one page
-alone too, so not this test's parallelism; the audit met it once in `ff-b.jsonl`. Not an amy fault:
-it is `tasks/20261116-160415-ports-11`'s rustc refusal, which then fails this test in Firefox too.
-
-On the branch's head (`70c84705b`, with its kernel), each test run alone: amy, amy another directory,
-amy cc, amy refusal and USE pass in both browsers; programs (82 s in each) and tools (54 s Chromium,
-42 s Firefox) fail on the same packages (`fix-amy/final-chromium.txt`, `final-firefox.txt`).
-
-Waits for the round: once raylib, tar, x11-libs and x11-window are rebuilt, the test must pass
-(Done when); record its time in each browser then. Evidence: `work/audit-1116-evidence/recipes/fix-amy/`
-(`amy-before-chromium.log`, `tools-before-chromium.log`, `before-firefox.log`, `tools-before-firefox.log`).
+Left for the 0.1.8 round: the whole test passes once every package is built at its pin (this
+tree rebuilds only what its workstream changed: python's change alone reaches 83 images, the
+Rust, LLVM and Godot chains among them), and its time in each browser is recorded here then.
 
 ## Found
 
