@@ -45,6 +45,7 @@ struct State {
   std::vector<Expiry> expiries;
   std::vector<double> nodes;
   std::vector<std::vector<float>> paths;
+  std::vector<std::vector<float>> hedges;  // contract, then the position bought each day, a path each
   std::vector<float> losses;
   double spot = 0;
   long quoted = 0;      // epoch seconds of the newest quote
@@ -259,6 +260,9 @@ static void read_fit(FILE *output, std::string &pending, State &staged) {
     else if (name == "path" && numbers.size() > 2) {
       if (numbers[0] == 0) staged.paths.clear();
       staged.paths.emplace_back(numbers.begin() + 1, numbers.end());
+    } else if (name == "hedge" && numbers.size() > 2) {
+      if (numbers[0] == 0) staged.hedges.clear();
+      staged.hedges.emplace_back(numbers.begin() + 1, numbers.end());
     } else if (name == "end") {
       std::string status = state.status;
       std::vector<double> nodes = state.nodes;
@@ -445,6 +449,39 @@ static void law_tab() {
   }
 }
 
+// The stock the hedger holds, short one call, along the first paths of the Law tab.
+static void hedge_tab() {
+  if (state.hedges.empty()) {
+    ImGui::TextUnformatted("The hedges are shown once the fit has reported.");
+    return;
+  }
+  ImGui::TextColored(ImColor(ask_colour), "paths that end in the money");
+  ImGui::SameLine();
+  ImGui::TextColored(ImColor(bid_colour), "  paths that end out of it");
+  ImGui::SameLine();
+  ImGui::TextUnformatted("   the stock held from each day, short one call and hedging it to expiry; a day's position was decided the day before");
+  ImVec2 available = ImGui::GetContentRegionAvail();
+  ImVec2 size((available.x - 16) / 3, available.y - 8);
+  for (size_t at = 0, plot_index = 0; at < state.hedges.size(); plot_index++) {
+    const Contract &c = state.contracts[(size_t)state.hedges[at][0]];
+    const Expiry &expiry = state.expiries[c.expiry];
+    char title[96], date[32];
+    time_t day = expiry.day * 86400;
+    strftime(date, sizeof date, "%b %d", gmtime(&day));
+    snprintf(title, sizeof title, "short the %s call at %.5g, forward %.5g", date, c.strike, expiry.forward);
+    Plot plot(title, size, 0, expiry.business_days, -0.05, 1.05);
+    for (size_t path = 0; at < state.hedges.size() && state.hedges[at][0] == state.hedges[at - path][0]; at++, path++) {
+      const std::vector<float> &held = state.hedges[at];
+      std::vector<ImVec2> line = {plot.at(0, 0)};
+      for (size_t u = 1; u < held.size(); u++) line.push_back(plot.at((double)u, held[u]));
+      bool in_the_money = path < state.paths.size() && (int)state.paths[path].size() > expiry.business_days &&
+                          exp(state.paths[path][(size_t)expiry.business_days]) * expiry.forward > c.strike;
+      plot.draw->AddPolyline(line.data(), (int)line.size(), in_the_money ? ask_colour : bid_colour, 1.5f);
+    }
+    if (plot_index < 2) ImGui::SameLine(0, 8);
+  }
+}
+
 static void fit_tab(double risk) {
   if (ImGui::BeginTable("fit", 12, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
     for (const char *name : {"expiry", "days", "forward, quotes", "forward, model", "discount", "contracts", "in band", "market spread", "model spread", "hedge cost",
@@ -591,6 +628,7 @@ int main(int, char **) {
       if (ImGui::BeginTabItem("Volatility")) quotes_tab(true), ImGui::EndTabItem();
       if (ImGui::BeginTabItem("Price")) quotes_tab(false), ImGui::EndTabItem();
       if (ImGui::BeginTabItem("Law")) law_tab(), ImGui::EndTabItem();
+      if (ImGui::BeginTabItem("Hedge")) hedge_tab(), ImGui::EndTabItem();
       if (ImGui::BeginTabItem("Fit")) fit_tab(risk), ImGui::EndTabItem();
       ImGui::EndTabBar();
     }

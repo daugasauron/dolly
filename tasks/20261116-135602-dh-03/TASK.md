@@ -41,6 +41,11 @@ Logs: `build/dh-evidence/` (this machine).
   the model's bids and asks inside the market's bands; forwards 1.0002, 1.0007, 1.0004, 1.0004,
   1.0015, 0.9993, 0.9983, 1.0002 of the quotes' own; a day's deviation 1.2% to 1.6%; the hedger
   leaves 46% of the unhedged risk. In the image with dh-gui beside it: 2.6 iterations a second.
+- **Two seeds** (`dh-fit CHAIN 1024 1 900` and `... 2 900`): loss 1.3708 and 1.3567, in band
+  69.7% and 70.0%, the hedged books' deviation 0.0271 and 0.0277, each interval's daily
+  deviation within 2% of the other run's, bids and asks 0.0000456 of the forward apart on
+  average over the 208 contracts (the model's mean spread is 0.000345). Seed 1 run twice: the
+  same loss to sixteen digits.
 - **The generator's gradient at a fitted hedger** (`dh-fit check CHAIN 256 300`): against
   central differences that let the hedger respond, same sign at all seven logits, sizes -0.052
   and -0.038, 0.056 and 0.039, 0.013 and 0.009, 0.010 and 0.007, -0.066 and -0.090, 0.0165 and

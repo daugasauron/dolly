@@ -955,6 +955,30 @@ def check(mut model: Model, chain: Chain, iterations: Int) raises:
         generator_differences(model, seed)
 
 
+def shown_contracts(chain: Chain) -> List[Int]:
+    """Three calls of the middle expiry: its lowest strike, the one nearest the
+    forward, its highest."""
+    var day = Float32(chain.expiry_days[len(chain.expiry_days) // 2])
+    var lowest = -1
+    var nearest = -1
+    var highest = -1
+    for i in range(chain.count()):
+        var strike = chain.contracts[i * CONTRACT]
+        if chain.contracts[i * CONTRACT + 1] == day and chain.contracts[i * CONTRACT + 2] > 0:
+            if lowest < 0 or strike < chain.contracts[lowest * CONTRACT]:
+                lowest = i
+            if highest < 0 or strike > chain.contracts[highest * CONTRACT]:
+                highest = i
+            if nearest < 0 or abs(strike - 1) < abs(chain.contracts[nearest * CONTRACT] - 1):
+                nearest = i
+    var chosen = List[Int]()
+    if lowest >= 0:
+        chosen.append(lowest)
+        chosen.append(nearest)
+        chosen.append(highest)
+    return chosen^
+
+
 def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
     """Generator and hedger move together, each by its own loss, on fresh
     paths every iteration. A report is the mean of the iterations since the
@@ -962,6 +986,7 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
     comptime REPORT = 20
     comptime RANDOM_PATHS = 28
     comptime EXTREME_PATHS = 10
+    comptime HEDGED_PATHS = 12
     var training = Training(model.intervals)
     var contracts = chain.count()
     var window = List[Float64](length=contracts * RESULT, fill=0)
@@ -1055,6 +1080,34 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
                 for t in range(model.days + 1):
                     line += " " + String(logx[shown[index] * (model.days + 1) + t])
                 print(line)
+            # What the hedger holds along the first paths shown, short three calls of the
+            # middle expiry: its lowest strike, the one nearest the forward, its highest.
+            var inputs = Array[Float32, INPUTS](fill=0)
+            var first_layer = Array[Float32, HIDDEN](fill=0)
+            var second_layer = Array[Float32, HIDDEN](fill=0)
+            var hedge = 0
+            for chosen in shown_contracts(chain):
+                var expiry = Int(chain.contracts[chosen * CONTRACT + 1])
+                var log_strike = log(chain.contracts[chosen * CONTRACT])
+                for p in range(HEDGED_PATHS):
+                    line = String("DH hedge ") + String(hedge) + " " + String(chosen)
+                    hedge += 1
+                    var position = Float32(0)
+                    for u in range(1, expiry):
+                        position = policy(
+                            rebind[Floats](model.phi.unsafe_ptr()),
+                            logx[p * (model.days + 1) + u - 1] - log_strike,
+                            Float32(expiry - u + 1),
+                            1,
+                            1,
+                            position,
+                            inputs,
+                            first_layer,
+                            second_layer,
+                            HIDDEN,
+                        )
+                        line += " " + String(position)
+                    print(line)
             print("DH end", iteration, flush=True)
             window_loss = 0
 

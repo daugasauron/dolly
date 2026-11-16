@@ -22,6 +22,10 @@ until stopped, on fresh paths every iteration.
 - **Law**: the density of a day's log return in each interval between
   expiries, its moments, and paths: 28 as they come, and the batch's ten
   lowest and ten highest.
+- **Hedge**: what the hedger does, the part of the model no quote shows: the
+  stock it holds from each day, short one call of the middle expiry at its
+  lowest strike, at the strike nearest the forward and at its highest, along
+  twelve of the Law tab's paths.
 - **Fit**: by expiry, the forward the quotes imply and the model's, how many
   model bids and asks are inside the market's band, the market's mean spread
   and the model's, how much of the model's is hedging cost, the risk the
@@ -104,6 +108,12 @@ On an RTX 5070 in Chrome 156 (Vulkan), AAPL's chain of 2026-11-13 as loaded on
   this hedger's spreads would add up to the market's is 0.12 over all
   contracts and 0.03 on the last expiry, where the market's bands are tight.
   One risk price does not give this chain's spreads their shape.
+- **Two seeds, one answer.** Another seed gives another first hedger and
+  other paths. After 900 iterations each (`dh-fit CHAIN 1024 2 900`): loss
+  1.371 and 1.357, 69.7% and 70.0% in band, a day's deviation by interval
+  within 2% of each other, and the two runs' bids and asks differ by 0.00005
+  of the forward on average, an eighth of the model's own mean spread. The
+  same seed gives the same numbers to the last digit.
 - **The law it finds is made of jumps.** A day's return has a skewness of -2
   to -6 and an excess kurtosis of 20 to 70 in every interval, and the lowest
   and highest paths move 10% in a day: with independent days that is the
