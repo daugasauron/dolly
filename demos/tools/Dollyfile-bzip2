@@ -1,10 +1,10 @@
-DOLLY 7
+DOLLY 8
 PACKAGE bzip2
 REQUIRES HOST runtime@0
 
 # bzip2 and libbz2 from upstream's release archive, unchanged, by the rules of
 # its Makefile. bunzip2 and bzcat are bzip2 under the names it looks for.
-FROM /v0.1.7/demos/tools/Dollyfile-tools-build 10f0bb40fc327b66565fb4439808c0fd06fe344684885eef70e1fccb4472af58
+FROM /demos/tools/Dollyfile-tools-build 005a2a8eae57747e84a8b4d29881997831c270adf271238f34a0f3375220c51f
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -18,7 +18,7 @@ REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.7/dist/static/tools/bzip2-1.0.8.tar.gz ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269 /tmp/bzip2.tar.gz
+SOURCE /dist/static/tools/bzip2-1.0.8.tar.gz ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269 /tmp/bzip2.tar.gz
 SLOP gzip -dc /tmp/bzip2.tar.gz | tar -xf - -C /tmp
 
 FILE /tmp/bzip2.mk

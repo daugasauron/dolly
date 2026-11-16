@@ -94,10 +94,9 @@ fetching with the browser's `fetch`:
   choices and client certificates do not exist.
 
 **`site:/FILE`** is a file of the site this release is served from,
-wherever that is: the broker takes the path `/vVERSION/FILE` for it and
+wherever that is: the broker takes the path `/FILE` for it and
 never tells a program the origin, so NetSurf has a scheme for it, fetched by
-the same curl fetcher. The version is the one the image was built for
-(`version.h`, staged as `amy`'s is). `site:/` is the release's landing page;
+the same curl fetcher. `site:/` is the release's landing page;
 its relative links stay in the scheme (`site:/licences/`). The home page is
 `https://www.w3.org/`, the owner's choice among the few well-known sites
 that let another origin read them.

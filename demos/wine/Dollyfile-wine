@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 APPLICATION wine
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -8,28 +8,28 @@ REQUIRES HOST http@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
-INSTALL /v0.1.7/Dollyfile-core 0400b7c98241821542518a568100a4d8abf5e6642e2dbbc3b09f3512dfc75ba0
-INSTALL /v0.1.7/Dollyfile-posix 1253bee9688e620f912bff5694ce133044a38d20392218a152f9da4d3a290e63
-INSTALL /v0.1.7/Dollyfile-display a6680af8ee3a48c935c74f701bdd3b31b15ea2aa9e7d98cd8776d9509c81fbd2
-COPY /v0.1.7/demos/wine/Dollyfile-wine-build d264dff8692ef15497fefda76e21c90a991a0865976eea272d18a89c1deb7f5e /usr/bin/wine /usr/bin/wine
-COPY /v0.1.7/demos/wine/Dollyfile-wine-build d264dff8692ef15497fefda76e21c90a991a0865976eea272d18a89c1deb7f5e /usr/share/wine /usr/share/wine
+INSTALL /Dollyfile-core 166a616e6fa02fcb50ce0f30f5483b0ce42b418474b1cab6fcf0734fb1bc1b85
+INSTALL /Dollyfile-posix 943bc6bf48ff57429ec1e3277886e915298aff2e0df4a389fa775df2232d01c0
+INSTALL /Dollyfile-display 73f7656db001d9683469bef6425e779344eef58116465f2c14c2abec17a0d0e8
+COPY /demos/wine/Dollyfile-wine-build 70e8dd5700ca767131ef32cac1556610eae49d2ed251cd7c44c3942894bb1008 /usr/bin/wine /usr/bin/wine
+COPY /demos/wine/Dollyfile-wine-build 70e8dd5700ca767131ef32cac1556610eae49d2ed251cd7c44c3942894bb1008 /usr/share/wine /usr/share/wine
 # Wine is LGPL; FreeType (under its GPL option) and libpng are linked into it. TinyCC (LGPL) is under /usr/share/wine/x86.
-COPY /v0.1.7/demos/wine/Dollyfile-wine-build d264dff8692ef15497fefda76e21c90a991a0865976eea272d18a89c1deb7f5e /usr/share/licenses/wine /usr/share/licenses/wine
-COPY /v0.1.7/demos/wine/Dollyfile-wine-build d264dff8692ef15497fefda76e21c90a991a0865976eea272d18a89c1deb7f5e /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY /v0.1.7/demos/wine/Dollyfile-wine-build d264dff8692ef15497fefda76e21c90a991a0865976eea272d18a89c1deb7f5e /usr/share/licenses/libpng /usr/share/licenses/libpng
-COPY /v0.1.7/demos/wine/Dollyfile-wine-build d264dff8692ef15497fefda76e21c90a991a0865976eea272d18a89c1deb7f5e /usr/share/licenses/tinycc /usr/share/licenses/tinycc
+COPY /demos/wine/Dollyfile-wine-build 70e8dd5700ca767131ef32cac1556610eae49d2ed251cd7c44c3942894bb1008 /usr/share/licenses/wine /usr/share/licenses/wine
+COPY /demos/wine/Dollyfile-wine-build 70e8dd5700ca767131ef32cac1556610eae49d2ed251cd7c44c3942894bb1008 /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /demos/wine/Dollyfile-wine-build 70e8dd5700ca767131ef32cac1556610eae49d2ed251cd7c44c3942894bb1008 /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY /demos/wine/Dollyfile-wine-build 70e8dd5700ca767131ef32cac1556610eae49d2ed251cd7c44c3942894bb1008 /usr/share/licenses/tinycc /usr/share/licenses/tinycc
 # NetSurf is GPL-2.0-only; IJG's libjpeg is linked with it.
-COPY /v0.1.7/demos/wine/Dollyfile-wine-build d264dff8692ef15497fefda76e21c90a991a0865976eea272d18a89c1deb7f5e /usr/share/licenses/netsurf /usr/share/licenses/netsurf
-COPY /v0.1.7/demos/wine/Dollyfile-wine-build d264dff8692ef15497fefda76e21c90a991a0865976eea272d18a89c1deb7f5e /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
+COPY /demos/wine/Dollyfile-wine-build 70e8dd5700ca767131ef32cac1556610eae49d2ed251cd7c44c3942894bb1008 /usr/share/licenses/netsurf /usr/share/licenses/netsurf
+COPY /demos/wine/Dollyfile-wine-build 70e8dd5700ca767131ef32cac1556610eae49d2ed251cd7c44c3942894bb1008 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
 # GIMP is GPL-2.0-or-later; GLib, ATK, Pango, GTK+ and libart under it are LGPL, fontconfig and expat MIT.
-COPY /v0.1.7/demos/wine/Dollyfile-wine-build d264dff8692ef15497fefda76e21c90a991a0865976eea272d18a89c1deb7f5e /usr/share/licenses/gimp /usr/share/licenses/gimp
-COPY /v0.1.7/demos/wine/Dollyfile-wine-build d264dff8692ef15497fefda76e21c90a991a0865976eea272d18a89c1deb7f5e /usr/share/gimp /usr/share/gimp
-COPY /v0.1.7/demos/wine/Dollyfile-wine-build d264dff8692ef15497fefda76e21c90a991a0865976eea272d18a89c1deb7f5e /etc/gimp /etc/gimp
-COPY /v0.1.7/demos/wine/Dollyfile-wine-build d264dff8692ef15497fefda76e21c90a991a0865976eea272d18a89c1deb7f5e /etc/fonts /etc/fonts
-COPY /v0.1.7/demos/wine/Dollyfile-wine-build d264dff8692ef15497fefda76e21c90a991a0865976eea272d18a89c1deb7f5e /home/dolly/.gimp-2.2 /home/dolly/.gimp-2.2
+COPY /demos/wine/Dollyfile-wine-build 70e8dd5700ca767131ef32cac1556610eae49d2ed251cd7c44c3942894bb1008 /usr/share/licenses/gimp /usr/share/licenses/gimp
+COPY /demos/wine/Dollyfile-wine-build 70e8dd5700ca767131ef32cac1556610eae49d2ed251cd7c44c3942894bb1008 /usr/share/gimp /usr/share/gimp
+COPY /demos/wine/Dollyfile-wine-build 70e8dd5700ca767131ef32cac1556610eae49d2ed251cd7c44c3942894bb1008 /etc/gimp /etc/gimp
+COPY /demos/wine/Dollyfile-wine-build 70e8dd5700ca767131ef32cac1556610eae49d2ed251cd7c44c3942894bb1008 /etc/fonts /etc/fonts
+COPY /demos/wine/Dollyfile-wine-build 70e8dd5700ca767131ef32cac1556610eae49d2ed251cd7c44c3942894bb1008 /home/dolly/.gimp-2.2 /home/dolly/.gimp-2.2
 # The source of the Start menu's x86-64 sample, where the terminal starts, and the Desktop folder.
-COPY /v0.1.7/demos/wine/Dollyfile-wine-build d264dff8692ef15497fefda76e21c90a991a0865976eea272d18a89c1deb7f5e /home/dolly/hello_win.c /home/dolly/hello_win.c
-COPY /v0.1.7/demos/wine/Dollyfile-wine-build d264dff8692ef15497fefda76e21c90a991a0865976eea272d18a89c1deb7f5e /home/dolly/Desktop /home/dolly/Desktop
+COPY /demos/wine/Dollyfile-wine-build 70e8dd5700ca767131ef32cac1556610eae49d2ed251cd7c44c3942894bb1008 /home/dolly/hello_win.c /home/dolly/hello_win.c
+COPY /demos/wine/Dollyfile-wine-build 70e8dd5700ca767131ef32cac1556610eae49d2ed251cd7c44c3942894bb1008 /home/dolly/Desktop /home/dolly/Desktop
 EXPORTS TOOL wine
 REQUIRES TOOL wine
 

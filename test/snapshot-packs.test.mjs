@@ -174,7 +174,7 @@ test("adding a partially overlapping image preserves large existing pack identit
 
 test("a snapshot read in pieces decodes as the whole does, holding only the selected data", async () => {
   const directory = { kind: 1, data: new Uint8Array(0) };
-  const records = new Map([["/etc", directory], ["/etc/dolly", directory], ["/etc/dolly/Dollyfile", file("DOLLY 7\n")],
+  const records = new Map([["/etc", directory], ["/etc/dolly", directory], ["/etc/dolly/Dollyfile", file("DOLLY 8\n")],
     ["/link", { kind: 3, data: new TextEncoder().encode("etc") }], ["/usr", directory],
     ["/usr/large", { kind: 2, data: new Uint8Array(70_000).map((_, index) => index) }]]);
   const bytes = encodeSnapshotRecords(records);

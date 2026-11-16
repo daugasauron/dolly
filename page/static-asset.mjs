@@ -1,5 +1,4 @@
 import { MAX_SNAPSHOT_BYTES } from "./snapshot-records.mjs";
-import { DOLLY_VERSION } from "./version.mjs";
 
 // Static delivery for an already authorized bootstrap input or snapshot pack.
 // Hosts cap file sizes, so assets travel as verified parts; nothing static is
@@ -14,26 +13,19 @@ export async function sha256(bytes) {
   return hex(await crypto.subtle.digest("SHA-256", bytes));
 }
 
-// Recipes name a file this site publishes as a path that starts with the
-// version, /v0.1.0/Dollyfile-system. Every page serves its own version's
-// files wherever it is mounted, so where their bytes come from never changes
-// recipe text, pins or image identity.
-const sitePrefix = `/v${DOLLY_VERSION}`;
-export const siteReference = path => `${sitePrefix}/${path}`;
+// Recipes name a file this site publishes by its path from the site's root,
+// /Dollyfile-system. Every page serves its own files wherever it is mounted
+// and whatever its version, so neither changes recipe text, pins or image
+// identity.
+export const siteReference = path => `/${path}`;
 
 // The public site, for the pages of another site that link to it. A recipe
 // that names it by URL instead of a site path fails the lint.
 export const PUBLIC_ORIGIN = "https://slopshare.dev";
 
 // The path ("/Dollyfile-system") a site reference names among this page's
-// files, or null for an absolute URL. Another version's files are not here.
-export function sitePath(reference) {
-  if (!reference.startsWith("/")) return null;
-  if (!reference.startsWith(`${sitePrefix}/`)) {
-    throw new Error(`${reference}: this is Dolly ${DOLLY_VERSION}, which reads only ${sitePrefix}/ paths`);
-  }
-  return reference.slice(sitePrefix.length);
-}
+// files, or null for an absolute URL.
+export const sitePath = reference => reference.startsWith("/") ? reference : null;
 
 export async function boundedAssetBody(response, limit, signal) {
   if (!response.ok || !response.body) throw new Error(`asset returned HTTP ${response.status}`);

@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN tools-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -13,8 +13,8 @@ REQUIRES HOST threads@0
 # the package: nothing installs mandoc because a page was formatted with it.
 # (COPY may not write under /tmp, so a package cannot borrow the formatter
 # from another image for its build alone.)
-FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 99ba4b0dfea5dfd2099047bbbd136adbff138ac5c2316c7f57f4fa485f50968f
-INSTALL /v0.1.7/Dollyfile-mandoc fdcd60b702db22d8823eb0b1ad8afaba884e97d493760d1c91bc87894a9febb9
+FROM /demos/cmake/Dollyfile-cmake-build 9f5063c14de7baead7da6889bb8078885c2e76a9d4554e02a92550798545f1ad
+INSTALL /Dollyfile-mandoc 47b9b5b34207eb0ea0afbf3c200c63af7c09d4fce2076a7333afb5a2d7c48ae0
 
 REQUIRES TOOL mandoc
 REQUIRES TOOL text-page

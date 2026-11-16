@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE godot
 REQUIRES HOST runtime@0
 REQUIRES HOST audio@0
@@ -17,17 +17,17 @@ REQUIRES HOST clipboard@0
 # browser grants WebGPU, and its Compatibility renderer on Mesa's OpenGL (EGL
 # and softpipe, linked in from mesa-build) where it does not, with its sound on
 # audio@0. It plays on the page or runs a project with --headless.
-FROM /v0.1.7/demos/ghostty-gtk/Dollyfile-mesa-build a302d1f1bd5eaf4deaa2390e509e33ffc5c7f1fc9b53db47afac0f361d783e1c
-USE /v0.1.7/demos/tools/Dollyfile-scons dba0542258dcf6384aa0e457af3a410d754caa6782f89d66a40c5f66e9cc14d0
-USE /v0.1.7/Dollyfile-mandoc fdcd60b702db22d8823eb0b1ad8afaba884e97d493760d1c91bc87894a9febb9
-USE /v0.1.7/Dollyfile-libdolly-gpu b13690913448e04e3795994af89d032f7a1537ce13b54c0c73f696ee4375c6d0
-USE /v0.1.7/Dollyfile-libdolly-sockets c6b3e098f7bd988e69bdfdda8306af2e6c565b0e7abcdb9bda5dba2a48a2bfa9
-USE /v0.1.7/demos/godot/Dollyfile-spirv-wgsl d4444e5aa047cadf9fa290618d6060af586174a228790bd8fa9542a479f42c36
-USE /v0.1.7/Dollyfile-libdolly-audio 5b508cabd2df8a3106a8788b1ff75da3ae63d8acc002fa5b8c1120722520deac
-USE /v0.1.7/Dollyfile-libdolly-clipboard 2e385abeefaaf674a33ac178323df84ea08ec231f8a59e7fb95ba0d175e12b3b
-USE /v0.1.7/demos/x11/Dollyfile-x11-window 1bb040a31974a724e6bec150063dfdccedc1b8b7e5e44b421a1b1b20c1ac5949
-USE /v0.1.7/Dollyfile-libdolly-display dca7d4755a50b8dbaa6abc4fd5b8fa34cccbb6400a4fd167d90e9a0f1bcee9ad
-USE /v0.1.7/Dollyfile-libdolly-input 80f7d6d7b775fa542711f6d0205280a3d3f4c5a68eb0f3223f81fc2fe64df08e
+FROM /demos/ghostty-gtk/Dollyfile-mesa-build 048aa453e05bc51a213c1bc725eb12502772f6823aacbe4cc73ab06ddd78b6d7
+USE /demos/tools/Dollyfile-scons 1ecbce6cb9255edafa7ac517efaab77c1864060bcdcd6708b2928d5fcf63451b
+USE /Dollyfile-mandoc 47b9b5b34207eb0ea0afbf3c200c63af7c09d4fce2076a7333afb5a2d7c48ae0
+USE /Dollyfile-libdolly-gpu 37fa4bcaebea3503a41646f0f2fc3b03a59022d68684f378160dd16f5fea8ce7
+USE /Dollyfile-libdolly-sockets b85bc6492b49b4a48d37e8a944f74132c49a08f1b6096d102418f75ffab936fc
+USE /demos/godot/Dollyfile-spirv-wgsl 0352f073f632a533d6f2d109a5b2f1a3c37fc7f19636ff4a9d64fab9714ed2a3
+USE /Dollyfile-libdolly-audio a3b497aa5eebef7080d2bb32bea4eddae71eea7e936964878bbc16488ab77337
+USE /Dollyfile-libdolly-clipboard c98e979d8b59fe776a3f03fae254123a40a61ba5c5fbc927657c90d5584bde34
+USE /demos/x11/Dollyfile-x11-window 52f9d8ac84a26e30462785b7553eed787bf6332da0a064a19f0a943e0efe59ca
+USE /Dollyfile-libdolly-display f79f24b4c73522811689b8b3f19f9553b06897cbd86c0c320772d38b0d8b1bb4
+USE /Dollyfile-libdolly-input 275dee1989705c3713c8a1f754b265c00bad0c691831da74eb600f71462ac8a9
 
 REQUIRES TOOL cp
 REQUIRES TOOL grep
@@ -39,7 +39,7 @@ REQUIRES TOOL scons
 REQUIRES TOOL tar
 REQUIRES TOOL text-page
 
-SOURCE /v0.1.7/dist/static/godot/source.tar.gz 1c8f59cd511f3343cb327b76994fc4d3290b19924e512e8f6dd4f476bc53147d /tmp/godot-source.tar.gz
+SOURCE /dist/static/godot/source.tar.gz 1c8f59cd511f3343cb327b76994fc4d3290b19924e512e8f6dd4f476bc53147d /tmp/godot-source.tar.gz
 SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
 # Godot's modern renderers take only the drivers main.cpp names; glslang builds beside them;
 # Forward+ starts SDFGI only on a device with image atomics, which its voxelization takes.

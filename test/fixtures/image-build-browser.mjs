@@ -46,7 +46,7 @@ export async function buildInputReuse() {
   ].map(path => import(new URL(path, base).href)));
   await registry.loadImages(base);
   const definition = registry.DOLLY_IMAGES.find(image => image.image === "system-build");
-  const source = `DOLLY 7\nAPPLICATION buffer-proof\nREQUIRES HOST runtime@0\nREQUIRES HOST display@0\nREQUIRES HOST input@0\nREQUIRES HOST download@0\nREQUIRES HOST http@0\nREQUIRES HOST snapshot@0\nREQUIRES HOST upload@0\nFROM ${siteReference(definition.dollyfile)} ${definition.sha256}\nENTRY /bin/slop\n`;
+  const source = `DOLLY 8\nAPPLICATION buffer-proof\nREQUIRES HOST runtime@0\nREQUIRES HOST display@0\nREQUIRES HOST input@0\nREQUIRES HOST download@0\nREQUIRES HOST http@0\nREQUIRES HOST snapshot@0\nREQUIRES HOST upload@0\nFROM ${siteReference(definition.dollyfile)} ${definition.sha256}\nENTRY /bin/slop\n`;
   const network = { ...transport.localServicesTransport(new policy.DollyHttpPolicy(undefined, registry.bootstrapSources(), base)),
     site: base.href };
   const build = (image, inputs, customSource) => builder.buildImage(image, inputs, { http: { network } }, () => {}, { modules, customSource });

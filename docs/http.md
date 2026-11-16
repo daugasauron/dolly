@@ -31,10 +31,10 @@ flowchart LR
   library reports as a failed connection. Metadata is literal UTF-8
   without NUL.
 - A URL is absolute `http:` or `https:`, or a site path:
-  `/vX.Y.Z/amy-index.txt` names a file of the site serving this release when
-  X.Y.Z is that site's version, resolved against the site's root (also under
-  a path prefix, never above it). The policy judges the resulting URL like
-  any other; a path of another version, or without one, is `EINVAL`.
+  `/amy-index.txt` names a file of the site serving this release, resolved
+  against the site's root (also under a path prefix, never above it). The
+  policy judges the resulting URL like any other; a path above the root, or
+  any path where the page names no site, is `EINVAL`.
 - Reserved `*.dolly.invalid` origins never reach Fetch: an enabled `build@0` or
   `packages@0` admits its own requests there
   ([`local-services.mjs`](../host/http/local-services.mjs)); any other fails
@@ -191,7 +191,7 @@ const relays = [{
   cookies, certificates, disabling TLS verification and connect timeouts return
   `CURLE_NOT_BUILT_IN` rather than being silently remembered; unknown options
   return `CURLE_UNKNOWN_OPTION`. A site path goes to the broker as it is
-  (`curl /vX.Y.Z/Dollyfile-system` reads the recipe other recipes name); one
+  (`curl /Dollyfile-system` reads the recipe other recipes name); one
   the broker refuses fails with `CURLE_BAD_FUNCTION_ARGUMENT`, any other
   URL without `http(s)://` with `CURLE_UNSUPPORTED_PROTOCOL` and a disallowed
   redirect with `CURLE_COULDNT_CONNECT`.

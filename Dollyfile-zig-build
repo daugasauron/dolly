@@ -1,9 +1,9 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN zig-build
 REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 
-FROM /v0.1.7/Dollyfile-system-build d1bb50136de0dadf12e3e2af2266c5102e9ab15769e9f607807c44d46323f3a1
+FROM /Dollyfile-system-build 232aeb425e18b2767ddaac08d40504d362c4922284d4dcccb6016c69a6c248bc
 
 # Zig from its source archive with only Dolly's cc, following upstream
 # bootstrap.c with two substitutions. WAMR runs the zig1.wasm seed instead of
@@ -14,8 +14,8 @@ REQUIRES HEADER libc
 REQUIRES TOOL   cc
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.7/dist/static/default/zig.tar  4cec52ed75d44c9fcbf52f9c61594c7be1f7ae5dd48b1c74d8c64fb773c670d8 /tmp/zig.tar
-SOURCE /v0.1.7/dist/static/default/wamr.tar d35ec64a48e61f6a65397d3d9f13823735a94623a9dcd007b093279e5e0e3615 /tmp/wamr.tar
+SOURCE /dist/static/default/zig.tar  4cec52ed75d44c9fcbf52f9c61594c7be1f7ae5dd48b1c74d8c64fb773c670d8 /tmp/zig.tar
+SOURCE /dist/static/default/wamr.tar d35ec64a48e61f6a65397d3d9f13823735a94623a9dcd007b093279e5e0e3615 /tmp/wamr.tar
 SLOP tar \
   -xf /tmp/zig.tar \
   -C /

@@ -1,10 +1,10 @@
-DOLLY 7
+DOLLY 8
 PACKAGE emacs
 REQUIRES HOST runtime@0
 
 # GNU Emacs 31.1 for the terminal. demos/emacs/prepare-emacs.sh patches and
 # configures the release outside; Dolly compiles every object and dumps it.
-FROM /v0.1.7/Dollyfile-system 53019922324696a18a573eededf9b475fe22e783d58f35585fe5c73943b926ae
+FROM /Dollyfile-system 40cc3295c8b8b9cb65a54dad7383bc370977ab5c7de4d91fe26a24c89ae787cd
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
 REQUIRES TOOL   ar
@@ -20,7 +20,7 @@ REQUIRES TOOL   cp
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   rm
 
-SOURCE /v0.1.7/dist/static/emacs/emacs.tar.gz 62ce971876ceb6e1780a66e73435225e6274cb28173edae4990ccdd2027ff9ab /tmp/emacs.tar.gz
+SOURCE /dist/static/emacs/emacs.tar.gz 62ce971876ceb6e1780a66e73435225e6274cb28173edae4990ccdd2027ff9ab /tmp/emacs.tar.gz
 SLOP gzip -dc /tmp/emacs.tar.gz | tar -xf - -C /
 
 # Built at -O0, Emacs needs more stack at its first prompt than a Worker gives

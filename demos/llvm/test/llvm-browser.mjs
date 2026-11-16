@@ -86,7 +86,7 @@ const pin = name => {
 };
 // llvm-cc with the terminal display, the runtime package and threads.
 const hosts = [...new Set([...catalog.images.find(({ image }) => image === "llvm-cc").hostRequirements, "threads@0"])].sort();
-const recipe = ["DOLLY 7", "APPLICATION llvm-runtimes-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin("llvm-cc")}`,
+const recipe = ["DOLLY 8", "APPLICATION llvm-runtimes-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin("llvm-cc")}`,
   ...["/usr/lib/libdisplay.so", "/usr/share/fonts/IosevkaTerm-SemiBold.ttf"].map(path => `COPY ${pin("ghostty-build")} ${path} ${path}`),
   `INSTALL ${pin("llvm-runtimes")}`, "EXPORTS LIB display /usr/lib/libdisplay.so", "EXPORTS ENV DISPLAY /usr/lib/libdisplay.so",
   "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");

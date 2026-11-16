@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE janis
 REQUIRES HOST runtime@0
 REQUIRES HOST download@0
@@ -8,9 +8,9 @@ REQUIRES HOST http@0
 # a finite node:* surface over Dolly's files, processes and HTTP. The runner
 # is a library too: a program that is one script (tsc, pi, a game's agent)
 # links -ldolly-js -lquickjs and reads the two scripts kept here when it starts.
-FROM /v0.1.7/Dollyfile-system-tools 6699b9ce9339fe8ee70c02972b8a4b10242adb71dd63c3a5ac5da48f8d1828ed
-INSTALL /v0.1.7/demos/javascript/Dollyfile-quickjs 81f4c42d34ac604c925dec675a8e006a91296339fbfc6ef2fee6cb4f4c7b6200
-INSTALL /v0.1.7/Dollyfile-libdolly-download bf7303fc0e340e9d2049ae295205598ee876e0af0cbfe160583c055f2f588439
+FROM /Dollyfile-system-tools cf31f806ea02b6bed2397c3db9c73677498b0b16a9272dee51581a8e290d6a5e
+INSTALL /demos/javascript/Dollyfile-quickjs d75e7a0f3b219a4a6e91cdf2b4d72ea96b35affb743b62b1fb7201290cfc003f
+INSTALL /Dollyfile-libdolly-download 9b3a73f7f5c22cc4738d648b7058b47f3c7f98a5683de3c7c9a5e73eaf081e78
 
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
@@ -21,11 +21,11 @@ REQUIRES TOOL   ar
 REQUIRES TOOL   cc
 REQUIRES TOOL   mkdir
 
-SOURCE /v0.1.7/dist/static/default/runtimes/quickjs-main.c   9d9ead69394e94723f98e89766484f7fa2a6674b64ac9d03943c6d04f2999373 /tmp/janis/quickjs-main.c
-SOURCE /v0.1.7/dist/static/default/runtimes/quickjs-runner.h cb2ae27cc02ed3d90b43eeb924f474b01fa8d7598f1e5989b0de3fcd12c2a97f /usr/include/dolly/quickjs-runner.h
-SOURCE /v0.1.7/dist/static/default/runtimes/dolly-node.js    d7e19c4bb4f46cce32ccbe2130e5f5e9203c1ba185cf0d0a9952f5d1b1ecabd3 /usr/lib/dolly/node.js
-SOURCE /v0.1.7/dist/static/default/runtimes/janis.js         938d296286745dbab9a30e33f7f78963077070427e7c8a2ddec9bc310018c89a /usr/lib/janis/runtime.js
-SOURCE /v0.1.7/dist/static/default/commands/janis.c          08c40227d11f06e851a6406fe5ed8f8d7e5f7cdd28a3dad2609c04650a7afe1b /tmp/janis/janis.c
+SOURCE /dist/static/default/runtimes/quickjs-main.c   9d9ead69394e94723f98e89766484f7fa2a6674b64ac9d03943c6d04f2999373 /tmp/janis/quickjs-main.c
+SOURCE /dist/static/default/runtimes/quickjs-runner.h cb2ae27cc02ed3d90b43eeb924f474b01fa8d7598f1e5989b0de3fcd12c2a97f /usr/include/dolly/quickjs-runner.h
+SOURCE /dist/static/default/runtimes/dolly-node.js    d7e19c4bb4f46cce32ccbe2130e5f5e9203c1ba185cf0d0a9952f5d1b1ecabd3 /usr/lib/dolly/node.js
+SOURCE /dist/static/default/runtimes/janis.js         938d296286745dbab9a30e33f7f78963077070427e7c8a2ddec9bc310018c89a /usr/lib/janis/runtime.js
+SOURCE /dist/static/default/commands/janis.c          08c40227d11f06e851a6406fe5ed8f8d7e5f7cdd28a3dad2609c04650a7afe1b /tmp/janis/janis.c
 
 SLOP cc -O2 -std=gnu11 -funsigned-char -D_GNU_SOURCE -I /usr/include/dolly -c /tmp/janis/quickjs-main.c -o /tmp/janis/quickjs-main.o
 SLOP ar rcs /usr/lib/libdolly-js.a /tmp/janis/quickjs-main.o

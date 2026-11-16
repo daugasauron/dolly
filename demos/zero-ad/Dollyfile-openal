@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE openal
 REQUIRES HOST runtime@0
 
@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # installs neither. It has no playback backend: a program renders through a
 # loopback device and plays the samples itself (<dolly/audio.h>, audio@0), as
 # 0 A.D. does, so the library asks for no host module.
-FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 99ba4b0dfea5dfd2099047bbbd136adbff138ac5c2316c7f57f4fa485f50968f
+FROM /demos/cmake/Dollyfile-cmake-build 9f5063c14de7baead7da6889bb8078885c2e76a9d4554e02a92550798545f1ad
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES LIB c++
@@ -20,7 +20,7 @@ REQUIRES TOOL ar
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/openal/source.tar e11cc1b7572297fa95d400c886831cf88740f2fb934edd16f1d2572d5974bba6 /tmp/openal/source.tar
+SOURCE /dist/static/openal/source.tar e11cc1b7572297fa95d400c886831cf88740f2fb934edd16f1d2572d5974bba6 /tmp/openal/source.tar
 SLOP tar -xf /tmp/openal/source.tar -C /
 # HAVE_PTHREAD=OFF: the mixer is serial (openal-dolly.patch) and 0 A.D. is not a threaded process.
 SLOP cmake -S /tmp/openal/source -B /tmp/openal/build \

@@ -194,7 +194,7 @@ if (browsers.includes("chromium")) {
   // Host requirements are never inherited: the probe restates default's, and
   // adds the two tmux needs that default does not declare.
   const hosts = [...catalog.images.find(definition => definition.image === "default").hostRequirements, "pty@0", "sockets@0"];
-  const recipe = ["DOLLY 7", "APPLICATION tmux-probe", ...hosts.map(host => `REQUIRES HOST ${host}`),
+  const recipe = ["DOLLY 8", "APPLICATION tmux-probe", ...hosts.map(host => `REQUIRES HOST ${host}`),
     `FROM ${pin("default")}`, `INSTALL ${pin("tmux")}`, "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
   await demoTest("tmux package", { image: "default", timeout: 300_000 }, async ({ open }) => {
     // default declares neither pty@0 nor sockets@0: amy has nena enable them.

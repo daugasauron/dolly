@@ -1,18 +1,18 @@
-DOLLY 7
+DOLLY 8
 PACKAGE nena
 REQUIRES HOST runtime@0
 REQUIRES HOST nena@0
 
 # nena lists the host modules of a session and enables or disables them. It
 # works where the image declares nena@0, as default does.
-FROM /v0.1.7/Dollyfile-system-build d1bb50136de0dadf12e3e2af2266c5102e9ab15769e9f607807c44d46323f3a1
-USE /v0.1.7/Dollyfile-libdolly-nena b7fed23328041c6649bbcbb4d4af842cb6af8e2f0a26e2db7d0b6b2bfccf03a0
+FROM /Dollyfile-system-build 232aeb425e18b2767ddaac08d40504d362c4922284d4dcccb6016c69a6c248bc
+USE /Dollyfile-libdolly-nena 01b6030f90803017ced0fdcf47721d2abf6ba083557d5a5e9bd08cf5cbd311a9
 
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/default/commands/nena.c b036175a8ca396de4647a663fb3d81172177b799562355088b01e32904616f37 /tmp/nena.c
+SOURCE /dist/static/default/commands/nena.c b036175a8ca396de4647a663fb3d81172177b799562355088b01e32904616f37 /tmp/nena.c
 SLOP cc -O2 /tmp/nena.c -o /bin/nena
 SLOP rm /tmp/nena.c
 EXPORTS TOOL nena

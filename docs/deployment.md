@@ -1,9 +1,11 @@
 # Deployment
 
 Dolly deploys as static files: no server code, Functions or proxy. A release is
-a version `X.Y.Z` ([`version.mjs`](../page/version.mjs), equal to
-`package.json`): the git tag `vX.Y.Z`, the GitHub release of that name and the
-site path `/vX.Y.Z/`. The Cloudflare Pages project `dolly` keeps every
+a version `X.Y.Z` ([`version.mjs`](../page/version.mjs), the one line that
+holds it): the git tag `vX.Y.Z`, the GitHub release of that name, the npm
+packages' version and the site's directory `/vX.Y.Z/`. No recipe or image
+holds the version, so moving it rebuilds no image: a release builds what its
+own changes changed. The Cloudflare Pages project `dolly` keeps every
 published version and serves one deployment at both of its domains,
 [slopshare.dev](https://slopshare.dev/) and daugasauron.com.
 
@@ -29,8 +31,8 @@ flowchart LR
 
 - Versions share nothing: each is its sealed release, file for file, under its
   path, so a published version keeps serving its own bytes whatever is
-  released later. A reference a recipe writes, `/vX.Y.Z/Dollyfile-NAME` or
-  `/vX.Y.Z/dist/static/…`, is therefore a file the site serves (Cloudflare
+  released later. A reference a recipe writes, `/Dollyfile-NAME` or
+  `/dist/static/…`, is a file of the version whose page reads it (Cloudflare
   holds a file over 25 MiB compressed or as parts, below).
   While the version is 0.x a patch release fixes and a minor release may
   change anything; nothing is promised about services outside the site (npm,
@@ -157,7 +159,7 @@ pushes, uploads or deploys.
    `published-version.mjs verify SITE OUT vX.Y.Z` (every file of the new
    version, and every older version's list).
 8. Move the new version's directory from `OUT` into the archive; move
-   `package.json` and `page/version.mjs` to the next version.
+   `page/version.mjs` to the next version.
 
 ## Delivery contract
 

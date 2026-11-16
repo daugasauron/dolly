@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE libdolly-packages
 REQUIRES HOST runtime@0
 
@@ -6,15 +6,15 @@ REQUIRES HOST runtime@0
 # packages), for amy and programs the cc package builds: cc links every client
 # archive in /usr/lib/dolly/process, and a program records packages@0 only when
 # it calls the client.
-FROM /v0.1.7/Dollyfile-system-build d1bb50136de0dadf12e3e2af2266c5102e9ab15769e9f607807c44d46323f3a1
+FROM /Dollyfile-system-build 232aeb425e18b2767ddaac08d40504d362c4922284d4dcccb6016c69a6c248bc
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/host/packages/packages.h a31afbe3a08b563fc956e667a66afe84904ad89774242e3b3189d1748e487e29 /usr/include/dolly/packages.h
-SOURCE /v0.1.7/host/packages/packages-abi.h ca08602701a80bc8c497cc56215a270df3b954e3880acdd96ba3c54c4f510d4b /usr/include/dolly/packages-abi.h
-SOURCE /v0.1.7/host/packages/client.c dea55c801f36a942429b82390290246cf3cd81d92cc15da184ea7fff8423d90d /tmp/libdolly-packages/client.c
+SOURCE /host/packages/packages.h a31afbe3a08b563fc956e667a66afe84904ad89774242e3b3189d1748e487e29 /usr/include/dolly/packages.h
+SOURCE /host/packages/packages-abi.h ca08602701a80bc8c497cc56215a270df3b954e3880acdd96ba3c54c4f510d4b /usr/include/dolly/packages-abi.h
+SOURCE /host/packages/client.c dea55c801f36a942429b82390290246cf3cd81d92cc15da184ea7fff8423d90d /tmp/libdolly-packages/client.c
 SLOP cc -O1 -c /tmp/libdolly-packages/client.c -o /tmp/libdolly-packages/client.o
 SLOP ar rcs /usr/lib/dolly/process/libdolly-packages.a /tmp/libdolly-packages/client.o
 

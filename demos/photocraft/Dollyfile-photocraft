@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE photocraft
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -20,17 +20,17 @@ REQUIRES HOST sockets@0
 # dialogs, on the same platforms. Where DISPLAY names an X server (x11-desktop) the app and zenity
 # are windows of it (x11-window, over Xlib), their frames read back from gpu@0; copy and paste
 # are the page's clipboard (clipboard@0) on the page and there.
-FROM /v0.1.7/demos/rust/Dollyfile-rust-build 238b8762b9051ea192e17336c596599ea6c687d0fb40ae7f91402bac84d5af32
-USE /v0.1.7/Dollyfile-libdolly-gpu b13690913448e04e3795994af89d032f7a1537ce13b54c0c73f696ee4375c6d0
-USE /v0.1.7/Dollyfile-libdolly-clipboard 2e385abeefaaf674a33ac178323df84ea08ec231f8a59e7fb95ba0d175e12b3b
-USE /v0.1.7/Dollyfile-libdolly-sockets c6b3e098f7bd988e69bdfdda8306af2e6c565b0e7abcdb9bda5dba2a48a2bfa9
-USE /v0.1.7/demos/x11/Dollyfile-x11-window 1bb040a31974a724e6bec150063dfdccedc1b8b7e5e44b421a1b1b20c1ac5949
+FROM /demos/rust/Dollyfile-rust-build e7c850d12ae6886a609fbf5198ccd85b27bb79b68343300a71cbd04752574029
+USE /Dollyfile-libdolly-gpu 37fa4bcaebea3503a41646f0f2fc3b03a59022d68684f378160dd16f5fea8ce7
+USE /Dollyfile-libdolly-clipboard c98e979d8b59fe776a3f03fae254123a40a61ba5c5fbc927657c90d5584bde34
+USE /Dollyfile-libdolly-sockets b85bc6492b49b4a48d37e8a944f74132c49a08f1b6096d102418f75ffab936fc
+USE /demos/x11/Dollyfile-x11-window 52f9d8ac84a26e30462785b7553eed787bf6332da0a064a19f0a943e0efe59ca
 # The X client libraries x11-window links, for the link alone; the binary keeps their licences.
-USE /v0.1.7/demos/x11/Dollyfile-x11-libs 78ce1c47936bce506ae0b50d53545b475e572cbbdaa01e5c81e9f502867feae0
-USE /v0.1.7/Dollyfile-libdolly-display dca7d4755a50b8dbaa6abc4fd5b8fa34cccbb6400a4fd167d90e9a0f1bcee9ad
-USE /v0.1.7/Dollyfile-libdolly-input 80f7d6d7b775fa542711f6d0205280a3d3f4c5a68eb0f3223f81fc2fe64df08e
-USE /v0.1.7/Dollyfile-libdolly-upload 14f4545e2fb3a6c4440e435088caffb7261ee640d6650424b3547a94114deb66
-USE /v0.1.7/Dollyfile-libdolly-download bf7303fc0e340e9d2049ae295205598ee876e0af0cbfe160583c055f2f588439
+USE /demos/x11/Dollyfile-x11-libs a87ced0ae8085d21677ef147f66942bccb411dcc16f7ddf8eaa414bea0813a88
+USE /Dollyfile-libdolly-display f79f24b4c73522811689b8b3f19f9553b06897cbd86c0c320772d38b0d8b1bb4
+USE /Dollyfile-libdolly-input 275dee1989705c3713c8a1f754b265c00bad0c691831da74eb600f71462ac8a9
+USE /Dollyfile-libdolly-upload d0e4f629cff82aa582d6e0e81d4bf91fbf81f992991df2f7df6c627bfcf684da
+USE /Dollyfile-libdolly-download 9b3a73f7f5c22cc4738d648b7058b47f3c7f98a5683de3c7c9a5e73eaf081e78
 REQUIRES TOOL cargo
 REQUIRES TOOL cat
 REQUIRES TOOL gzip
@@ -40,10 +40,10 @@ REQUIRES TOOL mv
 REQUIRES TOOL cp
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/photocraft/sources-00.part 3f32c54cab652036edba83d84948cf2ad26e19d860b48d65a5f75c1ffebadc99 /tmp/photocraft-sources-00.part
-SOURCE /v0.1.7/dist/static/photocraft/sources-01.part eb3f05957db1181a74c4ba311b383250c926da0de07bc36c06d8f9b28b2bacfb /tmp/photocraft-sources-01.part
-SOURCE /v0.1.7/dist/static/photocraft/sources-02.part 844b2c4c03acf56fbe26b3ce4d2844239ba9e7312b149ad600e47d9adfffdee8 /tmp/photocraft-sources-02.part
-SOURCE /v0.1.7/dist/static/photocraft/sources-03.part 4b951681cdfe967e230a5116d7f52521c7947d139e488f7d2ae044094cf1f6bc /tmp/photocraft-sources-03.part
+SOURCE /dist/static/photocraft/sources-00.part 3f32c54cab652036edba83d84948cf2ad26e19d860b48d65a5f75c1ffebadc99 /tmp/photocraft-sources-00.part
+SOURCE /dist/static/photocraft/sources-01.part eb3f05957db1181a74c4ba311b383250c926da0de07bc36c06d8f9b28b2bacfb /tmp/photocraft-sources-01.part
+SOURCE /dist/static/photocraft/sources-02.part 844b2c4c03acf56fbe26b3ce4d2844239ba9e7312b149ad600e47d9adfffdee8 /tmp/photocraft-sources-02.part
+SOURCE /dist/static/photocraft/sources-03.part 4b951681cdfe967e230a5116d7f52521c7947d139e488f7d2ae044094cf1f6bc /tmp/photocraft-sources-03.part
 SLOP cat /tmp/photocraft-sources-00.part /tmp/photocraft-sources-01.part /tmp/photocraft-sources-02.part /tmp/photocraft-sources-03.part | gzip -dc - | tar -xf - -C /
 SLOP rm /tmp/photocraft-sources-00.part /tmp/photocraft-sources-01.part /tmp/photocraft-sources-02.part /tmp/photocraft-sources-03.part 
 SLOP CWD /tmp/photocraft-sources/photocraft cargo build -j 2 --offline -p photocraft -p photocraft-cli --target-dir /tmp/photocraft-build
@@ -58,7 +58,7 @@ SLOP CWD /tmp/photocraft-sources/photocraft cp LICENSE-MIT LICENSE-APACHE NOTICE
 SLOP rm -rf /tmp/photocraft-sources /tmp/photocraft-build
 SLOP /usr/bin/photocraft-cli --version
 # A picture to open: Hokusai's Great Wave (photocraft /usr/share/photocraft/pictures/great-wave.jpg).
-SOURCE /v0.1.7/dist/static/photocraft/great-wave.jpg 30c170260de393f51bd592adacc6f0714b60f157c09744e9c5b6d46e6a613718 /usr/share/photocraft/pictures/great-wave.jpg
+SOURCE /dist/static/photocraft/great-wave.jpg 30c170260de393f51bd592adacc6f0714b60f157c09744e9c5b6d46e6a613718 /usr/share/photocraft/pictures/great-wave.jpg
 EXPORTS TOOL photocraft
 EXPORTS TOOL photocraft-cli
 EXPORTS TOOL zenity

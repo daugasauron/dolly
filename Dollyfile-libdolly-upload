@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE libdolly-upload
 REQUIRES HOST runtime@0
 
@@ -6,15 +6,15 @@ REQUIRES HOST runtime@0
 # programs the cc package builds: cc links every client archive in
 # /usr/lib/dolly/process, and a program records upload@0 only when it calls the
 # client.
-FROM /v0.1.7/Dollyfile-system-build d1bb50136de0dadf12e3e2af2266c5102e9ab15769e9f607807c44d46323f3a1
+FROM /Dollyfile-system-build 232aeb425e18b2767ddaac08d40504d362c4922284d4dcccb6016c69a6c248bc
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/host/upload/upload.h 4c9c1f6b00f464ffc337fd8f3bec18179f0bfdd82083f65c0d36c2a9cd400e3f /usr/include/dolly/upload.h
-SOURCE /v0.1.7/host/upload/upload-abi.h 304eb6b73722e62f3e3bde7dab8ce71135c6485278effefa6bd6c53bc5ffd41e /usr/include/dolly/upload-abi.h
-SOURCE /v0.1.7/host/upload/client.c 3b9120f1a14792d6b914c1a23380e23ea07aada0167a8388d5655e9e3b79cc88 /tmp/libdolly-upload/client.c
+SOURCE /host/upload/upload.h 4c9c1f6b00f464ffc337fd8f3bec18179f0bfdd82083f65c0d36c2a9cd400e3f /usr/include/dolly/upload.h
+SOURCE /host/upload/upload-abi.h 304eb6b73722e62f3e3bde7dab8ce71135c6485278effefa6bd6c53bc5ffd41e /usr/include/dolly/upload-abi.h
+SOURCE /host/upload/client.c 3b9120f1a14792d6b914c1a23380e23ea07aada0167a8388d5655e9e3b79cc88 /tmp/libdolly-upload/client.c
 SLOP cc -O1 -c /tmp/libdolly-upload/client.c -o /tmp/libdolly-upload/client.o
 SLOP ar rcs /usr/lib/dolly/process/libdolly-upload.a /tmp/libdolly-upload/client.o
 

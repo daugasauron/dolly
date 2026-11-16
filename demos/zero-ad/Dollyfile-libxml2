@@ -1,12 +1,12 @@
-DOLLY 7
+DOLLY 8
 PACKAGE libxml2
 REQUIRES HOST runtime@0
 
 # libxml2 from upstream's release archive, unchanged, built by its CMake project
 # with zlib and without threads, iconv, LZMA, HTTP, Python or its programs, for
 # programs the cc package builds.
-FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 99ba4b0dfea5dfd2099047bbbd136adbff138ac5c2316c7f57f4fa485f50968f
-INSTALL /v0.1.7/Dollyfile-zlib 8de0bd7abb3a8237405fbbe378e6565c995a24694e5a3b55ef24873c5786bdb5
+FROM /demos/cmake/Dollyfile-cmake-build 9f5063c14de7baead7da6889bb8078885c2e76a9d4554e02a92550798545f1ad
+INSTALL /Dollyfile-zlib 3963dbd281f81798630f8fcf7ae206aa5569277444b7054f79fd7dcf0addd29f
 REQUIRES HEADER libc
 REQUIRES HEADER zlib
 REQUIRES LIB z
@@ -16,7 +16,7 @@ REQUIRES TOOL make
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.7/dist/static/libxml2/source.tar.gz bb1aba60e6df0bb8060e792c3fa785fe0652d5d94857ade6e935f7dc02956be1 /tmp/libxml2.tar.gz
+SOURCE /dist/static/libxml2/source.tar.gz bb1aba60e6df0bb8060e792c3fa785fe0652d5d94857ade6e935f7dc02956be1 /tmp/libxml2.tar.gz
 SLOP gzip -dc /tmp/libxml2.tar.gz | tar -xf - -C /
 SLOP cmake -S /tmp/libxml2 -B /tmp/libxml2-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \

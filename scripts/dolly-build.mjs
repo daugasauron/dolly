@@ -168,7 +168,7 @@ async function scaffold(name, packages) {
   const pages = (await readdir(join(import.meta.dirname, "dolly-build-init/public"), { recursive: true, withFileTypes: true }))
     .filter(entry => entry.isFile()).map(entry => relative(join(import.meta.dirname, "dolly-build-init"), join(entry.parentPath, entry.name)).split(sep).join("/")).sort();
   const files = {
-    [`Dollyfile-${name}`]: `DOLLY 7\nAPPLICATION ${name}\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}\n` +
+    [`Dollyfile-${name}`]: `DOLLY 8\nAPPLICATION ${name}\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}\n` +
       installs.map(definition => `${installRow(definition)}\n`).join("") + "\n" + await template("Dollyfile"),
     ...Object.fromEntries(await Promise.all(pages.map(async file => [file, await template(file)]))),
     [`.github/workflows/${name}.yml`]: await template("workflow.yml"),

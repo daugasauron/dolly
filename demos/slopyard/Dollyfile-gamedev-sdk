@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN gamedev-sdk
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -10,14 +10,14 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.7/Dollyfile-system 53019922324696a18a573eededf9b475fe22e783d58f35585fe5c73943b926ae
-INSTALL /v0.1.7/demos/slopyard/Dollyfile-raylib cb5ea42abed48693844e5f62935266ef0bef05a6bbd14f97f30a37bde984ab25
-INSTALL /v0.1.7/demos/slopyard/Dollyfile-box3d f961674ce46d2be7c9be265456c4e5ae9abc193ba17c5cfea298316e10fc2067
+FROM /Dollyfile-system 40cc3295c8b8b9cb65a54dad7383bc370977ab5c7de4d91fe26a24c89ae787cd
+INSTALL /demos/slopyard/Dollyfile-raylib 8021d02cb7a1f7e99af8c9ee6293c580dc9bdb63d31edeaab5ba4ea6af5caaeb
+INSTALL /demos/slopyard/Dollyfile-box3d 3bc323fbc96376c9ccf2507a2803e61ecde99b4da62022a83ce5e5c8dd82d775
 REQUIRES TOOL   tar
 
 # raylib and Box3D are the packages'. Box3D's sources stay here for Slopyard,
 # which compiles them a second time with threads and SIMD.
-SOURCE /v0.1.7/dist/static/gamedev/box3d.tar 5a502138e8f7b47c5994bdd279e9dcddeae0b8e147e3b92ab79b723bd07e4377 /tmp/box3d.tar
+SOURCE /dist/static/gamedev/box3d.tar 5a502138e8f7b47c5994bdd279e9dcddeae0b8e147e3b92ab79b723bd07e4377 /tmp/box3d.tar
 SLOP tar -xf /tmp/box3d.tar -C /
 FOLDER /usr/src/box3d
 

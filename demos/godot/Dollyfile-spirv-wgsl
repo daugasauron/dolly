@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE spirv-wgsl
 REQUIRES HOST runtime@0
 REQUIRES HOST threads@0
@@ -6,9 +6,9 @@ REQUIRES HOST threads@0
 # SPIR-V of Vulkan GLSL shaders to WGSL for gpu@0 (spirv-wgsl/spirv_wgsl.h), as Godot's
 # RenderingDevice driver compiles its shaders: Tint, from Dawn, and SPIRV-Tools, built by their
 # CMake, under Dolly's passes (spirv-wgsl/spirv_wgsl.cpp), in one static library.
-FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 99ba4b0dfea5dfd2099047bbbd136adbff138ac5c2316c7f57f4fa485f50968f
+FROM /demos/cmake/Dollyfile-cmake-build 9f5063c14de7baead7da6889bb8078885c2e76a9d4554e02a92550798545f1ad
 # Dawn's CMake requires a Python 3 interpreter.
-USE /v0.1.7/demos/python/Dollyfile-python c97238b02344b36aad552b36fd2f73d450811ecaf7f5464374e82e8af15b80d7
+USE /demos/python/Dollyfile-python d3c5640d46e8189cd090e530bf21a3fa5ec4190cbb55b2ca10a6997b8942ff2c
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python
@@ -23,7 +23,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/godot/spirv-wgsl.tar.gz bda3c2877ecfdad5470d55828305195495215b7d116e19e0426dcaafa61f7992 /tmp/spirv-wgsl.tar.gz
+SOURCE /dist/static/godot/spirv-wgsl.tar.gz bda3c2877ecfdad5470d55828305195495215b7d116e19e0426dcaafa61f7992 /tmp/spirv-wgsl.tar.gz
 SLOP gzip -dc /tmp/spirv-wgsl.tar.gz | tar -xf - -C /
 SLOP rm /tmp/spirv-wgsl.tar.gz
 # Dawn's utilities know POSIX only by the systems they name, and trap on WebAssembly through

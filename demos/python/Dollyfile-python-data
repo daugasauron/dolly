@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 APPLICATION python-data
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -17,20 +17,20 @@ REQUIRES HOST threads@0
 # default's packages, Python and the packages of the libraries python-data-build
 # compiled: a session imports NumPy, pandas, Matplotlib and seaborn at once,
 # with nothing to build or fetch.
-INSTALL /v0.1.7/Dollyfile-core 0400b7c98241821542518a568100a4d8abf5e6642e2dbbc3b09f3512dfc75ba0
-INSTALL /v0.1.7/Dollyfile-posix 1253bee9688e620f912bff5694ce133044a38d20392218a152f9da4d3a290e63
-INSTALL /v0.1.7/Dollyfile-display a6680af8ee3a48c935c74f701bdd3b31b15ea2aa9e7d98cd8776d9509c81fbd2
-INSTALL /v0.1.7/Dollyfile-curl 6307c6eac2d990657b961ba9ea05fc7f5c261d2f2c2c8662a9876b45ac210f3c
-INSTALL /v0.1.7/Dollyfile-amy 68444169857e8d1bcac03c0541ea52c1b8660b8bffa61a466c83de79ddc79f76
-INSTALL /v0.1.7/Dollyfile-nena 034d9012d6b5e77516510c595148261044f289c279457d35b437052292439b75
-INSTALL /v0.1.7/Dollyfile-transfer c581eb92dcc14d12e251f686ba9ff508aeab68afcc4205254c54e184e9e889a4
-INSTALL /v0.1.7/Dollyfile-html d0f2559ed00977f24f66e949ba47b177f835383f6f929c6041115908b3a88682
-INSTALL /v0.1.7/Dollyfile-ps 39cdf2bfaa3fb52f3c161672634f9600381754e6f006971896d6f79b6b345b77
-INSTALL /v0.1.7/demos/python/Dollyfile-python c97238b02344b36aad552b36fd2f73d450811ecaf7f5464374e82e8af15b80d7
-INSTALL /v0.1.7/demos/python/Dollyfile-numpy fa873f460c89c332de686cd2b333d5b285ec80d143918a6542fec4593c9baf50
-INSTALL /v0.1.7/demos/python/Dollyfile-pandas 4cedefe5d01b6904aff832406f9eea61f373e63f8452524f08722a3c996d2e32
-INSTALL /v0.1.7/demos/python/Dollyfile-matplotlib a3357d1281e77252f36ca33c01ab6cb3562b58dd3fbb19d29e1b2ce121cc9ec6
-INSTALL /v0.1.7/demos/python/Dollyfile-seaborn e200cba8997d1f575af289a4b38167bf2137dae82bb38d103315cd15010efbed
+INSTALL /Dollyfile-core 166a616e6fa02fcb50ce0f30f5483b0ce42b418474b1cab6fcf0734fb1bc1b85
+INSTALL /Dollyfile-posix 943bc6bf48ff57429ec1e3277886e915298aff2e0df4a389fa775df2232d01c0
+INSTALL /Dollyfile-display 73f7656db001d9683469bef6425e779344eef58116465f2c14c2abec17a0d0e8
+INSTALL /Dollyfile-curl 877a4852c3c98664730e58d4d7f6bf78bf72a88cc04ff064dc7a6a5e795e4971
+INSTALL /Dollyfile-amy f5c236f3c5b3222a85556dbbfd3c00ab8f46d81285fd0183f8d6464e9159c657
+INSTALL /Dollyfile-nena 15cbc7c9c9fe9b2c17f4cefaa19c80901b5e22189dc5787192399cab4292a95f
+INSTALL /Dollyfile-transfer c514e27f5bfc319e3eacdd383baf8cb3a9ad358fa8d63d7cf2acea46f3dcfcb3
+INSTALL /Dollyfile-html 0b37f5a77a48d679d60d768f4d3eb6aa895aa3f43856535bb2c3eb83b88a6a53
+INSTALL /Dollyfile-ps ca50cc0e628e9a4adacf91febd5e26b9ee2825a4e9ab33b9ee41d313b29a291f
+INSTALL /demos/python/Dollyfile-python d3c5640d46e8189cd090e530bf21a3fa5ec4190cbb55b2ca10a6997b8942ff2c
+INSTALL /demos/python/Dollyfile-numpy fbad5191ce558d6712bc1700ff98e1b09f59445672c8a40e20fda92987c93456
+INSTALL /demos/python/Dollyfile-pandas 28505736d4c04ad0e9668fab0058ae65b2cc42105701f0301bb5cc5486761196
+INSTALL /demos/python/Dollyfile-matplotlib 656e45243e2c1c1af9d3fa6d4fce27674985d2eb6282cf80fdf978ea68f789b6
+INSTALL /demos/python/Dollyfile-seaborn f04e1ab00d1e49cb98f79b0f0baa858e43e151f473e22bcd9cad06f1de76439f
 REQUIRES TOOL python
 
 # The font list Matplotlib writes on its first import, which takes 6 s, kept

@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE xterm
 REQUIRES HOST runtime@0
 REQUIRES HOST pty@0
@@ -9,9 +9,9 @@ REQUIRES HOST sockets@0
 # no fork, so xterm runs in its own slave mode (-S): xterm-pty, Dolly's part,
 # opens the pseudo-terminal, starts xterm on its master and the shell on its
 # slave. It is installed as xterm; upstream's program is /usr/libexec/xterm.
-FROM /v0.1.7/demos/x11/Dollyfile-x11-build 0e058acfa14e3aa3f876b90ee94a4d0a9a4a1da866e51cc7f5f432ce891ff6e0
-USE /v0.1.7/demos/tmux/Dollyfile-libterminfo 0a758d79e682b3a980a6ff0fc1d39417ea56f4d502050862aecacbaab50c60c3
-USE /v0.1.7/Dollyfile-libdolly-pty 67d1c150da08266c5297e377f4cab8dda24306e701ac3f58d2347f90778a4c07
+FROM /demos/x11/Dollyfile-x11-build c4e6495ca2194f2d6234d36548db4aa0a2ca6e08cd22f27f5fb2045c77b6d7de
+USE /demos/tmux/Dollyfile-libterminfo ed1bdbe0ae9725cb9fc26d2d370e7bf411b164f52f660bfca8da483279f88f87
+USE /Dollyfile-libdolly-pty 11dfb478567df24f606432ffff169fc7306fe81f5796974b94ac2c1f65e6871c
 
 REQUIRES HEADER term
 REQUIRES LIB terminfo
@@ -19,9 +19,9 @@ REQUIRES TOOL awk
 REQUIRES TOOL gzip
 REQUIRES TOOL mv
 
-SOURCE /v0.1.7/dist/static/x11/xterm-412.tar.gz 26b76917f13b56f5bfa69ac1984ef688c1b22cf7100cd4ad02352ba5899c537d /tmp/xterm.tar.gz
+SOURCE /dist/static/x11/xterm-412.tar.gz 26b76917f13b56f5bfa69ac1984ef688c1b22cf7100cd4ad02352ba5899c537d /tmp/xterm.tar.gz
 SLOP gzip -dc /tmp/xterm.tar.gz | tar -xf - -C /tmp && mv /tmp/xterm-snapshots-xterm-412 /tmp/xterm
-SOURCE /v0.1.7/dist/static/x11/xterm-pty.c 24aaf9abc75b345d1ab4e89e1afdec3ec0f4fe394d8e4993bb330ba6dd96475a /tmp/xterm-pty.c
+SOURCE /dist/static/x11/xterm-pty.c 24aaf9abc75b345d1ab4e89e1afdec3ec0f4fe394d8e4993bb330ba6dd96475a /tmp/xterm-pty.c
 
 # Slop does not run the configure script, so this says what it would find
 # here, with the features left out named. setsid, setpgid and utmp are not

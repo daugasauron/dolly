@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE voxel-flyover
 REQUIRES HOST runtime@0
 REQUIRES HOST audio@0
@@ -16,9 +16,9 @@ REQUIRES HOST clipboard@0
 # the vertex stages raise grids of land to it and stand trees on it. Its
 # project (demos/godot/voxel-flyover) is imported and exported here by Godot's editor, and
 # voxel-flyover plays the pack with godot, which installs with it. The project installs too.
-FROM /v0.1.7/Dollyfile-system 53019922324696a18a573eededf9b475fe22e783d58f35585fe5c73943b926ae
-INSTALL /v0.1.7/demos/godot/Dollyfile-godot 90cfd59c46d36133a1c428d3f38c6e903e556287d1beeaca3606f5109920b7d6
-USE /v0.1.7/demos/godot/Dollyfile-godot-editor 74722c3bfa226f992bfb08693a25231a653aa74fe53cd30606ba77bef21b08cd
+FROM /Dollyfile-system 40cc3295c8b8b9cb65a54dad7383bc370977ab5c7de4d91fe26a24c89ae787cd
+INSTALL /demos/godot/Dollyfile-godot 662bc7918a0eccac92fc36d59cee9afed5a450649adb2ae23fd6ca7c2123010f
+USE /demos/godot/Dollyfile-godot-editor a1f4b8717c110935c66ee777fd5b4a654d79afc1eed624cb72765c5b02bdc53c
 
 REQUIRES TOOL cp
 REQUIRES TOOL godot-editor
@@ -26,7 +26,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.7/dist/static/godot/voxel-flyover.tar 023f103b510f45048cb6b60c055c166241472fd0274117f068444e8a77c965f7 /tmp/voxel-flyover.tar
+SOURCE /dist/static/godot/voxel-flyover.tar 023f103b510f45048cb6b60c055c166241472fd0274117f068444e8a77c965f7 /tmp/voxel-flyover.tar
 SLOP CWD / tar -xf /tmp/voxel-flyover.tar
 SLOP mkdir -p /usr/share/voxel-flyover
 SLOP cp -r /usr/src/voxel-flyover /usr/share/voxel-flyover/project

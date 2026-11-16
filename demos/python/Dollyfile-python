@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE python
 REQUIRES HOST runtime@0
 REQUIRES HOST dso@0
@@ -6,11 +6,11 @@ REQUIRES HOST http@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.7/Dollyfile-system 53019922324696a18a573eededf9b475fe22e783d58f35585fe5c73943b926ae
-USE /v0.1.7/Dollyfile-libdolly-sockets c6b3e098f7bd988e69bdfdda8306af2e6c565b0e7abcdb9bda5dba2a48a2bfa9
-USE /v0.1.7/demos/tools/Dollyfile-sqlite 5b8b1bb1caebf8119a4c2c11bc897db30dcde77936ee7a31d4f1634df20f9e35
-USE /v0.1.7/demos/tools/Dollyfile-bzip2 4c4c113645923d9d2d872ace619529a96c5f168d094a47afa7a1f792993dfb14
-USE /v0.1.7/demos/tools/Dollyfile-xz d07bf61b88901661d5f75bc5000003f0df152c88dad282c46e57bd55f3a5adbb
+FROM /Dollyfile-system 40cc3295c8b8b9cb65a54dad7383bc370977ab5c7de4d91fe26a24c89ae787cd
+USE /Dollyfile-libdolly-sockets b85bc6492b49b4a48d37e8a944f74132c49a08f1b6096d102418f75ffab936fc
+USE /demos/tools/Dollyfile-sqlite dfbd442a4a27737be9ad83da254a0955f8ce407682f54bf7283a5894c50846b5
+USE /demos/tools/Dollyfile-bzip2 eca62f2da0276bae79abdc79d9fd274a2840f21aea93be3fb47bd404cbe1330b
+USE /demos/tools/Dollyfile-xz fb45e263ff3e306cb043713fcaf500b856cc32c973085d1e8057f07ba4147c83
 # Build the Python runtime and native extension SDK; pip.dm adds pip.
 REQUIRES HEADER curl
 REQUIRES HEADER libc
@@ -36,7 +36,7 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   touch
 
-INSTALL /v0.1.7/demos/python/Dollyfile-libffi 249d61ea3501e8bc465e6457194353bb773fef2bc59731ef3b22fc7e1781b8c4
+INSTALL /demos/python/Dollyfile-libffi 4d7683e0ae4ff4431d5f30ae1f8a802e85cdaa0939ad929ac9fc67a68df383f0
 EXPORTS LIB    ffi       /usr/lib/libffi.a
 EXPORTS HEADER ffi       /usr/include/ffi.h
 EXPORTS HEADER ffitarget /usr/include/ffitarget.h
@@ -58,17 +58,17 @@ EXPORTS ENV PYTHONDONTWRITEBYTECODE 1
 # The target is configured outside the browser, but every target object and
 # executable is compiled here. Dolly-owned adapters remain independent pinned
 # inputs instead of being hidden inside the upstream archive.
-SOURCE /v0.1.7/dist/static/python/cpython.tar.gz 14c1e5ba898d41d32ff11e912179671fdb80cd42334dbab7f2a01e05a65a71bf /tmp/cpython.tar.gz
+SOURCE /dist/static/python/cpython.tar.gz 14c1e5ba898d41d32ff11e912179671fdb80cd42334dbab7f2a01e05a65a71bf /tmp/cpython.tar.gz
 
 SLOP gzip -dc /tmp/cpython.tar.gz | tar -xf - -C /
 
-SOURCE /v0.1.7/dist/static/python/runtimes/cpython-platform.c        20c5c120f835ce94ceb9be08cc25c4623ae333d844b2d3c3098ffed36f3b41eb /usr/src/python/Python/dolly_platform.c
-SOURCE /v0.1.7/dist/static/python/runtimes/cpython-extension-check.c 1763ec04e582beee6066af81c93fe20e8cf0d83ae7d41d935b395c5cb3cdf071 /usr/src/python/Modules/dolly_extension_check.c
-SOURCE /v0.1.7/dist/static/python/runtimes/cpython-socket-stubs.c    2aebdbdf3722dfa79f7b7eeb178b4beae2894a3d35ef12501054fb667342b335 /usr/src/python/Modules/dolly_socket_stubs.c
-SOURCE /v0.1.7/dist/static/python/runtimes/cpython-http.c 13610f3322a4d09aa558e5d31523a082303835bf7c5981557c09443562cdc2da /usr/src/python/Modules/dolly_http.c
-SOURCE /v0.1.7/dist/static/python/runtimes/cpython-transport.py 4567a855ff8459f6671c770dd69d93c84870bef3acd272f11ca28a394c9be92d /usr/src/python/Lib/_dolly_transport.py
-SOURCE /v0.1.7/dist/static/python/runtimes/cpython-process.c         354dd7a01f1d16276d8478fdcb41bcb07da3078d6860ba52b423e059a32dd389 /usr/src/python/Modules/dolly_process.c
-SOURCE /v0.1.7/dist/static/python/runtimes/cpython-subprocess.py     cabc2b4eb15e61332c2b63454724c3b390c5f2a2f0effa2889861e123835b785 /usr/src/python/Lib/_dolly_subprocess.py
+SOURCE /dist/static/python/runtimes/cpython-platform.c        20c5c120f835ce94ceb9be08cc25c4623ae333d844b2d3c3098ffed36f3b41eb /usr/src/python/Python/dolly_platform.c
+SOURCE /dist/static/python/runtimes/cpython-extension-check.c 1763ec04e582beee6066af81c93fe20e8cf0d83ae7d41d935b395c5cb3cdf071 /usr/src/python/Modules/dolly_extension_check.c
+SOURCE /dist/static/python/runtimes/cpython-socket-stubs.c    2aebdbdf3722dfa79f7b7eeb178b4beae2894a3d35ef12501054fb667342b335 /usr/src/python/Modules/dolly_socket_stubs.c
+SOURCE /dist/static/python/runtimes/cpython-http.c 13610f3322a4d09aa558e5d31523a082303835bf7c5981557c09443562cdc2da /usr/src/python/Modules/dolly_http.c
+SOURCE /dist/static/python/runtimes/cpython-transport.py 4567a855ff8459f6671c770dd69d93c84870bef3acd272f11ca28a394c9be92d /usr/src/python/Lib/_dolly_transport.py
+SOURCE /dist/static/python/runtimes/cpython-process.c         354dd7a01f1d16276d8478fdcb41bcb07da3078d6860ba52b423e059a32dd389 /usr/src/python/Modules/dolly_process.c
+SOURCE /dist/static/python/runtimes/cpython-subprocess.py     cabc2b4eb15e61332c2b63454724c3b390c5f2a2f0effa2889861e123835b785 /usr/src/python/Lib/_dolly_subprocess.py
 
 # The embedded LLVM optimizer spends minutes on a small measured set of
 # translation units. Compile only those outliers at -O0 and let upstream Make
@@ -351,7 +351,7 @@ EXPORTS TOOL pip3
 
 # pip builds what has no wheel for Dolly, which is every native package: a C
 # extension with the compiler, a Meson project such as NumPy with Ninja too.
-INSTALL /v0.1.7/Dollyfile-cc 99770d8693eaf1c5430782512d808e84fb33a172acb3fb0184234068f5bf4384
+INSTALL /Dollyfile-cc 0e5ae551b2fb28bfd25a12d5c9960e999d6f18f54df4ef4f2b2cac01f4be7b25
 
 # The browser policy decides which indexes are reachable; skip pip's own
 # PyPI version check. Dolly has one user, uid 0. sdists build as upstream

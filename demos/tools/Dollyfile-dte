@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE dte
 REQUIRES HOST runtime@0
 
@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # upstream's release archive, unchanged. It draws with its own escape
 # sequences and reads no terminal database. Its makefile asks the compiler ten
 # questions through a shell that Slop is not; feature.h holds the answers.
-FROM /v0.1.7/demos/tools/Dollyfile-tools-build 10f0bb40fc327b66565fb4439808c0fd06fe344684885eef70e1fccb4472af58
+FROM /demos/tools/Dollyfile-tools-build 005a2a8eae57747e84a8b4d29881997831c270adf271238f34a0f3375220c51f
 
 REQUIRES HEADER libc
 REQUIRES TOOL   awk
@@ -20,7 +20,7 @@ REQUIRES TOOL   mv
 REQUIRES TOOL   tar
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.7/dist/static/tools/dte-1.11.1.tar.gz 3d7d0d375fd31906ed436de20161dddc42d97f969a93d22b02aecfc3451e6c39 /tmp/dte.tar.gz
+SOURCE /dist/static/tools/dte-1.11.1.tar.gz 3d7d0d375fd31906ed436de20161dddc42d97f969a93d22b02aecfc3451e6c39 /tmp/dte.tar.gz
 SLOP gzip -dc /tmp/dte.tar.gz | tar -xf - -C /tmp && mv /tmp/dte-1.11.1 /tmp/dte
 
 # Not found here: sig2str, sigabbrev_np, and a controlling terminal to leave

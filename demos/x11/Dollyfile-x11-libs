@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE x11-libs
 REQUIRES HOST runtime@0
 REQUIRES HOST sockets@0
@@ -8,8 +8,8 @@ REQUIRES HOST sockets@0
 # extension libraries and the Athena toolkit's stack, static, with their
 # headers, X.Org's protocol headers and the pkg-config files of both. xcb and
 # ICE reach the X server through sockets@0's client, which comes with them.
-FROM /v0.1.7/demos/x11/Dollyfile-x11-build 0e058acfa14e3aa3f876b90ee94a4d0a9a4a1da866e51cc7f5f432ce891ff6e0
-INSTALL /v0.1.7/Dollyfile-libdolly-sockets c6b3e098f7bd988e69bdfdda8306af2e6c565b0e7abcdb9bda5dba2a48a2bfa9
+FROM /demos/x11/Dollyfile-x11-build c4e6495ca2194f2d6234d36548db4aa0a2ca6e08cd22f27f5fb2045c77b6d7de
+INSTALL /Dollyfile-libdolly-sockets b85bc6492b49b4a48d37e8a944f74132c49a08f1b6096d102418f75ffab936fc
 
 EXPORTS HEADER x11 /usr/include/X11
 EXPORTS HEADER xcb /usr/include/xcb

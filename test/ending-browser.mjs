@@ -8,7 +8,7 @@ import { siteReference } from "../page/static-asset.mjs";
 
 const { default: catalog } = await import("../dist/dolly-images.json", { with: { type: "json" } });
 const hosts = (await readFile(new URL("../Dollyfile-system", import.meta.url), "utf8")).match(/^REQUIRES HOST .*$/gm);
-const recipe = rows => ["DOLLY 7", "APPLICATION ending", ...hosts,
+const recipe = rows => ["DOLLY 8", "APPLICATION ending", ...hosts,
   `FROM ${siteReference("Dollyfile-system")} ${catalog.images.find(({ image }) => image === "system").sha256}`, ...rows, ""].join("\n");
 const ended = async page => {
   await page.waitForFunction(() => ["exited", "failed"].includes(document.documentElement.dataset.dollyStatus), null, { timeout: 90_000 });

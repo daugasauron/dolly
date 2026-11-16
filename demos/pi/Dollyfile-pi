@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE pi
 REQUIRES HOST runtime@0
 REQUIRES HOST download@0
@@ -10,10 +10,10 @@ REQUIRES HOST threads@0
 # their registry files the site serves (prepare-pi-npm.mjs). The pi command runs
 # dist/cli.js in its own process; npm's bin, dist/bundle/cli.js, would need
 # Node's require of ES modules and runs the undici it bundles.
-FROM /v0.1.7/Dollyfile-system 53019922324696a18a573eededf9b475fe22e783d58f35585fe5c73943b926ae
-INSTALL /v0.1.7/demos/javascript/Dollyfile-janis-install 5f560d22360109ea233a749362cad2c2d218375f04790f2aa5426559437c7c89
-INSTALL /v0.1.7/demos/rust/Dollyfile-ripgrep ec48db7475ebc89af3f99d918833d2668ca9183e02635420745f92216f309196
-INSTALL /v0.1.7/demos/rust/Dollyfile-fd e7355001fd0689e8fb699a33672b30f925bb1fafb11e01065138a8ac4925025d
+FROM /Dollyfile-system 40cc3295c8b8b9cb65a54dad7383bc370977ab5c7de4d91fe26a24c89ae787cd
+INSTALL /demos/javascript/Dollyfile-janis-install 927d2ea7054273eb2f8a4139ea54078b5fc871edc02b47541042c0052990f9d9
+INSTALL /demos/rust/Dollyfile-ripgrep d9209854ec7f4345239e1bfc9a393c8d3a7f5ef145c2ca55c3c4168623de2920
+INSTALL /demos/rust/Dollyfile-fd 95fd3d717fe50f83efe67307d883efaa000cfb4c4ca98ea1d77df05c6de80a67
 REQUIRES HEADER quickjs-runner
 REQUIRES LIB    dolly-js
 REQUIRES LIB    quickjs
@@ -23,8 +23,8 @@ REQUIRES TOOL   janis-install
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.7/dist/static/default/pi-npm.tar     6ebb57dbb6755bce129249e8e3c5cad349139979a4a8aff6c9520a8e16650c1f /tmp/pi-npm.tar
-SOURCE /v0.1.7/dist/static/default/commands/pi.c  2296ec09e6b95b0d0dd065f806138e48eaad855d77d6366adfdfc33d720da98e /tmp/pi.c
+SOURCE /dist/static/default/pi-npm.tar     6ebb57dbb6755bce129249e8e3c5cad349139979a4a8aff6c9520a8e16650c1f /tmp/pi-npm.tar
+SOURCE /dist/static/default/commands/pi.c  2296ec09e6b95b0d0dd065f806138e48eaad855d77d6366adfdfc33d720da98e /tmp/pi.c
 SLOP tar -xf /tmp/pi-npm.tar -C /
 SLOP janis-install --registry /tmp/pi-npm @earendil-works/pi-coding-agent@1.0.3
 # Pi is an application nothing compiles against: its tree's source maps and

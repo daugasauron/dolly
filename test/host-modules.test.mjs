@@ -43,10 +43,10 @@ test("every image declares its complete host set itself", async () => {
 test("FROM, INSTALL and COPY carry no host requirements; a package's must be declared", async () => {
   const dir = await mkdtemp(join(tmpdir(), "dolly-host-modules-"));
   try {
-    const base = "DOLLY 7\nAPPLICATION base\nREQUIRES HOST display@0\nENTRY /bin/slop\n";
-    const donor = "DOLLY 7\nAPPLICATION donor\nREQUIRES HOST threads@0\nENTRY /bin/slop\n";
-    const pkg = "DOLLY 7\nPACKAGE pkg\nREQUIRES HOST gpu@0\nFILE /usr/share/pkg\n";
-    const recipe = hosts => `DOLLY 7\nAPPLICATION default\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}FROM ${siteReference("Dollyfile-base")} ${digest(base)}\nCOPY ${siteReference("Dollyfile-donor")} ${digest(donor)} /usr /usr\nINSTALL ${siteReference("Dollyfile-pkg")} ${digest(pkg)}\nENTRY /bin/slop\n`;
+    const base = "DOLLY 8\nAPPLICATION base\nREQUIRES HOST display@0\nENTRY /bin/slop\n";
+    const donor = "DOLLY 8\nAPPLICATION donor\nREQUIRES HOST threads@0\nENTRY /bin/slop\n";
+    const pkg = "DOLLY 8\nPACKAGE pkg\nREQUIRES HOST gpu@0\nFILE /usr/share/pkg\n";
+    const recipe = hosts => `DOLLY 8\nAPPLICATION default\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}FROM ${siteReference("Dollyfile-base")} ${digest(base)}\nCOPY ${siteReference("Dollyfile-donor")} ${digest(donor)} /usr /usr\nINSTALL ${siteReference("Dollyfile-pkg")} ${digest(pkg)}\nENTRY /bin/slop\n`;
     for (const [path, source] of [["Dollyfile-base", base], ["Dollyfile-donor", donor], ["Dollyfile-pkg", pkg]]) {
       await writeFile(join(dir, path), source);
     }

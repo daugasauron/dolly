@@ -12,7 +12,7 @@ project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 domain="$(realpath -- "$1")/current"
 archive="$(realpath -- "${2:-${project_dir}/published}")"
 cd "${project_dir}"
-version="v$(node -p "require('./package.json').version")"
+version="v$(node -e 'import("./page/version.mjs").then(({ DOLLY_VERSION }) => console.log(DOLLY_VERSION))')"
 commit="$(git rev-parse HEAD)"
 stop() { echo "dolly: release stopped: $*" >&2; exit 1; }
 step() { echo "== $*"; }
@@ -85,6 +85,6 @@ cat <<COMMANDS
    node scripts/published-version.mjs boot https://slopshare.dev ${versions}
    node scripts/published-version.mjs boot https://daugasauron.com ${versions}
 8  mv ${deployment}/${version} ${archive}/ && rm -rf ${deployment}
-   then move package.json and page/version.mjs to the next version
+   then move page/version.mjs to the next version
    ${version}'s list, for the release notes: $(sha256sum "${deployment}/${version}/deployment.sha256" | cut -d' ' -f1)
 COMMANDS

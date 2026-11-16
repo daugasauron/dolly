@@ -73,8 +73,6 @@ await browserTest("boundary", { server: { handle } }, async ({ name, server, ope
   assert.notEqual(await submit(`curl -fsS ${reference}.part-0 -o /tmp/boundary-denied`), 0);
   assert.notEqual(await submit(`curl -fsS ${server.origin}${source}.part-0 -o /tmp/boundary-denied`), 0);
   assert.equal(partRequests.length, 2, "derived delivery grants no guest access to sibling URLs");
-  // Another version's path is not this page's file.
-  assert.notEqual(await submit(`curl -fsS /v987.0.21${source} -o /tmp/boundary-denied`), 0);
   corrupt = true;
   assert.notEqual(await submit(`curl -fsS ${reference} -o /tmp/boundary-corrupt`), 0);
   assert.equal(await submit("rm -f /tmp/boundary-source.c /tmp/boundary-corrupt"), 0);

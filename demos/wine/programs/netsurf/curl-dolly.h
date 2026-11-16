@@ -14,8 +14,6 @@
 #include <strings.h>
 #include <curl/curl.h>
 
-#include "version.h"  /* DOLLY_VERSION, as the amy command has it */
-
 /* The API NetSurf is to use: the progress callback of before 7.32, which is the
  * one Dolly's libcurl calls, and the form API's names of before 7.56 (there is
  * no MIME API either: netsurf-dolly.patch refuses a multipart post first). */
@@ -23,15 +21,12 @@
 #define LIBCURL_VERSION_NUM 0x071f00
 
 /* site:/FILE is a file of the site this release is served from, wherever that is: the broker takes
- * the path /vVERSION/FILE for it, and never tells a program the origin. (NetSurf spells an address
+ * the path /FILE for it, and never tells a program the origin. (NetSurf spells an address
  * without a host site:///FILE, as it does file:///FILE.) */
 static inline const char *netsurf_option_string( CURLoption option, const char *string )
 {
-    static char path[4096];
-
     if (option != CURLOPT_URL || !string || strncmp( string, "site:///", 8 )) return string;
-    snprintf( path, sizeof(path), "/v" DOLLY_VERSION "%s", string + 7 );
-    return path;
+    return string + 7;
 }
 
 static inline CURLcode netsurf_easy_setopt_result( CURLoption option, int off, CURLcode code )

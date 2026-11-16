@@ -3,7 +3,7 @@
 // prints the tarballs in the order to publish them: each after the packages it depends on, so a
 // publish npm refuses stops before anything that needs it is out.
 //   node scripts/package-npm.mjs OUT [VERSION]
-// VERSION is the checkout's (package.json) or a prerelease of it, such as 0.1.4-rc.0,
+// VERSION is the checkout's (page/version.mjs) or a prerelease of it, such as 0.1.4-rc.0,
 // which npm publishes beside the release without taking its number.
 // - @daugasauron/dolly, the runtime: what boot() (page/browser.mjs), the Worker and
 //   an image build in the page (site/image-builder.mjs) import, the kernel and the
@@ -30,15 +30,15 @@ import { discoverImageDefinitions, imageRegistryJson, selectImageDefinitions } f
 import { amyIndex, heldPackages, indexSource, plainText } from "./image-directory.mjs";
 import { imageDescriptions } from "./image-menu.mjs";
 import { siteReference, sitePath } from "../page/static-asset.mjs";
+import { DOLLY_VERSION } from "../page/version.mjs";
 import { hostManifests } from "../host/manifests.mjs";
 import { npmPackageName } from "./npm-names.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const out = resolve(process.argv[2] ?? "");
 if (!process.argv[2]) throw new Error("usage: package-npm.mjs OUT [VERSION]");
-const checkout = JSON.parse(await readFile(resolve(projectDir, "package.json"), "utf8")).version;
-const version = process.argv[3] ?? checkout;
-if (version !== checkout && !version.startsWith(`${checkout}-`)) throw new Error(`VERSION is ${checkout} or a prerelease of it`);
+const version = process.argv[3] ?? DOLLY_VERSION;
+if (version !== DOLLY_VERSION && !version.startsWith(`${DOLLY_VERSION}-`)) throw new Error(`VERSION is ${DOLLY_VERSION} or a prerelease of it`);
 const scope = "@daugasauron";
 // The modules that are the runtime's own machinery, and the device modules each
 // published on its own: the rest of host/manifests.mjs but build@0, which builds

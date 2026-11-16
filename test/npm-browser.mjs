@@ -340,7 +340,7 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
   await mkdir(join(dataApp, "public"), { recursive: true });
   await npm(dataApp, "npm init --yes");
   await npm(dataApp, `${/```sh\n([\s\S]*?)```/.exec(dataReadme)[1].trim()} @daugasauron/dolly-build`);
-  await writeFile(join(dataApp, "Dollyfile-my-data"), ["DOLLY 7", "APPLICATION my-data",
+  await writeFile(join(dataApp, "Dollyfile-my-data"), ["DOLLY 8", "APPLICATION my-data",
     ...declared("python-data").map(host => `REQUIRES HOST ${host}`), /^FROM .*$/m.exec(dataReadme)[0],
     "FILE /home/dolly/mean.py", "    import numpy, pandas", "    print('MEAN', pandas.Series(numpy.arange(10)).mean())",
     "SLOP python /home/dolly/mean.py > /home/dolly/mean.txt", "FILE /home/dolly/mean.txt",

@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 APPLICATION speech-to-text-mic
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -7,10 +7,10 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST microphone@0
 REQUIRES HOST threads@0
 
-INSTALL /v0.1.7/Dollyfile-core 0400b7c98241821542518a568100a4d8abf5e6642e2dbbc3b09f3512dfc75ba0
-INSTALL /v0.1.7/Dollyfile-posix 1253bee9688e620f912bff5694ce133044a38d20392218a152f9da4d3a290e63
-INSTALL /v0.1.7/Dollyfile-display a6680af8ee3a48c935c74f701bdd3b31b15ea2aa9e7d98cd8776d9509c81fbd2
-INSTALL /v0.1.7/demos/speech/Dollyfile-speech-to-text 3d0b2873c5e389d7c7599c95b44b3778d62913272f64f5b07946b81286b40791
+INSTALL /Dollyfile-core 166a616e6fa02fcb50ce0f30f5483b0ce42b418474b1cab6fcf0734fb1bc1b85
+INSTALL /Dollyfile-posix 943bc6bf48ff57429ec1e3277886e915298aff2e0df4a389fa775df2232d01c0
+INSTALL /Dollyfile-display 73f7656db001d9683469bef6425e779344eef58116465f2c14c2abec17a0d0e8
+INSTALL /demos/speech/Dollyfile-speech-to-text 5e5181176603ec58563437f0832370b9bfbff2e528e3734b7076e0735ab11a74
 
 FILE /etc/dolly/init.slop
     /bin/foreground -i /usr/bin/speech-to-text

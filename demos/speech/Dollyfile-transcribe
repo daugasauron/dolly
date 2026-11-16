@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE transcribe
 REQUIRES HOST runtime@0
 # The engine's CPU backend runs threads, in every program it is linked into.
@@ -8,7 +8,7 @@ REQUIRES HOST threads@0
 # its ggml, for programs the cc package links (speech-to-text, voice). Threads
 # and SIMD are what let the model keep up with speech. The archives are in a
 # directory of their own, beside llama.cpp's ggml in /usr/lib/dolly-llm.
-FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 99ba4b0dfea5dfd2099047bbbd136adbff138ac5c2316c7f57f4fa485f50968f
+FROM /demos/cmake/Dollyfile-cmake-build 9f5063c14de7baead7da6889bb8078885c2e76a9d4554e02a92550798545f1ad
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL cmake
@@ -17,7 +17,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL mkdir
 REQUIRES TOOL cp
 
-SOURCE /v0.1.7/dist/static/speech/source.tar da5d07ef53db3cf0f2147db7488a06e76b17e0698f23825ebd62752a14dae4ac /tmp/speech-source.tar
+SOURCE /dist/static/speech/source.tar da5d07ef53db3cf0f2147db7488a06e76b17e0698f23825ebd62752a14dae4ac /tmp/speech-source.tar
 SLOP tar -xf /tmp/speech-source.tar -C /
 # ggml's precompiled header is not built by cc.
 SLOP cmake -S /tmp/transcribe -B /tmp/transcribe/build \

@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN system
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -9,23 +9,23 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.7/Dollyfile-system-tools 6699b9ce9339fe8ee70c02972b8a4b10242adb71dd63c3a5ac5da48f8d1828ed
+FROM /Dollyfile-system-tools cf31f806ea02b6bed2397c3db9c73677498b0b16a9272dee51581a8e290d6a5e
 # The page's file exchange, here and in the images built on this one.
-INSTALL /v0.1.7/Dollyfile-transfer c581eb92dcc14d12e251f686ba9ff508aeab68afcc4205254c54e184e9e889a4
-INSTALL /v0.1.7/Dollyfile-session-recover dac2734196dd20cd7c812e8a8e5baa8e611d3373ba18ab84a0350ab8e99eb9ec
+INSTALL /Dollyfile-transfer c514e27f5bfc319e3eacdd383baf8cb3a9ad358fa8d63d7cf2acea46f3dcfcb3
+INSTALL /Dollyfile-session-recover 79428ab11e8253c255cc1507ddacf0f53cff95a8c50d6314404778c750890c0c
 # The packages made of what system-build and system-tools built: this image
 # holds their files, and its record says so, as it does for every INSTALL.
-INSTALL /v0.1.7/Dollyfile-core 0400b7c98241821542518a568100a4d8abf5e6642e2dbbc3b09f3512dfc75ba0
-INSTALL /v0.1.7/Dollyfile-cc 99770d8693eaf1c5430782512d808e84fb33a172acb3fb0184234068f5bf4384
-INSTALL /v0.1.7/Dollyfile-make a112013355c149dffe55b298389acf0644cba1b1c62f63dc82ed7246d95682d5
-INSTALL /v0.1.7/Dollyfile-posix 1253bee9688e620f912bff5694ce133044a38d20392218a152f9da4d3a290e63
-INSTALL /v0.1.7/Dollyfile-ninja a2fb91cdc3620687c398b866736cc487bed9e30c75f246d057044ae198260f06
+INSTALL /Dollyfile-core 166a616e6fa02fcb50ce0f30f5483b0ce42b418474b1cab6fcf0734fb1bc1b85
+INSTALL /Dollyfile-cc 0e5ae551b2fb28bfd25a12d5c9960e999d6f18f54df4ef4f2b2cac01f4be7b25
+INSTALL /Dollyfile-make ae04ab01d671937bda1748bbd7e46c0927b59ba518539231eb751cc395c4e2fe
+INSTALL /Dollyfile-posix 943bc6bf48ff57429ec1e3277886e915298aff2e0df4a389fa775df2232d01c0
+INSTALL /Dollyfile-ninja 102f4f58f5934638151d05a4b6a7c59e3d23dcf0111087ae080d585ccdce4d11
 # The headers and clients of the modules this toolchain declares, for the
 # programs it builds.
-INSTALL /v0.1.7/Dollyfile-libdolly-display dca7d4755a50b8dbaa6abc4fd5b8fa34cccbb6400a4fd167d90e9a0f1bcee9ad
-INSTALL /v0.1.7/Dollyfile-libdolly-input 80f7d6d7b775fa542711f6d0205280a3d3f4c5a68eb0f3223f81fc2fe64df08e
-INSTALL /v0.1.7/Dollyfile-libdolly-download bf7303fc0e340e9d2049ae295205598ee876e0af0cbfe160583c055f2f588439
-INSTALL /v0.1.7/Dollyfile-libdolly-upload 14f4545e2fb3a6c4440e435088caffb7261ee640d6650424b3547a94114deb66
-INSTALL /v0.1.7/Dollyfile-libdolly-threads bc7e305b02d24669ad8e26bd1184da044bbfa52339acc5348ac3d75059ee153c
+INSTALL /Dollyfile-libdolly-display f79f24b4c73522811689b8b3f19f9553b06897cbd86c0c320772d38b0d8b1bb4
+INSTALL /Dollyfile-libdolly-input 275dee1989705c3713c8a1f754b265c00bad0c691831da74eb600f71462ac8a9
+INSTALL /Dollyfile-libdolly-download 9b3a73f7f5c22cc4738d648b7058b47f3c7f98a5683de3c7c9a5e73eaf081e78
+INSTALL /Dollyfile-libdolly-upload d0e4f629cff82aa582d6e0e81d4bf91fbf81f992991df2f7df6c627bfcf684da
+INSTALL /Dollyfile-libdolly-threads caa8d6ae97e68fc5ef02d843d1d29dcba7d6fedf30beef453ab6c7d5e16c2c63
 
 ENTRY /bin/foreground -i /bin/slop

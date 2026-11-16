@@ -33,7 +33,7 @@ await browserTest("sockets not declared", { image: "system", server: { fixtures:
 
   const pin = name => { const { dollyfile, sha256 } = catalog.images.find(({ image }) => image === name); return `${siteReference(dollyfile)} ${sha256}`; };
   const { hostRequirements } = catalog.images.find(({ image }) => image === "system");
-  const recipe = ["DOLLY 7", "APPLICATION unsealed", ...hostRequirements.map(module => `REQUIRES HOST ${module}`),
+  const recipe = ["DOLLY 8", "APPLICATION unsealed", ...hostRequirements.map(module => `REQUIRES HOST ${module}`),
     `FROM ${pin("system")}`, `INSTALL ${pin("libdolly-sockets")}`, "REQUIRES TOOL cc", "FILE /tmp/asked.c", "    #include <sys/socket.h>",
     "    int main(void) { int ends[2]; return socketpair(AF_UNIX, SOCK_STREAM, 0, ends); }",
     "SLOP cc /tmp/asked.c -ldolly-sockets -o /usr/bin/asked", "EXPORTS TOOL asked", "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");

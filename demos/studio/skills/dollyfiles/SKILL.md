@@ -1,6 +1,6 @@
 ---
 name: dollyfiles
-description: Write, lint and build Dollyfile (DOLLY 7) recipes for custom Dolly images and packages in Dollyfile Studio - roles, REQUIRES HOST, FROM, INSTALL, RUN and SLOP steps, finding paths and pins, dollyfile-lint and dollyfile-build. Use for any task that creates or changes an image recipe.
+description: Write, lint and build Dollyfile (DOLLY 8) recipes for custom Dolly images and packages in Dollyfile Studio - roles, REQUIRES HOST, FROM, INSTALL, RUN and SLOP steps, finding paths and pins, dollyfile-lint and dollyfile-build. Use for any task that creates or changes an image recipe.
 ---
 
 # Dollyfiles in Studio
@@ -29,7 +29,7 @@ Never run `/bin/dollyfile` here: it replaces the running image.
 
 ## The rules that cost most retries
 
-- Line 1 `DOLLY 7`, line 2 the role: `APPLICATION name` (opened by people;
+- Line 1 `DOLLY 8`, line 2 the role: `APPLICATION name` (opened by people;
   needs `ENTRY`), `TOOLCHAIN name` (a base to build on) or `PACKAGE name`
   (installed with `INSTALL` or `amy`; no `ENTRY`).
 - An application is made of packages and has no `FROM`: it installs `core`
@@ -65,9 +65,9 @@ Never run `/bin/dollyfile` here: it replaces the running image.
 ## Paths and pins
 
 Every `FROM`, `INSTALL`, `COPY` and `SOURCE` names a file and the SHA-256 of
-its exact bytes; never invent either. A file of this site is a path that
-starts with the site's version (`/vX.Y.Z/Dollyfile-system`); a `SOURCE` may
-also be a full URL of another site.
+its exact bytes; never invent either. A file of this site is its path from
+the site's root (`/Dollyfile-system`); a `SOURCE` may also be a full URL of
+another site.
 
 - Packages: `amy list` names and describes them; `amy info NAME` prints the
   `INSTALL PATH SHA256` row.

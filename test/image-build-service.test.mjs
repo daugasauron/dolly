@@ -9,7 +9,7 @@ import { describeImageArtifact, sha256 } from "../site/image-artifact.mjs";
 import { encodeSnapshotRecords } from "../page/snapshot-records.mjs";
 
 const encoder = new TextEncoder(), decoder = new TextDecoder();
-const source = "DOLLY 7\nAPPLICATION proof\nENTRY /bin/slop\n";
+const source = "DOLLY 8\nAPPLICATION proof\nENTRY /bin/slop\n";
 const url = new URL(BUILD_ORIGIN + "/v1/builds");
 const request = (text = source, signal) => ({ method: "POST", body: encoder.encode(text), signal });
 const event = async reader => JSON.parse(decoder.decode((await reader.read()).value));
@@ -120,7 +120,7 @@ test("UI, consumer and request cancellation release owned state", async () => {
 test("malformed/oversize sources never start work; build errors and output floods produce bounded failures", async () => {
   let runs = 0;
   const service = new ImageBuildService(inspectDollyfile, async (_source, report) => { runs++; report("x".repeat(BUILD_LIMITS.maxResponseBytes)); });
-  for (const text of ["DOLLY 2\n", "DOLLY 7\nMODULE tool\n", source + "\0", "x".repeat(128 * 1024 + 1)]) {
+  for (const text of ["DOLLY 2\n", "DOLLY 8\nMODULE tool\n", source + "\0", "x".repeat(128 * 1024 + 1)]) {
     assert.equal((await service.fetch(url, request(text))).status, 400);
   }
   assert.equal(runs, 0);

@@ -1,13 +1,13 @@
-DOLLY 7
+DOLLY 8
 PACKAGE twm
 REQUIRES HOST runtime@0
 REQUIRES HOST sockets@0
 
 # twm, the Tab Window Manager, from X.Org's release archive, unchanged: its
 # parser and default configuration come generated in the archive.
-FROM /v0.1.7/demos/x11/Dollyfile-x11-build 0e058acfa14e3aa3f876b90ee94a4d0a9a4a1da866e51cc7f5f432ce891ff6e0
+FROM /demos/x11/Dollyfile-x11-build c4e6495ca2194f2d6234d36548db4aa0a2ca6e08cd22f27f5fb2045c77b6d7de
 
-SOURCE /v0.1.7/dist/static/x11/twm-1.0.13.1.tar.gz e16bdbc82ac57c096d606a90e63c42c73a4a8a6a8a04d97b7dad199f919c8471 /tmp/twm.tar.gz
+SOURCE /dist/static/x11/twm-1.0.13.1.tar.gz e16bdbc82ac57c096d606a90e63c42c73a4a8a6a8a04d97b7dad199f919c8471 /tmp/twm.tar.gz
 SLOP CWD /tmp gzip -dc twm.tar.gz | tar -xf -
 SLOP CWD /tmp/twm-1.0.13.1/src cc -O2 -DHAVE_MKSTEMP -DAPP_VERSION='"1.0.13.1"' -DDATADIR='"/usr/share"' \
   *.c -o /usr/bin/twm -lXmu -lXt -lSM -lICE -lXext -lX11 -lxcb -lXau -ldolly-sockets
