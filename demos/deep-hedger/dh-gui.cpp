@@ -486,8 +486,8 @@ static void hedge_tab() {
 static void contracts_tab() {
   if (!ImGui::BeginTable("quotes", 12, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY)) return;
   ImGui::TableSetupScrollFreeze(0, 1);
-  for (const char *name : {"expiry", "", "strike", "market bid", "market ask", "model bid", "model ask", "hedge cost", "risk left", "in band", "ask under model bid",
-                           "bid over model ask"})
+  for (const char *name : {"expiry", "", "strike", "market bid", "market ask", "model bid", "model ask", "hedge cost", "risk left", "in band", "ask < model bid",
+                           "bid > model ask"})
     ImGui::TableSetupColumn(name);
   ImGui::TableHeadersRow();
   for (const Contract &c : state.contracts) {
