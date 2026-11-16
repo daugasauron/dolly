@@ -33,13 +33,12 @@ export function refuseChange(name, published, exported) {
   const rows = list => new Map(list.trimEnd().split("\n").map(row => [row.slice(66), row.slice(0, 64)]));
   const before = rows(published), after = rows(exported);
   const own = path => path === "index.html" || path.startsWith("release/");
-  const changed = [...before].filter(([path, sha256]) => !own(path) && after.get(path) !== sha256).map(([path]) => path);
   const added = [...after.keys()].filter(path => !before.has(path) && !own(path));
-  if ([...before.keys()].some(path => path.startsWith("agents/")) || !added.length || changed.length ||
-      added.some(path => !path.startsWith("agents/"))) {
+  const refused = [...[...before].filter(([path, sha256]) => !own(path) && after.get(path) !== sha256).map(([path]) => `changed ${path}`),
+    ...added.filter(path => !path.startsWith("agents/")).map(path => `added ${path}`)];
+  if (refused.length || !added.length || [...before.keys()].some(path => path.startsWith("agents/"))) {
     throw new Error(`${name} is already published, and a published version only adds its showcase, agents/: ` +
-      `${[...changed.map(path => `changed ${path}`), ...added.filter(path => !path.startsWith("agents/")).map(path => `added ${path}`)]
-        .slice(0, 10).join(", ") || "it has one already, or this adds none"}`);
+      (refused.slice(0, 10).join(", ") || "it has one already, or this adds none"));
   }
 }
 
