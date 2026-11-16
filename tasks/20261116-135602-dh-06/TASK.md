@@ -15,7 +15,7 @@ The demo's hedger trades the stock only and its law has independent daily return
 
 ## State 2026-11-17
 
-Not started. What it takes, from what the stock-only build measured:
+Not started in the demo. What it takes, from what the stock-only build measured:
 
 1. **The recursive market.** Every listed option priced at every day of every path by the same
    hedger, backward from the last expiry, each book trading the others at those prices
@@ -23,10 +23,16 @@ Not started. What it takes, from what the stock-only build measured:
    sums and Float64, none of which Dolly's Mojo kernels have). A book's day then costs one policy
    evaluation over all instruments, and a path's sheet is contracts x days books: about 200 x 45
    books a path where the demo has 400.
-2. **Kernels.** A thread's working state has to live in storage buffers: an array of 401 floats
-   local to a thread made the adjoint kernel forty times slower on the NVIDIA driver
-   (task dh-03). A kernel binds at most ten buffers and its WGSL is at most 128 KiB.
+2. **Kernels.** A block's threads have to take the same books and the same branches (task
+   dh-03: 14 times slower otherwise). A kernel binds at most ten buffers and its WGSL is at
+   most 128 KiB; the demo's `adjoint` is at 99 kB and nine buffers.
 3. **Weights conditioned on the path's own past returns** (never on observed ones) and on event
-   dates: the law's table becomes a function evaluated in `simulate`, and `law_gradient` its
-   backward pass.
+   dates: the law's table becomes a function evaluated in `simulate`, its backward pass a
+   recursion over the days of a path, and the day's mean move a number of each path.
+   One trial, on a PyTorch reference of the demo's model (`work/dh-evidence/proto2.py`, this
+   machine): the day's logits as base + f1 * a + f1^2 * b with f1 = tanh(previous return / 2%).
+   On AAPL's chain of 2026-11-13 after 460 iterations its loss was 5.31 against 5.43 without
+   memory, with more risk left to the hedger (0.033 against 0.026): no gain at that length, so
+   it was not ported. Independent returns do reach the chain's forwards and levels, in about
+   700 iterations.
 4. Conflict 4 of THEORY.md (pathwise against state-conditional fill prices) is then measurable.
