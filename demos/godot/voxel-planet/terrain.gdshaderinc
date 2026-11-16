@@ -425,7 +425,8 @@ float weather_at(vec2 p) {
 }
 
 float cloud_depth_seen(vec2 p, int octaves, float wide) {
-	return fbm3_seen((planet_at(p) + drift) / 1000.0 + vec3(31.0, 7.0, 59.0), octaves, wide / 1000.0) + weather_at(p);
+	// A cloud is told from its neighbours only when it is some pixels wide: smaller, they are a haze.
+	return fbm3_seen((planet_at(p) + drift) / 1000.0 + vec3(31.0, 7.0, 59.0), octaves, wide * 3.0 / 1000.0) + weather_at(p);
 }
 
 float cloud_depth(vec2 p, int octaves) {
