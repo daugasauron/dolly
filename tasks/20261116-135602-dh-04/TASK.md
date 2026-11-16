@@ -27,7 +27,7 @@ with `mojo build`, both compiled in the image's build) and the `deep-hedger` app
 reads what dh-fit reports every 20 iterations; six tabs: Volatility, Price, Law, Hedge, Quotes,
 Fit. Served on 127.0.0.1:9050 (`dolly-serve-dh`).
 
-Checked on the last image (commit 209e8819c): in Chrome 156 on the GPU, with the live chain, the
+Checked on the last image (commit 12785ece6): in Chrome 156 on the GPU, with the live chain, the
 fit runs at 2.6 iterations a second beside the GUI and no request fails; the Hedge tab shows the
 hedger holding 0.8 of a share against a call deep in the money, nothing against one far out, and
 at the forward a position that follows the path (`build/dh-evidence/shots/`, this machine).
