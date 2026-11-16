@@ -649,8 +649,12 @@ export class DollyProcessSupervisor {
     worker.addEventListener("messageerror", thread.messageErrorHandler, { once: true });
     // local: the modules this executable records that are served in its own
     // Worker (host/dso), each as the bundle it imports and its configuration.
-    // A held module comes from its Worker, on a channel of this Worker's own.
+    // A held module comes from its Worker, on a channel of this Worker's own,
+    // which the thread keeps: once this Worker collects the ports it handed on,
+    // Firefox forgets what the holder posted that the thread's Worker has not
+    // read yet, and the Worker gets a messageerror (measured 2026-11-17, Firefox 155).
     const channel = module instanceof Worker ? new MessageChannel() : null;
+    thread.moduleChannel = channel;
     channel && module.postMessage({ port: channel.port1 }, [channel.port1]);
     worker.postMessage({ type: "configure", pid, tid: thread.tid, argument, threaded, control,
       threadOperations: threaded ? this.threadHost.operations : undefined,
@@ -955,7 +959,7 @@ export class DollyProcessSupervisor {
     thread.mailbox = 0;
     thread.worker = null;
     thread.control = null;
-    thread.messageHandler = thread.errorHandler = thread.messageErrorHandler = null;
+    thread.messageHandler = thread.errorHandler = thread.messageErrorHandler = thread.moduleChannel = null;
     process.threads.delete(thread.tid);
   }
 

@@ -140,9 +140,11 @@ async function processMemory() {
 async function programModule() {
   const { module } = configuration;
   if (module instanceof WebAssembly.Module) return module;
+  // Its Worker posted it, compiled, as this Worker started: it takes milliseconds.
   const received = await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("the program's module was not provided")), 10_000);
     module.onmessage = ({ data }) => { clearTimeout(timeout); resolve(data); };
+    module.onmessageerror = () => { clearTimeout(timeout); reject(new Error("the program's module could not be received")); };
   });
   module.close();
   if (!(received instanceof WebAssembly.Module)) throw new TypeError("Dolly process received an invalid module");
