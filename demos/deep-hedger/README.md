@@ -20,16 +20,19 @@ until stopped, on fresh paths every iteration.
   The volatility is Black's at the forward the quotes imply; the model has
   none.
 - **Law**: the density of a day's log return in each interval between
-  expiries, its moments, and paths.
+  expiries, its moments, and paths: 28 as they come, and the batch's ten
+  lowest and ten highest.
 - **Fit**: by expiry, the forward the quotes imply and the model's, how many
   model bids and asks are inside the market's band, the market's mean spread
-  and the model's, how much of the model's is hedging cost, and the risk price
-  at which this hedger's costs and risks would add up to the market's
-  spreads; and the loss by report.
+  and the model's, how much of the model's is hedging cost, the risk the
+  hedger leaves as a share of not hedging, and the risk price at which this
+  hedger's costs and risks would add up to the market's spreads; and the loss
+  by report.
 
-**stock cost** is what a stock trade pays, in basis points of its value;
-**risk price** is `lambda` of the theory; **paths** is the batch. Changing one
-takes effect at the next **Fit**.
+**stock cost** is what a stock trade pays, in basis points of its value: it is
+typed, the feed having no quote of the stock. **risk price** is `lambda` of
+the theory; **paths** is the batch. Changing one takes effect at the next
+**Fit**, which starts again from nothing, with another seed.
 
 ## Data
 
@@ -108,8 +111,13 @@ On an RTX 5070 in Chrome 138 (Vulkan), AAPL's chain of 2026-11-13 as loaded on
   returns are close to 0 and then there are soem sudden jumps [...] it's not
   a realistic path law" (2026-07-25). A law with memory is the theory's
   answer (THEORY.md, section 7).
-- **Without the forward in the ledger the fit did not settle** (a PyTorch
-  reference of the same model, on a driftless 25% chain): the hedger held
+- **A second implementation agrees.** A PyTorch reference of the model on the
+  CPU (not in the repository), 800 iterations of 256 paths on the same chain:
+  the hedged books' deviation 0.0273 of the forward against the kernels'
+  0.0271, unhedged 0.0597 against 0.0592, the model's mean spread 0.00036
+  against 0.00034.
+- **Without the forward in the ledger the fit did not settle** (that
+  reference, on a driftless 25% chain): the hedger held
   stock for the law's drift, the forwards stayed 0.6% off and its books
   carried more risk than unhedged ones. With it: forwards 1.0000, 38% of the
   unhedged risk left, 24.6% to 25.1% a year.
