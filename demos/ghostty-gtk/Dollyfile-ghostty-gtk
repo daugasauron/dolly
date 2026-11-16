@@ -117,7 +117,7 @@ FILE /usr/share/licenses/ghostty-gtk/libadwaita-COPYING
 FILE /usr/share/licenses/ghostty-gtk/mesa-license.rst
 FILE /usr/share/man/cat1/ghostty.1
     ghostty: Ghostty's GTK application, built inside Dolly from the pinned
-    commit, for an X server (the ghostty-x11 application starts one).
+    commit, for an X server (x11-desktop starts one).
     
       ghostty                           a window with $SHELL in it
       ghostty --command=direct:/bin/slop --gtk-single-instance=false
