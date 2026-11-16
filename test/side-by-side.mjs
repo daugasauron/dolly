@@ -1,9 +1,10 @@
 import { spawn } from "node:child_process";
+import { relative } from "node:path";
 
 // Runs test files as `PREFIX... node FILE ARGUMENT...`: `limit` of them side by
 // side, then those of `alone` one after another. What a file writes, on both
-// streams in the order it wrote, is printed whole when the file ends.
-// Resolves to each file's exit status, in the order of `files`.
+// streams in the order it wrote, is printed whole when the file ends, then its
+// exit status. Resolves to each file's exit status, in the order of `files`.
 export async function runSideBySide(files, { limit, alone = [], arguments: passed = [], env = process.env, prefix = [] }) {
   const statuses = new Map();
   const run = file => new Promise(resolve => {
@@ -13,7 +14,7 @@ export async function runSideBySide(files, { limit, alone = [], arguments: passe
       { env, stdio: ["ignore", "pipe", "inherit"] });
     child.stdout.on("data", chunk => output.push(chunk));
     child.once("close", status => {
-      process.stdout.write(Buffer.concat(output));
+      process.stdout.write(Buffer.concat([...output, Buffer.from(`== ${relative(process.cwd(), file)}: exit ${status}\n`)]));
       statuses.set(file, status);
       resolve();
     });
