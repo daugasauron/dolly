@@ -177,10 +177,15 @@ export async function exportCloudflarePages(archive, output, site) {
     }
     if (site) {
       const name = releaseVersion(await readFile(resolve(site, "page/version.mjs"), "utf8"));
+      // A published version's later deployment is exported beside it, then takes its place.
       const published = versions.has(name) && await readFile(resolve(archive, name, "deployment.sha256"), "utf8");
-      await rm(resolve(destination, name), { recursive: true, force: true });
-      versions.set(name, await exportVersion(site, resolve(destination, name)));
-      if (published) refuseChange(name, published, await readFile(resolve(destination, name, "deployment.sha256"), "utf8"));
+      const directory = resolve(published ? staging : destination, name);
+      versions.set(name, await exportVersion(site, directory));
+      if (published) {
+        refuseChange(name, published, await readFile(resolve(directory, "deployment.sha256"), "utf8"));
+        await rm(resolve(destination, name), { recursive: true });
+        await rename(directory, resolve(destination, name));
+      }
     }
     const names = [...versions.keys()].sort(compareVersions), newest = names.at(-1);
     if (!newest) throw new Error("no version to deploy");
