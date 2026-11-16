@@ -523,7 +523,7 @@ int main(int, char **) {
   ImGui_ImplSDLRenderer2_Init(renderer);
 
   char symbol[16] = "AAPL", token[128] = "";
-  float cost_bp = 1.0f, risk = 0.05f;
+  float cost_bp = 0.25f, risk = 0.01f;
   int paths = 1024, seed = 1;
   pid_t download = -1, fit = -1;
   FILE *output = nullptr;
