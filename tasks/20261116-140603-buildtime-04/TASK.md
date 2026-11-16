@@ -7,9 +7,23 @@
 From the build-time audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`; logs under its `build/`).
 
-## State (2026-11-16)
+## State (2026-11-17): fixed on `ws/release`; 0.1.8's round and release confirm it
 
-Measured from 0.1.7's round and release logs; nothing changed.
+- The round's separate npm stage is gone: `scripts/round.sh suites` runs the browser suite, which
+  runs `test/npm-browser.mjs` among the core tests, and no second npm run (`ee2bb0a9a`).
+- The checklist's step 3 tests the tarballs it publishes (`DOLLY_NPM_PACKS`), so the release's
+  offline run on the published copy (run 4) has nothing left to test (`df6a9389a`,
+  `tasks/20261116-140230-repo-05`).
+- Xonotic: without a display the test checks the software path alone (the data and fonts, the
+  menu drawn by the engine's software rasterizer, "gpu@0 has no device", its sound, the engine's
+  screenshot and the loading screen over it), and the GPU stage, which runs it under
+  `--display` (`demos/run-browser-tests.mjs`'s `display` map, `withoutDisplayToo`), runs it whole
+  (`fe88a4b3a`). Measured on 0.1.7's images: the run without a display passed in 100.8 s, where
+  the whole one took 513.7 s in 0.1.7's demos suite.
+
+What only the round and the release confirm: their logs run `npm-browser.mjs` twice in all (the
+browser suite's and the checklist's) and Xonotic's whole test once, in the GPU stage.
+
 
 ## Found
 
