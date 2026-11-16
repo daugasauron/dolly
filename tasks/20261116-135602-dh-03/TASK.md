@@ -69,7 +69,9 @@ Logs: `build/dh-evidence/` (this machine).
 - **Settings tried on the reference**: hedger rate 0.005 against 0.002 (47% against 54% of the
   unhedged risk left at 140 and 200 iterations); 8 hidden units against 16 (56% against 47% at
   160 and 140); generator rate 0.1 against 0.03 (the deviation reaches the chain's by
-  iteration 100 instead of 160). dh-fit has 0.005, 16 and 0.05.
+  iteration 100 instead of 160). dh-fit has 0.005, 16 and 0.05. Tried after the measurements
+  above and not taken into dh-fit: hedger rates 0.01 and 0.02 leave 0.32 and 0.34 of the
+  unhedged deviation at 42 days after 600 iterations, where 0.005 leaves 0.35 and the delta 0.27.
 
 The image's test passes in Chrome 156 and Firefox 159 (task dh-04; commit 357d52eb6 is the
 image it ran on). What the model still lacks is task dh-06; what the kernels cannot do on a
