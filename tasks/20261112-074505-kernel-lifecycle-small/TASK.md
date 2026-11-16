@@ -1,6 +1,6 @@
 # Kernel lifecycle details: SIGCHLD round trips, launching_pid, ignored results, held changes
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: kernel,lifecycle,signals,audit,0.1.6
 

@@ -1,6 +1,6 @@
 # buttons@0 is reworked: a generic module for a touchscreen's input, which programs compile against
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 60
 - TAGS: host-modules,input,phone
 
@@ -58,6 +58,15 @@ Clear and Menu are such buttons.
 - **The phone is paused.** Owner (2026-11-04): "the last test was okay so just pause that."
   `fingers` with two real fingers and the phone keyboard's own paste at the `default` prompt are
   not scheduled; Paste stays in `input@0`. Nothing of this task is waiting for anyone.
+
+## Closed (2026-11-16, the audit)
+
+The done-when holds except its phone part, which the owner paused. `touch@0` has been in every
+release since v0.1.4. `test/touch-ring.test.mjs` passed in 0.1.7's source suite,
+`test/touch-browser.mjs` in Chromium and Firefox in its browser suite, and
+`demos/fingers/test/fingers-browser.mjs` in both browsers in its demos suite
+(`work/round1113/build/round-1117-evidence/`). The phone part moved to
+`tasks/20261010-193000-phone-voice-pi`, where the owner's phone work waits.
 
 ## The contract (2026-10-23): decided; went with v0.1.4
 

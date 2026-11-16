@@ -1,6 +1,8 @@
 0.1.4, Goes with release v0.1.4
 0.1.5, Goes with release v0.1.5
 0.1.6, Goes with release v0.1.6
+0.1.7, Goes with release v0.1.7
+0.1.8, Goes with release v0.1.8
 0ad, The 0 A.D. port and its build
 abi, Machine ABI and contract numbers, layouts and digests
 agent, A coding agent running inside Dolly, or a model driving a demo
@@ -10,7 +12,7 @@ amy, The package installer
 architecture, Where a responsibility lives among kernel, modules and page
 art, Look of the Slopyard world
 audio, Sound playback and capture
-audit, Finding of the 2026-09-13 or 2026-09-30 audit, or a task to audit something
+audit, An audit's finding, or a task to audit something
 bootstrap, What is still built outside Dolly, and building it inside
 boundary, The browser host boundary and its trusted code
 browser, Behaviour particular to a browser or its engine
@@ -33,6 +35,7 @@ commands, Shell commands and core tools
 compatibility, Supported upstream API behavior
 compiler, The cc and c++ driver
 configuration, A setting a user may change
+console, console@0: the standard streams of a program the host starts, a terminal or three pipes
 content, New things in the Slopyard world
 controller, Older spelling of controllers
 controllers, Programs that steer Slopyard's creatures and machines
@@ -41,9 +44,12 @@ core, Shared runtime or platform substrate
 corpus, Measurements over a set of real upstream programs
 decisions, Choices only the owner makes
 demo, A demo under demos/
+demos, Older spelling of demo
 deployment, Publishing a site
 design, A decision about shape to make before code
+dev, The checkout server and the developer's iteration tools
 diagnostics, Telling a player or agent why something happened
+disk, Disk space a build or a release takes
 display, The display module and the terminal drawn through it
 distribution, What a fresh Slopyard game ships with
 doc, Older spelling of docs
@@ -63,6 +69,7 @@ flaky, A test that fails some runs
 frontend, The page's own JavaScript
 game, The Slopyard game
 gamedev, Game engine ports
+ghostty, Ghostty: its VT library, the display plugin and its GTK application
 gimp, GIMP in the Wine image
 git, Git inside Dolly
 go, The Go toolchain built inside Dolly
@@ -100,12 +107,16 @@ microphone, The microphone module
 mobile, Phones and touch screens
 models, Model weights as packages
 mojo, The Mojo compiler and its programs
+nena, nena@0 and the nena command, which switch a session's host modules
 neovim, Neovim as an image and in Studio
 netsurf, NetSurf in the Wine image
 network, The HTTP broker and what crosses it
 npm, The npm packages and the pages built on them
 observability, Seeing what the runtime does while it runs
+ocaml, The OCaml port
+offline, A page or a saved session without a network
 openrouter, Models reached through OpenRouter
+overnight, Work run unattended through a night
 owner, A decision only the owner can make
 packages, Packages and what installs them
 packaging, Sealing and exporting a release
@@ -117,19 +128,24 @@ photocraft, The PhotoCraft port
 physics, Slopyard's simulation
 pi, The Pi agent
 pi-local, Pi on a locally run model
+pipes, Pipes, their buffers and SIGPIPE
 placement, Where Slopyard puts structures
 plan, A plan to agree on before work
 port, An upstream program brought to Dolly
+ports, The porting rules applied to the demos and the userspace (an audit's area)
 process, The process contract, spawn, wait, pipes and signals
 processes, Processes' lifecycle, Workers and their memory
 programs, Programs embedded in Slopyard's machines
 python, CPython inside Dolly
+recipes, A Dollyfile's rows against what its build and its installers use
 recording, Demo videos
+recordings, Older spelling of recording
 regression, Worked before a named change
 relay, A local relay between a demo and a model
 release, A version, its scope and its checks
 rendering, How frames are drawn
 replicability, Whether a recipe rebuilds the same image elsewhere
+repo, The repository's tests, docs, tooling, release process and task list (an audit's area)
 reproducibility, Whether a build gives the same bytes twice
 research, Reading and measuring before a decision
 review, A look at the whole before going on
@@ -148,6 +164,7 @@ skills, The skills Pi is given
 slop, The shell
 slopyard, The Slopyard demo
 small, Little work
+snapshot, Older spelling of snapshots
 snapshots, Image and session snapshots: building, capturing and restoring them
 sockets, Local stream sockets
 speech, Speech to text
@@ -158,6 +175,7 @@ syntax, The spelling of a recipe line
 teams, The two sides of a Slopyard world
 terminal, The terminal as programs see it
 terrain, Slopyard's ground
+test, Older spelling of tests
 testing, Verification and development feedback
 tests, A test or its harness
 threads, The threads module and threaded programs
@@ -178,4 +196,5 @@ wine, The Wine demo
 workflow, A sequence of steps a user repeats
 world, The Slopyard world as a whole
 x11, The X server, its desktop image and programs on it
+xonotic, The Xonotic port
 zig, The Zig toolchain

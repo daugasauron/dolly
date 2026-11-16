@@ -10,6 +10,26 @@ fine, but it definitely seems the current implementation is broken from an archi
 view." Earlier: 2026-10-01 "If the core is slop it will be impossible to extend it"; 2026-11-04 "I
 feel like the modularity of the host modules have been lost somewhere along the way".
 
+## State (2026-11-16, core audit): the names left in the core, read on 0.1.7
+
+A grep of the files of the done-when (now `page/` and `kernel/`) and the rest of `page/` at
+`b09b1e243`, code lines only (comments that name a module as an example are not counted):
+- `kernel/process-kernel.c`, `kernel/dolly.c`, `host/modules.mjs`, `page/process-supervisor.mjs`:
+  no module named in code but through the generic tables and the thread provider role
+  (`host/README.md`).
+- `page/process-worker.mjs:325` calls `instance.exports.dolly_thread_start`, threads@0's process
+  entry (`host/threads/dolly-threads-0.wat:17`), by name.
+- `page/terminal-text.mjs:1-2` imports `host/input/abi.mjs` (the pointer actions with which the
+  page's handle selects the screen): `boot()`'s files import a module's ABI.
+- `page/browser.mjs:178` writes `boot()`'s `http` option into `configuration.http`, http@0's
+  page configuration; `:57-60` asks the registry for `mode: "snapshot"` and names `snapshot@0`
+  (the `session` option).
+- `programs/compiler.cpp` (the seed compiler's source) no longer names sockets, pty or dso's
+  allocator; it still names threads@0: `:882` the `/threads` sysroot part, `:1382-1399` the
+  `threads` record and `dolly_thread_start`.
+- The other direction, modules that import `site/` and manifests that do not name their files,
+  is `20261116-135913-core-02`.
+
 ## State (2026-11-14): the compiler's part waits for a compiler round
 
 In the 0.1.6-rc round (`round/0.1.6-rc`, local main `530aeee05`, release `e1c400a5…` on 127.0.0.1:9045) the seed batch (module headers in packages, the layout) changed the seed's runtime, so the

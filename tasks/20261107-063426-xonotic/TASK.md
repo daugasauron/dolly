@@ -1,6 +1,6 @@
 # Xonotic: the graphics in game are broken on the deployed v0.1.5
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 400
 - TAGS: demo,gpu,bug,0.1.6
 
@@ -197,3 +197,20 @@ engine's GLSL through `naga`), `gmqcc`, `sdl2` and the data, all rebuilt by the 
 - `xonotic` (and `wine`) are back in the release round's demo list, so a release cannot ship them
   untested again.
 - The fix is in a released version, live on both domains.
+
+## Closed (2026-11-16, the audit)
+
+Each item holds.
+- The frames were checked by eye on 2026-11-13 and 2026-11-14 (States above): solid, textured walls
+  on gpu@0 in Chrome and Firefox and in the software rasterizer. `xonotic-browser.mjs` fails on any
+  `no WGSL` line, which the broken build printed. In 0.1.7's round it passed on gpu@0 in Chrome
+  (`work/round1113/build/round-1117-evidence/gpu-xonotic.log`: "every permutation boil draws on
+  gpu@0 has its WGSL", 573.5 s). The demos suite ran it headless, in the software rasterizer
+  (`demos.log`, 513.7 s).
+- `xonotic` and `wine` are in the round's demo list. That list is `DOLLY_ROUND_DEMOS` in
+  `work/round-1117.sh`, not in the repository: `tasks/20261116-140017-repo-01` moves the round into it.
+- `fix/xonotic-walls` (`756825ff0`) is in v0.1.6 and v0.1.7. Both are online, and v0.1.6's release
+  notes name the fix.
+
+The owner's own frames were never received (State of 2026-11-13). If the owner sees the walls broken
+again, reopen with a screenshot, the browser and the preset.

@@ -4,28 +4,27 @@
 - PRIORITY: 120
 - TAGS: audit,dollyfile
 
-## State (2026-11-03 afternoon): the audit is done; three recipe changes and the round are left
+## State (2026-11-16, recipes audit): two recipe changes left, no defect
 
-Merged on `integrate/2026-11-03` (74aeada32): the table below and its fixes (27523f9fa,
-896be41ca, a5d603cd8, 91df1890c for F8, 05f9f4648 for F14 and F15); P1, CMake at `-O2`
-(5ecb73b00, merged b8f459685). The owner's items (F4's fractional `sleep`, F11's `__wasi__`, S2's
-tar mtimes, raylib's software renderer) are lines of `tasks/20261102-133353-owner-decisions`.
-Ranked 120 from 250: what is left is recipe cleanup, no defect.
+Checked at `b09b1e243` (0.1.7) by the recipes audit of 2026-11-16, whose own findings are the
+`audit,recipes,0.1.8` tasks (`tatr ls :recipes`). Merged since 2026-11-03: the table below and its
+fixes (27523f9fa, 896be41ca, a5d603cd8, 91df1890c for F8, 05f9f4648 for F14 and F15); P1, CMake
+at `-O2` (5ecb73b00, merged b8f459685). The owner's items (F4's fractional `sleep`, F11's
+`__wasi__`, S2's tar mtimes, raylib's software renderer) are lines of
+`tasks/20261102-133353-owner-decisions`.
 
-Left, checked at 2c8839ab3:
+Left:
 
-- F7: `-O1` in `sdl2`, `imgui-x11`'s SDL2, `libjpeg`, `openal` and zero-ad's check programs,
-  without a recorded reason. Branch `audit/sdl2-o2` (from edaca025c, no commit yet at 15:30)
-  is on sdl2's.
-- F12: `zero-ad-deps` copies SDL2 instead of `INSTALL sdl2` and `REQUIRES HOST touch@0`
-  (-9 lines); for a round that runs zero-ad's GPU test.
-- The four images the 9 GB slots could not build (ghostty-gtk, ghostty-x11, zero-ad,
-  dollyfile-studio) and the GPU tests not run (slopyard, gpu-fluid, xonotic, zero-ad): the next
-  catalog round's, with Studio's browser test (`tasks/20261102-004436-workaround-removal`).
-- Uncertain, each a rebuild for little: F3 (Mesa's parsers from `yacc`/`flex`, Bison-only
-  grammar), F5 (mojo's 480 lines of C as `FILE` bodies), F9 (speech's repeated link block), F13
-  (`fingers-build`'s name), S1 (`rm -rf /tmp` at a recipe's end frees nothing: 62 in the demos'
-  recipes, 10 in the core's). F6 is not stale.
+- F7, now only check programs: `-O1` in `Dollyfile-openal:39` and `zero-ad-deps:75-76`,
+  `zero-ad-engine:45`, without a recorded reason; `sdl2`, `imgui-x11` and `libjpeg` no longer have it.
+- F12: `zero-ad-deps:23-24` still copies SDL2's headers and `libSDL2.a` instead of `INSTALL sdl2`
+  and `REQUIRES HOST touch@0`.
+- Moot: the four images the 9 GB slots could not build and the GPU tests not run: the 0.1.7 round
+  built all 230 images and ran slopyard's, xonotic's and zero-ad's GPU tests
+  (`work/round1113/build/round-1117-evidence/gpu-*.log`); gpu-fluid is no longer in the catalog.
+- Uncertain, each a rebuild for little: F3, F5, F9, F13, S1 (scratch removed though `/tmp` is
+  never retained: 66 `SLOP rm -rf /tmp...` rows in the demos' recipes, 18 in the core's, anywhere
+  in a recipe, `git grep`). F6 is not stale.
 
 The night of 2 to 3 November 2026, branch `audit/recipes-apps` from `integrate/2026-11-02`
 (71d2603fc): every recipe of the application and game demos (bhop, classicube, cmake,

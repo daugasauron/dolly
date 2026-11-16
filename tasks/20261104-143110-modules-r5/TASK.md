@@ -6,6 +6,39 @@
 
 From the module audit (`tasks/20261104-135806-module-audit`, R5, section 4 item 3).
 
+## State (2026-11-16, core audit): what is left, read on 0.1.7's source
+
+Unchanged since the evening of 2026-11-12: the page's own directory comes over packages@0's
+mailbox; a foreign directory (`amy server URL`) still goes through http@0's reserved URL, and
+`Dollyfile-amy:4` and `Dollyfile:7` still declare `http@0`. Read at `b09b1e243`:
+- `host/packages/service.mjs:53` judges the directory's URL once (`this.admit(directory)`);
+  `worker.mjs:12-16` then imports that directory's `dist/dolly-images.json` and the image's
+  metadata as JSON modules, with no byte bound and outside the broker's request count, and its
+  packs are fetched by `page/packaged-snapshot.mjs:175` and written to the origin's pack store
+  (`:130-134`). Reproduced as a bypass of a hardened policy (a rule admitting only `B/` let the
+  service read 15 other files of B): `20261116-140747-core-06`, which can be fixed before this
+  task's redesign.
+- New detail: those packs are never pruned. `page/pack-store.mjs:59` records them under the
+  foreign directory, and `prune` (`:106-108`) keeps every record whose `directory` is not the
+  page's own while the image build ID is unchanged. So a guest that names directories (the
+  default policy admits any) grows the origin's storage until the next runtime release or the
+  user's clear, at most 64 snapshots of 2 GiB per page load. Measured in Chrome
+  (`work/audit-1116-evidence/core/probes/pack-records-probe.mjs`, `pack-records-probe.log`):
+  after one package from a second directory the store's records are the page's `default` and
+  `http://127.0.0.1:40463/ less 1 packs`, and after a reload, which reads and prunes, still both.
+- `page/pack-store.mjs:8-9` ("nothing of the guest reaches it") and the review map's pack-store
+  row ("bytes of the catalog and nothing else") are still not true for a foreign directory.
+
+`http@0` is still declared by 78 of 231 recipes and 18 of 28 applications (the counts of
+2026-11-12), among them `default`, `wine`, `zero-ad`, `x11-desktop`, `tmux-panes`, `slopyard`,
+`rts-arena`, `classicube` and `python-data`, beside the agents (grep of `REQUIRES HOST http@0`).
+Some fetch for themselves (Wine's NetSurf, the agents); which of them need it only for `amy`,
+`curl` or `transfer` was not checked here.
+
+Left as the State below says: the page's HTTP policy as a page resource, the foreign directory
+over the channel with its packs not kept (which also ends the growth above), `amy` without
+`http@0`, `http@0` switchable.
+
 ## State (2026-11-12)
 
 Decided: do it. Owner (2026-11-04): "the only place I expect to see @http is on the pi-agent

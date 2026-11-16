@@ -4,8 +4,17 @@
 - PRIORITY: 200
 - TAGS: python,packages
 
+## State (2026-11-16, the audit)
 
-## State (2026-11-04 05:25, branch `demo/scipy`)
+Nothing blocks it now; it was not taken up again. The two branches it waited for are merged, and
+both are in v0.1.6 and v0.1.7: `demo/pydata-seed` (`22a4f78c4`, `cc --version` and the `__small_`
+exports) and `demo/python-threads` (`41dfc22ca`). The driver now refuses `-pthread` only for a kernel
+plugin (`programs/compiler.cpp:1684`), so a `-shared` module links with it. `demo/scipy` is merged
+too (its `openblas` package is in the catalog and the site). Left, as "-pthread with -shared" below
+says: SciPy's rows in `demos/python/Dollyfile-python-data-build`, `scipy-dolly.patch`, and the demo
+test's computation of linalg, optimize and stats. No recipe names SciPy yet.
+
+## Was (2026-11-04 05:25, branch `demo/scipy`)
 
 The `openblas` package is built and tested (`bea193eee`, `bd7329ca4`): OpenBLAS's SIMD128
 kernels, 6 to 11 times NumPy's fallback for a product. SciPy builds on it in a session; with

@@ -4,6 +4,12 @@
 - PRIORITY: 110
 - TAGS: compiler,dso,threads,seed
 
+## State (2026-11-16, the audit)
+
+Not started. The loader still reaches a host's thread-locals only through the C++ `_ZTW` wrapper
+(`host/dso/process.mjs:140-163`). The compiler records no list of thread-local exports. 0.1.6's and
+0.1.7's compiler rounds did not take it.
+
 Left by the C++ catch fix (`tasks/20261103-132540-dso-cpp-catch`, closed 2026-11-04): a library's
 `GOT.mem` import of a host's C++ `thread_local` gets the address its `_ZTW` wrapper returns, but a
 C `_Thread_local` has no wrapper, and the loader (`host/dso/process.mjs`) cannot tell its exported

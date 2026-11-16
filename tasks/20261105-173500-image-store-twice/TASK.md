@@ -4,6 +4,11 @@
 - PRIORITY: 100
 - TAGS: browser,performance
 
+## State (2026-11-16, the audit)
+
+Decided on 2026-11-12 (below): the build keeps its decoded copy. Left is the change that drops the
+packs of the images the cache holds after a build, and nobody has started it.
+
 The pack store (`src/pack-store.mjs`, `b3faca044`) keeps an image's packs as they are
 downloaded, compressed, so that it starts again without a download. The image cache
 (`src/image-artifact.mjs`, `095394c36`) writes the same image's snapshot, decoded, to a file

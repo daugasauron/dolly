@@ -4,6 +4,12 @@
 - PRIORITY: 180
 - TAGS: performance,llvm,kernel,iteration
 
+## State (2026-11-16, the audit)
+
+Not started. No patch in `demos/llvm/`, `demos/zig/` or `config/` touches `pwrite_impl` or
+`applyRelocations`. The build-time audit counts this among a compile's costs
+(`tasks/20261116-140603-buildtime-00`).
+
 Found measuring `zig build` (`tasks/20261103-102041-zig017`, section "zig build's first run";
 evidence under `build/zigperf-evidence/` of `work/zigperf`, 2026-11-04).
 

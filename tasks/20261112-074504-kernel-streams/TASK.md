@@ -1,6 +1,6 @@
 # One descriptor record; the pipe a stream kind; the display's terminal a pseudo-terminal
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: kernel,architecture,terminal,audit,0.1.6
 

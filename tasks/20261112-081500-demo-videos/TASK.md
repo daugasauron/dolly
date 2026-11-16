@@ -1,6 +1,6 @@
 # The demos page of 0.1.6: two new videos, and every earlier one actually in the release
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 330
 - TAGS: 0.1.6,demo,recording,release,site
 

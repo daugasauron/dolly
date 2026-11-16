@@ -1,6 +1,6 @@
 # The GPU provider reviewable: validation apart from execution
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: gpu,security,maintainability,audit,0.1.6
 

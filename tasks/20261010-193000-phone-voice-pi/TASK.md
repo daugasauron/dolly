@@ -28,6 +28,9 @@ Left:
 - Pi's own lists still want the arrow row: the menu cannot tell when one is open.
 - Every open on the phone downloaded the 367 MiB image again (slopshare.dev/v0.1.4, about 4
   minutes); why the first load's copy was not kept is not measured.
+- From `tasks/20261013-144001-touch-module` (closed 2026-11-16): `fingers` with two real fingers
+  on the phone, and the phone keyboard's own paste at the `default` prompt. Paused by the owner on
+  2026-11-04 ("the last test was okay so just pause that").
 
 ## The request
 

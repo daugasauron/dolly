@@ -20,6 +20,20 @@ offline test failed with ENOSPC), and the demos page's repackaging staged a seco
 beside the current one (13:33, ENOSPC). `work/dedupe.py` on the release and the export, and
 removing rebuildable staging, recovered both.
 
+## The time the same copies take (build-time audit, 2026-11-16)
+
+`scripts/share-pages-snapshots.mjs` writes every pack of the release again on each packaging:
+it reads every image's snapshot from `dist/`, groups identical records, and gzips each pack at
+level 6 into the staging directory. 0.1.7's domain release holds 2,294 packs, 18.97 GB raw and
+11.80 GB compressed; Node's gzip at that level does 61-71 MB/s on snapshot bytes on this machine
+(`work/audit-1116-evidence/buildtime/gzip-rate.txt`), so about 5 minutes of one core per
+packaging for the gzip alone. Unchanged snapshots give the same packs (part 2 of 0.1.7 rebuilt none
+and its compare found every file of the core the same bytes), so a pack whose digest the current
+release already holds can be a hard link to that release's file instead of a new gzip: the time and
+the disk are the same fix. 0.1.6 to 0.1.7: 1,854
+of the 2,294 packs were the same (`new-packs-016-017.txt`). The verification passes of the same
+packaging are `tasks/20261116-140603-buildtime-03`.
+
 ## Done when
 
 Packaging a domain release and exporting it for Pages each add no more than the bytes that differ

@@ -1,0 +1,44 @@
+# dolly-image-0.wat carries two items with nothing in them: an export no host calls and a parameter that must be 1
+
+- STATUS: OPEN
+- PRIORITY: 70
+- TAGS: audit,core,abi,cleanup,0.1.8
+
+From the core audit of 2026-11-16 (`work/audit-1116`, source of `b09b1e243`). First proposed by
+the kernel audit of 2026-11-01 (`tasks/20261101-074306-audit-kernel`, "two exports that carry
+nothing": "Dropping both changes the image contract, an image input: a catalog round"); that task
+closed without a task for it, and the 0.1.6 and 0.1.7 catalog rounds passed without it.
+
+## State (2026-11-16)
+
+Still as found on 2026-11-01; nothing changed. It changes the image contract, so the image build
+ID and every image: do it in the next full round, not alone.
+
+## Found
+
+Of the 65 functions the kernel's contracts export (`abi/dolly-supervisor-0.wat`,
+`abi/dolly-image-0.wat`, `host/*/dolly-*-0.wat`), one is called by no host: a grep of `page/`,
+`host/`, `site/` and `scripts/` for each name finds every other one
+(`work/audit-1116-evidence/core/contract-funcs.txt`).
+
+- `dolly_snapshot_format_version` (`abi/dolly-image-0.wat:7`, `kernel/system-snapshot.c:167`)
+  returns `DOLLY_SNAPSHOT_VERSION`, which the same contract already gives as a constant
+  (`abi/dolly-image-0.wat:17`) and every snapshot part carries in its header. Its only callers
+  are `test/image-browser.mjs:93-95`, which instantiates the contract file itself (never the
+  kernel), and `test/fixtures/image-roundtrip.c:57`.
+- `dolly_process_bootstrap_resume_prepare(size, resume_uses)`: the kernel refuses any
+  `resume_uses` but 1 (`kernel/dolly.c:285`), the contract says "The second parameter is 1"
+  (`abi/dolly-image-0.wat:72`), and its one caller passes 1 (`site/build-worker.mjs:151`).
+
+AGENTS.md: "The core interface must remain small"; "Removing code is a win". A second host
+(Donna) implements and documents both for nothing.
+
+## Do
+
+Remove the export and its two test uses (the constant is the version a host reads); drop the
+second parameter from the export, the kernel and `build-worker.mjs`.
+
+## Done when
+
+`abi/dolly-image-0.wat` has neither; the image and build suites pass in Chromium and Firefox on
+the rebuilt catalog; Donna's task for the image contract is told of the change.

@@ -4,6 +4,10 @@
 - PRIORITY: 140
 - TAGS: bug,firefox,memory,snapshots
 
+## State (2026-11-16, the audit)
+
+Not started since the measurements below of 2026-11-04. Not re-measured on 0.1.7.
+
 Seen by `core/install-copy` (2026-11-04, `tasks/20261104-012434-install-copy`). A custom image
 `FROM system` that `INSTALL`s `qwen3.5-2b` (pi-local's install of the 1.4 GB model): the build
 page reads the two inputs from their packs into the image store (`prepareImageArtifacts`,

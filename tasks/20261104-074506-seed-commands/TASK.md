@@ -38,8 +38,8 @@ Left:
   `zig-llvm-browser.mjs`. If it fails there, the part is dropped as answered; otherwise the
   file goes.
 
-No fixed point yet: the round's `llvm-cc` built b32cd0f8, not the pinned compiler
-(`seed-compiler-next.diff`). `docs/sources.md` says such a compiler is pinned for another round.
+The fixed point came later (checked 2026-11-16): 0.1.7's round built the pinned compiler
+`c98f9ab6…` again (`9c589654e`). The libc.txt part is the only one left.
 
 Three workarounds in recipes that a seed command's missing behaviour caused. Decided 2026-11-04
 (`tasks/20261102-133353-owner-decisions`): yes to all three; each is a workaround the mechanism

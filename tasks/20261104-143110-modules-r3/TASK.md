@@ -4,6 +4,13 @@
 - PRIORITY: 150
 - TAGS: host-modules,audit,images
 
+## State (2026-11-16, the audit)
+
+One part is done: `html` left `system` and `default` on 2026-11-11 (`65a4ad70f`, "default and system
+hold no html"). Still as filed: `Dollyfile-system` installs `transfer` and declares `download@0`,
+`http@0` and `upload@0`. `Dollyfile-system-tools` installs `curl` and `git`, and Git's HTTP helper is
+not a package of its own.
+
 From the module audit (`tasks/20261104-135806-module-audit`, R3, sections 1, 4 item 2 and 5).
 The integrator chose R1 and R2 for 0.1.5 on 2026-11-04; this is the next step and is
 independent of them.

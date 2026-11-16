@@ -2,7 +2,13 @@
 
 - STATUS: OPEN
 - PRIORITY: 180
-- TAGS: test,godot,0.1.8
+- TAGS: tests,godot,0.1.8
+
+## State (2026-11-16, the audit)
+
+Not started. The `needs` map of `demos/run-browser-tests.mjs:21-30` still names
+`godot-flyover-browser.mjs` and `godot-gpu-browser.mjs` and neither of these two. The round's GPU
+stage that runs them with a display is `tasks/20261116-140017-repo-01`'s.
 
 The round's demos suite (`demos/run-browser-tests.mjs`, no `DISPLAY`) ran
 `demos/godot/test/godot-projects-browser.mjs` and `godot-x11-browser.mjs`, whose Chrome cannot

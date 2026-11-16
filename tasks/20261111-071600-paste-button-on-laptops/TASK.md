@@ -1,17 +1,25 @@
 # The page's Paste button shows on laptops with a touchscreen
 
 - STATUS: OPEN
-- PRIORITY: 340
-- TAGS: input,touch,npm,0.1.6
+- PRIORITY: 100
+- TAGS: input,touch,npm
 
 The owner, 2026-11-11 07:15 JST, from a page built on the npm packages:
 
 > The Paste button shows up on some laptops, it's just wrong, I guess because the laptop has
 > touch screen or something?
 
-## State (2026-11-11)
+## State (2026-11-16, the audit)
 
-Fixed on `fix/npm-feedback`: the bar shows Paste where `not (any-pointer: fine)` matches
+The fix is in v0.1.6 and v0.1.7. On 0.1.7's round, `test/touch-browser.mjs` passed in Chromium and
+Firefox, its case "no Paste beside a fine pointer" included
+(`work/round1113/build/round-1117-evidence/browser.log`). Left: the owner's phone. It no longer needs
+a local server, since `https://slopshare.dev/v0.1.7/default/` serves the fix. The task waits on the
+phone being awake and unlocked over adb, so it ranks 100, down from 340.
+
+## Fixed on `fix/npm-feedback` (2026-11-11)
+
+The bar shows Paste where `not (any-pointer: fine)` matches
 (`host/input/input.mjs`). Chromium's emulation knows touch-only devices alone (Playwright's
 `hasTouch` takes the fine pointer away too, and CDP's `setEmulatedMedia` ignores `pointer`);
 Firefox emulates the laptop by its preferences (`ui.primaryPointerCapabilities` 1,

@@ -1,6 +1,6 @@
 # An installed input exists twice while the engine installs it
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: core,kernel,memory,snapshots
 
@@ -174,3 +174,17 @@ where recipes did not change. `pi-local`'s install measured as above.
 - Playwright's `browser.newPage()` is an incognito context whose storage quota is in memory:
   a 1.4 GB input and its 1.55 GB image exceed it. Large builds need `launchPersistentContext`,
   as `build-snapshot-browser.mjs` does.
+
+## Closed (2026-11-16, the audit)
+
+The change is in every release since v0.1.5. The second copy is gone, measured on `qwen3.5-2b`
+(the kernel's memory at the capture went from 2974 to 1585 MB, above). `test/image-browser.mjs` and
+`test/image-input-browser.mjs` passed in Chromium and Firefox in 0.1.7's round
+(`work/round1113/build/round-1117-evidence/browser.log`). `pi-local` builds in every full
+round under the round's 36 G cap: 0.1.7's captured at "kernel memory 1604 MiB" for a
+1,642,764,323-byte snapshot, 1.02 times the image (`round-1117-evidence/catalog-1.log`).
+
+Not measured, and not carried on: `pi-local` built under a 9 GB cap before and after `699c24fa1`,
+and the capture's rise against the image store's 5.55 GB peak. No build waits on either, and the
+runtime before `699c24fa1` is no longer built. The Firefox preparation peak this work found is
+`tasks/20261104-062913-firefox-input`.

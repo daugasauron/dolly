@@ -1,6 +1,6 @@
 # PhotoCraft built from source, as a demo image
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 350
 - TAGS: port,demo,gpu,rust
 
@@ -75,3 +75,15 @@ packages without wgpu, the app's about 844.
 
 Done when the `photocraft` application opens, edits and saves an image on the page in Chrome and
 Firefox, drawn through gpu@0, built from these sources inside Dolly, with its browser test.
+
+## Closed (2026-11-16, the audit)
+
+The done-when holds. `port/photocraft` and `port/photocraft-transfer` are merged and in v0.1.6 and
+v0.1.7, and `photocraft-photos` is on the site (`config/domain-pages-images.txt:31`). 0.1.7's
+full round built `photocraft` inside Dolly. Its GPU stage ran `demos/photocraft/test/photocraft-gpu-browser.mjs`
+on gpu@0, with the Great Wave opened, inverted, an upload opened, saved through zenity and offered,
+and the clipboard both ways. "photocraft-gpu: chromium passed" and "firefox passed"
+(`work/round1113/build/round-1117-evidence/gpu-photocraft.log`). That is the Firefox run the State
+had left. The clipboard the State also listed is in that test now. Not done and not in the
+done-when: Save As as a page key (Ctrl+Shift+S is the page's Save, so Save As is the File menu's)
+and HiDPI (the window is the canvas at scale 1). No task asks for them.

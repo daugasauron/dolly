@@ -4,6 +4,11 @@
 - PRIORITY: 100
 - TAGS: core,memory,threads,processes,investigation
 
+## State (2026-11-16, the audit)
+
+Not started: the measurement below has not been made. No failure from the blindness has been
+recorded in a task since 2026-11-04.
+
 Since a process's memory takes its maximum before its second thread starts
 (`tasks/20261030-090000-chrome-grown-memory`, 2026-11-01), the spawn budget reads the size a
 Worker reports with each call and ignores a threaded process's reports at its maximum, keeping the
