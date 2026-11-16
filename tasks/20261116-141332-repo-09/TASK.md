@@ -1,12 +1,17 @@
 # package.json: four npm scripts nothing runs or documents, and one dead export
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 40
 - TAGS: audit,repo,cleanup,0.1.8
 
-## State (2026-11-16)
+## Closed (2026-11-17)
 
-Filed by the repo audit; nothing removed.
+On `cleanup/0.1.8`: `abi`, `routes`, `publish` and `export:pages` are gone from `package.json`,
+`menuGroups` from `scripts/image-menu.mjs`, and `scripts/serve.mjs`'s error names
+`bash scripts/package-pages.sh`. Each remaining script is named by `README.md`, `docs/` or a
+demo's README (`git grep "npm (run )?NAME"`). `npm run -s test:source` without `dist/`: 448 of
+453 pass; the five failures are the known missing `dist/dolly-build-id.mjs` and
+`dist/dolly-process-abi.mjs`.
 
 ## Found
 
