@@ -7,10 +7,11 @@
 From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`): every package `amy` offers installed alone into a fresh `default` session.
 
-## State (2026-11-16)
+## State (2026-11-17)
 
-Reproduced in Chrome and Playwright's Firefox on `work/round1113/dist/` (Firefox: `ff-a.jsonl`, `ff-b.jsonl`). Nothing changed yet. No permission bits are added
-(owner, 2026-10-14): the fix makes two existing creation modes one.
+Fixed on `ws/seed` (kernel only: the image build ID stays `87c27243…`, so it rebuilds no image) and
+checked in Chrome and Playwright's Firefox (below). Left: the scons recipe's own check still names
+`CC="cc"`, the workaround this removes; it goes with the seed batch of `ws/seed`.
 
 ## Found
 
