@@ -80,21 +80,6 @@ fi
 "${container[@]}" /usr/bin/env \
   CONFIG_SITE=/src/demos/python/config.site-dolly \
   HOSTRUNNER=/emsdk/node/24.19.0_64bit/bin/node \
-  ac_cv_type___uint128_t=no \
-  ac_cv_func_getpgrp=no ac_cv_func_getlogin_r=no ac_cv_func_killpg=no \
-  ac_cv_func_setuid=no ac_cv_func_setreuid=no ac_cv_func_setgid=no \
-  ac_cv_func_setregid=no ac_cv_func_setpgrp=no ac_cv_func_wait3=no \
-  ac_cv_func_wait4=no ac_cv_func_waitid=no ac_cv_func_getsid=no \
-  ac_cv_func_setpgid=no ac_cv_func_tcsetpgrp=no ac_cv_func_dup3=no \
-  ac_cv_func_lockf=no ac_cv_func_truncate=no \
-  ac_cv_func_ttyname_r=no \
-  ac_cv_func_chroot=no ac_cv_func_ctermid=no ac_cv_func_fdopendir=no \
-  ac_cv_func_rewinddir=no ac_cv_func_getpriority=no ac_cv_func_times=no \
-  ac_cv_func_execv=no ac_cv_func_fexecve=no ac_cv_func_posix_openpt=no \
-  ac_cv_func_grantpt=no ac_cv_func_unlockpt=no ac_cv_func_ptsname_r=no \
-  ac_cv_func_login_tty=no ac_cv_func_fork=no ac_cv_func_vfork=no \
-  ac_cv_func_setrlimit=no ac_cv_func_pthread_sigmask=no \
-  ac_cv_func_ptsname=no \
   /emsdk/upstream/emscripten/emconfigure ./configure \
     --host=wasm64-unknown-emscripten \
     --build=x86_64-pc-linux-gnu \
@@ -109,12 +94,6 @@ fi
     --prefix=/usr \
     CFLAGS="-m64 -O2" \
     LDFLAGS="-m64" >/dev/null
-
-# The embedded compiler currently accepts __uint128_t but cannot yet link the
-# compiler-rt multiplication and division helpers with their Wasm signatures.
-# Report that target limitation honestly so upstream libmpdec selects its
-# portable CONFIG_64 arithmetic implementation instead of emitting broken
-# __multi3/__udivti3 imports.
 
 # Release tarballs do not carry frozen bytecode headers. CPython's own pinned
 # freezer and the matching 3.14 build interpreter generate them here; the
@@ -150,37 +129,8 @@ sed -i \
   -e 's/ Python\/emscripten_syscalls\.o//' \
   "${temporary}/Makefile"
 
-# Emscripten's configure script declares login_tty even though Dolly exposes
-# no native PTY/session layer and its cache check cannot override that result.
-sed -i 's/^#define HAVE_LOGIN_TTY 1$/\/\* #undef HAVE_LOGIN_TTY \*\//' \
-  "${temporary}/pyconfig.h"
-
-# Emscripten's site file disables alarm and setitimer, which its runtime never
-# delivers; Dolly's kernel raises SIGALRM. Environment results cannot override
-# a site file, so restore them here.
-sed -i \
-  -e 's/^\/\* #undef HAVE_ALARM \*\/$/#define HAVE_ALARM 1/' \
-  -e 's/^\/\* #undef HAVE_SETITIMER \*\/$/#define HAVE_SETITIMER 1/' \
-  "${temporary}/pyconfig.h"
-
-# The site file also denies what Emscripten's sockets lack. Dolly serves local
-# stream sockets (sockets@0): sys/un.h is what defines AF_UNIX for _socket.
-sed -i \
-  -e 's/^\/\* #undef HAVE_SYS_UN_H \*\/$/#define HAVE_SYS_UN_H 1/' \
-  -e 's/^\/\* #undef HAVE_SOCKETPAIR \*\/$/#define HAVE_SOCKETPAIR 1/' \
-  -e 's/^\/\* #undef HAVE_SHUTDOWN \*\/$/#define HAVE_SHUTDOWN 1/' \
-  "${temporary}/pyconfig.h"
-
-# Python runs on Dolly's threads (threads@0), whose runtime has no thread CPU
-# clocks and delivers no signal to one thread: configure, which inspected
-# Emscripten's libc, found both.
-sed -i \
-  -e 's/^#define HAVE_PTHREAD_GETCPUCLOCKID 1$/\/\* #undef HAVE_PTHREAD_GETCPUCLOCKID \*\//' \
-  -e 's/^#define HAVE_PTHREAD_KILL 1$/\/\* #undef HAVE_PTHREAD_KILL \*\//' \
-  "${temporary}/pyconfig.h"
-
-# CPython's stock Emscripten site file still names the wasm32/Pyodide-style
-# extension ABI. Dolly is a distinct wasm64 dynamic-linking target. Keep this
+# CPython's configure for Emscripten names the wasm32/Pyodide-style extension
+# ABI. Dolly is a distinct wasm64 dynamic-linking target. Keep this
 # name deliberately versioned: changing the machine contract must make old
 # extension wheels visibly incompatible rather than failing during dlopen.
 sed -i \

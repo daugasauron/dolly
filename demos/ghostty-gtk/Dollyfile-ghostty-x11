@@ -21,8 +21,8 @@ REQUIRES HOST nena@0
 INSTALL /v0.1.7/Dollyfile-core 0400b7c98241821542518a568100a4d8abf5e6642e2dbbc3b09f3512dfc75ba0
 INSTALL /v0.1.7/Dollyfile-posix 1253bee9688e620f912bff5694ce133044a38d20392218a152f9da4d3a290e63
 INSTALL /v0.1.7/Dollyfile-display a6680af8ee3a48c935c74f701bdd3b31b15ea2aa9e7d98cd8776d9509c81fbd2
-INSTALL /v0.1.7/demos/x11/Dollyfile-xorg-server 464cd2aca0261510f716f9aba0f673c2107064176d219d57746170dc2c9494b9
-INSTALL /v0.1.7/demos/ghostty-gtk/Dollyfile-ghostty-gtk 7153bd8279c357b6df840ccf518f499f3e38ee079838df2b27c712c048014f16
+INSTALL /v0.1.7/demos/x11/Dollyfile-xorg-server 8a318108f8372b9980218312883ac493090898d17e41bd08d766e5eb3e33e236
+INSTALL /v0.1.7/demos/ghostty-gtk/Dollyfile-ghostty-gtk 5f4bb8ad37666f31a6b30c5ebaf5efd91467b5c18c6074503e2c0eb7d57d2d11
 # amy installs packages into the session (tmux, nvim and the rest); nena
 # enables the host modules they need.
 INSTALL /v0.1.7/Dollyfile-amy 68444169857e8d1bcac03c0541ea52c1b8660b8bffa61a466c83de79ddc79f76

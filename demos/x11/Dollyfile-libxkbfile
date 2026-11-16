@@ -5,9 +5,9 @@ REQUIRES HOST runtime@0
 # libxkbfile, X.Org's library of XKB keymap files, from its release archive,
 # built by its Meson project as a static library: xkbcomp and the X server
 # link it.
-FROM /v0.1.7/demos/x11/Dollyfile-x11-build 8ef7c6c39c46ae6290eb8cae2970560c9451d67832b941f814fa1c498dd29176
+FROM /v0.1.7/demos/x11/Dollyfile-x11-build 0e058acfa14e3aa3f876b90ee94a4d0a9a4a1da866e51cc7f5f432ce891ff6e0
 USE /v0.1.7/demos/tools/Dollyfile-xz d07bf61b88901661d5f75bc5000003f0df152c88dad282c46e57bd55f3a5adbb
-USE /v0.1.7/demos/tools/Dollyfile-meson fb60ceced3a0491525af8579957675061f8748cf2c7949189fb95e95543b5478
+USE /v0.1.7/demos/tools/Dollyfile-meson 6e2e2709c309b18805f645414cbb0af0159700d66bdb1cb81b66e128bb2ab38b
 USE /v0.1.7/demos/zero-ad/Dollyfile-pkgconf fdb291181297a70fc73950b9122322458fa73450d2f713b931eeefe0f46f6f02
 REQUIRES TOOL meson
 REQUIRES TOOL xz

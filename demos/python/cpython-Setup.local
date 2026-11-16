@@ -16,6 +16,10 @@ _sqlite3 _sqlite/blob.c _sqlite/connection.c _sqlite/cursor.c _sqlite/microproto
 _bz2 _bz2module.c -lbz2
 _lzma _lzmamodule.c -llzma
 
+# configure leaves resource out for Emscripten, whose limits and usage are
+# stubs; Dolly reports its own, and os.wait3 and os.wait4 import it.
+resource resource.c
+
 # CPython's bundled _decimal accelerator is omitted: its portable libmpdec path
 # is a pathological cold compile in the embedded compiler, while decimal.py
 # already falls back to the upstream-compatible pure-Python implementation.
