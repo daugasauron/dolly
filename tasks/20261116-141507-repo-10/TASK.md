@@ -18,7 +18,8 @@ Checked: `git grep -n "before v0.1.5"` finds nothing outside `tasks/`; `node --t
 test/cloudflare-pages.test.mjs test/static-asset.test.mjs test/http-broker.test.mjs` passes (32);
 `pagesHeaders` over `work/locks/published/` (v0.1.5 to v0.1.7) gives 15,088 version files (with the
 root's four, 15,092) and a `_headers` byte-identical to the one before the change and to
-`work/round1113/build/pages-v0.1.7/_headers` (16 rules). The exporter's file list is untouched.
+`work/round1113/build/pages-v0.1.7/_headers` (16 rules; `work/cleanup-018-evidence/pages-headers.mjs`,
+output `after.headers`). The exporter's file list is untouched.
 `http-broker.test.mjs` keeps its remote response labelled `x-dolly-parts`: it shows a remote
 manifest is never expanded, whatever its headers.
 
