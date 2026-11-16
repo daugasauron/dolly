@@ -28,6 +28,12 @@ static pid_t spawn(const char *path, char *argv[], int from, int to, int last) {
   return pid;
 }
 
+static int exit_status(pid_t pid) {
+  int status;
+  if (waitpid(pid, &status, 0) != pid) return 1;
+  return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+}
+
 int main(int argc, char *argv[]) {
   int master, slave;
   char name[64];
@@ -56,10 +62,17 @@ int main(int argc, char *argv[]) {
   tcsetattr(slave, TCSANOW, &quiet);
   char window[32] = "";
   size_t length = 0;
-  while (length + 1 < sizeof(window) && read(slave, window + length, 1) == 1 && window[length] != '\n')
+  ssize_t got = 0;
+  while (length + 1 < sizeof(window) && (got = read(slave, window + length, 1)) == 1 && window[length] != '\n')
     length++;
   window[length] = 0;
   tcsetattr(slave, TCSANOW, &modes);
+  /* No id: xterm ended without a window (-version, -help, a bad option, no
+   * display), so its status is this command's and no program starts. */
+  if (got != 1) {
+    close(slave);
+    return exit_status(emulator);
+  }
   char id[48];
   snprintf(id, sizeof(id), "%lu", strtoul(window, NULL, 16));
   setenv("WINDOWID", id, 1);
@@ -69,9 +82,8 @@ int main(int argc, char *argv[]) {
   char **command = options < argc - 1 ? argv + options + 1 : shell;
   pid_t program = spawn(command[0], command, slave, 0, 2);
   close(slave);
-  int status = 1;
-  if (program > 0) waitpid(program, &status, 0);
+  int status = program > 0 ? exit_status(program) : 1;
   /* The master reads EIO once the slave is gone, and xterm exits. */
   waitpid(emulator, NULL, 0);
-  return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+  return status;
 }

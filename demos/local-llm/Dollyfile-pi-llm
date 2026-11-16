@@ -1,11 +1,18 @@
 DOLLY 7
 PACKAGE pi-llm
 REQUIRES HOST runtime@0
+REQUIRES HOST download@0
 REQUIRES HOST gpu@0
+REQUIRES HOST html@0
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
 
-# Pi's provider for the models dolly-llama runs in the tab on gpu@0, with the
-# bundled Qwen3.5-2B, which Pi's settings choose: /local installs and switches models.
+# Pi's provider for the models dolly-llama runs in the tab on gpu@0, with Pi
+# and the bundled Qwen3.5-2B, which Pi's settings choose: /local installs and
+# switches models. Its settings replace pi-dolly's, which it installs first.
 FROM /v0.1.7/Dollyfile-system-build d1bb50136de0dadf12e3e2af2266c5102e9ab15769e9f607807c44d46323f3a1
+INSTALL /v0.1.7/demos/pi/Dollyfile-pi-dolly 256fff3e72f438daae218119c58c3f6aad1efd5e041ac094495705e0823f2bcb
 INSTALL /v0.1.7/demos/local-llm/Dollyfile-llama 4769ef5697954f86e0a9ccdf89b7ad05db67a9019e21f1be9622c54ee7ef319f
 INSTALL /v0.1.7/demos/local-llm/Dollyfile-qwen3.5-2b 1e2f51cb6aafa57752daf194d55fce5619ce7ea98ffce7d494d8dc08998ae495
 
@@ -19,5 +26,9 @@ FILE /home/dolly/.pi/agent/settings.json
     {"enableInstallTelemetry":false,"images":{"autoResize":false},"shellPath":"/bin/slop","theme":"dolly","tuiMode":"regular","defaultProvider":"webgpu","defaultModel":"qwen3.5-2b","defaultThinkingLevel":"off","compaction":{"reserveTokens":4096,"keepRecentTokens":6144}}
 
 EXPORTS FOLDER local-llm /usr/lib/dolly-llm
-EXPORTS FOLDER local-llm-models /usr/share/dolly/llm
 EXPORTS FILE local-model-provider /home/dolly/.pi/agent/extensions/local-model-provider.js
+# /local lists the release's models by their descriptions; a model's package
+# holds its own, the bundled one's among them.
+FILE /usr/share/dolly/llm/lfm2.5.json
+FILE /usr/share/dolly/llm/minicpm5-2b.json
+FILE /usr/share/dolly/llm/qwen3.5-4b.json

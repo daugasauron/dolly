@@ -37,10 +37,6 @@ REQUIRES TOOL   test
 REQUIRES TOOL   touch
 
 INSTALL /v0.1.7/demos/python/Dollyfile-libffi 249d61ea3501e8bc465e6457194353bb773fef2bc59731ef3b22fc7e1781b8c4
-EXPORTS LIB    ffi       /usr/lib/libffi.a
-EXPORTS HEADER ffi       /usr/include/ffi.h
-EXPORTS HEADER ffitarget /usr/include/ffitarget.h
-FILE /usr/share/licenses/libffi/LICENSE
 # python links the three USEd libraries statically and carries their licences.
 FILE /usr/share/licenses/sqlite/blessing
 FILE /usr/share/licenses/bzip2/LICENSE
@@ -229,9 +225,6 @@ SLOP cp \
 SLOP test \
   -f \
   /usr/lib/python3.14/encodings/__init__.py
-SLOP cp \
-  /usr/src/python/libpython3.14.a \
-  /usr/lib/libpython3.14.a
 SLOP mv \
   /usr/src/python/python \
   /usr/bin/python
@@ -267,7 +260,6 @@ SLOP python -c 'import shlex, subprocess, sysconfig; flags = lambda name: shlex.
 EXPORTS TOOL   python
 EXPORTS TOOL   python3
 EXPORTS ENV    PYTHONUTF8 1
-EXPORTS LIB    python     /usr/lib/libpython3.14.a
 EXPORTS HEADER python     /usr/include/python3.14
 
 SLOP python \

@@ -22,6 +22,7 @@ var air_ticks := 0
 var gain_ticks := 0
 var yaw := 0.0
 var pitch := -0.06
+var turned := Vector2.ZERO     # How far the mouse has turned the view, radians right and up.
 var elapsed := 0.0
 var best := 0.0
 var peak_speed := 0.0
@@ -164,6 +165,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion and looking:
 		yaw += event.relative.x * LOOK
 		pitch = clampf(pitch - event.relative.y * LOOK, -1.48, 1.48)
+		turned += Vector2(event.relative.x, -event.relative.y) * LOOK
 	elif event is InputEventKey and not event.echo:
 		var down: bool = event.pressed
 		match event.physical_keycode:
@@ -186,6 +188,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				deaths += 1
 				respawn(false)
 			KEY_Q:
+				print("AIRTIME view %d %d" % [roundi(rad_to_deg(turned.x)), roundi(rad_to_deg(turned.y))])
 				get_tree().quit()
 			KEY_ESCAPE:
 				if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:

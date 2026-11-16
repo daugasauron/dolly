@@ -428,6 +428,11 @@ draws on `gpu@0`, a click captures the pointer and 300 pixels of the mouse turn 
 degrees, Q leaves the shell, and a flight by itself through a morning reaches a beacon and
 reports even frames and a frame with the sky along its top.
 
+[`test/godot-airtime-browser.mjs`](test/godot-airtime-browser.mjs) opens `godot-airtime` from the
+front page, on a hardware adapter, in Chrome and Firefox: a click on the crosshair captures the
+pointer, 300 pixels of the mouse to the right and 100 up turn the view 19 and 6 degrees, and Q
+prints that and leaves the shell.
+
 [`test/godot-x11-browser.mjs`](test/godot-x11-browser.mjs) installs the editor and Lantern Drift
 with amy in `x11-desktop`'s xterm: the game and then the editor open windows of their own on the
 X server, take keys and the pointer, and close at twm's Delete. On 2026-11-13 (NVIDIA RTX 5070)
