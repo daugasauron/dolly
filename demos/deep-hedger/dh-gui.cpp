@@ -482,6 +482,37 @@ static void hedge_tab() {
   }
 }
 
+// Every contract: the market's bid and ask and the model's, in currency.
+static void contracts_tab() {
+  if (!ImGui::BeginTable("quotes", 10, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY)) return;
+  ImGui::TableSetupScrollFreeze(0, 1);
+  for (const char *name : {"expiry", "", "strike", "market bid", "market ask", "model bid", "model ask", "hedge cost", "risk left", "in band"}) ImGui::TableSetupColumn(name);
+  ImGui::TableHeadersRow();
+  for (const Contract &c : state.contracts) {
+    const Expiry &expiry = state.expiries[c.expiry];
+    double unit = expiry.discount * expiry.forward;
+    char date[32];
+    time_t day = expiry.day * 86400;
+    strftime(date, sizeof date, "%Y-%m-%d", gmtime(&day));
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn(), ImGui::TextUnformatted(date);
+    ImGui::TableNextColumn(), ImGui::TextUnformatted(c.call > 0 ? "call" : "put");
+    ImGui::TableNextColumn(), ImGui::Text("%.5g", c.strike);
+    ImGui::TableNextColumn(), ImGui::Text("%.2f", c.bid);
+    ImGui::TableNextColumn(), ImGui::Text("%.2f", c.ask);
+    if (!c.fitted) continue;
+    double bid = c.model[0] * unit, ask = c.model[1] * unit;
+    bool bid_in = bid >= c.bid - 1e-9 && bid <= c.ask + 1e-9, ask_in = ask >= c.bid - 1e-9 && ask <= c.ask + 1e-9;
+    ImGui::TableNextColumn(), ImGui::Text("%.3f", bid);
+    ImGui::TableNextColumn(), ImGui::Text("%.3f", ask);
+    ImGui::TableNextColumn(), ImGui::Text("%.3f", (c.model[2] + c.model[3]) * unit);
+    ImGui::TableNextColumn();
+    if (c.model[7] > 0) ImGui::Text("%.0f%%", 50 * (c.model[4] + c.model[5]) / c.model[7]);
+    ImGui::TableNextColumn(), ImGui::TextUnformatted(bid_in && ask_in ? "both" : bid_in ? "bid" : ask_in ? "ask" : "");
+  }
+  ImGui::EndTable();
+}
+
 static void fit_tab(double risk) {
   if (ImGui::BeginTable("fit", 12, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
     for (const char *name : {"expiry", "days", "forward, quotes", "forward, model", "discount", "contracts", "in band", "market spread", "model spread", "hedge cost",
@@ -629,6 +660,7 @@ int main(int, char **) {
       if (ImGui::BeginTabItem("Price")) quotes_tab(false), ImGui::EndTabItem();
       if (ImGui::BeginTabItem("Law")) law_tab(), ImGui::EndTabItem();
       if (ImGui::BeginTabItem("Hedge")) hedge_tab(), ImGui::EndTabItem();
+      if (ImGui::BeginTabItem("Quotes")) contracts_tab(), ImGui::EndTabItem();
       if (ImGui::BeginTabItem("Fit")) fit_tab(risk), ImGui::EndTabItem();
       ImGui::EndTabBar();
     }
