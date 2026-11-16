@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { exportSessionFile, importSessionFile } from "../site/session-file.mjs";
 import { DOLLY_SESSION_FORMAT_VERSION, DOLLY_SESSION_MAX_BYTES, DOLLY_SESSION_METADATA_MAX_BYTES,
-  customSessionIdentity, sessionCompatible, encodeSessionStream, decodeSessionSnapshot } from "../site/session-store.mjs";
+  customSessionIdentity, sessionCompatible, encodeSessionStream, decodeSessionSnapshot } from "../host/snapshot/session-store.mjs";
 import { createHash, randomBytes } from "node:crypto";
 import { MAX_SNAPSHOT_BYTES } from "../page/snapshot-records.mjs";
 

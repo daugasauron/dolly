@@ -200,7 +200,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
     const { encodeSnapshotRecords } = await import("/page/snapshot-records.mjs");
     const { prepareImageArtifacts } = await import("/site/image-build.mjs");
     const { siteReference } = await import("/page/static-asset.mjs");
-    const { DOLLY_SESSION_FORMAT_VERSION, saveStoredSession, loadStoredSession } = await import("/site/session-store.mjs");
+    const { DOLLY_SESSION_FORMAT_VERSION, saveStoredSession, loadStoredSession } = await import("/host/snapshot/session-store.mjs");
     const { default: metadata } = await import("/dist/dolly-system-system-snapshot.json", { with: { type: "json" } });
     const make = async (name, value) => {
       const source = new TextEncoder().encode(`DOLLY 7\nAPPLICATION ${name}\nENTRY /bin/slop\n`);

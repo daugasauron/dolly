@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
+import { access, mkdtemp, readdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sha256 as digest } from "../scripts/sha256.mjs";
@@ -94,6 +94,43 @@ test("every host module says what it gives within nena's record", () => {
   for (const { name, gives, fixed } of hostManifests) {
     assert.ok(typeof gives === "string" && gives && Buffer.byteLength(gives) < DOLLY_NENA_GIVES_BYTES, `host/${name}/module.json: gives`);
     assert.ok(fixed === undefined || (fixed && Buffer.byteLength(`fixed: ${fixed}`) < DOLLY_NENA_REASON_BYTES), `host/${name}/module.json: fixed`);
+  }
+});
+
+// A module is its directory (host/README.md): the manifest names each of its
+// files but itself and the generated abi.mjs, and nothing elsewhere but a
+// runtime's kernel; what the page and its Workers load of it, its host and
+// processWorker and what they import, reaches beyond its directory only the
+// runtime's files.
+test("each host module's manifest names the files of its directory, whose JavaScript imports only them and the runtime's", async () => {
+  const root = new URL("../", import.meta.url), checkout = url => url.href.slice(root.href.length);
+  const paths = ["host", "processWorker", "seed", "fixtures", "contracts", "process", "headers", "kernel", "client", "tools", "files"];
+  const runtime = new RegExp(`^(?:page|host${hostManifests.filter(({ provides }) => provides === "kernel")
+    .map(({ name }) => `|host/${name}`).join("")})/[^/]+\\.mjs$`);
+  const specifiers = [/\bfrom\s+"(\.{1,2}\/[^"]+)"/g, /\bimport\s+"(\.{1,2}\/[^"]+)"/g,
+    /\bimport\(\s*"(\.{1,2}\/[^"]+)"\s*\)/g, /new URL\(\s*"(\.{1,2}\/[^"]+)"\s*,\s*import\.meta\.url\s*\)/g];
+  for (const manifest of hostManifests) {
+    const directory = new URL("./", manifest.url), own = checkout(directory);
+    const named = new Set(paths.flatMap(field => [manifest[field] ?? []].flat()).map(path => checkout(new URL(path, directory))));
+    for (const path of named) {
+      await access(new URL(path, root));
+      assert.ok(path.startsWith(own) || manifest.provides === "kernel", `${own}module.json names ${path}`);
+    }
+    for (const file of await readdir(directory)) {
+      assert.ok(["module.json", "abi.mjs"].includes(file) || named.has(own + file), `${own}module.json does not name ${file}`);
+    }
+    const pending = [manifest.host, manifest.processWorker ?? []].flat().map(path => own + path), loaded = new Set();
+    while (pending.length) {
+      const file = pending.pop();
+      if (loaded.has(file)) continue;
+      loaded.add(file);
+      const text = await readFile(new URL(file, root), "utf8");
+      for (const pattern of specifiers) for (const [, specifier] of text.matchAll(pattern)) {
+        const target = checkout(new URL(specifier, new URL(file, root)));
+        if (target.startsWith(own)) pending.push(target);
+        else assert.match(target, runtime, `${file} imports ${target}`);
+      }
+    }
   }
 });
 

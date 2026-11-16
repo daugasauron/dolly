@@ -13,5 +13,6 @@
   "headers": ["http.h", "http-abi.h"],
   "kernel": ["kernel.c"],
   "client": ["client.c"],
+  "files": ["broker.mjs", "local-services.mjs", "policy.mjs", "refusals.mjs"],
   "tools": ["libcurl.c"]
 }

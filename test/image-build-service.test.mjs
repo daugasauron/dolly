@@ -4,6 +4,7 @@ import { ImageBuildService, BUILD_ORIGIN, BUILD_LIMITS } from "../host/build/ser
 import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
 import { localServicesTransport } from "../host/http/local-services.mjs";
 import { checkedCustomArtifact } from "../site/custom-image.mjs";
+import { inspectDollyfile } from "../site/dollyfile-view.mjs";
 import { describeImageArtifact, sha256 } from "../site/image-artifact.mjs";
 import { encodeSnapshotRecords } from "../page/snapshot-records.mjs";
 
@@ -67,7 +68,7 @@ test("build authority has exact routes, independent policy, and no ambient crede
 
 test("builds start immediately, stream before completion, and release the lease without opening anything", async () => {
   let finish, runs = 0;
-  const service = new ImageBuildService(async (text, report) => {
+  const service = new ImageBuildService(inspectDollyfile, async (text, report) => {
     runs++;
     assert.equal(text, source);
     report("compile first\n");
@@ -95,7 +96,7 @@ test("builds start immediately, stream before completion, and release the lease 
 
 test("UI, consumer and request cancellation release owned state", async () => {
   let runs = 0;
-  const service = new ImageBuildService(async (_text, _report, signal) => {
+  const service = new ImageBuildService(inspectDollyfile, async (_text, _report, signal) => {
     runs++;
     await new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
   });
@@ -118,7 +119,7 @@ test("UI, consumer and request cancellation release owned state", async () => {
 
 test("malformed/oversize sources never start work; build errors and output floods produce bounded failures", async () => {
   let runs = 0;
-  const service = new ImageBuildService(async (_source, report) => { runs++; report("x".repeat(BUILD_LIMITS.maxResponseBytes)); });
+  const service = new ImageBuildService(inspectDollyfile, async (_source, report) => { runs++; report("x".repeat(BUILD_LIMITS.maxResponseBytes)); });
   for (const text of ["DOLLY 2\n", "DOLLY 7\nMODULE tool\n", source + "\0", "x".repeat(128 * 1024 + 1)]) {
     assert.equal((await service.fetch(url, request(text))).status, 400);
   }

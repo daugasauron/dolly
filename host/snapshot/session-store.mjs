@@ -1,11 +1,10 @@
-import { alphabetical } from "./alphabetical.mjs";
-import { validName } from "../page/image-names.mjs";
-import { imageInputs } from "../page/image-inputs.mjs";
-import { MAX_SNAPSHOT_BYTES } from "../page/snapshot-records.mjs";
-import { DOLLY_VERSION } from "../page/version.mjs";
+import { validName } from "../../page/image-names.mjs";
+import { imageInputs } from "../../page/image-inputs.mjs";
+import { MAX_SNAPSHOT_BYTES } from "../../page/snapshot-records.mjs";
+import { DOLLY_VERSION } from "../../page/version.mjs";
 
-// A save is the whole filesystem but /dev, /proc and /run (host/snapshot/kernel.c),
-// at most 8 GiB before and after compression.
+// The saves of this browser, in IndexedDB. A save is the whole filesystem but
+// /dev, /proc and /run (kernel.c), at most 8 GiB before and after compression.
 export const DOLLY_SESSION_FORMAT_VERSION = 4;
 export const DOLLY_SESSION_MAX_BYTES = 8 * 1024 * 1024 * 1024;
 export const DOLLY_SESSION_METADATA_MAX_BYTES = 1024 * 1024;
@@ -65,8 +64,7 @@ export function sessionLoadUrl(name, applicationBase) {
 
 export async function listStoredSessions() {
   const records = await transaction("readonly", store => store.getAll());
-  return records.map(({ bytes, ...metadata }) => ({ ...metadata, byteLength: bytes.size }))
-    .sort((left, right) => alphabetical(left.name, right.name));
+  return records.map(({ bytes, ...metadata }) => ({ ...metadata, byteLength: bytes.size }));
 }
 
 async function collectStream(stream, maximum) {

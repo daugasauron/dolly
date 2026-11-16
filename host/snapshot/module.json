@@ -11,5 +11,6 @@
   "process": [],
   "headers": [],
   "kernel": ["kernel.c"],
-  "client": []
+  "client": [],
+  "files": ["offline.mjs", "session-store.mjs", "snapshot.h", "transport.mjs", "ui.mjs"]
 }

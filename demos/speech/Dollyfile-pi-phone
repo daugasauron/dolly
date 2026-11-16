@@ -28,7 +28,7 @@ INSTALL /v0.1.7/Dollyfile-git 159ebe91cfbbe3168c3232357db3b2fa7902fc59537e3ee452
 INSTALL /v0.1.7/Dollyfile-curl 6307c6eac2d990657b961ba9ea05fc7f5c261d2f2c2c8662a9876b45ac210f3c
 # download and upload, which Pi's prompt teaches (transfer).
 INSTALL /v0.1.7/Dollyfile-transfer c581eb92dcc14d12e251f686ba9ff508aeab68afcc4205254c54e184e9e889a4
-INSTALL /v0.1.7/demos/pi/Dollyfile-pi-dolly 34333797a2dd8a78cff1104b617c081a073f6f5f2224dda5369fd22ba6a1a6f6
+INSTALL /v0.1.7/demos/pi/Dollyfile-pi-dolly 2a15512bfe052211a3605c0a00bb2b1a683934e2e3bac1f2a74e4e9a0d1fd7fd
 INSTALL /v0.1.7/Dollyfile-amy 68444169857e8d1bcac03c0541ea52c1b8660b8bffa61a466c83de79ddc79f76
 REQUIRES TOOL foreground
 REQUIRES TOOL pi

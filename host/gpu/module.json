@@ -11,5 +11,6 @@
   "headers": ["gpu.h", "gpu-abi.h"],
   "kernel": ["kernel.c"],
   "client": ["client.c"],
+  "files": ["bridge.mjs", "worker.mjs"],
   "package": "libdolly-gpu"
 }

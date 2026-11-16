@@ -12,6 +12,7 @@
   "headers": ["threads.h", "threads-abi.h"],
   "kernel": ["kernel.c"],
   "client": [],
+  "files": ["client.c", "pthreads.c", "pthreads-start.S"],
   "ccExports": { "pthread": ["dolly_thread_start"] },
   "seed": "seed.sh",
   "package": "libdolly-threads"

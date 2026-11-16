@@ -55,6 +55,8 @@ sequenceDiagram
 
 Code: [`host/build/build.mjs`](../host/build/build.mjs),
 [`host/http/local-services.mjs`](../host/http/local-services.mjs),
-[`host/build/service.mjs`](../host/build/service.mjs),
-[`image-builder.mjs`](../site/image-builder.mjs); the recipe executor is
+[`host/build/service.mjs`](../host/build/service.mjs); the page builds with
+the site's image builder ([`site.mjs`](../site/site.mjs), `imageBuilder`,
+over [`image-builder.mjs`](../site/image-builder.mjs)), so `build@0` builds
+on the site's routes alone; the recipe executor is
 [`dollyfile.c`](../programs/dollyfile.c).
