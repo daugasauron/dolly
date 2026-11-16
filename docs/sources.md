@@ -19,6 +19,8 @@ flowchart TD
 | Component | Built outside Dolly | Result |
 | --- | --- | --- |
 | Emscripten 6.0.8 | Digest-pinned container links the kernel, process sysroot, gate and seed ([`CMakeLists.txt`](../toolchain/CMakeLists.txt), [`build.sh`](../scripts/build.sh)) | Kernel plus process libc with its compiler-rt builtins, which the first link needs; the seed holds headers and the Dollyfile engine source, which [`bootstrap.c`](../programs/bootstrap.c) compiles before the first recipe |
+| Bison 3.8.2 | Built natively on the host ([`build-bison.sh`](../scripts/build-bison.sh)); [`generate-awk.sh`](../scripts/generate-awk.sh) runs it on One True Awk's `awkgram.y` | `awkgram.tab.c` and `awkgram.tab.h`, which `system-tools` compiles into `/bin/awk` |
+| Zig 0.17.0 | The host's Zig ran libghostty-vt's build graph once; its output is committed in [`programs/ghostty/generated/`](../programs/ghostty/generated/README.md) | The two options modules and `wuffs-c.zig`, translate-c's output for Wuffs' header, which `ghostty-build` compiles |
 
 libc++, libc++abi and libunwind are not among them: [`Dollyfile-system-build`](../Dollyfile-system-build)
 compiles Emscripten's pinned copy with the flags of Emscripten's own build,

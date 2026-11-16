@@ -34,7 +34,7 @@ flowchart LR
 | Host modules | [`host/`](../host/README.md) | One directory and manifest per bridge: JavaScript provider, WAT contract, C header, kernel C, process client; see [browser boundary](browser-boundary.md) |
 | Runtime Worker | [`worker-image.mjs`](../page/worker-image.mjs), [`runtime-worker.mjs`](../page/runtime-worker.mjs) (served bundled), [`build-worker.mjs`](../site/build-worker.mjs) | Instantiates the kernel with the host modules' imports, restores the image from its packs, or, for the site, builds it or restores a custom one, and runs its ENTRY |
 | Kernel | [`dolly.c`](../kernel/dolly.c), [`process-kernel.c`](../kernel/process-kernel.c), [`pty.c`](../kernel/pty.c), [`system-snapshot.c`](../kernel/system-snapshot.c), [`file-blocks.cpp`](../kernel/file-blocks.cpp) | WasmFS, open files, pipes, processes, signals, pseudo-terminals and the boot terminal, image snapshots; module operations go to each module's `kernel.c` ([build](../toolchain/CMakeLists.txt)) |
-| Supervisor | [`process-supervisor.mjs`](../page/process-supervisor.mjs) | Compiles executables, gives each process a Worker (one per thread) and each Worker a mailbox in kernel memory, dispatches syscalls, enforces deadlines |
+| Supervisor | [`process-supervisor.mjs`](../page/process-supervisor.mjs) | Compiles executables, gives each process a Worker (one per thread) and each Worker a mailbox in kernel memory, dispatches syscalls, and starts, interrupts and stops Workers as the kernel's events decide (a timed spawn's deadline is the kernel's) |
 | Process Worker | [`process-worker.mjs`](../page/process-worker.mjs) | Makes the process's memory and gate, instantiates the executable, copies each packet between that memory and its mailbox and enters the kernel for it; for an executable that records `dso@0`, imports the loader and FFI ([`host/dso/process.mjs`](../host/dso/process.mjs)) |
 | Process libc | [`libc-adapter.c`](../process/libc-adapter.c), [`signal.c`](../process/signal.c) | Maps Emscripten musl's low-level calls to process operations |
 | Kernel libc | [`libc-host.c`](../kernel/libc-host.c) | Answers what Emscripten musl and WasmFS ask of a host from the kernel's own imports |
@@ -127,7 +127,7 @@ flowchart TD
   sb -. "packages: zlib, gzip, curl, git" .-> st
   disp -. "INSTALL" .-> st
   st --> sys["system<br/>sessions"]
-  sb -. "packages: transfer, html, session-recover, core, cc, make" .-> sys
+  sb -. "packages: transfer, session-recover, core, cc, make" .-> sys
   st -. "packages: posix, ninja" .-> sys
   sb -. "packages: core, curl, nena, amy, transfer" .-> def["default<br/>packages only"]
   st -. "packages: posix" .-> def

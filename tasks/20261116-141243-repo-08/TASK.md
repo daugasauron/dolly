@@ -4,9 +4,19 @@
 - PRIORITY: 90
 - TAGS: audit,repo,docs,0.1.8
 
-## State (2026-11-16)
+## State (2026-11-17)
 
-Filed by the repo audit; nothing changed. Each item is checked against the code of `124bf9fe6`.
+The eight places say what the code does, on `cleanup/0.1.8`: the supervisor carries out the
+kernel's events and the deadline is the kernel's; `html` is off the graph's `system` edge;
+`audio.md` has the page's question for a session-enabled microphone; the README row is 0.1.7's
+round (1049 s, 161 runs, 2026-11-15); the demos index has PhotoCraft and Godot's line as its
+README has it; the bootstrap exceptions table has host Bison 3.8.2 for awk and the host Zig's
+committed Ghostty files; `embedding.md`'s table has `clipboard` and `console`. Checked against the
+code cited below; `platform-documents.test.mjs` passes after re-pinning `dolly-docs`, and
+`lint:dollyfiles`.
+
+Left: `wuffs-c.zig`'s six comments naming this machine's host Zig go when the file is next
+written from a checkout path that names no machine, with a rebuild of `ghostty-build`.
 
 ## Found
 

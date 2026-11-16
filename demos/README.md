@@ -14,7 +14,7 @@ README. Demos may use each other; the core never uses a demo.
 - [game-agent](game-agent/README.md): agent code and the Codex relay shared by the games.
 - [ghostty-gtk](ghostty-gtk/README.md): Ghostty's GTK application on Dolly's X server: its window, its OpenGL renderer on Mesa and a shell.
 - [go](go/README.md): Go's toolchain, ported as `GOOS=dolly GOARCH=wasm64`, rebuilt inside Dolly from its seed; gofmt and esbuild.
-- [godot](godot/README.md): Godot 4.7 and its editor, built inside Dolly by SCons: its Compatibility renderer on Mesa, its sound on `audio@0`, and Dodge the Creeps, which the editor exported here.
+- [godot](godot/README.md): Godot 4.7 and its editor, built inside Dolly by SCons: its renderers on `gpu@0` through Dolly's WebGPU driver, the Project Manager's too, its sound on `audio@0`, and games on them: Airtime, Voxel Flyover, Truck Town, Lantern Drift and Dodge the Creeps.
 - [gtk](gtk/README.md): the libraries GTK is built on, GLib and PCRE2, as packages; GObject programs pass through Binaryen's cast emulation.
 - [javascript](javascript/README.md): QuickJS-ng, Janis and TypeScript, each a package.
 - [lean](lean/README.md): Lean 4.35, bootstrapped inside Dolly from upstream's stage0, with Lake building programs through `cc`, as a package.
@@ -23,6 +23,7 @@ README. Demos may use each other; the core never uses a demo.
 - [mojo](mojo/README.md): the Mojo compiler built inside Dolly, as the package `mojo`; its programs run there, and in `mojo-gpu` with kernels on WebGPU.
 - [neovim](neovim/README.md): Neovim with Lua and Tree-sitter parsers.
 - [ocaml](ocaml/README.md): OCaml 5.5, bytecode, built inside Dolly from upstream's bootstrap compiler, as a package.
+- [photocraft](photocraft/README.md): PhotoCraft, an image editor in Rust built inside Dolly by Cargo, drawn on `gpu@0` or in a window on `x11-desktop`, as a package.
 - [pi](pi/README.md): the Pi coding agent.
 - [python](python/README.md): CPython and stock pip over the HTTP broker.
 - [rclone](rclone/README.md): rclone, which keeps a folder of the session in step with a folder a WebDAV server holds, as a package.
