@@ -28,11 +28,13 @@ float swell(vec2 p) {
 
 void vertex() {
 	world_position = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	VERTEX = lift(world_position) - MODEL_MATRIX[3].xyz;
 }
 
 void fragment() {
 	vec2 p = world_position.xz;
-	float depth = max(SEA - ground_here(p).x, 0.0);
+	vec4 ground_under = ground_here(p);
+	float depth = max(SEA - ground_under.x, 0.0);
 	float wide = max(length(dFdx(p)), length(dFdy(p)));
 	float here = ripples(p, wide);
 	float calm = 1.0 / (1.0 + length(VERTEX) * 0.01);
@@ -59,7 +61,7 @@ void fragment() {
 	foam = max(foam, 0.25 * rain_on(p) * smoothstep(0.7, 0.9, noise(p * 1.7 + vec2(clock * 0.9, -clock * 0.7))) * (1.0 - smoothstep(0.3, 1.0, wide)));
 	// Ice: plates of a noise that drifts slowly, on the seas of the cold lands in winter; a lit
 	// beacon's warmth opens the water around it.
-	float warmth = climate(p).x;
+	float warmth = ground_under.y;
 	float cold = winter * smoothstep(0.52, 0.42, warmth) * (1.0 - beacon_warmth(p));
 	vec2 adrift = p - vec2(0.93, 0.36) * clock * 0.6;
 	float floe = cold > 0.0 ? cold * smoothstep(0.47, 0.5 + wide * 0.02, fbm_seen(adrift / 26.0 + vec2(7.0, 51.0), 3, wide / 26.0)) : 0.0;
@@ -83,8 +85,18 @@ void fragment() {
 	ROUGHNESS = mix(mix(0.04 + 0.3 * smoothstep(0.15, 2.5, wide) + 0.3 * blown, 0.5, foam), 0.55, floe);
 	SPECULAR = 0.8;
 	// In a realm of wonders the sea is alight at night: its surf, and sparks in the swell.
-	float alight = ground_here(p).w * night * (1.0 - floe);
+	float alight = realm_at(p) * night * (1.0 - floe);
 	float shore_foam = foam * (1.0 - smoothstep(0.0, 0.3, horses));
 	float sparks = smoothstep(0.75, 0.95, noise(p * 0.9 + vec2(clock * 0.4, -clock * 0.3))) * (1.0 - smoothstep(0.3, 1.2, wide)) * exp(-depth * 0.08);
-	EMISSION = vec3(0.1, 0.7, 0.9) * shore_foam * here * night * 0.9 * (1.0 - floe) + vec3(0.05, 0.9, 0.75) * alight * (3.0 * shore_foam + 1.5 * sparks + 0.5 * exp(-depth * 0.25)) + vec3(1.0, 0.55, 0.16) * pulse_light(p) * (0.4 + 0.8 * night);
+	vec3 emission = vec3(0.1, 0.7, 0.9) * shore_foam * here * night * 0.9 * (1.0 - floe) + vec3(0.05, 0.9, 0.75) * alight * (3.0 * shore_foam + 1.5 * sparks + 0.5 * exp(-depth * 0.25)) + vec3(1.0, 0.55, 0.16) * pulse_light(p) * (0.4 + 0.8 * night);
+	vec3 albedo = ALBEDO;
+	float roughness = ROUGHNESS;
+	float specular = SPECULAR;
+	vec3 up_seen = normalize((VIEW_MATRIX * vec4(lift_way(p, vec3(0.0, 1.0, 0.0)), 0.0)).xyz);
+	float level = from_above(world_position, wide, up_seen, VIEW, albedo, emission, roughness, specular);
+	ALBEDO = albedo;
+	EMISSION = emission;
+	ROUGHNESS = roughness;
+	SPECULAR = specular;
+	NORMAL = normalize(mix(NORMAL, up_seen, level));
 }

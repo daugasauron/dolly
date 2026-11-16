@@ -18,7 +18,7 @@ varying vec3 world;
 void vertex() {
 	vec2 number = floor(MODEL_MATRIX[3].xz / CELL);
 	vec2 place = (number + 0.2 + 0.6 * vec2(hash(number + 3.0), hash(number + 11.0))) * CELL;
-	strength = rain_on(place) * (1.0 - smoothstep(1500.0, 1900.0, distance(place, flyer)));
+	strength = rain_on(place) * (1.0 - smoothstep(1500.0, 1900.0, far_from(place)));
 	from_axis = VERTEX;
 	float radius = 120.0 + 70.0 * hash(number + 5.0);
 	// Wider under the cloud than at the ground, and leaning with the wind.
@@ -27,6 +27,7 @@ void vertex() {
 	at.xz += vec2(0.93, 0.36) * (up - 1.0) * 60.0;
 	VERTEX = (strength > 0.01 ? at + vec3(place.x, 0.0, place.y) : vec3(0.0)) - MODEL_MATRIX[3].xyz;
 	world = VERTEX + MODEL_MATRIX[3].xyz;
+	VERTEX = lift(VERTEX + MODEL_MATRIX[3].xyz) - MODEL_MATRIX[3].xyz;
 }
 
 void fragment() {

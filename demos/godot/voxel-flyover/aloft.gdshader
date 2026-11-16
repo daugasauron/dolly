@@ -19,7 +19,7 @@ void vertex() {
 	vec2 home = (number + 0.5) * CELL;
 	float along = mod(clock * 5.0 + hash(number + 33.0) * CELL, CELL) - CELL * 0.5;
 	vec2 place = home + vec2(0.93, 0.36) * along + vec2(-0.36, 0.93) * (hash(number + 35.0) - 0.5) * CELL * 0.6;
-	seen = step(own, 0.17) * smoothstep(CELL * 0.5, CELL * 0.36, abs(along)) * (1.0 - smoothstep(1300.0, 1550.0, distance(place, flyer)));
+	seen = step(own, 0.17) * smoothstep(CELL * 0.5, CELL * 0.36, abs(along)) * (1.0 - smoothstep(1300.0, 1550.0, far_from(place)));
 	float high = max(ground_here(place).x, SEA) + 440.0 + 50.0 * hash(number + 37.0) + 4.0 * sin(clock * 0.3 + own * 50.0);
 	from_centre = VERTEX * 2.0;
 	// The envelope: a ball that narrows to its mouth; under it the basket, the mesh's lowest part.
@@ -29,6 +29,7 @@ void vertex() {
 	float turn = clock * 0.1 + own * 9.0;
 	at.xz = vec2(at.x * cos(turn) - at.z * sin(turn), at.x * sin(turn) + at.z * cos(turn));
 	VERTEX = at * seen + vec3(place.x, high, place.y) - MODEL_MATRIX[3].xyz;
+	VERTEX = lift(VERTEX + MODEL_MATRIX[3].xyz) - MODEL_MATRIX[3].xyz;
 }
 
 void fragment() {

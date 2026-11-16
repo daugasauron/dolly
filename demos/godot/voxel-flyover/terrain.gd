@@ -1,7 +1,8 @@
 extends RefCounted
-## terrain.gdshaderinc's world, computed here for the flight: the same hash, noise and heights.
+## terrain.gdshaderinc's world, computed here for the flight: the same chart, hash, noise and heights.
 
 const SEA := 24.0
+const CLOUD_HEIGHT := 520.0
 const MASK := 0xFFFFFFFF
 
 
@@ -41,44 +42,144 @@ static func ridge(p: Vector2) -> float:
 	return n * n
 
 
+const RADIUS := 600000.0 # the planet's
+## The chart's anchor on the planet: the chart's x, up and z there, in the planet's axes.
+static var anchor := Basis.IDENTITY
+
+
+## terrain.gdshaderinc's chart_dir: the direction of a chart's place from the planet's middle,
+## in the anchor's axes.
+static func chart_dir(p: Vector2) -> Vector3:
+	var far := p.length()
+	var angle := minf(far / RADIUS, 3.138)
+	var scale := sin(angle) / far if far > 1.0 else 1.0 / RADIUS
+	return Vector3(p.x * scale, cos(angle), p.y * scale)
+
+
+## terrain.gdshaderinc's chart_frame: the chart's x, up and z at a place, in the anchor's axes.
+static func chart_frame(p: Vector2) -> Basis:
+	var far := p.length()
+	if far < 1.0:
+		return Basis.IDENTITY
+	var out_of := p / far
+	var angle := minf(far / RADIUS, 3.138)
+	var outward := Vector3(out_of.x * cos(angle), -sin(angle), out_of.y * cos(angle))
+	var across := Vector3(-out_of.y, 0.0, out_of.x)
+	return Basis(out_of.x * outward - out_of.y * across, Vector3(out_of.x * sin(angle), cos(angle), out_of.y * sin(angle)), out_of.y * outward + out_of.x * across)
+
+
+## The point of the planet a chart's place is, in the planet's axes.
+static func planet_at(p: Vector2) -> Vector3:
+	return anchor * chart_dir(p) * RADIUS
+
+
+static func cell_hash3(x: int, y: int, z: int) -> float:
+	var n := ((((x & MASK) * 1597334673) & MASK) ^ (((y & MASK) * 3812015801) & MASK) ^ (((z & MASK) * 2798796415) & MASK))
+	n = (n * 1597334673) & MASK
+	n ^= n >> 15
+	n = (n * 2246822519) & MASK
+	n ^= n >> 13
+	return float(n >> 8) / 16777216.0
+
+
+const SPREAD := 1.16
+
+
+static func noise3(p: Vector3) -> float:
+	var i := p.floor()
+	var f := p - i
+	var ux := f.x * f.x * f.x * (f.x * (f.x * 6.0 - 15.0) + 10.0)
+	var uy := f.y * f.y * f.y * (f.y * (f.y * 6.0 - 15.0) + 10.0)
+	var uz := f.z * f.z * f.z * (f.z * (f.z * 6.0 - 15.0) + 10.0)
+	var x := int(i.x)
+	var y := int(i.y)
+	var z := int(i.z)
+	var low := lerpf(lerpf(cell_hash3(x, y, z), cell_hash3(x + 1, y, z), ux), lerpf(cell_hash3(x, y + 1, z), cell_hash3(x + 1, y + 1, z), ux), uy)
+	var high := lerpf(lerpf(cell_hash3(x, y, z + 1), cell_hash3(x + 1, y, z + 1), ux), lerpf(cell_hash3(x, y + 1, z + 1), cell_hash3(x + 1, y + 1, z + 1), ux), uy)
+	return 0.5 + (lerpf(low, high, uz) - 0.5) * SPREAD
+
+
+static func fbm3(p: Vector3, octaves: int) -> float:
+	var sum := 0.0
+	var weight := 0.5
+	var total := 0.0
+	for octave in octaves:
+		sum += noise3(p) * weight
+		total += weight
+		p = Vector3(0.8 * p.y + 0.6 * p.z, -0.8 * p.x + 0.36 * p.y - 0.48 * p.z, -0.6 * p.x - 0.48 * p.y + 0.64 * p.z) * 2.02 + Vector3(3.1, 1.7, 5.3)
+		weight *= 0.5
+	return sum / total
+
+
+static func ridge3(p: Vector3) -> float:
+	var n := 1.0 - absf(noise3(p) * 2.0 - 1.0)
+	return n * n
+
+
 ## terrain.gdshaderinc's slow field.
-static func slow(p: Vector2, size: float, turn: float, place: Vector2) -> float:
-	return fbm(Vector2(cos(turn) * p.x - sin(turn) * p.y, sin(turn) * p.x + cos(turn) * p.y) / size + place, 2)
+static func slow3(planet: Vector3, size: float, place: Vector3) -> float:
+	return fbm3(planet / size + place, 2)
 
 
 ## The slow fields a height is made with, x: the seas' shift, y: the relief, z: the massif. They
 ## change little over a hundred units, so the heights around a place share them.
-static var slow_place := Vector2(INF, INF)
+static var slow_place := Vector3(INF, INF, INF)
 static var slow_fields := Vector3.ZERO
 
 
-static func slow_here(p: Vector2) -> Vector3:
-	if p.distance_squared_to(slow_place) > 2500.0:
-		slow_place = p
-		slow_fields = Vector3((slow(p, 7300.0, 0.7, Vector2(34.0, 62.0)) - 0.5) * 0.9 + (slow(p, 2700.0, 1.9, Vector2(104.0, 42.0)) - 0.5) * 0.5,
-			lerpf(0.22, 1.0, smoothstep(0.3, 0.5, slow(p, 1900.0, 2.6, Vector2(38.0, 77.0)))),
-			smoothstep(0.81, 0.9, slow(p, 19000.0, 0.3, Vector2(8.0, 97.0))))
+static func slow_here(planet: Vector3) -> Vector3:
+	if planet.distance_squared_to(slow_place) > 2500.0:
+		slow_place = planet
+		var continent := fbm3(planet / 210000.0 + Vector3(5.0, 71.0, 23.0), 3)
+		var belt := 1.0 - smoothstep(0.015, 0.06, absf(fbm3(planet / 140000.0 + Vector3(91.0, 17.0, 44.0), 2) - 0.5))
+		slow_fields = Vector3((slow3(planet, 7300.0, Vector3(34.0, 62.0, 15.0)) - 0.5) * 0.9 + (slow3(planet, 2700.0, Vector3(104.0, 42.0, 77.0)) - 0.5) * 0.5 + (smoothstep(0.4, 0.6, continent) - 0.5) * 0.8,
+			lerpf(0.22, 1.0, smoothstep(0.3, 0.5, slow3(planet, 1900.0, Vector3(38.0, 77.0, 53.0)))),
+			smoothstep(0.81, 0.9, slow3(planet, 19000.0, Vector3(8.0, 97.0, 31.0)) + 0.17 * belt))
 	return slow_fields
 
 
-static func height(p: Vector2) -> float:
-	var fields := slow_here(p)
+## terrain.gdshaderinc's terrain_on: the ground's height at a point of the planet.
+static func height_on(planet: Vector3) -> float:
+	var fields := slow_here(planet)
 	var massif := fields.z
-	var land := smoothstep(0.36, 0.52, fbm(p / 520.0, 3) + fields.x)
-	var hills := fbm(p / 130.0 + Vector2(17.0, 5.0), 4)
-	var ranges := smoothstep(0.56, 0.73, fbm(p / 640.0 + Vector2(80.0, 31.0), 2) + 0.3 * massif)
-	var q := p / 260.0 + Vector2(40.0, 12.0)
-	var crest := ridge(q)
-	var spur := ridge(q * 2.3 + Vector2(9.0, 77.0)) * crest
-	var peaks := crest * 0.6 + spur * 0.3 + ridge(q * 5.1 + Vector2(3.0, 41.0)) * spur * 0.16
+	var land := smoothstep(0.36, 0.52, fbm3(planet / 520.0 + Vector3(0.0, 13.0, 29.0), 3) + fields.x)
+	var hills := fbm3(planet / 130.0 + Vector3(17.0, 5.0, 43.0), 4)
+	var ranges := smoothstep(0.56, 0.73, fbm3(planet / 640.0 + Vector3(80.0, 31.0, 7.0), 2) + 0.3 * massif)
+	var q := planet / 260.0 + Vector3(40.0, 12.0, 67.0)
+	var crest := ridge3(q)
+	var spur := ridge3(q * 2.3 + Vector3(9.0, 77.0, 21.0)) * crest
+	var peaks := crest * 0.6 + spur * 0.3 + ridge3(q * 5.1 + Vector3(3.0, 41.0, 58.0)) * spur * 0.16
 	var high := SEA - 13.0 - 24.0 * smoothstep(-0.05, -0.3, fields.x) + land * (16.0 + 45.0 * massif) + hills * 20.0 * (0.35 + land) + peaks * 125.0 * land * ranges * (fields.y + 1.5 * massif)
 	if high < SEA - 2.5 or high > SEA + 90.0:
 		return high
 	var gate := 1.0 - smoothstep(SEA + 45.0, SEA + 90.0, high)
-	var w := p / 900.0 + 0.35 * Vector2(noise(p / 310.0 + Vector2(7.0, 3.0)), noise(p / 310.0 + Vector2(51.0, 23.0)))
-	var lake := 0.05 * smoothstep(0.6, 0.72, noise(p / 1300.0 + Vector2(61.0, 9.0)))
-	var valley := smoothstep((0.012 + lake) * gate, 0.1 + lake, absf(noise(w + Vector2(140.0, 77.0)) - 0.5))
+	var bend := planet / 310.0
+	var w := planet / 900.0 + 0.35 * Vector3(noise3(bend + Vector3(7.0, 3.0, 11.0)), noise3(bend + Vector3(51.0, 23.0, 5.0)), noise3(bend + Vector3(19.0, 88.0, 61.0)))
+	var lake := 0.05 * smoothstep(0.6, 0.72, noise3(planet / 1300.0 + Vector3(61.0, 9.0, 33.0)))
+	var valley := smoothstep((0.012 + lake) * gate, 0.1 + lake, absf(noise3(w + Vector3(140.0, 77.0, 9.0)) - 0.5))
 	return lerpf(high, SEA - 2.5 + (high - SEA + 2.5) * valley, gate)
+
+
+## The ground's height at a chart's place.
+static func height(p: Vector2) -> float:
+	return height_on(planet_at(p))
+
+
+## terrain.gdshaderinc's cloud_depth, where the weather has moved that far.
+static func cloud_depth(p: Vector2, drift: Vector3) -> float:
+	return fbm3((planet_at(p) + drift) / 1000.0 + Vector3(31.0, 7.0, 59.0), 3) + weather(p, drift)
+
+
+## terrain.gdshaderinc's realm_on at a chart's place.
+static func realm(p: Vector2) -> float:
+	return smoothstep(0.72, 0.82, slow3(planet_at(p), 53000.0, Vector3(10.0, 28.0, 66.0)))
+
+
+## terrain.gdshaderinc's weather_on at a chart's place: the weather of its region.
+static func weather(p: Vector2, drift: Vector3) -> float:
+	var q := (planet_at(p) + drift) / 90000.0 + Vector3(4.0, 27.0, 13.0)
+	q += 0.7 * Vector3(noise3(q * 0.6 + Vector3(11.0, 0.0, 5.0)), noise3(q * 0.6 + Vector3(37.0, 9.0, 0.0)), noise3(q * 0.6 + Vector3(0.0, 71.0, 3.0)))
+	return (fbm3(q, 3) - 0.5) * 0.55
 
 
 ## The surface a flight stays above: the ground or the sea.
@@ -91,13 +192,15 @@ const LOT := 16.0
 
 ## terrain.gdshaderinc's town_at.
 static func town(p: Vector2, ground: float) -> float:
-	return smoothstep(0.58, 0.66, fbm(p / 760.0 + Vector2(400.0, 109.0), 2)) * smoothstep(SEA + 4.5, SEA + 8.0, ground) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, ground))
+	return smoothstep(0.58, 0.66, settled(p)) * smoothstep(SEA + 4.5, SEA + 8.0, ground) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, ground))
 
 
 ## terrain.gdshaderinc's climate. x: warmth, y: moisture.
 static func climate(p: Vector2) -> Vector2:
-	return Vector2(fbm(p / 900.0 + Vector2(211.0, 57.0), 2) + (slow(p, 19000.0, 1.3, Vector2(37.0, 14.0)) - 0.5) * 0.55,
-		fbm(p / 560.0 + Vector2(13.0, 143.0), 2) + (slow(p, 11000.0, 2.2, Vector2(89.0, 44.0)) - 0.5) * 0.45)
+	var planet := planet_at(p)
+	var polar := smoothstep(0.7, 0.98, absf(planet.y) / RADIUS)
+	return Vector2(fbm3(planet / 900.0 + Vector3(211.0, 57.0, 3.0), 2) + (slow3(planet, 19000.0, Vector3(37.0, 14.0, 82.0)) - 0.5) * 0.55 + (fbm3(planet / 260000.0 + Vector3(13.0, 49.0, 7.0), 2) - 0.5) * 0.3 - 0.55 * polar,
+		fbm3(planet / 560.0 + Vector3(13.0, 143.0, 71.0), 2) + (slow3(planet, 11000.0, Vector3(89.0, 44.0, 26.0)) - 0.5) * 0.45 + (fbm3(planet / 190000.0 + Vector3(67.0, 3.0, 39.0), 2) - 0.5) * 0.4)
 
 
 ## terrain.gdshaderinc's town_kind.
@@ -107,7 +210,7 @@ static func town_kind(p: Vector2, ground: float) -> int:
 		return 2
 	if air.x < 0.42:
 		return 3
-	var culture := slow(p, 5100.0, 1.1, Vector2(3.0, 8.0))
+	var culture := slow3(planet_at(p), 5100.0, Vector3(3.0, 8.0, 47.0))
 	if culture > 0.6:
 		return 0
 	if air.x > 0.52 and air.y < 0.57:
@@ -156,7 +259,8 @@ static var marks := {} # plot -> its landmark, found once
 
 ## How settled a place is (terrain.gdshaderinc's): a town over 0.58, its fields from 0.5.
 static func settled(p: Vector2) -> float:
-	return fbm(p / 760.0 + Vector2(400.0, 109.0), 2)
+	var planet := planet_at(p)
+	return fbm3(planet / 760.0 + Vector3(400.0, 109.0, 55.0), 2) + (fbm3(planet / 6100.0 + Vector3(71.0, 220.0, 12.0), 2) - 0.5) * 0.2
 
 
 ## The landmark of a plot of the world, by what its place is: [where, the height of its foot,
@@ -174,7 +278,7 @@ static func landmark(plot: Vector2i) -> Array:
 	var chance := cell_hash(plot.x + 15, plot.y + 83)
 	var p := (Vector2(plot) + Vector2(0.2, 0.2) + Vector2(cell_hash(plot.x + 5, plot.y + 90), cell_hash(plot.x + 60, plot.y + 12)) * 0.6) * MARK_PLOT
 	var ground := height(p)
-	var wonder := 1.0 + 5.0 * smoothstep(0.72, 0.82, slow(p, 53000.0, 0.9, Vector2(10.0, 28.0)))
+	var wonder := 1.0 + 5.0 * smoothstep(0.72, 0.82, slow3(planet_at(p), 53000.0, Vector3(10.0, 28.0, 66.0)))
 	if ground < SEA:
 		if chance < 0.04 * wonder:
 			found = [p, SEA + 215.0 + 60.0 * own, FLOATING, 0, 0.0, 0.0, own]

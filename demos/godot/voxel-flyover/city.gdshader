@@ -58,22 +58,22 @@ float roof_rise(vec2 at, int of_kind, float is_domed, bool turned, float span, f
 void vertex() {
 	vec2 corner = floor(MODEL_MATRIX[3].xz / LOT) * LOT;
 	vec2 centre = corner + LOT * 0.5;
-	float away = distance(centre, flyer);
+	float away = far_from(centre);
 	own = hash(corner + 3.0);
 	vec4 here = ground_here(centre);
-	float share = town_at(centre, here.x);
+	float share = town_from(here.w, here.x);
 	kind = 0;
 	float tall = 0.0;
 	// No building stands on a steep lot.
 	float tilt = 0.0;
 	foot = here.x;
-	if (share < 0.1 && stilts_at(centre, here.x)) {
+	if (share < 0.1 && stilts_at(here.x, here.w, here.yz)) {
 		// A house on posts over the water: its floor 2.5 units over the sea, one storey or two.
 		kind = 5;
 		foot = SEA + 2.5;
 		tall = (road_lot(corner) || hash(corner + 13.0) < 0.45) ? 0.0 : foot - here.x + 3.0 * floor(1.0 + 1.9 * hash(corner + 7.0)) + 1.0;
 	} else if (share >= 0.1) {
-		kind = town_kind(centre, here.x);
+		kind = town_kind(centre, here.x, here.yz);
 		tall = building_height(corner, share, kind);
 		tilt = abs(ground_here(centre + vec2(LOT * 0.5, 0.0)).x - ground_here(centre - vec2(LOT * 0.5, 0.0)).x) + abs(ground_here(centre + vec2(0.0, LOT * 0.5)).x - ground_here(centre - vec2(0.0, LOT * 0.5)).x);
 	}
@@ -131,6 +131,7 @@ void vertex() {
 		VERTEX.xz = turn * from_middle + centre + aside - MODEL_MATRIX[3].xz;
 	}
 	world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	VERTEX = lift(VERTEX + MODEL_MATRIX[3].xyz) - MODEL_MATRIX[3].xyz;
 }
 
 void fragment() {

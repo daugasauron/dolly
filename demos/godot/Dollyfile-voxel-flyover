@@ -10,12 +10,12 @@ REQUIRES HOST gpu@0
 REQUIRES HOST clipboard@0
 
 # Voxel Flyover: a corgi on a jet surfboard, a pelican on a bicycle pedalling under it for the
-# jets, flies over an endless world of mountains, forests and
-# sea through a day and a night, drawn by Godot's Forward+ renderer on gpu@0. The world is a
-# function its shaders compute: a pass draws the ground into textures as the flight goes, and
-# the vertex stages raise grids of land to it and stand trees on it. Its
-# project (demos/godot/voxel-flyover) is imported and exported here by Godot's editor, and
-# voxel-flyover plays the pack with godot, which installs with it. The project installs too.
+# jets, flies over a planet that can be left, a sphere of 600,000 units
+# drawn by Godot's Forward+ renderer on gpu@0. Its world is a function its shaders compute at
+# the points of the sphere: a pass draws the ground into textures as the flight goes, and the
+# vertex stages raise grids of land to it, out to the horizon and round the planet. Its project
+# (demos/godot/voxel-flyover) is imported and exported here by Godot's editor, and voxel-flyover
+# plays the pack with godot, which installs with it. The project installs too.
 FROM /v0.1.6/Dollyfile-system 33e5bcf65ef4a634da5dbf8e291a379148e7971aa0411fe1bdaa4e0332f24b94
 INSTALL /v0.1.6/demos/godot/Dollyfile-godot f9bfa77355356aa10dae2a7932825a3004f092e8eeb0d3ed333a58211db1a8cb
 USE /v0.1.6/demos/godot/Dollyfile-godot-editor 40b356d99d06e3334cca43232df29096f916427434a8c11d684c967ee5b4600b
@@ -26,7 +26,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.6/dist/static/godot/voxel-flyover.tar 023f103b510f45048cb6b60c055c166241472fd0274117f068444e8a77c965f7 /tmp/voxel-flyover.tar
+SOURCE /v0.1.6/dist/static/godot/voxel-flyover.tar 5a55cf42a36415ab202f0139e69928892ffbe6728f236f2bc6f68d109e29152d /tmp/voxel-flyover.tar
 SLOP CWD / tar -xf /tmp/voxel-flyover.tar
 SLOP mkdir -p /usr/share/voxel-flyover
 SLOP cp -r /usr/src/voxel-flyover /usr/share/voxel-flyover/project
@@ -39,27 +39,27 @@ FILE /usr/bin/voxel-flyover
     godot --main-pack /usr/share/voxel-flyover/voxel-flyover.pck "$@"
 EXPORTS TOOL voxel-flyover
 FILE /usr/share/man/cat1/voxel-flyover.1
-    voxel-flyover [GODOT-OPTION...] [-- --autopilot SECONDS] [-- --day HOUR]
-    Plays Voxel Flyover on the page: a corgi in a cape and sunglasses flies a
-    jet surfboard over an endless world of mountains, forests and sea, from
-    dawn through the day into night, and lights the beacons it reaches, which
-    send rings of light over the ground; under the board a pelican on a
-    bicycle pedals for the jets. It flies itself until Enter or a click
+    voxel-flyover [GODOT-OPTION...] [-- --autopilot SECONDS] [-- --day HOUR] [-- --tour SECOND]
+    Plays Voxel Flyover on the page: a corgi in a cape and sunglasses on a
+    jet surfboard, a pelican on a bicycle pedalling under it for the jets,
+    over a planet 600,000 units in radius, through its days and nights. The land runs on to a curved horizon, and far ranges rise
+    over it as the board nears them. It flies itself until Enter or a click
     takes the board: arrows or WASD steer, climb and dive, T lets the hours
     run, Escape lets go of the board, Q quits. A click also gives the game
     the pointer, and the mouse then turns the view; the wheel, or Z and X,
-    zoom. A dive gives speed and a climb takes it, the wind at the back
-    helps, the board skims fast low over the sea, slopes that face the wind
-    and towns by day lift it, and a beacon gives a push of speed as it is
-    lit, anywhere along its beam. The board flies up to 420 units, over the
-    low clouds. The world has seasons, rain and snow, clouds, mist, oceans,
-    rivers, high mountains, towns of several kinds, landmarks, boats, birds
-    and whales. On a weak GPU it draws less, at an even rate. The number on
-    the screen counts the beacons lit. With --autopilot
-    it flies by itself for that long and prints its frame rate, how even
-    its frames were, the milliseconds a frame took the GPU and the
-    renderer, the beacons it lit and what its frame shows; --day starts at
-    that hour. It draws through WebGPU (gpu@0). Its project is
-    /usr/share/voxel-flyover/project: copy it to edit it with godot-editor.
+    zoom. A board that keeps climbing is faster the higher it is: it leaves
+    the clouds under it, the sky goes dark and the stars come out, and from
+    some hundred thousand units up the planet is seen whole, with its day
+    and night sides, its clouds, its seas' glint, its towns' lights and the
+    rim of its air. Diving brings it back down, anywhere on the planet. A
+    lap along the ground would take 35 hours. On a weak GPU it draws less,
+    at an even rate. The number on the screen counts the beacons lit. With
+    --autopilot it flies by itself for that long and prints its frame rate,
+    how even its frames were, the milliseconds a frame took the GPU and the
+    renderer, the beacons it lit, how high it went and what its frame
+    shows; --day starts at that hour; --tour leaves the planet at that
+    second, to the height --top gives (900000), and comes back. It draws
+    through WebGPU (gpu@0). Its project is /usr/share/voxel-flyover/project:
+    copy it to edit it with godot-editor.
 FILE /usr/share/voxel-flyover/voxel-flyover.pck
 FOLDER /usr/share/voxel-flyover/project

@@ -33,10 +33,8 @@ Dolly, as it exported Dodge the Creeps for `amy install dodge-the-creeps`
 - `godot-lantern-drift`: Lantern Drift on the page at once; Q leaves a shell where `godot-editor -e --path ~/lantern-drift` opens a copy of its project in Godot's editor, the islands in its 3D view. The eye beside HUD in the Scene dock hides the game's display, F5 plays the game so, and Ctrl+S saves the scene.
 - `airtime-godot`: Airtime: Foundry in Godot, the strafe trials of bhop on Airtime's own movement and course, drawn by Forward+ on `gpu@0` as a foundry at night over molten metal; `airtime-godot` plays it.
 - `godot-airtime`: Airtime in Godot on the page, which starts at once; Q leaves a shell where `godot-editor -e --path ~/airtime` opens a copy of its project in Godot's editor, the course in its 3D view. The eye beside Hud in the Scene dock hides the game's display, F5 plays the game so, and Ctrl+S saves the scene.
-- `voxel-flyover`: Voxel Flyover, a corgi's flight on a jet surfboard, with a pelican on a bicycle pedalling under it for the jets, over an endless world of mountains, forests and sea through a day and a night, which the GPU builds in its shaders, drawn by Forward+ on `gpu@0`; `voxel-flyover` plays it.
-- `godot-voxel-flyover`: Voxel Flyover on the page at once: the corgi flies itself until Enter or a click takes the board, the mouse then turns the view, and Q leaves a shell.
-- `voxel-planet`: Voxel Planet, Voxel Flyover's flight on a planet that can be left: a sphere of 600,000 units whose land runs on to a curved horizon, and which a board that keeps climbing sees whole from out of its air; `voxel-planet` plays it.
-- `godot-voxel-planet`: Voxel Planet on the page at once: the corgi flies itself until Enter or a click takes the board; keep climbing to leave the planet, dive to come back, and Q leaves a shell.
+- `voxel-flyover`: Voxel Flyover, a corgi's flight on a jet surfboard, with a pelican on a bicycle pedalling under it for the jets, over a planet of mountains, forests and sea that can be left: a sphere of 600,000 units which the GPU builds in its shaders, drawn by Forward+ on `gpu@0`, with a curved horizon, and whole from out of its air; `voxel-flyover` plays it.
+- `godot-voxel-flyover`: Voxel Flyover on the page at once: the corgi flies itself until Enter, a click or a touch takes the board; keep climbing to leave the planet, dive to come back, and Q leaves a shell.
 
 ## Lantern Drift
 
@@ -253,6 +251,62 @@ first level drew 5 frames a second 200 ms apart, the game settles on the last le
 seconds and draws 30 a second 33 ms apart, as it does in Chrome on that GPU (2026-11-15); on the
 NVIDIA RTX 5070 it stays on the first, at 60 in Chrome and 59 in Firefox with the GPU at 5.5 ms
 a frame.
+### The planet
+
+The world is a planet: a sphere of 600,000 units (a lap along the ground at the board's 30 a
+second would take 35 hours) with a horizon that curves, and space over it. Until 2026-11-17 the
+game's world was an endless plane; what the planet leaves for later is in its tasks
+(`tatr ls :planet`).
+
+The game computes in a flat chart: x and z are distances along the ground from the chart's
+anchor, a point of the planet, and the flight, the grids and everything that stands on a lattice
+(plots of trees, lots of towns, fields) are as on a plane. Two things put it on the sphere
+([`terrain.gdshaderinc`](voxel-flyover/terrain.gdshaderinc)):
+
+- The slow fields of the world (heights, climate, towns, clouds) are evaluated at the point of
+  the sphere a chart's place is (`planet_at`), with noise in three dimensions, so they have no
+  seam and are the same from every chart. The planet adds fields of its own size: continents and
+  oceans, belts of mountains, the weather of whole regions, and the cold of its poles, where the
+  snow lies down to the sea and the sea is ice.
+- Every vertex stage carries its chart place onto the sphere, relative to the flyer (`lift`).
+  Godot here computes in float32, whose steps are a sixteenth of a unit at the planet's radius:
+  near the flyer the ground falls away by `2 R sin²(d / 2R)`, computed without the difference of
+  two large numbers, and far off the place is turned from the anchor's axes into the flyer's,
+  where such steps are nothing. So the flyer's own surroundings stay as flat and as exact as
+  a plane's, and the planet is drawn around them.
+
+Eight grids of land instead of three reach round the planet
+([`main.gd`](voxel-flyover/main.gd)'s `RINGS`): three to 2,300 units, then cells of
+96, 384 and 1,536 units to 147,000, each with its ground in a texture drawn as it steps, and two
+of 6,144 and 24,576 that read a texture of the whole planet by longitude and latitude, drawn once
+at the start ([`ground.gdshader`](voxel-flyover/ground.gdshader)'s `whole`). A ground read
+coarsely is the mean of what is finer than it is read (`fbm3_seen`): far ground does not sparkle
+with detail its points cannot hold, and a range that rises over the horizon gains its spurs as
+it nears. A grid's own detail gives way to the coarser grid's by the distance from the flyer, and by the flyer's height: 300 of its cells up a grid shows the next one's
+ground and is no longer drawn. Far grids draw the sea themselves, level, with its glint.
+
+A board that keeps climbing past the flight's own ceiling is faster the higher it is (twice as fast
+every 110 units over 420, in every direction), so space is a minute and a half away and the
+whole planet two. The haze thins with height, the sky's shader
+([`sky.gdshader`](voxel-flyover/sky.gdshader)) takes the air a ray looks through from the
+camera's height (a closed form for an air that thins by 1/e every 7,000 units): the zenith goes
+dark first, the stars come out by day, and from outside the air is a rim around the planet, lit
+by the sun of the place where the ray passes nearest the ground, so the rim has its day, its
+night and its sunsets. The sun is fixed to the planet, which has a day side and a night side.
+From over the cloud layer the land's and the sea's shaders lay the layer's clouds over them
+(`from_above`), and from out of the air a veil of the planet's own, thin straight down and thick
+toward the rim; at night a settled region's towns are one glow. A height is taken off
+everything drawn once the flyer is high (`lowered`), so a close view of the corgi does not shake
+at a million units, and what follows the flyer (camera, wakes, birds) is carried along with it.
+
+High up, where nothing that stands on the chart's lattice can be seen (over 8,000 units), the
+chart's anchor moves under the flyer once it is 120,000 units from it: the new chart's axes are
+the old one's at that place, so the heading stays. A dive from orbit so comes down in a chart
+whose anchor is near, anywhere on the planet.
+
+`voxel-flyover -- --autopilot SECONDS --tour SECOND` leaves the planet by itself and comes back;
+`--high HEIGHT` starts at a height and keeps it.
+
 [`terrain.gd`](voxel-flyover/terrain.gd) computes the world's function for the flight, with the
 same integer hash, so the board clears the ground the GPU draws and finds the beacons that float
 over it. The corgi flies itself until Enter or a click takes the board, and until then the camera
@@ -293,63 +347,6 @@ Both games build their worlds in scripts as they start. The builders ([`world.gd
 with its islands and rings, Airtime's [`foundry.gd`](airtime/foundry.gd) and [`pads.gd`](airtime/pads.gd))
 are tool scripts, so Godot's editor runs them too and its 3D view shows what the game starts in;
 what they build there is not the scene's and is not saved with it.
-
-## Voxel Planet
-
-[`voxel-planet/`](voxel-planet) is Voxel Flyover's project on a planet: a sphere of 600,000 units
-(a lap along the ground at the board's 30 a second would take 35 hours) with the flyover's
-ground, towns, trees and weather on it, a horizon that curves, and space over it. A first slice:
-what it leaves for later is in its tasks (`tatr ls :planet`).
-
-The game still computes in a flat chart: x and z are distances along the ground from the chart's
-anchor, a point of the planet, and the flight, the grids and everything that stands on a lattice
-(plots of trees, lots of towns, fields) are as in the flyover. Two things put it on the sphere
-([`terrain.gdshaderinc`](voxel-planet/terrain.gdshaderinc)):
-
-- The slow fields of the world (heights, climate, towns, clouds) are evaluated at the point of
-  the sphere a chart's place is (`planet_at`), with noise in three dimensions, so they have no
-  seam and are the same from every chart. The planet adds fields of its own size: continents and
-  oceans, belts of mountains, the weather of whole regions, and the cold of its poles, where the
-  snow lies down to the sea and the sea is ice.
-- Every vertex stage carries its chart place onto the sphere, relative to the flyer (`lift`).
-  Godot here computes in float32, whose steps are a sixteenth of a unit at the planet's radius:
-  near the flyer the ground falls away by `2 R sin²(d / 2R)`, computed without the difference of
-  two large numbers, and far off the place is turned from the anchor's axes into the flyer's,
-  where such steps are nothing. So the flyer's own surroundings stay as flat and as exact as the
-  flyover's, and the planet is drawn around them.
-
-Eight grids of land instead of three reach round the planet
-([`main.gd`](voxel-planet/main.gd)'s `RINGS`): the flyover's three to 2,300 units, then cells of
-96, 384 and 1,536 units to 147,000, each with its ground in a texture drawn as it steps, and two
-of 6,144 and 24,576 that read a texture of the whole planet by longitude and latitude, drawn once
-at the start ([`ground.gdshader`](voxel-planet/ground.gdshader)'s `whole`). A ground read
-coarsely is the mean of what is finer than it is read (`fbm3_seen`): far ground does not sparkle
-with detail its points cannot hold, and a range that rises over the horizon gains its spurs as
-it nears. A grid's own detail gives way to the coarser grid's by the distance from the flyer, as
-in the flyover, and by the flyer's height: 300 of its cells up a grid shows the next one's
-ground and is no longer drawn. Far grids draw the sea themselves, level, with its glint.
-
-A board that keeps climbing past the flyover's ceiling is faster the higher it is (twice as fast
-every 110 units over 420, in every direction), so space is a minute and a half away and the
-whole planet two. The haze thins with height, the sky's shader
-([`sky.gdshader`](voxel-planet/sky.gdshader)) takes the air a ray looks through from the
-camera's height (a closed form for an air that thins by 1/e every 7,000 units): the zenith goes
-dark first, the stars come out by day, and from outside the air is a rim around the planet, lit
-by the sun of the place where the ray passes nearest the ground, so the rim has its day, its
-night and its sunsets. The sun is fixed to the planet, which has a day side and a night side.
-From over the cloud layer the land's and the sea's shaders lay the layer's clouds over them
-(`from_above`), and from out of the air a veil of the planet's own, thin straight down and thick
-toward the rim; at night a settled region's towns are one glow. A height is taken off
-everything drawn once the flyer is high (`lowered`), so a close view of the corgi does not shake
-at a million units, and what follows the flyer (camera, wakes, birds) is carried along with it.
-
-High up, where nothing that stands on the chart's lattice can be seen (over 8,000 units), the
-chart's anchor moves under the flyer once it is 120,000 units from it: the new chart's axes are
-the old one's at that place, so the heading stays. A dive from orbit so comes down in a chart
-whose anchor is near, anywhere on the planet.
-
-`voxel-planet -- --autopilot SECONDS --tour SECOND` leaves the planet by itself and comes back;
-`--high HEIGHT` starts at a height and keeps it.
 
 ## Building
 
@@ -481,16 +478,13 @@ the game runs with F5 and the scene is saved; a node's name copied in its rename
 browser's clipboard's and pastes into another's, and the browser's text pastes as a third's.
 Both games passed in both browsers on 2026-11-13, the editor's log without an error.
 
-[`test/godot-planet-browser.mjs`](test/godot-planet-browser.mjs) does for `godot-voxel-planet`
-what the flyover's test below does for its game, and then lets the game leave the planet by
-itself: it reports a height of over 150,000 units, a chart whose anchor moved on the way, and a
-frame with the planet's colours.
-
 [`test/godot-flyover-browser.mjs`](test/godot-flyover-browser.mjs) opens `godot-voxel-flyover` from
 the front page's list of applications, on a hardware adapter, in Chrome and Firefox: the game
 draws on `gpu@0`, a click captures the pointer and 300 pixels of the mouse turn the view 60
 degrees, Q leaves the shell, and a flight by itself through a morning reaches a beacon and
-reports even frames and a frame with the sky along its top.
+reports even frames and a frame with the sky along its top; it then leaves the planet by itself and
+reports a height of over 150,000 units, a chart whose anchor moved on the way, and a frame with
+the planet's colours.
 
 [`test/godot-x11-browser.mjs`](test/godot-x11-browser.mjs) installs the editor and Lantern Drift
 with amy in `x11-desktop`'s xterm: the game and then the editor open windows of their own on the
