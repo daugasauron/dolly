@@ -225,7 +225,11 @@ prices every contract, so the levels are consistent in strike and expiry, and
    wide (cher-sim, 05-23: "Thats EXACTLY the point of the whole model").
 6. **American exercise.** Listed single-name options are American; the model
    prices the payoff at expiry. No project addressed it. In-the-money puts
-   carry an early-exercise premium the model does not have.
+   carry an early-exercise premium the model does not have: on AAPL's 45-day
+   expiry their bids sit 0.4% of the forward above the payoff's value, and a
+   fit with them in put the forward that much too low (section 6). The demo
+   leaves a put out when it is in the money and the interest on its strike
+   until expiry, the most early exercise can be worth, is over half its band.
 
 ## 6. What the evidence shows
 

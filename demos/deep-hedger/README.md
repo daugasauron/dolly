@@ -45,7 +45,8 @@ Of the chain `dh-gui` keeps expiries 2 to 64 business days out (weekdays: it
 has no holiday calendar), at most 8 of them, strikes within a band around the
 forward that widens with the square root of time, at most 13 calls and 13
 puts an expiry, in the money as well, and no quote with a bid under three
-cents.
+cents. An in-the-money put is left out when early exercise, which the model
+does not price, can be worth more than half its band (THEORY.md, conflict 6).
 
 ## The fit
 

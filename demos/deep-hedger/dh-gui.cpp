@@ -156,8 +156,14 @@ static bool load_chain() {
     const Expiry &expiry = state.expiries[index];
     for (int call : {1, -1}) {
       std::vector<Contract> side;
-      for (const Contract &c : quotes)
-        if (c.expiry == index && c.call == call && fabs(log(c.strike / expiry.forward)) <= 0.06 + 0.2 * sqrt(expiry.business_days / (double)MAX_DAYS)) side.push_back(c);
+      for (const Contract &c : quotes) {
+        bool near = fabs(log(c.strike / expiry.forward)) <= 0.06 + 0.2 * sqrt(expiry.business_days / (double)MAX_DAYS);
+        // The model prices the payoff at expiry. A listed put can be exercised before,
+        // which is worth at most the interest on its strike until then: an in-the-money
+        // put stays while that is under half its band.
+        bool european = call > 0 || c.strike <= expiry.forward || (1 - expiry.discount) * c.strike <= (c.ask - c.bid) / 2;
+        if (c.expiry == index && c.call == call && near && european) side.push_back(c);
+      }
       for (Contract c : thinned(side)) c.expiry = (int)expiries.size(), state.contracts.push_back(c);
     }
     expiries.push_back(expiry);
