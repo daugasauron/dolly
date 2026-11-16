@@ -19,7 +19,7 @@ npm run -s build:runtime < /dev/null > /dev/null 2>&1
 npm run -s lint:dollyfiles < /dev/null
 npm run -s image -- --plan < /dev/null | grep -E '^  (build|reuse) ' > "${after}"
 echo "files the bump changed:"
-git status --porcelain | diff "${status}" - | sed -n 's/^> /  /p'
+{ git status --porcelain | diff "${status}" - || true; } | sed -n 's/^> /  /p'
 echo "image inputs before: ${inputs_before}"
 echo "image inputs after:  $(cat dist/dolly-image-build-id.mjs)"
 echo "plan: $(grep -c '^  reuse ' "${after}") reuse, $(grep -c '^  build ' "${after}") build of $(wc -l < "${after}") images"
