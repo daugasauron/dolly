@@ -16,7 +16,6 @@ const float CELL = 240.0;
 const float PUFFS = 9.0;
 
 uniform vec2 adrift; // how far the wind has carried the grid
-uniform vec3 eye; // where the camera is
 uniform bool mist = false;
 uniform float thick = 1.0; // of the mist: more at dawn
 uniform vec3 light : source_color = vec3(1.0); // the sun's, or the moon's
@@ -50,7 +49,9 @@ void vertex() {
 	if (mist) {
 		radius *= (1.0 - smoothstep(SEA + 5.0, SEA + 14.0, ground_height)) * thick;
 	}
-	radius *= 1.0 - smoothstep(1050.0, 1240.0, distance(place, flyer));
+	// The low clouds are drawn around the flyer: from high over them they have drawn in, and
+	// the cloud layer, which covers the planet, is what is seen.
+	radius *= (1.0 - smoothstep(1050.0, 1240.0, distance(place, flyer))) * (1.0 - smoothstep(1400.0, 4200.0, altitude));
 	from_centre = VERTEX * 2.0;
 	// A ball the camera comes up to thins out whole, and is gone before the camera is in it:
 	// its far side would else go at once as the camera passed its near one.

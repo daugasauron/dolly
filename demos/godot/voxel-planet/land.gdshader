@@ -13,7 +13,6 @@ shader_type spatial;
 uniform float hole = 0.0;
 uniform vec2 middle; // of the finer grid that draws that square
 uniform bool seas = false; // a far grid draws the sea too, level, where its ground is under it
-uniform vec3 eye; // where the camera is, in the chart
 uniform float paint_from = 540.0; // where the last trees drawn begin to sink, and their crowns are painted
 
 varying vec3 world; // in the chart: x, the height, z
@@ -46,7 +45,10 @@ void fragment() {
 	vec4 here = ground_here(p);
 	vec3 normal = ground_normal(p, max(ground_spacing(p), wide * 0.5));
 	float grain = fbm_seen(p * 0.3, 4, wide * 0.3);
-	float blotch = noise(p / 27.0 + vec2(9.0, 120.0));
+	// From far, what is finer than a pixel is its mean: the blotches, the mottling, each field's
+	// crop, the showers, the towns.
+	float far_off = smoothstep(300.0, 1200.0, wide);
+	float blotch = mix(noise(p / 27.0 + vec2(9.0, 120.0)), 0.5, smoothstep(13.0, 40.0, wide));
 	float height = here.x + (grain - 0.5) * 1.5;
 	float warmth = here.y + (blotch - 0.5) * 0.05;
 	// The relief: a hollow is wetter than a spur, darker, and keeps its snow longer.
@@ -56,9 +58,10 @@ void fragment() {
 	// Winter brings the snow down the slopes, and rain the wet (or in winter more snow).
 	// A shower leaves the ground wet behind it for a while. A lit beacon warms the ground
 	// around it: the snow draws back up the slope there, and more flowers stand.
-	float wet = max(rain_on(p), 0.7 * rained_on(p));
+	float wet = far_off < 1.0 ? max(rain_on(p), 0.7 * rained_on(p)) * (1.0 - far_off) : 0.0;
 	float warmed = beacon_warmth(p);
-	float snowline = SEA + 78.0 - (0.5 - warmth) * 70.0 - winter * (52.0 + 14.0 * wet) + 70.0 * warmed + relief * 2.5;
+	// In the cold of the poles the snow lies down to the sea all year: the planet's caps.
+	float snowline = SEA + 78.0 - (0.5 - warmth) * 70.0 - winter * (52.0 + 14.0 * wet) + 70.0 * warmed + relief * 2.5 - 260.0 * smoothstep(0.2, 0.0, warmth);
 
 	vec3 meadow = mix(vec3(0.4, 0.27, 0.04), mix(vec3(0.015, 0.19, 0.11), vec3(0.1, 0.24, 0.03), blotch), smoothstep(0.36, 0.6, moisture));
 	vec3 heath = mix(vec3(0.17, 0.15, 0.09), mix(vec3(0.17, 0.08, 0.2), vec3(0.04, 0.14, 0.07), smoothstep(0.35, 0.6, blotch)), smoothstep(0.36, 0.6, moisture));
@@ -73,7 +76,7 @@ void fragment() {
 	vec3 grass = mix(mix(vec3(0.5, 0.36, 0.1), vec3(0.62, 0.5, 0.18), blotch), vec3(0.2, 0.34, 0.07), clamp(0.7 * spring + 0.6 * wet, 0.0, 1.0));
 	colour = mix(colour, grass, smoothstep(0.49, 0.54, warmth) * smoothstep(0.44, 0.5, moisture) * smoothstep(0.6, 0.54, moisture));
 	// The ground cover is mottled, and flowers dot it near by.
-	colour *= mix(0.95, 1.5, smoothstep(SEA, SEA + 45.0, height)) * (0.9 + 0.2 * grain) * (0.72 + 0.56 * fbm(p / 17.0 + vec2(5.0, 90.0), 3));
+	colour *= mix(0.95, 1.5, smoothstep(SEA, SEA + 45.0, height)) * (0.9 + 0.2 * grain) * (0.72 + 0.56 * fbm_seen(p / 17.0 + vec2(5.0, 90.0), 3, wide / 17.0));
 	vec2 bloom = floor(p * 2.5);
 	float flower = step(0.975 - 0.02 * spring * wet - 0.06 * warmed, hash(bloom)) * (1.0 - smoothstep(0.06, 0.2, wide));
 	colour = mix(colour, 0.25 + 0.75 * vec3(hash(bloom + 3.0), hash(bloom + 5.0) * 0.6, hash(bloom + 7.0)), flower * 0.8);
@@ -85,14 +88,16 @@ void fragment() {
 	float snow = smoothstep(snowline - 3.0, snowline + 3.0, height) * smoothstep(0.42, 0.2, steep);
 	colour = mix(colour, vec3(0.6, 0.67, 0.8) * (0.9 + 0.2 * grain), snow);
 	// A town: paving in lots, with streets between them that their lamps light at night_here.
-	float people = settled(p);
+	vec3 planet = planet_at(p);
+	float peopled = peopled_on(planet);
+	float people = far_off < 1.0 ? mix(settled_on(planet), 0.45, far_off) : 0.45;
 	float low = smoothstep(SEA + 4.5, SEA + 8.0, here.x) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, here.x));
 	float town = smoothstep(0.58, 0.66, people) * low * (1.0 - bare);
 	// Around a town its fields: strips of crops, each field its own, green in spring, gold by
 	// late summer, stubble in autumn; hedges between them.
 	float farmed = smoothstep(0.49, 0.53, people) * low * (1.0 - bare) * (1.0 - town) * (1.0 - snow);
 	vec2 in_field = p / vec2(52.0, 34.0) + 0.6 * noise(p / 140.0);
-	float crop = hash(floor(in_field) + 77.0);
+	float crop = mix(hash(floor(in_field) + 77.0), 0.5, smoothstep(20.0, 60.0, wide));
 	vec2 to_hedge = abs(fract(in_field) - 0.5);
 	float hedge = smoothstep(0.44, 0.47 + wide / 34.0, max(to_hedge.x, to_hedge.y)) * near;
 	float rows = 0.5 + 0.5 * sin((crop > 0.5 ? p.x : p.y) * 2.2) * (1.0 - smoothstep(0.3, 1.0, wide));
@@ -165,7 +170,8 @@ void fragment() {
 		colour = mix(colour, leaves.rgb * 0.75 * (1.0 - 0.5 * leaves.a), under);
 		lit_crowns = leaves.rgb * leaves.a * under * (0.1 + 1.5 * night_here) * 0.75;
 	}
-	float sand = smoothstep(SEA + 2.4, SEA + 0.8, height);
+	// A beach is a few units wide: from far the shore is the line where the mean ground meets the sea.
+	float sand = smoothstep(SEA + 2.4, SEA + 0.8, height) * (1.0 - far_off);
 	colour = mix(colour, vec3(0.6, 0.47, 0.27) * (1.0 - 0.5 * smoothstep(SEA, SEA - 2.5, height)), sand);
 	// A vein of crystal follows a contour of a noise: pale by day, alight at night_here, and the
 	// light runs along it.
@@ -183,10 +189,12 @@ void fragment() {
 	vec2 tilt = (vec2(fbm(p * 0.45 + vec2(70.4, 3.0), 3), fbm(p * 0.45 + vec2(70.0, 3.4), 3)) - fine) * (0.5 + 1.6 * bare) * (1.0 - smoothstep(0.1, 0.4, wide)) * (1.0 - 0.6 * snow);
 	// A gust shows on grass and crops as a band of paler green that crosses them.
 	float blown = gust(p) * (1.0 - bare) * (1.0 - snow) * (1.0 - town) * (1.0 - sand) * (1.0 - smoothstep(10.0, 40.0, wide));
-	ALBEDO = colour * (1.0 + 0.5 * blown) * (1.0 + 0.07 * min(relief, 0.0) + 0.03 * max(relief, 0.0)) * cloud_shade(world) * (1.0 - 0.35 * wet * (1.0 - snow));
+	ALBEDO = colour * (1.0 + 0.5 * blown) * (1.0 + 0.07 * min(relief, 0.0) + 0.03 * max(relief, 0.0)) * cloud_shade_seen(world, wide) * (1.0 - 0.35 * wet * (1.0 - snow));
 	// A town's lamps are warm; in winter each lot hangs out lights of its own colour.
 	vec3 lamps = mix(vec3(1.0, 0.78, 0.45), 0.5 + 0.5 * cos(6.2832 * (hash(floor(p / LOT) + 21.0) + vec3(0.0, 0.33, 0.67))), winter * 0.8);
-	EMISSION = lamps * town * street * night_here * (0.5 + 0.5 * winter) + lit_crowns + vein_colour * vein * run * (0.02 + 0.5 * sandy + 1.7 * night_here) + vec3(1.0, 0.5, 0.12) * pulse_light(p) * (1.0 + 1.8 * night_here) * (0.6 + 0.6 * grain);
+	// From orbit a settled region's towns are one glow at night, on its low land.
+	float glow_far = far_off * smoothstep(0.5, 0.68, peopled) * low * (1.0 - snow) * 0.5;
+	EMISSION = lamps * (town * street + glow_far) * night_here * (0.5 + 0.5 * winter) + lit_crowns + vein_colour * vein * run * (0.02 + 0.5 * sandy + 1.7 * night_here) + vec3(1.0, 0.5, 0.12) * pulse_light(p) * (1.0 + 1.8 * night_here) * (0.6 + 0.6 * grain);
 	ROUGHNESS = mix(mix(mix(0.9, 0.7, bare), 0.3, max(max(max(vein * night_here, snow * 0.6), sand * 0.5), wet * 0.8)), mix(0.05, 0.35, winter), max(pool, flooded));
 	SPECULAR = 0.35;
 	vec3 facing = normalize(mix(normal + vec3(tilt.x, 0.0, tilt.y), vec3(0.0, 1.0, 0.0), pool));
@@ -199,25 +207,23 @@ void fragment() {
 		vec3 over_sand = mix(mix(vec3(0.0039, 0.214, 0.196), vec3(0.01, 0.34, 0.3), tropic), vec3(0.012, 0.07, 0.07), polar);
 		vec3 over_deep = mix(mix(vec3(0.0003, 0.0028, 0.01), vec3(0.0, 0.006, 0.03), tropic), vec3(0.002, 0.004, 0.006), polar);
 		float ice = max(winter * smoothstep(0.52, 0.42, here.y) * 0.5, smoothstep(0.16, 0.06, here.y));
-		ALBEDO = mix(mix(over_sand, over_deep, 1.0 - exp(-depth * mix(0.2, 0.13, tropic))), vec3(0.6, 0.7, 0.82), ice) * cloud_shade(world);
+		// From out of the air the deep sea is the blue the air gives it.
+		over_deep = mix(over_deep, vec3(0.004, 0.03, 0.12), (1.0 - exp(-max(eye.y, 0.0) / AIR)) * (1.0 - polar));
+		ALBEDO = mix(mix(over_sand, over_deep, 1.0 - exp(-depth * mix(0.2, 0.13, tropic))), vec3(0.6, 0.7, 0.82), ice) * cloud_shade_seen(world, wide);
 		EMISSION = vec3(1.0, 0.55, 0.16) * pulse_light(p) * (0.4 + 0.8 * night_here);
 		ROUGHNESS = mix(0.34, 0.55, ice);
 		SPECULAR = 0.8;
 		facing = vec3(0.0, 1.0, 0.0);
 	}
-	// Seen from over the cloud layer, its clouds lie over the land and the sea: where the way
-	// from the eye to the ground passes through the layer.
-	float over_clouds = smoothstep(CLOUD_HEIGHT + 30.0, CLOUD_HEIGHT + 260.0, eye.y);
-	if (over_clouds > 0.0) {
-		vec3 to_eye = normalize(eye - world);
-		float flat_near = 1.0 - smoothstep(8000.0, 30000.0, distance(p, eye.xz));
-		vec2 through = p + to_eye.xz * max(CLOUD_HEIGHT - world.y, 0.0) / max(to_eye.y, 0.2) * flat_near;
-		float cover = cloud_cover(through, wide > 400.0 ? 3 : 5) * over_clouds;
-		ALBEDO = mix(ALBEDO, vec3(0.82, 0.84, 0.88), cover);
-		EMISSION *= 1.0 - cover;
-		ROUGHNESS = mix(ROUGHNESS, 1.0, cover);
-		SPECULAR = mix(SPECULAR, 0.1, cover);
-		facing = normalize(mix(facing, vec3(0.0, 1.0, 0.0), cover));
-	}
+	vec3 albedo = ALBEDO;
+	vec3 emission = EMISSION;
+	float roughness = ROUGHNESS;
+	float specular = SPECULAR;
+	float level = from_above(world, wide, normalize((VIEW_MATRIX * vec4(lift_way(p, vec3(0.0, 1.0, 0.0)), 0.0)).xyz), VIEW, albedo, emission, roughness, specular);
+	ALBEDO = albedo;
+	EMISSION = emission;
+	ROUGHNESS = roughness;
+	SPECULAR = specular;
+	facing = normalize(mix(facing, vec3(0.0, 1.0, 0.0), level));
 	NORMAL = normalize((VIEW_MATRIX * vec4(lift_way(p, facing), 0.0)).xyz);
 }

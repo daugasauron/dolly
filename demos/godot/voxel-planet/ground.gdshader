@@ -19,6 +19,8 @@ uniform vec2 whole_size = vec2(4096.0, 2048.0);
 
 void fragment() {
 	vec3 planet;
+	// How far apart the ground is read: a grid's cell, or the planet's texel at its equator.
+	float wide = whole ? 6.2831853 * RADIUS / whole_size.x : cell;
 	if (whole) {
 		vec2 turn = (floor(FRAGCOORD.xy) + 0.5) / whole_size * vec2(6.2831853, 3.1415927);
 		planet = vec3(-sin(turn.y) * cos(turn.x), cos(turn.y), -sin(turn.y) * sin(turn.x)) * RADIUS;
@@ -26,5 +28,5 @@ void fragment() {
 		planet = planet_at((first + mod(floor(UV * texels) - first, texels)) * cell);
 	}
 	// The height is kept around the middle of what it may be: a half float is finer near zero.
-	COLOR = vec4(terrain_on(planet) - HEIGHT_KEPT, climate_on(planet), realm_on(planet));
+	COLOR = vec4(terrain_on(planet, wide) - HEIGHT_KEPT, climate_on(planet, wide), realm_on(planet));
 }

@@ -2,6 +2,7 @@ extends RefCounted
 ## terrain.gdshaderinc's world, computed here for the flight: the same chart, hash, noise and heights.
 
 const SEA := 24.0
+const CLOUD_HEIGHT := 520.0
 const MASK := 0xFFFFFFFF
 
 
@@ -131,7 +132,7 @@ static func slow_here(planet: Vector3) -> Vector3:
 		slow_place = planet
 		var continent := fbm3(planet / 210000.0 + Vector3(5.0, 71.0, 23.0), 3)
 		var belt := 1.0 - smoothstep(0.015, 0.06, absf(fbm3(planet / 140000.0 + Vector3(91.0, 17.0, 44.0), 2) - 0.5))
-		slow_fields = Vector3((slow3(planet, 7300.0, Vector3(34.0, 62.0, 15.0)) - 0.5) * 0.9 + (slow3(planet, 2700.0, Vector3(104.0, 42.0, 77.0)) - 0.5) * 0.5 + (continent - 0.5) * 1.0,
+		slow_fields = Vector3((slow3(planet, 7300.0, Vector3(34.0, 62.0, 15.0)) - 0.5) * 0.9 + (slow3(planet, 2700.0, Vector3(104.0, 42.0, 77.0)) - 0.5) * 0.5 + (smoothstep(0.4, 0.6, continent) - 0.5) * 0.8,
 			lerpf(0.22, 1.0, smoothstep(0.3, 0.5, slow3(planet, 1900.0, Vector3(38.0, 77.0, 53.0)))),
 			smoothstep(0.81, 0.9, slow3(planet, 19000.0, Vector3(8.0, 97.0, 31.0)) + 0.17 * belt))
 	return slow_fields
@@ -167,7 +168,9 @@ static func height(p: Vector2) -> float:
 ## terrain.gdshaderinc's cloud_depth, where the weather has moved that far.
 static func cloud_depth(p: Vector2, drift: Vector3) -> float:
 	var planet := planet_at(p) + drift
-	return fbm3(planet / 1000.0 + Vector3(31.0, 7.0, 59.0), 3) + (fbm3(planet / 90000.0 + Vector3(4.0, 27.0, 13.0), 2) - 0.5) * 0.45
+	var q := planet / 90000.0 + Vector3(4.0, 27.0, 13.0)
+	q += 0.7 * Vector3(noise3(q * 0.6 + Vector3(11.0, 0.0, 5.0)), noise3(q * 0.6 + Vector3(37.0, 9.0, 0.0)), noise3(q * 0.6 + Vector3(0.0, 71.0, 3.0)))
+	return fbm3(planet / 1000.0 + Vector3(31.0, 7.0, 59.0), 3) + (fbm3(q, 3) - 0.5) * 0.55
 
 
 ## The surface a flight stays above: the ground or the sea.
@@ -186,7 +189,7 @@ static func town(p: Vector2, ground: float) -> float:
 ## terrain.gdshaderinc's climate. x: warmth, y: moisture.
 static func climate(p: Vector2) -> Vector2:
 	var planet := planet_at(p)
-	var polar := smoothstep(0.62, 0.97, absf(planet.y) / RADIUS)
+	var polar := smoothstep(0.7, 0.98, absf(planet.y) / RADIUS)
 	return Vector2(fbm3(planet / 900.0 + Vector3(211.0, 57.0, 3.0), 2) + (slow3(planet, 19000.0, Vector3(37.0, 14.0, 82.0)) - 0.5) * 0.55 + (fbm3(planet / 260000.0 + Vector3(13.0, 49.0, 7.0), 2) - 0.5) * 0.3 - 0.55 * polar,
 		fbm3(planet / 560.0 + Vector3(13.0, 143.0, 71.0), 2) + (slow3(planet, 11000.0, Vector3(89.0, 44.0, 26.0)) - 0.5) * 0.45 + (fbm3(planet / 190000.0 + Vector3(67.0, 3.0, 39.0), 2) - 0.5) * 0.4)
 
@@ -247,7 +250,8 @@ static var marks := {} # plot -> its landmark, found once
 
 ## How settled a place is (terrain.gdshaderinc's): a town over 0.58, its fields from 0.5.
 static func settled(p: Vector2) -> float:
-	return fbm3(planet_at(p) / 760.0 + Vector3(400.0, 109.0, 55.0), 2)
+	var planet := planet_at(p)
+	return fbm3(planet / 760.0 + Vector3(400.0, 109.0, 55.0), 2) + (fbm3(planet / 6100.0 + Vector3(71.0, 220.0, 12.0), 2) - 0.5) * 0.2
 
 
 ## The landmark of a plot of the world, by what its place is: [where, the height of its foot,

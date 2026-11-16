@@ -17,7 +17,6 @@ shader_type spatial;
 uniform vec4 ring = vec4(-2.0, -1.0, 64.0, 80.0);
 uniform bool sways = true; // whether the gusts bend the crowns
 uniform bool sinks = false; // the last grid of trees, and the shadows'
-uniform vec3 eye; // where the camera is
 uniform vec3 flyer_at; // where the flyer is: its wash bends the crowns it passes low over
 
 varying flat vec3 colour;

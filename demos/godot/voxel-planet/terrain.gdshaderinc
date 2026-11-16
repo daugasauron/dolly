@@ -35,6 +35,8 @@ uniform vec2 flyer_over; // the flyer's place in the chart
 uniform float lowered = 0.0; // the height taken off everything drawn, once the flyer is high
 uniform float altitude = 0.0; // the flyer's
 uniform vec3 drift; // how far the weather has moved through the planet's axes
+uniform vec3 eye; // where the camera is, in the chart: x, its height, z
+const float AIR = 7000.0; // the height over which the air thins to 1/e
 
 // The direction of a chart's place from the planet's middle, in the anchor's axes: as far
 // round the sphere from the anchor as the place is from the chart's origin.
@@ -182,6 +184,34 @@ float ridge3(vec3 p) {
 	return n * n;
 }
 
+// How much of a noise is seen where it is read every `wide` of its cells: all of it up to
+// half a cell, none of it from a cell and a half. What is not seen is its mean: a ground read
+// coarsely (a far grid's, the whole planet's) is the mean of the finer ground, and neither
+// sparkles nor changes when the points it is read at move.
+float seen_share(float wide) {
+	return 1.0 - smoothstep(0.5, 1.5, wide);
+}
+
+float fbm3_seen(vec3 p, int octaves, float wide) {
+	float sum = 0.0;
+	float weight = 0.5;
+	float total = 0.0;
+	for (int octave = 0; octave < octaves; octave++) {
+		float share = seen_share(wide);
+		sum += (share > 0.0 ? mix(0.5, noise3(p), share) : 0.5) * weight;
+		total += weight;
+		p = vec3(0.8 * p.y + 0.6 * p.z, -0.8 * p.x + 0.36 * p.y - 0.48 * p.z, -0.6 * p.x - 0.48 * p.y + 0.64 * p.z) * 2.02 + vec3(3.1, 1.7, 5.3);
+		wide *= 2.02;
+		weight *= 0.5;
+	}
+	return sum / total;
+}
+
+float ridge3_seen(vec3 p, float wide) {
+	float share = seen_share(wide);
+	return share > 0.0 ? mix(0.4, ridge3(p), share) : 0.4;
+}
+
 // A slow field of the world: two octaves of noise at a size of its own, placed by itself. The
 // fields' sizes have no common measure (1.9, 2.7, 7.3, 11, 19 and 53 thousand units, and
 // those of the planet's own: 140 to 260 thousand), so their combinations do not come round
@@ -189,6 +219,10 @@ float ridge3(vec3 p) {
 // over 0.86: what is rare is a threshold on one.
 float slow3(vec3 planet, float size, vec3 place) {
 	return fbm3(planet / size + place, 2);
+}
+
+float slow3_seen(vec3 planet, float size, vec3 place, float wide) {
+	return fbm3_seen(planet / size + place, 2, wide / size);
 }
 
 // The planet's own fields, seen from orbit: x its continents and oceans (210 thousand units),
@@ -221,27 +255,29 @@ float river_on(vec3 planet) {
 }
 
 // The ground's height. Seas and continents come at four sizes: the planet's continents and
-// oceans, seas and lands of 7.3 thousand units in them, lands of 2.7 thousand in those, and the
+// oceans (inside a continent most is land, in an ocean little), seas and lands of 7.3 thousand units in them, lands of 2.7 thousand in those, and the
 // coasts, bays and islands of 520; in an ocean only the highest of the last stand out, as
 // islands. On the land, hills, and ranges of mountains whose spurs stand on their crests and
 // whose gullies on their spurs; the relief of a region (1.9 thousand units) makes its ranges
 // low or high, and in a massif they are more than twice as high on a raised base. Rivers at the
 // sea's level run in valleys through the low land, widen into lakes in some stretches, and
 // narrow to their springs in the hills. terrain.gd computes the same.
-float terrain_on(vec3 planet) {
+// The ground is read every `wide` units (a grid's cell, the planet's texel; 0 for the ground itself).
+float terrain_on(vec3 planet, float wide) {
 	vec2 globe = planet_fields(planet);
-	float shift = (slow3(planet, 7300.0, vec3(34.0, 62.0, 15.0)) - 0.5) * 0.9 + (slow3(planet, 2700.0, vec3(104.0, 42.0, 77.0)) - 0.5) * 0.5 + (globe.x - 0.5) * 1.0;
-	float relief = mix(0.22, 1.0, smoothstep(0.3, 0.5, slow3(planet, 1900.0, vec3(38.0, 77.0, 53.0))));
+	float shift = (slow3_seen(planet, 7300.0, vec3(34.0, 62.0, 15.0), wide) - 0.5) * 0.9 + (slow3_seen(planet, 2700.0, vec3(104.0, 42.0, 77.0), wide) - 0.5) * 0.5 + (smoothstep(0.4, 0.6, globe.x) - 0.5) * 0.8;
+	float relief = mix(0.22, 1.0, smoothstep(0.3, 0.5, slow3_seen(planet, 1900.0, vec3(38.0, 77.0, 53.0), wide)));
 	float massif = massif_on(planet, globe.y);
-	float land = smoothstep(0.36, 0.52, fbm3(planet / 520.0 + vec3(0.0, 13.0, 29.0), 3) + shift);
-	float hills = fbm3(planet / 130.0 + vec3(17.0, 5.0, 43.0), 4);
-	float ranges = smoothstep(0.56, 0.73, fbm3(planet / 640.0 + vec3(80.0, 31.0, 7.0), 2) + 0.3 * massif);
+	float land = smoothstep(0.36, 0.52, fbm3_seen(planet / 520.0 + vec3(0.0, 13.0, 29.0), 3, wide / 520.0) + shift);
+	float hills = fbm3_seen(planet / 130.0 + vec3(17.0, 5.0, 43.0), 4, wide / 130.0);
+	float ranges = smoothstep(0.56, 0.73, fbm3_seen(planet / 640.0 + vec3(80.0, 31.0, 7.0), 2, wide / 640.0) + 0.3 * massif);
 	vec3 q = planet / 260.0 + vec3(40.0, 12.0, 67.0);
-	float crest = ridge3(q);
-	float spur = ridge3(q * 2.3 + vec3(9.0, 77.0, 21.0)) * crest;
-	float peaks = crest * 0.6 + spur * 0.3 + ridge3(q * 5.1 + vec3(3.0, 41.0, 58.0)) * spur * 0.16;
+	float crest = ridge3_seen(q, wide / 260.0);
+	float spur = ridge3_seen(q * 2.3 + vec3(9.0, 77.0, 21.0), wide / 113.0) * crest;
+	float peaks = crest * 0.6 + spur * 0.3 + ridge3_seen(q * 5.1 + vec3(3.0, 41.0, 58.0), wide / 51.0) * spur * 0.16;
 	float height = SEA - 13.0 - 24.0 * smoothstep(-0.05, -0.3, shift) + land * (16.0 + 45.0 * massif) + hills * 20.0 * (0.35 + land) + peaks * 125.0 * land * ranges * (relief + 1.5 * massif);
-	float gate = (1.0 - smoothstep(SEA + 45.0, SEA + 90.0, height)) * step(SEA - 2.5, height);
+	// A river is some tens of units wide: a ground read more coarsely has none.
+	float gate = (1.0 - smoothstep(SEA + 45.0, SEA + 90.0, height)) * step(SEA - 2.5, height) * (1.0 - smoothstep(30.0, 150.0, wide));
 	if (gate > 0.0) {
 		float lake = 0.05 * smoothstep(0.6, 0.72, noise3(planet / 1300.0 + vec3(61.0, 9.0, 33.0)));
 		float valley = smoothstep((0.012 + lake) * gate, 0.1 + lake, river_on(planet));
@@ -253,15 +289,21 @@ float terrain_on(vec3 planet) {
 // x: warmth, y: moisture, both between 0 and 1 away from the poles. Each has its region of 19
 // and of 11 thousand units and its part of the planet: cold countries and hot ones, wet ones
 // and dry, deserts and forests seen from orbit, and the cold of the poles.
-vec2 climate_on(vec3 planet) {
-	float polar = smoothstep(0.62, 0.97, abs(planet.y) / RADIUS);
-	return vec2(fbm3(planet / 900.0 + vec3(211.0, 57.0, 3.0), 2) + (slow3(planet, 19000.0, vec3(37.0, 14.0, 82.0)) - 0.5) * 0.55 + (fbm3(planet / 260000.0 + vec3(13.0, 49.0, 7.0), 2) - 0.5) * 0.3 - 0.55 * polar,
-		fbm3(planet / 560.0 + vec3(13.0, 143.0, 71.0), 2) + (slow3(planet, 11000.0, vec3(89.0, 44.0, 26.0)) - 0.5) * 0.45 + (fbm3(planet / 190000.0 + vec3(67.0, 3.0, 39.0), 2) - 0.5) * 0.4);
+vec2 climate_on(vec3 planet, float wide) {
+	float polar = smoothstep(0.7, 0.98, abs(planet.y) / RADIUS);
+	return vec2(fbm3_seen(planet / 900.0 + vec3(211.0, 57.0, 3.0), 2, wide / 900.0) + (slow3(planet, 19000.0, vec3(37.0, 14.0, 82.0)) - 0.5) * 0.55 + (fbm3(planet / 260000.0 + vec3(13.0, 49.0, 7.0), 2) - 0.5) * 0.3 - 0.55 * polar,
+		fbm3_seen(planet / 560.0 + vec3(13.0, 143.0, 71.0), 2, wide / 560.0) + (slow3(planet, 11000.0, vec3(89.0, 44.0, 26.0)) - 0.5) * 0.45 + (fbm3(planet / 190000.0 + vec3(67.0, 3.0, 39.0), 2) - 0.5) * 0.4);
 }
 
 // How settled a place is: over 0.58 a town stands, and around it, from 0.5, its fields lie.
+// How settled a region is (6.1 thousand units): its towns are more and larger, and from orbit
+// its lights are seen at night.
+float peopled_on(vec3 planet) {
+	return fbm3(planet / 6100.0 + vec3(71.0, 220.0, 12.0), 2);
+}
+
 float settled_on(vec3 planet) {
-	return fbm3(planet / 760.0 + vec3(400.0, 109.0, 55.0), 2);
+	return fbm3(planet / 760.0 + vec3(400.0, 109.0, 55.0), 2) + (peopled_on(planet) - 0.5) * 0.2;
 }
 
 // The culture of a region, a slow field of 5.1 thousand units: which kinds of towns it builds.
@@ -271,11 +313,11 @@ float culture_on(vec3 planet) {
 
 // The same fields at a chart's place.
 float terrain_height(vec2 p) {
-	return terrain_on(planet_at(p));
+	return terrain_on(planet_at(p), 0.0);
 }
 
 vec2 climate(vec2 p) {
-	return climate_on(planet_at(p));
+	return climate_on(planet_at(p), 0.0);
 }
 
 float realm_at(vec2 p) {
@@ -362,14 +404,31 @@ float building_height(vec2 corner, float town, int kind) {
 // How deep the cloud layer is over a place: cloud shows from a half, and rain falls from 0.68.
 // The layer covers the planet: its clouds of a thousand units drift through the weather of
 // whole regions (90 thousand units), which makes the bands and clearings seen from orbit.
-float cloud_depth(vec2 p, int octaves) {
+// The weather is swirled by a slower noise, so its fronts curl. Seen from so far that a pixel
+// covers `wide` units, the clouds finer than that give their mean, and the weather remains.
+float weather_on(vec3 planet) {
+	vec3 q = planet / 90000.0 + vec3(4.0, 27.0, 13.0);
+	q += 0.7 * vec3(noise3(q * 0.6 + vec3(11.0, 0.0, 5.0)), noise3(q * 0.6 + vec3(37.0, 9.0, 0.0)), noise3(q * 0.6 + vec3(0.0, 71.0, 3.0)));
+	return (fbm3(q, 3) - 0.5) * 0.55;
+}
+
+float cloud_depth_seen(vec2 p, int octaves, float wide) {
 	vec3 planet = planet_at(p) + drift;
-	return fbm3(planet / 1000.0 + vec3(31.0, 7.0, 59.0), octaves) + (fbm3(planet / 90000.0 + vec3(4.0, 27.0, 13.0), 2) - 0.5) * 0.45;
+	return fbm3_seen(planet / 1000.0 + vec3(31.0, 7.0, 59.0), octaves, wide / 1000.0) + weather_on(planet);
+}
+
+float cloud_depth(vec2 p, int octaves) {
+	return cloud_depth_seen(p, octaves, 0.0);
 }
 
 // How much cloud stands over a place of the cloud layer, between 0 and 1.
 float cloud_cover(vec2 p, int octaves) {
 	return smoothstep(0.5, 0.7, cloud_depth(p, octaves));
+}
+
+// The same where a pixel covers `wide` units: the share of the clouds it cannot tell apart.
+float cloud_cover_seen(vec2 p, int octaves, float wide) {
+	return smoothstep(mix(0.5, 0.42, smoothstep(400.0, 1500.0, wide)), 0.7, cloud_depth_seen(p, octaves, wide));
 }
 
 // The wind's gusts at a place, between 0 and 1: bands some 60 units wide that cross the land
@@ -384,10 +443,14 @@ float rain_on(vec2 p) {
 }
 
 // The clouds' shade on a place of the ground, along the light.
-float cloud_shade(vec3 place) {
+float cloud_shade_seen(vec3 place, float wide) {
 	vec2 under = place.xz + to_light.xz * (CLOUD_HEIGHT - place.y) / max(to_light.y, 0.12);
 	// A light at the horizon casts no cloud's shade: it fades before the sun hands over to the moon.
-	return 1.0 - 0.55 * cloud_cover(under, 3) * smoothstep(0.03, 0.16, to_light.y);
+	return 1.0 - 0.55 * cloud_cover_seen(under, 3, wide) * smoothstep(0.03, 0.16, to_light.y);
+}
+
+float cloud_shade(vec3 place) {
+	return cloud_shade_seen(place, 0.0);
 }
 
 // How hard it rained on a place three quarters of a minute ago: the cloud has drifted on since,
@@ -431,4 +494,38 @@ uniform vec3 sun_way = vec3(0.0, 1.0, 0.0); // toward the sun, in the anchor's a
 
 float night_at(vec2 p) {
 	return smoothstep(0.02, 0.3, -dot(chart_dir(p), sun_way));
+}
+
+// What lies between a high eye and the ground or the sea, laid over the surface's own look: the
+// cloud layer, where the way from the eye passes through it (the sky's shader shows it from
+// under), and from out of the air the planet's own air, thin straight down and thick toward the
+// rim. `up_seen` and `to_eye_seen` are the place's up and the way to the eye as the camera sees
+// them. Returns how much of the surface's own normal gives way to the planet's.
+float from_above(vec3 place, float wide, vec3 up_seen, vec3 to_eye_seen, inout vec3 albedo, inout vec3 emission, inout float roughness, inout float specular) {
+	float level = 0.0;
+	float over_clouds = smoothstep(CLOUD_HEIGHT + 30.0, CLOUD_HEIGHT + 260.0, eye.y);
+	if (over_clouds > 0.0) {
+		vec3 to_eye = normalize(eye - place);
+		float flat_near = 1.0 - smoothstep(8000.0, 30000.0, distance(place.xz, eye.xz));
+		vec2 through = place.xz + to_eye.xz * max(CLOUD_HEIGHT - place.y, 0.0) / max(to_eye.y, 0.2) * flat_near;
+		float cover = cloud_cover_seen(through, wide > 400.0 ? 3 : 5, wide) * over_clouds;
+		albedo = mix(albedo, vec3(0.82, 0.84, 0.88), cover);
+		emission *= 1.0 - cover;
+		roughness = mix(roughness, 1.0, cover);
+		specular = mix(specular, 0.1, cover);
+		level = cover;
+	}
+	float out_of_air = 1.0 - exp(-max(eye.y, 0.0) / AIR);
+	if (out_of_air > 0.01) {
+		// The air a ray from the ground passes through, in heights of the air: 1 straight up,
+		// 11.6 along the ground (a planet of 86 such heights).
+		float air_mass = 11.6 / (11.6 * max(dot(up_seen, to_eye_seen), 0.0) + 1.0) * out_of_air;
+		float veil = 1.0 - exp(-air_mass * 0.13);
+		albedo = mix(albedo, vec3(0.3, 0.5, 0.95), veil);
+		emission *= 1.0 - 0.6 * veil;
+		roughness = mix(roughness, 1.0, veil);
+		specular *= 1.0 - veil;
+		level = max(level, veil);
+	}
+	return level;
 }

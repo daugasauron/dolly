@@ -25,6 +25,9 @@ fi
 if has_image voxel-flyover; then
   node scripts/build-source-tar.mjs "${static_dir}/godot/voxel-flyover.tar" demos/godot/voxel-flyover /usr/src/voxel-flyover
 fi
+if has_image voxel-planet; then
+  node scripts/build-source-tar.mjs "${static_dir}/godot/voxel-planet.tar" demos/godot/voxel-planet /usr/src/voxel-planet
+fi
 # The part of Dawn's tree Tint's CMake build reads, with SPIRV-Tools, SPIRV-Headers and Abseil
 # where Dawn's checkout keeps them, and Dolly's translator over them (spirv-wgsl).
 if has_image spirv-wgsl; then
