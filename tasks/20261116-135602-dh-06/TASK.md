@@ -38,3 +38,8 @@ Not started in the demo. What it takes, from what the stock-only build measured:
    is what memory is for, but in this form and at these rates it fits worse, so it was not
    ported. Independent returns reach the chain's forwards and levels in about 700 iterations.
 4. Conflict 4 of THEORY.md (pathwise against state-conditional fill prices) is then measurable.
+5. A step between, proposed here and not tried: let a book also trade the other contracts once,
+   on day 0, at the model's own day-0 bids and asks, and hold them to their expiries. The ledger
+   needs their payoffs on the path and no price of theirs in between, so conflict 4 does not
+   arise, and each contract's quotes then depend on the others' (the model's own quotes of the
+   iteration before).
