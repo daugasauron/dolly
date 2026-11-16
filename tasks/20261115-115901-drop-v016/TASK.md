@@ -1,6 +1,6 @@
 # Remove v0.1.6 from the site (waits for the owner)
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 60
 - TAGS: site,0.1.8
 
@@ -24,3 +24,10 @@ local 9045 server keeps serving it for the owner's Donna sessions. Waits for the
 
 The owner has decided; if removed, `https://slopshare.dev/v0.1.6/` answers 404 and v0.1.5 and
 v0.1.7 still boot on both domains.
+
+## Closed (2026-11-17): the owner's decision
+
+The owner (2026-11-17), on removing v0.1.6 from the site: "Doesn't matter". v0.1.6 stays online as
+it was deployed, its menu's link to `./agents/` included, which answers 404 while v0.1.6 is
+online; removing a version stays the owner's explicit act (`docs/deployment.md`). From 0.1.8 on, a
+version's first deployment has no such link (`tasks/20261116-140230-repo-06`).
