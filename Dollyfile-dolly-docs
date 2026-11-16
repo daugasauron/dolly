@@ -15,9 +15,9 @@ SOURCE /v0.1.7/docs/http.md 3a938069e8a6f9d185fd2c2d9d397e6aab0ddd1516c6cab0d1b2
 SOURCE /v0.1.7/docs/sessions.md 60ac80c468ca0325ad177b64b572087961ce4221caaa480d586fbd9a4db04a63 /usr/share/doc/dolly/docs/sessions.md
 SOURCE /v0.1.7/docs/dollyfile.md f2670e4efe605b97e1a1721ac9a2e2bcb0b0e8c12827f659a576f189e1fbfef7 /usr/share/doc/dolly/docs/dollyfile.md
 SOURCE /v0.1.7/docs/architecture.md 9d461fc72052abbf479231991c6f34adc43b35b71d3ae3049d00fc9b853e15dd /usr/share/doc/dolly/docs/architecture.md
-SOURCE /v0.1.7/docs/browser-boundary.md e25b4167d30de18b6d1a5a7d85ea3ba0be5b0b1ca029a28b6b9ed8ee6a5e29f3 /usr/share/doc/dolly/docs/browser-boundary.md
+SOURCE /v0.1.7/docs/browser-boundary.md 6ed738298c1bb9e25f17e57c982f5c78d475a269c0e4fd2cc8fa422f292df3aa /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE /v0.1.7/docs/image-build-service.md de733a5e52ee826f6e19a45747ade9aafa8a7778e29690d1465cd56850075d1c /usr/share/doc/dolly/docs/image-build-service.md
-SOURCE /v0.1.7/abi/README.md 5d16f231b42602bf07813fdfd181255124d29bdc5e0d61cc2be2518dc02b3183 /usr/share/doc/dolly/abi/README.md
+SOURCE /v0.1.7/abi/README.md 7dd603cdbdc329e480747c1b1a3bd4904cc794d38ad1c2f951ef25e70040bfc1 /usr/share/doc/dolly/abi/README.md
 SOURCE /v0.1.7/host/README.md 624b376c7054e708435080a620c7f5edbcde616b7f22878e7ab8a74b844374f0 /usr/share/doc/dolly/host/README.md
 SOURCE /v0.1.7/abi/dolly-browser-0.wat 7bea6213b5ba9daebb36b0844501406f3ad97a26784621bc99f52c46ae64c79c /usr/share/doc/dolly/abi/dolly-browser-0.wat
 SOURCE /v0.1.7/abi/dolly-host-0.wat 7d1a02e3317086c06ca022e917d6d8537d9a005e9804e5ffdf256dc7d70c8671 /usr/share/doc/dolly/abi/dolly-host-0.wat

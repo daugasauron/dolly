@@ -313,8 +313,9 @@ acceptance and the checks of a deployed site use it.
 - An enabled module adds its own and takes them away when `nena` disables it:
   `transport`, `fontSize`, `graphicsActive`, `copySelection()`, `frame()` (`display@0`),
   `inputTransport` (`input@0`), `touchTransport` (`touch@0`), the broker's request counters (`http@0`),
-  `sessionName` and `saveSession(name)` (`snapshot@0`), `gpu`, `audio` and
-  `microphone`.
+  `sessionName` and `saveSession(name)` (`snapshot@0`), `gpu`, `audio`,
+  `microphone`, and `openConsole({ argv })` (`console@0`), which starts the
+  program `argv` names on a console the caller holds, as a command line could.
 
 None gives authority a user of the page lacks: each write is what a key, a
 paste, a click or Save does, through the same functions, without the gesture.

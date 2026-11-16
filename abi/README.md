@@ -13,14 +13,15 @@ WAT file document its semantics.
 | [`host/dso/dolly-dso-0.wat`](../host/dso/dolly-dso-0.wat) | Optional process-local shared objects and FFI: the side-module profile and the operations of `dso@0` |
 | [`host/threads/dolly-threads-0.wat`](../host/threads/dolly-threads-0.wat), [`host/threads/dolly-threads-supervisor-0.wat`](../host/threads/dolly-threads-supervisor-0.wat) | Optional `-pthread` profile and its supervisor exports |
 | [`host/stack/dolly-stack-0.wat`](../host/stack/dolly-stack-0.wat) | Optional profile of a program `stack-wrap` rewrote to recurse across fresh browser stacks, and operation 116 |
-| [`host/sockets/dolly-sockets-0.wat`](../host/sockets/dolly-sockets-0.wat), [`host/pty/dolly-pty-0.wat`](../host/pty/dolly-pty-0.wat) | Process operations 160-169 (local sockets) and 176-177 (pseudo-terminals), kernel-only; a pseudo-terminal's signals reach the supervisor as the kernel's raised ones; no browser import |
+| [`host/sockets/dolly-sockets-0.wat`](../host/sockets/dolly-sockets-0.wat), [`host/pty/dolly-pty-0.wat`](../host/pty/dolly-pty-0.wat) | Process operations 160-169 (local sockets) and 176 (pseudo-terminals), kernel-only; a pseudo-terminal's signals reach the supervisor as the kernel's raised ones; no browser import |
 | [`dolly-host-0.wat`](dolly-host-0.wat) | `dolly.host` records naming required host modules and their ABI digests; no authority |
 | [`host/gpu/dolly-gpu-0.wat`](../host/gpu/dolly-gpu-0.wat), [`host/audio/dolly-audio-0.wat`](../host/audio/dolly-audio-0.wat), [`host/microphone/dolly-microphone-0.wat`](../host/microphone/dolly-microphone-0.wat), [`host/nena/dolly-nena-0.wat`](../host/nena/dolly-nena-0.wat) | Additive process operations 128 (GPU), 129 (audio), 130 (microphone) and 133 (nena), and their browser imports |
 | [`dolly-kernel-plugin-0.wat`](dolly-kernel-plugin-0.wat) | The resident display plugin and its registration as the terminal's input decoder; never an ordinary program target |
 | [`dolly-browser-0.wat`](dolly-browser-0.wat) | The complete typed outer import allowlist of the kernel |
 | [`dolly-supervisor-0.wat`](dolly-supervisor-0.wat) | Kernel exports the trusted supervisor uses, and the page's terminal mailbox (foreground, results, Ctrl+C) |
 | [`dolly-image-0.wat`](dolly-image-0.wat) | Kernel exports that boot, restore, capture and stream system images; the snapshot and entry formats' numbers |
-| [`host/display/dolly-display-0.wat`](../host/display/dolly-display-0.wat), [`host/input/dolly-input-0.wat`](../host/input/dolly-input-0.wat), [`host/touch/dolly-touch-0.wat`](../host/touch/dolly-touch-0.wat), [`host/http/dolly-http-0.wat`](../host/http/dolly-http-0.wat), [`host/download/dolly-download-0.wat`](../host/download/dolly-download-0.wat), [`host/upload/dolly-upload-0.wat`](../host/upload/dolly-upload-0.wat), [`host/html/dolly-html-0.wat`](../host/html/dolly-html-0.wat), [`host/snapshot/dolly-snapshot-0.wat`](../host/snapshot/dolly-snapshot-0.wat) | Browser-facing mailboxes, dispatch imports, the modules' process operations and the session mailbox |
+| [`host/console/dolly-console-0.wat`](../host/console/dolly-console-0.wat) | Kernel exports the host calls to start a root process on a console (a pseudo-terminal or three pipes), write its input and read its output; no process calls them |
+| [`host/display/dolly-display-0.wat`](../host/display/dolly-display-0.wat), [`host/input/dolly-input-0.wat`](../host/input/dolly-input-0.wat), [`host/touch/dolly-touch-0.wat`](../host/touch/dolly-touch-0.wat), [`host/http/dolly-http-0.wat`](../host/http/dolly-http-0.wat), [`host/download/dolly-download-0.wat`](../host/download/dolly-download-0.wat), [`host/upload/dolly-upload-0.wat`](../host/upload/dolly-upload-0.wat), [`host/html/dolly-html-0.wat`](../host/html/dolly-html-0.wat), [`host/clipboard/dolly-clipboard-0.wat`](../host/clipboard/dolly-clipboard-0.wat), [`host/packages/dolly-packages-0.wat`](../host/packages/dolly-packages-0.wat), [`host/snapshot/dolly-snapshot-0.wat`](../host/snapshot/dolly-snapshot-0.wat) | Browser-facing mailboxes, dispatch imports, the modules' process operations (clipboard 208-211, packages 134) and the session mailbox |
 
 A contract makes a boundary reviewable and lets the build derive retained exports
 exactly; listing a function does not make it guest authority.
@@ -65,9 +66,10 @@ What a host reads to start an image, and what it hands the kernel, beside the
 exports of [`dolly-image-0.wat`](dolly-image-0.wat):
 
 - `dist/dolly-build-id.json`: `imageBuildId`, the SHA-256 of
-  `dolly-image-build-1\0` and, for each of `dolly.data`, `dolly-process-0.wasm`,
-  `dolly-dso-0.wasm`, `dolly-kernel-plugin-0.wasm` and `dolly-image-0.wasm`, its
-  name, a NUL and its file's SHA-256; `buildId`, the SHA-256 of
+  `dolly-image-build-1\0` and, for each of `dolly.data`, the `process` contracts
+  of every module in [`host/manifests.mjs`](../host/manifests.mjs) in its order
+  (each `NAME.wat` as `NAME.wasm`), then `dolly-kernel-plugin-0.wasm` and
+  `dolly-image-0.wasm`, its name, a NUL and its file's SHA-256; `buildId`, the SHA-256 of
   `dolly-runtime-build-1\0`, the image build ID and `dolly.wasm`
   ([`write-build-id.mjs`](../scripts/write-build-id.mjs)). An image runs only on a
   runtime with its `buildId` as image build ID.

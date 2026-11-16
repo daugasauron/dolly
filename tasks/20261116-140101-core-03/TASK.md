@@ -1,14 +1,27 @@
 # The contract and boundary docs describe what the code no longer does: the image build ID, three contracts, openConsole, amy's index
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 130
 - TAGS: audit,core,abi,docs,0.1.8
 
 From the core audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at `b09b1e243`).
 
-## State (2026-11-16)
+## Closed (2026-11-17)
 
-Measured; nothing changed. A documentation fix, no rebuild.
+On `cleanup/0.1.8`: `abi/README.md` states the build ID's inputs as `dolly.data`, the `process`
+contracts of every module in `host/manifests.mjs` in its order, then the kernel plugin and image
+contracts; its table names `dolly-console-0.wat` (a row of its own) and `dolly-clipboard-0.wat`
+and `dolly-packages-0.wat` (with the mailboxes, operations 208-211 and 134); pty's operation is
+176. The review map's handle section names `openConsole` (`console@0`). The amy sentences of the
+review map, `docs/http.md` and `docs/dollyfile.md` are `recipes-17`'s commit on the same branch.
+
+Checked: the README's rule, followed through `work/round1113/host/manifests.mjs` (the same as
+this tree's) over `work/round1113/dist/`, gives `sha256:87c27243…3b758`, its
+`dolly-build-id.json`'s `imageBuildId` (`work/cleanup-018-evidence/readme-build-id.mjs`, output
+`readme-build-id.txt`); a loop over
+`abi/*.wat host/*/*.wat` finds every basename in the README; `git grep amy-index.txt docs/` finds
+no document asking a rule for the page's own index; `platform-documents.test.mjs` passes after
+re-pinning `dolly-docs`.
 
 ## Found
 
