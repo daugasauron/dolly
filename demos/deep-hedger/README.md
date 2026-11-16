@@ -106,9 +106,11 @@ On an RTX 5070 in Chrome 156 (Vulkan), AAPL's chain of 2026-11-13 as loaded on
 - **The fit**, from equal weights and a random hedger, 900 iterations in
   287 s (`dh-fit CHAIN 1024 1 900`): the loss fell from over 300 to 1.4 band
   widths squared; 70% of the model's bids and asks are inside the market's
-  bands; each expiry's forward is within 0.2% of the one its quotes imply,
-  which no constraint holds there; the hedger leaves 46% of the risk of not
-  hedging. The model's mean spread is 0.12 (currency) against the market's
+  bands; the law's forward at each expiry is within 0.1% of the one its
+  quotes imply, which no constraint holds there; the hedger leaves 46% of the
+  risk of not hedging. Left to run, to 2,400 iterations: the loss stays
+  between 1.2 and 1.5 from iteration 1,000, 75% in band, 43% of the risk
+  left. The model's mean spread is 0.12 (currency) against the market's
   1.29, which wide closing quotes in the money make: the risk price at which
   this hedger's spreads would add up to the market's is 0.12 over all
   contracts and 0.03 on the last expiry, where the market's bands are tight.

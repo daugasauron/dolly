@@ -40,9 +40,12 @@ Logs: `build/dh-evidence/` (this machine).
 
 - **The fit converges on the chain** (`dh-fit CHAIN 1024 1 900`, stock cost 0.25 bp, risk price
   0.01): 900 iterations in 287 s, loss 4.7 at iteration 200, 1.8 at 500, 1.4 at 900; 70% of
-  the model's bids and asks inside the market's bands; forwards 1.0002, 1.0007, 1.0004, 1.0004,
-  1.0015, 0.9993, 0.9983, 1.0002 of the quotes' own; a day's deviation 1.2% to 1.6%; the hedger
+  the model's bids and asks inside the market's bands; the law's forwards 1.0002, 1.0006, 0.9998,
+  0.9999, 1.0009, 1.0008, 1.0001, 1.0005 of the quotes' own; a day's deviation 1.2% to 1.6%; the hedger
   leaves 46% of the unhedged risk. In the image with dh-gui beside it: 2.6 iterations a second.
+- **Left to run** (`dh-fit CHAIN 1024 1 2400`, 765 s): loss 2.2 at 400, 1.4 at 1,000, then
+  between 1.17 and 1.53; in band 70% at 1,000, 75% at 2,400; the hedged books' deviation 0.0260
+  of 0.0597 unhedged at the end.
 - **Two seeds** (`dh-fit CHAIN 1024 1 900` and `... 2 900`): loss 1.3708 and 1.3567, in band
   69.7% and 70.0%, the hedged books' deviation 0.0271 and 0.0277, each interval's daily
   deviation within 2% of the other run's, bids and asks 0.0000456 of the forward apart on
