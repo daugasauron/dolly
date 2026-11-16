@@ -18,7 +18,7 @@ INSTALL /v0.1.7/demos/pi/Dollyfile-pi 332e23edb0dbbe6344a4bba95d489a59eeb6d30220
 INSTALL /v0.1.7/demos/closed-source-agent/Dollyfile-secretenv 0137259f2e1f7d4feb711959ae209923b4e67e033cd9ed6df2909c2f75343c29
 INSTALL /v0.1.7/Dollyfile-html d0f2559ed00977f24f66e949ba47b177f835383f6f929c6041115908b3a88682
 INSTALL /v0.1.7/Dollyfile-transfer c581eb92dcc14d12e251f686ba9ff508aeab68afcc4205254c54e184e9e889a4
-INSTALL /v0.1.7/Dollyfile-dolly-docs 515dbce68c419100a73c292d3650a66c41ebe187a3679b3e74d6da029b44e9b4
+INSTALL /v0.1.7/Dollyfile-dolly-docs 647e95c9599782fd86cb6b79f6da0797711e4fff3cca4f2946c7ec3d642790f3
 
 SOURCE /v0.1.7/dist/static/default/pi/dolly-tools.js                    85d7444e373e5f2f01d2ea086ff28b8908dc663892b55e53d98f8ca39f259b77 /home/dolly/.pi/agent/extensions/dolly-tools.js
 SOURCE /v0.1.7/dist/static/default/pi/ask-user.js                       aea9f9f4bbddd68d759d31d36fac3e5eac3079aeb94c181add468cc23e81c3b3 /home/dolly/.pi/agent/extensions/ask-user.js
