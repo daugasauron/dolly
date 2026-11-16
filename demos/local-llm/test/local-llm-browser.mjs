@@ -4,7 +4,8 @@
 // context size changed there, and the task again.
 import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
-import {chromium,firefox} from 'playwright-core';
+import {chromium} from 'playwright-core';
+import {launchInstalledFirefox} from '../../../test/browser.mjs';
 import {startBrowserServer} from '../../../test/browser-server.mjs';
 import {acceptDownload,demoTest} from '../../browser.mjs';
 
@@ -25,23 +26,20 @@ await demoTest('pi-local start screen',{image:'pi-local',webgpu:true},async({ope
   assert.doesNotMatch(await text(),hint);
 });
 
-if(!process.env.DISPLAY){console.log('local-llm: the model steps are skipped, they need a GPU window on DISPLAY');process.exit(0);}
+if(!process.env.DISPLAY){console.log('local-llm: skipped: the model steps need a GPU window on DISPLAY');process.exit(77);}
 
 const root=new URL('../../../',import.meta.url).pathname;
 // The model pi-local bundles, and the one the user installs next (DOLLY_LLM_SECOND names another package).
 const model='qwen3.5-2b',weights=`/usr/share/dolly/llm/${model}.gguf`,second=process.env.DOLLY_LLM_SECOND??'minicpm5-2b';
-// Playwright drives the installed Firefox, which on Ubuntu is a snap with a
-// private /tmp: its profile and downloads must live under $HOME.
-process.env.TMPDIR=new URL('tmp/',output).pathname;await mkdir(process.env.TMPDIR,{recursive:true});
 
 for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local').split(',')) {
   // CSP denies external model servers without disabling the browser HTTP cache.
   const site=await startBrowserServer(root,image,{responseHeaders:{'content-security-policy':"connect-src 'self'"}});
   try {
     for(const name of (process.env.DOLLY_LLM_BROWSERS??'chromium,firefox').split(',')) {
-      const browser=await ({chromium,firefox})[name].launch(name==='chromium'
-        ? {channel:'chrome',headless:false,args:['--no-sandbox','--ozone-platform=x11','--enable-unsafe-webgpu','--use-angle=vulkan','--enable-features=Vulkan']}
-        : {channel:'moz-firefox',headless:false,firefoxUserPrefs:{'dom.webgpu.enabled':true}});
+      const browser=await (name==='chromium'
+        ? chromium.launch({channel:'chrome',headless:false,args:['--no-sandbox','--ozone-platform=x11','--enable-unsafe-webgpu','--use-angle=vulkan','--enable-features=Vulkan']})
+        : launchInstalledFirefox());
       try {
         const context=await browser.newContext({acceptDownloads:true,viewport:{width:1280,height:840}});
         const page=await context.newPage(),errors=[],requests=[];
