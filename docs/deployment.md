@@ -120,18 +120,12 @@ npm run serve build/domain-releases     # the candidate as it will be deployed
   site first, one at a time until it fits (owner, 2026-11-07): the release moves
   each from `published/` to `retired/` beside it, which keeps what was served,
   and its notes say which versions left (the sessions saved on them no longer
-  open). A version needs a rule for each file it stores compressed;
-  one before v0.1.5 also for each file in parts (`X-Dolly-Parts`), while a
-  page since then knows a manifest by its content. One rule covers a file in
+  open). A version needs a rule for each file it stores compressed; a page
+  knows a file in parts by its manifest's content. One rule covers a file in
   every version that stores it the same way, so rules grow with distinct
   compressed files and with files whose storage changed, not with versions.
-- Measured on 2026-11-02 on the archive of v0.1.0 to v0.1.4: v0.1.4 is
-  3,785 files and 21.9 GB and alone needs 55 rules: 6 for every version, 37
-  for large sources by path and 12 for large packs by content. The five
-  versions are 14,037 files and need 92 rules. On 2026-11-05 a v0.1.5 domain
-  site would have added 15 with a rule per file in parts (107); it adds 1:
-  its 5 compressed files are stored as older versions store them, and
-  `zig-llvm/zig.tar`, compressed in v0.1.4, is in parts in v0.1.5.
+- 0.1.7's export of v0.1.5 to v0.1.7 is 15,092 files and 16 rules: the
+  exporter's own 10 and 6 for compressed files all three store alike.
 
 ## Release
 

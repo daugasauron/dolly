@@ -58,7 +58,6 @@ export async function boundedAssetBody(response, limit, signal) {
 // A file a host stores in parts is a JSON manifest at its path that begins
 // with these bytes, and no file stored whole does (the Pages exporter checks),
 // so the page knows a manifest by its content: a host needs no header for it.
-// Pages before v0.1.5 read the X-Dolly-Parts header instead.
 export const PARTS_MANIFEST_START = '{"byteLength":';
 
 // The first `length` bytes of a response's body, and a response whose body is
@@ -131,7 +130,6 @@ export async function decodeStaticAsset(given, target, init, maximumBytes, fetch
     },
   }, { highWaterMark: 0 });
   const headers = new Headers(response.headers);
-  headers.delete("x-dolly-parts");
   headers.delete("content-encoding");
   headers.set("content-length", String(manifest.byteLength));
   const decoded = new Response(body, { status: response.status, statusText: response.statusText, headers });

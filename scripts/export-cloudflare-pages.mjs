@@ -62,10 +62,6 @@ export function versionHeaders(compressed) {
   }).join("\n");
 }
 
-// The rule pages before v0.1.5 need for a file in parts, as their
-// deployment.headers name it.
-const partsRule = path => `${path}\n  X-Dolly-Parts: 1\n  Content-Type: application/octet-stream`;
-
 // The first version whose pages hold no inline script: from it on, a version's paths and the
 // root's pages (the newest version's) get the site's Content-Security-Policy. The versions
 // before it were deployed without one, and their pages need their inline scripts.
@@ -87,11 +83,10 @@ export function pagesHeaders(versions) {
     "/:version/demos/*\n  Content-Type: text/plain; charset=utf-8",
   ];
   // Each rule a version needs, and how each version holding a file stores it:
-  // by the rule its deployment.headers names, in parts (beside its .part-0),
-  // or whole.
+  // by the rule its deployment.headers names, if any.
   const wanting = new Map(), storing = new Map();
   for (const { name, paths, headers } of versions) {
-    const named = new Map(), held = new Set(paths);
+    const named = new Map();
     for (const rule of headers.trimEnd().split("\n\n").filter(Boolean)) {
       // No splat or placeholder: a rule names one file.
       if (!/^\/[A-Za-z0-9_.\/-]+(\n  [A-Za-z-]+: [A-Za-z0-9\/ -]+)+$/.test(rule)) throw new Error(`${name}: invalid deployment.headers`);
@@ -99,13 +94,11 @@ export function pagesHeaders(versions) {
       named.set(rule.slice(0, rule.indexOf("\n")), rule);
     }
     for (const path of paths) {
-      const stored = named.get(`/${path}`) ?? (held.has(`${path}.part-0`) ? partsRule(`/${path}`) : "whole");
-      storing.set(`/${path}`, [...storing.get(`/${path}`) ?? [], stored]);
+      storing.set(`/${path}`, [...storing.get(`/${path}`) ?? [], named.get(`/${path}`)]);
     }
   }
   // One rule serves a file in every version when all that hold the file store
-  // it the same way (X-Dolly-Parts is true for a newer page's manifest too,
-  // which ignores it); otherwise each version that needs the rule names its own.
+  // it the same way; otherwise each version that needs the rule names its own.
   for (const [rule, names] of [...wanting].sort()) {
     const everyHolder = storing.get(rule.slice(0, rule.indexOf("\n")))?.every(stored => stored === rule);
     rules.push(...everyHolder ? [`/:version${rule}`] : names.map(name => `/${name}${rule}`));

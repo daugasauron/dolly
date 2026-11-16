@@ -104,11 +104,9 @@ export async function verifyDeployment(site, deployment, name) {
   return names;
 }
 
-// In the page, the files a version's catalog names by site path: from its
-// dist/dolly-images.json, or the module that held them before v0.1.5.
-const catalogStaticSources = async ([root, module]) => module
-  ? (await import(new URL("dist/dolly-images.mjs", root).href)).DOLLY_STATIC_SOURCES
-  : (await import(new URL("dist/dolly-images.json", root).href, { with: { type: "json" } })).default.staticSources;
+// In the page, the files a version's catalog (its dist/dolly-images.json) names by site path.
+const catalogStaticSources = async root =>
+  (await import(new URL("dist/dolly-images.json", root).href, { with: { type: "json" } })).default.staticSources;
 
 // Whether robots.txt keeps a crawler it names in no group off a path (RFC 9309):
 // the rules of every "User-agent: *" group, the longest match deciding, Allow on
@@ -178,7 +176,7 @@ async function bootVersions(site, names, browsers) {
         assert.equal(await page.evaluate(async () => (await fetch(new URL("missing.mjs", document.baseURI))).status), 404);
         // A reference a recipe writes, /vX.Y.Z/PATH, is that file here: each recipe
         // and source of at most 1 MiB the version publishes returns its pinned bytes.
-        const sources = await page.evaluate(catalogStaticSources, [version.href, compareVersions(name, "v0.1.5") < 0]);
+        const sources = await page.evaluate(catalogStaticSources, version.href);
         assert.deepEqual(await page.evaluate(async ([root, sources]) => {
           const wrong = [];
           for (const { path, sha256, byteLength } of sources) if (byteLength <= 1048576) {

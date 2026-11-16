@@ -1,12 +1,26 @@
 # The exporter and the live check keep code for versions before v0.1.5, which the site no longer serves
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 50
 - TAGS: audit,repo,cleanup,deployment,0.1.8
 
-## State (2026-11-16)
+## Closed (2026-11-17)
 
-Filed by the repo audit; nothing removed.
+On `cleanup/0.1.8`: `partsRule` and its branch are gone from the exporter (a file no rule names
+is stored as it is), `catalogStaticSources` reads only `dist/dolly-images.json`, and
+`cloudflare-pages.test.mjs` publishes no `X-Dolly-Parts` rule (a file in parts now gets no rule,
+which it asserts). `page/static-asset.mjs` loses the comment and its `headers.delete("x-dolly-parts")`,
+which only a pre-v0.1.5 rule could make necessary, with the test that labelled a manifest.
+`docs/deployment.md` states the rule without the old pages and gives 0.1.7's export (15,092 files,
+16 rules) for the measurement of v0.1.0 to v0.1.4.
+
+Checked: `git grep -n "before v0.1.5"` finds nothing outside `tasks/`; `node --test
+test/cloudflare-pages.test.mjs test/static-asset.test.mjs test/http-broker.test.mjs` passes (32);
+`pagesHeaders` over `work/locks/published/` (v0.1.5 to v0.1.7) gives 15,088 version files (with the
+root's four, 15,092) and a `_headers` byte-identical to the one before the change and to
+`work/round1113/build/pages-v0.1.7/_headers` (16 rules). The exporter's file list is untouched.
+`http-broker.test.mjs` keeps its remote response labelled `x-dolly-parts`: it shows a remote
+manifest is never expanded, whatever its headers.
 
 ## Found
 
