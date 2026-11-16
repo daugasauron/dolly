@@ -6,7 +6,8 @@
 // the terminal's shell reads what it printed.
 // Usage: node demos/photocraft/test/photocraft-x11-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
-import { chromium, firefox } from "playwright-core";
+import { chromium } from "playwright-core";
+import { launchInstalledFirefox } from "../../../test/browser.mjs";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
 import { snapshotDisplay, waitForDisplay } from "../../browser.mjs";
 
@@ -53,7 +54,7 @@ for (const name of browsers) {
   assert.ok(["chromium", "firefox"].includes(name));
   const server = await startBrowserServer(new URL("../../..", import.meta.url).pathname, "x11-desktop");
   const browser = name === "firefox"
-    ? await firefox.launch({ channel: "moz-firefox", headless: false, firefoxUserPrefs: { "dom.webgpu.enabled": true } })
+    ? await launchInstalledFirefox()
     : await chromium.launch({ channel: "chrome", headless: false,
       args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan,VulkanFromANGLE"] });
   const deadline = setTimeout(() => void browser.close(), 1_200_000);

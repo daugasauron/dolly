@@ -19,12 +19,23 @@
 // closed and the test fails, whatever it awaits. launch adds to how the
 // browsers start: { chromium: [argument…], firefox: { preference: value } }.
 import assert from "node:assert/strict";
+import { mkdir } from "node:fs/promises";
 import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "./browser-server.mjs";
 import { siteReference } from "../page/static-asset.mjs";
 
 const projectDir = new URL("..", import.meta.url).pathname;
 export const shellQuote = value => `'${String(value).replaceAll("'", "'\\''")}'`;
+
+// The installed Firefox in a window on DISPLAY, with WebGPU on the hardware adapter
+// (docs/gpu.md) and the preferences given. On Ubuntu it is a snap with a /tmp of its
+// own, so Playwright's profile, made in TMPDIR, goes under the checkout's build/.
+export async function launchInstalledFirefox(preferences = {}) {
+  process.env.TMPDIR = `${projectDir}build/firefox-tmp`;
+  await mkdir(process.env.TMPDIR, { recursive: true });
+  return firefox.launch({ channel: "moz-firefox", headless: false,
+    firefoxUserPrefs: { "dom.webgpu.enabled": true, ...preferences } });
+}
 
 // Runs a case file's steps (test/cases/README.md) in the session's shell: its
 // files and fixtures first, the fixtures from the test server, which serves each

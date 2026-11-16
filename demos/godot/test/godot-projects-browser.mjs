@@ -8,7 +8,8 @@
 // another node's, and the browser's text pastes as a third's. The editor's log holds no error.
 // Usage: node demos/godot/test/godot-projects-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
-import { chromium, firefox } from "playwright-core";
+import { chromium } from "playwright-core";
+import { launchInstalledFirefox } from "../../../test/browser.mjs";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
 import { writeCommand } from "../../browser.mjs";
 
@@ -53,8 +54,7 @@ for (const name of browsers) {
   for (const game of games) {
     const server = await startBrowserServer(new URL("../../..", import.meta.url).pathname, game.image);
     const browser = name === "firefox"
-      ? await firefox.launch({ channel: "moz-firefox", headless: false,
-        firefoxUserPrefs: { "dom.webgpu.enabled": true, "dom.events.testing.asyncClipboard": true } })
+      ? await launchInstalledFirefox({ "dom.events.testing.asyncClipboard": true })
       : await chromium.launch({ channel: "chrome", headless: false,
         args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan,VulkanFromANGLE"] });
     const deadline = setTimeout(() => void browser.close(), 900_000);

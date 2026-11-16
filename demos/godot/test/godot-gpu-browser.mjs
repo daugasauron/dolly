@@ -9,8 +9,8 @@
 // viewports, runs 600 frames; Lantern Drift flies a run by itself, through its rings of light.
 // Usage: node demos/godot/test/godot-gpu-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
-import { chromium, firefox } from "playwright-core";
-import { composed } from "../../../test/browser.mjs";
+import { chromium } from "playwright-core";
+import { composed, launchInstalledFirefox } from "../../../test/browser.mjs";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
 import { writeCommand } from "../../browser.mjs";
 
@@ -173,7 +173,7 @@ for (const name of browsers) {
   assert.ok(["chromium", "firefox"].includes(name));
   const server = await startBrowserServer(new URL("../../..", import.meta.url).pathname, "system");
   const browser = name === "firefox"
-    ? await firefox.launch({ channel: "moz-firefox", headless: false, firefoxUserPrefs: { "dom.webgpu.enabled": true } })
+    ? await launchInstalledFirefox()
     : await chromium.launch({ channel: "chrome", headless: false,
       args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan,VulkanFromANGLE"] });
   const deadline = setTimeout(() => void browser.close(), 1_500_000);

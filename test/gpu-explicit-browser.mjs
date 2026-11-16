@@ -2,8 +2,8 @@
 // display DISPLAY names: Chrome on Vulkan, or the installed Firefox (docs/gpu.md).
 //   node test/gpu-explicit-browser.mjs chromium|firefox
 import assert from "node:assert/strict";
-import { chromium, firefox } from "playwright-core";
-import { composed, routeAttributes } from "./browser.mjs";
+import { chromium } from "playwright-core";
+import { composed, launchInstalledFirefox, routeAttributes } from "./browser.mjs";
 import { startBrowserServer } from "./browser-server.mjs";
 
 const name = process.argv[2] ?? "chromium";
@@ -11,7 +11,7 @@ assert.ok(["chromium", "firefox"].includes(name));
 const server = await startBrowserServer(new URL("..", import.meta.url).pathname, "system",
   { fixtures: { "gpu-explicit.c": "test/fixtures/gpu-explicit.c" } });
 const browser = name === "firefox"
-  ? await firefox.launch({ channel: "moz-firefox", headless: false, firefoxUserPrefs: { "dom.webgpu.enabled": true } })
+  ? await launchInstalledFirefox()
   : await chromium.launch({ channel: "chrome", headless: false,
     args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan,VulkanFromANGLE"] });
 const deadline = setTimeout(() => void browser.close(), 180_000);
