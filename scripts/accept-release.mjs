@@ -2,8 +2,9 @@
 // runs the same check on the checkout): each image's /bin, /etc and /usr must be
 // exactly its sealed manifest. A build in the page checks that for any base
 // that can build (whatever its ENTRY or display): an image that retains the
-// engine and the compiler. Images with a display also boot their prebuilt
-// route without the compiler seed.
+// engine and the compiler. Images with a display, gpu@0 among them on the
+// headless Chrome's adapter, also boot their prebuilt route without the
+// compiler seed. An image neither checks is refused.
 import assert from "node:assert/strict";
 import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
@@ -50,8 +51,9 @@ export async function acceptImage(browser, server, image) {
     assert.equal(seedRequested(server.requests), false, `${image}: building on a published image fetched the compiler seed`);
   }
   await page.close();
-  const { hostRequirements } = definition;
-  if (!hostRequirements.includes("display@0") || hostRequirements.includes("gpu@0")) return;
+  const display = definition.hostRequirements.includes("display@0");
+  if (!base && !display) throw new Error(`${image}: acceptance has no check of it: no compiler to build on, no display to boot`);
+  if (!display) return;
   server.requests.clear();
   // The default ENTRY reaches its shell without network requests.
   const route = await browser.newPage(), missing = [], violations = [];
