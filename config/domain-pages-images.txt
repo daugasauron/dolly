@@ -96,7 +96,7 @@ tmux-panes
 mandoc
 toybox
 dte
-ghostty-x11
+ghostty-gtk
 x11-desktop
 zsh
 imgui
