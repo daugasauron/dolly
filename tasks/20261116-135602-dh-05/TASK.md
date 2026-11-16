@@ -15,13 +15,17 @@ decision yet. In the order they change the model:
    (spread from cost and from what daily hedging leaves, a risk parameter "like es confidence
    intterval or whatever") and gives up "there are no parameters in this models except for the
    genrator" (2026-07-07). Alternatives the record holds: Expected Shortfall with a confidence
-   level (2026-08-17), which needs a sort per book on the GPU; friction alone, `lambda = 0` with a
-   cost-aware hedger, which has no parameter-free objective (THEORY.md section 4).
-2. **Drift.** Left free in forward units and measured (the Fit tab's two forward columns). A
-   constraint would be one line in `dh-fit.mojo`'s `law`.
+   level (2026-08-17), which is monotone where the deviation is not and needs a sort per book on
+   the GPU; friction alone, `lambda = 0` with a cost-aware hedger, which has no parameter-free
+   objective (THEORY.md section 4).
+2. **Drift.** The law's mean is free, so the forward is fitted from the quotes, and the hedger
+   buys the stock forward at the law's own mean move, so no drift can be earned. Without that the
+   fit did not settle on a driftless chain (task dh-03). The alternative is a constraint on the
+   law's mean, which the owner refused in another form on 2026-07-25.
 3. **Historical returns**: none, by the owner's latest word (2026-09-07).
 4. **Pathwise option prices against state-conditional ones**: arises with task dh-06.
 5. **An illiquid name**: the thesis's own test, never run in any project.
-6. **American exercise**: not modelled. SPX would avoid it; it needs a data source (task dh-02).
+6. **American exercise**: not modelled; in-the-money puts that early exercise prices are left
+   out of the fit. SPX would avoid it; it needs a data source (task dh-02).
 
 Waits for the owner.
