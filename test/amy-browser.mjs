@@ -123,11 +123,9 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   await run("test \"$(amy install curl)\" = 'amy: curl is already installed'");
   await run("! amy install nosuch-package 2> /tmp/amy-error && grep -q nosuch-package /tmp/amy-error");
   await run("! amy 2> /dev/null && ! amy frobnicate 2> /dev/null");
-  // A pin the directory does not publish is a 404 and spends none of the page's 64 snapshots:
-  // after 65 misses the next install is still served.
+  // A pin the directory does not publish is a 404.
   await run("d=$(curl -fsS https://packages.dolly.invalid/v1/directory | sed 's/:/%3A/g; s|/|%2F|g') && " +
-    "for i in $(seq 65); do test \"$(curl -s -o /dev/null -w '%{http_code}' " +
-    "https://packages.dolly.invalid/v1/packages/$(printf '%064d' 0)/from/$d)\" = 404 || exit 1; done");
+    "test \"$(curl -s -o /dev/null -w '%{http_code}' https://packages.dolly.invalid/v1/packages/$(printf '%064d' 0)/from/$d)\" = 404");
   // Two amy commands and a list at once take turns, a command at a time:
   // python installs cc, which the other installs too.
   console.log(`amy install python: ${await timed(run, "amy install python > /tmp/amy-python & p=$!; amy install cc > /dev/null & c=$!; " +

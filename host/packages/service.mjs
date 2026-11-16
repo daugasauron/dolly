@@ -1,12 +1,11 @@
 import { imageBase } from "../../page/images.mjs";
 import { MAX_SNAPSHOT_BYTES } from "../../page/snapshot-records.mjs";
+import { maxSnapshots } from "./transport.mjs";
 
 const PACKAGES_ORIGIN = "https://packages.dolly.invalid";
 const PACKAGE_LIMITS = Object.freeze({
   maxRequestBytes: 0, maxResponseBytes: MAX_SNAPSHOT_BYTES,
   timeoutMilliseconds: 30 * 60_000, credentialHeaders: new Set(),
-  // Snapshots served per page: enough for every package, not for a loop.
-  maxSnapshots: 64,
 });
 const directoryPath = "/v1/directory";
 const packagePath = /^\/v1\/packages\/([0-9a-f]{64})\/from\/([^/]+)$/;
@@ -33,10 +32,12 @@ function directoryOf(segment) {
 // only where the page's HTTP policy admits a GET of it (`admit`, which counts
 // it), as the broker reads the guest's (worker.mjs), and only packages built
 // for this runtime pass. One snapshot is served at a time, until the guest has
-// read it or the broker's timeout cancels it.
+// read it or the broker's timeout cancels it. `spent()` tells the page when one
+// is refused for the quota.
 export class PackageService {
-  constructor(admit) {
+  constructor(admit, spent) {
     this.admit = admit;
+    this.spent = spent;
     this.active = false;
     this.served = 0;
   }
@@ -51,7 +52,10 @@ export class PackageService {
     const directory = directoryOf(segment);
     if (!directory) return reply("not the URL of an image directory\n", 400);
     if (this.active) return reply("another package snapshot is being served\n", 409);
-    if (this.served >= PACKAGE_LIMITS.maxSnapshots) return reply("this page's package snapshot quota is spent\n", 429);
+    if (this.served >= maxSnapshots) {
+      this.spent();
+      return reply(`this page has handed over its ${maxSnapshots} package snapshots: save the session and reload the page for more\n`, 429);
+    }
     this.active = true;
     // The Worker (worker.mjs) answers each message in turn: the first with the
     // package found and its packs checked, every later one with the snapshot's

@@ -9,7 +9,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 
 # The agent of ClassiCube's world, its viewer and the world packer, with their sources.
-FROM /v0.1.7/demos/pi/Dollyfile-pi-runtime b6697c6f3fa49563fa6b1dc700e0927d90794fa53f282c81ba1b712e9719b821
+FROM /v0.1.7/demos/pi/Dollyfile-pi-runtime 7af16b84c402a8a839cf58cb8621ddf736ab0c34ec257da464065fdb45802d4c
 USE /v0.1.7/demos/sdl2/Dollyfile-sdl2 3eb6c82723eb26957a9a9b6ab8dc196609762ebda2b32b33152d4d30d77fac78
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner

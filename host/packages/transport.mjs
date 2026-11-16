@@ -4,18 +4,21 @@ import * as A from "./abi.mjs";
 const capacity = A.DOLLY_PACKAGES_CHUNK_CAPACITY;
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 const encoder = new TextEncoder();
-// Snapshots served per page: enough for every package, not for a loop.
-const maxSnapshots = 64;
+// Snapshots served per page load, by this mailbox and as many by the service
+// (service.mjs): every package of the catalog several times over, not a loop's.
+export const maxSnapshots = 1024;
 // The index is one chunk.
 const maxIndexBytes = capacity;
 
 // The Worker's end of packages@0's mailbox (dolly-packages-0.wat): it answers
 // each request the kernel reports, one chunk at a time, from the page's own
 // image directory, `imageBase`; another directory is refused until the page's
-// HTTP policy judges it here.
+// HTTP policy judges it here. `spent()` tells the page when a snapshot is
+// refused for the quota.
 export class PackagesTransport {
-  constructor(buffer, address, imageBase) {
+  constructor(buffer, address, imageBase, spent) {
     this.imageBase = imageBase;
+    this.spent = spent;
     if (!(buffer instanceof SharedArrayBuffer) || !Number.isSafeInteger(address) || address <= 0 || address % 4 ||
         address > buffer.byteLength - A.DOLLY_PACKAGES_CHUNK_OFFSET - capacity) throw new TypeError("invalid packages mailbox");
     this.words = new Int32Array(buffer, address, 16);
@@ -83,7 +86,10 @@ export class PackagesTransport {
         const bytes = new Uint8Array(await response.arrayBuffer());
         return await (bytes.length > maxIndexBytes ? refuse(errno.EFBIG) : whole(bytes));
       }
-      if (this.served >= maxSnapshots) return await refuse(errno.EDQUOT);
+      if (this.served >= maxSnapshots) {
+        this.spent();
+        return await refuse(errno.EDQUOT);
+      }
       // The packages Worker (worker.mjs) finds the package and merges its
       // checked packs into its snapshot, a chunk per message.
       worker = new Worker(new URL("./worker.mjs", import.meta.url), { type: "module", name: "dolly-packages" });
