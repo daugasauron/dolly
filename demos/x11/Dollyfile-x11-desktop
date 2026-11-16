@@ -28,7 +28,7 @@ INSTALL /v0.1.7/demos/x11/Dollyfile-xterm 264fe8af630a6a5eecba93338fc2ad06d0e240
 # enables the host modules they need.
 INSTALL /v0.1.7/Dollyfile-amy 68444169857e8d1bcac03c0541ea52c1b8660b8bffa61a466c83de79ddc79f76
 INSTALL /v0.1.7/Dollyfile-nena 034d9012d6b5e77516510c595148261044f289c279457d35b437052292439b75
-INSTALL /v0.1.7/demos/sdl2/Dollyfile-imgui-x11 7fa2443b8dd69ca51b4c0448b0e7f034ae6d52b99337dca8b71e93f729296e6b
+INSTALL /v0.1.7/demos/sdl2/Dollyfile-imgui-x11 a78311b583a7342fdf1f06331c28bd56b836ac6ea9697476c8f4971df9d403ef
 
 # The server takes the display, the keyboard and the pointer until it ends
 # (kill $(cat /tmp/.X0-pid) in the terminal); its clients end with it, and
