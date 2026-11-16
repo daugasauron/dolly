@@ -1,6 +1,6 @@
 # Deep hedger: a live option chain a browser can read
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 190
 - TAGS: dh,demo,http
 
@@ -11,7 +11,7 @@ A Dolly program reaches the network through the HTTP broker, which is the page's
 response without CORS headers is an `EIO` (`docs/http.md`). So the source has to send
 `Access-Control-Allow-Origin` to any origin. No relay, no broader authority.
 
-## State 2026-11-17
+## Closed 2026-11-17
 
 Measured with `curl -D - -H 'Origin: http://127.0.0.1:9050'` on 2026-11-16, 13:45 UTC:
 
@@ -38,4 +38,9 @@ bands of one cent to 3.88 dollars; the wide ones are in the money. An in-the-mon
 sits on its exercise value, 0.4% of the forward above what the payoff at expiry is worth at 45
 days (THEORY.md, conflict 6).
 
-Left: the same in Firefox.
+The same in Firefox 159 (`DH_BROWSER=firefox`), on the GPU: the chain loaded and a fit ran on
+it, no request failed. The image's test passes in both browsers with the service's answer
+replaced by a fixture, so it does not depend on the service.
+
+Not done, and not needed for the demo: a source for SPX or SPY without the owner's token. None
+of the four tried serves one to a page.
