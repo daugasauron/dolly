@@ -113,7 +113,8 @@ cat <<COMMANDS
    node scripts/published-version.mjs verify ${site} ${deployment} ${version} ${archive}
 8  mv ${archive}/${version} build/pages-${version}-core && mv ${deployment}/${version} ${archive}/ && rm -rf ${deployment} build/pages-${version}-core
    git push origin main
-   ${version}'s list, for the release notes: $(sha256sum "${deployment}/${version}/deployment.sha256" | cut -d' ' -f1)
+   gh release edit ${version} --notes-file NOTES, which names ${version}'s list as deployed now:
+   $(sha256sum "${deployment}/${version}/deployment.sha256" | cut -d' ' -f1)
 COMMANDS
   exit
 fi
