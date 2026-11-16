@@ -484,9 +484,11 @@ static void hedge_tab() {
 
 // Every contract: the market's bid and ask and the model's, in currency.
 static void contracts_tab() {
-  if (!ImGui::BeginTable("quotes", 10, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY)) return;
+  if (!ImGui::BeginTable("quotes", 12, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY)) return;
   ImGui::TableSetupScrollFreeze(0, 1);
-  for (const char *name : {"expiry", "", "strike", "market bid", "market ask", "model bid", "model ask", "hedge cost", "risk left", "in band"}) ImGui::TableSetupColumn(name);
+  for (const char *name : {"expiry", "", "strike", "market bid", "market ask", "model bid", "model ask", "hedge cost", "risk left", "in band", "ask under model bid",
+                           "bid over model ask"})
+    ImGui::TableSetupColumn(name);
   ImGui::TableHeadersRow();
   for (const Contract &c : state.contracts) {
     const Expiry &expiry = state.expiries[c.expiry];
@@ -509,6 +511,12 @@ static void contracts_tab() {
     ImGui::TableNextColumn();
     if (c.model[7] > 0) ImGui::Text("%.0f%%", 50 * (c.model[4] + c.model[5]) / c.model[7]);
     ImGui::TableNextColumn(), ImGui::TextUnformatted(bid_in && ask_in ? "both" : bid_in ? "bid" : ask_in ? "ask" : "");
+    // Where the market's quote is beyond the model's own on the other side: what the
+    // model says buying at the ask, or selling at the bid, and hedging is worth.
+    ImGui::TableNextColumn();
+    if (bid > c.ask) ImGui::Text("%.3f", bid - c.ask);
+    ImGui::TableNextColumn();
+    if (ask < c.bid) ImGui::Text("%.3f", c.bid - ask);
   }
   ImGui::EndTable();
 }

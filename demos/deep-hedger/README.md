@@ -27,7 +27,9 @@ until stopped, on fresh paths every iteration.
   lowest strike, at the strike nearest the forward and at its highest, along
   twelve of the Law tab's paths.
 - **Quotes**: every contract's bid and ask, the market's and the model's, in
-  currency.
+  currency; and where the market's ask is under the model's bid, or its bid
+  over the model's ask, by how much: what the model says the contract is
+  worth buying, or selling, and hedging (THEORY.md, section 4).
 - **Fit**: by expiry, the forward the quotes imply and the model's, how many
   model bids and asks are inside the market's band, the market's mean spread
   and the model's, how much of the model's is hedging cost, the risk the

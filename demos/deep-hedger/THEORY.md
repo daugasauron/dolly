@@ -184,6 +184,28 @@ otherwise (section 6).
 prices every contract, so the levels are consistent in strike and expiry, and
 `rho` is subadditive, so a portfolio's ask is at most the sum of its legs'.
 
+**The model's numbers**, each with a meaning ("as few parameters as possible
+[...] where each paramter has an intuitive meaning", neil, 10-23):
+
+| Number | What it is | Where it comes from |
+|---|---|---|
+| N, the count of return kernels | how smooth a day's law may be | chosen: 49 |
+| the kernels' weights, one set an interval between expiries | the market's implied law of a day's return | fitted to today's bids and asks |
+| `c` | what a stock trade costs | the stock's own market |
+| `lambda` | the price of a unit of risk that hedging leaves | chosen, or read off the market's spreads |
+| the clock and the lag | one decision a day, filled the next | the trader's situation |
+
+The hedger's network is not among them: it is the solver, judged by the risk
+it leaves.
+
+**What a trader reads off a fitted model** (neil, 10-23: "it should be clear
+if some contracts are worth buying on average since the hedged PL of those
+contracts to expiry gives a good terminal PL distribution"). The model's bid
+of a contract is what a dealer who hedges it as the hedger does can pay and be
+left, on average and after `lambda` for the risk, with nothing. A market ask
+under the model's bid is a contract worth buying and hedging, by that much; a
+market bid over the model's ask, one worth selling.
+
 ## 5. Open conflicts
 
 1. **What the spread is.** The owner's positions, in order: side-dependent
