@@ -67,11 +67,12 @@ asset pricing, with frictions (cher-sim, 04-09; braut, 07-22).
 ## 3. Assumptions
 
 **Observed.** One snapshot of one name: every listed option's bid, ask, strike,
-expiry and type, and the calendar. Nothing else (decision 1). Carry is read
-from the same quotes: for each expiry the forward `F` and the discount `D` are
-the two numbers that put calls and puts on one line, `C - P = D (F - K)`, taken
-near the money where the bands are tight (decision 4). Every price is then
-divided by `D F` and every strike by `F`. The model has no rate.
+expiry and type, the stock's price, and the calendar. Nothing else (decision
+1). Carry is read from the same quotes: a call less a put at one strike is
+worth `D (F - K)`, and `D F` is the stock's price while no dividend falls
+before the expiry, which is assumed; that gives each expiry its discount `D`
+and forward `F` from the strikes near the money (decision 4). Every price is
+then divided by `D F` and every strike by `F`. The model has no rate.
 
 **Time.** Business days. One decision a day; it fills at the next day's price
 (decision 9), so the last day before expiry cannot be hedged at all.
@@ -90,6 +91,12 @@ the option chains that I sort of hope will" emerge, boom, 07-22).
 half-spread and slippage: a measured quantity of the name, not a fitted one.
 An option trade crosses the model's own bid or ask (decision 12).
 
+**Carry of the hedge.** The stock is bought forward, at the law's own mean
+move `g_u` of the day: a position earns the day's move less that mean. Holding
+stock is then a fair game under any law, and nothing can be earned from a
+drift (conflict 3). It is the ledger's statement that a forward costs its
+forward price; the law itself is not corrected.
+
 **The hedger.** A function of what a trader can see on the day: the contract's
 terms relative to the stock, the time left, the side, the position held
 (decisions 7, 8, 19). It never sees a quote or the future.
@@ -102,7 +109,7 @@ to expiry and ends with trading cash `W`, costs included. With the stock as
 the one instrument, `q_u` the position decided on day `u - 1` and bought at
 day `u`'s price, `q_0 = 0` and `T` the expiry:
 
-    W = sum_u q_u (x_{u+1} - x_u) - c sum_u |q_u - q_{u-1}| x_u - c |q_{T-1}| x_T
+    W = sum_u q_u (x_{u+1} - g_u x_u) - c sum_u |q_u - q_{u-1}| x_u - c |q_{T-1}| x_T
 
 What is left with the dealer is the residual `L = Y - W` (short) or
 `L = -Y - W` (long).
@@ -141,8 +148,9 @@ remove, and has the hedger minimize `rho` itself. Then:
 - `lambda = 0`: nobody hedges, `bid = ask = E[Y]`: the owner's first
   formulation, "something that generated stock price paths such that the
   expected value (from simulating with this) of all puts/calls on a surface
-  ends up within the bid ask spread" (cher, 03-20). `c = 0`, continuous time, a complete law: perfect replication, no
-  spread, any `lambda`. The classical models are these two corners.
+  ends up within the bid ask spread" (cher, 03-20). `c = 0`, continuous time,
+  a complete law: perfect replication, no spread, any `lambda`. The classical
+  models are these two corners.
 - The market's spreads then imply a `lambda`, as the owner asked: "this should
   make the spread a function of the confidence level? With some imagination
   you couldn then say that a certain confidence level is implied by the
@@ -157,13 +165,12 @@ remove, and has the hedger minimize `rho` itself. Then:
 of the model's bid and of its ask outside the market's band, zero inside
 (decision 16), in units of that quote's own width, squared up to one width
 and linear beyond ("it should not explose by a few outliers if the general
-fit is good", cher-sim, 04-26). The hedger's loss is the
-sum of `rho` over all books; it has no quote in it (decisions 7, 15). The
-quote levels pin each expiry's distribution; the widths pin what hedging
-between the expiries costs, which is where the path, and not only the
-marginals, enters: "the option prices DOES depend on the path, not the
-marginals, since the prices are the price of hedging wchich depends on the
-path" (boom, 07-22).
+fit is good", cher-sim, 04-26). The hedger's loss is the sum of `rho` over
+all books; it has no quote in it (decisions 7, 15). The quote levels pin each
+expiry's distribution; the widths pin what hedging between the expiries
+costs, which is where the path, and not only the marginals, enters: "the
+option prices DOES depend on the path, not the marginals, since the prices
+are the price of hedging wchich depends on the path" (boom, 07-22).
 
 **The generator's gradient needs no derivative of the hedger.** A hedger that
 is optimal among functions of the day's information satisfies
@@ -200,9 +207,14 @@ prices every contract, so the levels are consistent in strike and expiry, and
    What history may give later is temporal structure "as parametric
    properties (vol clustering), not add the returns directly" (braut, 07-25).
 3. **Drift.** "Regarding 0 drift, I'm not sure" (boom, 07-22). A hedger that
-   minimizes `rho` earns any drift the law has. In forward units the bands
-   hold the drift near zero but do not make it zero; `neil/THESIS.md` 4.5
-   proposes a constraint. Left free here and measured (section 6).
+   minimizes `rho` holds stock for a drift once the drift over the holding
+   time exceeds `lambda` times the deviation over it, whatever it hedges, and
+   the generator then moves the drift: measured here before the forward was
+   in the ledger (section 6). `neil/THESIS.md` 4.5 proposes to constrain the
+   law's mean. The demo leaves the law free, so that the forward is fitted,
+   and takes the drift out of the hedge instrument (section 3). With a law
+   that has memory the mean move depends on the path's past and has to be
+   computed there.
 4. **Pathwise option prices** (decision 13) against the agents' objection
    that a fill price made of the path's own future is not known on the day.
    The owner asked to measure, not argue (braut, 07-22). Not measured in any
@@ -224,7 +236,7 @@ Of the earlier projects, from their own records and not rerun here:
   out -0.16). The one clean positive is synthetic (`cher`, Heston paths).
 - Thread B's best fit (`braut` attempt 38) put 33.9% of model prices inside
   the market band and was rejected by its trader review. `braut/mojo` v7 has
-  no trained result: its last run stopped after one iteration.
+  no trained result: its last record, `run-0080`, is a stopped run of 64 paths.
 - Results that looked good were repeatedly the harness: a calibrated
   checkpoint shown as a start (braut, 08-11: "It just loaded good data then
   shuffled it a bit"), a strike never given to the policy (`fable`), every

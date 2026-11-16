@@ -89,19 +89,20 @@ static int business_days_between(long from, long to) {
   return count;
 }
 
-// The forward and the discount that put an expiry's calls and puts on one
-// line, C - P = D (F - K), fitted near the money on the centres of the bands.
+// An expiry's carry from its own quotes: a call less a put at one strike is
+// worth D (F - K), and D F is the spot while no dividend falls before the
+// expiry, which is assumed. So D = (S - (C - P)) / K, here the mean over the
+// strikes near the money, on the centres of the bands; F = S / D.
 static bool carry(const std::vector<Contract> &quotes, int expiry, double spot, double &forward, double &discount) {
   std::map<double, double> calls, puts;
   for (const Contract &c : quotes)
-    if (c.expiry == expiry && fabs(c.strike / spot - 1) < 0.08) (c.call > 0 ? calls : puts)[c.strike] = (c.bid + c.ask) / 2;
-  double n = 0, sk = 0, sy = 0, skk = 0, sky = 0;
+    if (c.expiry == expiry && fabs(c.strike / spot - 1) < 0.05) (c.call > 0 ? calls : puts)[c.strike] = (c.bid + c.ask) / 2;
+  double pairs = 0, sum = 0;
   for (auto &[strike, call] : calls)
-    if (puts.count(strike)) n++, sk += strike, sy += call - puts[strike], skk += strike * strike, sky += strike * (call - puts[strike]);
-  if (n < 3) return false;
-  double slope = (n * sky - sk * sy) / (n * skk - sk * sk);
-  discount = std::min(1.0, std::max(0.95, -slope));
-  forward = (sy + discount * sk) / (n * discount);
+    if (puts.count(strike)) pairs++, sum += (spot - (call - puts[strike])) / strike;
+  if (pairs < 3) return false;
+  discount = std::min(1.0, std::max(0.9, sum / pairs));
+  forward = spot / discount;
   return true;
 }
 
@@ -247,7 +248,7 @@ static void read_fit(FILE *output, std::string &pending, State &staged) {
       c.fitted = true;
     } else if (name == "law" && numbers.size() == KERNELS + 1 && numbers[0] < staged.expiries.size())
       staged.expiries[(size_t)numbers[0]].law.assign(numbers.begin() + 1, numbers.end());
-    else if (name == "forward" && numbers.size() == 2 && numbers[0] < staged.expiries.size())
+    else if (name == "forward" && numbers.size() == 3 && numbers[0] < staged.expiries.size())
       staged.expiries[(size_t)numbers[0]].model_forward = numbers[1];
     else if (name == "path" && numbers.size() > 2) {
       if (numbers[0] == 0) staged.paths.clear();
@@ -373,7 +374,8 @@ static void quotes_tab(bool volatility) {
 static void moments(const std::vector<double> &law, double out[4]) {
   double m[5] = {};
   for (int k = 0; k < KERNELS && k + 2 < (int)state.nodes.size(); k++) {
-    // A hat's moments by Simpson's rule on each of its two sides, which is exact up to the cube.
+    // A hat's moments by Simpson's rule on each of its two sides: exact for the mean and the
+    // variance, and close for the two above them, a hat being narrow.
     double lo = state.nodes[k], peak = state.nodes[k + 1], hi = state.nodes[k + 2], height = 2 / (hi - lo);
     for (int side = 0; side < 2; side++) {
       double a = side ? peak : lo, b = side ? hi : peak, fa = side ? height : 0, fb = side ? 0 : height;

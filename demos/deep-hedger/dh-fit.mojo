@@ -153,6 +153,7 @@ def roll(
     phi: Floats,
     residual: Floats,
     paid: Floats,
+    growth: Floats,
     paths: Int,
     days: Int,
     books: Int,
@@ -161,7 +162,9 @@ def roll(
 ):
     """Every book of a path, hedged from empty to its expiry: what is left
     with the dealer, and what the hedge paid in costs. A position decided on
-    day u-1 is bought at day u's price and held from then. Neighbouring threads
+    day u-1 is bought at day u's price and held from then; it is bought
+    forward, so a day earns it the move less the law's mean move (`growth`),
+    and holding stock is a fair game under any law. Neighbouring threads
     are neighbouring paths on the same books, so a block runs in step."""
     var thread = global_idx.x
     if thread >= paths * GROUPS:
@@ -197,7 +200,7 @@ def roll(
                 hidden,
             )
             var fee = cost * abs(target - position) * price
-            cash += target * (exp(logx[unsafe_offset=row + u + 1]) - price) - fee
+            cash += target * (exp(logx[unsafe_offset=row + u + 1]) - growth[unsafe_offset=u] * price) - fee
             fees += fee
             position = target
         var last = exp(logx[unsafe_offset=row + expiry])
@@ -305,6 +308,7 @@ def adjoint(
     gradient_rows: Floats,
     level_rows: Floats,
     held_rows: Floats,
+    growth: Floats,
     paths: Int,
     days: Int,
     books: Int,
@@ -316,7 +320,7 @@ def adjoint(
     hedger, the derivative of the sum of all fundings by its parameters,
     through every day's position and the position it was decided from. For the
     generator, the derivative of the loss by the path's levels with the
-    positions held fixed (THEORY.md, section 4). A thread sums into words of
+    positions held fixed (THEORY.md, section 4), and by each day's mean move. A thread sums into words of
     its own in the three buffers, beside its neighbours' words for the same
     parameter or day: a block's threads then store side by side."""
     var thread = global_idx.x
@@ -326,7 +330,7 @@ def adjoint(
     var threads = paths * GROUPS
     for n in range(PARAMS + hidden - HIDDEN):
         gradient_rows[unsafe_offset=n * threads + thread] = 0
-    for u in range(MAX_DAYS + 1):
+    for u in range(2 * (MAX_DAYS + 1)):
         level_rows[unsafe_offset=u * threads + thread] = 0
     var inputs = Array[Float32, INPUTS](fill=0)
     var first = Array[Float32, HIDDEN](fill=0)
@@ -359,7 +363,7 @@ def adjoint(
                 hidden,
             )
             held_rows[unsafe_offset=u * threads + thread] = after
-            cash += after * (exp(logx[unsafe_offset=row + u + 1]) - price) - cost * abs(after - before) * price
+            cash += after * (exp(logx[unsafe_offset=row + u + 1]) - growth[unsafe_offset=u] * price) - cost * abs(after - before) * price
             before = after
         var last = exp(logx[unsafe_offset=row + expiry])
         var closing = before
@@ -378,8 +382,11 @@ def adjoint(
             var now = held_rows[unsafe_offset=u * threads + thread]
             var earlier = held_rows[unsafe_offset=(u - 1) * threads + thread]
             var turn = direction(now - earlier)
-            level_rows[unsafe_offset=u * threads + thread] += loss_seed * (now - earlier + cost * abs(now - earlier))
-            var on_position = carry - seed * (exp(logx[unsafe_offset=row + u + 1]) - price - cost * turn * price)
+            var grown = growth[unsafe_offset=u]
+            level_rows[unsafe_offset=u * threads + thread] += loss_seed * (grown * now - earlier + cost * abs(now - earlier))
+            # The day's mean move is the law's too: the loss's derivative by it, after the levels'.
+            level_rows[unsafe_offset=(MAX_DAYS + 1 + u) * threads + thread] += loss_seed * now * price
+            var on_position = carry - seed * (exp(logx[unsafe_offset=row + u + 1]) - grown * price - cost * turn * price)
             _ = policy(
                 phi,
                 logx[unsafe_offset=row + u - 1] - log_strike,
@@ -427,18 +434,24 @@ def sum_gradient(gradient_rows: Floats, result: Floats, rows: Int):
 
 
 def return_adjoint(level_rows: Floats, logx: Floats, on_return: Floats, paths: Int, days: Int):
-    """The loss's derivative by each day's return: a return moves every later level."""
+    """The loss's derivative by each day's return, a return moving every later
+    level; and after those, by each day's mean move, summed over the path's threads."""
     var p = global_idx.x
     if p >= paths:
         return
+    var threads = paths * GROUPS
     var later = Float32(0)
     var u = days
     while u >= 1:
         var on_level = Float32(0)
+        var on_growth = Float32(0)
         for group in range(GROUPS):
-            on_level += level_rows[unsafe_offset=u * paths * GROUPS + group * paths + p]
+            on_level += level_rows[unsafe_offset=u * threads + group * paths + p]
+            on_growth += level_rows[unsafe_offset=(MAX_DAYS + 1 + u) * threads + group * paths + p]
         later += on_level * exp(logx[unsafe_offset=p * (days + 1) + u])
         on_return[unsafe_offset=p * days + u - 1] = later
+        if u < days:
+            on_return[unsafe_offset=(paths + p) * days + u] = on_growth
         u -= 1
 
 
@@ -456,7 +469,8 @@ def law_gradient(
 ):
     """The loss's derivative by one kernel's weight in one interval. A return
     drawn at a fixed uniform number moves by minus the kernel's cumulative mass
-    there over the law's density there."""
+    there over the law's density there; and the day's mean move is the weights'
+    sum of the kernels' own (after the nodes in their buffer)."""
     var id = global_idx.x
     var interval = id // KERNELS
     if interval >= intervals:
@@ -478,6 +492,7 @@ def law_gradient(
                 elif r < hi:
                     below = 1 - (hi - r) * (hi - r) / ((hi - peak) * (hi - lo))
                 sum -= on_return[unsafe_offset=p * days + t] * below / density[unsafe_offset=p * days + t]
+                sum += on_return[unsafe_offset=(paths + p) * days + t] * nodes[unsafe_offset=NODES + k - 1]
     result[unsafe_offset=offset + interval * KERNELS + k - 1] = sum
 
 
@@ -605,6 +620,8 @@ struct Model(Movable):
     var cost: Float32
     var risk: Float32
     var grid: List[Float32]
+    var kernel_growth: List[Float64]
+    var interval_of_day: List[Int]
     var logits: List[Float32]
     var weights: List[Float32]
     var phi: List[Float32]
@@ -623,6 +640,7 @@ struct Model(Movable):
     var level_rows: DeviceBuffer[DType.float32]
     var held_rows: DeviceBuffer[DType.float32]
     var return_buffer: DeviceBuffer[DType.float32]
+    var growth_buffer: DeviceBuffer[DType.float32]
     var result_buffer: DeviceBuffer[DType.float32]
 
     def __init__(out self, chain: Chain, paths: Int, seed: UInt64) raises:
@@ -650,8 +668,23 @@ struct Model(Movable):
             self.phi[n] = noise(state) * Float32(sqrt(1.0 / Float64(HIDDEN)))
         self.result = List[Float32](length=PARAMS + self.intervals * KERNELS + chain.count() * RESULT, fill=0)
 
-        self.nodes_buffer = self.ctx.enqueue_create_buffer[DType.float32](NODES)
-        self.nodes_buffer.enqueue_copy_from(self.grid.unsafe_ptr())
+        # A kernel's mean of exp(return): a hat from lo over its peak to hi.
+        self.kernel_growth = List[Float64](length=KERNELS, fill=0)
+        var nodes_and_growth = List[Float32](length=NODES + KERNELS, fill=0)
+        for j in range(NODES):
+            nodes_and_growth[j] = self.grid[j]
+        for k in range(KERNELS):
+            var lo = Float64(self.grid[k])
+            var peak = Float64(self.grid[k + 1])
+            var hi = Float64(self.grid[k + 2])
+            var rising = ((peak - lo - 1) * exp(peak) + exp(lo)) / (peak - lo)
+            var falling = (exp(hi) - (hi - peak + 1) * exp(peak)) / (hi - peak)
+            self.kernel_growth[k] = 2 * (rising + falling) / (hi - lo)
+            nodes_and_growth[NODES + k] = Float32(self.kernel_growth[k])
+        self.nodes_buffer = self.ctx.enqueue_create_buffer[DType.float32](NODES + KERNELS)
+        self.nodes_buffer.enqueue_copy_from(nodes_and_growth.unsafe_ptr())
+        self.interval_of_day = List[Int](length=self.days, fill=0)
+        self.growth_buffer = self.ctx.enqueue_create_buffer[DType.float32](self.days)
         var interval_of_day = List[Float32](length=self.days, fill=0)
         var interval = 0
         for t in range(self.days):
@@ -659,6 +692,7 @@ struct Model(Movable):
             while chain.expiry_days[interval] < t + 1:
                 interval += 1
             interval_of_day[t] = Float32(interval)
+            self.interval_of_day[t] = interval
         self.interval_buffer = self.ctx.enqueue_create_buffer[DType.float32](self.days)
         self.interval_buffer.enqueue_copy_from(interval_of_day.unsafe_ptr())
         self.contracts_buffer = self.ctx.enqueue_create_buffer[DType.float32](len(chain.contracts))
@@ -671,9 +705,9 @@ struct Model(Movable):
         self.paid_buffer = self.ctx.enqueue_create_buffer[DType.float32](paths * self.books)
         self.book_buffer = self.ctx.enqueue_create_buffer[DType.float32](self.books * BOOK)
         self.gradient_rows = self.ctx.enqueue_create_buffer[DType.float32](paths * GROUPS * PARAMS)
-        self.level_rows = self.ctx.enqueue_create_buffer[DType.float32](paths * GROUPS * (MAX_DAYS + 1))
+        self.level_rows = self.ctx.enqueue_create_buffer[DType.float32](paths * GROUPS * 2 * (MAX_DAYS + 1))
         self.held_rows = self.ctx.enqueue_create_buffer[DType.float32](paths * GROUPS * (MAX_DAYS + 1))
-        self.return_buffer = self.ctx.enqueue_create_buffer[DType.float32](paths * self.days)
+        self.return_buffer = self.ctx.enqueue_create_buffer[DType.float32](2 * paths * self.days)
         self.result_buffer = self.ctx.enqueue_create_buffer[DType.float32](len(self.result))
 
     def law(mut self) -> List[Float32]:
@@ -701,6 +735,13 @@ struct Model(Movable):
         """Paths, every book rolled, every contract quoted."""
         var table = self.law()
         self.law_buffer.enqueue_copy_from(table.unsafe_ptr())
+        var growth = List[Float32](length=self.days, fill=0)
+        for t in range(self.days):
+            var mean = Float64(0)
+            for k in range(KERNELS):
+                mean += Float64(self.weights[self.interval_of_day[t] * KERNELS + k]) * self.kernel_growth[k]
+            growth[t] = Float32(mean)
+        self.growth_buffer.enqueue_copy_from(growth.unsafe_ptr())
         self.phi_buffer.enqueue_copy_from(self.phi.unsafe_ptr())
         var threads = self.paths * GROUPS
         self.ctx.enqueue_function[simulate](
@@ -709,7 +750,7 @@ struct Model(Movable):
         )
         self.ctx.enqueue_function[roll](
             self.logx_buffer, self.contracts_buffer, self.phi_buffer, self.residual_buffer, self.paid_buffer,
-            self.paths, self.days, self.books, self.cost, HIDDEN, grid_dim=threads // BLOCK, block_dim=BLOCK,
+            self.growth_buffer, self.paths, self.days, self.books, self.cost, HIDDEN, grid_dim=threads // BLOCK, block_dim=BLOCK,
         )
         self.ctx.enqueue_function[quote](
             self.residual_buffer, self.paid_buffer, self.contracts_buffer, self.logx_buffer, self.book_buffer,
@@ -726,7 +767,7 @@ struct Model(Movable):
         var threads = self.paths * GROUPS
         self.ctx.enqueue_function[adjoint](
             self.logx_buffer, self.contracts_buffer, self.phi_buffer, self.book_buffer, self.gradient_rows,
-            self.level_rows, self.held_rows, self.paths, self.days, self.books, self.cost, self.risk, HIDDEN,
+            self.level_rows, self.held_rows, self.growth_buffer, self.paths, self.days, self.books, self.cost, self.risk, HIDDEN,
             grid_dim=threads // BLOCK, block_dim=BLOCK,
         )
 
@@ -936,7 +977,19 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
                 var mean = Float64(0)
                 for p in range(model.paths):
                     mean += exp(Float64(logx[p * (model.days + 1) + day]))
-                print("DH forward", interval, mean / Float64(model.paths))
+                # The deviation of one day's return in the interval, from its weights: a hat's
+                # mean is that of its three nodes, its variance (a2 + b2 + c2 - ab - ac - bc) / 18.
+                var first = Float64(0)
+                var second = Float64(0)
+                for k in range(KERNELS):
+                    var a = Float64(model.grid[k])
+                    var c = Float64(model.grid[k + 1])
+                    var b = Float64(model.grid[k + 2])
+                    var centre = (a + b + c) / 3
+                    var weight = Float64(model.weights[interval * KERNELS + k])
+                    first += weight * centre
+                    second += weight * ((a * a + b * b + c * c - a * b - a * c - b * c) / 18 + centre * centre)
+                print("DH forward", interval, mean / Float64(model.paths), sqrt(second - first * first))
             for p in range(min(SHOWN_PATHS, model.paths)):
                 line = String("DH path ") + String(p)
                 for t in range(model.days + 1):
