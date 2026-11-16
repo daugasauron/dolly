@@ -50,6 +50,11 @@ Logs: `build/dh-evidence/` (this machine).
   central differences that let the hedger respond, same sign at all seven logits, sizes -0.052
   and -0.038, 0.056 and 0.039, 0.013 and 0.009, 0.010 and 0.007, -0.066 and -0.090, 0.0165 and
   0.0165, 0.029 and 0.018. Holding positions fixed is an approximation there, as THEORY.md says.
+- **The hedger against the delta** (the reference, `proto.py ... 0.25`, a lognormal 25% chain,
+  512 paths, 600 iterations, risk price 0.01, 0.25 bp): the hedger leaves 0.64, 0.51, 0.41 and
+  0.35 of the unhedged deviation at 5, 10, 21 and 42 days; the Black-Scholes delta at 25%, with
+  the same day's lag and costs, 0.65, 0.50, 0.38 and 0.27. With a day's lag nothing hedges a
+  five-day option well.
 - **The forward has to be in the ledger.** A PyTorch reference of the same model
   (`work/dh-evidence/proto.py`, CPU, this machine) on a driftless 25% chain, positions earning
   the day's whole move: after 360 iterations the forwards were 0.994 in one run and 1.006 in
