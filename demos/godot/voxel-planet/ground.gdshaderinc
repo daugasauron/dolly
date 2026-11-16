@@ -41,7 +41,7 @@ vec4 ground_past(vec2 p) {
 	return source == 0 ? ground_in(ground_beyond, p, cell_beyond) : ground_of_planet(p);
 }
 
-// x: the height, y: warmth, z: moisture, w: how much of a realm of wonders the place is.
+// x: the height, y: warmth, z: moisture, w: how settled the place is (terrain.gdshaderinc's settled).
 vec4 ground_here(vec2 p) {
 	float own = ground_own(p);
 	vec4 beyond = ground_past(p);

@@ -18,7 +18,7 @@ void vertex() {
 	float own = hash(number * 16.0 + vec2(animal, 7.0));
 	vec2 home = (number + 0.3 + 0.4 * vec2(hash(number + 53.0), hash(number + 57.0))) * CELL;
 	vec4 here = ground_here(home);
-	float open = step(hash(number + 51.0), 0.3) * smoothstep(SEA + 3.0, SEA + 5.0, here.x) * (1.0 - smoothstep(SEA + 45.0, SEA + 55.0, here.x)) * step(town_near(home, here.x), 0.0);
+	float open = step(hash(number + 51.0), 0.3) * smoothstep(SEA + 3.0, SEA + 5.0, here.x) * (1.0 - smoothstep(SEA + 45.0, SEA + 55.0, here.x)) * step(town_near_from(here.w, here.x), 0.0);
 	float round = 2.5 + 3.0 * own;
 	float way = own > 0.5 ? 1.0 : -1.0;
 	float angle = way * clock * 1.1 / round + own * 40.0;

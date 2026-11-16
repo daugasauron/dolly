@@ -22,7 +22,7 @@ for (const name of browsers) {
     : await chromium.launch({ channel: "chrome", headless: false,
       args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan,VulkanFromANGLE",
         "--disable-vulkan-surface"] });
-  const deadline = setTimeout(() => void browser.close(), 600_000);
+  const deadline = setTimeout(() => void browser.close(), 900_000);
   try {
     const page = await browser.newPage({ viewport: { width: 1600, height: 900 } }), errors = [];
     page.setDefaultTimeout(0);

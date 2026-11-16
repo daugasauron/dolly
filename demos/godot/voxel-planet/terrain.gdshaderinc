@@ -306,6 +306,11 @@ float settled_on(vec3 planet) {
 	return fbm3(planet / 760.0 + vec3(400.0, 109.0, 55.0), 2) + (peopled_on(planet) - 0.5) * 0.2;
 }
 
+// The same where the ground is read every `wide` units: the ground's textures keep it.
+float settled_seen(vec3 planet, float wide) {
+	return fbm3_seen(planet / 760.0 + vec3(400.0, 109.0, 55.0), 2, wide / 760.0) + (peopled_on(planet) - 0.5) * 0.2;
+}
+
 // The culture of a region, a slow field of 5.1 thousand units: which kinds of towns it builds.
 float culture_on(vec3 planet) {
 	return slow3(planet, 5100.0, vec3(3.0, 8.0, 47.0));
@@ -320,27 +325,39 @@ vec2 climate(vec2 p) {
 	return climate_on(planet_at(p), 0.0);
 }
 
+// How much of a realm of wonders a chart's place is: near the flyer the flyer's own, which
+// main.gd tells (a realm's field is 53 thousand units); far off it is computed.
+uniform float realm_near = 0.0;
+
 float realm_at(vec2 p) {
-	return realm_on(planet_at(p));
+	float away = distance(p, flyer_over);
+	if (away < 3000.0) {
+		return realm_near;
+	}
+	return mix(realm_near, realm_on(planet_at(p)), smoothstep(3000.0, 6000.0, away));
 }
 
 float settled(vec2 p) {
 	return settled_on(planet_at(p));
 }
 
+float town_from(float people, float height) {
+	return smoothstep(0.58, 0.66, people) * smoothstep(SEA + 4.5, SEA + 8.0, height) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, height));
+}
+
 float town_at(vec2 p, float height) {
-	return smoothstep(0.58, 0.66, settled(p)) * smoothstep(SEA + 4.5, SEA + 8.0, height) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, height));
+	return town_from(settled(p), height);
 }
 
 // How much of a place is farmed: the fields around a town, on its low land. Few trees stand
 // in them.
-float farmed_at(vec2 p, float height) {
-	return smoothstep(0.49, 0.53, settled(p)) * smoothstep(SEA + 4.5, SEA + 8.0, height) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, height));
+float farmed_from(float people, float height) {
+	return smoothstep(0.49, 0.53, people) * smoothstep(SEA + 4.5, SEA + 8.0, height) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, height));
 }
 
 // Where no tree stands for a town: the town itself and a margin around it.
-float town_near(vec2 p, float height) {
-	return smoothstep(0.56, 0.575, settled(p)) * smoothstep(SEA + 2.5, SEA + 4.0, height) * (1.0 - smoothstep(SEA + 62.0, SEA + 70.0, height));
+float town_near_from(float people, float height) {
+	return smoothstep(0.56, 0.575, people) * smoothstep(SEA + 2.5, SEA + 4.0, height) * (1.0 - smoothstep(SEA + 62.0, SEA + 70.0, height));
 }
 
 // Whether a lot is a stretch of road: every fifth line of lots one way and every sixth the
@@ -356,8 +373,7 @@ bool road_lot(vec2 corner) {
 // timber under steep roofs of turf in the cold, 4 a town of white walls under wide tiled roofs
 // with upturned eaves, 6 a whitewashed town with blue domes on a warm coast, 7 round thatched
 // huts on the savanna. terrain.gd computes the same.
-int town_kind(vec2 p, float height) {
-	vec2 air = climate(p);
+int town_kind(vec2 p, float height, vec2 air) {
 	if (air.x > 0.57 && air.y < 0.47) {
 		return 2;
 	}
@@ -379,12 +395,8 @@ int town_kind(vec2 p, float height) {
 
 // Whether a stilt village stands at a place: off the shore of a settled coast in a warm wet
 // land, where the water is shallow. Its houses stand on posts over the water (kind 5).
-bool stilts_at(vec2 p, float height) {
-	if (height < SEA - 4.5 || height > SEA + 1.5 || settled(p) < 0.6) {
-		return false;
-	}
-	vec2 air = climate(p);
-	return air.x > 0.5 && air.y > 0.5;
+bool stilts_at(float height, float people, vec2 air) {
+	return height >= SEA - 4.5 && height <= SEA + 1.5 && people >= 0.6 && air.x > 0.5 && air.y > 0.5;
 }
 
 // How tall the walls of a lot's building are, where the town's share is that and its kind is

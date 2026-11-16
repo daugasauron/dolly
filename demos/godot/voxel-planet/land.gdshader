@@ -87,10 +87,11 @@ void fragment() {
 	colour = mix(colour, rock, bare);
 	float snow = smoothstep(snowline - 3.0, snowline + 3.0, height) * smoothstep(0.42, 0.2, steep);
 	colour = mix(colour, vec3(0.6, 0.67, 0.8) * (0.9 + 0.2 * grain), snow);
-	// A town: paving in lots, with streets between them that their lamps light at night_here.
+	// A town: paving in lots, with streets between them that their lamps light at night.
 	vec3 planet = planet_at(p);
 	float peopled = peopled_on(planet);
-	float people = far_off < 1.0 ? mix(fbm3(planet / 760.0 + vec3(400.0, 109.0, 55.0), 2) + (peopled - 0.5) * 0.2, 0.45, far_off) : 0.45;
+	float people = mix(here.w, 0.45, far_off);
+	float realm = realm_at(p);
 	float low = smoothstep(SEA + 4.5, SEA + 8.0, here.x) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, here.x));
 	float town = smoothstep(0.58, 0.66, people) * low * (1.0 - bare);
 	// Around a town its fields: strips of crops, each field its own, green in spring, gold by
@@ -130,7 +131,7 @@ void fragment() {
 	float dash = (1.0 - smoothstep(0.012, 0.012 + wide / LOT, north ? in_lot.x : in_lot.y)) * step(0.5, fract((north ? p.y : p.x) / 6.0)) * near;
 	// A city is paved, with asphalt roads; a town or a village has yards of earth and grass
 	// and roads of packed earth, of its ground's colour in the desert.
-	int town_is = town > 0.0 ? town_kind((lot + 0.5) * LOT, here.x) : 0;
+	int town_is = town > 0.0 ? town_kind((lot + 0.5) * LOT, here.x, here.yz) : 0;
 	float open = town_is == 0 ? 0.1 : (town_is == 1 || town_is == 4) ? 0.2 : 0.32;
 	float lawn = step(hash(lot * LOT + 13.0), open) * (1.0 - street);
 	vec3 yard = town_is == 0 ? vec3(0.4, 0.38, 0.36) : (town_is == 2 || town_is == 7) ? vec3(0.6, 0.44, 0.27) : town_is == 6 ? vec3(0.7, 0.66, 0.58) : vec3(0.36, 0.34, 0.2);
@@ -145,7 +146,7 @@ void fragment() {
 	vec3 lit_crowns = vec3(0.0);
 	if (painted > 0.0 && grows(here.x, here.y)) {
 		float crown = crown_width(here.y, here.z) * 1.3;
-		float share = tree_share(here.y, here.z) * step(town_near(p, here.x), 0.0) * (1.0 - 0.85 * marsh_at(here.x, here.z)) * (1.0 - 0.94 * farmed);
+		float share = tree_share(here.y, here.z) * step(town_near_from(here.w, here.x), 0.0) * (1.0 - 0.85 * marsh_at(here.x, here.z)) * (1.0 - 0.94 * farmed);
 		// Where a crown is less than a pixel, the ground takes the colour of its share of them.
 		float merged = max(smoothstep(800.0, 1300.0, away), smoothstep(crown * 0.35, crown * 1.4, wide));
 		// A crown is wider than its plot: the pixel is under the nearest of its own plot's tree and
@@ -166,7 +167,7 @@ void fragment() {
 			}
 		}
 		float under = mix(disc, share * 0.6, merged) * (1.0 - bare) * painted;
-		vec4 leaves = mix(crown_colour(tree.xy, tree.w, here.y, here.z, here.w), crown_colour(p, 0.5, here.y, here.z, here.w), merged);
+		vec4 leaves = mix(crown_colour(tree.xy, tree.w, here.y, here.z, realm), crown_colour(p, 0.5, here.y, here.z, realm), merged);
 		colour = mix(colour, leaves.rgb * 0.75 * (1.0 - 0.5 * leaves.a), under);
 		lit_crowns = leaves.rgb * leaves.a * under * (0.1 + 1.5 * night_here) * 0.75;
 	}
@@ -178,7 +179,7 @@ void fragment() {
 	float contour = abs(noise(p / 46.0 + vec2(300.0, 41.0)) - 0.5);
 	// A vein is never thinner than a pixel; where the pixel is wider, it is as much fainter.
 	float thick = max(0.008, wide / 46.0);
-	float vein = (1.0 - smoothstep(0.5, 1.0, contour / thick)) * (0.008 / thick) * (1.0 - sand) * (1.0 - snow) * (1.0 - 0.6 * bare) * (1.0 + 2.5 * here.w);
+	float vein = (1.0 - smoothstep(0.5, 1.0, contour / thick)) * (0.008 / thick) * (1.0 - sand) * (1.0 - snow) * (1.0 - 0.6 * bare) * (1.0 + 2.5 * realm);
 	// In the desert the veins are lava, which glows by day too.
 	vec3 vein_colour = mix(mix(vec3(0.05, 0.8, 1.0), vec3(1.0, 0.15, 0.7), smoothstep(0.42, 0.58, here.z)), vec3(1.0, 0.28, 0.02), sandy);
 	float run = 0.55 + 0.45 * sin(grain * 2.0 + (p.x + p.y) * 0.07 - clock * 1.8);

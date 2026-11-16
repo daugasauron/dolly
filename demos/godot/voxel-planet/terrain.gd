@@ -170,6 +170,11 @@ static func cloud_depth(p: Vector2, drift: Vector3) -> float:
 	return fbm3((planet_at(p) + drift) / 1000.0 + Vector3(31.0, 7.0, 59.0), 3) + weather(p, drift)
 
 
+## terrain.gdshaderinc's realm_on at a chart's place.
+static func realm(p: Vector2) -> float:
+	return smoothstep(0.72, 0.82, slow3(planet_at(p), 53000.0, Vector3(10.0, 28.0, 66.0)))
+
+
 ## terrain.gdshaderinc's weather_on at a chart's place: the weather of its region.
 static func weather(p: Vector2, drift: Vector3) -> float:
 	var q := (planet_at(p) + drift) / 90000.0 + Vector3(4.0, 27.0, 13.0)

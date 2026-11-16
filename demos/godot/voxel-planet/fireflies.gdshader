@@ -19,7 +19,7 @@ void vertex() {
 	// It wanders around its home, and blinks in its own time.
 	vec2 place = home + 5.0 * vec2(sin(clock * 0.31 + hash(own) * 40.0), cos(clock * 0.23 + hash(own + 1.0) * 40.0));
 	vec4 here = ground_here(place);
-	float lives = step(SEA + 1.5, here.x) * smoothstep(0.5, 0.58, here.z) * smoothstep(0.4, 0.48, here.y) * step(town_at(place, here.x), 0.0);
+	float lives = step(SEA + 1.5, here.x) * smoothstep(0.5, 0.58, here.z) * smoothstep(0.4, 0.48, here.y) * step(town_from(here.w, here.x), 0.0);
 	float blink = smoothstep(0.55, 0.9, sin(clock * (1.1 + hash(own + 7.0)) + hash(own + 9.0) * 6.2832));
 	glow = night * lives * blink * (1.0 - rain_on(place)) * (1.0 - smoothstep(170.0, 230.0, far_from(place)));
 	in_card = VERTEX.xy * 2.0;

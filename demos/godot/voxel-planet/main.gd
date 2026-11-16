@@ -91,7 +91,7 @@ const LEVELS := [
 	[0.6, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 160.0, 8, 2],
 	[0.55, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 120.0, 6, 2],
 	[0.5, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 90.0, 5, 2],
-	[0.3, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 90.0, 5, 2],
+	[0.27, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 90.0, 5, 2],
 ]
 const FRAME_BUDGET := 14.0 # milliseconds of the GPU: over it the display's 60 a second are lost
 
@@ -1326,6 +1326,7 @@ func fly(delta: float) -> void:
 	tell("altitude", high)
 	tell("drift", weather * elapsed)
 	tell("weather_near", Terrain.weather(over_ground, weather * elapsed))
+	tell("realm_near", Terrain.realm(over_ground))
 	var among := Vector2(snappedf(flyer.position.x, PLOT * 4.0), snappedf(flyer.position.z, PLOT * 4.0))
 	for grove in groves:
 		grove.position = Vector3(among.x, 0.0, among.y)
