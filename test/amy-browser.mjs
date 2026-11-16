@@ -128,7 +128,10 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   await run("d=$(curl -fsS https://packages.dolly.invalid/v1/directory | sed 's/:/%3A/g; s|/|%2F|g') && " +
     "for i in $(seq 65); do test \"$(curl -s -o /dev/null -w '%{http_code}' " +
     "https://packages.dolly.invalid/v1/packages/$(printf '%064d' 0)/from/$d)\" = 404 || exit 1; done");
-  console.log(`amy install python: ${await timed(run, "amy install python > /tmp/amy-python")} ms`);
+  // Two amy commands and a list at once take turns, a command at a time:
+  // python installs cc, which the other installs too.
+  console.log(`amy install python: ${await timed(run, "amy install python > /tmp/amy-python & p=$!; amy install cc > /dev/null & c=$!; " +
+    "amy list > /tmp/amy-listed && wait $p && wait $c && grep -q '^python ' /tmp/amy-listed")} ms`);
   await run("test \"$(python3 -c 'print(6 * 7)')\" = 42");
   // The install says what it added and keeps the list: no index or service is needed to read it.
   await run("grep -q '^amy: python installed: [1-9][0-9]* files, [1-9][0-9]* bytes, commands:.* python3' /tmp/amy-python");
