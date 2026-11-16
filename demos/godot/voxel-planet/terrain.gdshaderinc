@@ -412,9 +412,20 @@ float weather_on(vec3 planet) {
 	return (fbm3(q, 3) - 0.5) * 0.55;
 }
 
+// The weather at a chart's place: near the flyer it is the flyer's own, which main.gd tells (it
+// changes little over some thousand units); far off it is computed.
+uniform float weather_near = 0.0;
+
+float weather_at(vec2 p) {
+	float away = distance(p, flyer_over);
+	if (away < 3000.0) {
+		return weather_near;
+	}
+	return mix(weather_near, weather_on(planet_at(p) + drift), smoothstep(3000.0, 6000.0, away));
+}
+
 float cloud_depth_seen(vec2 p, int octaves, float wide) {
-	vec3 planet = planet_at(p) + drift;
-	return fbm3_seen(planet / 1000.0 + vec3(31.0, 7.0, 59.0), octaves, wide / 1000.0) + weather_on(planet);
+	return fbm3_seen((planet_at(p) + drift) / 1000.0 + vec3(31.0, 7.0, 59.0), octaves, wide / 1000.0) + weather_at(p);
 }
 
 float cloud_depth(vec2 p, int octaves) {

@@ -167,10 +167,14 @@ static func height(p: Vector2) -> float:
 
 ## terrain.gdshaderinc's cloud_depth, where the weather has moved that far.
 static func cloud_depth(p: Vector2, drift: Vector3) -> float:
-	var planet := planet_at(p) + drift
-	var q := planet / 90000.0 + Vector3(4.0, 27.0, 13.0)
+	return fbm3((planet_at(p) + drift) / 1000.0 + Vector3(31.0, 7.0, 59.0), 3) + weather(p, drift)
+
+
+## terrain.gdshaderinc's weather_on at a chart's place: the weather of its region.
+static func weather(p: Vector2, drift: Vector3) -> float:
+	var q := (planet_at(p) + drift) / 90000.0 + Vector3(4.0, 27.0, 13.0)
 	q += 0.7 * Vector3(noise3(q * 0.6 + Vector3(11.0, 0.0, 5.0)), noise3(q * 0.6 + Vector3(37.0, 9.0, 0.0)), noise3(q * 0.6 + Vector3(0.0, 71.0, 3.0)))
-	return fbm3(planet / 1000.0 + Vector3(31.0, 7.0, 59.0), 3) + (fbm3(q, 3) - 0.5) * 0.55
+	return (fbm3(q, 3) - 0.5) * 0.55
 
 
 ## The surface a flight stays above: the ground or the sea.

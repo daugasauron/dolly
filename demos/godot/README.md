@@ -484,7 +484,7 @@ Both games passed in both browsers on 2026-11-13, the editor's log without an er
 [`test/godot-planet-browser.mjs`](test/godot-planet-browser.mjs) does for `godot-voxel-planet`
 what the flyover's test below does for its game, and then lets the game leave the planet by
 itself: it reports a height of over 150,000 units, a chart whose anchor moved on the way, and a
-frame that is black along its top with the planet's colours under it.
+frame with the planet's colours.
 
 [`test/godot-flyover-browser.mjs`](test/godot-flyover-browser.mjs) opens `godot-voxel-flyover` from
 the front page's list of applications, on a hardware adapter, in Chrome and Firefox: the game

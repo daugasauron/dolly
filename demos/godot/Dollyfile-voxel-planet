@@ -25,7 +25,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.6/dist/static/godot/voxel-planet.tar 08200f7c40c0846481059d5fb60adda98c8d466ae9e87df8a4752ea5529ce7c6 /tmp/voxel-planet.tar
+SOURCE /v0.1.6/dist/static/godot/voxel-planet.tar 716c981542e6bbbfd13a7dca417f29563f83b54a4cbbf12f238a83ffb83dc161 /tmp/voxel-planet.tar
 SLOP CWD / tar -xf /tmp/voxel-planet.tar
 SLOP mkdir -p /usr/share/voxel-planet
 SLOP cp -r /usr/src/voxel-planet /usr/share/voxel-planet/project

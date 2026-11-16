@@ -111,6 +111,7 @@ var lowered := 0.0 # the height taken off everything drawn, once the flyer is hi
 var weather := Vector3.ZERO # how far a second moves the weather, in the planet's axes
 var sun_frame := Basis.IDENTITY # the axes the sun's arc is given in, fixed to the planet: the start's
 var scored := 0 # the beacons lit in charts left behind
+var rings_run := false # the shaders have been told of lit beacons' rings
 var tour := 0.0 # with --tour: the flight by itself leaves the planet at that second, looks, and comes back
 var tour_phase := 0
 var tour_held := 0.0
@@ -1317,6 +1318,7 @@ func fly(delta: float) -> void:
 	tell("lowered", lowered)
 	tell("altitude", high)
 	tell("drift", weather * elapsed)
+	tell("weather_near", Terrain.weather(over_ground, weather * elapsed))
 	var among := Vector2(snappedf(flyer.position.x, PLOT * 4.0), snappedf(flyer.position.z, PLOT * 4.0))
 	for grove in groves:
 		grove.position = Vector3(among.x, 0.0, among.y)
@@ -1389,6 +1391,12 @@ func move_anchor() -> void:
 
 ## Frees what stands at places of the chart: the beacons, the thermals and the landmarks.
 func let_go() -> void:
+	if rings_run:
+		# The rings of light from lit beacons are told by tend_beacons, which no longer runs.
+		var none := PackedVector4Array()
+		none.resize(8)
+		tell("pulses", none)
+		rings_run = false
 	for kept: Dictionary in [beacons, thermals, landmarks]:
 		for plot: Vector2i in kept:
 			if kept[plot]:
@@ -1632,11 +1640,12 @@ func tend_beacons(delta: float) -> void:
 	var newest := lit.values()
 	newest.reverse()
 	for at: Vector4 in newest:
-		var strength := 1.0 - smoothstep(520.0, 760.0, Vector2(at.x, at.y).distance_to(here))
+		var strength := (1.0 - smoothstep(520.0, 760.0, Vector2(at.x, at.y).distance_to(here))) * (1.0 - smoothstep(2500.0, 5000.0, flyer.position.y))
 		if strength > 0.0 and pulses.size() < 8:
 			pulses.append(Vector4(at.x, at.y, elapsed - at.z, strength))
 	pulses.resize(8)
 	tell("pulses", pulses)
+	rings_run = true
 
 
 ## A crystal that turns over the ground, a light, and a shaft of light seen from far off.
@@ -1810,7 +1819,7 @@ func follow(delta: float) -> void:
 	# layer where cloud stands in it. The sky's shader shows the layer from under it and the
 	# land's from over it; in it, it is this white.
 	var in_layer := smoothstep(0.5, 0.7, cloud_over) * smoothstep(Terrain.CLOUD_HEIGHT - 110.0, Terrain.CLOUD_HEIGHT - 20.0, eye_height) * (1.0 - smoothstep(Terrain.CLOUD_HEIGHT + 40.0, Terrain.CLOUD_HEIGHT + 240.0, eye_height))
-	clouded = lerpf(clouded, maxf(in_cloud(camera.position + Vector3(0.0, lowered, 0.0)), in_layer), 1.0 - exp(-delta * 1.5))
+	clouded = lerpf(clouded, maxf(in_cloud(camera.position) if eye_height < 2500.0 else 0.0, in_layer), 1.0 - exp(-delta * 1.5))
 	# The haze thins with height: from over it the far ranges stand clear, and in space there
 	# is none between the eye and the planet but the planet's own (land.gdshader's veil).
 	var thin := exp(-eye_height / 900.0)

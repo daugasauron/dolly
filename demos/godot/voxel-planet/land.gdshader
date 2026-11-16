@@ -90,7 +90,7 @@ void fragment() {
 	// A town: paving in lots, with streets between them that their lamps light at night_here.
 	vec3 planet = planet_at(p);
 	float peopled = peopled_on(planet);
-	float people = far_off < 1.0 ? mix(settled_on(planet), 0.45, far_off) : 0.45;
+	float people = far_off < 1.0 ? mix(fbm3(planet / 760.0 + vec3(400.0, 109.0, 55.0), 2) + (peopled - 0.5) * 0.2, 0.45, far_off) : 0.45;
 	float low = smoothstep(SEA + 4.5, SEA + 8.0, here.x) * (1.0 - smoothstep(SEA + 46.0, SEA + 60.0, here.x));
 	float town = smoothstep(0.58, 0.66, people) * low * (1.0 - bare);
 	// Around a town its fields: strips of crops, each field its own, green in spring, gold by
