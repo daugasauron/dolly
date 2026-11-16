@@ -2,7 +2,7 @@
 
 import { spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { availableParallelism, freemem } from "node:os";
 import { resolve } from "node:path";
 import { createInterface } from "node:readline";
@@ -26,10 +26,13 @@ const planOnly = process.argv[2] === "--plan";
 if (process.argv.length > 3 || (process.argv[2] !== undefined && !planOnly)) {
   throw new Error("usage: build-system-snapshot.mjs [--plan]");
 }
-// Each image build is one headless Chrome using about one core. Most peak below
-// 5 GB, the largest catalog image at 17 GB (PSS, measured 2026-10-01): budget 10 GiB each.
-const jobs = Number(process.env.DOLLY_IMAGE_JOBS ??
-  Math.max(1, Math.min(availableParallelism(), Math.floor(freemem() / 10 / 2 ** 30))));
+// Each image build is one headless Chrome whose guest runs up to four processes at
+// once (nproc), so four cores. Its memory peaked at up to 13.2 GiB (codex), and the
+// four heaviest that can build at once at 34.9 GiB together (PSS, measured
+// 2026-11-17, tasks/20261116-140603-buildtime-02): budget 9 GiB each, of the memory
+// both the machine and this process's cgroup still have.
+const jobs = Number(process.env.DOLLY_IMAGE_JOBS ?? Math.max(1, Math.min(Math.floor(availableParallelism() / 4),
+  Math.floor(Math.min(freemem(), process.availableMemory()) / 9 / 2 ** 30))));
 if (!Number.isSafeInteger(jobs) || jobs < 1) throw new Error("DOLLY_IMAGE_JOBS must be a positive integer");
 const started = performance.now();
 const loadGraph = createDollyfileGraphLoader(projectDir);
@@ -60,6 +63,22 @@ function expectedRecipes(image) {
 }
 
 
+// The proportional set size of PID and its descendants, in KiB.
+async function treeMemory(root) {
+  const parents = new Map();
+  for (const name of await readdir("/proc")) {
+    const stat = /^\d+$/.test(name) && await readFile(`/proc/${name}/stat`, "utf8").catch(() => "");
+    if (stat) parents.set(Number(name), Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[1]));
+  }
+  const tree = [root];
+  for (const pid of tree) for (const [child, parent] of parents) if (parent === pid) tree.push(child);
+  let total = 0;
+  for (const pid of tree) {
+    total += Number(/^Pss:\s+(\d+)/m.exec(await readFile(`/proc/${pid}/smaps_rollup`, "utf8").catch(() => ""))?.[1] ?? 0);
+  }
+  return total;
+}
+
 // Each concurrent builder needs its own Chrome profile; the port follows it.
 function runSnapshotBuild(image, output, builder) {
   return new Promise((resolveBuild, reject) => {
@@ -72,9 +91,14 @@ function runSnapshotBuild(image, output, builder) {
       stream.pipe(log, { end: false });
       createInterface({ input: stream, crlfDelay: Infinity }).on("line", line => terminal.write(`[${image}] ${line}\n`));
     }
+    let peak = 0;
+    const sampler = setInterval(async () => { peak = Math.max(peak, await treeMemory(child.pid)); }, 5000);
     child.once("error", reject);
     child.once("close", (status, signal) => {
-      log.end();
+      clearInterval(sampler);
+      const line = `dolly: peak memory ${Math.round(peak / 1024)} MiB, the PSS of the build's Node and Chrome every 5 s`;
+      process.stdout.write(`[${image}] ${line}\n`);
+      log.end(`${line}\n`);
       if (status === 0) resolveBuild();
       else reject(new Error(
         `Dolly ${image} snapshot browser exited with ${signal ? `signal ${signal}` : `status ${status}`}`,
@@ -222,12 +246,22 @@ async function produce(image, builder) {
   completed.set(image, packed);
 }
 
+// The longest chain of images each one starts, counted in images: replayed on 0.1.7's
+// build times, starting the ready image with the longest first took a catalog 2.89 h at
+// four builds at a time against 3.05 h in plan order (tasks/20261116-140603-buildtime-02).
+const chain = new Map();
+for (const image of [...images].reverse()) {
+  chain.set(image, 1 + Math.max(0, ...images.filter(other => graphs.get(other).artifacts
+    .some(reference => reference.image === image)).map(other => chain.get(other))));
+}
+
 // Start each image once its dependencies are complete, at most `jobs` at a
-// time in plan order; a failure skips only the images that depend on it.
+// time, the longest chain first; a failure skips only the images that depend on it.
 if (!planOnly) {
   await mkdir(resolve(projectDir, "build/image-logs"), { recursive: true });
   console.log(`dolly: building with ${jobs} concurrent browser${jobs === 1 ? "" : "s"}; logs in build/image-logs/`);
-  const waiting = [...images], running = new Set(), idle = [...Array(jobs).keys()], done = new Set(), failed = [];
+  const waiting = [...images].sort((left, right) => chain.get(right) - chain.get(left));
+  const running = new Set(), idle = [...Array(jobs).keys()], done = new Set(), failed = [];
   while (waiting.length || running.size) {
     for (const image of [...waiting]) {
       const dependencies = graphs.get(image).artifacts.map(reference => reference.image);

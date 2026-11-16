@@ -1,6 +1,6 @@
 # LLVM 22.1.8 is compiled twice in the catalog: llvm22 for Zig and rust-llvm for Rust
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 60
 - TAGS: audit,build,llvm,rust,0.1.8
 
@@ -35,3 +35,13 @@ Measured; the measurement says to change nothing while builds can run four or mo
 
 Closed on the count `buildtime-02` chooses: at 4 or more, with these numbers; at 2 or 3, after
 rust-build is built and tested on llvm22.
+
+## Closed (2026-11-17): both builds stay
+
+The count `20261116-140603-buildtime-02` chooses is 4, with the ready image that starts the longest
+chain first. Replayed on 0.1.7's times with that order
+(`work/audit-1116-evidence/buildtime/fix-speed/schedule-rust-on-llvm22-chain-first.txt`), rust-build
+on llvm22 would take the catalog 3.01 h at 4 builds against 2.88 h with rust-llvm: the saved
+1,589 s of build time lengthens the longest chain by more than it shortens the work. Nothing
+changes, so no image rebuilds; the 0.1.8 round's catalog at 4 measures the count itself
+(buildtime-02).

@@ -7,11 +7,32 @@
 From the build-time audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`). Evidence and scripts: `work/audit-1116-evidence/buildtime/`.
 
-## State (2026-11-16)
+## State (2026-11-17)
 
-Measured from 0.1.7's round and the journal, and the heaviest images built alone with their
-memory sampled (the table below). Left: every image's peak recorded by the builder, and one
-catalog at a higher count.
+Fixed on `ws/speed`; what is left only the 0.1.8 round can measure. No image rebuilds: the
+builder is not an image input.
+
+- Each build's log ends with its peak memory, and the catalog log has it beside the build's
+  lines: `[IMAGE] dolly: peak memory N MiB, the PSS of the build's Node and Chrome every 5 s`
+  (`scripts/build-system-snapshot.mjs` samples `/proc/PID/smaps_rollup` of the builder's process
+  tree, the method of the table below).
+- The ready image that starts the longest chain, counted in images, starts first. Replayed on
+  0.1.7's times (`work/audit-1116-evidence/buildtime/fix-speed/simulate-priorities.mjs`,
+  `priorities-1117.txt`): at 4 builds 2.89 h against 3.05 h in plan order (2.88 h with the
+  measured durations, which the builder would have to store); at 3, 3.80 h against 3.93 h.
+  Checked: anykey, fingers-build and fingers built one at a time, fingers-build (a chain of two)
+  before anykey, which plan order starts first; every snapshot the same bytes as before
+  (`fix-speed/order-and-peak.log`).
+- The count: 4, from one build per four cores (a guest runs up to four processes, `nproc`) and
+  one per 9 GiB of the memory both the machine and the builder's cgroup still have
+  (`os.freemem()` and `process.availableMemory()`): in the round's 36 GB scope on an idle machine,
+  4; the four heaviest that can build at once peaked at 34.9 GiB together. `DOLLY_IMAGE_JOBS`
+  still overrides it.
+
+The round: build the catalog without `DOLLY_IMAGE_JOBS` (the count is the default, 4, in the
+`MemoryMax=36G` scope), then put its wall time and the peak lines
+(`grep "peak memory" catalog-1.log`) in this task against 5 h 49 min at 2. The round scripts
+(WS release's) must drop `DOLLY_IMAGE_JOBS=2`.
 
 ## Found
 
