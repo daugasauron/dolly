@@ -51,11 +51,11 @@ import { extname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { chromium, firefox } from "playwright-core";
 import { isolationHeaders, mimeTypes } from "../scripts/serve.mjs";
+import { DOLLY_VERSION as checkoutVersion } from "../page/version.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const names = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const work = await mkdtemp(join(tmpdir(), "dolly-npm-"));
-const checkoutVersion = JSON.parse(await readFile(resolve(projectDir, "package.json"), "utf8")).version;
 const packs = join(work, "packs");
 if (!process.env.DOLLY_NPM_OFFLINE) {
   try {
