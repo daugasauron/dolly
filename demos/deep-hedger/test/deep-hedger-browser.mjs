@@ -83,9 +83,10 @@ try {
         await delay(120);
         await page.mouse.up();
       };
+      await coloured([255, 255, 255]);  // dh-gui has drawn its labels
       await click(476, 18);  // Load quotes
       await coloured([205, 205, 205]);
-      assert.deepEqual(requested.splice(0).map(path => path.split("/").slice(0, 8).join("/")), ["/fixture/marketdata/v1/options/chain/AAPL/"]);
+      assert.deepEqual(requested.splice(0).map(path => path.replace(/\/$/, "")), ["/fixture/marketdata/v1/options/chain/AAPL"]);
       await click(989, 18);  // Fit
       await coloured([64, 156, 255]);
       await page.keyboard.press("Control+C");

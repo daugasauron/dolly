@@ -263,7 +263,9 @@ Not implemented, in the order the theory needs them:
    dropout (decisions 12, 13, 19). It is where `braut` measured most of the
    spread to come from (an agent's claim: 6.27 of 6.36 bp).
 2. Weights conditioned on the path's own past returns and on event dates
-   (decisions 3, 18): without them the law has no volatility clustering.
+   (decisions 3, 18): without them the law has no volatility clustering, and
+   it can give an expiry its skew only by rare daily jumps, which is what
+   the fit finds.
 3. The stock's cost read from the stock's own market, and growing with size
    and with the path's own turbulence ("the spreads increase/decrease with
    vol, they should definitely increase during e.g. COVID", fable, 06-28).

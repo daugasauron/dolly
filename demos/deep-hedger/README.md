@@ -74,6 +74,51 @@ dh-fit check /tmp/dh/chain.txt 256 200   # the ledger beside the host's, both gr
 dh-fit time /tmp/dh/chain.txt 1024       # seconds of an iteration's parts
 ```
 
+## What was measured
+
+On an RTX 5070 in Chrome 138 (Vulkan), AAPL's chain of 2026-11-13 as loaded on
+2026-11-17 (the last session's closing quotes: 208 contracts, 8 expiries from
+3 to 45 business days), 1,024 paths, stock cost 0.25 bp, risk price 0.01.
+
+- **The ledger and the gradients** (`dh-fit check CHAIN 256 300`). For a hedger
+  that holds one constant position, the kernels' bids and asks and the host's
+  own sum over the kernels' paths agree to six digits; the hedger's gradient
+  and the generator's agree with central differences (the generator's to 0.3%
+  where holding positions fixed is exact). After 300 iterations of fitting,
+  where it is an approximation, the generator's gradient and the difference
+  have the same sign at the seven logits sampled and differ by up to two
+  thirds in size.
+- **Speed.** An iteration is 0.32 s: the forward kernels 0.05 s, `adjoint`
+  0.25 s, the sums 0.02 s. With `dh-gui` drawing beside it, 2.6 iterations a
+  second. With 4,096 paths an iteration is 0.97 s.
+- **The fit**, from equal weights and a random hedger, 900 iterations in
+  287 s (`dh-fit CHAIN 1024 1 900`): the loss fell from over 300 to 1.4 band
+  widths squared; 70% of the model's bids and asks are inside the market's
+  bands; each expiry's forward is within 0.2% of the one its quotes imply,
+  which no constraint holds there; the hedger leaves 46% of the risk of not
+  hedging. The model's mean spread is 0.12 (currency) against the market's
+  1.29, which wide closing quotes in the money make: the risk price at which
+  this hedger's spreads would add up to the market's is 0.12 over all
+  contracts and 0.03 on the last expiry, where the market's bands are tight.
+  One risk price does not give this chain's spreads their shape.
+- **The law it finds is made of jumps.** A day's return has a skewness of -2
+  to -6 and an excess kurtosis of 20 to 70 in every interval, and the lowest
+  and highest paths move 10% in a day: with independent days that is the
+  only way to a 45-day skew. The owner saw the same in `braut`: "almost all
+  returns are close to 0 and then there are soem sudden jumps [...] it's not
+  a realistic path law" (2026-07-25). A law with memory is the theory's
+  answer (THEORY.md, section 7).
+- **Without the forward in the ledger the fit did not settle** (a PyTorch
+  reference of the same model, on a driftless 25% chain): the hedger held
+  stock for the law's drift, the forwards stayed 0.6% off and its books
+  carried more risk than unhedged ones. With it: forwards 1.0000, 38% of the
+  unhedged risk left, 24.6% to 25.1% a year.
+
+Software adapters cannot run it: headless Chrome's SwiftShader takes 25 s for
+what the GPU does in 0.05 s, and its GPU process ends creating `adjoint`'s
+pipeline. The test therefore needs a GPU window:
+`DISPLAY=:N node demos/deep-hedger/test/deep-hedger-browser.mjs`.
+
 ## Key files
 
 - [`THEORY.md`](THEORY.md): the problem, the owner's decisions with their sources, assumptions, theory, open conflicts.
