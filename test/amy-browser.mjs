@@ -230,69 +230,97 @@ await browserTest("amy another directory", { image: "default", server: { handle 
   assert.ok(requests("mirror") - before <= 2);
 });
 
+// The packages a step's script installs.
+const installs = script => [...script.matchAll(/amy install ([a-z0-9.-]+)/g)].map(([, name]) => name);
+// Each package of a case file in a page of its own, four at once: a `fresh`
+// step begins a new default session, which installs the package alone (then
+// cc and pkgconf where its use compiles), so that a package missing what it
+// needs fails. after[NAME](session) is what the page then does in the session
+// that installs NAME. Every failing session is reported.
+async function eachSession(open, origin, { directory, steps }, after = {}) {
+  const sessions = steps.reduce((groups, step) => (step.fresh ? groups.push([step]) : groups.at(-1).push(step), groups), []);
+  const failures = [];
+  const run = async () => {
+    for (let steps; (steps = sessions.shift());) {
+      const name = installs(steps.map(({ script }) => script).join("\n"))[0];
+      const session = await open();
+      try {
+        await runSteps(session.submit, origin, { directory, steps });
+        await after[name]?.(session);
+      } catch (error) {
+        console.error(`${name}: ${error.message}`);
+        failures.push(name);
+      } finally {
+        await session.page.context().close();
+      }
+    }
+  };
+  await Promise.all([1, 2, 3, 4].map(run));
+  assert.deepEqual(failures, []);
+}
+
 // default declares no module for a package it does not hold: amy has nena
 // enable what each needs, as SDL2's audio@0 and touch@0 (test/cases/amy-programs.json).
 const declared = catalog.images.find(definition => definition.image === "default").hostRequirements;
 assert.ok(!declared.includes("audio@0") && !declared.includes("touch@0"), declared.join(" "));
-await browserTest("amy programs", { image: programCases.image, timeout: 600_000 }, async ({ name, server, open }) => {
-  const session = await open();
-  await runSteps(session.submit, server.origin, programCases);
-  // The program holds the display, so its line does not show: press Space once it runs.
-  const keys = session.submit("/tmp/amy-raylib-keys");
-  await session.page.locator("#keyboard").focus();
-  await session.page.waitForTimeout(3000);
-  await session.page.keyboard.press("Space");
-  assert.equal(await keys, 0, await session.text());
-  // Two fingers down on raylib's window, then up: CDP's touches in Chromium, a
-  // touchscreen's PointerEvents in Firefox, as test/touch-browser.mjs.
-  const touches = session.submit("/tmp/amy-raylib-touch");
-  await session.page.waitForTimeout(3000);
-  const { x, y } = await session.page.locator("#display").boundingBox(), points = [[x + 60, y + 60], [x + 120, y + 60]];
-  if (name === "chromium") {
-    const cdp = await session.page.context().newCDPSession(session.page);
-    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: points.map(([x, y], id) => ({ x, y, id })) });
-    await session.page.waitForTimeout(500);
-    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-  } else {
-    const fingers = type => session.page.evaluate(([type, points]) => points.forEach(([x, y], id) => document.querySelector("#display").dispatchEvent(
-      new PointerEvent(type, { pointerId: 20 + id, pointerType: "touch", isPrimary: id === 0, button: 0, buttons: type === "pointerup" ? 0 : 1,
-        pressure: type === "pointerup" ? 0 : 0.5, clientX: x, clientY: y, bubbles: true, cancelable: true }))), [type, points]);
-    await fingers("pointerdown");
-    await session.page.waitForTimeout(500);
-    await fingers("pointerup");
-  }
-  assert.equal(await touches, 0, await session.text());
+await browserTest("amy programs", { image: programCases.image, timeout: 900_000 }, async ({ name, server, open }) => {
+  await eachSession(open, server.origin, programCases, { async raylib(session) {
+    // The program holds the display, so its line does not show: press Space once it runs.
+    const keys = session.submit("/tmp/amy-raylib-keys");
+    await session.page.locator("#keyboard").focus();
+    await session.page.waitForTimeout(3000);
+    await session.page.keyboard.press("Space");
+    assert.equal(await keys, 0, await session.text());
+    // Two fingers down on raylib's window, then up: CDP's touches in Chromium, a
+    // touchscreen's PointerEvents in Firefox, as test/touch-browser.mjs.
+    const touches = session.submit("/tmp/amy-raylib-touch");
+    await session.page.waitForTimeout(3000);
+    const { x, y } = await session.page.locator("#display").boundingBox(), points = [[x + 60, y + 60], [x + 120, y + 60]];
+    if (name === "chromium") {
+      const cdp = await session.page.context().newCDPSession(session.page);
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: points.map(([x, y], id) => ({ x, y, id })) });
+      await session.page.waitForTimeout(500);
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    } else {
+      const fingers = type => session.page.evaluate(([type, points]) => points.forEach(([x, y], id) => document.querySelector("#display").dispatchEvent(
+        new PointerEvent(type, { pointerId: 20 + id, pointerType: "touch", isPrimary: id === 0, button: 0, buttons: type === "pointerup" ? 0 : 1,
+          pressure: type === "pointerup" ? 0 : 0.5, clientX: x, clientY: y, bubbles: true, cancelable: true }))), [type, points]);
+      await fingers("pointerdown");
+      await session.page.waitForTimeout(500);
+      await fingers("pointerup");
+    }
+    assert.equal(await touches, 0, await session.text());
+  } });
 });
 
 // The terminal has no line discipline: a program that reads lines there edits
-// them itself. For each command, what the screen shows and what is then typed
-// (\n is Enter, \x1b Escape); the command ends with status 0.
+// them itself. For each package, the command, what the screen shows and what
+// is then typed (\n is Enter, \x1b Escape), and what the session then holds.
 const typed = {
-  "sqlite3 /tmp/amy.db": [[/amy\.db->\s*$/, "select count(*) * 14 from word;\n"], [/\D42\D[^>]*amy\.db->\s*$/, ".quit\n"]],
-  dc: [[/>>>\s*$/, "6 7 * p\n"], [/\n42\n>>>\s*$/, "q\n"]],
-  "vi /tmp/amy-vi": [[/^~$/m, "ione\ntwo\x1b:wq\n"]],
+  sqlite: ["sqlite3 /tmp/amy.db", [[/amy\.db->\s*$/, "select count(*) * 14 from word;\n"], [/\D42\D[^>]*amy\.db->\s*$/, ".quit\n"]]],
+  bc: ["dc", [[/>>>\s*$/, "6 7 * p\n"], [/\n42\n>>>\s*$/, "q\n"]]],
+  vi: ["vi /tmp/amy-vi", [[/^~$/m, "ione\ntwo\x1b:wq\n"]], "test \"$(tr '\\n' ' ' < /tmp/amy-vi)\" = 'one two '"],
   // Its status line is up; Ctrl+S saves and Ctrl+Q quits.
-  "dte /tmp/amy-dte": [[/INS +UTF-8/, "one\ntwo\x13\x11"]],
+  dte: ["dte /tmp/amy-dte", [[/INS +UTF-8/, "one\ntwo\x13\x11"]], "test \"$(tr '\\n' ' ' < /tmp/amy-dte)\" = 'one two '"],
 };
-await browserTest("amy tools", { image: toolCases.image, timeout: 300_000 }, async ({ server, open }) => {
-  const session = await open();
-  await runSteps(session.submit, server.origin, toolCases);
-  for (const [command, steps] of Object.entries(typed)) {
-    const running = session.submit(command);
-    await session.page.locator("#keyboard").focus();
-    for (const [shown, keys] of steps) {
-      await session.waitForText(shown);
-      for (const [index, text] of keys.split("\x1b").entries()) {
-        if (index) await session.page.keyboard.press("Escape");
-        for (const [control, part] of text.split(/([\x11\x13])/).entries()) {
-          if (control % 2) await session.page.keyboard.press(`Control+${String.fromCharCode(part.charCodeAt(0) + 96)}`);
-          else await session.page.keyboard.type(part);
-        }
+const typing = ([command, steps, holds = "true"]) => async session => {
+  const running = session.submit(command);
+  await session.page.locator("#keyboard").focus();
+  for (const [shown, keys] of steps) {
+    await session.waitForText(shown);
+    for (const [index, text] of keys.split("\x1b").entries()) {
+      if (index) await session.page.keyboard.press("Escape");
+      for (const [control, part] of text.split(/([\x11\x13])/).entries()) {
+        if (control % 2) await session.page.keyboard.press(`Control+${String.fromCharCode(part.charCodeAt(0) + 96)}`);
+        else await session.page.keyboard.type(part);
       }
     }
-    assert.equal(await running, 0, `${command}\n${await session.text()}`);
   }
-  assert.equal(await session.submit("test \"$(tr '\\n' ' ' < /tmp/amy-vi)\" = 'one two ' && test \"$(tr '\\n' ' ' < /tmp/amy-dte)\" = 'one two '"), 0);
+  assert.equal(await running, 0, `${command}\n${await session.text()}`);
+  assert.equal(await session.submit(holds), 0, holds);
+};
+await browserTest("amy tools", { image: toolCases.image, timeout: 900_000 }, async ({ server, open }) => {
+  await eachSession(open, server.origin, toolCases, Object.fromEntries(Object.entries(typed).map(([name, use]) => [name, typing(use)])));
 });
 
 // Every package of the catalog is installed into default and used: by a case
@@ -313,7 +341,7 @@ const elsewhere = {
   openblas: "demos/python", numpy: "demos/python", pandas: "demos/python: python-data installs it",
   matplotlib: "demos/python: python-data installs it", seaborn: "demos/python: python-data installs it",
   "python-dateutil": "demos/python: pandas and matplotlib install it", libjpeg: "demos/xonotic", "xonotic-shaders": "demos/xonotic: xonotic-build installs it", spidermonkey: "demos/zero-ad",
-  "xorg-server": "demos/x11", "x11-window": "demos/x11: godot and photocraft link it", twm: "demos/x11", xclock: "demos/x11", xeyes: "demos/x11", xterm: "demos/x11",
+  "xorg-server": "demos/x11", twm: "demos/x11", xclock: "demos/x11", xeyes: "demos/x11", xterm: "demos/x11",
   imgui: "demos/sdl2", "imgui-x11": "demos/x11", llvm22: "demos/zig: zig-llvm uses it", "zig-llvm": "demos/zig",
   ffmpeg: "demos/ffmpeg", zsh: "demos/zsh", binaryen: "demos/zsh: zsh's build uses it", "ghostty-gtk": "demos/ghostty-gtk", ocaml: "demos/ocaml", lean: "demos/lean",
   "lean-std": "demos/lean: lean installs it", "lean-meta": "demos/lean: lean installs it",
@@ -335,41 +363,9 @@ const elsewhere = {
   "airtime-godot": "demos/godot/test/godot-gpu-browser.mjs", "voxel-flyover": "demos/godot/test/godot-flyover-browser.mjs",
   photocraft: "demos/photocraft: photocraft-photos installs it", html: "html-browser.mjs", rclone: "demos/rclone",
 };
-const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "llama", "tar", "meson", "typescript", ...[programCases, toolCases].flatMap(({ steps }) => steps.map(({ script }) => script.match(/^amy install ([^ ]+)$/)?.[1]).filter(Boolean)), ...Object.keys(elsewhere)]);
+const used = new Set([...preinstalled, "python", ...[programCases, toolCases].flatMap(({ steps }) => steps.flatMap(({ script }) => installs(script))),
+  ...Object.keys(elsewhere)]);
 assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no test installs and uses");
-
-// What amy-programs.json runs with the package NAME once it is installed.
-const programUse = name => programCases.steps[programCases.steps.findIndex(({ script }) => script === `amy install ${name}`) + 1].script;
-// A package brings the programs its own programs start. rustc links through
-// cc, which default lacks: installed alone, rust links a program and cargo
-// runs a crate.
-const crate = "mkdir -p /tmp/amy-crate/src && cd /tmp/amy-crate && " +
-  "printf '[package]\\nname = \"amy-crate\"\\nversion = \"0.1.0\"\\nedition = \"2021\"\\n' > Cargo.toml && " +
-  "printf 'fn main() { println!(\"{}\", 6 * 7); }\\n' > src/main.rs && " +
-  "test \"$(cargo run --offline --quiet)\" = 42";
-// cmake configures with the C compiler and builds with make, which the cmake
-// package installs with cc.
-// mojo build links what it compiles through cc.
-const hello = "mkdir /tmp/amy-mojo && cd /tmp/amy-mojo && printf 'def main():\\n    print(\"hello\", 6 * 7)\\n' > hello.mojo && " +
-  "mojo build hello.mojo && test \"$(./hello)\" = 'hello 42'";
-// Python runs Meson; meson setup configures with the C compiler and meson
-// compile builds with Ninja: the meson package installs the three.
-const mesoned = "mkdir /tmp/amy-meson && cd /tmp/amy-meson && printf 'int main(void) { return 42; }\\n' > main.c && " +
-  "printf '%s\\n' \"project('probe', 'c')\" \"executable('probe', 'main.c')\" > meson.build && meson setup build && meson compile -C build; build/probe; test $? = 42 && " +
-  "man meson > /tmp/amy-man && grep -q build /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man";
-// tsc is Janis started on the compiler: the typescript package installs
-// janis, and janis the engine it is built on. tsc compiles and janis runs.
-const compiled = "cd /tmp && echo 'export const answer: number = 6 * 7; console.log(answer);' > amy-answer.ts && tsc --target ES2023 --module ES2022 amy-answer.ts && " +
-  "test \"$(janis amy-answer.js)\" = 42 && amy list | grep -q '^janis  *installed ' && amy list | grep -q '^quickjs  *installed ' && man tsc > /dev/null";
-for (const [name, command, program] of [["rust", "rustc", programUse("rust")], ["cargo", "cargo", crate], ["cmake", "cmake", programUse("cmake")],
-  ["mojo", "mojo", hello], ["meson", "meson", mesoned], ["typescript", "tsc", compiled]]) {
-  await browserTest(`amy ${name} alone`, { image: "default", timeout: 300_000 }, async ({ open }) => {
-    const run = check(await open());
-    await run(`! cc --version 2> /dev/null && ! command -v ${command}`);
-    console.log(`amy install ${name} alone: ${await timed(run, `amy install ${name}`)} ms`);
-    await run(program);
-  });
-}
 
 // The compiler is a package: default has none until amy installs it.
 await browserTest("amy cc", { image: "default", timeout: 300_000 }, async ({ open }) => {

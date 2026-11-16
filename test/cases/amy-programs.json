@@ -3,118 +3,211 @@
   "directory": "/tmp/amy-programs",
   "steps": [
     {
-      "why": "Compilers, libraries and an agent: each installs into a running default session and works at once, CMake finding the SDL2 installed beside it. A library installs no compiler: cc, first here, links the programs. A package that needs a module default does not declare has nena enable it, as SDL2's audio@0 and touch@0.",
+      "fresh": true,
+      "why": "Compilers, libraries and an agent, each in a default session of its own: it installs alone and works at once. A library installs no compiler: cc, installed after it, links the programs. A package that needs a module default does not declare has nena enable it, as SDL2's audio@0 and touch@0.",
       "script": "amy install cc",
       "status": 0
     },
     { "script": "cc --version > /dev/null && make --version > /dev/null", "status": 0 },
-    { "script": "amy install cmake", "status": 0 },
+    { "fresh": true, "script": "amy install cmake", "status": 0 },
     { "script": "mkdir /tmp/amy-cmake && cd /tmp/amy-cmake && printf 'int main(void) { return 0; }\\n' > main.c && printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(probe C)' 'add_executable(probe main.c)' > CMakeLists.txt && cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/probe", "status": 0 },
-    { "script": "amy install sdl2", "status": 0 },
-    { "script": "grep -qx audio@0 /etc/dolly/enabled && grep -qx touch@0 /etc/dolly/enabled && mkdir /tmp/amy-sdl2 && cd /tmp/amy-sdl2 && printf '#include <SDL.h>\\nint main(void) { SDL_Window *window; int failed = SDL_Init(SDL_INIT_VIDEO) || !(window = SDL_CreateWindow(\"\", 0, 0, 64, 48, 0)) || !SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED); SDL_Quit(); return failed; }\\n' > window.c && printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(window C)' 'find_package(SDL2 REQUIRED)' 'add_executable(window window.c)' 'target_link_libraries(window PRIVATE SDL2::SDL2-static)' > CMakeLists.txt && cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/window", "status": 0 },
+    {
+      "why": "CMake finds the packages of SDL2 and SDL_image installed beside it.",
+      "script": "amy install sdl2-image",
+      "status": 0
+    },
+    { "script": "mkdir /tmp/amy-image && cd /tmp/amy-image && printf '%s\\n' '#include <SDL_image.h>' 'int main(void) { SDL_Surface *made = SDL_CreateRGBSurfaceWithFormat(0, 8, 8, 32, SDL_PIXELFORMAT_RGBA32); SDL_FillRect(made, NULL, SDL_MapRGBA(made->format, 200, 100, 50, 255)); if (IMG_SavePNG(made, \"made.png\") != 0) return 2; SDL_Surface *read = SDL_ConvertSurfaceFormat(IMG_Load(\"made.png\"), SDL_PIXELFORMAT_RGBA32, 0); return read == NULL || read->w != 8 || ((Uint8 *)read->pixels)[0] != 200 || ((Uint8 *)read->pixels)[2] != 50; }' > image.c && printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(image C)' 'find_package(SDL2 REQUIRED)' 'find_package(SDL2_image REQUIRED)' 'add_executable(image image.c)' 'target_link_libraries(image PRIVATE SDL2_image::SDL2_image-static SDL2::SDL2-static)' > CMakeLists.txt && cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/image", "status": 0 },
+    { "fresh": true, "script": "amy install sdl2", "status": 0 },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "grep -qx audio@0 /etc/dolly/enabled && grep -qx touch@0 /etc/dolly/enabled && mkdir /tmp/amy-sdl2 && cd /tmp/amy-sdl2 && printf '%s\\n' '#include <SDL.h>' 'int main(void) { SDL_Window *window; int failed = SDL_Init(SDL_INIT_VIDEO) || !(window = SDL_CreateWindow(\"\", 0, 0, 64, 48, 0)) || !SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED); SDL_Quit(); return failed; }' > window.c && cc -O0 window.c $(pkg-config --cflags --static --libs sdl2) -o window && ./window", "status": 0 },
+    {
+      "fresh": true,
+      "why": "rustc links through cc, which the package installs.",
+      "script": "! command -v rustc",
+      "status": 0
+    },
     { "script": "amy install rust", "status": 0 },
     { "script": "printf 'fn main() { println!(\"{}\", 6 * 7); }\\n' > /tmp/amy.rs && rustc /tmp/amy.rs -o /tmp/amy-rust && test \"$(/tmp/amy-rust)\" = 42", "status": 0 },
     {
+      "fresh": true,
       "why": "codex installs ripgrep and fd: their rows come with it.",
       "script": "amy install codex",
       "status": 0
     },
     { "script": "codex --version | grep -q '^codex-cli ' && fd --version > /dev/null && amy list | grep -q '^ripgrep  *installed '", "status": 0 },
-    { "script": "amy install zlib", "status": 0 },
+    { "fresh": true, "script": "amy install zlib", "status": 0 },
+    { "script": "amy install cc", "status": 0 },
     { "script": "printf '#include <zlib.h>\\n#include <string.h>\\nint main(void) { return strcmp(zlibVersion(), ZLIB_VERSION) != 0; }\\n' > /tmp/amy-zlib.c && cc /tmp/amy-zlib.c -lz -o /tmp/amy-zlib && /tmp/amy-zlib", "status": 0 },
     {
+      "fresh": true,
       "why": "The engine as a library: a C program evaluates an expression with it.",
       "script": "amy install quickjs",
       "status": 0
     },
+    { "script": "amy install cc", "status": 0 },
     { "script": "printf '%s\\n' '#include <quickjs.h>' 'int main(void) { JSRuntime *runtime = JS_NewRuntime(); JSContext *context = JS_NewContext(runtime); int answer = 0; JS_ToInt32(context, &answer, JS_Eval(context, \"6 * 7\", 5, \"amy\", JS_EVAL_TYPE_GLOBAL)); JS_FreeContext(context); JS_FreeRuntime(runtime); return answer != 42; }' > /tmp/amy-quickjs.c && cc -O0 /tmp/amy-quickjs.c -lquickjs -o /tmp/amy-quickjs && /tmp/amy-quickjs", "status": 0 },
     {
+      "fresh": true,
       "why": "Janis as a library: a C program that is one script, linked on the engine that janis installs.",
       "script": "amy install janis",
       "status": 0
     },
+    { "script": "amy install cc", "status": 0 },
     { "script": "echo 'import { readFileSync } from \"node:fs\"; process.exitCode = readFileSync(process.argv[2], \"utf8\").length;' > /tmp/amy-embed.mjs && printf '%s\\n' '#include <dolly/quickjs-runner.h>' 'int main(int argc, char **argv) { return dolly_quickjs_run(argc, argv, \"/tmp/amy-embed.mjs\"); }' > /tmp/amy-embed.c && cc -O0 /tmp/amy-embed.c -ldolly-js -lquickjs -o /tmp/amy-embed && printf 12345 > /tmp/amy-embed.txt; /tmp/amy-embed /tmp/amy-embed.txt; test $? = 5", "status": 0 },
-    { "script": "amy install libuv", "status": 0 },
+    { "fresh": true, "script": "amy install libuv", "status": 0 },
+    { "script": "amy install cc", "status": 0 },
     { "script": "printf '%s\\n' '#include <uv.h>' 'static int fired;' 'static void fire(uv_timer_t *timer) { fired = 1; uv_close((uv_handle_t *)timer, 0); }' 'int main(void) { uv_loop_t loop; uv_timer_t timer; uv_loop_init(&loop); uv_timer_init(&loop, &timer); uv_timer_start(&timer, fire, 1, 0); uv_run(&loop, UV_RUN_DEFAULT); return uv_loop_close(&loop) != 0 || !fired; }' > /tmp/amy-uv.c && cc -O0 /tmp/amy-uv.c -luv -o /tmp/amy-uv && /tmp/amy-uv", "status": 0 },
     {
+      "fresh": true,
       "why": "A timer writes into a pipe whose other end the same loop watches.",
       "script": "amy install libevent",
       "status": 0
     },
+    { "script": "amy install cc", "status": 0 },
     { "script": "printf '%s\\n' '#include <event2/event.h>' '#include <unistd.h>' 'static void heard(evutil_socket_t end, short what, void *seen) { char byte; *(int *)seen += read(end, &byte, 1) == 1 && byte == *\"p\"; }' 'static void fire(evutil_socket_t none, short what, void *end) { write(*(int *)end, \"p\", 1); }' 'int main(void) { int ends[2], seen = 0; struct timeval soon = { 0, 1000 }; struct event_base *base = event_base_new(); if (base == NULL || pipe(ends) != 0) return 2; event_base_once(base, ends[0], EV_READ, heard, &seen, NULL); event_base_once(base, -1, EV_TIMEOUT, fire, &ends[1], &soon); return event_base_dispatch(base) < 0 || seen != 1; }' > /tmp/amy-event.c && cc -O0 /tmp/amy-event.c -levent_core -o /tmp/amy-event && /tmp/amy-event", "status": 0 },
     {
+      "fresh": true,
       "why": "The description of the display's terminal, and a cursor address written from it. The stack is dirtied first: the address is formatted from the numbers given, not from what lay there.",
       "script": "amy install libterminfo",
       "status": 0
     },
+    { "script": "amy install cc", "status": 0 },
     { "script": "printf '%s\\n' '#include <term.h>' '#include <string.h>' 'static void dirty(void) { volatile char stack[16384]; memset((char *)stack, 255, sizeof(stack)); }' 'int main(void) { int error; if (setupterm(\"xterm-256color\", 1, &error) != OK) return 2; dirty(); return tigetnum(\"colors\") != 256 || strcmp(tiparm(tigetstr(\"cup\"), 4, 9), \"\\033[5;10H\") != 0; }' > /tmp/amy-term.c && cc -O0 /tmp/amy-term.c -lterminfo -o /tmp/amy-term && /tmp/amy-term", "status": 0 },
     {
+      "fresh": true,
       "why": "pkg-config knows a library once its package is there, and gives cc its flags.",
       "script": "amy install pkgconf",
       "status": 0
     },
     { "script": "man pkgconf > /dev/null && ! pkg-config --exists libpng", "status": 0 },
     {
+      "fresh": true,
       "why": "As upstream installs it, -lpng links too.",
       "script": "amy install libpng",
       "status": 0
     },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
     { "script": "printf '#include <png.h>\\nint main(void) { return png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL) == NULL; }\\n' > /tmp/amy-png.c && cc $(pkg-config --cflags libpng) /tmp/amy-png.c $(pkg-config --static --libs libpng) -o /tmp/amy-png && /tmp/amy-png && cc /tmp/amy-png.c -lpng -lz -o /tmp/amy-png && /tmp/amy-png", "status": 0 },
     {
+      "fresh": true,
       "why": "FreeType reads the terminal's font.",
       "script": "amy install freetype",
       "status": 0
     },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
     { "script": "printf '%s\\n' '#include <ft2build.h>' '#include FT_FREETYPE_H' 'int main(void) { FT_Library library; FT_Face face; if (FT_Init_FreeType(&library) || FT_New_Face(library, \"/usr/share/fonts/IosevkaTerm-SemiBold.ttf\", 0, &face)) return 1; return face->num_glyphs < 100; }' > /tmp/amy-freetype.c && cc $(pkg-config --cflags freetype2) /tmp/amy-freetype.c $(pkg-config --static --libs freetype2) -o /tmp/amy-freetype && /tmp/amy-freetype", "status": 0 },
     {
+      "fresh": true,
       "why": "SDL_mixer plays a short silent clip on a channel until it ends: SDL's audio driver pulls it.",
       "script": "amy install sdl2-mixer",
       "status": 0
     },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
     { "script": "printf '%s\\n' '#include <SDL.h>' '#include <SDL_mixer.h>' 'int main(void) { static Uint8 silence[48000 * 4 / 4]; if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0 || !SDL_CreateWindow(\"\", 0, 0, 64, 48, 0) || Mix_OpenAudio(48000, AUDIO_S16SYS, 2, 1024) != 0) return 2; Mix_Chunk *chunk = Mix_QuickLoad_RAW(silence, sizeof silence); if (!chunk || Mix_PlayChannel(-1, chunk, 0) < 0) return 3; for (Uint32 start = SDL_GetTicks(); Mix_Playing(-1) && SDL_GetTicks() - start < 5000; SDL_Delay(10)) SDL_PumpEvents(); int ended = !Mix_Playing(-1); Mix_CloseAudio(); SDL_Quit(); return !ended; }' > /tmp/amy-mixer.c && cc $(pkg-config --cflags SDL2_mixer) /tmp/amy-mixer.c $(pkg-config --static --libs SDL2_mixer) -o /tmp/amy-mixer && /tmp/amy-mixer", "status": 0 },
     {
+      "fresh": true,
       "why": "Swedish collation puts ö after z: ICU finds its data in /usr/share/icu/68.2.",
       "script": "amy install icu",
       "status": 0
     },
+    { "script": "amy install cc", "status": 0 },
     { "script": "printf '%s\\n' '#include <unicode/ucol.h>' 'int main() { UErrorCode status = U_ZERO_ERROR; UCollator *swedish = ucol_open(\"sv\", &status); int failed = U_FAILURE(status) || ucol_strcollUTF8(swedish, \"z\", 1, \"\\xc3\\xb6\", 2, &status) != UCOL_LESS; ucol_close(swedish); return failed; }' > /tmp/amy-icu.cpp && c++ -O0 -DU_STATIC_IMPLEMENTATION /tmp/amy-icu.cpp -licui18n -licuuc -licudata -o /tmp/amy-icu && /tmp/amy-icu", "status": 0 },
     {
+      "fresh": true,
       "why": "An Ogg stream is set up and cleared; Vorbis's encoder takes a stereo 48 kHz setup.",
       "script": "amy install libogg",
       "status": 0
     },
+    { "script": "amy install cc", "status": 0 },
     { "script": "printf '%s\\n' '#include <ogg/ogg.h>' 'int main(void) { ogg_stream_state stream; return ogg_stream_init(&stream, 7) != 0 || ogg_stream_clear(&stream) != 0; }' > /tmp/amy-ogg.c && cc -O0 /tmp/amy-ogg.c -logg -o /tmp/amy-ogg && /tmp/amy-ogg", "status": 0 },
-    { "script": "amy install libvorbis", "status": 0 },
+    { "fresh": true, "script": "amy install libvorbis", "status": 0 },
+    { "script": "amy install cc", "status": 0 },
     { "script": "printf '%s\\n' '#include <vorbis/vorbisenc.h>' '#include <string.h>' 'int main(void) { vorbis_info info; vorbis_info_init(&info); int failed = vorbis_encode_init_vbr(&info, 2, 48000, .4f) != 0 || strncmp(vorbis_version_string(), \"Xiph\", 4) != 0; vorbis_info_clear(&info); return failed; }' > /tmp/amy-vorbis.c && cc -O0 /tmp/amy-vorbis.c -lvorbisenc -lvorbis -logg -lm -o /tmp/amy-vorbis && /tmp/amy-vorbis", "status": 0 },
     {
+      "fresh": true,
       "why": "SDL_ttf renders a word in the terminal's font: the surface has ink.",
       "script": "amy install sdl2-ttf",
       "status": 0
     },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
     { "script": "printf '%s\\n' '#include <SDL_ttf.h>' 'int main(void) { SDL_Color white = { 255, 255, 255, 255 }; if (TTF_Init() != 0) return 2; TTF_Font *font = TTF_OpenFont(\"/usr/share/fonts/IosevkaTerm-SemiBold.ttf\", 24); if (font == NULL) return 3; SDL_Surface *text = TTF_RenderUTF8_Blended(font, \"Dolly\", white); if (text == NULL || text->w < 40) return 4; Uint32 *pixel = text->pixels; int inked = 0; for (int i = 0; i < text->pitch / 4 * text->h; i++) inked += pixel[i] >> 24 > 128; return inked < 50; }' > /tmp/amy-ttf.c && cc $(pkg-config --cflags SDL2_ttf) /tmp/amy-ttf.c $(pkg-config --static --libs SDL2_ttf) -o /tmp/amy-ttf && /tmp/amy-ttf", "status": 0 },
     {
-      "why": "SDL_image writes a PNG and reads it back, its CMake package found beside SDL2's.",
+      "fresh": true,
+      "why": "SDL_image writes a PNG and reads it back.",
       "script": "amy install sdl2-image",
       "status": 0
     },
-    { "script": "mkdir /tmp/amy-image && cd /tmp/amy-image && printf '%s\\n' '#include <SDL_image.h>' 'int main(void) { SDL_Surface *made = SDL_CreateRGBSurfaceWithFormat(0, 8, 8, 32, SDL_PIXELFORMAT_RGBA32); SDL_FillRect(made, NULL, SDL_MapRGBA(made->format, 200, 100, 50, 255)); if (IMG_SavePNG(made, \"made.png\") != 0) return 2; SDL_Surface *read = SDL_ConvertSurfaceFormat(IMG_Load(\"made.png\"), SDL_PIXELFORMAT_RGBA32, 0); return read == NULL || read->w != 8 || ((Uint8 *)read->pixels)[0] != 200 || ((Uint8 *)read->pixels)[2] != 50; }' > image.c && printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(image C)' 'find_package(SDL2 REQUIRED)' 'find_package(SDL2_image REQUIRED)' 'add_executable(image image.c)' 'target_link_libraries(image PRIVATE SDL2_image::SDL2_image-static SDL2::SDL2-static)' > CMakeLists.txt && cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/image", "status": 0 },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "mkdir /tmp/amy-image && cd /tmp/amy-image && printf '%s\\n' '#include <SDL_image.h>' 'int main(void) { SDL_Surface *made = SDL_CreateRGBSurfaceWithFormat(0, 8, 8, 32, SDL_PIXELFORMAT_RGBA32); SDL_FillRect(made, NULL, SDL_MapRGBA(made->format, 200, 100, 50, 255)); if (IMG_SavePNG(made, \"made.png\") != 0) return 2; SDL_Surface *read = SDL_ConvertSurfaceFormat(IMG_Load(\"made.png\"), SDL_PIXELFORMAT_RGBA32, 0); return read == NULL || read->w != 8 || ((Uint8 *)read->pixels)[0] != 200 || ((Uint8 *)read->pixels)[2] != 50; }' > image.c && cc -O0 image.c $(pkg-config --cflags --static --libs SDL2_image) -o image && ./image", "status": 0 },
     {
+      "fresh": true,
       "why": "One frame drawn by raylib's software renderer and shown through Dolly's adapter. As raylib's examples are written: InitWindow holds the display and the keys, and the clock and the frame time run (the page presses Space after these steps). Fingers are raylib's touch points, the first also its mouse (the page puts two down).",
       "script": "amy install raylib",
       "status": 0
     },
+    { "script": "amy install cc", "status": 0 },
     { "script": "printf '%s\\n' '#include <dolly/raylib.h>' 'int main(void) { dolly_raylib window; if (dolly_raylib_open(&window, \"amy\") != 0) return 2; BeginDrawing(); ClearBackground(RAYWHITE); DrawCircle(64, 64, 32, RED); int shown = dolly_raylib_end_frame(&window); return dolly_raylib_close(&window) != 0 || shown != 0; }' > /tmp/amy-raylib.c && cc -O0 /tmp/amy-raylib.c -ldolly-raylib -lraylib -lm -o /tmp/amy-raylib && /tmp/amy-raylib > /dev/null && printf '%s\\n' '#include <raylib.h>' '#include <stdio.h>' 'int main(void) { InitWindow(320, 180, \"keys\"); SetTargetFPS(60); int frames = 0, pressed = 0; while (!WindowShouldClose() && !pressed && frames < 3600) { BeginDrawing(); ClearBackground(RAYWHITE); EndDrawing(); frames++; pressed = IsKeyPressed(KEY_SPACE); } printf(\"after %d frames %.3f s, frame %.4f s\\n\", frames, GetTime(), GetFrameTime()); CloseWindow(); return !(pressed && GetTime() > 0.1 && GetFrameTime() > 0); }' > /tmp/amy-raylib-keys.c && cc -O0 /tmp/amy-raylib-keys.c -lraylib -lm -o /tmp/amy-raylib-keys && printf '%s\\n' '#include <raylib.h>' 'int main(void) { InitWindow(320, 180, \"touch\"); SetTargetFPS(60); int frames = 0, most = 0, released = 0; while (!WindowShouldClose() && !(most == 2 && released) && frames < 3600) { BeginDrawing(); ClearBackground(RAYWHITE); EndDrawing(); frames++; if (GetTouchPointCount() > most) most = GetTouchPointCount(); released = IsMouseButtonReleased(MOUSE_BUTTON_LEFT); } CloseWindow(); return !(most == 2 && released); }' > /tmp/amy-raylib-touch.c && cc -O0 /tmp/amy-raylib-touch.c -lraylib -lm -o /tmp/amy-raylib-touch", "status": 0 },
     {
+      "fresh": true,
       "why": "A square wave played from a buffer is in the samples the loopback device renders.",
       "script": "amy install openal",
       "status": 0
     },
+    { "script": "amy install cc", "status": 0 },
     { "script": "printf '%s\\n' '#define AL_ALEXT_PROTOTYPES' '#include <AL/al.h>' '#include <AL/alc.h>' '#include <AL/alext.h>' 'int main() { ALCdevice *device = alcLoopbackOpenDeviceSOFT(0); int format[] = { ALC_FORMAT_CHANNELS_SOFT, ALC_MONO_SOFT, ALC_FORMAT_TYPE_SOFT, ALC_SHORT_SOFT, ALC_FREQUENCY, 48000, 0 }; alcMakeContextCurrent(alcCreateContext(device, format)); short wave[4800], heard[4800]; int loud = 0; ALuint buffer, source; for (int at = 0; at < 4800; at++) wave[at] = at % 100 < 50 ? 12000 : -12000; alGenBuffers(1, &buffer); alGenSources(1, &source); alBufferData(buffer, AL_FORMAT_MONO16, wave, sizeof wave, 48000); alSourcei(source, AL_BUFFER, buffer); alSourcePlay(source); alcRenderSamplesSOFT(device, heard, 4800); for (int at = 0; at < 4800; at++) loud += heard[at] > 1000 || heard[at] < -1000; return loud < 2400 || alGetError() != AL_NO_ERROR; }' > /tmp/amy-openal.cpp && c++ -O0 /tmp/amy-openal.cpp -lopenal -o /tmp/amy-openal && /tmp/amy-openal", "status": 0 },
     {
+      "fresh": true,
       "why": "A body dropped for a second falls.",
       "script": "amy install box3d",
       "status": 0
     },
-    { "script": "printf '%s\\n' '#include <box3d/box3d.h>' 'int main(void) { b3WorldDef world = b3DefaultWorldDef(); b3WorldId id = b3CreateWorld(&world); b3BodyDef body = b3DefaultBodyDef(); body.type = b3_dynamicBody; b3BodyId ball = b3CreateBody(id, &body); b3ShapeDef shape = b3DefaultShapeDef(); b3Sphere sphere = { { 0.0f, 0.0f, 0.0f }, 0.5f }; b3CreateSphereShape(ball, &shape, &sphere); for (int step = 0; step < 60; ++step) b3World_Step(id, 1.0f / 60.0f, 4); int fell = b3Body_GetPosition(ball).y < -1.0f; b3DestroyWorld(id); return !fell; }' > /tmp/amy-box3d.c && cc -O0 -U__SIZEOF_INT128__ /tmp/amy-box3d.c -lbox3d -o /tmp/amy-box3d && /tmp/amy-box3d", "status": 0 }
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <box3d/box3d.h>' 'int main(void) { b3WorldDef world = b3DefaultWorldDef(); b3WorldId id = b3CreateWorld(&world); b3BodyDef body = b3DefaultBodyDef(); body.type = b3_dynamicBody; b3BodyId ball = b3CreateBody(id, &body); b3ShapeDef shape = b3DefaultShapeDef(); b3Sphere sphere = { { 0.0f, 0.0f, 0.0f }, 0.5f }; b3CreateSphereShape(ball, &shape, &sphere); for (int step = 0; step < 60; ++step) b3World_Step(id, 1.0f / 60.0f, 4); int fell = b3Body_GetPosition(ball).y < -1.0f; b3DestroyWorld(id); return !fell; }' > /tmp/amy-box3d.c && cc -O0 -U__SIZEOF_INT128__ /tmp/amy-box3d.c -lbox3d -o /tmp/amy-box3d && /tmp/amy-box3d", "status": 0 },
+    {
+      "fresh": true,
+      "why": "A window on the X server DISPLAY names, the library linked over Xlib: Dolly's own DISPLAY names none, and opening says so.",
+      "script": "amy install x11-window",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <x11-window.h>' '#include <errno.h>' 'int main(void) { return x11_window_open(\"amy\", 64, 48) != NULL || errno != ENOENT; }' > /tmp/amy-x11.c && cc -O0 /tmp/amy-x11.c -lx11-window -lX11 -lxcb -lXau -ldolly-sockets -o /tmp/amy-x11 && /tmp/amy-x11", "status": 0 },
+    {
+      "fresh": true,
+      "why": "Cargo runs a crate, its compiler and cc brought with it.",
+      "script": "! command -v cargo",
+      "status": 0
+    },
+    { "script": "amy install cargo", "status": 0 },
+    { "script": "mkdir -p /tmp/amy-crate/src && cd /tmp/amy-crate && printf '[package]\\nname = \"amy-crate\"\\nversion = \"0.1.0\"\\nedition = \"2021\"\\n' > Cargo.toml && printf 'fn main() { println!(\"{}\", 6 * 7); }\\n' > src/main.rs && test \"$(cargo run --offline --quiet)\" = 42", "status": 0 },
+    {
+      "fresh": true,
+      "why": "mojo build links what it compiles through cc.",
+      "script": "! command -v mojo",
+      "status": 0
+    },
+    { "script": "amy install mojo", "status": 0 },
+    { "script": "mkdir /tmp/amy-mojo && cd /tmp/amy-mojo && printf 'def main():\\n    print(\"hello\", 6 * 7)\\n' > hello.mojo && mojo build hello.mojo && test \"$(./hello)\" = 'hello 42'", "status": 0 },
+    {
+      "fresh": true,
+      "why": "Python runs Meson; meson setup configures with the C compiler and meson compile builds with Ninja: the package installs the three.",
+      "script": "! command -v meson",
+      "status": 0
+    },
+    { "script": "amy install meson", "status": 0 },
+    { "script": "mkdir /tmp/amy-meson && cd /tmp/amy-meson && printf 'int main(void) { return 42; }\\n' > main.c && printf '%s\\n' \"project('probe', 'c')\" \"executable('probe', 'main.c')\" > meson.build && meson setup build && meson compile -C build; build/probe; test $? = 42 && man meson > /tmp/amy-man && grep -q build /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
+    {
+      "fresh": true,
+      "why": "tsc is Janis started on the compiler: the package installs janis, and janis the engine it is built on. tsc compiles and janis runs.",
+      "script": "! command -v tsc",
+      "status": 0
+    },
+    { "script": "amy install typescript", "status": 0 },
+    { "script": "cd /tmp && echo 'export const answer: number = 6 * 7; console.log(answer);' > amy-answer.ts && tsc --target ES2023 --module ES2022 amy-answer.ts && test \"$(janis amy-answer.js)\" = 42 && amy list | grep -q '^janis  *installed ' && amy list | grep -q '^quickjs  *installed ' && man tsc > /dev/null", "status": 0 }
   ]
 }
