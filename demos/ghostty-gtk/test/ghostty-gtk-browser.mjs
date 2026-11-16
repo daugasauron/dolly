@@ -48,10 +48,9 @@ async function type(page, text) {
 }
 
 const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium"];
-for (const browser of browsers) await demoTest("ghostty-gtk", { image: "x11-desktop", timeout: 900_000, browser }, async ({ server: site, open }) => {
+for (const browser of browsers) await demoTest("ghostty-gtk", { image: "x11-desktop", timeout: 900_000, browser }, async ({ open }) => {
   await mkdir(evidence, { recursive: true });
-  const { page, run, prompt } = await open({ prompt: null,
-    policy: { rules: [{ origin: site.origin, path: "/amy-index.txt", methods: ["GET"] }] } });
+  const { page, run, prompt } = await open({ prompt: null, policy: { rules: [] } });
   await page.waitForFunction(([width, height]) => __dolly.transport.graphicsActive() &&
     document.querySelector("#display").width === width && document.querySelector("#display").height === height,
   [width, height], { timeout: 120_000, polling: 100 });

@@ -36,7 +36,7 @@ SLOP cmake -S /tmp/openal/source -B /tmp/openal/build \
   -DALSOFT_INSTALL_CONFIG=OFF -DALSOFT_UPDATE_BUILD_VERSION=OFF -DHAVE_PTHREAD=OFF
 SLOP cmake --build /tmp/openal/build
 SLOP cmake --install /tmp/openal/build
-SLOP c++ -std=c++17 -O2 /tmp/openal/check.cpp -lopenal -lm -o /tmp/openal/check
+SLOP c++ -std=c++17 -O1 /tmp/openal/check.cpp -lopenal -lm -o /tmp/openal/check
 SLOP /tmp/openal/check
 SLOP rm -rf /tmp/openal
 

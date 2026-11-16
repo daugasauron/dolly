@@ -45,8 +45,11 @@ licensed below 10 million US dollars of annual revenue.
 ## A model is a package
 
 A model package installs `/usr/share/dolly/llm/ID.json` beside its weights; the
-provider lists that directory and names no model. Adding one is
-[`models/ID.json`](models/), a recipe per package and a row in
+provider lists that directory and names no model. `pi-llm` holds the other models'
+descriptions too, so that `/local` lists them before their packages are installed, each
+the same file as its package's. Adding one is
+[`models/ID.json`](models/), a recipe per package, its description's `FILE` row in
+[`Dollyfile-pi-llm`](Dollyfile-pi-llm) and a row in
 [`config/upstreams.json`](../../config/upstreams.json). The description holds
 what no upstream file knows:
 

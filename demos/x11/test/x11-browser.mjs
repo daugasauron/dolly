@@ -42,11 +42,10 @@ async function type(page, text) {
 }
 
 const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium"];
-for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", timeout: 600_000, browser }, async ({ server: site, open }) => {
+for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", timeout: 600_000, browser }, async ({ open }) => {
   await mkdir(evidence, { recursive: true });
   const started = performance.now();
-  const { page, run, prompt } = await open({ prompt: null,
-    policy: { rules: [{ origin: site.origin, path: "/amy-index.txt", methods: ["GET"] }] } });
+  const { page, run, prompt } = await open({ prompt: null, policy: { rules: [] } });
   const booted = performance.now();
   // The server's frame: 1600x900 once it holds the display.
   await page.waitForFunction(([width, height]) => __dolly.transport.graphicsActive() &&

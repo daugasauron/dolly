@@ -4,36 +4,39 @@
 - PRIORITY: 120
 - TAGS: audit,dollyfile
 
-## State (2026-11-16, recipes audit): two recipe changes left, no defect
+## State (2026-11-17): F7 and F12 fixed; the rest decided
 
-Checked at `b09b1e243` (0.1.7) by the recipes audit of 2026-11-16, whose own findings are the
-`audit,recipes,0.1.8` tasks (`tatr ls :recipes`). Merged since 2026-11-03: the table below and its
-fixes (27523f9fa, 896be41ca, a5d603cd8, 91df1890c for F8, 05f9f4648 for F14 and F15); P1, CMake
-at `-O2` (5ecb73b00, merged b8f459685). The owner's items (F4's fractional `sleep`, F11's
-`__wasi__`, S2's tar mtimes, raylib's software renderer) are lines of
-`tasks/20261102-133353-owner-decisions`.
+Fixed on `ws/recipes`:
 
-Left:
+- F7: no upstream code is built below upstream's level any more; the four `-O1`s left are Dolly's
+  own check programs (openal's `check.cpp`, zero-ad-deps' ENet and OpenAL probes, zero-ad-engine's
+  SpiderMonkey probe), at the level of every program Dolly writes for itself (the
+  `libdolly-*` clients, `html`, `transfer`, `session-recover`, `anykey`): that is their
+  reason, and they stay (openal's check also built and ran at `-O2`, in `work/recipes`).
+- F12 (f66240630): `zero-ad-deps` installs `sdl2` and declares `touch@0`, instead of the two
+  `COPY` rows of SDL2's headers and archive, its licence `COPY` and its own `sdl2.pc`: the
+  package's `sdl2.pc` says the same (`-I/usr/include/SDL2`, `-lSDL2 -lm`, read from sdl2's
+  snapshot), and the toolchain keeps the licence with the package's files. `npm run -s lint:dollyfiles` passes.
 
-- F7, now only check programs: `-O1` in `Dollyfile-openal:39` and `zero-ad-deps:75-76`,
-  `zero-ad-engine:45`, without a recorded reason; `sdl2`, `imgui-x11` and `libjpeg` no longer have it.
-- F12: `zero-ad-deps:23-24` still copies SDL2's headers and `libSDL2.a` instead of `INSTALL sdl2`
-  and `REQUIRES HOST touch@0`.
-- Moot: the four images the 9 GB slots could not build and the GPU tests not run: the 0.1.7 round
-  built all 230 images and ran slopyard's, xonotic's and zero-ad's GPU tests
-  (`work/round1113/build/round-1117-evidence/gpu-*.log`); gpu-fluid is no longer in the catalog.
-- Uncertain, each a rebuild for little: F3, F5, F9, F13, S1 (scratch removed though `/tmp` is
-  never retained: 66 `SLOP rm -rf /tmp...` rows in the demos' recipes, 18 in the core's, anywhere
-  in a recipe, `git grep`). F6 is not stale.
+Left for the 0.1.8 round: zero-ad-deps, zero-ad-engine and zero-ad rebuild (the 0 A.D. chain, about
+three hours in a 9 GB slot), then `demos/zero-ad/test/` in a GPU window (`0ad-graphics`,
+`0ad-menu`), with the ENet, OpenAL and SpiderMonkey probes' tests. F12 rebuilds zero-ad-deps,
+zero-ad-engine and zero-ad.
 
-The night of 2 to 3 November 2026, branch `audit/recipes-apps` from `integrate/2026-11-02`
-(71d2603fc): every recipe of the application and game demos (bhop, classicube, cmake,
-emacs, ffmpeg, fingers, ghostty-gtk, gpu-fluid, gtk, mojo, neovim, rts, sdl2, slopyard,
-speech, tmux, wine, x11, xonotic, zero-ad, zsh; 80 recipes) read in full against
-`work/RECIPE-AUDIT.md`. Evidence in `build/recipes-apps-evidence/` (not committed):
-`snapshot-report.txt` (every image's size by directory, largest files, and the
-`dolly.host` records of every retained executable, from `snapshot-report.mjs`) and
-`host-declarations.txt` (declared `REQUIRES HOST` against those records).
+Decided, nothing to change:
+
+- F3: Mesa's parsers made by the host's Bison and flex are a bootstrap exception the demo's README
+  names (`demos/ghostty-gtk/README.md`, "Made outside Dolly"), as AGENTS.md asks; making them in
+  Dolly needs a Bison package, a port of its own.
+- F5: Mojo's runtime C as `FILE` bodies: the recipe's pin covers them as a staged tar's pin would;
+  moving them changes no byte the compiler sees.
+- F9: speech-to-text's and voice's four library paths: cosmetic, as found.
+- F13: `fingers-build` keeps the toolchain-like name: the application people open is `fingers`,
+  and the package is the build it installs (`test/amy-browser.mjs`, "elsewhere").
+- S1: the `rm -rf /tmp` rows are kept: retention needs none of them, but they free the in-memory
+  filesystem before the capture, which copies what the image keeps (`Dollyfile-qwen3.5-2b`: "The
+  parts go before the capture"), and taking 84 rows out saves no measured time.
+- The moot items stay moot (the four large images built in 0.1.7's round; gpu-fluid is gone).
 
 ## Method
 

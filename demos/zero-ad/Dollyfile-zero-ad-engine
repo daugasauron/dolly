@@ -13,7 +13,7 @@ REQUIRES HOST threads@0
 
 # Build-only: the 0 A.D. engine (pyrogenesis), built by the Makefiles premake
 # generates from upstream's scripts, with Dolly's c++.
-FROM /v0.1.7/demos/zero-ad/Dollyfile-zero-ad-deps 1d408c9774dd73bc700f4e596297da159053aab5039479ed4957dcf6680d3cdc
+FROM /v0.1.7/demos/zero-ad/Dollyfile-zero-ad-deps 0dde2c08263241b222a0c5815689cbf037806f4d82abc0bb65b3396e2653f1fe
 INSTALL /v0.1.7/demos/zero-ad/Dollyfile-premake 7e8c41c21be1ea5283931a208ebd9d19e7ecc361c2862176b152e3279b06fff5
 INSTALL /v0.1.7/Dollyfile-libdolly-gpu b13690913448e04e3795994af89d032f7a1537ce13b54c0c73f696ee4375c6d0
 INSTALL /v0.1.7/Dollyfile-libdolly-audio 5b508cabd2df8a3106a8788b1ff75da3ae63d8acc002fa5b8c1120722520deac
@@ -42,7 +42,7 @@ INSTALL /v0.1.7/demos/zero-ad/Dollyfile-spidermonkey ae4ace2d4091a022e606f04d650
 
 # Probe for test/0ad-spidermonkey-browser.mjs.
 SLOP mkdir -p /usr/libexec/zero-ad
-SLOP c++ -std=c++20 -O2 -I/opt/mozjs/include /tmp/0ad-patches/spidermonkey-check.cpp \
+SLOP c++ -std=c++20 -O1 -I/opt/mozjs/include /tmp/0ad-patches/spidermonkey-check.cpp \
   -L/opt/mozjs/lib -ljs_static -ljsrust -lz -o /usr/libexec/zero-ad/spidermonkey-check
 SLOP /usr/libexec/zero-ad/spidermonkey-check
 FOLDER /usr/libexec/zero-ad

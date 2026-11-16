@@ -61,7 +61,7 @@ for (const name of browsers) {
     page.on("pageerror", error => errors.push(error.message));
     page.on("console", message => { if (message.text().startsWith("Dolly GPU:")) errors.push(message.text()); });
     await page.addInitScript(policy => { globalThis.DOLLY_HTTP_POLICY = policy; },
-      { rules: [{ origin: server.origin, path: "/amy-index.txt", methods: ["GET"] }] });
+      { rules: [] });
     await page.goto(`${server.origin}/x11-desktop/`);
     await page.waitForFunction(() => document.documentElement.dataset.dollyStatus === "ready", null, { timeout: 180_000 });
     await page.waitForFunction(() => __dolly.transport.graphicsActive() && document.querySelector("#display").width === 1600,

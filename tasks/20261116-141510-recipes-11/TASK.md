@@ -7,10 +7,20 @@
 From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`).
 
-## State (2026-11-16)
+## State (2026-11-17)
 
-Measured on the sealed release (`build/domain-releases-0.1.7/current`) and the live site. Nothing
-changed yet.
+Fixed on `ws/recipes` (f66240630): `config/domain-pages-images.txt` lists `truck-town`,
+`dodge-the-creeps` and `fingers` (an application of 12.7 MB with its own test, which a phone can
+open); `demos/llvm/README.md` says the site does not publish `llvm-runtimes`, the comparison a
+checkout runs; `pi-minimal` is npm's (`config/npm-images.txt`). The domain catalog's closure,
+as the image builder selects it (`work/audit-1116-evidence/recipes/ws-recipes/domain-packages.mjs`):
+228 images and 169 packages, against 224 and 165 in 0.1.7's tree; the four more are
+`truck-town`, `dodge-the-creeps`, `fingers-build` and the new `x11-libs`
+(`tasks/20261116-141504-recipes-04`).
+
+Left for the 0.1.8 round, which rebuilds the Godot chain (python's change reaches scons): its
+packaged release's `amy-index.txt` lists the two, and `amy install truck-town` works on its `npm
+run serve`. Rebuilds: none by itself (a catalog list).
 
 ## Found
 

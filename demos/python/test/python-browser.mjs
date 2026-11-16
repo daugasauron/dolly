@@ -139,7 +139,6 @@ for (const browser of ["chromium", "firefox"]) {
   await demoTest("python on default", { image: "default", browser, timeout: 1_800_000, server: { handle } }, async ({ server, open }) => {
     const { run } = await open({ policy: { maxRequests: 1024, rules: [
       { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] },
-      { origin: server.origin, path: "/amy-index.txt", methods: ["GET"] },
     ] } });
     await run("! cc --version 2> /dev/null && amy install python && ! ninja --version 2> /dev/null && amy install ninja");
     await run(`pip install --no-index --find-links ${server.origin}/fixture/wheels/ numpy`);
