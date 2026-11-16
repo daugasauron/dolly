@@ -71,7 +71,7 @@ Logs: `build/dh-evidence/` (this machine).
   160 and 140); generator rate 0.1 against 0.03 (the deviation reaches the chain's by
   iteration 100 instead of 160). dh-fit has 0.005, 16 and 0.05.
 
-The image's test passes in Chrome 156 and Firefox 159 (task dh-04; commit 12785ece6 is the
+The image's test passes in Chrome 156 and Firefox 159 (task dh-04; commit 357d52eb6 is the
 image it ran on). What the model still lacks is task dh-06; what the kernels cannot do on a
 software adapter is task dh-07.
 
