@@ -409,11 +409,13 @@ static void law_tab() {
   }
   ImGui::SameLine(0, 8);
   int days = state.expiries.back().business_days;
-  Plot paths("paths: the stock over its forward, by business day", size, 0, days, 0.7, 1.3);
-  for (const std::vector<float> &path : state.paths) {
+  Plot paths("the stock over its forward by business day: 28 paths, and the batch's 10 lowest and 10 highest", size, 0, days, 0.6, 1.4);
+  for (size_t index = 0; index < state.paths.size(); index++) {
+    const std::vector<float> &path = state.paths[index];
     std::vector<ImVec2> line;
     for (size_t t = 0; t < path.size(); t++) line.push_back(paths.at((double)t, exp(path[t])));
-    paths.draw->AddPolyline(line.data(), (int)line.size(), IM_COL32(120, 200, 140, 110), 1.0f);
+    // dh-fit's order: 28 drawn at random, then the lowest ten, then the highest ten.
+    paths.draw->AddPolyline(line.data(), (int)line.size(), index < 28 ? IM_COL32(170, 170, 170, 120) : index < 38 ? ask_colour : bid_colour, 1.0f);
   }
   if (ImGui::BeginTable("law", 7, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
     for (const char *name : {"interval ends", "business day", "mean of a day, bp", "deviation of a day, %", "the same, a year", "skewness", "excess kurtosis"}) ImGui::TableSetupColumn(name);

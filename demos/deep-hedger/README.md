@@ -50,19 +50,28 @@ cents.
 ## The fit
 
 `dh-fit` keeps two parameter vectors on the host, the generator's kernel
-weights (49 an interval) and the hedger's network (401), with their Adam
-moments. Everything else of an iteration is these kernels:
+weights (49 an interval) and the hedger's network (6 inputs, 16 and 16 units,
+one position: 401 numbers), with their Adam moments. A fit starts from equal
+weights and a random hedger, never from a stored one. Everything else of an
+iteration is these kernels:
 
 | Kernel | A thread is | It makes |
 | --- | --- | --- |
 | `simulate` | a path | each day's return, the day's law at a hashed uniform number; paths in antithetic pairs |
 | `roll` | a path and an eighth of the books | each book hedged day by day to its expiry: its residual and its costs |
 | `quote` | a contract | mean and deviation of its two books' residuals: the model's bid and ask, the loss |
-| `adjoint` | as `roll` | backward through every day's position and the position it was decided from: the hedger's gradient; the loss's derivative by the path |
+| `adjoint` | as `roll` | backward through every day's position and the position it was decided from: the hedger's gradient; the loss's derivative by the path's levels and by each day's mean move |
 | `sum_gradient`, `return_adjoint`, `law_gradient` | a parameter, a path, a kernel weight | the two gradients, summed in a fixed order |
 
 The backward pass is written by hand, as the forward is; nothing is
-differentiated automatically.
+differentiated automatically. `dh-fit` also runs alone, on a chain as `dh-gui`
+writes it (`/tmp/dh/chain.txt`; the format is in `dh-fit.mojo`):
+
+```sh
+dh-fit /tmp/dh/chain.txt 1024 1          # fit: reports on stdout every 20 iterations, until killed
+dh-fit check /tmp/dh/chain.txt 256 200   # the ledger beside the host's, both gradients beside differences
+dh-fit time /tmp/dh/chain.txt 1024       # seconds of an iteration's parts
+```
 
 ## Key files
 

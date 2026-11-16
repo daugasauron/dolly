@@ -95,11 +95,23 @@ try {
           `${name}: ${command}\n${await page.evaluate(() => __dolly.visibleTerminalText())}\n${await page.evaluate(() => __dolly.gpu.error ?? "")}`);
         return page.evaluate(() => __dolly.visibleTerminalText());
       };
-      // Each gradient beside its central difference: the largest ones agree to a few percent.
-      const pairs = [...(await run("dh-fit check /tmp/dh/chain.txt 256")).matchAll(/^DH check \d+ (\S+) (\S+)$/gm)].map(match => [Number(match[1]), Number(match[2])]);
-      assert.equal(pairs.length, 14, "seven parameters of the hedger and seven of the generator");
-      for (const [gradient, difference] of pairs) {
-        assert.ok(Math.abs(gradient - difference) <= 0.05 * Math.abs(difference) + 0.003 * Math.max(...pairs.map(pair => Math.abs(pair[1]))), `gradient ${gradient}, difference ${difference}`);
+      // dh-fit check: the kernels' bids and asks beside the host's own ledger on the same
+      // paths, and each gradient beside its central difference, its section's largest
+      // gradients to a few percent.
+      const checked = await run("dh-fit check /tmp/dh/chain.txt 256");
+      const [hedger, generator] = checked.split("DH check generator").map(section =>
+        [...section.matchAll(/^DH check \d+ (\S+) (\S+)$/gm)].map(match => [Number(match[1]), Number(match[2])]));
+      assert.deepEqual([hedger.length, generator.length], [7, 7], checked);
+      for (const pairs of [hedger, generator]) {
+        const largest = Math.max(...pairs.map(pair => Math.abs(pair[1])));
+        for (const [gradient, difference] of pairs) {
+          assert.ok(Math.abs(gradient - difference) <= 0.05 * Math.abs(difference) + 0.01 * largest, `${name}: gradient ${gradient}, difference ${difference}`);
+        }
+      }
+      const ledger = [...checked.matchAll(/^DH check \d+ (\S+) (\S+) (\S+) (\S+)$/gm)].map(match => match.slice(1).map(Number));
+      assert.equal(ledger.length, 3, checked);
+      for (const [bid, ask, hostBid, hostAsk] of ledger) {
+        assert.ok(Math.abs(bid - hostBid) < 2e-5 && Math.abs(ask - hostAsk) < 2e-5, `${name}: the kernels' ${bid} and ${ask}, the host's ${hostBid} and ${hostAsk}`);
       }
       // A fit from equal kernel weights and a random hedger: the loss falls, the law's
       // forward and daily deviation become the fixture's, and the hedger hedges: what its

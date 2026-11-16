@@ -37,8 +37,8 @@ comptime B3 = W3 + HIDDEN
 comptime PARAMS = B3 + 1
 
 comptime MAX_DAYS = 64
-# Each path's books are shared among GROUPS threads; a thread keeps its books'
-# gradient in a row of its own, so GROUPS bounds that buffer.
+# Each path's books are shared among GROUPS threads; a thread sums its books'
+# gradient in words of its own, so GROUPS bounds that buffer.
 comptime GROUPS = 8
 comptime BLOCK = 64
 # A contract is strike, expiry day, +1 call or -1 put, bid, ask, band unit.
@@ -470,7 +470,7 @@ def law_gradient(
     """The loss's derivative by one kernel's weight in one interval. A return
     drawn at a fixed uniform number moves by minus the kernel's cumulative mass
     there over the law's density there; and the day's mean move is the weights'
-    sum of the kernels' own (after the nodes in their buffer)."""
+    sum of the kernels' own, which are after the nodes in their buffer, less one."""
     var id = global_idx.x
     var interval = id // KERNELS
     if interval >= intervals:
@@ -680,7 +680,9 @@ struct Model(Movable):
             var rising = ((peak - lo - 1) * exp(peak) + exp(lo)) / (peak - lo)
             var falling = (exp(hi) - (hi - peak + 1) * exp(peak)) / (hi - peak)
             self.kernel_growth[k] = 2 * (rising + falling) / (hi - lo)
-            nodes_and_growth[NODES + k] = Float32(self.kernel_growth[k])
+            # Less one for the kernel: a constant over the kernels changes no logit's
+            # gradient, and the differences are what a Float32 sum has to keep.
+            nodes_and_growth[NODES + k] = Float32(self.kernel_growth[k] - 1)
         self.nodes_buffer = self.ctx.enqueue_create_buffer[DType.float32](NODES + KERNELS)
         self.nodes_buffer.enqueue_copy_from(nodes_and_growth.unsafe_ptr())
         self.interval_of_day = List[Int](length=self.days, fill=0)
@@ -731,16 +733,21 @@ struct Model(Movable):
                 table[base + NODES + j] = Float32(mass)
         return table^
 
-    def forward(mut self, seed: UInt32) raises:
-        """Paths, every book rolled, every contract quoted."""
-        var table = self.law()
-        self.law_buffer.enqueue_copy_from(table.unsafe_ptr())
+    def growth(self) -> List[Float32]:
+        """Each day's mean move under the law: the weights' sum of the kernels' own."""
         var growth = List[Float32](length=self.days, fill=0)
         for t in range(self.days):
             var mean = Float64(0)
             for k in range(KERNELS):
                 mean += Float64(self.weights[self.interval_of_day[t] * KERNELS + k]) * self.kernel_growth[k]
             growth[t] = Float32(mean)
+        return growth^
+
+    def forward(mut self, seed: UInt32) raises:
+        """Paths, every book rolled, every contract quoted."""
+        var table = self.law()
+        self.law_buffer.enqueue_copy_from(table.unsafe_ptr())
+        var growth = self.growth()
         self.growth_buffer.enqueue_copy_from(growth.unsafe_ptr())
         self.phi_buffer.enqueue_copy_from(self.phi.unsafe_ptr())
         var threads = self.paths * GROUPS
@@ -834,8 +841,8 @@ struct Training(Movable):
     var generator: Adam
 
     def __init__(out self, intervals: Int):
-        self.hedger = Adam(PARAMS, 0.002)
-        self.generator = Adam(intervals * KERNELS, 0.03)
+        self.hedger = Adam(PARAMS, 0.005)
+        self.generator = Adam(intervals * KERNELS, 0.05)
 
     def step(mut self, mut model: Model, seed: UInt32) raises:
         model.forward(seed)
@@ -869,8 +876,45 @@ def generator_differences(mut model: Model, seed: UInt32) raises:
             print("DH check", n, gradient[n], (up - down) / Float64(2 * step))
 
 
-def check(mut model: Model, iterations: Int) raises:
-    """Each gradient beside a central difference of what it differentiates.
+def ledger(mut model: Model, chain: Chain, seed: UInt32, position: Float64) raises:
+    """Three contracts' bid and ask as the kernels made them, beside the same
+    from the kernels' paths by the ledger of THEORY.md, section 4, written out
+    here for a hedger that holds one constant position."""
+    model.forward(seed)
+    model.read()
+    var logx = model.logx_buffer.to_host()
+    var growth = model.growth()
+    var row = model.days + 1
+    for i in [0, chain.count() // 2, chain.count() - 1]:
+        var strike = Float64(chain.contracts[i * CONTRACT])
+        var expiry = Int(chain.contracts[i * CONTRACT + 1])
+        var call = Float64(chain.contracts[i * CONTRACT + 2])
+        var funding = List[Float64]()
+        for side in [Float64(1), Float64(-1)]:
+            var sum = Float64(0)
+            var squares = Float64(0)
+            for p in range(model.paths):
+                var cash = Float64(0)
+                for u in range(1, expiry):
+                    cash += position * (
+                        exp(Float64(logx[p * row + u + 1])) - Float64(growth[u]) * exp(Float64(logx[p * row + u]))
+                    )
+                if expiry > 1:
+                    # Bought once on day 1, sold once at the expiry.
+                    cash -= Float64(model.cost) * abs(position) * (
+                        exp(Float64(logx[p * row + 1])) + exp(Float64(logx[p * row + expiry]))
+                    )
+                var left = side * max(call * (exp(Float64(logx[p * row + expiry])) - strike), 0) - cash
+                sum += left
+                squares += left * left
+            var mean = sum / Float64(model.paths)
+            funding.append(mean + Float64(model.risk) * sqrt(max(squares / Float64(model.paths) - mean * mean, 0)))
+        print("DH check", i, model.contract(i, 0), model.contract(i, 1), -funding[1], funding[0])
+
+
+def check(mut model: Model, chain: Chain, iterations: Int) raises:
+    """The ledger beside its recomputation on the host, and each gradient
+    beside a central difference of what it differentiates.
     The generator's holds positions fixed: it is exact with a hedger whose
     position is one constant, and after `iterations` of fitting the two
     columns differ by what the hedger's response to the paths adds, which is
@@ -898,6 +942,8 @@ def check(mut model: Model, iterations: Int) raises:
     for n in range(W3, B3):
         model.phi[n] = 0
     model.phi[B3] = 0.3
+    print("DH check ledger, one constant position: contract, bid and ask of the kernels, of the host")
+    ledger(model, chain, seed, Float64(tanh(model.phi[B3])))
     print("DH check generator, one constant position: logit, gradient, difference")
     generator_differences(model, seed)
     model.phi = trained^
@@ -914,7 +960,8 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
     paths every iteration. A report is the mean of the iterations since the
     last one."""
     comptime REPORT = 20
-    comptime SHOWN_PATHS = 48
+    comptime RANDOM_PATHS = 28
+    comptime EXTREME_PATHS = 10
     var training = Training(model.intervals)
     var contracts = chain.count()
     var window = List[Float64](length=contracts * RESULT, fill=0)
@@ -990,10 +1037,23 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
                     first += weight * centre
                     second += weight * ((a * a + b * b + c * c - a * b - a * c - b * c) / 18 + centre * centre)
                 print("DH forward", interval, mean / Float64(model.paths), sqrt(second - first * first))
-            for p in range(min(SHOWN_PATHS, model.paths)):
-                line = String("DH path ") + String(p)
+            # The first paths, which are any paths, then the batch's ten lowest at the
+            # last day and its ten highest.
+            var shown = List[Int]()
+            for p in range(RANDOM_PATHS):
+                shown.append(p)
+            for extreme in range(2 * EXTREME_PATHS):
+                var best = -1
+                for p in range(model.paths):
+                    if p not in shown:
+                        var level = logx[p * (model.days + 1) + model.days]
+                        if best < 0 or (level < logx[best * (model.days + 1) + model.days]) == (extreme < EXTREME_PATHS):
+                            best = p
+                shown.append(best)
+            for index in range(len(shown)):
+                line = String("DH path ") + String(index)
                 for t in range(model.days + 1):
-                    line += " " + String(logx[p * (model.days + 1) + t])
+                    line += " " + String(logx[shown[index] * (model.days + 1) + t])
                 print(line)
             print("DH end", iteration, flush=True)
             window_loss = 0
@@ -1036,7 +1096,7 @@ def main() raises:
     var model = Model(chain, paths, seed)
     print("DH start contracts", chain.count(), "intervals", model.intervals, "days", model.days, "paths", paths, flush=True)
     if mode == "check":
-        check(model, Int(number(String(arguments[4]))) if len(arguments) > 4 else 0)
+        check(model, chain, Int(number(String(arguments[4]))) if len(arguments) > 4 else 0)
     elif mode == "time":
         time(model)
     else:
