@@ -4,6 +4,7 @@ REQUIRES HOST runtime@0
 REQUIRES HOST audio@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
+REQUIRES HOST touch@0
 REQUIRES HOST threads@0
 REQUIRES HOST sockets@0
 REQUIRES HOST gpu@0
@@ -28,6 +29,7 @@ USE /v0.1.6/Dollyfile-libdolly-clipboard 53492e99b75778f54a6230da7b8394654d28cbc
 USE /v0.1.6/demos/x11/Dollyfile-x11-window 9fdf88e17460e04dd9e288372782d5768b73bf4160f5bd8350dc483fc19a9b2a
 USE /v0.1.6/Dollyfile-libdolly-display c4f8ea64af9ad51300b9b48369558e17493bccb9be1b7db853cda0e1d7d66a48
 USE /v0.1.6/Dollyfile-libdolly-input 45202588e489298ba6fe352129e992fca0c7a45e13bf45cde85976c931a981e4
+USE /v0.1.6/Dollyfile-libdolly-touch 3c23d1f22584166c434123c76bbc1be95ffe3738cbef0382e672e768a934f8d7
 
 REQUIRES TOOL cp
 REQUIRES TOOL grep

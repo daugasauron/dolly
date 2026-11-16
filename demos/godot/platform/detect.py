@@ -61,9 +61,10 @@ def configure(env: "SConsEnvironment"):
         env.Append(LINKFLAGS=["-pthread"])
     env.Prepend(CPPPATH=["#platform/dolly"])
     env.Append(CPPDEFINES=["DOLLY_ENABLED", "UNIX_ENABLED", ("_FILE_OFFSET_BITS", 64)])
-    # A window on the X server DISPLAY names (demos/x11's x11-window, over Xlib), and local
-    # stream sockets (sockets@0), by path: X's connection, the editor's debugger and the game it runs.
-    env.Append(LIBS=["x11-window", "X11", "xcb", "Xau", "dolly-sockets"])
+    # A window on the X server DISPLAY names (demos/x11's x11-window, over Xlib), local stream
+    # sockets (sockets@0), by path: X's connection, the editor's debugger and the game it runs;
+    # and the fingers on a touchscreen (touch@0).
+    env.Append(LIBS=["x11-window", "X11", "xcb", "Xau", "dolly-sockets", "dolly-touch"])
     if env["webgpu"]:
         # The driver on gpu@0 and its shader container, which translates with spirv-wgsl.
         env.Append(CPPDEFINES=["RD_ENABLED", "WEBGPU_ENABLED"])

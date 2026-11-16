@@ -18,6 +18,7 @@ const Terrain := preload("res://terrain.gd")
 const Landmarks := preload("res://landmarks.gd")
 const Parts := preload("res://parts.gd")
 const Pelican := preload("res://pelican.gd")
+const Touch := preload("res://touch.gd")
 ## The grids of land around the flyer, each around the one before: cells across, a cell's width.
 ## The first three are the flyover's; the others carry the land on to the horizon and round the
 ## planet (the last covers all of it from any place).
@@ -142,6 +143,7 @@ var fires: Array[ShaderMaterial] = [] # the flames' light and its heart
 var searchlight := SpotLight3D.new()
 var lamp := OmniLight3D.new()
 var hud := CanvasLayer.new()
+var touch := Touch.new() # the controls on a touchscreen
 var title := Label.new()
 var hint := Label.new()
 var score := Label.new()
@@ -209,6 +211,7 @@ var aim: Vector3 = SHOTS[0][1]
 var view_led: Vector3 = view # what the view follows on its way to the next: it sets off gently
 var aim_led: Vector3 = aim
 var fov_led := 66.0
+var fov_seen := 66.0 # the angle of view on its way there
 var autopilot_seconds := 0.0
 var elapsed := 0.0
 var frames := 0
@@ -403,7 +406,7 @@ func _ready() -> void:
 	set_level(int(option("--level", 0.0)))
 	if autopilot_seconds <= 0.0:
 		# The page gives the pointer at a click, and takes it back at Escape.
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.emulate_touch_from_mouse else Input.MOUSE_MODE_CAPTURED
 	else:
 		print("FLYOVER adapter ", RenderingServer.get_video_adapter_name(), " ", RenderingServer.get_current_rendering_method())
 
@@ -1078,6 +1081,10 @@ func build_hud() -> void:
 	streaks.material = speed_lines
 	hud.add_child(streaks)
 	hud.move_child(streaks, 0)
+	touch.game = self
+	hud.add_child(touch)
+	# With --touch the mouse is a finger, for trying the touch controls at a desk.
+	Input.emulate_touch_from_mouse = option("--touch", 0.0) > 0.0
 	show_helm()
 
 
@@ -1086,7 +1093,11 @@ func show_helm() -> void:
 	hint.visible = autopilot_seconds <= 0.0
 	hint_until = elapsed + 7.0
 	helm_shown = helm
-	hint.text = "The corgi flies itself. Enter or a click takes the board.    Wheel or Z, X: zoom    Q: quit" if not helm \
+	if touch.active:
+		hint.text = "The corgi flies itself. A touch takes the board." if not helm \
+			else "Left thumb: steer, up to climb, down to dive    Keep climbing to leave the planet    Drag: look    Two fingers: zoom"
+		return
+	hint.text = "The corgi flies itself. Enter, a click or a touch takes the board.    Wheel or Z, X: zoom    Q: quit" if not helm \
 		else "Arrows or WASD: steer, climb, dive    Keep climbing to leave the planet    %s    Wheel or Z, X: zoom    T: hours    Esc: let go    Q: quit" % ("Mouse: look" if captured else "Click: mouse look")
 
 
@@ -1099,6 +1110,12 @@ func _input(event: InputEvent) -> void:
 		var motion := (event as InputEventMouseMotion).relative
 		look.x += motion.x * 0.0035
 		look.y = clampf(look.y + motion.y * 0.0035, -0.5, 1.0)
+	if event is InputEventScreenTouch:
+		touch.touched(event)
+		if helm != helm_shown:
+			show_helm()
+	elif event is InputEventScreenDrag:
+		touch.dragged(event)
 	if event is InputEventMouseButton and event.pressed:
 		match (event as InputEventMouseButton).button_index:
 			MOUSE_BUTTON_WHEEL_UP:
@@ -1114,6 +1131,7 @@ func _input(event: InputEvent) -> void:
 			helm = false
 		KEY_Q:
 			print("FLYOVER flown %d beacons %d view %d %d" % [int(flown), scored + lit.size(), int(rad_to_deg(looked.x)), int(rad_to_deg(looked.y))])
+			print("FLYOVER helm %d high %d heading %d zoom %.2f touches %d" % [int(helm), int(flyer.position.y + lowered), int(rad_to_deg(heading)), zoom, touch.touches])
 			leave()
 	if helm != helm_shown:
 		show_helm()
@@ -1235,8 +1253,9 @@ func fly(delta: float) -> void:
 	wanted_speed += BOOST * smoothstep(0.0, 0.7, since) * (1.0 - smoothstep(2.5, 6.5, since))
 	wanted_speed += fly_flock(delta, forward)
 	if helm:
-		wanted_turn = Input.get_axis("ui_left", "ui_right") + key_axis(KEY_A, KEY_D)
-		wanted_climb = (Input.get_axis("ui_down", "ui_up") + key_axis(KEY_S, KEY_W)) * 14.0
+		var thumb: Vector2 = touch.push()
+		wanted_turn = Input.get_axis("ui_left", "ui_right") + key_axis(KEY_A, KEY_D) + thumb.x
+		wanted_climb = clampf(Input.get_axis("ui_down", "ui_up") + key_axis(KEY_S, KEY_W) + thumb.y, -1.0, 1.0) * 14.0
 		# The ground pushes the board up, and its ceiling holds it down.
 		wanted_climb = maxf(wanted_climb, (ground + (8.0 if over_sea else 14.0) - alt) * 2.0)
 		# No ceiling but space's: the board climbs out of the air, and the planet falls away.
@@ -1770,7 +1789,12 @@ func follow(delta: float) -> void:
 	fov_led = lerpf(fov_led, shot[2], glide)
 	view = view.lerp(view_led, glide)
 	aim = aim.lerp(aim_led, glide)
-	camera.fov = lerpf(camera.fov, fov_led, glide)
+	# A screen held upright takes its angle of view across: the flyer and the land beside it
+	# stay in it, and it sees further up and down.
+	var upright := get_viewport().get_visible_rect().size.aspect() < 1.0
+	camera.keep_aspect = Camera3D.KEEP_WIDTH if upright else Camera3D.KEEP_HEIGHT
+	fov_seen = lerpf(fov_seen, fov_led, glide)
+	camera.fov = fov_seen * (0.82 if upright else 1.0)
 	# The mouse turns the view around the flyer while the player has the board; let go, the view
 	# comes back the short way round.
 	if not helm:

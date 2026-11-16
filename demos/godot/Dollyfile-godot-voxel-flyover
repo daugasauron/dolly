@@ -3,6 +3,7 @@ APPLICATION godot-voxel-flyover
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
+REQUIRES HOST touch@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST audio@0
 REQUIRES HOST gpu@0
@@ -14,7 +15,7 @@ REQUIRES HOST clipboard@0
 INSTALL /v0.1.6/Dollyfile-core 1af35bd391b18ddb626a8a5248c4c940564cc4c23af9c2d44e313bf847b66bba
 INSTALL /v0.1.6/Dollyfile-posix 37d85018d9ab218475d878070e6d5df646238f3e450e534e5c31b6c9e3198191
 INSTALL /v0.1.6/Dollyfile-display 9516e36ef9c8566c9f0590546e1474db96ca02ddc75028e562e92af71fdbdeef
-INSTALL /v0.1.6/demos/godot/Dollyfile-voxel-flyover 1515f58212ad8138d79596740fae2ea3f33de58a923a6f6c800d8bbe82904dc6
+INSTALL /v0.1.6/demos/godot/Dollyfile-voxel-flyover 3afdc2e8135c1a87f6d8006d8f84204db2f630730f4349e1b6d422f926fbeb8f
 REQUIRES TOOL voxel-flyover
 
 FILE /etc/dolly/init.slop
