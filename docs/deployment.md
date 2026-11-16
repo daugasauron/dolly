@@ -38,13 +38,16 @@ flowchart LR
 - A published version never changes. A fix is a new version, and `/` then
   leads to it. Removing a version is the owner's explicit act: delete its
   directory from the archive and deploy; its paths return 404.
-- One addition is allowed: a version may first be deployed without its
-  `/agents/` showcase, which a later deployment of the same version adds,
-  so that its recordings can show the published site. That deployment
-  adds the showcase's files, which were never served at those paths (its
-  page is a page, never cached), and changes no other file of the version
-  but the release's own lists (`deployment.sha256`, `release/`), which only
-  the release scripts read.
+- One addition is allowed: a version is first deployed without its
+  `/agents/` showcase or the menu's link to it, which a later deployment of
+  the same version adds, so that its recordings can show the published site.
+  That deployment adds the showcase's files, which were never served at those
+  paths, and the link on the version's page (`index.html`, a page, never
+  cached), and changes no other file of the version but the release's own
+  lists (`deployment.sha256`, `release/`), which only the release scripts
+  read; the exporter refuses any other change. The tag `vX.Y.Z` names the
+  commit of the first deployment, the version's `release/source.commit` the
+  showcase's.
 - Saved sessions belong to a version; the image cache and the pack store are
   shared, and a version's page removes the packs no image of its runtime
   names ([sessions](sessions.md)).
@@ -66,17 +69,17 @@ Use one catalog for source preparation, snapshots and packaging:
 ```sh
 export DOLLY_BUILD_IMAGES="$(paste -sd, config/domain-pages-images.txt)"
 npm run image
-bash scripts/package-pages.sh build/domain-releases slopshare.dev
+bash scripts/package-pages.sh build/domain-releases
 npm run serve build/domain-releases     # the candidate as it will be deployed
 ```
 
 - The catalog: [`domain-pages-images.txt`](../config/domain-pages-images.txt);
   dependencies are included automatically.
 - The second packaging argument, `slopshare.dev`, adds the `/agents/` showcase
-  ([`package-domain.mjs`](../scripts/package-domain.mjs)). Its videos and posters
-  are in git, `sites/slopshare.dev/agents/`: a new recording goes there with its
-  section before packaging, each file within Pages' 25 MiB
-  (`test/site-release.test.mjs`).
+  and the menu's link to it ([`package-domain.mjs`](../scripts/package-domain.mjs)),
+  for the version's later deployment. Its videos and posters are in git,
+  `sites/slopshare.dev/agents/`: a new recording goes there with its section,
+  each file within Pages' 25 MiB (`test/site-release.test.mjs`).
 - [`package-pages.sh`](../scripts/package-pages.sh) `RELEASES SITE` seals a
   release into `RELEASES/ID` and points `RELEASES/current` at it (default
   `build/releases`); [`site-release.mjs`](../scripts/site-release.mjs)
@@ -88,8 +91,9 @@ npm run serve build/domain-releases     # the candidate as it will be deployed
 - [`export-cloudflare-pages.mjs`](../scripts/export-cloudflare-pages.mjs)
   `ARCHIVE OUT RELEASE` assembles the deployment: every version in the
   archive, the new one exported from its sealed release, and the root files.
-  Without `RELEASE` it assembles the archive alone, which is how a removed
-  version leaves the site.
+  A release of a version the archive holds takes its place when it only adds
+  the showcase. Without `RELEASE` it assembles the archive alone, which is how
+  a removed version leaves the site.
 - Exporters verify the sealed input, refuse an existing destination, publish
   atomically and upload nothing. A version's directory carries its seal:
   `sha256sum --check release/files.sha256` checks the release, and
@@ -130,34 +134,51 @@ npm run serve build/domain-releases     # the candidate as it will be deployed
 ## Release
 
 [`release-checklist.sh`](../scripts/release-checklist.sh)
-`RELEASES [ARCHIVE]` checks steps 1 to 3 and assembles the
-deployment of step 6, then prints the commands of the others. It never tags,
-pushes, uploads or deploys.
+`RELEASES [ARCHIVE]` checks steps 1 to 3, assembles the deployment of step 6
+and boots it, then prints the commands of the others, which work as printed.
+It never tags, pushes, publishes, uploads or deploys.
 
-1. A green round on the commit (source, artifacts, browser suites in both
-   browsers, demos, GPU tests); the tree clean.
+1. A green round on the commit: [`round.sh`](../scripts/round.sh) (the seeds,
+   every image until its pins hold, the seed's compiler a fixed point, lint,
+   the source, artifacts and browser suites in both browsers, every demo, and
+   the GPU tests on a display with a hardware adapter), whose verdict is its
+   stages' exit statuses (`round.sh verdict`); the tree clean; every version
+   the site serves (its `robots.txt`) in the archive, or retired beside it.
 2. No credential in the commits to push or in `dist/dolly-*-system.snapshot`;
    an image may ship an upstream's public test key, listed by its PEM block's
    SHA-256 in `config/public-test-keys.txt`.
-3. The site packaged from that commit and accepted; the npm packages
-   ([embedding](embedding.md)) packed from it boot from an empty app
-   (`test/npm-browser.mjs`).
+3. The site packaged from that commit, without its showcase, and accepted;
+   the npm packages ([embedding](embedding.md)) packed from it, the tarballs
+   to publish, boot from an empty app (`DOLLY_NPM_PACKS`, `test/npm-browser.mjs`;
+   its log beside them).
 4. Tag `vX.Y.Z` on the commit; push `main` and the tag.
 5. GitHub release `vX.Y.Z` with notes and the seed's compiler, pinned to that
-   asset ([sources](sources.md#the-seeds-compiler)); `npm publish` each package
-   of step 3 under `@daugasauron`.
+   asset ([sources](sources.md#the-seeds-compiler));
+   [`publish-npm.sh`](../scripts/publish-npm.sh) publishes each package of
+   step 3 under `@daugasauron` in dependency order, signing in and approving
+   in a browser, and checks that the registry holds the tested bytes.
 6. Assemble the deployment from the archive and the new release; boot every
    version from it, served by [`pages-host.mjs`](../test/pages-host.mjs), in
-   Chromium and Firefox (`published-version.mjs boot`); upload it with
-   `wrangler pages deploy` as a detached job. An interrupted upload keeps
-   nothing: never restart it.
+   Chromium and Firefox (`published-version.mjs boot DEPLOYMENT vX.Y.Z…`);
+   upload it with `wrangler pages deploy`, the account and its token in
+   `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`, where nothing
+   interrupts it. An interrupted upload keeps nothing: never restart it.
 7. Live at both domains, in Chromium and Firefox: `published-version.mjs boot SITE vX.Y.Z…`
    (`/` leads to the newest version, an unversioned path is 404, every
    version boots `default` from its own files) and
    `published-version.mjs verify SITE OUT vX.Y.Z` (every file of the new
    version, and every older version's list).
 8. Move the new version's directory from `OUT` into the archive; move
-   `package.json` and `page/version.mjs` to the next version.
+   `DOLLY_VERSION` in `page/version.mjs` to the next version.
+
+The showcase follows, its recordings made on the published version and
+committed to `sites/slopshare.dev/agents/`: `package-pages.sh RELEASES
+slopshare.dev`, then `release-checklist.sh --showcase RELEASES [ARCHIVE]`,
+which checks that the commits since the tag change the showcase alone and
+assembles the deployment in which the version adds it; its printed steps 6 to
+8 deploy it, check its new files live (`verify SITE OUT vX.Y.Z ARCHIVE`: the
+files of the earlier deployment are not fetched again), put it in the archive
+in place of the first and push `main`.
 
 ## Delivery contract
 

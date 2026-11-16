@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { brotliCompressSync, brotliDecompressSync } from "node:zlib";
 import test from "node:test";
-import { exportCloudflarePages, pagesAsset, pagesHeaders, versionHeaders } from "../scripts/export-cloudflare-pages.mjs";
+import { exportCloudflarePages, pagesAsset, pagesHeaders, refuseChange, versionHeaders } from "../scripts/export-cloudflare-pages.mjs";
 import { mirrorVersion, verifyDeployment } from "../scripts/published-version.mjs";
 import { fileManifest } from "../scripts/site-release.mjs";
 import { decodeStaticAsset } from "../page/static-asset.mjs";
@@ -48,6 +48,18 @@ async function publish(archive, name, files, headers = "") {
   }
   await writeFile(resolve(archive, name, "deployment.sha256"), await fileManifest(resolve(archive, name), Object.keys(all)));
 }
+
+test("a published version's later deployment adds its showcase and the link to it, and changes nothing else", () => {
+  const list = files => Object.entries(files).map(([path, digit]) => `${digit.repeat(64)}  ${path}\n`).sort().join("");
+  const core = { "index.html": "1", "default/index.html": "2", "deployment.headers": "3", "release/files.sha256": "4" };
+  const showcase = { ...core, "index.html": "5", "release/files.sha256": "6", "agents/index.html": "7", "agents/videos/a.mp4": "8" };
+  refuseChange("v0.1.0", list(core), list(showcase));
+  assert.throws(() => refuseChange("v0.1.0", list(core), list({ ...showcase, "default/index.html": "9" })), /changed default\/index\.html/);
+  assert.throws(() => refuseChange("v0.1.0", list(core), list({ ...showcase, "deployment.headers": "9" })), /changed deployment\.headers/);
+  assert.throws(() => refuseChange("v0.1.0", list(core), list({ ...showcase, "page/extra.mjs": "9" })), /added page\/extra\.mjs/);
+  assert.throws(() => refuseChange("v0.1.0", list(core), list(core)), /adds none/);
+  assert.throws(() => refuseChange("v0.1.0", list(showcase), list({ ...showcase, "agents/b.mp4": "9" })), /one already/);
+});
 
 test("a version's header rules name only its own compressed files", () => {
   assert.equal(versionHeaders(["dist/dolly.data", "dist/static/default/zig.wasm"]).split("\n\n").length, 2);
@@ -195,12 +207,12 @@ test("Pages export refuses what it cannot publish whole and leaves nothing behin
   await assert.rejects(exportCloudflarePages(archive, root), /destination already exists/);
   await assert.rejects(exportCloudflarePages(archive, resolve(archive, "output")), /cannot modify its sources/);
   await assert.rejects(exportCloudflarePages(resolve(root, "missing"), resolve(root, "output")), /ENOENT/);
-  // A version already published is never exported again.
+  // A release is exported from its seal, a published version's later one too.
   await mkdir(resolve(root, "release/page"), { recursive: true });
-  await writeFile(resolve(root, "release/page/version.mjs"), 'export const DOLLY_VERSION = "0.1.0";\n');
-  await assert.rejects(exportCloudflarePages(archive, resolve(root, "output"), resolve(root, "release")), /v0\.1\.0 is already published/);
-  await writeFile(resolve(root, "release/page/version.mjs"), 'export const DOLLY_VERSION = "0.2.0";\n');
-  await assert.rejects(exportCloudflarePages(archive, resolve(root, "output"), resolve(root, "release")), /ENOENT/);
+  for (const version of ["0.1.0", "0.2.0"]) {
+    await writeFile(resolve(root, "release/page/version.mjs"), `export const DOLLY_VERSION = "${version}";\n`);
+    await assert.rejects(exportCloudflarePages(archive, resolve(root, "output"), resolve(root, "release")), /ENOENT/);
+  }
   await writeFile(resolve(archive, "notes.txt"), "not a version");
   await assert.rejects(exportCloudflarePages(archive, resolve(root, "output")), /not a version: notes\.txt/);
   await rm(resolve(archive, "notes.txt"));

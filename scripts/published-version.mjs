@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 // A published version on a site, held to its deployment.sha256:
 //   mirror SITE vX.Y.Z ARCHIVE     copy SITE/vX.Y.Z/ into ARCHIVE, checking every file
-//   verify SITE DEPLOYMENT vX.Y.Z  after DEPLOYMENT is deployed: every file of that version, and
-//                                  every other version's list against the one the site serves
-//   boot SITE vX.Y.Z... [chromium|firefox ...]
+//   verify SITE DEPLOYMENT vX.Y.Z [ARCHIVE]
+//                                  after DEPLOYMENT is deployed: every file of that version (but
+//                                  those of its deployment in ARCHIVE), and every other version's
+//                                  list against the one the site serves
+//   boot SITE|DEPLOYMENT vX.Y.Z... [chromium|firefox ...]
 //                                  in real browsers: SITE/ leads to the newest of the versions, an
 //                                  unversioned path is 404, and each version boots default from
 //                                  its own files and serves its recipes at the paths they are
 //                                  referenced by; at a host's root, robots.txt names the newest
-//                                  version's paths and keeps crawlers out of each version's bulk
+//                                  version's paths and keeps crawlers out of each version's bulk;
+//                                  a DEPLOYMENT directory is served as Pages serves it (pages-host.mjs)
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { get as getHttp } from "node:http";
@@ -93,13 +96,16 @@ export async function mirrorVersion(site, name, archive) {
   }
 }
 
-export async function verifyDeployment(site, deployment, name) {
+// With ARCHIVE holding NAME as an earlier deployment served it, the files that deployment
+// verified are not fetched again: a showcase's deployment fetches its showcase.
+export async function verifyDeployment(site, deployment, name, archive) {
   const names = (await readdir(deployment)).filter(entry => versionName.test(entry)).sort(compareVersions);
   if (!names.includes(name)) throw new Error(`${deployment} holds no ${name}`);
+  const verified = new Set(archive ? (await readFile(resolve(archive, name, "deployment.sha256"), "utf8")).split("\n") : []);
   for (const version of names) {
     const base = versionURL(site, version), list = await readFile(resolve(deployment, version, "deployment.sha256"));
     if (!list.equals(await stored(new URL("deployment.sha256", base)))) throw new Error(`${base} serves another deployment.sha256`);
-    if (version === name) await checkFiles(base, list.toString());
+    if (version === name) await checkFiles(base, list.toString().split("\n").filter(row => !verified.has(row)).join("\n"));
   }
   return names;
 }
@@ -210,14 +216,19 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const [name, archive] = rest;
     await mirrorVersion(site, name, archive);
     console.log(`dolly: mirrored ${name} into ${resolve(archive)}; every file matches its deployment.sha256`);
-  } else if (command === "verify" && rest.length === 2) {
-    const [deployment, name] = rest;
-    console.log(`dolly: ${site} serves every file of ${name} and the lists of ${(await verifyDeployment(site, deployment, name)).join(", ")}`);
+  } else if (command === "verify" && [2, 3].includes(rest.length)) {
+    const [deployment, name, archive] = rest;
+    console.log(`dolly: ${site} serves every file of ${name} and the lists of ${(await verifyDeployment(site, deployment, name, archive)).join(", ")}`);
   } else if (command === "boot" && rest.some(name => versionName.test(name)) &&
       rest.every(name => versionName.test(name) || ["chromium", "firefox"].includes(name))) {
     const browsers = rest.filter(name => !versionName.test(name));
-    await bootVersions(site, rest.filter(name => versionName.test(name)), browsers.length ? browsers : ["chromium", "firefox"]);
+    const host = /^https?:/.test(site) ? undefined : await (await import("../test/pages-host.mjs")).startPagesHost(site);
+    try {
+      await bootVersions(host?.origin ?? site, rest.filter(name => versionName.test(name)), browsers.length ? browsers : ["chromium", "firefox"]);
+    } finally {
+      await host?.close();
+    }
   } else {
-    throw new Error("usage: published-version.mjs mirror SITE VERSION ARCHIVE | verify SITE DEPLOYMENT VERSION | boot SITE VERSION... [chromium|firefox ...]");
+    throw new Error("usage: published-version.mjs mirror SITE VERSION ARCHIVE | verify SITE DEPLOYMENT VERSION [ARCHIVE] | boot SITE|DEPLOYMENT VERSION... [chromium|firefox ...]");
   }
 }

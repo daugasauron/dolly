@@ -26,6 +26,23 @@ export async function refuseExisting(output) {
   }
   throw new Error(`export destination already exists: ${output}`);
 }
+// A published version never changes but by its one allowed addition (docs/deployment.md): a
+// later deployment adds its showcase, agents/, which it had none of, and the link to it on its
+// page, index.html. PUBLISHED and EXPORTED are its deployment.sha256 before and after.
+export function refuseChange(name, published, exported) {
+  const rows = list => new Map(list.trimEnd().split("\n").map(row => [row.slice(66), row.slice(0, 64)]));
+  const before = rows(published), after = rows(exported);
+  const own = path => path === "index.html" || path.startsWith("release/");
+  const changed = [...before].filter(([path, sha256]) => !own(path) && after.get(path) !== sha256).map(([path]) => path);
+  const added = [...after.keys()].filter(path => !before.has(path) && !own(path));
+  if ([...before.keys()].some(path => path.startsWith("agents/")) || !added.length || changed.length ||
+      added.some(path => !path.startsWith("agents/"))) {
+    throw new Error(`${name} is already published, and a published version only adds its showcase, agents/: ` +
+      `${[...changed.map(path => `changed ${path}`), ...added.filter(path => !path.startsWith("agents/")).map(path => `added ${path}`)]
+        .slice(0, 10).join(", ") || "it has one already, or this adds none"}`);
+  }
+}
+
 // Pages' documented limits: 25 MiB a file, 20,000 files a deployment, and
 // 100 rules of 2,000-character lines in _headers.
 const fileLimit = 25 * 1024 * 1024;
@@ -161,8 +178,10 @@ export async function exportCloudflarePages(archive, output, site) {
     }
     if (site) {
       const name = releaseVersion(await readFile(resolve(site, "page/version.mjs"), "utf8"));
-      if (versions.has(name)) throw new Error(`${name} is already published, and a published version never changes`);
+      const published = versions.has(name) && await readFile(resolve(archive, name, "deployment.sha256"), "utf8");
+      await rm(resolve(destination, name), { recursive: true, force: true });
       versions.set(name, await exportVersion(site, resolve(destination, name)));
+      if (published) refuseChange(name, published, await readFile(resolve(destination, name, "deployment.sha256"), "utf8"));
     }
     const names = [...versions.keys()].sort(compareVersions), newest = names.at(-1);
     if (!newest) throw new Error("no version to deploy");

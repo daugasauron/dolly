@@ -38,6 +38,8 @@
 //   result and the package; built again with HTTP_PROXY set, the build reaches the
 //   index through that proxy.
 // Usage: node test/npm-browser.mjs [chromium|firefox ...]
+// With DOLLY_NPM_PACKS naming a directory of this version's tarballs (the release checklist's,
+// which it publishes), it tests those in place of packing the checkout's.
 import assert from "node:assert/strict";
 import { execFile, execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -45,7 +47,7 @@ import { createSocket } from "node:dgram";
 import { createServer } from "node:http";
 import { connect, createServer as createTcpServer } from "node:net";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -59,7 +61,11 @@ const checkoutVersion = JSON.parse(await readFile(resolve(projectDir, "package.j
 const packs = join(work, "packs");
 if (!process.env.DOLLY_NPM_OFFLINE) {
   try {
-    execFileSync("node", [resolve(projectDir, "scripts/package-npm.mjs"), packs], { stdio: "ignore" });
+    const tested = process.env.DOLLY_NPM_PACKS;
+    if (tested) {
+      await mkdir(packs);
+      for (const name of (await readdir(tested)).filter(name => name.endsWith(".tgz"))) await copyFile(resolve(tested, name), join(packs, name));
+    } else execFileSync("node", [resolve(projectDir, "scripts/package-npm.mjs"), packs], { stdio: "ignore" });
     // An older version of every package, for the update.
     execFileSync("node", [resolve(projectDir, "scripts/package-npm.mjs"), packs, `${checkoutVersion}-rc.0`], { stdio: "ignore" });
     // dolly-build starts its browser with playwright-core, which the registry holds too.
