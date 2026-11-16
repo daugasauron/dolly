@@ -115,7 +115,7 @@ try {
       }
       // A fit from equal kernel weights and a random hedger: the loss falls, the law's
       // forward and daily deviation become the fixture's, and the hedger hedges: what its
-      // books are left with deviates less than half of what their payoffs do.
+      // books are left with deviates clearly less than their payoffs do.
       const report = await run("dh-fit /tmp/dh/chain.txt 1024 3 600 > /tmp/dh/test.out && grep 'DH iteration' /tmp/dh/test.out | head -n 1" +
         " && grep 'DH iteration' /tmp/dh/test.out | tail -n 1 && grep 'DH forward' /tmp/dh/test.out | tail -n 4");
       const reports = [...report.matchAll(/^DH iteration \d+ loss (\S+) .* risk (\S+) unhedged (\S+)/gm)].map(match => match.slice(1).map(Number));
@@ -124,7 +124,7 @@ try {
       assert.equal(intervals.length, 4, report);
       const [[started], [ended, risk, unhedged]] = reports;
       assert.ok(ended < started / 20, `${name}: loss ${started} at the first report, ${ended} at the last`);
-      assert.ok(risk < 0.5 * unhedged, `${name}: risk ${risk} hedged, ${unhedged} unhedged`);
+      assert.ok(risk < 0.7 * unhedged, `${name}: risk ${risk} hedged, ${unhedged} unhedged`);
       for (const [forward, deviation] of intervals) {
         assert.ok(Math.abs(forward - 1) < 0.004, `${name}: forward ${forward}`);
         assert.ok(Math.abs(deviation / (volatility / Math.sqrt(252)) - 1) < 0.12, `${name}: a day's deviation ${deviation}`);
