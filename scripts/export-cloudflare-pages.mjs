@@ -119,19 +119,22 @@ export function pagesHeaders(versions) {
 }
 
 // A sealed release as Pages stores it: every file at its own path, those over
-// 25 MiB compressed or in parts, the headers those need, and the list of all.
+// 25 MiB compressed or in parts, the headers those need, and the list of all. A
+// file stored whole is a hard link to the release's own, which nothing writes in
+// place, so the export takes no space of its own (a copy of 0.1.7 filled the disk).
 async function exportVersion(site, directory) {
   const written = [], compressed = [];
-  async function write(path, bytes) {
+  async function write(path, bytes, sealed) {
     await mkdir(dirname(resolve(directory, path)), { recursive: true });
-    await writeFile(resolve(directory, path), bytes, { flag: "wx" });
+    if (sealed) await link(await realpath(resolve(site, path)), resolve(directory, path));
+    else await writeFile(resolve(directory, path), bytes, { flag: "wx" });
     written.push(path);
   }
   for await (const [path, bytes] of releaseFiles(site)) {
     const asset = await pagesAsset(bytes, path);
     if (asset.compressed) compressed.push(path);
-    for (const [index, part] of asset.parts?.entries() ?? []) await write(`${path}.part-${index}`, part);
-    await write(path, asset.bytes);
+    for (const [index, part] of asset.parts?.entries() ?? []) await write(`${path}.part-${index}`, part, false);
+    await write(path, asset.bytes, asset.bytes === bytes);
   }
   await write("deployment.headers", versionHeaders(compressed));
   await writeFile(resolve(directory, "deployment.sha256"), await fileManifest(directory, written), { flag: "wx" });
