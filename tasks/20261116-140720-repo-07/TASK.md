@@ -31,7 +31,6 @@ deployment and boots it from its directory (`published-version.mjs boot DEPLOYME
 What only 0.1.8's release confirms: it is released with these printed commands and no `work/`
 script beyond the machine's own lines (credentials, the unit).
 
-
 ## Found
 
 `scripts/release-checklist.sh` ends by printing the commands of steps 4 to 8 "for the owner to

@@ -13,7 +13,6 @@ From the build-time audit of 2026-11-16 (`work/audit-1116`, released tree `work/
 
 Closed: see the closing section.
 
-
 ## Found
 
 `acceptImage` (`scripts/accept-release.mjs`) checks an image in two ways: an in-page build of an

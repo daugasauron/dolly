@@ -38,7 +38,6 @@ v0.1.6's link to `./agents/` stays, by the owner's decision on its removal ("Doe
 release confirms: its two deployments made by these commands alone, and its menu's link
 answering 200 from the second on.
 
-
 ## Found
 
 `docs/deployment.md` allows one addition to a published version: it "may first be deployed without

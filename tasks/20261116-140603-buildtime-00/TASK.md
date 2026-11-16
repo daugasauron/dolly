@@ -13,7 +13,6 @@ is image rebuilds." Evidence and the scripts that produced it:
 
 Closed: see the closing section.
 
-
 ## Where the time went
 
 0.1.7, from the round's start to the release's last check (`work/round1113/build/round-1117.log`,

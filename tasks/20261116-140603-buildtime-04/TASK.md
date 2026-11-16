@@ -24,7 +24,6 @@ From the build-time audit of 2026-11-16 (`work/audit-1116`, released tree `work/
 What only the round and the release confirm: their logs run `npm-browser.mjs` twice in all (the
 browser suite's and the checklist's) and Xonotic's whole test once, in the GPU stage.
 
-
 ## Found
 
 `test/npm-browser.mjs` (both browsers unless named, line 56) packs the npm packages from the
