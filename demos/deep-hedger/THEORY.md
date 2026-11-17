@@ -44,7 +44,7 @@ asset pricing, with frictions (cher-sim, 04-09; braut, 07-22).
 | 1 | Only today's option bids and asks are inputs. No historical returns. | "I have been actively against using historical stock returns as input to the model. I am trying to create a model that only take todays option prices as input since they are forward looking by definition." (mano, 09-07) |
 | 2 | Bids and asks, never mids, in data, model and plots. | "one of the core ideas here is that there are NO MIDS. Theres only bids and asks." (braut, 08-05) |
 | 3 | The generator is nonparametric: a combination of fixed return kernels that yields the daily log return. The number of kernels, about 50, is the one structural choice. | "The only thing I'd like to choose is how many of the kernels are used" (boom, 07-22); "N=2688 is WAY too big [...] I was imagining like ~50" (braut, 08-06) |
-| 4 | No SDE, no hidden volatility state, no implied volatility, vega or Black-Scholes in the model. IV only in plots, with the forward the quotes imply. | "The generator should be an arbitrary kernel based thing that just produces the" log return of S. "NO HIDDEN VOL DYNAMICS." (braut, 07-25); "I want to use the forward price thats implied by the market quotes for the IV conversions" (braut, 08-12) |
+| 4 | No SDE, no Black-Scholes volatility, implied volatility or vega in the model; a state of the path's own volatility is allowed (2026-11-17: "what I meant with no hidden vol dynamics is that I don't want the \"BS vol\" that makes so many model assumptions, I want more of a non-parametric representation of the vol state"). IV only in plots, with the forward the quotes imply. | "The generator should be an arbitrary kernel based thing that just produces the" log return of S. "NO HIDDEN VOL DYNAMICS." (braut, 07-25); "I want to use the forward price thats implied by the market quotes for the IV conversions" (braut, 08-12) |
 | 5 | No P and Q. | "there is no concept of P and Q in this approach [...] classical things for frictionless markets" (boom, 07-22) |
 | 6 | No ad hoc structure: no jump channels, no targeted statistics. | "these kind of jumps should be something that emerges from the fundamental model and not something that is hard coded" (cher-sim, 06-02) |
 | 7 | One hedger network for all contracts, generic across days; it never sees market quotes. It replicates; a profit-seeking copy is a later tool with its own weights. | "I want the generator to represent the market view of the distribution of the underlying, and the hedger to be sort of a generic hedger - not specific to the current market prices." (braut, 07-23) |
@@ -255,7 +255,7 @@ Each was taken back to the owner's last and most specific words; the tasks
 5. **The illiquid name.** The order is decided: liquid first ("Start with a
    name that is very liquid.", 2026-11-16). The illiquid run is work left
    (task dh-11).
-6. **American exercise.** Open: the owner's words do not mention it (task
+6. **American exercise.** Postponed by the owner on 2026-11-17 (task
    dh-12). The demo leaves a put out when it is in the money and the interest
    on its strike until expiry, the most early exercise can be worth, is over
    half its band (task dh-16).
