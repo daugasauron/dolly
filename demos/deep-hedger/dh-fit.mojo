@@ -1298,19 +1298,29 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
                 "risk", deviations / Float64(contracts), "unhedged", unhedged / Float64(contracts),
                 "confidence", model.confidence(), "keep", model.keep(), "swing", model.state[1], "lean", model.state[2], flush=True,
             )
+            model.read_batch()
+            var worst = List[Float32](length=model.paths, fill=0)
             for i in range(contracts):
                 line = String("DH quote ") + String(i)
                 for field in range(RESULT):
                     if field < 10:
                         line += " " + String(window[i * RESULT + field] / REPORT)
                     window[i * RESULT + field] = 0
+                # And of the last batch, the mean of each book's worst twentieth of paths.
+                for side in range(2):
+                    for p in range(model.paths):
+                        worst[p] = model.residual[p * model.books + 2 * i + side]
+                    sort(worst)
+                    var sum = Float64(0)
+                    for p in range(model.paths - model.paths // 20, model.paths):
+                        sum += Float64(worst[p])
+                    line += " " + String(sum / Float64(model.paths // 20))
                 print(line)
             for interval in range(model.intervals):
                 line = String("DH law ") + String(interval)
                 for k in range(KERNELS):
                     line += " " + String(model.weights[interval * KERNELS + k])
                 print(line)
-            model.read_batch()
             var row = model.days + 1
             var day = 0
             for interval in range(model.intervals):

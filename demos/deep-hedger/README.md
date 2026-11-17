@@ -34,8 +34,8 @@ until stopped, on fresh paths every iteration.
   trade is worth doing on average, the worst twentieth what that risks.
 - **Quotes**: every contract's bid and ask, the market's and the model's, in
   currency; and for a trade at the market's price, hedged, its mean result
-  and what the model would pay for it after its charge for risk (THEORY.md,
-  section 4), gains in colour.
+  over the paths, a gain in colour, and the mean of its worst twentieth
+  (THEORY.md, section 4).
 - **Fit**: by expiry, the forward the quotes imply and the model's, how many
   model bids and asks are inside the market's band, the market's mean spread
   and the model's, how much of the model's is hedging cost, the risk the

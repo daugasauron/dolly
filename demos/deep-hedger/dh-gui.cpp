@@ -30,7 +30,7 @@ struct Contract {
   double strike;       // in currency
   int call;            // +1 or -1
   double bid, ask;     // in currency
-  double model[10] = {};  // dh-fit's result fields, in forward units
+  double model[12] = {};  // dh-fit's result fields and the two books' worst twentieths, in forward units
   bool fitted = false;
 };
 struct Expiry {
@@ -261,7 +261,7 @@ static void read_fit(FILE *output, std::string &pending, State &staged) {
       staged.iteration = index, staged.losses.push_back((float)loss), staged.inside.push_back((float)named(line, " inside ")), staged.seconds = seconds, staged.residuals.clear(),
       staged.confidence = named(line, " confidence "), staged.keep = named(line, " keep "), staged.swing = named(line, " swing "), staged.lean = named(line, " lean ");
     else if (name == "residual" && numbers.size() > 2) staged.residuals.emplace_back(numbers.begin(), numbers.end());
-    else if (name == "quote" && numbers.size() == 11 && numbers[0] < staged.contracts.size()) {
+    else if (name == "quote" && numbers.size() == 13 && numbers[0] < staged.contracts.size()) {
       Contract &c = staged.contracts[(size_t)numbers[0]];
       std::copy(numbers.begin() + 1, numbers.end(), c.model);
       c.fitted = true;
@@ -393,6 +393,8 @@ static bool quotes_plot(int expiry_index, int call, bool volatility, ImVec2 size
       double bid = c.model[0] * unit, ask = c.model[1] * unit;
       ImGui::Text("model   %8.3f to %8.3f   %s to %s", bid, ask, vol(bid).c_str(), vol(ask).c_str());
       ImGui::Text("of it hedge cost %.3f; the hedger leaves %.0f%% of the risk", (c.model[2] + c.model[3]) * unit, c.model[7] > 0 ? 50 * (c.model[4] + c.model[5]) / c.model[7] : 0.0);
+      ImGui::TextColored(ImColor(ask_colour), "sold at the bid, hedged: mean %+.3f, worst twentieth %+.2f", c.bid - c.model[8] * unit, c.bid - c.model[10] * unit);
+      ImGui::TextColored(ImColor(bid_colour), "bought at the ask, hedged: mean %+.3f, worst twentieth %+.2f", -c.ask - c.model[9] * unit, -c.ask - c.model[11] * unit);
     }
     ImGui::EndTooltip();
   }
@@ -604,12 +606,12 @@ static void hedge_tab() {
 
 // Every contract: the market's bid and ask and the model's, in currency.
 static void contracts_tab() {
-  ImGui::TextWrapped("A trade at the market's price, hedged to expiry by the model's hedger under the fitted law: its mean result (buy at ask, sell at bid), and what the model would pay for it after its "
-                     "charge for risk (the model's bid less the market's ask; the market's bid less the model's ask).");
+  ImGui::TextWrapped("Buy at ask, sell at bid: a trade at the market's price, hedged to expiry by the model's hedger under the fitted law. Its mean result over the paths, a gain in "
+                     "colour, and the mean of its worst twentieth.");
   if (!ImGui::BeginTable("quotes", 14, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY)) return;
   ImGui::TableSetupScrollFreeze(0, 1);
   for (const char *name : {"expiry", "", "strike", "market bid", "market ask", "model bid", "model ask", "hedge cost", "risk left", "in band", "buy at ask",
-                           "after risk", "sell at bid", "after risk"})
+                           "worst 1/20", "sell at bid", "worst 1/20"})
     ImGui::TableSetupColumn(name);
   ImGui::TableHeadersRow();
   for (const Contract &c : state.contracts) {
@@ -633,9 +635,9 @@ static void contracts_tab() {
     ImGui::TableNextColumn();
     if (c.model[7] > 0) ImGui::Text("%.0f%%", 50 * (c.model[4] + c.model[5]) / c.model[7]);
     ImGui::TableNextColumn(), ImGui::TextUnformatted(bid_in && ask_in ? "both" : bid_in ? "bid" : ask_in ? "ask" : "");
-    // What the model says buying at the ask, or selling at the bid, and hedging is worth:
-    // on average, and after its charge for risk. Where that is a gain, in colour.
-    double values[4] = {-c.ask - c.model[9] * unit, bid - c.ask, c.bid - c.model[8] * unit, c.bid - ask};
+    // What the model says buying at the ask, or selling at the bid, and hedging comes to:
+    // on average, and over the worst twentieth of the paths. A gain in colour.
+    double values[4] = {-c.ask - c.model[9] * unit, -c.ask - c.model[11] * unit, c.bid - c.model[8] * unit, c.bid - c.model[10] * unit};
     for (double value : values) {
       ImGui::TableNextColumn();
       if (value > 0) ImGui::TextColored(ImColor(ask_colour), "%+.3f", value);
