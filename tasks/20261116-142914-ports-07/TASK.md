@@ -6,26 +6,92 @@
 
 ## State (2026-11-17)
 
-The step that stands alone is done on `ws/ports`: the seven patches and the one source only
-Codex applies (`tokio-target`, `mio`, `cc`, `reqwest` with `reqwest-broker.rs`, `serial2`,
-`crossterm`) are in `demos/codex/config/`, so they left the Rust seed's key
-(`build-rust-toolchain.sh` hashes `demos/rust/config/patches/*`); `sqlx-sqlite.patch` is gone
-(`tasks/20261116-140352-ports-02`, item 6). Three patches the seed does not apply stay in its key
-(`nix-hostname` for fd, `ring`, `rustc-sysroot` for rust-build); the process sysroot stays in it
-because the seed's rustc and std are linked against it. The key changes once with this (and with
-`ports-02`'s removed `llvm-main-executable` and `sqlx-sqlite` patches), so the round builds the
-Rust seed again, as it does for any change to the process sysroot; it rebuilds `rust-sdk`, the
-Rust chain and `codex`.
+The question of 2026-11-16 (should Rust's and Go's seeds be Dolly's own builds of the previous
+round, pinned and uploaded with the release as the seed's compiler is?) was answered yes by the
+integrator on 2026-11-17. Done on `ws/seeds` (on `integrate/0.1.8`, with the release scripts'
+half); open until the 0.1.8 rounds confirm the list at the end.
 
-Question for the owner: should Rust's and Go's seeds become Dolly's own builds of the previous
-round, pinned and uploaded with the release as the seed's compiler is? Read for it: Rust's
-needs a `rust-sdk` that takes rust-build's `/opt/rust-sdk` with the `cargo` package's linked
-Cargo (the host seed ships Cargo as an object that `rust-sdk` links), and `dolly-abi.mjs
-stamp-process` on its programs when a round changes the process contract; Go's also needs its
-build in Dolly to regenerate the linker's `zdolly.go` (the digests it writes into what it links),
-since the seed's sources carry the old ones. 0.1.8's round is the first that could produce them
-(for 0.1.9's), and it changes the contract itself. Until then the host builds are the bootstrap
-exceptions `docs/sources.md` and the two READMEs name.
+- `demos/rust/pin-seed.mjs` archives `rust-build`'s `/opt/rust-sdk` (rustc and its library) with
+  the `cargo` package's linked Cargo; `demos/go/pin-seed.mjs` the `go` package's ten commands
+  with what `cmd/dist` generated for them (`pkg/include`, six `z*.go`). Each is pinned in its
+  demo's `source-pins.sh` (`DOLLY_RUST_SEED_*`, `DOLLY_GO_SEED_*`) at the release's asset URL;
+  staging takes it by its pins (`scripts/seed-archive.mjs stage`) and refuses an executable for
+  another process contract or host module, naming `seed-archive.mjs restamp`.
+- `go-sdk` takes the GOROOT's sources from staging (`prepare-go-source.sh`: release, patch,
+  `zdolly.go` with the tree's digests), so a patch or contract change reaches the build without
+  a new seed; the `go` recipe's comparison with the seed became the round's pin. `rust-sdk` no
+  longer links Cargo; `rust-build` installs the libc crate of its library in `src/libc`.
+- No host compiler run is left for `rust-build` or `go`: `build-rust-toolchain.sh` and the ten
+  scripts it ran are gone (last in `6a610431`); `rust-llvm`'s staging runs
+  `toolchain/prepare.sh` itself, which took the LLVM fetch and keeps its tree while its inputs
+  hold. `build-go-toolchain.sh` stays for rclone's `go list` and a bootstrap from nothing. A
+  crate patch rebuilds only images.
+- `round.sh`'s seed stage builds no seed; its compiler stage pins the C, Rust and Go seeds after
+  the images and fails, committing the pins, unless all three are unchanged. The release
+  checklist requires the three at this release's assets with their bytes in `.cache`, uploads
+  them, and prints a check per seed that the release holds the pinned bytes.
+- The pinned seeds are 0.1.7's, restamped for `integrate/0.1.8`'s process contract (`c5168b6c…`,
+  which only adds SIGUSR1 and SIGUSR2): Rust `f2b73525…`, Go `d1aee893…`, staged with
+  `go-source.tar.gz` naming that contract in `zdolly.go`.
+
+Proved on `proof/seeds` (v0.1.7 `b09b1e243` with these changes, so that only the seeds' images
+rebuild; never to merge), and on `ws/seeds` where a line says so:
+
+- The archives from 0.1.7's images: `dolly-rust-seed-9415c5c3….tar.gz` (393 files, 84.6 MB:
+  `rustc-real` and its library from `rust-build`, `cargo` from the `cargo` package) and
+  `dolly-go-seed-9e4b977f….tar.gz` (22 files, 42.2 MB). Pinning either twice gives the same
+  bytes. `build-go-toolchain.sh`, run here (1 min 22 s), writes the same Go archive, byte for
+  byte: 0.1.7's `go` package is its cross-built seed rebuilt in Dolly, and the bootstrap path
+  gives the pinned seed.
+- `rust-sdk` and `go-sdk` built from them (`rustc 1.98.1`, `LLVM version: 22.1.8`, `cargo
+  1.98.1`; `go version go1.27.3 dolly/wasm64`). `rust-build` on that seed took 66 min (first
+  rustc 14m49s, library 59 s, second rustc 18m15s, rustdoc 6m35s, the library again 2m08s and
+  the recipe's byte check of it, Cargo 20m33s, then `built by cargo: 42`): all 392 files of
+  its `/opt/rust-sdk` that the seed holds, the 267 MB `rustc-real` among them, and its Cargo
+  are byte for byte the seed's. The 0.1.7 seed is a fixed point: Rust's third generation is
+  its second. The `go` package on the Go seed and the staged sources (7 min) gave the seed's
+  ten commands again.
+- The compiler stage's three pins on the images built here (`pin-seed-compiler.mjs`, then
+  `demos/rust/pin-seed.mjs` and `demos/go/pin-seed.mjs`): `c98f9ab6…`, `9415c5c3…` and
+  `9e4b977f…`, the pins they started from, so the stage would pass as the fixed point.
+- On those images, `rust-browser.mjs` (`rust-tools`: rustc, Cargo with build scripts, procedural
+  macros, path, vendored and Git dependencies, `cargo test`, a Tokio HTTP client) passed in
+  Chrome (169.7 s) and Firefox (221.2 s); `go-browser.mjs` (`go-tools`: go build and run,
+  gofmt, esbuild built by go, go get, http.Get, signals, exec) in Chrome (93.2 s) and Firefox
+  (89.8 s); `vendor-crates-browser.mjs` (amy installs `cargo` in `default`) in Chrome (27.6 s)
+  and Firefox (35.1 s); `npm run test:source`, 471 passed.
+- `toolchain/prepare.sh` and `prepare-rustc-sources.py` as on `ws/seeds` (the host scripts
+  removed, `env.sh` trimmed), run in a scratch copy from nothing: `rustc.tar.gz` `29234737…`
+  and `rust-llvm.tar.gz` `29562231…`, the bytes `rust-build` and `rust-llvm` pin; a second
+  `prepare.sh` did nothing.
+- Restamp, on `ws/seeds` after `npm run build:runtime` (contract `c5168b6c…`):
+  `seed-archive.mjs restamp` replaced `a193b87b…` in all 12 executables (twice in Go's `link`,
+  its stamp and the linker's copy) and left `http@0`'s, which did not change; staging then took
+  both seeds. Before it, in a scratch copy with `ws/seed`'s contract, staging refused the Rust
+  seed naming the command.
+- The checklist's seed step, run on these pins: it names the three `.cache` files for `gh
+  release create v0.1.7` and refuses `v0.1.8`; its printed check downloaded v0.1.7's published
+  C seed and matched its pin.
+- On `ws/seeds`, `npm run test:source` passes but for one test, 472 of 473: `Dollyfile-dolly-docs:8`
+  pins `docs/process-model.md` at `5a168570…`, which is `2c4cf752…` on `integrate/0.1.8` since
+  `ws/seed`'s SIGUSR commit; `lint:dollyfiles` passes.
+
+What the 0.1.8 rounds must do:
+
+1. Copy `work/seeds/.cache/dolly-rust-seed-f2b73525….tar.gz` and `dolly-go-seed-d1aee893….tar.gz`
+   into the round tree's `.cache` (the pins name v0.1.7's release, which does not hold them).
+   If the process contract or a host module changes again before the round, staging stops
+   naming `node scripts/seed-archive.mjs restamp DOLLY_RUST_SEED` (and `DOLLY_GO_SEED`): run
+   them and commit the two `source-pins.sh`.
+2. `scripts/round.sh` from `seed`: the Rust and Go chains rebuild with the catalog (rust-build
+   about 66 min).
+3. Its compiler stage pins three new seeds (C's and Rust's linked with the new libc, Rust's with
+   `rust-llvm` rebuilt, Go's linker built from the new `zdolly.go`), commits them and fails as
+   not yet a fixed point; the round on them must leave all three pins unchanged, as the
+   proof's did.
+4. The release uploads that fixed point's `.cache/dolly-seed-compiler-*.tar`,
+   `dolly-rust-seed-*.tar.gz` and `dolly-go-seed-*.tar.gz`, pinned at `v0.1.8`, and runs the
+   three printed checks. A fresh checkout then builds `rust-build` and `go` from them: done.
 
 ## What
 
