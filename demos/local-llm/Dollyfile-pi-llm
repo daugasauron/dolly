@@ -12,7 +12,7 @@ REQUIRES HOST upload@0
 # and the bundled Qwen3.5-2B, which Pi's settings choose: /local installs and
 # switches models. Its settings replace pi-dolly's, which it installs first.
 FROM /Dollyfile-system-build 0c72e09eba84571d4f8634cf6e7507eb1be1b9b8aa1fae61f6b0ec884b26b6fb
-INSTALL /demos/pi/Dollyfile-pi-dolly 4d52b3eb11f1e31cc68619b00d0d673fb62eaa17ec123e7b0deb6298e3041fb2
+INSTALL /demos/pi/Dollyfile-pi-dolly 7ef6258fa66a89bb6391241479ef866c9d00e6b3ff963e152216a11db55b23ef
 INSTALL /demos/local-llm/Dollyfile-llama 904831be495c3e85c8e7971a3961e086fd494ebf13e695cc02254b947cf9c60e
 INSTALL /demos/local-llm/Dollyfile-qwen3.5-2b 21bbb43bb42e0916f64e21b94538530a90f9cabc559acf45754523022976c03d
 
