@@ -29,10 +29,11 @@ if (process.argv.length > 3 || (process.argv[2] !== undefined && !planOnly)) {
 // Each image build is one headless Chrome whose guest runs up to four processes at
 // once (nproc), so four cores. Its memory peaked at up to 13.2 GiB (codex), and the
 // four heaviest that can build at once at 34.9 GiB together (PSS, measured
-// 2026-11-17, tasks/20261116-140603-buildtime-02): budget 9 GiB each, of the memory
-// both the machine and this process's cgroup still have.
+// 2026-11-17, tasks/20261116-140603-buildtime-02): budget 9 GiB each, of the memory the
+// machine has available and this process's cgroup may hold. The cgroup's cap, not what it
+// has left: its page cache counts as used, and the round's staging fills it (one job, 2026-11-17).
 const jobs = Number(process.env.DOLLY_IMAGE_JOBS ?? Math.max(1, Math.min(Math.floor(availableParallelism() / 4),
-  Math.floor(Math.min(freemem(), process.availableMemory()) / 9 / 2 ** 30))));
+  Math.floor(Math.min(freemem(), process.constrainedMemory()) / 9 / 2 ** 30))));
 if (!Number.isSafeInteger(jobs) || jobs < 1) throw new Error("DOLLY_IMAGE_JOBS must be a positive integer");
 const started = performance.now();
 const loadGraph = createDollyfileGraphLoader(projectDir);
