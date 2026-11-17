@@ -68,6 +68,28 @@ Blender's first full pass (`make -k -j4`, about 80 minutes on a machine at load 
   (`BROTLI_LIBRARIES` is set empty): added through `CMAKE_EXE_LINKER_FLAGS`.
 - OpenImageIO's static library needs pugixml: `WITH_PUGIXML=ON`.
 
+**`blender -b --python-expr` works** (12:00): `bpy 5.3.0 python 3.14.7 dolly`. The default scene
+loads (Camera, Cube, Light), operators run, a `.blend` saves and loads, an image saves as PNG
+and as OpenEXR, and Cycles renders a scene without a mesh. The whole build passes (`make`
+status 0) and installs 63 MB under `/usr/share/blender/5.3`. Two things on the way:
+
+- **Cast emulation.** Blender defines hundreds of Python methods `METH_NOARGS` with one
+  parameter, which CPython calls with two: "function signature mismatch" at the first one
+  (`cfunction_vectorcall_NOARGS`). The program is linked with `cc --dolly-cast-emulation`
+  (Binaryen, 27 s; 124 MB after it), as zsh and the GObject programs are. The price: such a
+  program loads no extension module (`docs/process-model.md`), so NumPy inside Blender is open,
+  for stage 2.
+- **Cycles' `StackAllocator` and this libc++.** With a mesh in the scene the render aborted in
+  `BVHBuild::create_leaf_node` ("Attempt to use C-style MEM_delete_void ..."). The allocator
+  hands out storage inside itself, and Dolly's libc++ grows a vector through a buffer holding a
+  copy of the allocator, so the elements land in a dead temporary (shown by a 40-line program,
+  `build/blender-dev/share/stackalloc.cpp`: libstdc++ never copies, this libc++ copies at every
+  growth). The patch makes the allocator always use the heap (two lines). It would fail the
+  same way on any platform with a recent libc++.
+
+To debug a cast-emulated program: link an `abort` that traps and run `wasm-opt -g --fpcast-emu`
+by hand, which keeps the function names for the page's console.
+
 Findings:
 
 - `call_once` (C11 `threads.h`) links only with `-pthread`: OpenEXR's core uses it, so every

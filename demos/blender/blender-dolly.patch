@@ -1,3 +1,19 @@
+--- a/intern/cycles/util/stack_allocator.h
++++ b/intern/cycles/util/stack_allocator.h
+@@ -24,9 +24,11 @@
+ 
+   /* Allocator construction/destruction. */
+ 
+-  StackAllocator() : pointer_(0), use_stack_(true) {}
++  /* Dolly: the storage inside the allocator is not used, since libc++ grows a vector through a
++   * copy of its allocator, which a pointer into another copy does not survive. */
++  StackAllocator() : pointer_(0), use_stack_(false) {}
+ 
+-  StackAllocator(const StackAllocator & /*unused*/) : pointer_(0), use_stack_(true) {}
++  StackAllocator(const StackAllocator & /*unused*/) : pointer_(0), use_stack_(false) {}
+ 
+   template<class U>
+   StackAllocator(const StackAllocator<SIZE, U> & /*unused*/) : pointer_(0), use_stack_(false)
 --- a/source/blender/blenlib/intern/expr_pylike_eval.cc
 +++ b/source/blender/blenlib/intern/expr_pylike_eval.cc
 @@ -28,6 +28,15 @@
