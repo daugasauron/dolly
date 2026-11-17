@@ -429,6 +429,9 @@ func set_level(to: int) -> void:
 	environment.ssao_enabled = what[3]
 	sun.directional_shadow_mode = what[4]
 	sun.directional_shadow_max_distance = what[5]
+	# The weakest level has no shadows of the sun: they are the 2 ms a frame that an even 30 a
+	# second on an integrated GPU lacks since the world is a planet.
+	sun.shadow_enabled = level < LEVELS.size() - 1
 	# A weak adapter has a smaller map for its shadows and a smaller sky to light the scene by.
 	RenderingServer.directional_shadow_atlas_set_size(4096 if level < 2 else 2048, true)
 	environment.sky.radiance_size = Sky.RADIANCE_SIZE_256 if level < 2 else Sky.RADIANCE_SIZE_64
