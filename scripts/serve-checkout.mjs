@@ -5,7 +5,7 @@
 // recipes and their sources, the runtime, snapshot packs and generated pages, and
 // /__dolly_build_page, a blank page for scripts that build images in it.
 import { createReadStream } from "node:fs";
-import { access, readdir, readFile } from "node:fs/promises";
+import { access, readdir, readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { extname, resolve } from "node:path";
@@ -34,7 +34,7 @@ export async function startCheckoutServer(projectDir, image = "default",
       throw new Error(`Browser checks need a built runtime and image. Run npm run build:runtime once, then ${rebuild}.`, { cause: error });
     });
   const json = async file => JSON.parse(await readFile(resolve(projectDir, "dist", file), "utf8"));
-  const { images, staticSources } = await json("dolly-images.json");
+  const { images } = await json("dolly-images.json");
   if (image && !images.some(definition => definition.image === image)) {
     throw new Error(`Build ${image} once with npm run image -- ${image}, then retry the browser check.`);
   }
@@ -73,34 +73,40 @@ export async function startCheckoutServer(projectDir, image = "default",
   }
   const listed = async (directory, pattern) => (await readdir(resolve(projectDir, directory), { recursive: true }))
     .filter(name => pattern.test(name)).map(name => `${directory}${name}`);
-  const paths = new Set([
-    ...await listed("page/", /^[^/]+\.mjs$/),
-    ...await listed("site/", /^[^/]+\.(?:mjs|css|svg)$/),
-    ...await listed("host/", /\.(?:mjs|json)$/),
-    "coi-serviceworker.js", "llms.txt", "index.html", "licences/index.html", "custom/index.html", "sessions/index.html",
-    "amy-index.txt",
-    ...pageRoutes(images.map(definition => ({ image: definition.image, openable: opens(definition) })), image)
-      .map(route => route.path),
-    ...staticSources.map(source => source.path.slice(1)),
-    "dist/dolly-images.json",
-  ]);
-  for (const definition of images) {
-    paths.add(definition.dollyfile);
-    paths.add(`view/${definition.image}/index.html`);
-    paths.add(`dist/dolly-${definition.image}-system-snapshot.json`);
+  // What the registry lets a page load, read again whenever an image build rewrites the registry.
+  async function servedFiles() {
+    const { images, staticSources } = await json("dolly-images.json");
+    const paths = new Set([
+      ...await listed("page/", /^[^/]+\.mjs$/),
+      ...await listed("site/", /^[^/]+\.(?:mjs|css|svg)$/),
+      ...await listed("host/", /\.(?:mjs|json)$/),
+      "coi-serviceworker.js", "llms.txt", "index.html", "licences/index.html", "custom/index.html", "sessions/index.html",
+      "amy-index.txt",
+      ...pageRoutes(images.map(definition => ({ image: definition.image, openable: opens(definition) })), image)
+        .map(route => route.path),
+      ...staticSources.map(source => source.path.slice(1)),
+      "dist/dolly-images.json",
+    ]);
+    for (const definition of images) {
+      paths.add(definition.dollyfile);
+      paths.add(`view/${definition.image}/index.html`);
+      paths.add(`dist/dolly-${definition.image}-system-snapshot.json`);
+    }
+    for (const name of await readdir(resolve(projectDir, "dist"))) {
+      if (/^dolly(?:-[a-z0-9-]+)?\.(?:wasm|mjs|data)$/.test(name) || /^(?:IosevkaTerm-SemiBold(?:\.woff2|-page\.woff)|dolly-build-id\.json)$/.test(name)) paths.add(`dist/${name}`);
+    }
+    // Served paths are checkout paths; a directory URL serves its index.html.
+    const files = new Map([...paths].map(path => [`/${path}`, path]));
+    for (const [path, file] of extraFiles) files.set(path, file);
+    return { paths, files };
   }
-  for (const name of await readdir(resolve(projectDir, "dist"))) {
-    if (/^dolly(?:-[a-z0-9-]+)?\.(?:wasm|mjs|data)$/.test(name) || /^(?:IosevkaTerm-SemiBold(?:\.woff2|-page\.woff)|dolly-build-id\.json)$/.test(name)) paths.add(`dist/${name}`);
+  let served = { registryTime: NaN };
+  async function currentFiles() {
+    const { mtimeMs } = await stat(resolve(projectDir, "dist/dolly-images.json"));
+    if (mtimeMs !== served.registryTime) served = { registryTime: mtimeMs, ...await servedFiles() };
+    return served;
   }
-  for (const name of await readdir(resolve(projectDir, "dist/packs")).catch(error => {
-    if (error.code === "ENOENT") return [];
-    throw error;
-  })) {
-    if (/^[0-9a-f]{64}\.snapshot\.gz$/.test(name)) paths.add(`dist/packs/${name}`);
-  }
-  // Served paths are checkout paths; a directory URL serves its index.html.
-  const files = new Map([...paths].map(path => [`/${path}`, path]));
-  for (const [path, file] of extraFiles) files.set(path, file);
+  await currentFiles();
   const requests = new Map();
   const server = createServer(async (request, response) => {
     const headers = { ...isolationHeaders, ...responseHeaders };
@@ -114,13 +120,16 @@ export async function startCheckoutServer(projectDir, image = "default",
         response.end("<!doctype html><title>Dolly image build</title>");
         return;
       }
+      const { paths, files } = await currentFiles();
       // The runtime a saved session keeps, as the checkout's files are now.
       if (path === "/dist/dolly-offline.json") {
         response.writeHead(200, { ...headers, "content-type": mimeTypes.get(".json") });
         response.end(await offlineFiles(projectDir, paths));
         return;
       }
-      const relative = files.get(path) ?? files.get(`${path}/index.html`);
+      // Packs are named by their contents: any the checkout holds, the ones a build wrote while serving among them.
+      const relative = /^\/dist\/packs\/[0-9a-f]{64}\.snapshot\.gz$/.test(path) ? path.slice(1)
+        : files.get(path) ?? files.get(`${path}/index.html`);
       if (!relative) throw new Error("not served");
       if (path.startsWith("/dist/packs/")) headers["cache-control"] = "public, max-age=31536000, immutable";
       const type = mimeTypes.get(extname(relative)) ?? "application/octet-stream";

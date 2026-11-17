@@ -11,7 +11,7 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { brotliCompress, constants } from "node:zlib";
 import { compareVersions, releaseVersion, robotsText, versionName } from "./release-layout.mjs";
-import { fileManifest, releaseFiles } from "./site-release.mjs";
+import { fileManifest, releaseFiles, safePath } from "./site-release.mjs";
 import { sha256 } from "./sha256.mjs";
 import { siteContentSecurityPolicy } from "./serve.mjs";
 
@@ -130,14 +130,18 @@ export function pagesHeaders(versions) {
 // A sealed release as Pages stores it: every file at its own path, those over
 // 25 MiB compressed or in parts, the headers those need, and the list of all. A
 // file stored whole is a hard link to the release's own, which nothing writes in
-// place, so the export takes no space of its own (a copy of 0.1.7 filled the disk).
-async function exportVersion(site, directory) {
-  const written = [], compressed = [];
+// place (a copy of 0.1.7 filled the disk), and a part or compressed file a
+// published version holds, PUBLISHED (SHA-256 -> path), a link to that one.
+// deployment.sha256 lists the digest of the bytes each file was made from.
+async function exportVersion(site, directory, published) {
+  const digests = new Map(), compressed = [];
   async function write(path, bytes, sealed) {
-    await mkdir(dirname(resolve(directory, path)), { recursive: true });
-    if (sealed) await link(await realpath(resolve(site, path)), resolve(directory, path));
+    const digest = sha256(bytes);
+    await mkdir(dirname(resolve(directory, safePath(path))), { recursive: true });
+    const stored = sealed ? await realpath(resolve(site, path)) : published.get(digest);
+    if (stored) await link(stored, resolve(directory, path));
     else await writeFile(resolve(directory, path), bytes, { flag: "wx" });
-    written.push(path);
+    digests.set(path, digest);
   }
   for await (const [path, bytes] of releaseFiles(site)) {
     const asset = await pagesAsset(bytes, path);
@@ -146,7 +150,8 @@ async function exportVersion(site, directory) {
     await write(path, asset.bytes, asset.bytes === bytes);
   }
   await write("deployment.headers", versionHeaders(compressed));
-  await writeFile(resolve(directory, "deployment.sha256"), await fileManifest(directory, written), { flag: "wx" });
+  const written = [...digests.keys()].sort();
+  await writeFile(resolve(directory, "deployment.sha256"), written.map(path => `${digests.get(path)}  ${path}\n`).join(""), { flag: "wx" });
   return written;
 }
 
@@ -163,16 +168,17 @@ export async function exportCloudflarePages(archive, output, site) {
   const staging = await mkdtemp(resolve(dirname(output), ".dolly-pages-"));
   const destination = resolve(staging, "pages");
   try {
-    const versions = new Map();
+    const versions = new Map(), publishedFiles = new Map();
     for (const name of await readdir(archive)) {
       if (!versionName.test(name)) throw new Error(`the archive holds something that is not a version: ${name}`);
       const manifest = await readFile(resolve(archive, name, "deployment.sha256"), "utf8");
-      const paths = manifest.trimEnd().split("\n").map(row => row.slice(66));
+      const rows = manifest.trimEnd().split("\n"), paths = rows.map(row => row.slice(66));
       if (await fileManifest(resolve(archive, name), paths) !== manifest) throw new Error(`published ${name} differs from its deployment.sha256`);
       for (const path of [...paths, "deployment.sha256"]) {
         await mkdir(dirname(resolve(destination, name, path)), { recursive: true });
         await link(resolve(archive, name, path), resolve(destination, name, path));
       }
+      for (const row of rows) publishedFiles.set(row.slice(0, 64), resolve(destination, name, row.slice(66)));
       versions.set(name, paths);
     }
     if (site) {
@@ -180,7 +186,7 @@ export async function exportCloudflarePages(archive, output, site) {
       // A published version's later deployment is exported beside it, then takes its place.
       const published = versions.has(name) && await readFile(resolve(archive, name, "deployment.sha256"), "utf8");
       const directory = resolve(published ? staging : destination, name);
-      versions.set(name, await exportVersion(site, directory));
+      versions.set(name, await exportVersion(site, directory, publishedFiles));
       if (published) {
         refuseChange(name, published, await readFile(resolve(directory, "deployment.sha256"), "utf8"));
         await rm(resolve(destination, name), { recursive: true });

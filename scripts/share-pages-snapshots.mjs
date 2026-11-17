@@ -2,7 +2,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { sha256 as digest } from "./sha256.mjs";
 import { createWriteStream } from "node:fs";
-import { mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { link, mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
@@ -82,8 +82,9 @@ async function* snapshotChunks(records, readData) {
   if (size) yield Buffer.concat(pending);
 }
 
-async function writeSnapshotPack(directory, records, readData) {
-  const hash = createHash("sha256"), temporary = resolve(directory, "packs", `${randomUUID()}.tmp`);
+// Writes PACKS/SHA256.snapshot.gz.
+async function writeSnapshotPack(packs, records, readData) {
+  const hash = createHash("sha256"), temporary = resolve(packs, `${randomUUID()}.tmp`);
   let byteLength = 0;
   try {
     await pipeline(async function* () {
@@ -93,10 +94,28 @@ async function writeSnapshotPack(directory, records, readData) {
         yield chunk;
       }
     }, createGzip({ level: 6 }), createWriteStream(temporary));
-    const sha256 = hash.digest("hex"), path = resolve(directory, "packs", `${sha256}.snapshot.gz`);
+    const sha256 = hash.digest("hex"), path = resolve(packs, `${sha256}.snapshot.gz`);
     await rename(temporary, path);
     return { sha256, byteLength, encodedByteLength: (await stat(path)).size };
   } finally { await rm(temporary, { force: true }); }
+}
+
+// A pack is named by its digest, so one the STORE already holds, from a build or an
+// earlier packaging, is linked into DIRECTORY rather than compressed again.
+async function linkSnapshotPack(store, directory, records) {
+  const hash = createHash("sha256");
+  let byteLength = 0;
+  for await (const chunk of snapshotChunks(records, indexedData)) {
+    hash.update(chunk);
+    byteLength += chunk.length;
+  }
+  const sha256 = hash.digest("hex");
+  const pack = await stat(resolve(store, `${sha256}.snapshot.gz`)).then(({ size }) => ({ sha256, byteLength, encodedByteLength: size }),
+    error => { if (error.code === "ENOENT") return writeSnapshotPack(store, records, indexedData); throw error; });
+  await link(resolve(store, `${pack.sha256}.snapshot.gz`), resolve(directory, "packs", `${pack.sha256}.snapshot.gz`)).catch(error => {
+    if (error.code !== "EEXIST") throw error;
+  });
+  return pack;
 }
 
 export async function ensureSnapshotPacks(directory, metadata) {
@@ -112,7 +131,7 @@ export async function ensureSnapshotPacks(directory, metadata) {
   await mkdir(resolve(directory, "packs"), { recursive: true });
   const packs = [];
   for (const records of splitSnapshotRecords(decodeSnapshotRecords(bytes))) {
-    packs.push(await writeSnapshotPack(directory, records, decodedData));
+    packs.push(await writeSnapshotPack(resolve(directory, "packs"), records, decodedData));
   }
   const result = { ...metadata, encoding: "packs", packs };
   validateSnapshotPacks(result);
@@ -147,6 +166,9 @@ async function indexSnapshot(source) {
   return records;
 }
 
+// Packs the images whose metadata DIRECTORY holds, from their snapshots in
+// SNAPSHOTS, into DIRECTORY/packs as hard links to the store SNAPSHOTS/packs,
+// where a pack not yet there is written: both on one filesystem.
 export async function shareSnapshots(directory, snapshots) {
   const images = [], identical = new Map();
   try {
@@ -171,12 +193,13 @@ export async function shareSnapshots(directory, snapshots) {
       if (!groups.has(key)) groups.set(key, { images: shared.images, records: new Map() });
       groups.get(key).records.set(shared.path, shared);
     }
-    await mkdir(resolve(directory, "packs"), { recursive: true });
+    const store = resolve(snapshots, "packs");
+    await Promise.all([store, resolve(directory, "packs")].map(path => mkdir(path, { recursive: true })));
     const packs = new Set();
     let packedBytes = 0;
     for (const group of groups.values()) {
       for (const records of splitSnapshotRecords(group.records)) {
-        const pack = await writeSnapshotPack(directory, records, indexedData);
+        const pack = await linkSnapshotPack(store, directory, records);
         packs.add(pack.sha256);
         packedBytes += pack.encodedByteLength;
         for (const image of group.images) {

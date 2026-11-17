@@ -9,7 +9,55 @@ From the build-time audit of 2026-11-16 (`work/audit-1116`). Evidence and script
 `record-diff.py`, `record-diff-016-017.txt`, `record-diff-python-data-build.txt`,
 `scratch-codex-build.log`).
 
-## State (2026-11-17)
+## State (2026-11-17, ws/speed)
+
+Fixed on `ws/speed`, as the smallest fix below says; the 0.1.8 round confirms what needs the new
+compiler or a heavy chain.
+
+- `cc` stages a link under the output's own name, alone in a directory named by the hash
+  (`StagedLink`, `programs/compiler.cpp`), so wasm-ld names the module the same wherever the
+  output goes. Compiled natively against `DOLLY_LLVM_COMMIT`'s LLVMSupport
+  (`work/audit-1116-evidence/buildtime/fix-speed/stagedlink-check.cpp`): the link is staged as
+  `DIR/_multiarray_umath.cpython-314-dolly_0_wasm64.so` and the directory is gone after it. A
+  seed change: the round builds `llvm-cc` with it and pins it, and every image rebuilds; the
+  extension modules' name sections then read their own file names.
+- spirv-wgsl: `SOURCE_DATE_EPOCH=1793750790`, its pinned SPIRV-Tools commit's time (the archive's
+  entries, 2026-11-04T00:06:30Z), on the make that runs `update_build_version.py`
+  (`demos/godot/Dollyfile-spirv-wgsl`). Rebuilds spirv-wgsl and the Godot images. Built twice
+  in `work/speed` (`fix-speed/rebuild-twice.sh`, `rebuild-spirv-wgsl-*.log`): the same snapshot
+  both times, `c2006e47…`, whose library reads `v2026.4 unknown hash, 2026-11-04T00:06:30+00:00`.
+- godot-editor: `PYTHONHASHSEED=0` on its SCons build (`demos/godot/Dollyfile-godot-editor`);
+  `hash(b"godot docs")` in two `python3` processes: two values without it, one with it.
+  Rebuilds godot-editor and the Godot game images.
+- contourpy wrote pip's random source and build directories into `contourpy.util.build_config()`
+  (`_build_config.py`, 127 bytes): python-data-build unpacks its source and builds it from there
+  in a build directory it names (`--config-settings=build-dir=`, meson-python's); the
+  `install` helper takes an unpacked source where a row made one. Built in `work/speed`, its
+  `build_dir` is `/tmp/python-data/contourpy-1.4.0/build/lib/contourpy/util` and `source_dir`
+  `/tmp/python-data/contourpy-1.4.0/lib/contourpy/util`. Rebuilds python-data-build, numpy,
+  pandas, matplotlib, seaborn, python-dateutil and python-data. Built twice there with 0.1.7's
+  compiler (`fix-speed/compare-python-data-build.txt`): the 85 files that differ are the
+  extension modules (their name sections, which the new `cc` fixes) and the wheels' `RECORD`s
+  (those modules' digests); `_build_config.py` no longer differs.
+- emacs differed build to build: built twice in `work/speed` with unchanged inputs it gave three
+  digests with 0.1.7's, 18 bytes of the `.pdmp` in three places (`fix-speed/compare-emacs-*.txt`,
+  read with `extract-file.py`): `emacs-build-time`, the float `gc-elapsed` (0.39 s of collections)
+  and a `(TICKS . 1000000000)` cons beside `*scratch*`'s markers, `buffer-display-time`. Emacs is
+  configured `--disable-build-details`, upstream's switch for the first (`prepare-emacs.sh`);
+  the other two are dump-time state that upstream's loadup keeps, so `emacs-dolly.patch` adds
+  three lines before the dump: `gc-elapsed` nil (it is not counted while nil, and `init_alloc`
+  resets it at startup) and every buffer's `buffer-display-time` nil. Each step built twice
+  (`rebuild-emacs-*.log`): 18, 11, 4, then 0 bytes; the last two builds `f1cc9240…` both.
+  `demos/emacs/test/emacs-browser.mjs` passes in Chromium and Firefox. Rebuilds emacs and
+  gnu-emacs.
+
+The round must confirm, after its catalog: `npm run image -- IMAGE --reproducible` for numpy,
+python-data-build, spirv-wgsl, emacs and godot-editor (the done-when), and
+`work/audit-1116-evidence/buildtime/fix-speed/rebuild-twice.sh` (the image alone, twice) for
+zig-llvm, voxel-flyover and lantern-drift, whose cache manifests and `.pck` files no one has
+built twice yet (`compare-builds.sh IMAGE` names what differs).
+
+## Found
 
 Found by comparing the published v0.1.6 and v0.1.7 (`work/locks/published/`), built at the same
 image inputs (`sha256:87c27243…`) from recipes that differ, for these images, only in the version
@@ -18,8 +66,6 @@ Built again from `b09b1e243` on 2026-11-17 (`scratch-series.log`): godot-editor 
 bytes than 0.1.7's round (`87a6319f…` against `3e013cf0…`), so it differs build to build; codex,
 rust-build, lean-meta, photocraft, llvm-build, zig-llvm-build, mojo-llvm, lean-std and lean came
 out the round's byte for byte.
-
-## Found
 
 Outside `/etc/dolly/` (recipes, lock, receipt: the version text), 185 files, 487 MB, differ
 between the two versions in images whose recipes did not change in substance (decoded from the

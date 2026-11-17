@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFile as execFileCallback } from "node:child_process";
 import { sha256 as digest } from "../scripts/sha256.mjs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
@@ -162,12 +162,19 @@ test("adding a partially overlapping image preserves large existing pack identit
     const inputs = new Map([["first", common], ["second", new Map([...common, ["/extra", file("second")]])]]);
     const original = await packImages(directory, inputs);
     const known = new Set([...original.values()].flatMap(image => image.packs.map(pack => pack.sha256)));
+    // The site's packs are links to the snapshots' store, which a later packaging links again.
+    const stored = async sha256 => (await stat(resolve(directory, "inputs/packs", `${sha256}.snapshot.gz`))).ino;
+    const inodes = new Map(await Promise.all([...known].map(async sha256 => [sha256, await stored(sha256)])));
+    await rm(resolve(directory, "packs"), { recursive: true });
     inputs.set("third", new Map([["/compiler", common.get("/compiler")], ["/config", file("different")]]));
     const added = await packImages(directory, inputs);
     for (const image of added.values()) {
       const changed = image.packs.filter(pack => !known.has(pack.sha256));
       assert.ok(changed.reduce((sum, pack) => sum + pack.byteLength, 0) < 1024);
       assert.ok(image.packs.some(pack => known.has(pack.sha256) && pack.byteLength > 6 * 1024 * 1024));
+      for (const pack of image.packs.filter(pack => known.has(pack.sha256))) {
+        assert.equal((await stat(resolve(directory, "packs", `${pack.sha256}.snapshot.gz`))).ino, inodes.get(pack.sha256));
+      }
     }
   } finally { await rm(directory, { recursive: true, force: true }); }
 });

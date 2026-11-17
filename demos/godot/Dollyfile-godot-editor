@@ -22,7 +22,7 @@ USE /v0.1.7/demos/tools/Dollyfile-scons dba0542258dcf6384aa0e457af3a410d754caa67
 USE /v0.1.7/Dollyfile-mandoc fdcd60b702db22d8823eb0b1ad8afaba884e97d493760d1c91bc87894a9febb9
 USE /v0.1.7/Dollyfile-libdolly-gpu b13690913448e04e3795994af89d032f7a1537ce13b54c0c73f696ee4375c6d0
 USE /v0.1.7/Dollyfile-libdolly-sockets c6b3e098f7bd988e69bdfdda8306af2e6c565b0e7abcdb9bda5dba2a48a2bfa9
-USE /v0.1.7/demos/godot/Dollyfile-spirv-wgsl d4444e5aa047cadf9fa290618d6060af586174a228790bd8fa9542a479f42c36
+USE /v0.1.7/demos/godot/Dollyfile-spirv-wgsl 560f8c64071dd14eeb6364d187d08f45a9caf5f0d91a81e175ab11cfecb33b4f
 USE /v0.1.7/Dollyfile-libdolly-audio 5b508cabd2df8a3106a8788b1ff75da3ae63d8acc002fa5b8c1120722520deac
 USE /v0.1.7/Dollyfile-libdolly-clipboard 2e385abeefaaf674a33ac178323df84ea08ec231f8a59e7fb95ba0d175e12b3b
 USE /v0.1.7/demos/x11/Dollyfile-x11-window 1bb040a31974a724e6bec150063dfdccedc1b8b7e5e44b421a1b1b20c1ac5949
@@ -45,7 +45,9 @@ SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
 # Godot's modern renderers take only the drivers main.cpp names; glslang builds beside them;
 # Forward+ starts SDFGI only on a device with image atomics, which its voxelization takes.
 SLOP CWD /usr/src/godot patch -p1 -i platform/dolly/godot-dolly.patch
-SLOP CWD /usr/src/godot scons -j4 platform=dolly target=editor module_basis_universal_enabled=no \
+# The editor's documentation is stamped with Python's hash() of it (editor/editor_builders.py),
+# which Python seeds at random in each process unless PYTHONHASHSEED fixes it.
+SLOP CWD /usr/src/godot PYTHONHASHSEED=0 scons -j4 platform=dolly target=editor module_basis_universal_enabled=no \
   module_jolt_physics_enabled=no module_jsonrpc_enabled=no
 SLOP cp /usr/src/godot/bin/godot.dolly.editor.wasm64 /usr/bin/godot-editor
 SLOP mkdir -p /usr/share/licenses/godot-editor

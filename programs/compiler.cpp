@@ -178,8 +178,7 @@ std::string dependency_target(const DriverOptions &options, const std::string &s
 }
 
 // Concurrent compilers share /tmp, so scratch files are named by a hash of the
-// absolute output path. wasm-ld records the staged file's name in the name
-// section, so a job must also get the same names in every build.
+// absolute output path.
 std::string temporary_path(const std::string &output, size_t index,
                            const char *suffix) {
   llvm::SmallString<256> absolute(output);
@@ -190,6 +189,24 @@ std::string temporary_path(const std::string &output, size_t index,
                 index, suffix);
   return path;
 }
+
+// wasm-ld names a module after the file it writes (the name section), so a link
+// is staged under the output's own name, alone in a scratch directory: the same
+// name wherever the output goes (pip builds in a random directory). The
+// directory goes, with what is left in it, when the link is done.
+struct StagedLink {
+  std::string directory, file;
+  StagedLink(std::string scratch, const std::string &output)
+      : directory(std::move(scratch)),
+        file(directory + "/" + llvm::sys::path::filename(output).str()) {
+    std::remove(file.c_str());
+    llvm::sys::fs::create_directory(directory);
+  }
+  ~StagedLink() {
+    std::remove(file.c_str());
+    llvm::sys::fs::remove(directory);
+  }
+};
 
 void print_help(const char *program, int driver_mode) {
   if (driver_mode == DOLLY_TOOLCHAIN_LD) {
@@ -1728,9 +1745,8 @@ int compile_and_link(const DriverOptions &options, int default_language) {
     link_inputs.push_back("/usr/lib/libclang_rt.builtins.a");
   }
 
-  const std::string linked =
-      temporary_path(output, options.inputs.size() + 1, ".wasm");
-  std::remove(linked.c_str());
+  const StagedLink staged(temporary_path(output, options.inputs.size() + 1, ""), output);
+  const std::string &linked = staged.file;
   const bool linked_ok = options.kernel_plugin
       ? link_side_module(linked, link_inputs, options.linker_options,
                          needs_cxx_runtime,
@@ -1747,13 +1763,11 @@ int compile_and_link(const DriverOptions &options, int default_language) {
   if (!linked_ok) {
     std::fprintf(stderr, "dolly-cc: link failed: %s\n", output.c_str());
     cleanup(temporary_objects);
-    std::remove(linked.c_str());
     return 1;
   }
   cleanup(temporary_objects);
   if (options.cast_emulation && !options.kernel_plugin && !options.shared_library &&
       !emulate_casts(linked)) {
-    std::remove(linked.c_str());
     return 1;
   }
   const bool valid = options.kernel_plugin
@@ -1765,9 +1779,7 @@ int compile_and_link(const DriverOptions &options, int default_language) {
       ? stamp_kernel_plugin(linked)
       : (options.shared_library ? stamp_process_shared_object(linked)
                                 : stamp_process_executable(linked)));
-  const bool published = stamped && publish_file(linked, output);
-  std::remove(linked.c_str());
-  return published ? 0 : 1;
+  return stamped && publish_file(linked, output) ? 0 : 1;
 }
 
 int run_archive(int argc, const char *const *argv) {

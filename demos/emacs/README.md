@@ -24,6 +24,8 @@ commands run Slop through `posix_spawn` over pipes.
   the terminal's interrupt key, as Emacs sets it on any Unix (`VINTR`). It
   fixes one bug of the release: a terminal read stored inside `while-no-input`
   (eager completion at the first prompt) quit after two bytes and lost the rest.
+  Its loadup leaves the dump's collection time and buffer display times out,
+  and configure the build details, so that each build dumps the same bytes.
 - [`Dollyfile-emacs`](Dollyfile-emacs): builds at `-O0` with the deeper stack
   (`dolly.process.stack`), dumps with pdumper, installs, and checks files,
   processes, timers and the collector.
