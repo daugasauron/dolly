@@ -53,7 +53,7 @@ asset pricing, with frictions (cher-sim, 04-09; braut, 07-22).
 | 10 | Two frictions make the spread. | "For me the 2 reasons for frictions are 1: transaction costs and 2: discrete time hedging." (sig-mmd, 07-08) |
 | 11 | Costs are inside the hedge, never added to a backtest afterwards; options have costs too. | "The transaction costs are built in to the model at a fundamental level" (cher-sim, 05-24); "it is crucial that the options have transaction cost" (braut, 08-13) |
 | 12 | The hedger may trade the stock and every listed option at the model's own quotes, the contract being priced included. No stock-only fallback. | "Why would it make sense that the intermediate prices are the prices of hedging with stock only? Other people can hedge with options as well. This is a core idea" (braut, 07-22) |
-| 13 | An option's price on a path is that path's own hedge cost; no state bins, no conditional expectations. | "the price of the option at t is the *actual* cost of hedging it until expiry using the *current* hedger for this path only [...] The only important thing is that the average gradient over the whole batch is good." (braut, 07-23) |
+| 13 | An option's price on a path is that path's own hedge cost; no state bins, no conditional expectations. Superseded on 2026-11-17 by decision 28. | "the price of the option at t is the *actual* cost of hedging it until expiry using the *current* hedger for this path only [...] The only important thing is that the average gradient over the whole batch is good." (braut, 07-23) |
 | 14 | The book starts empty; the payoff is in the loss; the average is the principal, which is the price. | "It should just be zero and then the payoffs are included in the loss?" "the average of this should be the principal -> this becomes the price" (braut, 08-12) |
 | 15 | Generator and hedger train together, with different losses. | "If the hedger is not correct the generator will just adapt to it. The important thing is that they need different losses." (braut, 08-06) |
 | 16 | Only today's quotes enter the generator's loss, and a model price inside the market's bid and ask costs nothing. | "how about only including T=0 actual market bids/asks in the loss" (braut, 07-23); "I don't want model prices that falls within the market bid/ask to generate any loss for the generator" (braut, 08-17) |
@@ -64,8 +64,12 @@ asset pricing, with frictions (cher-sim, 04-09; braut, 07-22).
 | 21 | First model a liquid name correctly; the illiquid names are the product, later. | "the first part is just to model liquid options correctly using this model, thats my goal" (codex-2, 07-17); "one of the main points is for this to work on semi illiquid names" (cher, 03-23) |
 | 22 | The verdict on a hedger is a fair realized backtest at real bid and ask against a cost-aware classical hedge. | "This should be the golden numerical verdict for any model - actual fair backtest PL on read data." (fable-2, 07-01) |
 | 23 | GPU kernels in Mojo, hand-written backward pass, one code path. | "The goal was to do the backprop in mojo without pytorch" (braut, 08-11); "I want to have ONE code path with no flags" (fable, 06-28) |
-| 24 | Few numbers beside the generator, each with a meaning; the price of risk is an Expected Shortfall's confidence, and the market implies it. | "as few parameters as possible (I do think there has to be some in the end, like es confidence intterval or whatever), where each paramter has an intuitive meaning" (neil, 10-23); "a certain confidence level is implied by the market?" (braut, 08-17) |
+| 24 | Few numbers beside the generator, each with a meaning; the market implies the price of risk. That it is an Expected Shortfall's confidence is superseded by decisions 26 and 27. | "as few parameters as possible (I do think there has to be some in the end, like es confidence intterval or whatever), where each paramter has an intuitive meaning" (neil, 10-23); "a certain confidence level is implied by the market?" (braut, 08-17) |
 | 25 | What the past teaches enters as properties of the law with their own parameters, volatility clustering first; a law of rare jumps is not a realistic one. | "express everything that comes from historical paths as parametric properties (vol clustering), not add the returns directly" (braut, 07-25); "almost all returns are close to 0 and then there are soem sudden jumps [...] it's not a realistic path law" (braut, 07-25); "shouldn't vol of vol give a lot of kurtosis?" (fable, 06-24) |
+| 26 | The hedger replicates, with a loss that has no side: its costs are inside what it makes small. | "it should minimize the difference between the payoff to hedge and the \"replication PL\""; "ES for example has a side, but MSE is symmetric so it doesn't have the drift problem" (2026-11-17) |
+| 27 | The price of risk is the loss risked before a position can be closed, and the cost of closing it; it is tied to how hard it is to get out, and today's spreads imply it. | "The \"price of risk\" is how much you risk loosing before you're able to close out the position, and how much that would cost."; "the model bid/ask matches the market bid/ask meaning that hte \"risk/time to get out/etc\" is what is implied in the market" (2026-11-17) |
+| 28 | On every day of a path the stock's price with its spread and every option's quote are known that day; a book may hedge with options at them. | "there is no such thing as a \"pathwise rule\" [...] the things that are known to me today are the price of the underlying (including spread), and all the option quotes today, induced backwards from yesterday *somehow*" (2026-11-17) |
+| 29 | The tick is no parameter of the model, and must not distort the wings. | "The trader doesn't care bout the tick."; "I just dont want weird errors because tick sizeo nthe wings." (2026-11-17) |
 
 ## 3. Assumptions
 
@@ -319,7 +323,9 @@ replication. Hence two.
 ## 7. What the demo implements, and what it does not
 
 Implemented: assumptions and theory of sections 3 and 4 with **the stock as
-the only hedge instrument**. This is the first experiment the owner asked for
+the only hedge instrument** (against decision 28), and with the closures'
+numbers read off at each report, not fitted by a gradient. The stock alone
+is the first experiment the owner asked for
 when the idea was new ("Try this with stock only hedge", sig-mmd, 07-06) and
 not the model of decision 12.
 
