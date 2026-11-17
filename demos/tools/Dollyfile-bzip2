@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # bzip2 and libbz2 from upstream's release archive, unchanged, by the rules of
 # its Makefile. bunzip2 and bzcat are bzip2 under the names it looks for.
-FROM /v0.1.7/demos/tools/Dollyfile-tools-build dee9ec6652fc5db11b072cf53f69cbb0360102e07dc6beb91767f8cc7d00b168
+FROM /v0.1.7/demos/tools/Dollyfile-tools-build fcf061770fb3a301cae1cf5fc616a0716bd30fc7645e588c45e33ae4d456e44a
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar

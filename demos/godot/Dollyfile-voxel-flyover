@@ -16,9 +16,9 @@ REQUIRES HOST clipboard@0
 # the vertex stages raise grids of land to it and stand trees on it. Its
 # project (demos/godot/voxel-flyover) is imported and exported here by Godot's editor, and
 # voxel-flyover plays the pack with godot, which installs with it. The project installs too.
-FROM /v0.1.7/Dollyfile-system 73eac9a99e3eb89d8778982f69a35806c7c1a8b06b65b47972494f009db00a4c
-INSTALL /v0.1.7/demos/godot/Dollyfile-godot 74a0d36de50274798d69fe67bef098744807d56de0cef6419db711ec1cacbfaa
-USE /v0.1.7/demos/godot/Dollyfile-godot-editor 9bcac7af862992ce88fe62cca0f1af80928dab2d82733b771f83c6398da530b0
+FROM /v0.1.7/Dollyfile-system 2d67ac36e99bb2f94c8be298fddae065f6e3868464df819d2bd0cd8c6c27386a
+INSTALL /v0.1.7/demos/godot/Dollyfile-godot 7d4f7f8dc125a693211015f66e248cf717d1f1c77bd68218c1ed396716e3b794
+USE /v0.1.7/demos/godot/Dollyfile-godot-editor 74dd84b3c49033531a8dbd6f5831ac9ec863e381bf940984198e162591532179
 
 REQUIRES TOOL cp
 REQUIRES TOOL godot-editor

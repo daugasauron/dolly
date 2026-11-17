@@ -13,15 +13,15 @@ REQUIRES HOST threads@0
 
 # Build-only: the 0 A.D. engine (pyrogenesis), built by the Makefiles premake
 # generates from upstream's scripts, with Dolly's c++.
-FROM /v0.1.7/demos/zero-ad/Dollyfile-zero-ad-deps 0ce8ee35ad7326c085ea441439ccf8233a29aba5c7ec9138cf45e6046c221c79
-INSTALL /v0.1.7/demos/zero-ad/Dollyfile-premake a71fd6dd20069f5f7b982dd7ef89d019cb9dd29ad208cf25d62bb6b64da3837e
-INSTALL /v0.1.7/Dollyfile-libdolly-gpu 8baa759bed1c3c4be7b91be2f2f9ab4020d79d000cb95ce2a357cad477074a12
-INSTALL /v0.1.7/Dollyfile-libdolly-audio 8a950223d41e2127f56fa7c27d5cafb688a11fbd9c78e494c0290caf5e8b8e44
-INSTALL /v0.1.7/Dollyfile-libdolly-touch 544590d7be563e369ce0e42580ed9934c4dda97eed3d0ed4f21c0f23e5e804ff
-INSTALL /v0.1.7/Dollyfile-libdolly-display 41ec47a087c50823a3feeb3dad245c5ed2d469f4c7bdd59b6b241cef1d6e3f15
-INSTALL /v0.1.7/Dollyfile-libdolly-input ccff0928ad7b45c8cc9b9efbf53fc500232d89e64ba1dbcd8d6773eb94694631
+FROM /v0.1.7/demos/zero-ad/Dollyfile-zero-ad-deps 755138136f5fb09f34b824f5e954c375c08c35e4a8c35357907f9ef2049835d6
+INSTALL /v0.1.7/demos/zero-ad/Dollyfile-premake 96439ad0c72acaf3cea67c0319422ed19e8594d9ceab55e3e024566a67067a9c
+INSTALL /v0.1.7/Dollyfile-libdolly-gpu 4e813773a5508ba4b1b1b591956e89f5bcd0da31807398da0f850249056e9e11
+INSTALL /v0.1.7/Dollyfile-libdolly-audio 2a44c37063171cb39fbac6233e04262d982d4adf79e2e4c61f2bd3aa941e4364
+INSTALL /v0.1.7/Dollyfile-libdolly-touch e1a284678dbd0b9a0fc01d85a4f270c20d58d1ffa1eec731d61711405a9467ae
+INSTALL /v0.1.7/Dollyfile-libdolly-display 02db6fdde801b0723917d5fa418d696aac136ed9406428aecb9cc189f114c378
+INSTALL /v0.1.7/Dollyfile-libdolly-input c28684b773072861a32216556dc3beb39f8980f865dedcaa5777dd1e105a26ee
 # download, which the engine's test takes its logs out with.
-INSTALL /v0.1.7/Dollyfile-transfer ef39a62d3300571c25951283697418d4cf7599c6fb6c149537b3a2449b88da7b
+INSTALL /v0.1.7/Dollyfile-transfer 68b05f10efc48df241e0ec6c137025ef7a28d180f8a3c8806371a423a8ee37c6
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL ar
@@ -38,7 +38,7 @@ SLOP gzip -dc /tmp/0ad.tar.gz | tar -xf - -C /
 SLOP patch -p1 -d /tmp/0ad -i /tmp/0ad-patches/engine.patch
 
 # SpiderMonkey: its headers, the two archives, its pkg-config file and licences.
-INSTALL /v0.1.7/demos/zero-ad/Dollyfile-spidermonkey ba2b31593cd1cffc526fd4ea66a343d9c5fa61f69291ab5847ac12871e8d6a2f
+INSTALL /v0.1.7/demos/zero-ad/Dollyfile-spidermonkey 1adb9fa6182059b20494cb69d9f169ddf41ce689d44b021d86e6b3cd64a81f3e
 
 # Probe for test/0ad-spidermonkey-browser.mjs.
 SLOP mkdir -p /usr/libexec/zero-ad

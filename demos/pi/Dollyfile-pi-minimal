@@ -15,12 +15,12 @@ REQUIRES HOST upload@0
 # its upload tool (the upload command), and html for its ask_user and show_html
 # tools (the html command). The recipe engine lets an npm user build an image
 # FROM it (dolly-build).
-INSTALL /v0.1.7/Dollyfile-core caa19f185c50cbd349b17f198915d8c4ebfed0f998dd03f81d0efa52d20ef1a1
-INSTALL /v0.1.7/Dollyfile-dollyfile ed8779c768cb228773d415905828f62df1ed2e8823d2f453d713a0fc480c33ec
-INSTALL /v0.1.7/Dollyfile-posix 67fa1665d450f0b545f42675e75f23d4eba656186bd8b9552c521636548d667e
-INSTALL /v0.1.7/Dollyfile-display 65002fa85e44894e37b74c232023f10a87bec83c81e2cb8093a1cf0ac8bebbcf
-INSTALL /v0.1.7/Dollyfile-curl 3afe46912c21fed103a82096aa1b1248bb7fee48205a2fc804c55297d44008a2
-INSTALL /v0.1.7/demos/pi/Dollyfile-pi-dolly 915d7e9d2aa2382ff49b9e2044c3f5922912086740f1e7afea4d9b430bad6240
+INSTALL /v0.1.7/Dollyfile-core 477b1e16bf88948c46bc4b68cd39d9610ffe5119e131c45223f89a61421520fa
+INSTALL /v0.1.7/Dollyfile-dollyfile e4e0992c7d79c57471763b020bd4fe37c9c39ef05f1d4ad0e71b2c00665d1e90
+INSTALL /v0.1.7/Dollyfile-posix 6a2f9206752a09e80d5e1a4d2d2be08ab2174816a108c7fcaf0045f337e50172
+INSTALL /v0.1.7/Dollyfile-display 8f206fd7c1ccb3b0a4f96dc679b970f4bb7000e92b39ae1d2800a2df0236cca3
+INSTALL /v0.1.7/Dollyfile-curl 85873ade0fd6c6934b40955ea55641367d48a1fb4407f1b0fe94e88b6558f7a4
+INSTALL /v0.1.7/demos/pi/Dollyfile-pi-dolly 41af8333c51e7e76d0d8ecdaca293e3bac6cb36bdc42510767641a954b1050e5
 REQUIRES TOOL foreground
 REQUIRES TOOL printf
 REQUIRES TOOL pi

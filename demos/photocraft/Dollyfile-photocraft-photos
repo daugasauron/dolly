@@ -13,10 +13,10 @@ REQUIRES HOST sockets@0
 
 # PhotoCraft on the page with Hokusai's Great Wave open; quitting it leaves a shell where
 # photocraft opens pictures again and photocraft-cli works on them without a window.
-INSTALL /v0.1.7/Dollyfile-core caa19f185c50cbd349b17f198915d8c4ebfed0f998dd03f81d0efa52d20ef1a1
-INSTALL /v0.1.7/Dollyfile-posix 67fa1665d450f0b545f42675e75f23d4eba656186bd8b9552c521636548d667e
-INSTALL /v0.1.7/Dollyfile-display 65002fa85e44894e37b74c232023f10a87bec83c81e2cb8093a1cf0ac8bebbcf
-INSTALL /v0.1.7/demos/photocraft/Dollyfile-photocraft 59ccfaf0043d184d6566802c02e44ddcf2619d979270494a6b3811d46e155a47
+INSTALL /v0.1.7/Dollyfile-core 477b1e16bf88948c46bc4b68cd39d9610ffe5119e131c45223f89a61421520fa
+INSTALL /v0.1.7/Dollyfile-posix 6a2f9206752a09e80d5e1a4d2d2be08ab2174816a108c7fcaf0045f337e50172
+INSTALL /v0.1.7/Dollyfile-display 8f206fd7c1ccb3b0a4f96dc679b970f4bb7000e92b39ae1d2800a2df0236cca3
+INSTALL /v0.1.7/demos/photocraft/Dollyfile-photocraft 95c2b11d3069d641e6784caee2f4c15601986e101092e75d1e16231b84397df1
 REQUIRES TOOL photocraft
 SLOP mkdir -p /home/dolly/Pictures && cp /usr/share/photocraft/pictures/great-wave.jpg /home/dolly/Pictures/
 FILE /home/dolly/Pictures/great-wave.jpg

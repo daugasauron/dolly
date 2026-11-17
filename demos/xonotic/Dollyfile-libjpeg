@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # IJG's libjpeg 9f from its release archive, unchanged, for programs the cc
 # package builds: the units of its generic makefile (makefile.ansi), with
 # jconfig.txt as the configuration and jmemnobs.c as the memory manager.
-FROM /v0.1.7/Dollyfile-system-tools 39e8ab131ead90b0190b992d3a9602854a969b11c0825202303c534cdd4dedb0
+FROM /v0.1.7/Dollyfile-system-tools aaba65844164b3e9202070a757a83a6aef15710ca14631e433c72cbc1198751b
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc

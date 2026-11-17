@@ -12,10 +12,10 @@ REQUIRES HOST touch@0
 # GetTime reads the monotonic clock. <dolly/raylib.h> serves a program that holds the display
 # itself. For programs the cc package builds; <dolly/raylib.h> includes the
 # display and input headers, whose packages come with it.
-FROM /v0.1.7/Dollyfile-system 73eac9a99e3eb89d8778982f69a35806c7c1a8b06b65b47972494f009db00a4c
-INSTALL /v0.1.7/Dollyfile-libdolly-touch 544590d7be563e369ce0e42580ed9934c4dda97eed3d0ed4f21c0f23e5e804ff
-INSTALL /v0.1.7/Dollyfile-libdolly-display 41ec47a087c50823a3feeb3dad245c5ed2d469f4c7bdd59b6b241cef1d6e3f15
-INSTALL /v0.1.7/Dollyfile-libdolly-input ccff0928ad7b45c8cc9b9efbf53fc500232d89e64ba1dbcd8d6773eb94694631
+FROM /v0.1.7/Dollyfile-system 2d67ac36e99bb2f94c8be298fddae065f6e3868464df819d2bd0cd8c6c27386a
+INSTALL /v0.1.7/Dollyfile-libdolly-touch e1a284678dbd0b9a0fc01d85a4f270c20d58d1ffa1eec731d61711405a9467ae
+INSTALL /v0.1.7/Dollyfile-libdolly-display 02db6fdde801b0723917d5fa418d696aac136ed9406428aecb9cc189f114c378
+INSTALL /v0.1.7/Dollyfile-libdolly-input c28684b773072861a32216556dc3beb39f8980f865dedcaa5777dd1e105a26ee
 REQUIRES HEADER libc
 REQUIRES HEADER display
 REQUIRES HEADER input

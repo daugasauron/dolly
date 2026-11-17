@@ -13,9 +13,9 @@ REQUIRES HOST threads@0
 
 # Where Slopyard is compiled: its Lua 5.5, its Box3D build, the game and its
 # sources. slopyard-game keeps the game; the game's tests compile here.
-FROM /v0.1.7/demos/slopyard/Dollyfile-gamedev-sdk 062d03871c4215f415a3252c14c31c7c54ade15eddb4b36f0603514391dfdc76
-INSTALL /v0.1.7/Dollyfile-libdolly-gpu 8baa759bed1c3c4be7b91be2f2f9ab4020d79d000cb95ce2a357cad477074a12
-INSTALL /v0.1.7/demos/javascript/Dollyfile-janis 03373769c1b3491d21c1a12075c63a3b060e7f0825c01b3ecaed2778d8bb207f
+FROM /v0.1.7/demos/slopyard/Dollyfile-gamedev-sdk 154474e4e613c39e17c3c0b41e4505fc948deddba7538ded25e9996882f0bd2f
+INSTALL /v0.1.7/Dollyfile-libdolly-gpu 4e813773a5508ba4b1b1b591956e89f5bcd0da31807398da0f850249056e9e11
+INSTALL /v0.1.7/demos/javascript/Dollyfile-janis 081908024f1fc58da280c9cf5198ac006ca855021ea378ead968619f031380a4
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make

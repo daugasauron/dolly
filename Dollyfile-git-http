@@ -8,9 +8,9 @@ REQUIRES HOST threads@0
 # an http:// or https:// remote: the one part of Git that links libcurl, here
 # Dolly's over the page's HTTP broker. A session that clones over HTTPS
 # installs it beside git. Its objects are Git's, built again here.
-FROM /v0.1.7/Dollyfile-system-build df4c563c545dff3f752ddc57dbeb7fa9ddea51a288c11082e10e30f41060e7ed
-USE /v0.1.7/Dollyfile-zlib 7f9d021dfc4c4abb019fd8884d7c2bf7012ac2d59cda65109dc80d133e810cad
-USE /v0.1.7/Dollyfile-curl 849a284cda0928f52ae33d5bbb0a8674877c5e86f62d6f1a7c79b9f9860b4694
+FROM /v0.1.7/Dollyfile-system-build 6a2634c44769a8a0fd465e027edeb56a20a726b316a74f97b7bbf6bdf42e2c52
+USE /v0.1.7/Dollyfile-zlib d779a4d993c59ce6642dafa229e0d67aee809cca9da230be94ec3f40432819ab
+USE /v0.1.7/Dollyfile-curl 85873ade0fd6c6934b40955ea55641367d48a1fb4407f1b0fe94e88b6558f7a4
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES HEADER curl

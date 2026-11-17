@@ -6,12 +6,12 @@ REQUIRES HOST http@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.7/Dollyfile-system 73eac9a99e3eb89d8778982f69a35806c7c1a8b06b65b47972494f009db00a4c
-USE /v0.1.7/Dollyfile-curl 849a284cda0928f52ae33d5bbb0a8674877c5e86f62d6f1a7c79b9f9860b4694
-USE /v0.1.7/Dollyfile-libdolly-sockets f5ba831c260a520c7eaa24ba4d18290534f8ff58b8a9966fd7004e7c1c541e85
-USE /v0.1.7/demos/tools/Dollyfile-sqlite 1efa2f1952e79e3dabd5035a74f2af28ea442e715d79a8807e7bde5f291e7b06
-USE /v0.1.7/demos/tools/Dollyfile-bzip2 f3f2a2095668918d93d413da14cb48d962089ce0cb1c4af67db2f38a436f86f2
-USE /v0.1.7/demos/tools/Dollyfile-xz fbbc9c5b58d1bd3dd8796292e124ebc12092fe733e1ec0f78f2532f26be1fe67
+FROM /v0.1.7/Dollyfile-system 2d67ac36e99bb2f94c8be298fddae065f6e3868464df819d2bd0cd8c6c27386a
+USE /v0.1.7/Dollyfile-curl 85873ade0fd6c6934b40955ea55641367d48a1fb4407f1b0fe94e88b6558f7a4
+USE /v0.1.7/Dollyfile-libdolly-sockets 8d55612921acaaf8594889fafe23b16d624444b4d58ece014c6dc0b504d27c28
+USE /v0.1.7/demos/tools/Dollyfile-sqlite d0ef51c9aaed33ca916d4b8359b92b65978866ab00ed53d05244a6e2c1132193
+USE /v0.1.7/demos/tools/Dollyfile-bzip2 4638bc8583753a591f72ebd2531e4f6cd2003c8add7c8f7677279d70c8cdf3a6
+USE /v0.1.7/demos/tools/Dollyfile-xz 3503cbb1d88128c406716c2025a3bb31bcf0544958994b9dd7eff00ef29ac11a
 # Build the Python runtime and native extension SDK; pip.dm adds pip.
 REQUIRES HEADER curl
 REQUIRES HEADER libc
@@ -37,7 +37,7 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   touch
 
-INSTALL /v0.1.7/demos/python/Dollyfile-libffi 187dbe01d5ab1e840c392f0cbbc9a681463d2e282521db8153f05d10349269cb
+INSTALL /v0.1.7/demos/python/Dollyfile-libffi ca0e076b95e1412bb1ce0696686be63ee9279b07be9ec5363050f46eab3364ce
 EXPORTS LIB    ffi       /usr/lib/libffi.a
 EXPORTS HEADER ffi       /usr/include/ffi.h
 EXPORTS HEADER ffitarget /usr/include/ffitarget.h
@@ -358,7 +358,7 @@ EXPORTS TOOL pip3
 
 # pip builds what has no wheel for Dolly, which is every native package: a C
 # extension with the compiler, a Meson project such as NumPy with Ninja too.
-INSTALL /v0.1.7/Dollyfile-cc 9d0a24149be2c3b83b5e8c84902087889c1c91cf4f730c05df1dde47824f80ef
+INSTALL /v0.1.7/Dollyfile-cc f6cd62ca34e68d858276aa1cc3a8b12f5c6121aa2aec4c8a93edffdb0c33ad78
 
 # The browser policy decides which indexes are reachable; skip pip's own
 # PyPI version check. Dolly has one user, uid 0. sdists build as upstream
