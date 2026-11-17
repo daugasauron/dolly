@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { browserTest, composed, put, putFixture } from "./browser.mjs";
-import { eachSession, installs } from "./amy-sessions.mjs";
+import { eachSession, installs, typing } from "./amy-sessions.mjs";
 import { encodeSnapshotRecords } from "../page/snapshot-records.mjs";
 import { siteReference } from "../page/static-asset.mjs";
 import { inspectDollyfile, recipeRows } from "../site/dollyfile-view.mjs";
@@ -245,8 +245,10 @@ await browserTest("amy another directory", { image: "default", server: { handle 
 // its own (its test/amy-cases.json, and packages.test.mjs of the demos).
 await browserTest("amy programs", { image: programCases.image, timeout: 900_000 }, ({ open }) =>
   eachSession(open, programCases));
+// vi at the terminal, as typed (typing in amy-sessions.mjs).
+const vi = ["vi /tmp/amy-vi", [[/^~$/m, "ione\ntwo\x1b:wq\n"]], "test \"$(tr '\\n' ' ' < /tmp/amy-vi)\" = 'one two '"];
 await browserTest("amy tools", { image: toolCases.image, timeout: 900_000 }, ({ open }) =>
-  eachSession(open, toolCases));
+  eachSession(open, toolCases, { vi: typing(vi) }));
 
 // Every package of the core is installed into default and used: by a case of
 // this file, or where this says.
