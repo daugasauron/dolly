@@ -48,7 +48,7 @@ and display modules' clients wait, and whether a pending request can keep the pa
 
 What the deep hedger's test does about it, each with a comment naming this task: it composites
 a frame at every refresh, in both browsers; and it leaves `dh-gui` by the Quit button the GUI
-got for it, after Stop, not by Ctrl+C. With both, Firefox passed the one run made (16:50).
+got for it, after Stop, not by Ctrl+C. With both, Firefox passed the two runs made (16:50, 17:06).
 
 Done when the reproduction returns every time in Firefox on a still page, Ctrl+C ends `dh-gui`
 with a fit running and the shell answers after it, and the test has dropped the frame.
