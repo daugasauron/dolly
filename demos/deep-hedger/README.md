@@ -13,7 +13,7 @@ model, its assumptions and where they come from: [THEORY.md](THEORY.md).
 
 Open `/deep-hedger/`. **Load quotes** fetches AAPL's chain; **Fit** starts
 `dh-fit` on it and **Stop** ends it. A fit has no last iteration: it runs
-until stopped, on fresh paths every iteration.
+until stopped, on fresh paths every iteration. **Quit** leaves the shell.
 
 - **Volatility** and **Price**: for each expiry its calls and its puts. A
   market quote is a bar from bid to ask; the model's bid and ask are lines.
@@ -26,10 +26,11 @@ until stopped, on fresh paths every iteration.
   by interval: deviation, skewness, excess kurtosis, and how a day's size
   goes with the day before's.
 - **Hedge**: what the hedger does, the part of the model no quote shows, for
-  three calls of the middle expiry (its lowest strike, the one nearest the
-  forward, its highest). Above, the stock it holds from each day, short one,
+  the contracts whose rows were clicked in the Quotes tab, three at most, or
+  else three calls of the middle expiry (its lowest strike, the one nearest
+  the forward, its highest). Above, the stock it holds from each day, short one,
   along twelve of the Law tab's paths. Below, as histograms over the last
-  batch's paths, what selling the call at the market's bid, or buying it at
+  batch's paths, what selling the contract at the market's bid, or buying it at
   the market's ask, and hedging to expiry came to: the mean says whether the
   trade is worth doing on average, the worst twentieth what that risks.
 - **Quotes**: every contract's bid and ask, the market's and the model's, in
@@ -178,12 +179,15 @@ confidence 0.5.
 
 The test ([`test/`](test)) drives the image as a user does, the service's
 answer being a lognormal chain of its own: Load quotes, Fit, Stop, Fit again,
-200 s of fitting, then `dh-fit check` in the shell. It passes in Chrome 156 and
-in Firefox 159: 640 and 680 iterations in the 200 s, the loss from 11.97 to
-0.21 and 0.22, 27% of the unhedged risk left, forward and daily deviation the
-chain's, every gradient at its difference. The page composites a frame at
-every refresh while it runs: on a still page Firefox left one `dh-fit` in five
-waiting for a readback (`tasks/20261117-090000-dh-34`). Software adapters
+a row of the Quotes tab clicked, 200 s of fitting, Stop, Quit, then
+`dh-fit check` in the shell. It passes in Chrome 156 and in Firefox 159: 640
+and 680 iterations in the 200 s, the loss from 11.97 to 0.21 and 0.22, the
+clicked row's contract the one the fit's reports hedge from then on, 27% of
+the unhedged risk left, forward and daily deviation the chain's, every
+gradient at its difference. Two things in it are for Firefox, which stopped
+the test otherwise (`tasks/20261117-090000-dh-34`): the page composites a
+frame at every refresh, a still page having left one `dh-fit` in five waiting
+for a readback; and `dh-gui` is left by Quit, not by Ctrl+C. Software adapters
 cannot run the test: headless Chrome's SwiftShader takes 25 s for what the GPU
 does in 0.05 s, and its GPU process ends creating `adjoint`'s pipeline. So it
 needs a GPU window: `DISPLAY=:N node demos/deep-hedger/test/deep-hedger-browser.mjs`.

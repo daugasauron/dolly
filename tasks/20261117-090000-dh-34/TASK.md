@@ -45,3 +45,8 @@ times Ctrl+C did not end `dh-gui` (`graphicsActive` still true and the foregroun
 interruptible a minute later; `build/dh-evidence/probe5-ff-first.log`, the test's run of 13:13).
 Not looked at: whether the key reached the page. The test presses it until `dh-gui` is gone,
 five times at most; that too is to be dropped with this task.
+
+**The shell after Ctrl+C.** Also in Firefox only: with `dh-fit` running under `dh-gui` when
+Ctrl+C came, the prompt returned and the first command typed then (`grep` of a file) did not
+return, 2 times of 19 (the test's run of 15:59, 14 minutes; once in `probe5-ff`). The test
+now stops the fit with the GUI's Stop before Ctrl+C; to be dropped with this task as well.

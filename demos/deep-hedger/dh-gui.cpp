@@ -22,7 +22,20 @@
 
 extern char **environ;
 
-static const char *chain_json = "/tmp/dh/chain.json", *chain_text = "/tmp/dh/chain.txt", *fit_output = "/tmp/dh/fit.out";
+static const char *chain_json = "/tmp/dh/chain.json", *chain_text = "/tmp/dh/chain.txt", *fit_output = "/tmp/dh/fit.out",
+                  *shown_text = "/tmp/dh/chain.txt.shown";
+// The contracts the Hedge tab is to show, three at most, as rows of the Quotes tab were clicked:
+// dh-fit reads them at its next report.
+static std::vector<int> shown_rows;
+static void show(int contract) {
+  auto at = std::find(shown_rows.begin(), shown_rows.end(), contract);
+  if (at != shown_rows.end()) shown_rows.erase(at);
+  else shown_rows.push_back(contract);
+  if (shown_rows.size() > 3) shown_rows.erase(shown_rows.begin());
+  FILE *file = fopen(shown_text, "w");
+  for (int row : shown_rows) fprintf(file, "%d ", row);
+  fclose(file);
+}
 enum { MAX_DAYS = 64, MAX_EXPIRIES = 8, STRIKES_PER_SIDE = 13, KERNELS = 49 };
 
 struct Contract {
@@ -536,8 +549,8 @@ struct Outcome {
   }
 };
 
-// Three calls of the middle expiry. Above: the stock the hedger holds, short one, along the
-// first paths of the Law tab. Below: what selling it at the market's bid, or buying it at the
+// The contracts chosen in the Quotes tab, or three calls of the middle expiry. Above: the
+// stock the hedger holds, short one, along the first paths of the Law tab. Below: what selling it at the market's bid, or buying it at the
 // market's ask, and hedging to expiry came to on every path of the last batch.
 static void hedge_tab() {
   if (state.hedges.empty()) {
@@ -550,7 +563,10 @@ static void hedge_tab() {
   ImGui::SameLine();
   ImGui::TextUnformatted("   the stock held by day; the trade's result at expiry, hedged");
   ImVec2 available = ImGui::GetContentRegionAvail();
-  ImVec2 size((available.x - 16) / 3, (available.y - 16) / 2);
+  // A column a contract: dh-fit's hedges come contract by contract.
+  int count = 0;
+  for (size_t at = 0; at < state.hedges.size(); at++) count += at == 0 || state.hedges[at][0] != state.hedges[at - 1][0];
+  ImVec2 size((available.x - 8 * (count - 1)) / count, (available.y - 16) / 2);
   std::vector<int> shown;
   for (size_t at = 0, plot_index = 0; at < state.hedges.size(); plot_index++) {
     shown.push_back((int)state.hedges[at][0]);
@@ -559,17 +575,17 @@ static void hedge_tab() {
     char title[96], date[32];
     time_t day = expiry.day * 86400;
     strftime(date, sizeof date, "%b %d", gmtime(&day));
-    snprintf(title, sizeof title, "short the %s call at %.5g, forward %.5g", date, c.strike, expiry.forward);
+    snprintf(title, sizeof title, "short the %s %s at %.5g, forward %.5g", date, c.call > 0 ? "call" : "put", c.strike, expiry.forward);
     Plot plot(title, size, 0, expiry.business_days, 0, 1);
     for (size_t path = 0; at < state.hedges.size() && state.hedges[at][0] == state.hedges[at - path][0]; at++, path++) {
       const std::vector<float> &held = state.hedges[at];
       std::vector<ImVec2> line = {plot.at(0, 0)};
       for (size_t u = 1; u < held.size(); u++) line.push_back(plot.at((double)u, held[u]));
       bool in_the_money = path < state.paths.size() && (int)state.paths[path].size() > expiry.business_days &&
-                          exp(state.paths[path][(size_t)expiry.business_days]) * expiry.forward > c.strike;
+                          c.call * (exp(state.paths[path][(size_t)expiry.business_days]) * expiry.forward - c.strike) > 0;
       plot.draw->AddPolyline(line.data(), (int)line.size(), in_the_money ? ask_colour : bid_colour, 1.5f);
     }
-    if (plot_index < 2) ImGui::SameLine(0, 8);
+    if (plot_index + 1 < (size_t)count) ImGui::SameLine(0, 8);
   }
   for (size_t index = 0; index < shown.size(); index++) {
     const Contract &c = state.contracts[(size_t)shown[index]];
@@ -600,14 +616,14 @@ static void hedge_tab() {
     plot.draw->AddText(ImVec2(plot.origin.x + 6, plot.origin.y + 22), ask_colour, line);
     snprintf(line, sizeof line, "bought at %.2f: mean %+.3f, worst twentieth %+.2f", c.ask, buying.mean, buying.worst);
     plot.draw->AddText(ImVec2(plot.origin.x + 6, plot.origin.y + 38), bid_colour, line);
-    if (index < 2) ImGui::SameLine(0, 8);
+    if (index + 1 < shown.size()) ImGui::SameLine(0, 8);
   }
 }
 
 // Every contract: the market's bid and ask and the model's, in currency.
 static void contracts_tab() {
   ImGui::TextWrapped("Buy at ask, sell at bid: a trade at the market's price, hedged to expiry by the model's hedger under the fitted law. Its mean result over the paths, a gain in "
-                     "colour, and the mean of its worst twentieth.");
+                     "colour, and the mean of its worst twentieth. A click on a row: the Hedge tab shows that contract from the fit's next report, three at most.");
   if (!ImGui::BeginTable("quotes", 14, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY)) return;
   ImGui::TableSetupScrollFreeze(0, 1);
   for (const char *name : {"expiry", "", "strike", "market bid", "market ask", "model bid", "model ask", "hedge cost", "risk left", "in band", "buy at ask",
@@ -620,8 +636,12 @@ static void contracts_tab() {
     char date[32];
     time_t day = expiry.day * 86400;
     strftime(date, sizeof date, "%Y-%m-%d", gmtime(&day));
+    int row = (int)(&c - state.contracts.data());
     ImGui::TableNextRow();
-    ImGui::TableNextColumn(), ImGui::TextUnformatted(date);
+    ImGui::TableNextColumn();
+    ImGui::PushID(row);
+    if (ImGui::Selectable(date, std::find(shown_rows.begin(), shown_rows.end(), row) != shown_rows.end(), ImGuiSelectableFlags_SpanAllColumns)) show(row);
+    ImGui::PopID();
     ImGui::TableNextColumn(), ImGui::TextUnformatted(c.call > 0 ? "call" : "put");
     ImGui::TableNextColumn(), ImGui::Text("%.5g", c.strike);
     ImGui::TableNextColumn(), ImGui::Text("%.2f", c.bid);
@@ -818,6 +838,8 @@ int main(int, char **) {
         output = fopen(fit_output, "r");
       }
     }
+    ImGui::SameLine();
+    if (ImGui::Button("Quit")) done = true;  // the fit is stopped below, and the shell is in front again
     if (state.iteration) verdict(), ImGui::SameLine();
     ImGui::TextUnformatted(state.status.c_str());
 

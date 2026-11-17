@@ -1220,9 +1220,20 @@ def check(mut model: Model, chain: Chain, iterations: Int) raises:
         generator_differences(model, seed)
 
 
-def shown_contracts(chain: Chain) -> List[Int]:
-    """Three calls of the middle expiry: its lowest strike, the one nearest the
-    forward, its highest."""
+def shown_contracts(chain: Chain, path: String) -> List[Int]:
+    """The contracts whose hedges a report shows: those dh-gui wrote beside the
+    chain (PATH.shown, their indices on a line), else three calls of the middle
+    expiry: its lowest strike, the one nearest the forward, its highest."""
+    var chosen = List[Int]()
+    try:
+        for field in Path(path + ".shown").read_text().split(" "):
+            var index = Int(number(String(field.strip())))
+            if field.strip().byte_length() > 0 and index < chain.count() and len(chosen) < 3:
+                chosen.append(index)
+    except:
+        pass
+    if len(chosen) > 0:
+        return chosen^
     var day = Float32(chain.expiry_days[len(chain.expiry_days) // 2])
     var lowest = -1
     var nearest = -1
@@ -1236,7 +1247,6 @@ def shown_contracts(chain: Chain) -> List[Int]:
                 highest = i
             if nearest < 0 or abs(strike - 1) < abs(chain.contracts[nearest * CONTRACT] - 1):
                 nearest = i
-    var chosen = List[Int]()
     if lowest >= 0:
         chosen.append(lowest)
         chosen.append(nearest)
@@ -1244,7 +1254,7 @@ def shown_contracts(chain: Chain) -> List[Int]:
     return chosen^
 
 
-def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
+def fit(mut model: Model, chain: Chain, path: String, seed: UInt64, iterations: Int) raises:
     """Generator, hedger and confidence move together, each by its own loss, on fresh
     paths every iteration. A report is the mean of the iterations since the
     last one."""
@@ -1389,14 +1399,13 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
                 for t in range(model.days):
                     line += " " + String(exp(model.draw[(shown[index] * model.days + t) * DRAW + 1]))
                 print(line)
-            # What the hedger holds along the first paths shown, short three calls of the
-            # middle expiry: its lowest strike, the one nearest the forward, its highest.
+            # What the hedger holds along the first paths shown, short each contract shown.
             var inputs = Array[Float32, INPUTS](fill=0)
             var first_layer = Array[Float32, HIDDEN](fill=0)
             var second_layer = Array[Float32, HIDDEN](fill=0)
             var hedge = 0
             # And what each of those hedges left on every path, short and long.
-            for chosen in shown_contracts(chain):
+            for chosen in shown_contracts(chain, path):
                 for side in range(2):
                     line = String("DH residual ") + String(chosen) + " " + String(side)
                     for p in range(model.paths):
@@ -1413,7 +1422,7 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
                             rebind[Floats](model.phi.unsafe_ptr()),
                             model.logx[p * (model.days + 1) + u - 1] - log_strike,
                             Float32(expiry - u + 1),
-                            1,
+                            chain.contracts[chosen * CONTRACT + 2],
                             1,
                             model.draw[(p * model.days + u - 1) * DRAW + 1],
                             position,
@@ -1469,4 +1478,4 @@ def main() raises:
     elif mode == "time":
         time(model)
     else:
-        fit(model, chain, seed, Int(number(String(arguments[4]))) if len(arguments) > 4 else 0)
+        fit(model, chain, String(arguments[1]), seed, Int(number(String(arguments[4]))) if len(arguments) > 4 else 0)

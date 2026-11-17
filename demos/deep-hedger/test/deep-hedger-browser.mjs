@@ -104,15 +104,16 @@ try {
       await click(1040, 18);
       await coloured([64, 156, 255], false);
       await coloured([64, 156, 255]);
+      // A row of the Quotes tab clicked: the fit's next reports hedge that contract.
+      await click(246, 57);
+      await click(400, 150);
       await delay(200_000);
-      // Ctrl+C until dh-gui is gone. Firefox left it running after the first one, one time in
-      // five (tasks/20261117-090000-dh-34).
-      let interrupts = 0;
-      for (; await page.evaluate(() => __dolly.transport.graphicsActive()); interrupts++) {
-        assert.ok(interrupts < 5, `${name}: dh-gui runs on after ${interrupts} Ctrl+C`);
-        await page.keyboard.press("Control+C");
-        await delay(3000);
-      }
+      // Stop, then Quit: dh-gui ends by itself and the shell is in front. Ctrl+C would end
+      // it too, but in Firefox the test then stopped one run in three: dh-gui ran on, or
+      // the shell's next command did not return (tasks/20261117-090000-dh-34).
+      await click(1040, 18);
+      await delay(3000);
+      await click(1085, 18);
       await page.evaluate(([source, flags]) => __dolly.waitForInteractiveTerminal(new RegExp(source, flags), "terminal prompt", 0), [shellPrompt.source, shellPrompt.flags]);
       const run = async command => {
         assert.equal(await page.evaluate(command => __dolly.submit(`clear; ${command}`), command), 0,
@@ -137,6 +138,9 @@ try {
         assert.ok(Math.abs(forward - 1) < 0.004, `${name}: forward ${forward}`);
         assert.ok(Math.abs(deviation / (volatility / Math.sqrt(252)) - 1) < 0.12, `${name}: a day's deviation ${deviation}`);
       }
+      const shown = (await run("cat /tmp/dh/chain.txt.shown && echo && grep 'DH residual' /tmp/dh/fit.out | tail -n 2 | cut -d ' ' -f 3"))
+        .split("\n").map(line => line.trim()).filter(line => /^\d+$/.test(line));
+      assert.ok(shown.length === 3 && shown[1] === shown[0] && shown[2] === shown[0], `${name}: the row clicked and the contracts hedged: ${shown}`);
       // dh-fit check: the kernels' bids and asks beside the host's own ledger on the same
       // paths, and each gradient beside its central difference, its section's largest
       // gradients to a few percent; the same for the state's three numbers and the confidence.
