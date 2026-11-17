@@ -28,9 +28,22 @@ their own CMake projects at four jobs (configure, build):
 | robin-map 1.3.0, pugixml 1.10, expat 2.7.5, yaml-cpp 0.8.0, minizip-ng 4.2.2 | under 30 s each | expat's archive has one symbolic link |
 | pystring 1.1.3 | | one source file, no CMake project |
 | OpenColorIO 2.5.0 | 3 s, 188 s | `OCIO_USE_SIMD=OFF` |
-| OpenImageIO 3.1.16.0 | in work | below |
+| OpenImageIO 3.1.16.0 | 3 s, 230 s | patched, below; with its tools, as Blender's build names the `oiiotool` target |
+| Eigen `8a1083e9`, Brotli 1.0.10, FreeType 2.14.3 with Brotli | under 15 s each | Dolly's `freetype` package is built without Brotli, and Blender's fonts are WOFF2 |
+| oneTBB 2022.3.0 | 2 s, 20 s | as a generic Unix (`__unix__`); not yet run |
+| Epoxy 1.5.10 | 10 s | its OpenGL dispatch alone, by its generator and `cc`: Blender's build requires it even with no OpenGL backend, and its Meson build is not needed for two sources |
+
+All of them, from unpacking: 845 s in one session. Blender then configured (lite, headless,
+Cycles on, no OpenGL or Vulkan backend, Python 3.14 from the `python` package).
 
 Findings:
+
+- `call_once` (C11 `threads.h`) links only with `-pthread`: OpenEXR's core uses it, so every
+  library here is compiled and linked with `-pthread`.
+- OpenImageIO names operating systems for its string and system helpers and stops at "No idea
+  what platform this is"; the patch gives Dolly the branches upstream gives Emscripten, which
+  are the plain libc ones (ten lines in all).
+- Dolly's `tar` extracts only; `sed` has no `-i`; `grep` no `-A`.
 
 - Dolly's `cc` refuses options it does not know. OpenImageIO passes `-Qunused-arguments` to every
   Clang. The build runs the compiler through a small filter
@@ -44,9 +57,7 @@ Findings:
 
 ## Left
 
-OpenImageIO, oneTBB, Eigen, Brotli and FreeType with it; then Blender's configure (lite,
-headless, Cycles on, no OpenGL or Vulkan backend, Python 3.14), its build, and
-`blender -b --python-expr`. Then the recipes in `demos/blender/`, the test and the README.
+Blender's build (running in the session) and `blender -b --python-expr`. Then the recipes in `demos/blender/`, the test and the README.
 
 ## Done when
 
