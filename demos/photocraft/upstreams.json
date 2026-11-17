@@ -1,4 +1,6 @@
 [
 {"name": "PhotoCraft", "use": "photocraft and photocraft-cli, with craft-libs and its forks of egui and winit (demos/photocraft)", "licence": "MIT OR Apache-2.0", "repository": "https://github.com/storytold/photocraft", "sources": ["dist/static/photocraft/sources-*"]},
+{"name": "The Great Wave off Kanagawa", "use": "Hokusai's print, the picture photocraft-photos opens (demos/photocraft)", "licence": "LicenseRef-Public-Domain", "repository": "https://commons.wikimedia.org/wiki/File:Tsunami_by_hokusai_19th_century.jpg", "sources": ["dist/static/photocraft/great-wave.jpg"]},
+{"name": "PhotoCraft", "use": "photocraft and photocraft-cli, with craft-libs and its forks of egui and winit (demos/photocraft)", "licence": "MIT OR Apache-2.0", "repository": "https://github.com/storytold/photocraft", "sources": ["dist/static/photocraft/sources-*"]},
 {"name": "The Great Wave off Kanagawa", "use": "Hokusai's print, the picture photocraft-photos opens (demos/photocraft)", "licence": "LicenseRef-Public-Domain", "repository": "https://commons.wikimedia.org/wiki/File:Tsunami_by_hokusai_19th_century.jpg", "sources": ["dist/static/photocraft/great-wave.jpg"]}
 ]

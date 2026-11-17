@@ -12,24 +12,24 @@ REQUIRES HOST threads@0
 REQUIRES HOST packages@0
 REQUIRES HOST nena@0
 
-INSTALL /v0.1.7/Dollyfile-core 25fa0445fc7df33ec943073859ed66854fc63eb79a8069388057bcd2ec3fa8ca
-INSTALL /v0.1.7/Dollyfile-posix a56414b5e6e838f9469331f6c931af66736860694446f2475e26a10e7dabc70a
-INSTALL /v0.1.7/Dollyfile-display a0fc9ed4e46ee533458a6eaa9fdba0428051c0bd3b65ae20ea808528263d68f2
+INSTALL /v0.1.7/Dollyfile-core caa19f185c50cbd349b17f198915d8c4ebfed0f998dd03f81d0efa52d20ef1a1
+INSTALL /v0.1.7/Dollyfile-posix 67fa1665d450f0b545f42675e75f23d4eba656186bd8b9552c521636548d667e
+INSTALL /v0.1.7/Dollyfile-display 65002fa85e44894e37b74c232023f10a87bec83c81e2cb8093a1cf0ac8bebbcf
 # The tools Pi's dolly skill teaches: cc and make, Git, curl.
-INSTALL /v0.1.7/Dollyfile-cc 2727777d7140e9c6275a328ee88134626053ed0f9a7fff8f9a59f24d1a6a0fa6
-INSTALL /v0.1.7/Dollyfile-libdolly-display c42a80131a9c222c528dd52e1eb24df8ec1826c879c11b8f2db97c84b38fff75
-INSTALL /v0.1.7/Dollyfile-libdolly-input 5897d287bb6d02c09e50a348d12c8519ee548ab77d4bf82dfc11973b6da39ed8
-INSTALL /v0.1.7/Dollyfile-libdolly-download 347140ed1104328c3020f598b1e02cdbcfe91fbbff1f497b5dee73fade7e8556
-INSTALL /v0.1.7/Dollyfile-libdolly-upload 4286822bd3438dc99fc085aecc605923650c939377f04e789af97ecfb246c650
-INSTALL /v0.1.7/Dollyfile-libdolly-threads e2b4254db5ea46087c394ed273a49dafaaffed8ee317ef655e23fc5178a068cf
-INSTALL /v0.1.7/Dollyfile-git 232c1b594c7108493fd0251c8335b3f83c00bc22993d90e97c62be25e34913d5
-INSTALL /v0.1.7/Dollyfile-curl 092775c06ba87036be6ff6bd3cf7e209faed7043e59fa96e8611dd38c08125c3
+INSTALL /v0.1.7/Dollyfile-cc 9d0a24149be2c3b83b5e8c84902087889c1c91cf4f730c05df1dde47824f80ef
+INSTALL /v0.1.7/Dollyfile-libdolly-display 41ec47a087c50823a3feeb3dad245c5ed2d469f4c7bdd59b6b241cef1d6e3f15
+INSTALL /v0.1.7/Dollyfile-libdolly-input ccff0928ad7b45c8cc9b9efbf53fc500232d89e64ba1dbcd8d6773eb94694631
+INSTALL /v0.1.7/Dollyfile-libdolly-download 6124246718450b3dc26dbe99cf1dbfc4f559702079a9e1810d95936c2e97e912
+INSTALL /v0.1.7/Dollyfile-libdolly-upload a8b22702779bb75af32b2ac45c99aa17bc649cb9bccdc8b44316843741565519
+INSTALL /v0.1.7/Dollyfile-libdolly-threads 3b78c0215ea45324d6ad2a6f13cc1274db68c080a621924730e2e1a8264fe336
+INSTALL /v0.1.7/Dollyfile-git 94fad3734b63fcdf5e473cccf7868618221dc7036e0e563fbe7a7d7977fd777a
+INSTALL /v0.1.7/Dollyfile-curl 3afe46912c21fed103a82096aa1b1248bb7fee48205a2fc804c55297d44008a2
 # download and upload, which Pi's prompt teaches (transfer).
-INSTALL /v0.1.7/Dollyfile-transfer 25b1c8b9e76de5b2f9553923572a8080816c49d3c12f32935ec9dc394772bd7a
-INSTALL /v0.1.7/demos/pi/Dollyfile-pi-dolly b6d15a54b8570b75ab7e906343ca433ea33474d04ab01c9eb5c3143041c00565
-INSTALL /v0.1.7/Dollyfile-amy 0c3795c867ee7f831368b21bee5579563f05836150c41ab9057aac2f24b1a842
+INSTALL /v0.1.7/Dollyfile-transfer ef39a62d3300571c25951283697418d4cf7599c6fb6c149537b3a2449b88da7b
+INSTALL /v0.1.7/demos/pi/Dollyfile-pi-dolly 915d7e9d2aa2382ff49b9e2044c3f5922912086740f1e7afea4d9b430bad6240
+INSTALL /v0.1.7/Dollyfile-amy 18e763f04d79b779ef1ae560e2c947fdf5dc3b5c2846522c6d49045dd0889f0f
 # nena enables the host modules a package needs beyond these.
-INSTALL /v0.1.7/Dollyfile-nena 15bcb7117d5a2eb9225fa7f971cdb77ef87ab2811ad538c6c0d449bbc83e1568
+INSTALL /v0.1.7/Dollyfile-nena c0528e6c7a77718c127f6e0877d37e7f84b54d242ab249fc668608775be0e7e1
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL printf

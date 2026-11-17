@@ -1,3 +1,4 @@
 [
+{"name": "Dolly's fingers", "use": "The SDL2 program of the fingers demo", "licence": "MIT", "repository": "https://github.com/daugasauron/dolly", "sources": ["dist/static/fingers/fingers.c"]},
 {"name": "Dolly's fingers", "use": "The SDL2 program of the fingers demo", "licence": "MIT", "repository": "https://github.com/daugasauron/dolly", "sources": ["dist/static/fingers/fingers.c"]}
 ]

@@ -1,3 +1,4 @@
 [
+{"name": "npm packages", "use": "Pi, the coding agent, and the packages it depends on", "npm": true, "sources": ["dist/static/default/pi-npm.tar"]},
 {"name": "npm packages", "use": "Pi, the coding agent, and the packages it depends on", "npm": true, "sources": ["dist/static/default/pi-npm.tar"]}
 ]

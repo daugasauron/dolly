@@ -1,3 +1,4 @@
 [
+{"name": "ClassiCube", "use": "Block world game", "licence": "BSD-3-Clause AND MIT AND FTL", "repository": "https://github.com/ClassiCube/ClassiCube", "pins": ["CLASSICUBE"], "sources": ["dist/static/classicube/source.tar.gz"]},
 {"name": "ClassiCube", "use": "Block world game", "licence": "BSD-3-Clause AND MIT AND FTL", "repository": "https://github.com/ClassiCube/ClassiCube", "pins": ["CLASSICUBE"], "sources": ["dist/static/classicube/source.tar.gz"]}
 ]

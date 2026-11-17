@@ -1,5 +1,8 @@
 [
 {"name": "tmux", "use": "Terminal multiplexer", "licence": "ISC", "repository": "https://github.com/tmux/tmux", "pins": ["TMUX"], "sources": ["dist/static/tmux/tmux-3.8.tar.gz"]},
 {"name": "libevent", "use": "Event loop library, and tmux's", "licence": "BSD-3-Clause", "repository": "https://github.com/libevent/libevent", "pins": ["LIBEVENT"], "sources": ["dist/static/tmux/libevent-2.1.13-stable.tar.gz"]},
+{"name": "netbsd-curses", "use": "NetBSD's terminfo library and terminal descriptions, and tmux's", "licence": "BSD-3-Clause AND BSD-2-Clause", "repository": "https://github.com/sabotage-linux/netbsd-curses", "pins": ["NETBSD_CURSES"], "sources": ["dist/static/tmux/terminfo.tar"]},
+{"name": "tmux", "use": "Terminal multiplexer", "licence": "ISC", "repository": "https://github.com/tmux/tmux", "pins": ["TMUX"], "sources": ["dist/static/tmux/tmux-3.8.tar.gz"]},
+{"name": "libevent", "use": "Event loop library, and tmux's", "licence": "BSD-3-Clause", "repository": "https://github.com/libevent/libevent", "pins": ["LIBEVENT"], "sources": ["dist/static/tmux/libevent-2.1.13-stable.tar.gz"]},
 {"name": "netbsd-curses", "use": "NetBSD's terminfo library and terminal descriptions, and tmux's", "licence": "BSD-3-Clause AND BSD-2-Clause", "repository": "https://github.com/sabotage-linux/netbsd-curses", "pins": ["NETBSD_CURSES"], "sources": ["dist/static/tmux/terminfo.tar"]}
 ]

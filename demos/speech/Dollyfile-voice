@@ -8,12 +8,12 @@ REQUIRES HOST threads@0
 
 # voice, linked against the transcribe package, with the model it reads:
 # buttons and speech in the place of a keyboard, for a terminal program.
-FROM /v0.1.7/Dollyfile-system cc1c13d1cbc8544e46f9f58974b05690af38e9abb2395e98ad923e242eeac0af
+FROM /v0.1.7/Dollyfile-system 73eac9a99e3eb89d8778982f69a35806c7c1a8b06b65b47972494f009db00a4c
 INSTALL /v0.1.7/demos/speech/Dollyfile-parakeet 1bcbe5b3eae68e75d231fcc5a4e9758f24ecb78e9eee2b6c84e74a7dd46f7a92
-USE /v0.1.7/demos/speech/Dollyfile-transcribe be6f05949ed3dbeaa88600426f68ea51060c3b706ef30996192ec7bbaccf039e
-USE /v0.1.7/Dollyfile-libdolly-microphone 040a5358ebba9115098060e59532feba2d9b7ca51fec9b988f0d4d774556509d
-USE /v0.1.7/Dollyfile-libdolly-touch 5ff3a9b552d265ee732aa41e00a837ddcbb4c3c9610907b46fcfa9857a63dc0f
-USE /v0.1.7/Dollyfile-libdolly-pty 9fcfd553671ddc3fad83a0f02ce737dc5ca4a7591b44ef5954b977026659f7a8
+USE /v0.1.7/demos/speech/Dollyfile-transcribe b6306e8a4cba89397db608d5904f94e7ba5bfd46e86da11190afc6154a398016
+USE /v0.1.7/Dollyfile-libdolly-microphone 77a90dbe733ed424874e11fefcebe323fbe8077415ba711107546a0af655270d
+USE /v0.1.7/Dollyfile-libdolly-touch 544590d7be563e369ce0e42580ed9934c4dda97eed3d0ed4f21c0f23e5e804ff
+USE /v0.1.7/Dollyfile-libdolly-pty c7573826629c7ad7a67a7a140cce66e984061594ce3687a38a87cb2ccd6f3c72
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL tar

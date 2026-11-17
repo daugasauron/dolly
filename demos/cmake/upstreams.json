@@ -1,4 +1,6 @@
 [
 {"name": "libuv", "use": "Event loop for Neovim and CMake", "licence": "MIT", "repository": "https://github.com/libuv/libuv", "pins": ["LIBUV"], "sources": ["dist/static/cmake/libuv.tar"]},
+{"name": "CMake", "use": "cmake", "licence": "BSD-3-Clause", "repository": "https://gitlab.kitware.com/cmake/cmake", "pins": ["CMAKE"], "sources": ["dist/static/cmake/cmake.tar.gz"]},
+{"name": "libuv", "use": "Event loop for Neovim and CMake", "licence": "MIT", "repository": "https://github.com/libuv/libuv", "pins": ["LIBUV"], "sources": ["dist/static/cmake/libuv.tar"]},
 {"name": "CMake", "use": "cmake", "licence": "BSD-3-Clause", "repository": "https://gitlab.kitware.com/cmake/cmake", "pins": ["CMAKE"], "sources": ["dist/static/cmake/cmake.tar.gz"]}
 ]

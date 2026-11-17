@@ -1,3 +1,4 @@
 [
+{"name": "FFmpeg", "use": "ffmpeg, ffprobe and the libav* libraries, as the ffmpeg package", "licence": "LGPL-2.1-or-later", "repository": "https://ffmpeg.org/", "pins": ["FFMPEG"], "sources": ["dist/static/ffmpeg/ffmpeg-9.0.2.tar.gz"]},
 {"name": "FFmpeg", "use": "ffmpeg, ffprobe and the libav* libraries, as the ffmpeg package", "licence": "LGPL-2.1-or-later", "repository": "https://ffmpeg.org/", "pins": ["FFMPEG"], "sources": ["dist/static/ffmpeg/ffmpeg-9.0.2.tar.gz"]}
 ]

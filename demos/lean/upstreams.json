@@ -1,3 +1,4 @@
 [
+{"name": "Lean", "use": "Lean 4.35: the lean compiler, Lake, leanc and the Init, Std, Lean and Lake libraries the lean demo builds in Dolly from stage0, with demos/lean/lean-dolly.patch applied", "licence": "Apache-2.0", "repository": "https://github.com/leanprover/lean4", "pins": ["LEAN"], "sources": ["dist/static/lean/lean.tar.gz", "dist/static/lean/port.tar"]},
 {"name": "Lean", "use": "Lean 4.35: the lean compiler, Lake, leanc and the Init, Std, Lean and Lake libraries the lean demo builds in Dolly from stage0, with demos/lean/lean-dolly.patch applied", "licence": "Apache-2.0", "repository": "https://github.com/leanprover/lean4", "pins": ["LEAN"], "sources": ["dist/static/lean/lean.tar.gz", "dist/static/lean/port.tar"]}
 ]

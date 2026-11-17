@@ -11,10 +11,10 @@ REQUIRES HOST sockets@0
 REQUIRES HOST clipboard@0
 
 # Voxel Flyover on the page: the flight starts at once; Q quits to a shell.
-INSTALL /v0.1.7/Dollyfile-core 25fa0445fc7df33ec943073859ed66854fc63eb79a8069388057bcd2ec3fa8ca
-INSTALL /v0.1.7/Dollyfile-posix a56414b5e6e838f9469331f6c931af66736860694446f2475e26a10e7dabc70a
-INSTALL /v0.1.7/Dollyfile-display a0fc9ed4e46ee533458a6eaa9fdba0428051c0bd3b65ae20ea808528263d68f2
-INSTALL /v0.1.7/demos/godot/Dollyfile-voxel-flyover 2cb1d09ef4354f59c7144386bf5420772d55420d7f2b11c16c9a9a16f2063b04
+INSTALL /v0.1.7/Dollyfile-core caa19f185c50cbd349b17f198915d8c4ebfed0f998dd03f81d0efa52d20ef1a1
+INSTALL /v0.1.7/Dollyfile-posix 67fa1665d450f0b545f42675e75f23d4eba656186bd8b9552c521636548d667e
+INSTALL /v0.1.7/Dollyfile-display 65002fa85e44894e37b74c232023f10a87bec83c81e2cb8093a1cf0ac8bebbcf
+INSTALL /v0.1.7/demos/godot/Dollyfile-voxel-flyover 2e9b8295847abe5b7f8f077b254588d14b328f71bbe3e50d410bcfd4f25db311
 REQUIRES TOOL voxel-flyover
 
 FILE /etc/dolly/init.slop
