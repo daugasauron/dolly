@@ -27,8 +27,9 @@ Not started in the demo. What it takes, from what the stock-only build measured:
 2. **Kernels.** A block's threads have to take the same books and the same branches (task
    dh-23: 14 times slower otherwise). A kernel binds at most ten buffers and its WGSL is at
    most 128 KiB; the demo's `adjoint` is at 99 kB and nine buffers.
-3. Conflict 4 (pathwise against state-conditional fill prices, task dh-10) is then measurable,
-   and `braut`'s claim that most of the spread enters through option trades (6.27 of 6.36 bp, an
+3. Conflict 4 (pathwise against state-conditional fill prices, task dh-10) is decided first: by
+   the ledger a pathwise-priced option is a stock strategy (task dh-35). With prices of the day
+   `braut`'s claim that most of the spread enters through option trades (6.27 of 6.36 bp, an
    agent's) can be checked against the demo's finding on spreads (task dh-19).
 4. A step between, proposed here and not tried: let a book also trade the other contracts once,
    on day 0, at the model's own day-0 bids and asks, and hold them to their expiries. The ledger
@@ -36,3 +37,7 @@ Not started in the demo. What it takes, from what the stock-only build measured:
    arise. Each contract's quotes then depend on the others', and since a book may hold its own
    contract, the spreads need something that holds them open: the owner's question of
    2026-07-23, "why isn't the spread shrinking?".
+   Expected, not measured (2026-11-17): a contract is then made the cheapest way, by the stock
+   or by a neighbour plus the difference, and at least one contract an expiry is still made by
+   the stock alone. That links neighbours' quotes; it does not by itself give bands of a cent
+   at the money (task dh-19).

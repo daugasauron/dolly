@@ -241,7 +241,17 @@ Each was taken back to the owner's last and most specific words; the tasks
    owner to confirm (task dh-15): without it a hedger that minimizes `rho` is
    paid for holding a drift and the generator supplies one, measured.
 4. **Pathwise option prices.** Decided by the owner every time (decision 13,
-   task dh-10). It arises with options as hedge instruments (task dh-06).
+   task dh-10). It arises with options as hedge instruments (task dh-06), and
+   there this document has an argument the owner has not seen (task dh-35).
+   At a pathwise price an option bought is a stock strategy: a book that buys
+   contract `i` on day `t` for what its short hedge will have cost on this
+   path, `Y_i - W_i(t..T)`, and receives `Y_i` at expiry is left with
+   `W_i(t..T)`, the gains of `i`'s own stock hedge from `t` on, its costs
+   included; sold earlier at its pathwise bid, with two such sums. No payoff is
+   left in the position. A book that trades such options holds nothing a stock
+   strategy does not give it, so its risk cannot fall and no spread can
+   tighten. An option hedges when its price is fixed on the day it trades,
+   from what is known that day.
 5. **The illiquid name.** The order is decided: liquid first ("Start with a
    name that is very liquid.", 2026-11-16). The illiquid run is work left
    (task dh-11).
@@ -280,9 +290,11 @@ not the model of decision 12.
 
 Not implemented, in the order the theory needs them:
 
-1. Options as hedge instruments at the model's own quotes, pathwise, with
-   dropout (decisions 12, 13, 19). It is where `braut` measured most of the
-   spread to come from (an agent's claim: 6.27 of 6.36 bp).
+1. Options as hedge instruments at the model's own quotes, with dropout
+   (decisions 12, 19). It is where `braut` measured most of the spread to come
+   from (an agent's claim: 6.27 of 6.36 bp), and what AAPL's tight quotes at
+   the money point to. With pathwise prices (decision 13) it changes nothing
+   (section 5, item 4).
 2. Event dates as inputs of the law (decision 18).
 3. The stock's cost read from the stock's own market, and growing with size
    and with the path's own turbulence ("the spreads increase/decrease with
