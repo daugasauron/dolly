@@ -1,6 +1,6 @@
 # Docs: eight statements the code no longer matches, the bootstrap exceptions table among them
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 90
 - TAGS: audit,repo,docs,0.1.8
 
@@ -15,8 +15,14 @@ committed Ghostty files; `embedding.md`'s table has `clipboard` and `console`. C
 code cited below; `platform-documents.test.mjs` passes after re-pinning `dolly-docs`, and
 `lint:dollyfiles`.
 
-Left: `wuffs-c.zig`'s six comments naming this machine's host Zig go when the file is next
-written from a checkout path that names no machine, with a rebuild of `ghostty-build`.
+The Ghostty item is done on `ws/ports`: `wuffs-c.zig` is written again by the README's command,
+run in libghostty-vt's checkout by Zig 0.17.0's release archive unpacked at `/tmp/zig-0.17.0`;
+the six comments now name `/tmp/zig-0.17.0/lib/include/stdint.h`, and nothing else in the file
+changed (`diff`; the build stops where the README says, `ghostty-generate.log` in
+`work/audit-1116-evidence/ports/fix-ports/`). The generated README names that path. It rebuilds
+`ghostty-build` and every image after it. Closed: `ghostty-build` builds from it in that tree
+(`22087f32c`, `build-6.log`: 131 s, snapshot 210,504,739 bytes against the release's
+210,502,180), and the eight places were done on `cleanup/0.1.8`.
 
 ## Found
 

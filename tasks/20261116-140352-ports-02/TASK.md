@@ -18,8 +18,8 @@ this tree proved, and what only the round can (the heavy chains):
 2. Zig's `GetExecutablePath` fallback is gone; the patch applies to the prepared tree
    (`patch --dry-run`). On a Unix that is not Linux, LLVM's `getMainExecutable` asks `dladdr`
    (`llvm/lib/Support/Unix/Path.inc`), and Dolly's names the running program
-   (`process/libc-adapter.c:1821`), as for item 1. Round: `zig-llvm-build`, and the zig test, whose `zig cc` starts its
-   assembler (`-cc1as`) by the path LLVM finds.
+   (`process/libc-adapter.c:1822`), as for item 1. Round: `zig-llvm-build`, and the zig test,
+   whose `zig cc` starts its assembler (`-cc1as`) by the path LLVM finds.
 3. DarkPlaces keeps only its loopback hunk (`netconn.c`: Dolly has no IP sockets); its
    `select`, session lock, file reads and `dlopen` (which fails: the engine is no host of
    shared objects) are upstream's. `xonotic-build` and `xonotic` build in this tree, and the
@@ -45,7 +45,7 @@ this tree proved, and what only the round can (the heavy chains):
 8. Emacs: `prepare-emacs.sh` no longer makes `src/lisp.mk` on the host; the release's `.elc`
    files are not staged and the recipe runs upstream's bootstrap
    (`tasks/20261116-143518-ports-08`); `process.c`'s hunk that passed no wait options is gone
-   (Dolly's `waitpid` takes `WUNTRACED` and `WCONTINUED`, `process/runtime-adapter.c:320`). The
+   (Dolly's `waitpid` takes `WUNTRACED` and `WCONTINUED`, `process/runtime-adapter.c:324`). The
    terminal hunks stay, with their real reason in the patch and README: Emacs's `terminfo.c`
    declares `tparm` variadic, and NetBSD's libterminfo defines it with nine `long`s, which a
    WebAssembly call cannot match. `emacs` and `gnu-emacs` build in this tree, the recipe's check
