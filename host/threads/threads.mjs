@@ -39,9 +39,10 @@ export function worker({ get, runtimeBase }) {
     available(pid) {
       return workers.size < 64 && [...workers.values()].filter(owner => owner === pid).length < 32;
     },
-    create(pid, url, name) {
+    // make: a Worker the page makes (host/runtime/runtime.mjs pageWorkers).
+    create(pid, url, name, make) {
       if (!provider.available(pid)) return null;
-      const worker = new Worker(url, { type: "module", name });
+      const worker = make(url, { type: "module", name });
       workers.set(worker, pid);
       return worker;
     },

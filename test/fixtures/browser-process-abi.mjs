@@ -29,7 +29,7 @@ async function runWorker({ memory, ...configuration }) {
         if (data.type === "finished") resolve();
         else if (data.type !== "started") reject(new Error(data.message ?? `unexpected process message: ${data.type}`));
       };
-      worker.postMessage({ type: "configure", pid: 1, control: new SharedArrayBuffer(32), clockOrigin: performance.timeOrigin,
+      worker.postMessage({ type: "configure", pid: 1, control: new SharedArrayBuffer(80), clockOrigin: performance.timeOrigin,
         local: [], memory: { initial: BigInt(memory.buffer.byteLength / 65536), maximum: 131072n }, port: channel.port1,
         mailbox: 65536, gateModule, kernelMemory, ...configuration }, [channel.port1]);
       channel.port2.postMessage({ memory, received: new Int32Array(new SharedArrayBuffer(4)) });

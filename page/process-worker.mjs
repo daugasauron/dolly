@@ -23,14 +23,24 @@ const deferredResult = -(1n << 63n);
 const reservationRetryMilliseconds = 50;
 const reservationPatienceMilliseconds = 5000;
 
+// The supervisor's end: the port the page sends first when it made this Worker
+// (host/runtime/runtime.mjs pageWorkers), or else this Worker's owner, a thread's.
+let supervisor = self;
 const configuration = await new Promise((resolve, reject) => {
   const timeout = setTimeout(
     () => reject(new Error("Dolly process configuration was not provided")),
     10_000,
   );
   self.addEventListener("message", function configure(event) {
+    if (event.data?.supervisor instanceof MessagePort) {
+      supervisor = event.data.supervisor;
+      supervisor.addEventListener("message", configure);
+      supervisor.start();
+      return;
+    }
     if (event.data?.type !== "configure") return;
     self.removeEventListener("message", configure);
+    supervisor.removeEventListener("message", configure);
     clearTimeout(timeout);
     resolve(event.data);
   });
@@ -44,7 +54,7 @@ if (!(configuration.module instanceof WebAssembly.Module || configuration.module
     !(configuration.kernelMemory instanceof WebAssembly.Memory) ||
     !(configuration.control instanceof SharedArrayBuffer) ||
     !Array.isArray(configuration.local) ||
-    configuration.control.byteLength !== 32 ||
+    configuration.control.byteLength !== 80 ||
     !Number.isFinite(configuration.clockOrigin) ||
     !Number.isSafeInteger(configuration.mailbox) || configuration.mailbox <= 0 ||
     typeof configuration.memory?.initial !== "bigint" || typeof configuration.memory?.maximum !== "bigint" ||
@@ -55,7 +65,7 @@ if (!(configuration.module instanceof WebAssembly.Module || configuration.module
   throw new Error("Dolly process received an invalid configuration");
 }
 
-const control = new Int32Array(configuration.control);
+const control = new Int32Array(configuration.control), callFields = new Float64Array(configuration.control, 32, 6);
 const mailbox = BigInt(configuration.mailbox);
 const maximumBytes = configuration.memory.maximum * 65536n;
 const clockOffset = performance.timeOrigin - configuration.clockOrigin;
@@ -101,7 +111,7 @@ function reportThreadFinished() {
     while (Atomics.load(received, 0) === 0 &&
            Atomics.wait(received, 0, 0, receiverPatienceMilliseconds) !== "timed-out");
   }
-  self.postMessage({ type: "thread-finished", pid: configuration.pid, tid: configuration.tid, result: threadResult });
+  supervisor.postMessage({ type: "thread-finished", pid: configuration.pid, tid: configuration.tid, result: threadResult });
 }
 
 // The process's memory lives in its Workers alone, so that it goes when they
@@ -248,18 +258,18 @@ function call(operation, requestAddressValue, requestSizeValue,
     const sequence = Atomics.load(control, 0) % 0x7fffffff + 1;
     Atomics.store(control, 0, sequence);
     if (!copyRequest(request)) return deferredResult;
-    self.postMessage({
-      type: "syscall",
-      pid: configuration.pid, tid: configuration.tid,
-      sequence,
-      operation,
-      requestAddress: request.address,
-      requestSize: request.size,
-      responseAddress: response.address,
-      responseCapacity: response.size,
-      memoryBytes,
-      port: channel?.port1,
-    }, channel ? [channel.port1] : []);
+    // A call's fields, then its sequence in the doorbell word, which the supervisor
+    // waits on: a message on the page's port (pageWorkers) took ten times as long.
+    // A thread's spawn carries its channel in a message.
+    if (channel) {
+      supervisor.postMessage({ type: "syscall", pid: configuration.pid, tid: configuration.tid, sequence, operation,
+        requestAddress: request.address, requestSize: request.size, responseAddress: response.address,
+        responseCapacity: response.size, memoryBytes, port: channel.port1 }, [channel.port1]);
+    } else {
+      callFields.set([operation, request.address, request.size, response.address, response.size, memoryBytes]);
+      Atomics.store(control, 6, sequence);
+      Atomics.notify(control, 6);
+    }
     for (;;) {
       const observed = Atomics.load(control, 1);
       if (observed === sequence) break;
@@ -318,7 +328,9 @@ try {
     } finally { URL.revokeObjectURL(url); }
   }));
   awaitHost = localModules.find(module => module.awaitHost)?.awaitHost ?? awaitHost;
-  self.postMessage({ type: "started", pid: configuration.pid, tid: configuration.tid });
+  // Started, before any call, on the doorbell (page/process-supervisor.mjs).
+  Atomics.store(control, 7, 1);
+  Atomics.notify(control, 6);
   // Through JSPI where that stack is the larger one (page/process-supervisor.mjs).
   const enter = configuration.promisingEntry ? WebAssembly.promising : entry => entry;
   if (configuration.argument !== undefined) {
@@ -326,7 +338,7 @@ try {
     reportThreadFinished();
   } else {
     await enter(instance.exports._start)();
-    self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
+    supervisor.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
   }
 } catch (caught) {
   if (caught === UNSTARTED) {
@@ -334,13 +346,13 @@ try {
   } else if (ending === THREAD_EXIT && configuration.threaded && typeof threadResult === "bigint") {
     reportThreadFinished();
   } else if (ending === PROCESS_EXIT) {
-    self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
+    supervisor.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
   } else {
     // A trap on a stack stack@0 made ends its caller with a trap of its own;
     // the provider learns the first one's reason a moment later.
     await null;
     const error = localModules.map(module => module.failure).find(Boolean) ?? caught;
-    self.postMessage({
+    supervisor.postMessage({
       type: "failed",
       pid: configuration.pid, tid: configuration.tid,
       message: error instanceof Error ? error.message : String(error),
