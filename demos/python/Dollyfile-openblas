@@ -10,7 +10,7 @@ REQUIRES HOST runtime@0
 # found by pkg-config as openblas. openblas-dolly.patch makes LAPACK's
 # subroutines return void, as their callers declare them: WebAssembly traps a
 # call of another type (proposed upstream).
-FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 99ba4b0dfea5dfd2099047bbbd136adbff138ac5c2316c7f57f4fa485f50968f
+FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 68775e21199d50c862850d9c4a6fabb2a311a894d6a479b26d39260451e1d3f6
 REQUIRES HEADER libc
 REQUIRES TOOL cmake
 REQUIRES TOOL cp

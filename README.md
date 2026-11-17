@@ -61,11 +61,12 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `dollyfile`: `dollyfile`, the recipe engine alone: an image that installs it can be built `FROM`.
 - `nena`: `nena`, which lists a session's host modules and enables or disables them, where the image declares `nena@0`.
 - `posix`: `grep`, `sed`, `sort`, `find`, `xargs`, `awk`, `sh` and the other text and file tools.
-- `git`: `git` over the page's HTTP broker, with `diff` and `patch`.
+- `git`: `git` over the page's HTTP broker, with `diff` and `patch`, and `vi` for the messages it edits.
 - `zlib`: libz: zlib's headers and static library, for programs the `cc` package builds; it brings no compiler.
 - `curl`: `curl` and libcurl, over the page's HTTP broker.
 - `gzip`: `gzip`, which compresses and decompresses `.gz` files with zlib.
 - `less`: `less`, the pager; Git and `man` page through it once it is installed.
+- `vi`: Neatvi, a small `vi` and `ex` that needs no terminal database; Git starts it to edit a message.
 - `ninja`: `ninja` (Samurai), which Meson and CMake's Ninja generator build with.
 - `mandoc`: `mandoc`, which formats a manual page of man or mdoc macros as text, and `text-page`, with which a package formats upstream's pages when it is built.
 - `make`: GNU `make` alone, for rules that compile nothing; `cc` brings it too.

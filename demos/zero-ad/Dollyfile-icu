@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # autotools, which Slop cannot run; as Emscripten's port does, every source of
 # common, i18n and stubdata is compiled. The data stays a file, which ICU finds
 # in /usr/share/icu/68.2 unless ICU_DATA names another directory.
-FROM /v0.1.7/Dollyfile-system-tools 6699b9ce9339fe8ee70c02972b8a4b10242adb71dd63c3a5ac5da48f8d1828ed
+FROM /v0.1.7/Dollyfile-system-tools bf4bd9f3bb45209cbf68e170f74fa8a85f093f10593f36a8f6d3e499ebce4114
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES TOOL ar

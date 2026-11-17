@@ -6,8 +6,8 @@ REQUIRES HOST runtime@0
 # imports to work with Lean itself, compiled by the first lean (lean-stage0)
 # as lean-std is: its .olean files and libLean.a, which every Lean program
 # links, as upstream's flags name it.
-FROM /v0.1.7/demos/lean/Dollyfile-lean-stage0 479cda6f6ffe59432345c1f9b7d5f5a82169f57e54da52bec16f32b60e398470
-INSTALL /v0.1.7/demos/lean/Dollyfile-lean-std ae5580788723ff51199e2aebf42d536d65efc6fd794bc466e00bb4e9c5546731
+FROM /v0.1.7/demos/lean/Dollyfile-lean-stage0 45c1106d37246a66106306b4efe62d20602197f162fecb6e68f1a4b8d90c1334
+INSTALL /v0.1.7/demos/lean/Dollyfile-lean-std e7b83c7ac0be3d3aaca381b6dae68c7e1d503c1950a4978fd1aeb2fa90c1e6b1
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL find

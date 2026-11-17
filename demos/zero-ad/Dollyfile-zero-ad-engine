@@ -13,8 +13,8 @@ REQUIRES HOST threads@0
 
 # Build-only: the 0 A.D. engine (pyrogenesis), built by the Makefiles premake
 # generates from upstream's scripts, with Dolly's c++.
-FROM /v0.1.7/demos/zero-ad/Dollyfile-zero-ad-deps 0dde2c08263241b222a0c5815689cbf037806f4d82abc0bb65b3396e2653f1fe
-INSTALL /v0.1.7/demos/zero-ad/Dollyfile-premake 7e8c41c21be1ea5283931a208ebd9d19e7ecc361c2862176b152e3279b06fff5
+FROM /v0.1.7/demos/zero-ad/Dollyfile-zero-ad-deps c1f1677321b4f795101f2c0ddde547773256efb930ca82eb0eeb58ba481b812f
+INSTALL /v0.1.7/demos/zero-ad/Dollyfile-premake f921f7f25ce76af01b93e094a7136f7e20c715916d0465345b4ebd5c61351017
 INSTALL /v0.1.7/Dollyfile-libdolly-gpu b13690913448e04e3795994af89d032f7a1537ce13b54c0c73f696ee4375c6d0
 INSTALL /v0.1.7/Dollyfile-libdolly-audio 5b508cabd2df8a3106a8788b1ff75da3ae63d8acc002fa5b8c1120722520deac
 INSTALL /v0.1.7/Dollyfile-libdolly-touch 882f7e0ec09bfc107a545e9b16378a042806bdbff8cd07548de659083d22e8ef
@@ -38,7 +38,7 @@ SLOP gzip -dc /tmp/0ad.tar.gz | tar -xf - -C /
 SLOP patch -p1 -d /tmp/0ad -i /tmp/0ad-patches/engine.patch
 
 # SpiderMonkey: its headers, the two archives, its pkg-config file and licences.
-INSTALL /v0.1.7/demos/zero-ad/Dollyfile-spidermonkey ae4ace2d4091a022e606f04d6508387d80d08d4fa315c6a539b122bf137b0a72
+INSTALL /v0.1.7/demos/zero-ad/Dollyfile-spidermonkey d5b08fa048acaadc8ac951af6f7e35a9e38ade78942d4b40b32f9700a8f541cf
 
 # Probe for test/0ad-spidermonkey-browser.mjs.
 SLOP mkdir -p /usr/libexec/zero-ad

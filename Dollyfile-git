@@ -11,6 +11,8 @@ REQUIRES HOST threads@0
 FROM /v0.1.7/Dollyfile-system-build d1bb50136de0dadf12e3e2af2266c5102e9ab15769e9f607807c44d46323f3a1
 USE /v0.1.7/Dollyfile-zlib 8de0bd7abb3a8237405fbbe378e6565c995a24694e5a3b55ef24873c5786bdb5
 USE /v0.1.7/Dollyfile-curl 6307c6eac2d990657b961ba9ea05fc7f5c261d2f2c2c8662a9876b45ac210f3c
+# The editor of git commit, rebase -i and tag -a: Git's default, vi.
+INSTALL /v0.1.7/Dollyfile-vi 9324649db574f366a2bbba27afc5d56256d63c97ab6a8a85983d650832f3e109
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES HEADER curl

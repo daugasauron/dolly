@@ -9,17 +9,16 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.7/Dollyfile-system-tools 6699b9ce9339fe8ee70c02972b8a4b10242adb71dd63c3a5ac5da48f8d1828ed
+FROM /v0.1.7/Dollyfile-system-tools bf4bd9f3bb45209cbf68e170f74fa8a85f093f10593f36a8f6d3e499ebce4114
 # The page's file exchange, here and in the images built on this one.
 INSTALL /v0.1.7/Dollyfile-transfer c581eb92dcc14d12e251f686ba9ff508aeab68afcc4205254c54e184e9e889a4
 INSTALL /v0.1.7/Dollyfile-session-recover dac2734196dd20cd7c812e8a8e5baa8e611d3373ba18ab84a0350ab8e99eb9ec
 # The packages made of what system-build and system-tools built: this image
 # holds their files, and its record says so, as it does for every INSTALL.
 INSTALL /v0.1.7/Dollyfile-core 0400b7c98241821542518a568100a4d8abf5e6642e2dbbc3b09f3512dfc75ba0
-INSTALL /v0.1.7/Dollyfile-cc 99770d8693eaf1c5430782512d808e84fb33a172acb3fb0184234068f5bf4384
-INSTALL /v0.1.7/Dollyfile-make a112013355c149dffe55b298389acf0644cba1b1c62f63dc82ed7246d95682d5
-INSTALL /v0.1.7/Dollyfile-posix 1253bee9688e620f912bff5694ce133044a38d20392218a152f9da4d3a290e63
-INSTALL /v0.1.7/Dollyfile-ninja a2fb91cdc3620687c398b866736cc487bed9e30c75f246d057044ae198260f06
+INSTALL /v0.1.7/Dollyfile-cc f58b7ef4fbe94655954e546c64a2c685d28db3af0bac228bec7c4f4cc4bb0bc7
+INSTALL /v0.1.7/Dollyfile-posix fe18da40c18ffdfcd17d1b854a00df8eb489ddbe34b776d131aaf542bd06bc42
+INSTALL /v0.1.7/Dollyfile-ninja 27cf09b48e86673ab18eb34e10a32d24623856b5410a977f207836a92ab256cd
 # The headers and clients of the modules this toolchain declares, for the
 # programs it builds.
 INSTALL /v0.1.7/Dollyfile-libdolly-display dca7d4755a50b8dbaa6abc4fd5b8fa34cccbb6400a4fd167d90e9a0f1bcee9ad

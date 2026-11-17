@@ -6,7 +6,7 @@ REQUIRES HOST input@0
 REQUIRES HOST audio@0
 REQUIRES HOST touch@0
 
-FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 99ba4b0dfea5dfd2099047bbbd136adbff138ac5c2316c7f57f4fa485f50968f
+FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 68775e21199d50c862850d9c4a6fabb2a311a894d6a479b26d39260451e1d3f6
 INSTALL /v0.1.7/Dollyfile-libdolly-audio 5b508cabd2df8a3106a8788b1ff75da3ae63d8acc002fa5b8c1120722520deac
 INSTALL /v0.1.7/Dollyfile-libdolly-touch 882f7e0ec09bfc107a545e9b16378a042806bdbff8cd07548de659083d22e8ef
 INSTALL /v0.1.7/Dollyfile-libdolly-display dca7d4755a50b8dbaa6abc4fd5b8fa34cccbb6400a4fd167d90e9a0f1bcee9ad

@@ -19,7 +19,6 @@ the script would find here, in the comments beside its flags.
 - `unzip`: Info-ZIP's `unzip` and `zipinfo`.
 - `tree`: tree, which draws a directory as a tree.
 - `bc`: the `bc` and `dc` calculators (Gavin Howard's).
-- `vi`: Neatvi, a small `vi` and `ex` that needs no terminal database.
 - `xxd`: xxd, the hex dump that also reads one back.
 - `base64`: `base64` (Alfred Klomp's) and libbase64.
 - `yacc`: Berkeley Yacc, as `yacc` and `byacc`.
@@ -57,7 +56,6 @@ What the platform decides ([process model](../../docs/process-model.md)):
   `toybox`'s headers are generated: their builds read plain tars of the files they need
   ([`prepare-sources.sh`](prepare-sources.sh)); the rest build from the
   archive as published.
-- `fork` fails: `vi`'s `!` commands and language servers say so.
 - SCons takes a program on `PATH` for a compiler only if its execute bit is
   set, and Dolly keeps none: a `SConstruct` names its compiler
   (`Environment(CC="cc")`), as Godot's platform does.
@@ -73,5 +71,5 @@ What the platform decides ([process model](../../docs/process-model.md)):
 
 Test: the `amy tools` case of [`test/amy-browser.mjs`](../../test/amy-browser.mjs)
 installs each into `default`, uses it, links a program with each library and
-types at the terminal into `sqlite3`, `dc`, `vi` and `dte`; `amy meson alone`
+types at the terminal into `sqlite3`, `dc`, `dte` and the core's `vi`; `amy meson alone`
 builds a project in a session that had no compiler.

@@ -17,7 +17,6 @@ binaryen binaryen binaryen-version_133.tar.gz
 tree tree unix-tree-2.3.2.tar.gz
 dte dte dte-1.11.1.tar.gz
 base64 base64 base64-0.5.2.tar.gz
-vi neatvi neatvi-20.tar.gz
 sqlite linenoise linenoise-2.0.tar.gz
 yacc byacc byacc-20260126.tgz
 flex reflex reflex-20260131.tgz

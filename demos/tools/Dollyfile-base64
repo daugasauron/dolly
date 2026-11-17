@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # base64 by Alfred Klomp from the files of upstream's tagged archive,
 # unchanged: the base64 program and libbase64, by the rules of its Makefile
 # with none of the codecs written for x86 and ARM vector instructions.
-FROM /v0.1.7/Dollyfile-system-tools 6699b9ce9339fe8ee70c02972b8a4b10242adb71dd63c3a5ac5da48f8d1828ed
+FROM /v0.1.7/Dollyfile-system-tools bf4bd9f3bb45209cbf68e170f74fa8a85f093f10593f36a8f6d3e499ebce4114
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
