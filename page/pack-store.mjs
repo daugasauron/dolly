@@ -5,15 +5,18 @@
 // digest; a kept pack is checked the same way at every use, and removed when
 // it fails. Every image read leaves a record of its packs; once no image is
 // being read on the origin, what the records of this runtime's images do not
-// name is removed. Only the page and its Workers write here, from an image's
-// trusted metadata; nothing of the guest reaches it: a directory the guest names
-// (packages@0's, read with the fetch its Worker gives images.mjs) is not kept.
+// name is removed. A build forgets the images it read that the image cache
+// holds, so each is kept once. Only the page and its Workers write here, from
+// an image's trusted metadata; nothing of the guest reaches it: a directory the
+// guest names (packages@0's, read with the fetch its Worker gives images.mjs)
+// is not kept.
 import { DOLLY_IMAGE_BUILD_ID } from "./generated.mjs";
 import { directoryFetch, imageBase, imageDefinition } from "./images.mjs";
 import { sha256 } from "./static-asset.mjs";
 
 const STORE = "dolly-packs", LOCK = "dolly-packs";
 const encoder = new TextEncoder();
+const recordName = image => sha256(encoder.encode(`${imageBase.href}\0${image}`));
 
 async function storeDirectories() {
   const root = await (await navigator.storage.getDirectory()).getDirectoryHandle(STORE, { create: true });
@@ -57,7 +60,7 @@ export async function openPackStore(image, packs) {
     store = await storeDirectories();
     release = await hold("shared");
     const record = { directory: imageBase.href, image, buildId: DOLLY_IMAGE_BUILD_ID, packs: packs.map(pack => pack.sha256) };
-    await writeFile(store.records, await sha256(encoder.encode(`${record.directory}\0${image}`)), JSON.stringify(record));
+    await writeFile(store.records, await recordName(image), JSON.stringify(record));
   } catch {
     release?.();
     return noStore;
@@ -96,6 +99,19 @@ export async function openPackStore(image, packs) {
         navigator.locks.request(LOCK, { ifAvailable: true }, lock => lock && prune(store))).catch(() => {});
     },
   };
+}
+
+// Stops keeping the packs of IMAGES of this image directory, which the page
+// holds otherwise (a build's inputs, decoded in the site's image cache): their
+// records go, and with them every pack no other record names; while an image is
+// being read on the origin, the next read to complete removes those.
+export async function forgetImages(images) {
+  if (directoryFetch || !images.length) return;
+  try {
+    const store = await storeDirectories();
+    for (const image of images) await store.records.removeEntry(await recordName(image)).catch(() => {});
+    await navigator.locks.request(LOCK, { ifAvailable: true }, lock => lock && prune(store));
+  } catch {}
 }
 
 // Removes the records of images no page of this runtime starts (another

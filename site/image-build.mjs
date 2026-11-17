@@ -3,6 +3,7 @@ import { loadRecipeGraph } from "./dollyfile-graph.mjs";
 import { imageInputs, imageInputsMatch } from "../page/image-inputs.mjs";
 import { describeImageArtifact, loadImageArtifactDescriptor, loadImageArtifact, saveImageArtifact } from "./image-artifact.mjs";
 import { loadPackagedSnapshotMetadata, packagedSystemSnapshot } from "../page/packaged-snapshot.mjs";
+import { forgetImages } from "../page/pack-store.mjs";
 import { siteReference, sitePath } from "../page/static-asset.mjs";
 
 
@@ -82,5 +83,13 @@ export async function prepareImageArtifacts(image, customSource, build, report, 
   for (const reference of references) selected.set(reference.sha256, await resolve(reference));
   const loaded = [];
   for (const node of selected.values()) loaded.push(await materialize(node));
+  // Each image read is kept once: none of the packs of those the image cache now holds.
+  const cached = [];
+  for (const { definition, descriptor, artifact } of artifacts.values()) {
+    if (artifact && (await loadImageArtifactDescriptor(definition.sha256, descriptor.inputs))?.sha256 === artifact.sha256) {
+      cached.push(definition.image);
+    }
+  }
+  await forgetImages(cached);
   return loaded;
 }

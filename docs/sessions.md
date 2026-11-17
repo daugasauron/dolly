@@ -84,7 +84,9 @@ flowchart LR
 - A second start of an image reads its packs from the browser's pack store,
   which keeps every pack an image read, checked against its digest at each
   use, and removes what no image of this runtime names any more
-  ([`pack-store.mjs`](../page/pack-store.mjs)); a restore reads none. The
+  ([`pack-store.mjs`](../page/pack-store.mjs)); a restore reads none. An
+  image a build read is kept once, decoded in the image cache: its packs are
+  not, and a start of it downloads them again. The
   sessions page shows its size and clears it. A save asks the browser to keep
   the origin's storage, the saves and the packs, when it runs short of space
   (`navigator.storage.persist()`): Chrome answers from the site's engagement
