@@ -7,41 +7,23 @@
 Owner (2026-11-16): "just remove the ghostty-x11 image since it kinda works on the X11 desktop
 anyway."
 
-## State (2026-11-16)
+## State (2026-11-17)
 
-Done on branch `remove/ghostty-x11` (worktree `work/ghostty-rm`), commit `30a0c0dd1` on `main`
-`b09b1e243`; not merged. Left: the merge, and the round's check below.
+Merged into `integrate/0.1.8` (b6d8595e7, `remove/ghostty-x11`). On `ws/recipes`: the domain
+catalog's closure, as the image builder selects it, has no `ghostty-x11` and lists the package
+`ghostty-gtk` among its 169 packages, so the packaged `amy-index.txt` does
+(`work/audit-1116-evidence/recipes/ws-recipes/domain-packages.mjs`). The test's policy no longer
+names the page's own `amy-index.txt` (`tasks/20261116-143047-recipes-17`).
 
-Removed:
-- `demos/ghostty-gtk/Dollyfile-ghostty-x11` (the application: Xsdl, Ghostty with Slop, amy, nena).
-- Its line in `config/domain-pages-images.txt`, its row and paragraph in
-  `demos/ghostty-gtk/README.md`, and its test `demos/ghostty-gtk/test/ghostty-x11-browser.mjs`.
+The branch's `demos/ghostty-gtk/test/ghostty-gtk-browser.mjs` passed on the released images of
+`work/round1113` in Chromium (18.7 s; installed and started in 7.8 s) and Firefox (24.4 s)
+(`work/audit-1116-evidence/recipes/ws-recipes/logs/ghostty-r1113.log`, run by
+`logs/ghostty-on-round1113.mjs`).
 
-Kept, and why:
-- `ghostty-gtk` (the package): `amy install ghostty-gtk` on `x11-desktop` is the X11 workbench of
-  the demos page (`sites/slopshare.dev/agents/index.html:117-127`). The domain catalog reached it
-  only through `ghostty-x11`: without `ghostty-x11` its closure went from 224 to 222 images,
-  `ghostty-gtk` with it (`work/audit-1116-evidence/ghostty/closure-before.txt`). The catalog lists
-  `ghostty-gtk` in its place: 223 after, nothing else leaves (`closure-after.txt`).
-- `mesa-build`: `demos/godot/Dollyfile-godot:20` and `Dollyfile-godot-editor:20` build `FROM` it.
-- The patches, `prepare-*.sh` and source pins: `ghostty-gtk` and `mesa-build` use them.
-- Tasks: none open tracks only `ghostty-x11`. `20261113-101500-ghostty-gtk-leftovers` is about
-  `ghostty &` on `x11-desktop` and stays open; closed tasks are history.
-
-Changed:
-- The demo's test is `demos/ghostty-gtk/test/ghostty-gtk-browser.mjs` on `x11-desktop`: amy
-  installs `ghostty-gtk` from xterm's shell, twm places the window at a click, and the old checks
-  run in Ghostty's terminal (a typed command, 20 cells of one background colour, an erased row
-  redrawn while the first row stays as drawn), then the X server ends and the shell reads the
-  file. Without it the package had no test, while `test/amy-browser.mjs:293` says
-  `demos/ghostty-gtk` uses it.
-- The package's man page (`FILE /usr/share/man/cat1/ghostty.1`) named `ghostty-x11` as the X
-  server to use; it names `x11-desktop`. This changes the recipe, so the next round rebuilds
-  `ghostty-gtk` (828.9 s in round 1117, `round-1117-evidence/catalog-1.log`); the 0.1.8 version
-  bump of the `/v0.1.7/` references rebuilds it in any case.
-
-What it saves: one application of the catalog: its 87,405,960-byte snapshot and 22.2 s of
-packaging in round 1117 (`catalog-1.log`), and one demo test.
+Left for the 0.1.8 round: `ghostty-gtk` is built with `zig-llvm` on LLVM 22 (the Zig and LLVM chain,
+a 9 GB slot), which this tree does not rebuild (a build here was stopped at `llvm22`); once the
+round has rebuilt it, `node demos/ghostty-gtk/test/ghostty-gtk-browser.mjs chromium firefox` on
+it, and its packaged `amy-index.txt` listing `ghostty-gtk`, close this. Rebuilds ghostty-gtk.
 
 ## Evidence (2026-11-16, `work/audit-1116-evidence/ghostty/`)
 
