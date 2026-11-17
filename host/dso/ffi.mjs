@@ -331,6 +331,12 @@ export function createProcessFfi({
     }
   }
 
+  // A caller may declare an integer result of another width than the function's
+  // Wasm result (ctypes declares int by default); as a native ABI does, the
+  // declared width of the returned value is stored.
+  const narrowed = (result, bits) => typeof result === "bigint" ? Number(BigInt.asUintN(bits, result)) : result;
+  const widened = result => BigInt.asUintN(64, typeof result === "bigint" ? result : BigInt(result));
+
   function storeResult(pointer, type, result) {
     const location = asBigInt(pointer, "FFI result pointer");
     switch (type.id) {
@@ -339,7 +345,7 @@ export function createProcessFfi({
       case FFI_TYPE_INT:
       case FFI_TYPE_UINT32:
       case FFI_TYPE_SINT32:
-        view(location, 4, "FFI i32 result").setUint32(0, result, true);
+        view(location, 4, "FFI i32 result").setUint32(0, narrowed(result, 32), true);
         return;
       case FFI_TYPE_FLOAT:
         view(location, 4, "FFI f32 result").setFloat32(0, result, true);
@@ -349,18 +355,16 @@ export function createProcessFfi({
         return;
       case FFI_TYPE_UINT8:
       case FFI_TYPE_SINT8:
-        view(location, 1, "FFI i8 result").setUint8(0, result);
+        view(location, 1, "FFI i8 result").setUint8(0, narrowed(result, 8));
         return;
       case FFI_TYPE_UINT16:
       case FFI_TYPE_SINT16:
-        view(location, 2, "FFI i16 result").setUint16(0, result, true);
+        view(location, 2, "FFI i16 result").setUint16(0, narrowed(result, 16), true);
         return;
       case FFI_TYPE_UINT64:
       case FFI_TYPE_SINT64:
       case FFI_TYPE_POINTER:
-        view(location, 8, "FFI i64 result").setBigUint64(
-          0, BigInt.asUintN(64, result), true,
-        );
+        view(location, 8, "FFI i64 result").setBigUint64(0, widened(result), true);
         return;
       case FFI_TYPE_COMPLEX:
         throw new TypeError("complex FFI results are unsupported");

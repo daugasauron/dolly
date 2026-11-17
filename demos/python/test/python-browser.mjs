@@ -98,7 +98,9 @@ await demoTest("python", { image: "python", timeout: packages ? 7_200_000 : 600_
   await waitText(/PYTHON-STREAM-ONE/);
   assert.equal(streaming.status, null, "Python output appeared only after exit");
   assert.equal(await streaming.done, 0);
-  // A process-local DSO lookup, an FFI call and a closure.
+  // A process-local DSO lookup, an FFI call and a closure; ctypes' default restype (int)
+  // over a 64-bit result, and a 64-bit restype over an int result.
+  await run("python -c 'import ctypes; assert ctypes.CDLL(None).strlen(b\"dolly\") == 5; libc = ctypes.CDLL(None); libc.abs.restype = ctypes.c_int64; assert libc.abs(-3) == 3'");
   await run("python -c 'import ctypes; libc = ctypes.CDLL(None); libc.strlen.argtypes = [ctypes.c_char_p]; libc.strlen.restype = ctypes.c_size_t; assert libc.strlen(b\"dolly\") == 5; callback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int)(lambda value: value + 1); assert callback(41) == 42'");
   // sqlite3, bz2 and lzma, linked from the sqlite, bzip2 and xz packages.
   await run("python -c 'import sqlite3, bz2, lzma; db = sqlite3.connect(\"/tmp/python.db\"); db.execute(\"create table t (v)\"); db.execute(\"insert into t values (42)\"); db.commit(); db.close(); " +

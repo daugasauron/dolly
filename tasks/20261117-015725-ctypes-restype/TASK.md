@@ -1,6 +1,6 @@
 # ctypes' default restype kills the process: an int result of a function that returns 64 bits is a BigInt the FFI cannot store
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 170
 - TAGS: bug,dso,python,0.1.8
 
@@ -9,7 +9,7 @@ libffi's copied files; not caused by that change (the call never reaches libffi'
 
 ## State (2026-11-17)
 
-Reproduced in Chromium and Firefox; the cause is read from the code, nothing changed.
+Closed: see the closing section.
 
 ## Found
 
@@ -46,3 +46,14 @@ declared width of the value the function returned, as a native ABI does: a BigIn
 
 The first command prints 5 in Chromium and Firefox, and a test calls a foreign function whose
 declared result is narrower than its Wasm result.
+
+## Closed (2026-11-17)
+
+`host/dso/ffi.mjs`'s `storeResult` stores the declared width of the returned value: a BigInt
+result for a type of 32 bits or fewer is narrowed (`BigInt.asUintN`), a Number result for a 64-bit
+type or pointer widened (`BigInt`), as a native ABI does (branch `fix/ctypes-restype`).
+`demos/python/test/python-browser.mjs` adds `ctypes.CDLL(None).strlen(b"dolly") == 5` (default
+`int` over a 64-bit result) and `abs` with `restype = c_int64` (a 64-bit type over an `i32`
+result). The python test passed with them in Chromium (80.5 s) and Firefox (81.0 s) on python
+rebuilt on the branch (`work/recipes/build/ctypes-check.log`). Its other test, python on
+`default`, needs a `default` built in that tree, which the round builds.
