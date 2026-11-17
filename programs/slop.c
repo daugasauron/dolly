@@ -2897,7 +2897,7 @@ static int interrupted_preparing(Shell *shell);
 
 static const char *const trap_names[] = {
     [0] = "EXIT", [SIGHUP] = "HUP", [SIGINT] = "INT", [SIGQUIT] = "QUIT",
-    [SIGPIPE] = "PIPE", [SIGTERM] = "TERM",
+    [SIGUSR1] = "USR1", [SIGUSR2] = "USR2", [SIGPIPE] = "PIPE", [SIGTERM] = "TERM",
 };
 
 // A trap condition's index, by name, SIG-prefixed name or number; -1 otherwise.
@@ -2938,7 +2938,7 @@ static int builtin_trap(Shell *shell, int argc, char **argv) {
   for (int index = first; index < argc; index++) {
     const int condition = trap_condition(argv[index]);
     if (condition < 0) {
-      fprintf(stderr, "slop: trap: %s: only EXIT, HUP, INT, QUIT, PIPE and TERM can be trapped\n",
+      fprintf(stderr, "slop: trap: %s: only EXIT, HUP, INT, QUIT, USR1, USR2, PIPE and TERM can be trapped\n",
               argv[index]);
       return 2;
     }

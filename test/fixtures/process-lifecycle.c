@@ -304,7 +304,7 @@ int main(int argc, char **argv) {
   CHECK(status == -1);
   CHECK(kill(pid, 0) == 0);
   errno = 0;
-  CHECK(kill(pid, SIGUSR1) == -1 && errno == ENOTSUP);
+  CHECK(kill(pid, SIGSTOP) == -1 && errno == ENOTSUP);
   errno = 0;
   CHECK(kill(-1, SIGTERM) == -1 && errno == ENOTSUP);
   // The child is its own group: the group's signal and wait are its own.

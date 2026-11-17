@@ -430,10 +430,10 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
 
 ## Signals
 
-- Supported: `SIGHUP`, `SIGINT`, `SIGQUIT`, `SIGABRT`, `SIGKILL`, `SIGPIPE`,
-  `SIGALRM`, `SIGTERM`, `SIGCHLD`, `SIGWINCH`; others are rejected, and only
-  the kernel sends another process `SIGCHLD` (`kill` with it fails with
-  `ENOTSUP`).
+- Supported: `SIGHUP`, `SIGINT`, `SIGQUIT`, `SIGABRT`, `SIGKILL`, `SIGUSR1`,
+  `SIGUSR2`, `SIGPIPE`, `SIGALRM`, `SIGTERM`, `SIGCHLD`, `SIGWINCH`; others
+  are rejected, and only the kernel sends another process `SIGCHLD` (`kill`
+  with it fails with `ENOTSUP`).
 - Handlers run in Wasm at syscall boundaries ([`signal.c`](../process/signal.c))
   with masks, `SA_RESTART`, `SA_RESETHAND`, `SA_NODEFER` and `SA_SIGINFO`.
   Alternate stacks, `sigwait`, asynchronous preemption and `SA_NOCLDWAIT` are
@@ -498,6 +498,11 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   `pthread_create` with `EAGAIN`. Handlers run on the
   main thread, also while it waits in `pthread_join`. A host of libraries
   loads them in every thread (below); no cancellation or directed signals.
+- Without `-pthread` a program is one thread
+  ([`pthread-stubs.c`](../process/pthread-stubs.c)): `pthread_create` and
+  `pthread_cancel` fail with `ENOTSUP`, a lock it holds is busy, and waiting
+  for it is `EDEADLK` or, with a deadline, `ETIMEDOUT` there; a condition's
+  timed wait lasts until its deadline; a barrier of more than one fails with `EAGAIN`.
 - `dso@0` ([`host/dso/dolly-dso-0.wat`](../host/dso/dolly-dso-0.wat),
   [`host/dso/process.mjs`](../host/dso/process.mjs)): process-local DSOs and
   FFI, served in the Worker of an executable that records the module
