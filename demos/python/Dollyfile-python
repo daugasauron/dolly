@@ -166,6 +166,9 @@ SLOP CWD /usr/src/python cc \
   -o Modules/dolly_socket_stubs.o
 # The frozen modules are made by CPython's C freezer, built here, as a native
 # build makes them: configure's cross build would run the build host's Python.
+# pyexpatns.h, which gives CPython's own expat names of its own so that a
+# program that embeds Python links another expat too (Blender), misses expat
+# 2.8's XML_SetHashSalt16Bytes: the build renames it as the header does the rest.
 SLOP CWD /usr/src/python make \
   -o configure \
   -o config.status \
@@ -188,7 +191,7 @@ SLOP CWD /usr/src/python make \
   DYNLOADFILE=dynload_shlib.o \
   PY_CFLAGS=-O2\ -std=c11\ -fno-builtin\ -fno-strict-aliasing\ -pthread \
   PY_CFLAGS_NODIST= \
-  PY_CPPFLAGS=-IInclude/internal\ -IInclude/internal/mimalloc\ -IObjects\ -IInclude\ -IPython\ -I. \
+  PY_CPPFLAGS=-IInclude/internal\ -IInclude/internal/mimalloc\ -IObjects\ -IInclude\ -IPython\ -I.\ -DXML_SetHashSalt16Bytes=PyExpat_XML_SetHashSalt16Bytes \
   CFLAGSFORSHARED= \
   PY_CORE_LDFLAGS=-pthread \
   LDFLAGS= \

@@ -10,7 +10,7 @@ REQUIRES HOST threads@0
 # setup starts the C compiler and meson compile starts Ninja, so those three
 # packages come with it; the host modules are the ones Python declares.
 FROM /demos/tools/Dollyfile-tools-build bfbb7483707086afb8948275f9b68e85f375a9076f2fe687a147eaeea1d2b184
-INSTALL /demos/python/Dollyfile-python 81519af666177ca3c80d094bf15ab940a3be2863bf2f0c73ea8307941fbff12f
+INSTALL /demos/python/Dollyfile-python 376a66a1d423d33154038a17b902d549bbf445504970a599313ff045adc98fbb
 INSTALL /Dollyfile-cc 3c50048026aec1c0c21ac6c0b74d93f53b5c0a3fa83b5c9930d86924a3b59eaa
 INSTALL /Dollyfile-ninja 1f74b1a15cef8caac9deede91e10a8f723ee1585836060cfc01d23460d4ab647
 

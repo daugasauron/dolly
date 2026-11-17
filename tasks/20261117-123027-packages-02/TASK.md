@@ -27,6 +27,10 @@ Built in `work/packages`: `blender-deps` over the packages (460,838,815 bytes, 8
 
 Built and tested in `work/packages`: `wine`, whose NetSurf compiles IJG's units from the pin now in `demos/wine`: `demos/wine/test/wine-browser.mjs` passed in Chromium and Firefox (NetSurf drew a JPEG; `test-wine.log`).
 
+Built in `work/packages`: `python-data-build` over them (312,221,778 bytes, 910 s): Pillow links libjpeg-turbo and FreeType with Brotli (`LDFLAGS`), and the build's check imports NumPy, pandas and seaborn and saves a Matplotlib plot.
+
+Tested: the `python-data` session of `demos/python/test/python-data-browser.mjs` passed in Chromium and Firefox on python-data over them: Pillow draws text with FreeType (`ImageFont.load_default(size=20)`), reads Matplotlib's PNG, and every extension module loads, Pillow's JPEG one among them (`work/packages-evidence-1117/runs/test-python-data.log`; its `openblas` session needs the openblas package, which neither this tree nor the round has built).
+
 ## Candidate
 
 - Who installs it: GTK, Blender, libtiff, Pillow, Xonotic; sessions (`amy install libjpeg-turbo`).

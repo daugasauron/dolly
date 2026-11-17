@@ -14,17 +14,17 @@ REQUIRES HOST sockets@0
 # bitmap fonts) and libmd's SHA-1 are built by the Makefile below for the
 # server alone: libXfont2 with the server's own protocol types, and of libmd
 # only the hash the server takes.
-FROM /demos/x11/Dollyfile-x11-build 5f9800a3ec63dcebba6a101cdde90d69ef548c8fc6ce1e4baac360c62625761a
-USE /demos/tools/Dollyfile-meson c4bc7b515f8ede28f2567a32d5f491a8f1c439936eca67057ecf51f4f87c3b47
+FROM /demos/x11/Dollyfile-x11-build b8d127c6ca0d4f7e90d5c8a100cdf95d246e566efea262a129b29325eb15bdd5
+USE /demos/tools/Dollyfile-meson 7986a0681e3b8115998d5f379e8ee22befeed1b0d5e243db7d8fdc11b78ef2e8
 USE /demos/tools/Dollyfile-pkgconf 8e2d10a742a5f3dc0a5da7426f3f276c233bf6672cc0a777fa849672d0f1e0b3
 USE /demos/sdl2/Dollyfile-sdl2 1809d16636eb124e08cc9188a7709890dfeb22657ae4ce989987d185b99b5193
-USE /demos/x11/Dollyfile-pixman ab15ad7e6aa8c4f6b640bbb1b049180eb64abc79e2d37cfe67c63b877a0ba157
-USE /demos/x11/Dollyfile-libxkbfile 8897a0b52c366bf60a9e4b450847dde4ab7834f317af81758e11017fe6198dbe
+USE /demos/x11/Dollyfile-pixman 46610043dc262b95d5d984e3256519c84d831faa2b700cc1559e347ac6ce5a2b
+USE /demos/x11/Dollyfile-libxkbfile 2f81eeced3a033a7442e665d70752293a79c6845a7e2390fdafecbe5085d28a8
 USE /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
 USE /demos/tools/Dollyfile-xz d469de338c35f239e62a272216458e722dfdd7eb2909ed4a35a21d5694f2ad81
 USE /demos/tools/Dollyfile-yacc 6b1155f366bb568ee19a9caaccbf205fa9ff99fb42961ce7a062d08368eecaab
-INSTALL /demos/x11/Dollyfile-xkbcomp 2c31f2f48797c22564fcd4f2ccf9e2f4ce64230f94998f0795921a86ea882146
-INSTALL /demos/x11/Dollyfile-xkeyboard-config 433fbb5cd11f34ba76122b1b0793ae3dfd5cad093e1bb0a482916222244c90d8
+INSTALL /demos/x11/Dollyfile-xkbcomp f4d7b2c166868b486ea9ba1b2cec62776f058b633c2bcf2ae53def40c2794abf
+INSTALL /demos/x11/Dollyfile-xkeyboard-config 3d4b77288667fe35a652405f6864458c51e0d4282e40d192a71698b11d60d705
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2
 REQUIRES LIB z

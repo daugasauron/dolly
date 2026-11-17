@@ -20,6 +20,10 @@ Built in `work/packages`: `python` with the six archives in `/usr/lib/python3.14
 
 Built in `work/packages`: `blender-deps` over it (458,945,739 bytes, 692 s, against 460,838,815 when it made the archives itself); its embedded interpreter links without `-lHacl_HMAC` and runs.
 
+Found in `work/packages`: Blender's link over the expat package failed, `duplicate symbol: XML_SetHashSalt16Bytes`, defined in `libpyexpat.a(xmlparse.o)` and `libexpat.a(xmlparse.c.o)`. CPython 3.14 bundles expat 2.8.2, whose `XML_SetHashSalt16Bytes` its `pyexpatns.h` does not rename; Blender's own 2.7.5 had no such function. The python package's build now renames it as the header renames the rest (`PY_CPPFLAGS`), and blender-deps' check links the expat package beside the interpreter, as Blender does, so that it fails there rather than after Blender's hour of compiling.
+
+Built in `work/packages`: `python` with the rename (50,245,335 bytes) and `blender-deps` over it: the check now links the expat package beside libpython and `libpyexpat.a` (`XML_ParserCreate` of the one, `import pyexpat` of the other) and runs.
+
 ## Candidate
 
 - Who installs it: Blender's build, any program that embeds CPython; every python install gets

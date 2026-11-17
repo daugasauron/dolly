@@ -17,8 +17,8 @@ REQUIRES HOST threads@0
 # program that draws with OpenGL itself (Ghostty). Static libraries in
 # /usr/lib, as a GTK program links them; GLib's pkg-config file has cc
 # cast-emulate every GObject program, those these builds run among them.
-FROM /demos/x11/Dollyfile-x11-build 5f9800a3ec63dcebba6a101cdde90d69ef548c8fc6ce1e4baac360c62625761a
-INSTALL /demos/tools/Dollyfile-meson c4bc7b515f8ede28f2567a32d5f491a8f1c439936eca67057ecf51f4f87c3b47
+FROM /demos/x11/Dollyfile-x11-build b8d127c6ca0d4f7e90d5c8a100cdf95d246e566efea262a129b29325eb15bdd5
+INSTALL /demos/tools/Dollyfile-meson 7986a0681e3b8115998d5f379e8ee22befeed1b0d5e243db7d8fdc11b78ef2e8
 INSTALL /demos/tools/Dollyfile-pkgconf 8e2d10a742a5f3dc0a5da7426f3f276c233bf6672cc0a777fa849672d0f1e0b3
 INSTALL /demos/tools/Dollyfile-gperf c07049fb00a844344cb33520b1323d22837195809e7173b8b456b1b90b87a09b
 INSTALL /demos/tools/Dollyfile-libpng f9220787128996320c6fa8b6f98a3d61945c69bcba9fbe41eb1b48f699ae3e16
@@ -26,11 +26,11 @@ INSTALL /demos/tools/Dollyfile-freetype cb073fa00533688584684aeca85e8d1a26cd9182
 INSTALL /demos/tools/Dollyfile-expat eb9a4b151c32a7da07b510bf5860263845ccb00fc5a37bd43459a0fb719ed3a7
 INSTALL /demos/tools/Dollyfile-libjpeg-turbo 04db0d617e53e5ad835e7fee4a3fcba679b74ec9f35beea3f7f4eba947b89880
 INSTALL /demos/tools/Dollyfile-libtiff 33ebfdb762eeb3b41052b4d0db872d174268fde69a740f3de90f953d3942ceb8
-INSTALL /demos/x11/Dollyfile-pixman ab15ad7e6aa8c4f6b640bbb1b049180eb64abc79e2d37cfe67c63b877a0ba157
-INSTALL /demos/ghostty-gtk/Dollyfile-mesa f4c17b59c71e0887662c49c80e4b4d08165588211502557ca3586aa01230a84d
+INSTALL /demos/x11/Dollyfile-pixman 46610043dc262b95d5d984e3256519c84d831faa2b700cc1559e347ac6ce5a2b
+INSTALL /demos/ghostty-gtk/Dollyfile-mesa 60b5a0eda8e23e978c6ff085f3362559193449f3f0d77b46040080a1490e026e
 INSTALL /demos/tools/Dollyfile-tar 41a8b3eb2eb4e9ab4bf0d8d1708a5859cbf89872b2658344741c27affa220ffb
 INSTALL /demos/tools/Dollyfile-binaryen 62d42b20ce549007859d3d4c69dd57b1f33a097c9e59a7cb9d39cc44afe3742e
-INSTALL /demos/gtk/Dollyfile-glib 9c6bd1a1b69e452f6d9d125aafe1b3ecf802a13be2240b533eaa841123139dde
+INSTALL /demos/gtk/Dollyfile-glib 45308588af0d8fd402e93465890433e981ca1d02acfe767dfadb54256357918a
 
 REQUIRES HEADER glib
 REQUIRES HEADER zlib

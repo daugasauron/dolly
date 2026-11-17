@@ -18,6 +18,8 @@ libepoxy Mesa's `egl.pc`; its check links and runs a GTK program.
 
 Tested: its amy case (`demos/tools/test/amy-cases.json`, run alone with the other new packages' cases) passed in Chromium and Firefox (`work/packages-evidence-1117/runs/test-amy-new.log`).
 
+`ghostty-gtk`, the one program built on `gtk-build`, is the consumer with a browser test (`demos/ghostty-gtk/test/`); it builds on Zig's chain (`zig-llvm`), which this tree does not build: the next round builds it and runs that test.
+
 ## Candidate
 
 - Who installs it: GTK's build; sessions, as yacc and flex are installed (`amy install gperf`).

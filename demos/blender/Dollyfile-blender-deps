@@ -35,7 +35,7 @@ INSTALL /demos/tools/Dollyfile-xz d469de338c35f239e62a272216458e722dfdd7eb2909ed
 INSTALL /demos/tools/Dollyfile-bzip2 76653f54f6f089826b7ef5ca6e86cae5286f7b441e3c5ef91d0894f819ea8b7b
 INSTALL /demos/tools/Dollyfile-sqlite 926ac562e54fc44fab836444bf00e6ce3792915c3bcfea5d31f81b4eae682dd6
 INSTALL /demos/tools/Dollyfile-binaryen 62d42b20ce549007859d3d4c69dd57b1f33a097c9e59a7cb9d39cc44afe3742e
-INSTALL /demos/python/Dollyfile-python 81519af666177ca3c80d094bf15ab940a3be2863bf2f0c73ea8307941fbff12f
+INSTALL /demos/python/Dollyfile-python 376a66a1d423d33154038a17b902d549bbf445504970a599313ff045adc98fbb
 # What the python package links and does not bring: libpython's modules need them.
 INSTALL /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6e458431e
 INSTALL /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
@@ -129,10 +129,13 @@ SLOP CWD /tmp/blender-deps/libepoxy cp include/epoxy/gl.h include/epoxy/common.h
 
 SLOP rm -rf /tmp/blender-deps
 # The interpreter links and runs with the options Dollyfile-blender gives
-# Blender's link, an hour of compiling before that link.
+# Blender's link, an hour of compiling before that link, beside the expat
+# package, which OpenColorIO links there.
 FILE /tmp/embed.c
     #include <Python.h>
+    #include <expat.h>
     int main(void) {
+      XML_ParserFree(XML_ParserCreate(NULL));
       Py_Initialize();
       int status = PyRun_SimpleString("import sqlite3, hashlib, pyexpat, bz2, lzma, urllib.request");
       Py_Finalize();
@@ -140,7 +143,7 @@ FILE /tmp/embed.c
     }
 SLOP cc -pthread /tmp/embed.c -I/usr/include/python3.14 -o /tmp/embed -lpython3.14 --dolly-cast-emulation \
   -lffi -llzma -lbz2 -lsqlite3 -lcurl -L/usr/lib/python3.14/embed -lpyexpat -lHacl_Hash_BLAKE2 \
-  -lHacl_Hash_MD5 -lHacl_Hash_SHA1 -lHacl_Hash_SHA2 -lHacl_Hash_SHA3 -lz -lm
+  -lHacl_Hash_MD5 -lHacl_Hash_SHA1 -lHacl_Hash_SHA2 -lHacl_Hash_SHA3 -lexpat -lz -lm
 SLOP /tmp/embed
 
 FOLDER /usr/include
