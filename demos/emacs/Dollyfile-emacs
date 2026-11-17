@@ -20,7 +20,7 @@ REQUIRES TOOL   cp
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   rm
 
-SOURCE /dist/static/emacs/emacs.tar.gz a6f411701c7fec0bf009b41a7bb5d5ec08d819422c80f145d4ffffab6abcdddb /tmp/emacs.tar.gz
+SOURCE /dist/static/emacs/emacs.tar.gz 56a662b94601b2fd99b9fd9b41d660dba81d472dd99a999e58a0e5f90ecae355 /tmp/emacs.tar.gz
 SLOP gzip -dc /tmp/emacs.tar.gz | tar -xf - -C /
 
 # Built at -O0, Emacs needs more stack at its first prompt than a Worker gives

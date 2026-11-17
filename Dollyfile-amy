@@ -13,7 +13,7 @@ REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /dist/static/default/commands/amy.c 5a12d18f6b0da487805952b6c75b1afbc0808c739d8b7b295b9dd9352483ad16 /tmp/amy/amy.c
+SOURCE /dist/static/default/commands/amy.c e3a055b15c3ca265406522f75da38d46d0134c51e51fe66640682095c45e295f /tmp/amy/amy.c
 SLOP cc -O2 /tmp/amy/amy.c -o /bin/amy
 
 EXPORTS TOOL amy
