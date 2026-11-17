@@ -1,4 +1,4 @@
-# Firefox on a still page: a GPU program waits for a readback, a display program for its first frame
+# Firefox: a GPU program left waiting for a readback on a still page, and Ctrl+C on a display program with a GPU child
 
 - STATUS: OPEN
 - PRIORITY: 160
@@ -10,8 +10,8 @@ none of it in any run.
 
 ## Reproduce
 
-In the `deep-hedger` image in Firefox, end `dh-gui` with Ctrl+C and run in the shell, the
-terminal in front and nothing else moving on the page:
+In the `deep-hedger` image in Firefox, end `dh-gui` and run in the shell, the terminal in front
+and nothing else moving on the page:
 
     dh-fit /tmp/dh/chain.txt 1024 3 60 > /tmp/dh/t.out
 
@@ -29,24 +29,26 @@ Counted this day, each run a `dh-fit` process (fits of 20 to 600 iterations, `ch
 - **A page that composites a frame at every refresh** (a 2 px element whose opacity a
   `requestAnimationFrame` loop changes): 12 of 12 fits of 60 iterations returned, 24.4 to 24.9 s
   each (`probe4-animated.log`).
-- **`dh-gui` in front**, which redraws thirty times a second, the same `dh-fit` as its child: 2
-  runs of 380 iterations, no hang (`build/dh-evidence/shots/firefox-*.png`).
+- **`dh-gui` in front**, which redraws thirty times a second, the same `dh-fit` as its child:
+  no fit hung, in 8 runs of the test and 7 of some 380 iterations for pictures.
 
 So in Firefox a readback's completion (and a display's first frame) seems to be delivered with
 a refresh of the page, and a page with nothing to paint has none. Not looked at: where the GPU
 and display modules' clients wait, and whether a pending request can keep the page refreshing.
 
-The deep hedger's test therefore composites a frame at every refresh in both browsers, with a
-comment naming this task. Done when the reproduction returns every time in Firefox without
-that, and the test has dropped it.
+**Ctrl+C**, with that frame composited and `dh-fit` running under `dh-gui` when the key came:
 
-**Ctrl+C.** Also in Firefox only, with `dh-gui` in front and that frame composited: 2 of 16
-times Ctrl+C did not end `dh-gui` (`graphicsActive` still true and the foreground still
-interruptible a minute later; `build/dh-evidence/probe5-ff-first.log`, the test's run of 13:13).
-Not looked at: whether the key reached the page. The test presses it until `dh-gui` is gone,
-five times at most; that too is to be dropped with this task.
+- 2 of 16 times `dh-gui` ran on (`graphicsActive` still true and the foreground still
+  interruptible a minute later; `probe5-ff-first.log`, the test's run of 13:13). Not looked at:
+  whether the key reached the page.
+- 2 of 19 times the prompt returned and the first command typed then, a `grep` of a file, did
+  not return (the test's run of 15:59, for 14 minutes; once in `probe5-ff`). A third run of the
+  test stalled after the fit had been stopped in the GUI first (16:28; ended by hand before the
+  place was read).
 
-**The shell after Ctrl+C.** Also in Firefox only: with `dh-fit` running under `dh-gui` when
-Ctrl+C came, the prompt returned and the first command typed then (`grep` of a file) did not
-return, 2 times of 19 (the test's run of 15:59, 14 minutes; once in `probe5-ff`). The test
-now stops the fit with the GUI's Stop before Ctrl+C; to be dropped with this task as well.
+What the deep hedger's test does about it, each with a comment naming this task: it composites
+a frame at every refresh, in both browsers; and it leaves `dh-gui` by the Quit button the GUI
+got for it, after Stop, not by Ctrl+C. With both, Firefox passed the one run made (16:50).
+
+Done when the reproduction returns every time in Firefox on a still page, Ctrl+C ends `dh-gui`
+with a fit running and the shell answers after it, and the test has dropped the frame.
