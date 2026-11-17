@@ -1,37 +1,48 @@
 # The page's Paste button shows on laptops with a touchscreen
 
 - STATUS: OPEN
-- PRIORITY: 100
-- TAGS: input,touch,npm
+- PRIORITY: 340
+- TAGS: input,touch,npm,0.1.8
 
 The owner, 2026-11-11 07:15 JST, from a page built on the npm packages:
 
 > The Paste button shows up on some laptops, it's just wrong, I guess because the laptop has
 > touch screen or something?
 
-## State (2026-11-16, the audit)
+and on 2026-11-17 at 21:00, on v0.1.7:
 
-The fix is in v0.1.6 and v0.1.7. On 0.1.7's round, `test/touch-browser.mjs` passed in Chromium and
-Firefox, its case "no Paste beside a fine pointer" included
-(`work/round1113/build/round-1117-evidence/browser.log`). Left: the owner's phone. It no longer needs
-a local server, since `https://slopshare.dev/v0.1.7/default/` serves the fix. The task waits on the
-phone being awake and unlocked over adb, so it ranks 100, down from 340.
+> Another thing I noticed is that there is still weird "paste button" behaviour when using a
+> laptop that has touch screen. I think I saw it like during the load (before app launch) and
+> also the mouse position (clicks etc) after loading photocraft got distorted. I have a feeling
+> the mouse inaccuracy is related to teh Paste button showing.
 
-## Fixed on `fix/npm-feedback` (2026-11-11)
+## State (2026-11-17)
 
-The bar shows Paste where `not (any-pointer: fine)` matches
-(`host/input/input.mjs`). Chromium's emulation knows touch-only devices alone (Playwright's
-`hasTouch` takes the fine pointer away too, and CDP's `setEmulatedMedia` ignores `pointer`);
-Firefox emulates the laptop by its preferences (`ui.primaryPointerCapabilities` 1,
-`ui.allPointerCapabilities` 7: a coarse primary pointer beside a fine one). The new case of
-`test/touch-browser.mjs` failed in Firefox with the old rule (Paste shown) and passes with the
-new; the test's phone cases still tap Paste, in Chrome and Firefox. On the 0.1.6 round's
-catalog `test/touch-browser.mjs` passed in Chromium and Firefox, its laptop case included. Left:
-the owner's phone. The release is served at `127.0.0.1:9045` (unit `dolly-serve-domain-9045`);
-on 2026-11-12 at 01:05 the phone was asleep and locked, so it was not driven. `adb reverse
-tcp:9045 tcp:9045` makes it `http://localhost:9045/v0.1.6/default/` on the phone.
+Fixed on `fix/paste-touch` for 0.1.8. Left: the owner's laptop and phone.
 
-Done when Paste is hidden in Chrome and Firefox with a fine pointer present, shown on a phone
-(the owner's Mode1 over adb, `pi-phone`), and a browser test emulates both (Playwright's
-`hasTouch` with and without a mouse; check that Chrome's emulation answers `any-pointer` as the
-devices do before relying on it).
+The rule of 2026-11-11 (`fix/npm-feedback`, in v0.1.6 and v0.1.7) showed Paste where
+`not (any-pointer: fine)` matches. That holds where the browser reports the touchpad beside the
+touchscreen, as Firefox's source does on Windows and both browsers' emulations of such a laptop
+do (Chromium's Blink settings `availablePointerTypes=6`, Firefox's `ui.allPointerCapabilities`
+7): in Chrome's, main showed no Paste during the load, on the terminal or in an application.
+Chrome on Windows
+answers a coarse pointer alone, as a phone does, for a laptop it takes for a tablet: in
+Chromium's source, `ui::GetAvailablePointerAndHoverTypesImpl()` does so when
+`base::win::IsDeviceUsedAsATablet()` holds, which a touchscreen beside a rotation sensor, a
+laptop's power role and `SM_CONVERTIBLESLATEMODE` 0 make true (read, not seen on the owner's
+laptop). Emulated so (`availablePointerTypes=2`; Firefox's `ui.allPointerCapabilities` 1), main
+shows Paste from 1 s into the load, under the boot log, and on the terminal before the
+application starts, also after the mouse has clicked.
+
+Now input@0 shows Paste where no pointer is fine, once a finger has lifted and while no mouse
+has moved on the page (a touchpad's pointer is a mouse's), and changes the bar after the
+event's own handlers, so a press and its release land in one layout (`host/input/input.mjs`).
+`test/touch-browser.mjs` passes in Chrome 156 and Firefox 159: on a coarse pointer alone
+(`hasTouch`, and the Pixel 7) no Paste before a finger has lifted, then Paste, which reads the
+clipboard, and none once the mouse has clicked; on both laptops none from the load through the
+shell, a finger, the mouse and an application's buttons in the bar. `demos/fingers` reads the
+canvas's box at each touch, since the bar now comes after its first.
+
+Done when Paste is hidden on a laptop with a touchscreen in Chrome and Firefox, shown on a phone
+(the owner's Mode1 over adb, `pi-phone`, once a finger has lifted), and a browser test emulates
+both.

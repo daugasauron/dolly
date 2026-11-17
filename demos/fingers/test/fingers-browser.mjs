@@ -15,19 +15,23 @@ for (const browser of browsers) {
     const { page, text, prompt } = await open({ prompt: null, device: { hasTouch: true } });
     // The frame is the terminal's text area, once fingers has drawn it: the
     // figure's centre is the frame's. Positions below are its pixels.
-    const { left, top, scale, width, height } = await waitForDisplay(page, () => {
-      const canvas = document.querySelector("#display"), box = canvas.getBoundingClientRect();
+    const { width, height } = await waitForDisplay(page, () => {
+      const canvas = document.querySelector("#display");
       const colour = (x, y) => [...displaySnapshot.getContext("2d").getImageData(x, y, 1, 1).data].slice(0, 3).join();
       const x = Math.floor(canvas.width / 2), y = Math.floor(canvas.height / 2);
-      // The canvas fits the frame at its own shape, centred.
-      const scale = Math.min(box.width / canvas.width, box.height / canvas.height);
       return __dolly.transport.graphicsActive() && colour(x, y) === "214,92,52" && colour(x - 1, y) === "240,196,72" &&
-        { left: box.left + (box.width - canvas.width * scale) / 2, top: box.top + (box.height - canvas.height * scale) / 2,
-          scale, width: canvas.width, height: canvas.height };
+        { width: canvas.width, height: canvas.height };
     });
     const centre = [Math.floor(width / 2), Math.floor(height / 2)];
     const at = ([x, y], dx = 0, dy = 0) => [x + dx, y + dy];
-    const css = ([x, y]) => [left + x * scale, top + y * scale];
+    // A frame pixel's point on the page, as the canvas fits the frame at its own shape, centred,
+    // now: the page's bar comes below it once a finger has lifted.
+    const css = points => page.evaluate(points => {
+      const canvas = document.querySelector("#display"), box = canvas.getBoundingClientRect();
+      const scale = Math.min(box.width / canvas.width, box.height / canvas.height);
+      return points.map(([x, y]) => [box.left + (box.width - canvas.width * scale) / 2 + x * scale,
+        box.top + (box.height - canvas.height * scale) / 2 + y * scale]);
+    }, points);
     const pixel = async point => (await snapshotDisplay(page), page.evaluate(([x, y]) =>
       [...displaySnapshot.getContext("2d").getImageData(x, y, 1, 1).data].slice(0, 3), point));
     const figure = async point => JSON.stringify(await pixel(point)) !== JSON.stringify(background);
@@ -39,17 +43,14 @@ for (const browser of browsers) {
     // Fingers by their frame positions, in the order they went down.
     async function fingers(type, points) {
       if (cdp) {
-        await cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points.map((point, id) => {
-          const [x, y] = css(point);
-          return { x, y, id };
-        }) });
+        await cdp.send("Input.dispatchTouchEvent", { type, touchPoints: (await css(points)).map(([x, y], id) => ({ x, y, id })) });
         return;
       }
       await page.evaluate(([type, points]) => points.forEach(([x, y], id) => document.querySelector("#display").dispatchEvent(
         new PointerEvent(type, { pointerId: 30 + id, pointerType: "touch", isPrimary: id === 0, button: 0,
           buttons: type === "pointerup" ? 0 : 1, pressure: type === "pointerup" ? 0 : 0.5, clientX: x, clientY: y,
           bubbles: true, cancelable: true }))), [{ touchStart: "pointerdown", touchMove: "pointermove", touchEnd: "pointerup" }[type],
-        points.map(css)]);
+        await css(points)]);
     }
     async function lift(points) {
       if (cdp) await fingers("touchEnd", []);
