@@ -28,3 +28,13 @@ comes out near the one at which the model's spreads add up to the market's (the 
 measurement put that risk price at 0.12 deviations), and the model's spreads at the money are
 then wider than the market's bands there, so fewer quotes fit. A third: the confidence typed,
 as the stock's cost is. Waits for the owner.
+
+## The owner, 2026-11-17 evening, second answer
+
+On the loss: the owner meant tick size, not contract size: "especially the smallest possible
+tick having gigantic consequences for the wings". On who is paid: "I think in terms of how much
+it costs to get out of a position. In a liquid name you can get out at any time, so the spread
+is mostly to \"be able to hedge quickly enough\" [...] In an illiquid name, it's very expensice
+to get out, so the hedger needs more spread." So a spread that is mostly cost in AAPL is what
+the owner expects. On the hedger: it replicates, the trading cost being inside the miss it
+makes small; the Expected Shortfall and its two confidences are not the owner's (asked again).

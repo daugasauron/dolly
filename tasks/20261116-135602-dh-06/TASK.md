@@ -41,3 +41,11 @@ Not started in the demo. What it takes, from what the stock-only build measured:
    or by a neighbour plus the difference, and at least one contract an expiry is still made by
    the stock alone. That links neighbours' quotes; it does not by itself give bands of a cent
    at the money (task dh-19).
+
+## The owner, 2026-11-17 evening, second answer
+
+The owner's picture of it, which replaces decision 13's pathwise prices: on every day of a path
+the stock's price with its spread and every option's quote are known, "induced backwards from
+yesterday *somehow*", and the hedger may buy protection at those quotes: "Hedging that with
+stock only would cause very large losses in a large one day move." The aim is "to replicate the
+original payoff with as small \"variance\" as possible", costs of stock and options inside.
