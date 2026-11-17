@@ -14,12 +14,24 @@ Stage 1 is done and went further than planned: the `blender` package exists
 (`demos/blender/Dollyfile-blender`), `amy install blender` works, and its test runs a script on
 the default scene (operators, a modifier, saving and loading a `.blend`) in both browsers. Left:
 
-- **NumPy inside Blender, the first thing to decide.** Blender is linked through cast emulation
-  because its `METH_NOARGS` methods have one parameter and CPython calls them with two; such a
-  program loads no extension module (`docs/process-model.md`). Either CPython calls a method by
-  the type its flags say (a change to the `python` package's `cfunction_vectorcall_NOARGS` and
-  the getters, which then needs no emulation if nothing else in Blender casts), or NumPy's
-  modules are linked into Blender. Measure first which calls trap without emulation.
+- **NumPy inside Blender: decided (2026-11-17), not in 0.1.8.** Blender is linked through cast
+  emulation because 236 of its 254 `METH_NOARGS` methods take one parameter (counted in the
+  source: mathutils 68, gpu 57, bmesh 42, bpy 31, Freestyle 27, generic 12) and CPython calls
+  each with two; such a program loads no extension module (`docs/process-model.md`).
+  - CPython cannot help: the method's flags do not say how many parameters its function has.
+  - Patching Blender (a second parameter on 236 functions, then whatever else casts) is a fork
+    to carry at every release, against the porting rules.
+  - Linking NumPy's extension modules into Blender would make its build part of this one, for
+    one library, and the next add-on's module would be stuck the same way.
+  - **So the mechanism is the answer**: `dso@0` loads a library that went through the same cast
+    emulation into a program that did (today it refuses, since a library's table entries have
+    other signatures; an emulated library's are the same thunks). That gives Blender NumPy and
+    any other extension module, and GObject programs their plugins. It is a core change with a
+    contract, for the release after 0.1.8; until then `import numpy` in Blender fails with the
+    loader's message, which the README states.
+- **The cc option filter stays** (`demos/blender/ccfilter.c`): the driver accepting what Clang
+  accepts is `programs/compiler.cpp`, a seed change, so it belongs to a compiler round; the
+  filter goes then (the integrator, 2026-11-17).
 - The add-ons: which load, which need NumPy.
 - The licence rows in `docs/licences.md`, the libraries' notices in `/usr/share/licenses`, and
   the source archive beside the image.
