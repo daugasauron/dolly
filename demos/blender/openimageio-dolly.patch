@@ -94,3 +94,14 @@
      std::this_thread::sleep_for(std::chrono::microseconds(useconds));
  #else
      ::usleep(useconds);  // *nix usleep() is in microseconds
+--- a/src/libutil/ustring.cpp
++++ b/src/libutil/ustring.cpp
+@@ -442,7 +442,7 @@
+     OIIO_DASSERT(str.c_str() == c_str() && str.size() == length);
+     return;
+ 
+-#elif defined(_LIBCPP_VERSION) && !defined(__aarch64__)
++#elif defined(_LIBCPP_VERSION) && !defined(__aarch64__) && !defined(__wasm__)
+     // FIXME -- we seem to do the wrong thing with libcpp on Mac M1. Disable
+     // when on aarch64 for now. Come back and fix then when I have easier
+     // access to an M1 Mac.

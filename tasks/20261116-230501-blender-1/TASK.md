@@ -87,6 +87,17 @@ status 0) and installs 63 MB under `/usr/share/blender/5.3`. Two things on the w
   growth). The patch makes the allocator always use the heap (two lines). It would fail the
   same way on any platform with a recent libc++.
 
+**Cycles renders the default scene to a PNG** (12:17, in the session): 480 by 270 at 16 samples
+in 1.0 s; 1920 by 1080 at 64 samples in 14.4 s on its threads (four, through oneTBB) and 50.7 s
+on one, on a machine at load 40. The frame is `build/blender-evidence/default-cube-480x270-16spp.png`
+(the cube, lit and shaded as Blender's own build draws it). OpenEXR output worked before PNG did:
+
+- **OpenImageIO's `ustring` and this libc++.** PNG output failed with "tEXt: invalid keyword" for
+  any metadata key of 23 characters or more (Cycles' `cycles.ViewLayer.render_time`). `ustring`
+  builds a long `std::string` by writing libc++'s fields as it knows them, which today's libc++
+  lays out otherwise; upstream already excludes aarch64 for it. The patch excludes WebAssembly
+  too, which takes the plain assignment (one line). Cycles uses `ustring` throughout.
+
 To debug a cast-emulated program: link an `abort` that traps and run `wasm-opt -g --fpcast-emu`
 by hand, which keeps the function names for the page's console.
 
