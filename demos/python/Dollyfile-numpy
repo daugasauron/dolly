@@ -7,5 +7,5 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
 # NumPy: its root of python-data-build (README.md).
-INSTALL /demos/python/Dollyfile-python f6fb19c629a1b5fc683ab519aa99070752b03d60ae0a627095367f5b3fc7d323
-COPY /demos/python/Dollyfile-python-data-build 2b38dd0a42f52592e074d19e16cf3c7bc783f0e66fcc633b8256a110ed05ad86 /opt/python-data/numpy /
+INSTALL /demos/python/Dollyfile-python 8833885bddfe56551862fba3d762153089994aa977f0d3c91110cebe4393bcc7
+COPY /demos/python/Dollyfile-python-data-build c1daf62801e541101d4245c5277c83735ba97ceca2f7209ae9a53f429920c5fb /opt/python-data/numpy /

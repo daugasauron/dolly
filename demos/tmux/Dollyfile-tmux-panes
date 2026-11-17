@@ -8,11 +8,11 @@ REQUIRES HOST packages@0
 REQUIRES HOST pty@0
 REQUIRES HOST sockets@0
 
-INSTALL /Dollyfile-core 477b1e16bf88948c46bc4b68cd39d9610ffe5119e131c45223f89a61421520fa
-INSTALL /Dollyfile-posix 6a2f9206752a09e80d5e1a4d2d2be08ab2174816a108c7fcaf0045f337e50172
-INSTALL /Dollyfile-display 8f206fd7c1ccb3b0a4f96dc679b970f4bb7000e92b39ae1d2800a2df0236cca3
-INSTALL /Dollyfile-amy b08a1704e8b8ed49b4d1154063a8e8072fc8bea027947996b3c0c50fcf6d778e
-INSTALL /demos/tmux/Dollyfile-tmux 35d5cab820871e834976036cce4f39c31342c409ec8e6fda90c4a045a0cfab81
+INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
+INSTALL /Dollyfile-posix 7be8c3d712e716af25b88175f372bbcd2bd97ca7f67e831ad9e1f01c2272e639
+INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
+INSTALL /Dollyfile-amy 35ac2edd961bc6a74f29b2d8f46b60f4ff27be82d3e0244eb66ae78c67debd04
+INSTALL /demos/tmux/Dollyfile-tmux 83e2062879426dc6f3e09a1dd522eb27ce604ebc958c22348f4d5a9fad438c9c
 
 FILE /usr/share/tmux/welcome.txt
     tmux inside Dolly: two shells, each on a pseudo-terminal.

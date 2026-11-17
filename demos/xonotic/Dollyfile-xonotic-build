@@ -8,18 +8,18 @@ REQUIRES HOST input@0
 REQUIRES HOST touch@0
 REQUIRES HOST threads@0
 
-FROM /Dollyfile-system-tools aaba65844164b3e9202070a757a83a6aef15710ca14631e433c72cbc1198751b
-INSTALL /demos/sdl2/Dollyfile-sdl2 334b3d8eb3107a8fb5a0b02c2f59aec6f6c54672e61ec60a2c1a5312d3e55da3
+FROM /Dollyfile-system-tools 41d78b18183d4c4d3786fa7131c53810a1b0090f845b8298a56f0ae87a02db9e
+INSTALL /demos/sdl2/Dollyfile-sdl2 d71374d82452f6987ca07798fc16a46088dbf0fd076f45d48defd844d0d2020f
 # FreeType (with its libpng) for the client's fonts, libjpeg for its textures,
 # Vorbis (with its Ogg) for its sounds.
-INSTALL /demos/xonotic/Dollyfile-libvorbis c843af21be295ce0c4f038eee3b0e08d7c778f08d480ed6a5a0adb0466c5f2ea
-INSTALL /demos/xonotic/Dollyfile-libjpeg 598c45071f10f49b7d32fdc9281c4e5f5871e1f61cde51e550afbe1523c9f5d9
-INSTALL /demos/tools/Dollyfile-freetype 5970a1751e75180828648570ca44f1c9cbe1a85588150526c32170916572d2ae
+INSTALL /demos/xonotic/Dollyfile-libvorbis 5b661db95de51bec4cec55a4f21edf824058357227f74ce82c9a85781704751a
+INSTALL /demos/xonotic/Dollyfile-libjpeg 14b7c46fdd28673f84ff294277511ccfdd7a489d2ddffa234d83e15b26e378ff
+INSTALL /demos/tools/Dollyfile-freetype 973f0d6a05a1d73ff00458e76afd65f39600acd9c9703e166bd55cfa5260fd27
 # gmqcc, which compiles the game logic.
-INSTALL /demos/xonotic/Dollyfile-gmqcc 511bd37da63188bc16b13ffa40bc5e5224a84d2fad4f6e1991bfa7cd4a32b647
+INSTALL /demos/xonotic/Dollyfile-gmqcc 3d4995c341272da45814157deb41dab522582ada3cb673d887287d54eed4eeb7
 # The gpu@0 client the render path draws with, and its shaders.
-INSTALL /Dollyfile-libdolly-gpu 4e813773a5508ba4b1b1b591956e89f5bcd0da31807398da0f850249056e9e11
-INSTALL /demos/xonotic/Dollyfile-xonotic-shaders ee2b31c4392f51353e3bbfbb03019e70515e646f09a8754e11d89099baac23b7
+INSTALL /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
+INSTALL /demos/xonotic/Dollyfile-xonotic-shaders 7301c04b76d6b59042008ccf2dc7d060ddee072877ad03a49cfb94894e8f7782
 REQUIRES HEADER cpp
 REQUIRES HEADER gpu
 REQUIRES HEADER sdl2

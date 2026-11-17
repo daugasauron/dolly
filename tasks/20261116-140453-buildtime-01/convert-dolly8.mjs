@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // DOLLY 7 to DOLLY 8, mechanically and as often as asked: the version leaves every site path.
 //   node tasks/20261116-140453-buildtime-01/convert-dolly8.mjs
-// In every file git knows or would add (tasks/ and the npm changelog and upgrade guide, which
-// tell the history, aside):
+// In every file git knows or would add (tasks/, the npm changelog and upgrade guide and
+// docs/dollyfile.md, which tell the history, aside):
 //   - "DOLLY 7" becomes "DOLLY 8": recipes, and the recipes tests and tools write;
 //   - a FROM, INSTALL, USE, COPY or SOURCE row at the start of a line loses the /vX.Y.Z of
 //     its site path: recipes, the Studio's examples, the examples of a README.
@@ -14,7 +14,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "../..");
-const kept = path => path.startsWith("tasks/") || path === "docs/npm-changelog.md" || path === "docs/npm-upgrading.md";
+const kept = path => path.startsWith("tasks/") || ["docs/npm-changelog.md", "docs/npm-upgrading.md", "docs/dollyfile.md"].includes(path);
 const reference = /^((?:FROM|INSTALL|USE|COPY|SOURCE)[ \t]+["']?)\/v\d+\.\d+\.\d+\//gm;
 
 let converted = 0;

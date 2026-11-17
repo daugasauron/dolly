@@ -6,19 +6,19 @@ REQUIRES HOST input@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 
-FROM /Dollyfile-system-tools aaba65844164b3e9202070a757a83a6aef15710ca14631e433c72cbc1198751b
-INSTALL /Dollyfile-session-recover abb2e57190bcdb581b4bb35d0908bb6a2b6227201fc8e39bc0a67364e95fd7cd
+FROM /Dollyfile-system-tools 41d78b18183d4c4d3786fa7131c53810a1b0090f845b8298a56f0ae87a02db9e
+INSTALL /Dollyfile-session-recover 5198d53e78105afeee50c99adff1e562fecd3603043794b56a37b126fb197ed5
 # The packages made of what system-build and system-tools built: this image
 # holds their files, and its record says so, as it does for every INSTALL.
-INSTALL /Dollyfile-core 477b1e16bf88948c46bc4b68cd39d9610ffe5119e131c45223f89a61421520fa
-INSTALL /Dollyfile-cc f6cd62ca34e68d858276aa1cc3a8b12f5c6121aa2aec4c8a93edffdb0c33ad78
-INSTALL /Dollyfile-make d9fb6f55aa76e049bbcc6d22db846d54c9dcb308734f6de87061c835d14ab08a
-INSTALL /Dollyfile-posix 6a2f9206752a09e80d5e1a4d2d2be08ab2174816a108c7fcaf0045f337e50172
-INSTALL /Dollyfile-ninja 50ef1e31ca3a5c3e6cb2b8f155ad42bc55a38c5cf77ce9df1f79b3ddbd406f08
+INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
+INSTALL /Dollyfile-cc b4cc426f9a03d714a2472b6b11bda4b0d0227dbe1c132c87b591661e3ac9aeb8
+INSTALL /Dollyfile-make c647d885f985973eabb6d6857a0184ccd16ed1c5779355b12babc320abac2b08
+INSTALL /Dollyfile-posix 7be8c3d712e716af25b88175f372bbcd2bd97ca7f67e831ad9e1f01c2272e639
+INSTALL /Dollyfile-ninja 4fb4cef5d8954a99d2e87394893d1f3f61ad7762203e57028a049b2c3bc85dbb
 # The headers and clients of the modules this toolchain declares, for the
 # programs it builds.
-INSTALL /Dollyfile-libdolly-display 02db6fdde801b0723917d5fa418d696aac136ed9406428aecb9cc189f114c378
-INSTALL /Dollyfile-libdolly-input c28684b773072861a32216556dc3beb39f8980f865dedcaa5777dd1e105a26ee
-INSTALL /Dollyfile-libdolly-threads 7120089c022dbf300637519306f44465316ca14209c35c4150e5c9a806a9d839
+INSTALL /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
+INSTALL /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
+INSTALL /Dollyfile-libdolly-threads dc22418aec61aa289a4b7c746891cc161b447fb14b6075696c4c04ddb9d6aecf
 
 ENTRY /bin/foreground -i /bin/slop

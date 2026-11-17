@@ -11,15 +11,15 @@ REQUIRES HOST threads@0
 # which traps in WebAssembly: GObject's pkg-config file asks cc for
 # --dolly-cast-emulation (Binaryen's wasm-opt --fpcast-emu after the link),
 # and this package's own programs are passed through it here.
-FROM /demos/tools/Dollyfile-tools-build fcf061770fb3a301cae1cf5fc616a0716bd30fc7645e588c45e33ae4d456e44a
-USE /demos/tools/Dollyfile-meson 7bff1d97f2291f32401c69de7d0069ab829c7ed38541a8bc1104e3cdbd2b52fd
-USE /demos/tools/Dollyfile-pkgconf 6d63e50c0e52d6d3b705d3a33a62be9a3378491250f30380fdf27df3e1628fb8
-USE /demos/tools/Dollyfile-xz 3503cbb1d88128c406716c2025a3bb31bcf0544958994b9dd7eff00ef29ac11a
-USE /demos/tools/Dollyfile-tar b08b85c33d91b02b04851a0154d00aaa6604f8a911b2f5610a68ff8a12f0c36c
-USE /demos/tools/Dollyfile-binaryen 8fc93d3c8bd4b3963dff713d40621d8be654d6dba614c13f938d325e9fec8b9b
-INSTALL /demos/python/Dollyfile-libffi ca0e076b95e1412bb1ce0696686be63ee9279b07be9ec5363050f46eab3364ce
-INSTALL /demos/gtk/Dollyfile-pcre2 6f112a563a5d4ad0beb4a99e776f98f1655d3851136e6fe7ba9fb16e4917b0e0
-INSTALL /Dollyfile-zlib d779a4d993c59ce6642dafa229e0d67aee809cca9da230be94ec3f40432819ab
+FROM /demos/tools/Dollyfile-tools-build a2c16674acb2a8119dd914e62e79322b95a6c9ba6528936c44e22216a4055a8e
+USE /demos/tools/Dollyfile-meson 80402187a690b9a520c33b8dde367411c7988d2abd1d6a054d652eb94544d9d3
+USE /demos/tools/Dollyfile-pkgconf dddc95966d216baca55fbdac572c88d0b2247438ffdaa0ac7fcfc80dab51be8a
+USE /demos/tools/Dollyfile-xz 096ffdfc8b9a37b1bc6cab494bce2aac391f3b598e402be8a28936986a7dfa2a
+USE /demos/tools/Dollyfile-tar 50e3561d32998e872881805e9899428e4d76cb449b24d53018ea4ef0fe9e74be
+USE /demos/tools/Dollyfile-binaryen 18aec5d267008348dfb6b7d9dbf61a559d72c62cde0f56bb2871eca15045e4db
+INSTALL /demos/python/Dollyfile-libffi e450805d87a5057a4262bb573a698f6946360a97774c657a6dfea82c5211730a
+INSTALL /demos/gtk/Dollyfile-pcre2 ea118240535bb08e092a37691fa36a1c08ac1ad581ff23422f1426690cd4f927
+INSTALL /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
 
 REQUIRES HEADER ffi
 REQUIRES HEADER pcre2
