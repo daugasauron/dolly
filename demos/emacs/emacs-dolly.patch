@@ -82,7 +82,20 @@
  
 --- a/lisp/loadup.el
 +++ b/lisp/loadup.el
-@@ -632,6 +632,7 @@
+@@ -608,6 +608,12 @@
+           ;; compiler infrastructure may not be usable yet.
+           (setq native-comp-enable-subr-trampolines t))
+         (message "Dumping under the name %s" output)
++        ;; Dolly: what the dump would keep of its own run is left out: the
++        ;; time its collections took (not counted while nil, and startup
++        ;; resets it) and when each buffer was last displayed.
++        (setq gc-elapsed nil)
++        (dolist (buffer (buffer-list))
++          (with-current-buffer buffer (setq buffer-display-time nil)))
+         (condition-case ()
+             (delete-file output)
+           (file-error nil))
+@@ -632,6 +638,7 @@
          ;; Recompute NAME now, so that it isn't set when we dump.
          (if (not (or (eq system-type 'ms-dos)
                       (eq system-type 'haiku) ;; BFS doesn't support hard links
