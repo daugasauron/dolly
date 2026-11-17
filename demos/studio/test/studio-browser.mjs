@@ -9,8 +9,9 @@ import { siteReference } from "../../../page/static-asset.mjs";
 
 for (const browser of browsers) await demoTest("studio", { browser, image: "dollyfile-studio", timeout: 900_000,
   server: { fixtures: { "studio-nvim.lua": "demos/studio/test/fixtures/studio-nvim.lua" } } }, async ({ server, open }) => {
+  // The page's own site: the skill has Pi read its recipes and files with curl, which the policy judges like any URL.
   const terminal = await open({ prompt: /Dollyfile Studio.*dolly-hello/,
-    policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
+    policy: { rules: [{ origin: server.origin, methods: ["GET"] }] } });
   const { page, run, start, prompt, waitText, text, input } = terminal;
   assert.doesNotMatch(await text(), /(?:fd|ripgrep)\s+not found|Failed to download (?:fd|ripgrep)/i);
   await page.keyboard.press("Control+d");
