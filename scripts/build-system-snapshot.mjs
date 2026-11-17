@@ -67,8 +67,8 @@ function expectedRecipes(image) {
 async function treeMemory(root) {
   const parents = new Map();
   for (const name of await readdir("/proc")) {
-    const stat = /^\d+$/.test(name) && await readFile(`/proc/${name}/stat`, "utf8").catch(() => "");
-    if (stat) parents.set(Number(name), Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[1]));
+    const status = /^\d+$/.test(name) && await readFile(`/proc/${name}/stat`, "utf8").catch(() => "");
+    if (status) parents.set(Number(name), Number(status.slice(status.lastIndexOf(")") + 2).split(" ")[1]));
   }
   const tree = [root];
   for (const pid of tree) for (const [child, parent] of parents) if (parent === pid) tree.push(child);

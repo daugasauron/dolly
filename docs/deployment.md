@@ -105,10 +105,12 @@ npm run serve build/domain-releases     # the candidate as it will be deployed
   a published version holds is a link to that one. A version's directory
   carries its seal: `sha256sum --check release/files.sha256` checks the
   release, and `deployment.sha256` what Cloudflare stores.
-- A release build needs disk for the catalog twice (snapshots in `dist/` and
-  their packs) and little memory: sharing the catalog into packs streams one
-  4 MiB chunk at a time; `site-release.mjs accept` then holds about twice the
-  largest image while it merges that image's packs.
+- A release needs disk for little more than the catalog in `dist/`: packaging
+  0.1.7's catalog again added 0.1 GB of packs to `dist/packs/` and 0.76 GB of
+  copied checkout files (pages, docs, metadata, the showcase's videos), and
+  its export 85 MB; the rest are links. Sharing the catalog into packs streams
+  one 4 MiB chunk at a time; verifying 0.1.7's release (`accept`, `verify`)
+  held 11 GB resident, its export 4.4 GB.
 
 ## The archive of published versions
 
