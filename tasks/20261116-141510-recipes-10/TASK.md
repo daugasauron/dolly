@@ -7,10 +7,20 @@
 From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`).
 
-## State (2026-11-16)
+## State (2026-11-17)
 
-Measured on `work/round1113/dist/`; the order effect is read from the two files, not run with Pi
-and a GPU. Nothing changed yet.
+Fixed on `ws/recipes` (f66240630), as Do says: `Dollyfile-pi-llm` installs
+`demos/pi/Dollyfile-pi-dolly` before llama and qwen3.5-2b, with pi-dolly's `REQUIRES HOST` lines
+(`download@0`, `html@0`, `http@0`, `threads@0`, `upload@0`), so its own settings, which name the
+`webgpu` provider, replace pi-dolly's in every order of installs, and Pi comes with it;
+`Dollyfile-pi-local` drops its own pi-dolly row (pi-llm brings it) and its comment says so;
+`demos/local-llm/README.md`'s line for pi-llm says "Pi with its provider". `npm run -s
+lint:dollyfiles` passes (it checks an `INSTALL`'s host modules against the installer's).
+
+Left for the 0.1.8 round: pi-dolly's Pi brings ripgrep and fd, built on the Rust chain, which this
+tree does not rebuild; once built, in a fresh `default` session `amy install pi-llm` alone must
+give `pi` and settings naming `webgpu`, and `amy install pi-dolly` afterwards must say it is
+already installed. Rebuilds pi-llm and pi-local.
 
 ## Found
 

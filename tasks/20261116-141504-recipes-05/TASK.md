@@ -7,9 +7,29 @@
 From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`).
 
-## State (2026-11-16)
+## State (2026-11-17)
 
-Measured on `work/round1113/dist/`. Nothing changed yet.
+Fixed on `ws/recipes` (f66240630, 63e8cba16):
+
+- `Dollyfile-python` drops the three exports and the licence of libffi's, which the installed
+  libffi package holds (its `REQUIRES HEADER ffi`, `ffitarget` and `LIB ffi` rows still hold).
+  Built in `work/recipes`: in a fresh `default` session `amy install python` installs libffi first
+  ("libffi installed: 5 files, 27876 bytes"), `amy files python` lists 1551 files and no
+  `/usr/lib/libffi.a`, `/usr/include/ffi*.h` or `libpython3.14.a`, `amy files libffi` holds
+  `/usr/lib/libffi.a`, and the regenerated overlaps have no libffi/python line, in Chromium and
+  Firefox (case `python-files`; `logs/overlaps-1.txt`); `python-browser.mjs` passed (ctypes,
+  `CDLL(None).strlen`, a callback: `logs/a-python.log`).
+- `Dollyfile-pi-llm` keeps what it writes: the provider (`/usr/lib/dolly-llm`, the extension, the
+  settings) and the descriptions of the three models it does not install, by `FILE` rows, not the
+  folder its qwen3.5-2b row fills; it installs pi-dolly first
+  (`tasks/20261116-141510-recipes-10`). `demos/local-llm/README.md` says why pi-llm holds those
+  descriptions, and `models.test.mjs` checks every model is installed by it or described by it.
+
+Paths under `work/audit-1116-evidence/recipes/ws-recipes/`. Left for the 0.1.8 round: pi-llm
+installs pi-dolly, whose Pi brings ripgrep and fd, built on the Rust chain, which this tree does
+not rebuild; once built, pi-llm's snapshot must be under 1 MB, `amy install pi-llm` must report
+its own files only (eight, about 20 KB), and pi-local's browser test must pass (a GPU window).
+Rebuilds python and all it reaches (the catalog round), pi-llm and pi-local.
 
 ## Found
 
