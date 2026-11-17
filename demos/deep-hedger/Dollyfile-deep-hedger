@@ -14,7 +14,7 @@ INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cf
 INSTALL /Dollyfile-posix 05628fd9859d6aa86359accd20db6cf32c0b1469e573da158734ce7a2caab0bf
 INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
 INSTALL /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6e458431e
-INSTALL /demos/deep-hedger/Dollyfile-deep-hedger-build b990f6045eda115d7b1273ba6f5c20af6d8ac63e50463be7faac5872f6f3289b
+INSTALL /demos/deep-hedger/Dollyfile-deep-hedger-build 1b0bb7f521a421349e203419bfa732d9f311aefc9e5aef213fe9dd3516b5c5cc
 FILE /etc/dolly/init.slop
     /usr/bin/dh-gui
     printf '\nDolly: dh-gui has ended; this is the recovery Slop shell. dh-gui starts it again.\n'

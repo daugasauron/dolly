@@ -16,9 +16,9 @@ REQUIRES HOST clipboard@0
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
 INSTALL /Dollyfile-posix 05628fd9859d6aa86359accd20db6cf32c0b1469e573da158734ce7a2caab0bf
 INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
-INSTALL /demos/godot/Dollyfile-airtime-godot 48f4fd6d2d0d6fdb62ac66e29f9c2dabe2b4ac44ef2ee79f05e9a04a8ce23cfe
-INSTALL /demos/godot/Dollyfile-godot-editor e43b787951059dc1eb44a5ccfb2958716ed29020a1816cf28bc4288ed65d2c66
-COPY /demos/godot/Dollyfile-airtime-godot 48f4fd6d2d0d6fdb62ac66e29f9c2dabe2b4ac44ef2ee79f05e9a04a8ce23cfe /usr/share/airtime-godot/project /home/dolly/airtime
+INSTALL /demos/godot/Dollyfile-airtime-godot 45eccc2e37c3911ea2f6a87bea415eed83446ddab81daacbcdb0de9cf31aa844
+INSTALL /demos/godot/Dollyfile-godot-editor f58fc7d59b796be90030d78c3e2582b2a16381d832af1e162d5b8439010298a5
+COPY /demos/godot/Dollyfile-airtime-godot 45eccc2e37c3911ea2f6a87bea415eed83446ddab81daacbcdb0de9cf31aa844 /usr/share/airtime-godot/project /home/dolly/airtime
 REQUIRES TOOL airtime-godot
 REQUIRES TOOL godot-editor
 
