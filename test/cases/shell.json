@@ -247,6 +247,11 @@
     {
       "script": "mkdir -p copy/nested && echo FILE > copy/file && echo NESTED > copy/nested/file && cp -R copy copied && grep -q FILE copied/file && grep -q NESTED copied/nested/file",
       "status": 0
+    },
+    {
+      "why": "A file a process writes is executable, and upstream scripts start #!/usr/bin/env: meson runs glib's and numpy's so.",
+      "script": "printf '#!/usr/bin/env sh\\necho ENV-SCRIPT\\n' > env-script && test \"$(./env-script)\" = ENV-SCRIPT",
+      "status": 0
     }
   ]
 }

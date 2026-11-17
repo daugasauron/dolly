@@ -15,7 +15,7 @@ REQUIRES HOST dso@0
 REQUIRES HOST build@0
 
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix 9008ffb50676d40e958f79c3715edf475ee3024148f6be6e9a42f1a9cf2e6d69
+INSTALL /Dollyfile-posix 135a308c65e7797939f58d35f54046ea6667d3630dc3ac09c6bf0b659667039d
 INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
 # The tools Pi's dolly skill teaches: cc and make with the host modules' client
 # libraries, Git, curl.
@@ -27,11 +27,11 @@ INSTALL /Dollyfile-libdolly-upload 8ac6d3294c36592ef7147a9d0fddfe1558ab9edfae12e
 INSTALL /Dollyfile-libdolly-threads dc22418aec61aa289a4b7c746891cc161b447fb14b6075696c4c04ddb9d6aecf
 INSTALL /Dollyfile-git beec0dcd0aadae135004bdad2dc5ca42ae35cbf06eb67475d0c57e9185bd4f76
 INSTALL /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6e458431e
-INSTALL /demos/pi/Dollyfile-pi-dolly 52d2629d57a879c3af826294b6641640c61af2a45d5e3e14689d59db37e7eb38
+INSTALL /demos/pi/Dollyfile-pi-dolly df829510ad337b5ee65daf5aaa5ee2f0398c69dd7ea7982938437f8ea783d1cf
 INSTALL /Dollyfile-amy 95b7ecb251d9d5c3d28eb8aaa63b6bd2a465fac35756bdf95b520884a61547e4
 # nena enables the host modules a package needs beyond these.
 INSTALL /Dollyfile-nena 67a37d644a04e3eddd12fe2e5d335dcf473b1b549337f0a9ce2f445f00b91ad8
-INSTALL /demos/neovim/Dollyfile-nvim d751ffb4dfae1eb26e9861a2efa68d7f3822fac245336a9a2ffd0aea6351a049
+INSTALL /demos/neovim/Dollyfile-nvim d845dea0117cb2cfe69e33fb9c7ca7c700eecf19be07c047908920eab635ec76
 REQUIRES TOOL pi
 REQUIRES TOOL nvim
 REQUIRES TOOL janis

@@ -17,15 +17,15 @@ REQUIRES HOST clipboard@0
 # knows WebAssembly only as Emscripten (3D physics is Godot's own), and the
 # JSON-RPC module, whose one user is the GDScript language server: it listens
 # on TCP, which Dolly does not have.
-FROM /demos/ghostty-gtk/Dollyfile-mesa-build 0f55eb24cf71b69e4d3dd036bbf5d75922e8fee2d4b8666616a8119166563f51
-USE /demos/tools/Dollyfile-scons 504b08f19b4ab10da153b19e3df2427d1889c0be569fa299e1f0edce3a409524
-USE /Dollyfile-mandoc eecfe20d5213aa6dc84da394d437d081d6cb5a2e6acc1fdcdca5ce39010080d8
+FROM /demos/ghostty-gtk/Dollyfile-mesa-build 879b0cbc426ff7adff26baeda4650cd014df8355bd8f2e985c94c3e6674b5879
+USE /demos/tools/Dollyfile-scons 1d8d9f88fdd9061dec9650cf33110638b87e065d760224a5c5bf19cdc32d52cf
+USE /Dollyfile-mandoc 79eaa8de22d65ace43aa6b68bd9bd5c0072df7386b4f25e457507e1620fa8444
 USE /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
 USE /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
-USE /demos/godot/Dollyfile-spirv-wgsl 01d417f87737c6a659472bc097da9cac994dcaa5a5201e3be2109dfa7280629a
+USE /demos/godot/Dollyfile-spirv-wgsl a1899fb52155f87713ed2f3f1eede08dd0f26cb3bd91da94fd41c434619ecd97
 USE /Dollyfile-libdolly-audio a4064796256e039400d5ea30faae6dfeccb9c09d62a8b6dd09daebc16fbf1f7f
 USE /Dollyfile-libdolly-clipboard 99746a8bd9b9eb136098753ccc526ac94a14540e6d26082ae8748eb6e3fa08a6
-USE /demos/x11/Dollyfile-x11-window ce103a9d93ad71a05a4ed6b5e5c870fe3a7771da600b1f2ec1131870b0a0604e
+USE /demos/x11/Dollyfile-x11-window be8df54db343ad602c0e007430112081bb955b7d031b9ade2583acb011751163
 USE /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
 USE /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
 

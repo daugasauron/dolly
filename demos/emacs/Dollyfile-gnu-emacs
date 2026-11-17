@@ -6,9 +6,9 @@ REQUIRES HOST input@0
 REQUIRES HOST snapshot@0
 
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix 9008ffb50676d40e958f79c3715edf475ee3024148f6be6e9a42f1a9cf2e6d69
+INSTALL /Dollyfile-posix 135a308c65e7797939f58d35f54046ea6667d3630dc3ac09c6bf0b659667039d
 INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
-INSTALL /demos/emacs/Dollyfile-emacs c544433ac00c753b33b3e0a111f8e0241ac8ab6ff8fd2c9a380c74a0ca067413
+INSTALL /demos/emacs/Dollyfile-emacs 638e70038f317fc9cc2e8695da7e17b7aa92483aeb14235fbb2188049f8f5a17
 
 FILE /usr/share/emacs/welcome.txt
     GNU Emacs inside Dolly

@@ -16,15 +16,15 @@ REQUIRES HOST threads@0
 # extension libraries GTK's X11 backend links. Static libraries in /usr/lib,
 # as a GTK program links them; GLib's pkg-config file has cc cast-emulate
 # every GObject program, those these builds run among them.
-FROM /demos/x11/Dollyfile-x11-build 7a9d10bd8994638c51211b3dfd71614920e5160b1e3f61f23cbd1af4afa5e75a
-INSTALL /demos/tools/Dollyfile-meson f593593f524ec6b953e03e3aa7ec38cc8388c09bd60b27c9de1aae0ae5956951
-INSTALL /demos/tools/Dollyfile-pkgconf 08a217ca8a3cb5f261e5a13960b6053422f37fce397842b82269e8affbc0f4ae
-INSTALL /demos/tools/Dollyfile-libpng 07aa074909e120a2ff97122b180da8bad960bbb4d1a8755dea32c34b665416db
-INSTALL /demos/tools/Dollyfile-freetype 76d6fec1184ed6777861804aaed2216bf555f49fe99dd60f5c7f1b01cbb7bad4
-INSTALL /demos/x11/Dollyfile-pixman 8bc0d2fdfb1f250275de63d051b295c0fca41965600b08c08921e7863103efdb
-INSTALL /demos/tools/Dollyfile-tar ad92cb84ea8e34cf647ee47dd76c3c4490449c990cea45b43d13b61cfe44fc5f
-INSTALL /demos/tools/Dollyfile-binaryen 0bc6a6e41bac942d57ffd54fa151f567903e025f92ed7fa275aa18fb40cdd62e
-INSTALL /demos/gtk/Dollyfile-glib a9af84bdeb93e77bb3aaa31e9dfc3ba0956a32691bfd0f5312fd8406c7f74064
+FROM /demos/x11/Dollyfile-x11-build cec637c621628debbc8c81a60bbbc46ec5ef1b9d6d5ccb2c9756cb217b5d231a
+INSTALL /demos/tools/Dollyfile-meson 338990b32e6514badf70f862eae93f72841975ac5477df525ac0b5ec95fa81d5
+INSTALL /demos/tools/Dollyfile-pkgconf 82980e20a11eae307bd025ffdcde74342aa09c4778d559c04595c52254ca2086
+INSTALL /demos/tools/Dollyfile-libpng 82fc9437fdf7849ee23f807d0b06a11b521703f69b699bb9b4d8e74d78143eb9
+INSTALL /demos/tools/Dollyfile-freetype 921ed455ec161424bf4ce5e9be4c9cfb57fca095cc5bd20eabd036397f3b44f8
+INSTALL /demos/x11/Dollyfile-pixman 22ae6aec467c4461b847a299daf0139babdca8c44043a2ed73404a61a613c4bc
+INSTALL /demos/tools/Dollyfile-tar d3c898375bd06b64dfe1ec877d077d00d17a6436e58ed52d6bc263fe92d6fbff
+INSTALL /demos/tools/Dollyfile-binaryen 25cb6af24a7f1e916912d03c434ddd2c66755e94fce9f8777bd2124193363e5e
+INSTALL /demos/gtk/Dollyfile-glib a7866c6c8e00740b6cf72fd847c046068eb3cdfa9db8f6578f15a535075cc531
 
 REQUIRES HEADER glib
 REQUIRES HEADER zlib
