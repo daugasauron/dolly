@@ -16,8 +16,8 @@ REQUIRES HOST clipboard@0
 # (demos/godot/airtime) is imported and exported here by Godot's editor, and airtime-godot plays
 # the pack with godot, which installs with it. The project installs too, for the editor.
 FROM /v0.1.6/Dollyfile-system 33e5bcf65ef4a634da5dbf8e291a379148e7971aa0411fe1bdaa4e0332f24b94
-INSTALL /v0.1.6/demos/godot/Dollyfile-godot d664727847aab2605329b43c8b088d8f933d61ec3717f24554c0c9ce703c053c
-USE /v0.1.6/demos/godot/Dollyfile-godot-editor 6dd0e5b78f2e4bd5b03d170727bc0a77aa734c49af7bad280263005696a0a52a
+INSTALL /v0.1.6/demos/godot/Dollyfile-godot 1a94c903878939cce57b5bac3d4368eb394ba6289f2bb1fb73928022a84f042a
+USE /v0.1.6/demos/godot/Dollyfile-godot-editor 824a42e42bc71870454975d15ca94d4d27387a751330f33cd74e112db6742b69
 
 REQUIRES TOOL cp
 REQUIRES TOOL godot-editor

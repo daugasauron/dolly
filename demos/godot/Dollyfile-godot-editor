@@ -42,7 +42,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL test
 REQUIRES TOOL text-page
 
-SOURCE /v0.1.6/dist/static/godot/source.tar.gz 1c8f59cd511f3343cb327b76994fc4d3290b19924e512e8f6dd4f476bc53147d /tmp/godot-source.tar.gz
+SOURCE /v0.1.6/dist/static/godot/source.tar.gz ecb29258bcec3b698c9a9a32d978fe0a0424099c1159e0a801bb6ba6f8756167 /tmp/godot-source.tar.gz
 SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
 # Godot's modern renderers take only the drivers main.cpp names; glslang builds beside them;
 # Forward+ starts SDFGI only on a device with image atomics, which its voxelization takes.

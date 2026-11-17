@@ -194,7 +194,7 @@ void fragment() {
 	// A town's lamps are warm; in winter each lot hangs out lights of its own colour.
 	vec3 lamps = mix(vec3(1.0, 0.78, 0.45), 0.5 + 0.5 * cos(6.2832 * (hash(floor(p / LOT) + 21.0) + vec3(0.0, 0.33, 0.67))), winter * 0.8);
 	// From orbit a settled region's towns are one glow at night, on its low land.
-	float glow_far = far_off * smoothstep(0.6, 0.74, peopled) * low * (1.0 - snow) * 0.4 * mix(smoothstep(0.5, 0.75, noise3(planet / 1800.0 + vec3(5.0, 81.0, 33.0))), 0.25, smoothstep(900.0, 2700.0, wide));
+	float glow_far = far_off * smoothstep(0.6, 0.74, peopled) * low * (1.0 - snow) * 0.9 * mix(smoothstep(0.5, 0.75, noise3(planet / 1800.0 + vec3(5.0, 81.0, 33.0))), 0.25, smoothstep(900.0, 2700.0, wide));
 	EMISSION = lamps * (town * street + glow_far) * night_here * (0.5 + 0.5 * winter) + lit_crowns + vein_colour * vein * run * (0.02 + 0.5 * sandy + 1.7 * night_here) + vec3(1.0, 0.5, 0.12) * pulse_light(p) * (1.0 + 1.8 * night_here) * (0.6 + 0.6 * grain);
 	ROUGHNESS = mix(mix(mix(0.9, 0.7, bare), 0.3, max(max(max(vein * night_here, snow * 0.6), sand * 0.5), wet * 0.8)), mix(0.05, 0.35, winter), max(pool, flooded));
 	SPECULAR = 0.35;

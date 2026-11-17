@@ -315,6 +315,13 @@ pointer (the page captures it at a person's click alone), and the mouse then tur
 around the flyer while the keys steer, and the wheel or Z and X zoom; Escape gives the pointer
 and the board back, and the view and its zoom come round again. The player's view looks at the
 flyer from straight behind it. The one number on the screen is the score, the beacons lit.
+On a touchscreen nothing needs a key ([`touch.gd`](voxel-flyover/touch.gd)): the first touch
+takes the board, and the controls show from then on. A stick stands where the left thumb comes
+down on the lower left of the screen: sideways it steers, up it climbs (held, out of the air and
+on to where the planet is whole), down it dives. A finger anywhere else turns the view, two of
+them moving apart or together zoom, and the ring at the top right gives the board back. Their
+sizes go by the screen's shorter side, and a screen held upright takes its angle of view across,
+so the flyer and the land beside it stay in it.
 `-- --autopilot SECONDS` prints its frame rate, how even its frames were (median, 99th percentile,
 maximum, and the frames of over twice the median), the time a frame took, the beacons it lit and
 what its frame shows.
@@ -370,7 +377,10 @@ Godot's build is SCons over its own platforms, each a directory of
   is `main`.
 - [`display_server_dolly.cpp`](platform/display_server_dolly.cpp) is the
   window: the page's canvas through `display@0`, keys, text, the pointer and
-  the wheel of `input@0` (keys mapped by Godot's web platform's table), and an
+  the wheel of `input@0` (keys mapped by Godot's web platform's table), the
+  fingers of `touch@0` as Godot's screen touches and drags (each with the lowest
+  free index from its down to its up; Godot makes the mouse of the first where
+  a project leaves `emulate_mouse_from_touch` on, its default), and an
   OpenGL 3.3 core context on Mesa's surfaceless EGL platform. Godot draws into
   a pbuffer of the window's size; each frame is read back, turned upright and
   presented, and with vsync Godot then waits for the page's next animation
@@ -485,6 +495,11 @@ degrees, Q leaves the shell, and a flight by itself through a morning reaches a 
 reports even frames and a frame with the sky along its top; it then leaves the planet by itself and
 reports a height of over 150,000 units, a chart whose anchor moved on the way, and a frame with
 the planet's colours.
+[`test/godot-flyover-touch-browser.mjs`](test/godot-flyover-touch-browser.mjs) plays it with
+fingers alone on a phone's screen (Chrome's touch events, Firefox's touch PointerEvents): held
+sideways, a tap takes the board, the thumb's stick climbs and turns it while a second finger
+drags the view, and two fingers apart zoom; held upright, a tap takes the board and the ring
+gives it back.
 
 [`test/godot-x11-browser.mjs`](test/godot-x11-browser.mjs) installs the editor and Lantern Drift
 with amy in `x11-desktop`'s xterm: the game and then the editor open windows of their own on the

@@ -1094,8 +1094,10 @@ func show_helm() -> void:
 	hint_until = elapsed + 7.0
 	helm_shown = helm
 	if touch.active:
-		hint.text = "The corgi flies itself. A touch takes the board." if not helm \
-			else "Left thumb: steer, up to climb, down to dive    Keep climbing to leave the planet    Drag: look    Two fingers: zoom"
+		# A phone's screen is small: larger words, in lines that fit it upright.
+		hint.add_theme_font_size_override("font_size", 38)
+		hint.text = "The corgi flies itself.\nA touch takes the board." if not helm \
+			else "Left thumb: steer, up to climb, down to dive\nA finger elsewhere: look    Two fingers: zoom\nKeep climbing to leave the planet"
 		return
 	hint.text = "The corgi flies itself. Enter, a click or a touch takes the board.    Wheel or Z, X: zoom    Q: quit" if not helm \
 		else "Arrows or WASD: steer, climb, dive    Keep climbing to leave the planet    %s    Wheel or Z, X: zoom    T: hours    Esc: let go    Q: quit" % ("Mouse: look" if captured else "Click: mouse look")
