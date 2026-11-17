@@ -37,9 +37,18 @@ else
   [[ ! -e "${archive}/${version}" ]] || stop "${version} is already published; a fix is a new version"
   bash scripts/round.sh verdict || stop "no round passed on HEAD: scripts/round.sh"
   source config/source-pins.sh
-  seed_compiler=".cache/dolly-seed-compiler-${DOLLY_SEED_COMPILER_SHA256}.tar"
-  [[ "${DOLLY_SEED_COMPILER_URL}" == "https://github.com/daugasauron/dolly/releases/download/${version}/${seed_compiler#.cache/}" &&
-     -f "${seed_compiler}" ]] || stop "the seed compiler is not pinned to this release's asset (docs/sources.md)"
+  # The seeds this release was built with, which its GitHub release carries (docs/sources.md):
+  # each pinned to this release's asset, its pinned bytes in .cache.
+  seeds=() seed_checks=""
+  for seed in DOLLY_SEED_COMPILER DOLLY_RUST_SEED DOLLY_GO_SEED; do
+    url="${seed}_URL" sha256="${seed}_SHA256"
+    asset=".cache/${!url##*/}"
+    [[ "${!url}" == "https://github.com/daugasauron/dolly/releases/download/${version}/${asset#.cache/}" &&
+       "$(sha256sum 2> /dev/null < "${asset}")" == "${!sha256}  -" ]] ||
+      stop "${seed} is not pinned to this release's asset, or .cache lacks its bytes (docs/sources.md)"
+    seeds+=("${asset}")
+    seed_checks+="   bash scripts/fetch-verified-file.sh ${!url} ${!sha256} build/release-seeds/${asset#.cache/}"$'\n'
+  done
   # A deployment assembled without a version removes it: each the site serves is in the archive,
   # or retired beside it.
   robots="$(curl -fsS "${site}/robots.txt")" || stop "${site}/robots.txt does not say which versions the site serves"
@@ -125,8 +134,9 @@ cat <<COMMANDS
    Nothing was tagged, pushed, published or deployed. The owner runs, in ${project_dir}:
 4  git tag -a ${version} -m "Dolly ${version#v}" ${commit}
    git push origin main ${version}
-5  gh release create ${version} ${seed_compiler} --verify-tag --title "Dolly ${version}" --notes-file NOTES
-   bash scripts/publish-npm.sh ${npm_dir}    (in a terminal: npm signs in and approves in a browser)
+5  gh release create ${version} ${seeds[*]} --verify-tag --title "Dolly ${version}" --notes-file NOTES
+   the release holds each seed's pinned bytes:
+${seed_checks}   bash scripts/publish-npm.sh ${npm_dir}    (in a terminal: npm signs in and approves in a browser)
 6  with CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN set, where nothing interrupts it (an
    interrupted upload keeps nothing: never restart it):
    npx wrangler@4.129.1 pages deploy ${deployment} --project-name dolly --branch main > build/deploy-${version}.log 2>&1
