@@ -18,7 +18,7 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       const images = await import("/page/images.mjs");
       await images.loadImages(new URL("/", location.href));
       const { pageNetwork } = await import("/page/network.mjs");
-      return pageNetwork({ sources: images.bootstrapSources(), applicationBase: new URL("/", location.href) });
+      return pageNetwork({ applicationBase: new URL("/", location.href) });
     };
     globalThis.runHeadless = async (modules, configuration, transfers, running) => {
       // Only the modules it enables: the registry loads what the page names.

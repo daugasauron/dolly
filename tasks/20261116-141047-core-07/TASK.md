@@ -16,6 +16,16 @@ export; `DISPLAY` is left unset, as on a Unix system without X, and `x11-desktop
 test is gone, `demos/x11/x11-window/`), which Godot's and PhotoCraft's platforms call.
 Rebuilds every image with display@0's client or the display package: the round's.
 
+Verified on `ws/modules` (the core's images rebuilt): in `default`, a program sees no
+`DISPLAY` (`printf '[%s]' "$DISPLAY"` prints `[]`, where the released one printed
+`[/usr/lib/libdisplay.so]`) and `DOLLY_DISPLAY_LIBRARY` is `/usr/lib/libdisplay.so`; the boot
+log says `dolly: preparing sandbox display library /usr/lib/libdisplay.so`; the probe
+(`work/modules/build/modules-display-env-probe.mjs`), `test/display-browser.mjs` and
+`test/terminal-browser.mjs` pass in Chromium and Firefox. Left for the 0.1.8 round, which
+builds the heavy chains: on `x11-desktop`, Godot and PhotoCraft open X windows through
+`x11_window_display()` without the colon test (`demos/x11/test/`, `demos/godot/test/`,
+`demos/photocraft/test/`), and the default suite in a tree with the whole catalog.
+
 ## Found
 
 `Dollyfile-display:34` and `Dollyfile-ghostty-build:184` export `ENV DISPLAY

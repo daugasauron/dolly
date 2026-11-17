@@ -51,7 +51,7 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 
 - `default`: A shell, its text tools, ps, amy, which installs the rest, curl among it, and nena, which enables the host modules they need.
 - `system`: `system-tools` with saved sessions (`snapshot@0`, `session-recover`).
-- `system-tools`: Shell, display, Git, curl, Make and POSIX tools.
+- `system-tools`: Shell, display, Git, Make and POSIX tools.
 - `system-build`: C/C++ compiler, headers and basic build tools.
 - `zig-build`: Zig built from source by the C/C++ compiler; emits C.
 - `ghostty-build`: Ghostty terminal build with Zig and its SDK.
@@ -61,7 +61,8 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `dollyfile`: `dollyfile`, the recipe engine alone: an image that installs it can be built `FROM`.
 - `nena`: `nena`, which lists a session's host modules and enables or disables them, where the image declares `nena@0`.
 - `posix`: `grep`, `sed`, `sort`, `find`, `xargs`, `awk`, `sh` and the other text and file tools.
-- `git`: `git` over the page's HTTP broker, with `diff` and `patch`.
+- `git`: `git`, with `diff` and `patch`; `git-http` adds its HTTP and HTTPS remotes.
+- `git-http`: Git's HTTP and HTTPS remote helpers over the page's HTTP broker, for `git clone` of an `https://` URL.
 - `zlib`: libz: zlib's headers and static library, for programs the `cc` package builds; it brings no compiler.
 - `curl`: `curl` and libcurl, over the page's HTTP broker.
 - `gzip`: `gzip`, which compresses and decompresses `.gz` files with zlib.

@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # (a -pthread program would need threads@0) and without the gzip, xz and lz4
 # formats, which their own packages read. unzstd and zstdcat are zstd under
 # the names it looks for.
-FROM /v0.1.7/demos/tools/Dollyfile-tools-build 89a5043c23f8ac219c760b4d6aba6f1f44be1e51b39b134f32a16c32e7990810
+FROM /v0.1.7/demos/tools/Dollyfile-tools-build 85de7608a14f3f64300840a6376d4933c362ab9d7a8b707ada741640937f2343
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar

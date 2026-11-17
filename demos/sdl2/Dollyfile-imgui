@@ -11,8 +11,8 @@ REQUIRES HOST touch@0
 # renderer: libimgui.a and its headers for programs the cc package builds,
 # which link -limgui -lSDL2 -lm, and imgui-demo, upstream's
 # example_sdl2_sdlrenderer2.
-FROM /v0.1.7/Dollyfile-system-tools af719a11a4c260c0e4a95a4d1400ce49f2e2c32748673a7b0a9a5fa3c18cf5c4
-INSTALL /v0.1.7/demos/sdl2/Dollyfile-sdl2 328e910a6d0056f349eee3f9a8f443d879c4c1c5afbe95c2f5d7e45731c7f4b4
+FROM /v0.1.7/Dollyfile-system-tools dd30a9a7025dd03820d98483b56ad14bb90b77346525f412fa4aa42dcc490d23
+INSTALL /v0.1.7/demos/sdl2/Dollyfile-sdl2 6535f253ea773f487ce1538a26cb563d7c9a692e54d134fdcdb83ffbb135fe7a
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES HEADER sdl2

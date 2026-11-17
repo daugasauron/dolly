@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { browserTest } from "./browser.mjs";
+import { browserTest, workbench } from "./browser.mjs";
 import { dollyfileCases } from "./fixtures/dollyfile-cases.mjs";
 import { buildInputReuse, buildLogProof } from "./fixtures/image-build-browser.mjs";
 import catalog from "../dist/dolly-images.json" with { type: "json" };
@@ -81,7 +81,7 @@ function instrument(source) {
 await browserTest("image", { image: "system", server: { fixtures, handle }, timeout: 600_000 }, async ({ browser, server, open }) => {
   const parser = dollyfileCases(server.origin);
   parserRecipes = parser.recipes;
-  const { page: shell, submit } = await open({ policy: { rules: [
+  const { page: shell, submit } = await open({ ...await workbench(), policy: { rules: [
     { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] },
     ...[...parserRecipes.keys()].filter(path => path.startsWith("/modules/"))
       .map(path => ({ origin: server.origin, path, methods: ["GET"] })),

@@ -3,7 +3,7 @@ import { holdIndicators, showIndicators } from "./page-indicators.mjs";
 import { hostRegistry } from "../host/modules.mjs";
 import { pageChords } from "./page-chords.mjs";
 import { terminalText } from "./terminal-text.mjs";
-import { bootstrapSources, imageBase, imageDefinition, loadImages } from "./images.mjs";
+import { imageBase, imageDefinition, loadImages } from "./images.mjs";
 import { pageNetwork, serveNetworkFetches } from "./network.mjs";
 import * as processConstants from "./process-constants.mjs";
 
@@ -173,8 +173,7 @@ export async function run(mount, { images, modules, site, http, imageBuilder }, 
     runtimeWorker.postMessage({ type: "prepare", images: imageBase.href, modules: registry.urls,
       hostModules: selected.enabled ?? selected.required });
     appendBootstrap(`DOLLY / ${image.toUpperCase()} / ${selected.label}\n\n`);
-    const network = pageNetwork({ embedding: http, sources: bootstrapSources(), inherited: selected.inherited,
-      applicationBase: imageBase, mount, keyboard });
+    const network = pageNetwork({ embedding: http, inherited: selected.inherited, applicationBase: imageBase, mount, keyboard });
     serveNetworkFetches(network, runtimeWorker);
     host = await registry.createHost("browser", selected.enabled ?? selected.required, {
       send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),

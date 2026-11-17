@@ -1,6 +1,6 @@
 import { HttpError, isDollyCredentialHeader, stripDollyBrowserOwnedHeaders } from "../../page/http-policy.mjs";
 import { DOLLY_ERRNO as errno } from "./abi.mjs";
-import { decodeStaticAsset, sitePath } from "../../page/static-asset.mjs";
+import { sitePath } from "../../page/static-asset.mjs";
 import { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_CHUNK_CAPACITY, DOLLY_HTTP_MAX_METHOD, DOLLY_HTTP_MAX_URL,
   DOLLY_HTTP_MAX_HEADERS, DOLLY_HTTP_MAX_BODY, DOLLY_HTTP_HEADER_SIZE, DOLLY_HTTP_WORD_SEQUENCE,
   DOLLY_HTTP_WORD_STATUS, DOLLY_HTTP_WORD_LENGTH, DOLLY_HTTP_WORD_EOF, DOLLY_HTTP_WORD_ERROR,
@@ -312,9 +312,7 @@ class HttpTransfer {
         signal: this.controller.signal,
       };
       const source = rule.relay ? new URL(rule.relay) : target;
-      let response = await this.broker.fetchRequest(source, init);
-      if (rule.bootstrap === true)
-        response = await decodeStaticAsset(response, source, init, rule.maxResponseBytes, this.broker.fetchRequest);
+      const response = await this.broker.fetchRequest(source, init);
       const status = response.status;
       // A relay is transport, and where the site is served is the page's
       // business: the program is told the URL it asked for.

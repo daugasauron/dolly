@@ -4,6 +4,25 @@
 - PRIORITY: 150
 - TAGS: host-modules,audit,images
 
+## State (2026-11-17, ws/modules)
+
+Done on `ws/modules`; the catalog build is the 0.1.8 round's.
+- `system-tools` installs no `curl` and declares no `http@0`; Git's HTTP helpers left the
+  `git` package (built `NO_CURL`, upstream's option for a Git without libcurl) for a
+  `git-http` package (`Dollyfile-git-http`:
+  Git's objects built again and linked with libcurl over http@0, `git-remote-http` and
+  `git-remote-https`), which a session that clones over HTTPS installs beside `git`.
+- `system` installs no `transfer` (nor the download and upload headers) and declares
+  runtime, display, input, snapshot and threads (Git).
+- What took curl from the base takes it itself: `python` and `cmake` `USE` it, `wine-build`
+  and `zero-ad-deps` `INSTALL` it. The toolchains that declared `http@0` for the base alone
+  drop it: `classicube-build`, `lean-stage0`, `rts-build`, `gamedev-sdk`, `xonotic-build`
+  (with modules-r4's engine and modules-r5's amy, also `system-build`, `zig-build`,
+  `zig-llvm-build`, `go-sdk`, `ghostty-build`, `tmux-panes` and `x11-desktop`).
+- The core suites that used system's curl and file exchange open `system` with them composed
+  (`workbench()` in `test/browser.mjs`: transfer and curl with their modules); a case file's
+  fixtures are written by the shell (`put()`, printf's octal escapes), with no network.
+
 ## State (2026-11-16, the audit)
 
 One part is done: `html` left `system` and `default` on 2026-11-11 (`65a4ad70f`, "default and system

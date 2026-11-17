@@ -28,8 +28,7 @@ export async function buildImageInPage(runtime, images, image, custom, modules, 
     const response = await fetch(`${relay}${url.protocol.slice(0, -1)}/${url.host}${url.pathname}${url.search}`, init);
     return Object.defineProperty(response, "url", { value: response.headers.get("x-dolly-relay-url") ?? url.href });
   });
-  const network = pageNetwork({ embedding: { policy }, sources: registry.bootstrapSources(),
-    applicationBase: new URL(images), fetchRequest: remoteFetch });
+  const network = pageNetwork({ embedding: { policy }, applicationBase: new URL(images), fetchRequest: remoteFetch });
   modules ??= (await import(new URL("host/manifests.mjs", runtime).href)).hostModuleUrls;
   const build = (name, artifacts) => builder.buildImage(name, artifacts, network, log,
     { modules, customSource: name === "custom" ? custom : undefined });

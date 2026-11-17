@@ -4,7 +4,7 @@
 // room of the frames an exception unwound, end with the reason of a trap far
 // down, and do so in a thread too.
 import assert from "node:assert/strict";
-import { browserTest, composed } from "./browser.mjs";
+import { browserTest, composed, workbench } from "./browser.mjs";
 
 const sources = {
   // 200,000 calls: deeper than a native 8 MB stack holds frames of 48 bytes.
@@ -86,7 +86,7 @@ function handle(request, response, path, headers) {
 
 await browserTest("stack", { image: "system", timeout: 300_000, server: { handle } }, async ({ server, open }) => {
   const { submit, text } = await open({ policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
-    ...await composed(["stack"], ["stack-wrap"], { base: "system" }) });
+    ...await workbench(["stack"], ["stack-wrap"]) });
   const run = async (command, status = 0) => assert.equal(await submit(command), status, `${command}\n${await text()}`);
   await run("mkdir /tmp/stack && cd /tmp/stack");
   for (const name of Object.keys(sources)) await run(`curl -fsS ${server.origin}/fixture/${name} -o ${name}`);

@@ -3,7 +3,7 @@ import { sha256 } from "../scripts/sha256.mjs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { browserTest } from "./browser.mjs";
+import { browserTest, composed, put, putFixture } from "./browser.mjs";
 import { eachSession, installs } from "./amy-sessions.mjs";
 import { encodeSnapshotRecords } from "../page/snapshot-records.mjs";
 import { siteReference } from "../page/static-asset.mjs";
@@ -75,7 +75,6 @@ const needs = await sealed("needs", "top", [newer]), listens = await sealed("lis
 // building recipe does not declare, and a package that needs `newer` too.
 const library = await sealed("library", "lib", [newer], ["microphone@0"], { LIBRARY_BUILT: "used" });
 const shared = await sealed("shared", "also", [newer]);
-Object.assign(fixtures, { "dollyfile.c": "programs/dollyfile.c", "sha256.h": "programs/sha256.h", "fs-record.h": "kernel/fs-record.h" });
 const artifact = `/etc/dolly/artifacts/${connects.sha256}.snapshot`;
 const row = `INSTALL ${connects.url} ${connects.sha256}`;
 const check = ({ submit, text }) => async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
@@ -248,7 +247,7 @@ await browserTest("amy tools", { image: toolCases.image, timeout: 900_000 }, ({ 
 // Every package of the core is installed into default and used: by a case of
 // this file, or where this says.
 const elsewhere = {
-  git: "man-browser.mjs, pager-browser.mjs", curl: "the amy session above and nena-browser.mjs, with the http@0 it needs",
+  git: "man-browser.mjs, pager-browser.mjs", "git-http": "network-browser.mjs, shell-browser.mjs", curl: "the amy session above and nena-browser.mjs, with the http@0 it needs",
   less: "pager-browser.mjs",
   "libdolly-audio": "audio-browser.mjs",
   "libdolly-gpu": "gpu-render-browser.mjs",
@@ -285,16 +284,23 @@ await browserTest("amy cc", { image: "default", timeout: 300_000 }, async ({ ope
     "! amy files zig | grep -q ' /bin/cc$' && amy files cc | grep -q ' /bin/cc$'");
 });
 
+// An image built from an uploaded recipe names its root FILE:/path in its
+// record, and amy installs into it.
+await browserTest("amy in an uploaded recipe's image", { image: "default", timeout: 300_000 }, async ({ open }) => {
+  const run = check(await open(await composed(["runtime", "display", "input", "packages", "nena"],
+    ["core", "posix", "display", "amy"])));
+  await run("amy install less && amy files less | grep -q ' /usr/bin/less$'");
+});
+
 // An image that does not declare a package's host module refuses it, naming
 // the module, before any file changes.
-await browserTest("amy refusal", { image: "system", server: { fixtures } }, async ({ server, open }) => {
-  const policy = { maxRequests: 256, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
-  const system = await open({ policy });
+await browserTest("amy refusal", { image: "system" }, async ({ open }) => {
+  const system = await open();
   const refuse = async command => assert.equal(await system.submit(command), 0, `${command}\n${await system.text()}`);
-  await refuse(`mkdir -p /etc/dolly/artifacts && curl -fsS ${server.origin}/fixture/connects.snapshot -o ${artifact}`);
+  await put(system.submit, artifact, await readFile(fixtures["connects.snapshot"]));
   assert.equal(await system.submit(`dollyfile install ${connects.url} ${connects.sha256} 2> /tmp/refused`), 2);
   await refuse("grep -q 'Dollyfile-connects needs sockets@0: add REQUIRES HOST sockets@0' /tmp/refused");
-  await refuse(`curl -fsS ${server.origin}/fixture/${listens.sha256}.snapshot -o /etc/dolly/artifacts/${listens.sha256}.snapshot`);
+  await put(system.submit, `/etc/dolly/artifacts/${listens.sha256}.snapshot`, await readFile(fixtures[`${listens.sha256}.snapshot`]));
   assert.equal(await system.submit(`dollyfile install ${listens.url} ${listens.sha256} 2> /tmp/refused`), 2);
   await refuse("grep -q 'Dollyfile-listens needs microphone@0 and gpu@0: add REQUIRES HOST microphone@0 and REQUIRES HOST gpu@0$' /tmp/refused");
   await refuse("test ! -e /usr/share/connects && ! grep -q connects /etc/dolly/installed");
@@ -302,25 +308,24 @@ await browserTest("amy refusal", { image: "system", server: { fixtures } }, asyn
 
 // USE, by the engine built from this checkout: the library and the row it
 // needs are restored for the build and kept by nothing; an INSTALL after it
-// skips the used row, whose snapshot has gone, and records it.
-// The recipe the USE test builds, and the rows the page would give the engine.
-const uses = new Map();
-const serveUses = (request, response, path, headers) =>
-  uses.has(path) && (response.writeHead(200, { ...headers, "content-type": "text/plain" }).end(uses.get(path)), true);
-await browserTest("USE", { image: "system", server: { fixtures, handle: serveUses } }, async ({ server, open }) => {
-  const system = await open({ policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
+// skips the used row, whose snapshot has gone, and records it. The engine's
+// sources, the snapshots, the recipe and the rows the page would give the
+// engine are written by the shell.
+await browserTest("USE", { image: "system" }, async ({ open }) => {
+  const system = await open();
   const run = check(system);
-  const fetch = names => names.map(name => `curl -fsS ${server.origin}/fixture/${name} -o ${name}`).join(" && ");
-  await run(`mkdir /tmp/use && cd /tmp/use && ${fetch(["dollyfile.c", "sha256.h", "fs-record.h"])} && cc -O0 dollyfile.c -o dollyfile`);
+  for (const [name, path] of Object.entries({ "dollyfile.c": "programs/dollyfile.c", "sha256.h": "programs/sha256.h", "fs-record.h": "kernel/fs-record.h" }))
+    await putFixture(system.submit, `/tmp/use/${name}`, path);
+  await run("cd /tmp/use && cc -O0 dollyfile.c -o dollyfile");
   await run("touch /etc/dolly/installed && cp /etc/dolly/installed record && mkdir -p /etc/dolly/artifacts");
   const row = ({ url, sha256 }) => `${url} ${sha256}`;
   const build = async (rows, fails = false) => {
-    await run(`cp record /etc/dolly/installed && cd /etc/dolly/artifacts && ${fetch([library, shared, newer,
-      ...rows.some(item => item.includes(older.sha256)) ? [older] : []].map(({ sha256 }) => `${sha256}.snapshot`))} && cd /tmp/use`);
+    await run("cp record /etc/dolly/installed");
+    for (const { sha256 } of [library, shared, newer, ...rows.some(item => item.includes(older.sha256)) ? [older] : []])
+      await put(system.submit, `/etc/dolly/artifacts/${sha256}.snapshot`, await readFile(fixtures[`${sha256}.snapshot`]));
     const source = ["DOLLY 7", "PACKAGE uses", "REQUIRES HOST runtime@0", ...rows].map(line => `${line}\n`).join("");
-    uses.set("/fixture/uses.Dollyfile", source).set("/fixture/uses.rows", recipeRows(inspectDollyfile(source), sha256(source)));
-    await run(`curl -fsS ${server.origin}/fixture/uses.Dollyfile -o Dollyfile-uses && ` +
-      `curl -fsS ${server.origin}/fixture/uses.rows -o /etc/dolly/recipe.rows`);
+    await put(system.submit, "/tmp/use/Dollyfile-uses", encoder.encode(source));
+    await put(system.submit, "/etc/dolly/recipe.rows", encoder.encode(recipeRows(inspectDollyfile(source), sha256(source))));
     assert.equal(await system.submit("./dollyfile FILE:/tmp/use/Dollyfile-uses > log 2>&1") !== 0, fails, await system.text());
   };
   const used = `USE ${row(library)}`, installed = `INSTALL ${row(shared)}`;

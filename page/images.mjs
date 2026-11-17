@@ -23,10 +23,3 @@ export async function directoryJSON(path) {
 
 // The catalog's record of an image, by name; undefined for one it lacks.
 export const imageDefinition = name => DOLLY_IMAGES.find(definition => definition.image === name);
-
-// The files of the directory a build reads by site path, with their sizes:
-// every recipe and every source (http@0's trusted sources).
-export const bootstrapSources = () => [
-  ...DOLLY_IMAGES.map(definition => ({ path: `/${definition.dollyfile}`, byteLength: definition.byteLength })),
-  ...DOLLY_STATIC_SOURCES,
-];

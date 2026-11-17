@@ -42,8 +42,9 @@ installs `less` from it with no cookie reaching it and no pack record of it in t
 and a quota of 2 refuses it after at most 2 requests; the core's `amy programs` and `amy
 tools`). `test/nena-browser.mjs` passes in both, `nena disable http` and `enable http`
 among it (logs: `work/modules/build/modules-tests/a*/`).
-Left for the 0.1.8 round: the catalog builds (its seal check confirms each image that no
-longer declares `http@0` holds no program recording it) and each demo's `amy-browser.mjs`.
+Left for the 0.1.8 round, which rebuilds every image (the seed changed): the catalog builds
+(its seal check confirms each image that no longer declares `http@0` holds no program
+recording it) and each demo's `amy-browser.mjs`.
 
 ## State (2026-11-12)
 

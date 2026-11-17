@@ -10,10 +10,10 @@ import { boundedAssetBlob } from "./static-asset.mjs";
 // other directories). Each refusal is a line in the console and a notice in
 // MOUNT. `site` resolves a site path; `fetchRequest`, when given, fetches what
 // the policy admits (an embedding's relay), by default the browser's fetch.
-export function pageNetwork({ embedding = {}, sources = [], inherited, applicationBase, mount, keyboard, fetchRequest }) {
-  let policy = new DollyHttpPolicy(embedding.policy, sources, applicationBase, embedding.relays);
+export function pageNetwork({ embedding = {}, inherited, applicationBase, mount, keyboard, fetchRequest }) {
+  let policy = new DollyHttpPolicy(embedding.policy, embedding.relays);
   // A tab that inherits and holds no policies fails closed.
-  if (inherited) policy = restrictDollyHttpPolicy(policy, inherited.policies, sources, applicationBase);
+  if (inherited) policy = restrictDollyHttpPolicy(policy, inherited.policies);
   return network(policy, new URL(applicationBase).href, fetchRequest, refusalNotices(mount, keyboard));
 }
 

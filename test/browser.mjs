@@ -178,6 +178,13 @@ export async function composed(hosts, packages, { base, files = {}, rows = [], e
   } };
 }
 
+// open() options for `system` with what a toolchain does not hold
+// (Dollyfile-system): the page's file exchange and a network client, with their
+// modules and the headers of their clients, and HOSTS and PACKAGES more.
+export const workbench = (hosts = [], packages = [], options = {}) =>
+  composed(["download", "upload", "http", ...hosts], ["transfer", "curl", "libdolly-download", "libdolly-upload", ...packages],
+    { base: "system", ...options });
+
 export async function browserTest(label, { image = "default", server: serverOptions, timeout = 120_000, launch = {} } = {}, test) {
   const names = process.argv.slice(2);
   if (!names.length) names.push("chromium", "firefox");

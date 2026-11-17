@@ -160,8 +160,8 @@ mounted, and reads no other version's.
   package keeps none of it: the base is only the environment the package is
   built in. The build runs the base's `/bin/dollyfile`.
 - A recipe without `FROM` starts from nothing and keeps only what it installs
-  and declares: `default` is `core`, `posix`, `display`, `curl`, `amy`, `nena`,
-  `transfer`, `ps`, its start-up script and an ENTRY, with no compiler. It opens, and `amy` installs
+  and declares: `default` is `core`, `posix`, `display`, `amy`, `nena`,
+  `transfer`, `ps`, its start-up script and an ENTRY, with no compiler and no HTTP client. It opens, and `amy` installs
   into it, but it is not a base to compile on: `FROM` a toolchain for that.
   Every application of the catalog is built so
   ([`lint-dollyfiles.mjs`](../scripts/lint-dollyfiles.mjs) refuses one with

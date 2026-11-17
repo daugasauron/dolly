@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { browserTest } from "./browser.mjs";
+import { browserTest, workbench } from "./browser.mjs";
 import { DOLLY_THREADS_ABI_DIGEST } from "../host/threads/abi.mjs";
 import { siteReference } from "../page/static-asset.mjs";
 import catalog from "../dist/dolly-images.json" with { type: "json" };
@@ -22,7 +22,7 @@ const probe = "/fixture/process-wrong-call.wasm";
 let valid;
 await browserTest("threads", { image: "system", server: { fixtures, sourceOverrides } }, async ({ server, open }) => {
   const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
-  const { page, submit, text, waitForText } = await open({ policy });
+  const { page, submit, text, waitForText } = await open({ ...await workbench(), policy });
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));

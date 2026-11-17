@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { browserTest, runSteps } from "./browser.mjs";
+import { browserTest, runSteps, workbench } from "./browser.mjs";
 import toolchain from "./cases/toolchain.json" with { type: "json" };
 
 // Git, download and the rest of the toolchain image's tools are used below.
 const image = process.env.DOLLY_IMAGE ?? "system";
 await browserTest("core", { image }, async ({ server, open }) => {
-  const { page, submit } = await open({ policy: { maxRequests: 256,
+  const { page, submit } = await open({ ...await workbench(), policy: { maxRequests: 256,
     rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   const starts = [];
   const recordRequest = request => { if (/^https?:/.test(request.url())) starts.push(request.url()); };
@@ -136,7 +136,7 @@ await browserTest("core", { image }, async ({ server, open }) => {
   }), [false, true, true], "image cache exceeded its entry bound or dropped another runtime's image");
   // Without an embedding policy every HTTP(S) destination is reachable,
   // the page's own origin included.
-  const defaults = await open();
+  const defaults = await open(await workbench());
   assert.equal(await defaults.submit(`curl -fsS ${server.origin}/fixture/http.txt -o /dev/null`), 0);
-  assert.equal(await defaults.submit(`curl -fsS ${server.origin}/Dollyfile${image === "default" ? "" : `-${image}`} -o /tmp/source && cmp /tmp/source /etc/dolly/Dollyfile`), 0);
+  assert.equal(await defaults.submit(`curl -fsS ${server.origin}/Dollyfile-system -o /tmp/source && grep -qx 'TOOLCHAIN system' /tmp/source`), 0);
 });

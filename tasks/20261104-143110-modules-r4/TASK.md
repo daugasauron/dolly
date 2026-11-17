@@ -22,6 +22,12 @@ Done on `ws/modules`; the catalog build is the 0.1.8 round's (the seed changed).
   route's page and in `site/image-builder.mjs`), admitted, counted and shown by the page's
   HTTP policy, without credentials, within the rule's size and time, through an embedding's
   relay where one is set (dolly-build).
+- The broker's "trusted bootstrap sources" exception is gone (`page/http-policy.mjs`,
+  `broker.mjs`'s reassembly of their parts, `bootstrapSources`): nothing of the site passes
+  the broker for a build, and a program's request for a site file is judged like any URL.
+  `test/boundary-browser.mjs` checks a build's `SOURCE` of a file the directory stores in
+  parts instead: both parts read and checked, a program reaching none, a corrupt part failing
+  the build at its row.
 - `system-build`, `dollyfile`, `amy`, `zig-build`, `zig-llvm-build`, `go-sdk` and
   `ghostty-build` declare no `http@0`. `buildHost` keeps `http@0` for the steps (owner,
   2026-11-12: a step may fetch, `SLOP pip install`).

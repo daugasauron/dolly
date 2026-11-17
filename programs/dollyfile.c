@@ -983,9 +983,13 @@ static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
         take_text(&cursor, end, &location) != 0 || take_text(&cursor, end, &digest) != 0 ||
         take_text(&cursor, end, &source) != 0) result = -EINVAL;
     char actual[65];
+    // A recipe is named by its site path, but in the image's own receipt
+    // (LOCATOR NULL) an image built from an uploaded recipe names its root FILE:/path.
+    const int uploaded_root = locator == NULL && index + 1 == count && result == 0 &&
+                              strncmp(location, "FILE:", 5) == 0 && valid_absolute_path(location + 5);
     if (result == 0) {
       sha256_bytes(source, strlen(source), actual);
-      if (recipe_kind(kind) == NULL || !valid_name(name) || recipe_file_name(location) == NULL ||
+      if (recipe_kind(kind) == NULL || !valid_name(name) || (recipe_file_name(location) == NULL && !uploaded_root) ||
           !valid_sha256(digest) || strcmp(actual, digest) != 0 ||
           strlen(source) > MAX_RECIPE_BYTES) result = -EBADMSG;
     }

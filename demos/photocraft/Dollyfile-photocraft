@@ -20,13 +20,13 @@ REQUIRES HOST sockets@0
 # dialogs, on the same platforms. Where DISPLAY names an X server (x11-desktop) the app and zenity
 # are windows of it (x11-window, over Xlib), their frames read back from gpu@0; copy and paste
 # are the page's clipboard (clipboard@0) on the page and there.
-FROM /v0.1.7/demos/rust/Dollyfile-rust-build 3d1a0e49bd932b9437174dfac43208f69f2bd38a75589fa3dd24c721c9d6f550
+FROM /v0.1.7/demos/rust/Dollyfile-rust-build 256bdc19d3f94351a2f5c13117cc014b2e62bc5d770330e66478abe652aef551
 USE /v0.1.7/Dollyfile-libdolly-gpu 00ed6503209eb960f08383c0d61bbb1616fe304e2a9c5ed2908caf27214b0f23
 USE /v0.1.7/Dollyfile-libdolly-clipboard e88c626ad2b2c0fae5a7eed169ae4768bb2dd1f3611090c98a75ca45c57cad61
 USE /v0.1.7/Dollyfile-libdolly-sockets fa117ecf70fb8b222f69f358c974bc560ff005a9fceb962103c764efec6596a2
-USE /v0.1.7/demos/x11/Dollyfile-x11-window 3222b160098f89799ddc4f17d7d06a2d8965d423914db7243ce123f0f8a3d6fa
+USE /v0.1.7/demos/x11/Dollyfile-x11-window 27265346ca958ae5cd30d520fdabb3cf6cd7e762c37145376f1747bf3b291a77
 # The X client libraries x11-window links, for the link alone; the binary keeps their licences.
-USE /v0.1.7/demos/x11/Dollyfile-x11-libs 30ccf9dfc3cf6a6f03960a9bbf7f2db21e299f5a63531aaee29c2aa264df0e15
+USE /v0.1.7/demos/x11/Dollyfile-x11-libs acf41d6b1c179f89ee669374a5b4f13fa04a8d1f390400f8909f0f429def203c
 USE /v0.1.7/Dollyfile-libdolly-display 7ec2ca9ab16858a7edb0a19edd4e6e261cc75e9ddd3c1f12e21da86b0f9581b1
 USE /v0.1.7/Dollyfile-libdolly-input a122cccb1ab8b550d4a178a384a36f2722985d3a78a5d1eef2877ded3196f751
 USE /v0.1.7/Dollyfile-libdolly-upload 94223a35de9e54ebd94f647ce34d9eef7a707f3585f2cf6adda6f56b56a07f17

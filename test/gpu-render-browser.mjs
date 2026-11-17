@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {chromium,firefox} from "playwright-core";
-import {composed,routeAttributes} from "./browser.mjs";
+import {routeAttributes,workbench} from "./browser.mjs";
 import {gpuAdapterMocks,startBrowserServer} from "./browser-server.mjs";
 
 const browserName=process.argv[2]??"chromium";
@@ -21,10 +21,10 @@ try {
   page.on('pageerror',error=>errors.push(error.message));
   await routeAttributes(page,{policy:{maxRequests:1,rules:[{origin:server.origin,pathPrefix:'/fixture/',methods:['GET']}]}});
   // system with gpu@0: an image that declares the module.
-  const image=await composed(['gpu'],['libdolly-gpu'],{base:'system'});
+  const image=await workbench(['gpu'],['libdolly-gpu']);
   await image.setup(page);
   await page.goto(server.origin+image.path);
-  await page.waitForFunction(()=>['ready','failed'].includes(document.documentElement.dataset.dollyStatus));
+  await page.waitForFunction(()=>['ready','failed'].includes(document.documentElement.dataset.dollyStatus),null,{timeout:180_000});
   assert.equal(await page.evaluate(()=>document.documentElement.dataset.dollyStatus),'ready',
     await page.locator('#bootstrap-log').textContent());
   await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));

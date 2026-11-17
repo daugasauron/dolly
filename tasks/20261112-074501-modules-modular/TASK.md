@@ -38,11 +38,13 @@ The names the 2026-11-16 audit found left in the core are gone, on `ws/modules` 
 
 A grep of the done-when's files (`page/process-supervisor.mjs`, `page/process-worker.mjs`,
 `kernel/process-kernel.c`, `kernel/dolly.c`, `page/browser.mjs`, `host/modules.mjs`, code
-lines, `/tmp` script `module-names.py` of the session) finds module names only as words of
-their own: a process's `threads` and `stack` traces, `console.error`, CSS `display`, the
-kernel's own pty type of the boot terminal (`kernel/pty.c`, the runtime's), the
-`dolly.process.stack` section of the process contract, and boot()'s public `http` option (the
-embedding's `{ policy, relays }`, docs/embedding.md), which the page turns into its network.
+lines, `work/modules/build/module-names.py`) finds module names only as words of
+their own: a process's `threads` and `stack` traces, `console.error`, CSS (`display`,
+`touch-action`, `html[...]`), `build-log.mjs` and `buildHost`, the kernel's own pty type of
+the boot terminal (`kernel/pty.c`), its system snapshot, stream `sockets` and a build's
+`input`, the `dolly.process.stack` section of the process contract, and boot()'s public
+`http` option (the embedding's `{ policy, relays }`, docs/embedding.md), which the page
+turns into its network.
 
 PLACEHOLDER-DROP
 

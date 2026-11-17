@@ -15,8 +15,13 @@ Done on `ws/modules`: `abi/dolly-image-0.wat` has no `dolly_snapshot_format_vers
 from `kernel/system-snapshot.c` and `.h`, `test/image-browser.mjs` and
 `test/fixtures/image-roundtrip.c`), and `dolly_process_bootstrap_resume_prepare` takes the
 staged size alone (`kernel/dolly.c`, `site/build-worker.mjs`). The image contract is an input
-of the image build ID, so every image rebuilds: the 0.1.8 round's. Donna is told in
-`tasks/20261112-074501-modules-modular` (For Donna), to copy into Donna's own task.
+of the image build ID, so every image rebuilds: the 0.1.8 round's. On `ws/modules`, with the
+runtime and the core's 42 images rebuilt, `test/image-browser.mjs` (the image codec, build
+inputs, the in-page builder) and the build suites (`host-compute-browser.mjs`,
+`default-browser.mjs`'s composed builds) pass in Chromium and Firefox.
+Left: Donna's task for the image contract (`~/dev/donna/tasks`, outside this tree) is to be
+told by the integrator; the change is listed in `tasks/20261112-074501-modules-modular` (For
+Donna). The 0.1.8 round rebuilds the catalog.
 
 ## Found
 

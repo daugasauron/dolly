@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # builds with Bazel, the standard library and the package gpu it precompiles,
 # and what a program links against: mojo build NAME.mojo makes a Dolly
 # executable.
-FROM /v0.1.7/demos/mojo/Dollyfile-mojo-llvm d0c211199f783b31ab5c6e625f191066aa372eec47fdeed2c930f64b357d33fc
+FROM /v0.1.7/demos/mojo/Dollyfile-mojo-llvm 2f9eb38db658969ed75138025ba5ec12990e32d7b08be94e495279fb54bffc4d
 # mojo build links what it compiles with the C toolchain.
 INSTALL /v0.1.7/Dollyfile-libdolly-gpu 00ed6503209eb960f08383c0d61bbb1616fe304e2a9c5ed2908caf27214b0f23
 INSTALL /v0.1.7/Dollyfile-cc 6d78976126bdc2a83b30e9aa38f815db649ff6e73d7f8462dbe708e6f261a1ff

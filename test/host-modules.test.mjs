@@ -14,20 +14,20 @@ test("every image declares its complete host set itself", async () => {
   const root = new URL("../", import.meta.url).pathname;
   const load = createDollyfileGraphLoader(root);
   const terminal = ["runtime@0", "display@0", "input@0"];
-  const interactive = [...terminal, "download@0", "snapshot@0", "upload@0"];
   // Every image declares the runtime it is built on; the engine retained for
-  // FROM builds fetches nothing; download and upload tools arrive with transfer,
-  // which system installs; a terminal
-  // draws with display@0 and reads keys with input@0, which the display package
-  // alone does not ask for; Git, which system-tools holds, runs threads, and
-  // curl and Git's HTTP helper fetch; default installs packages with amy,
-  // which has nena enable what a package needs beyond these (curl's http@0).
+  // FROM builds fetches nothing; download and upload tools arrive with
+  // transfer, which default installs; a terminal draws with display@0 and
+  // reads keys with input@0, which the display package alone does not ask for;
+  // Git, which system-tools holds, runs threads; curl and Git's HTTP helpers
+  // fetch; default installs packages with amy, which has nena enable what a
+  // package needs beyond these (curl's http@0).
   const core = {
-    default: [...interactive, "packages@0", "nena@0"],
-    system: [...interactive, "http@0", "threads@0"],
+    default: [...terminal, "download@0", "snapshot@0", "upload@0", "packages@0", "nena@0"],
+    system: [...terminal, "snapshot@0", "threads@0"],
     "system-build": ["runtime@0"], "zig-build": ["runtime@0"],
     "ghostty-build": terminal,
-    "system-tools": [...terminal, "http@0", "threads@0"], transfer: ["runtime@0", "download@0", "upload@0"],
+    "system-tools": [...terminal, "threads@0"], transfer: ["runtime@0", "download@0", "upload@0"],
+    git: ["runtime@0", "threads@0"], "git-http": ["runtime@0", "http@0", "threads@0"],
     zlib: ["runtime@0"], gzip: ["runtime@0"], curl: ["runtime@0", "http@0"], display: ["runtime@0", "display@0"],
     nena: ["runtime@0", "nena@0"], amy: ["runtime@0", "packages@0"], dollyfile: ["runtime@0"],
   };

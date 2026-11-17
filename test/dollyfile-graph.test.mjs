@@ -139,9 +139,10 @@ test("images separate reusable toolchains and packages from applications", async
   const core = {
     "system-build": [], zlib: ["system-build"], curl: ["system-build"], gzip: ["system-build", "zlib"],
     "zig-build": ["system-build"], "ghostty-build": ["zig-build", "libdolly-display", "libdolly-input"], display: ["ghostty-build"],
-    git: ["system-build", "zlib", "curl"], "system-tools": ["system-build", "zlib", "gzip", "curl", "git", "display"],
-    system: ["system-tools", "transfer", "session-recover", "core", "cc", "make", "posix", "ninja",
-      "libdolly-display", "libdolly-input", "libdolly-download", "libdolly-upload", "libdolly-threads"],
+    git: ["system-build", "zlib"], "git-http": ["system-build", "zlib", "curl"],
+    "system-tools": ["system-build", "zlib", "gzip", "git", "display"],
+    system: ["system-tools", "session-recover", "core", "cc", "make", "posix", "ninja",
+      "libdolly-display", "libdolly-input", "libdolly-threads"],
     default: ["core", "posix", "display", "dollyfile", "amy", "nena", "transfer", "ps"],
   };
   const files = await recipeFiles(project);

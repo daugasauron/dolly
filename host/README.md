@@ -62,9 +62,10 @@ each a field of its manifest or a member of its provider:
 - **Its own kernel exports** (`contracts`): what its provider calls.
 - **Its provider** (`host`): the registry's hooks below, and two roles the
   runtime offers: the thread provider (`threads`: which programs are threaded,
-  their Workers and the kernel's bookkeeping) and code served inside process
-  Workers (`processWorker`: `dso`, `stack`). A module that starts programs on
-  streams of its own passes `start` to the supervisor's `spawn` (`console`).
+  the export a thread starts at, their Workers and the kernel's bookkeeping)
+  and code served inside process Workers (`processWorker`: `dso`, `stack`). A
+  module that starts programs on streams of its own passes `start` to the
+  supervisor's `spawn` (`console`).
 - **Programs** (`process`, `headers`, `client`, `tools`): the ABI executables
   compile against and record, and the C built over it; `seed`, its part of
   the process sysroot (threads@0's threaded libc, `host/threads/pthreads.c`).

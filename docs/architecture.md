@@ -124,10 +124,10 @@ flowchart TD
   zb --> gb["ghostty-build<br/>Ghostty"]
   gb -. "COPY plugin + font" .-> disp["display<br/>package"]
   sb --> st["system-tools<br/>sbase, awk, /bin/sh"]
-  sb -. "packages: zlib, gzip, curl, git" .-> st
+  sb -. "packages: zlib, gzip, git" .-> st
   disp -. "INSTALL" .-> st
   st --> sys["system<br/>sessions"]
-  sb -. "packages: transfer, session-recover, core, cc, make" .-> sys
+  sb -. "packages: session-recover, core, cc, make" .-> sys
   st -. "packages: posix, ninja" .-> sys
   sb -. "packages: core, nena, amy, transfer" .-> def["default<br/>packages only"]
   st -. "packages: posix" .-> def

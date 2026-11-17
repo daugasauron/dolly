@@ -195,8 +195,8 @@ const relays = [{
   the broker refuses fails with `CURLE_BAD_FUNCTION_ARGUMENT`, any other
   URL without `http(s)://` with `CURLE_UNSUPPORTED_PROTOCOL` and a disallowed
   redirect with `CURLE_COULDNT_CONNECT`.
-- Git: upstream `git` and `git-remote-http(s)` link that libcurl
-  ([`Dollyfile-git`](../Dollyfile-git)): clone, fetch and push over HTTP, from
+- Git: upstream `git-remote-http(s)` link that libcurl, in the `git-http` package
+  ([`Dollyfile-git-http`](../Dollyfile-git-http)) beside `git`: clone, fetch and push over HTTP, from
   hosts that send CORS headers or through a relay (see [CORS and relays](#cors-and-relays)).
   `github.com` sends none on its Git endpoints, so cloning from it fails with
   the `EIO` message unless the embedding maps it to a relay. There is no

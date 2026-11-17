@@ -2,7 +2,7 @@
 // module (and threads@0) added, since a test states what its programs need.
 // What a program sees in an image without it is in host-modules-browser.mjs.
 import assert from "node:assert/strict";
-import { browserTest, composed, runSteps } from "./browser.mjs";
+import { browserTest, composed, runSteps, workbench } from "./browser.mjs";
 import cppDso from "./cases/cpp-dso.json" with { type: "json" };
 
 const fixtures = Object.fromEntries(["dso-check.c", "dso-library.c", "dso-cpp-check.cpp", "dso-cpp-library.cpp",
@@ -120,7 +120,7 @@ await browserTest("dso", { image: "system", timeout: 300_000, server: { fixtures
   const loaderFetches = () => server.requests.get("/dist/dolly-process-dso.mjs") ?? 0;
   const before = loaderFetches();
   const { submit, text } = await open({ policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
-    ...await composed(cppDso.hosts, cppDso.packages, { base: cppDso.image }) });
+    ...await workbench(cppDso.hosts, cppDso.packages) });
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
   // The loader arrives with the page, as the process Worker does, never with a program.
   const fetched = loaderFetches();

@@ -211,7 +211,10 @@ Authority column here, and the two go together.
   Restrict it with a policy.
 - A build's inputs (the recipes and `SOURCE` files of the image directory)
   never pass the broker: the build Worker reads them by the sizes the catalog
-  gives and the engine checks each by its SHA-256. A file of the site is an
+  gives and the engine checks each by its SHA-256. A `SOURCE` row's URL is
+  fetched by the page as a GET a module makes for the guest: admitted and
+  counted by the policy, without credentials, within its rule
+  ([`network.mjs`](../page/network.mjs) `fetch`). A file of the site is an
   ordinary destination of the policy ([`http-policy.mjs`](../page/http-policy.mjs)),
   for a build step as for any program.
 - A relay ([HTTP](http.md#cors-and-relays)) is embedding configuration consumed

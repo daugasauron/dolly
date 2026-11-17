@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readdir } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
-import { browserTest, runSteps, shellQuote } from "./browser.mjs";
+import { browserTest, runSteps, shellQuote, workbench } from "./browser.mjs";
 import processCases from "./cases/process.json" with { type: "json" };
 import { tarArchive } from "./fixtures/tar.mjs";
 import { DOLLY_ERRNO } from "../page/process-constants.mjs";
@@ -66,8 +66,8 @@ const prompt = /dolly:[^\n]*\$\s*$/;
 const settle = () => new Promise(resolve => setTimeout(resolve, 200));
 
 // Lifecycle, descriptors and signals, with programs compiled in the image.
-await browserTest("process", { image: "system", server: { fixtures, handle } }, async ({ server, open }) => {
-  const { page, submit, text, waitForText } = await open({
+await browserTest("process", { image: "system", server: { fixtures, handle }, timeout: 300_000 }, async ({ server, open }) => {
+  const { page, submit, text, waitForText } = await open({ ...await workbench(),
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   const run = async command => assert.equal(await submit(command), 0, command);
   // An orphan ends in its own time.
