@@ -3,7 +3,7 @@
 // after a change; unset, they are Dolly's.
 // Usage: node test/theme-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
-import { browserTest, composed, shownColor, workbench } from "./browser.mjs";
+import { browserTest, shownColor, workbench } from "./browser.mjs";
 
 const hex = rgb => `#${rgb.map(channel => channel.toString(16).padStart(2, "0")).join("")}`;
 // The 16 colours as cell backgrounds (SGR 40-47, 100-107) in the first row,

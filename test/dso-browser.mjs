@@ -2,7 +2,7 @@
 // module (and threads@0) added, since a test states what its programs need.
 // What a program sees in an image without it is in host-modules-browser.mjs.
 import assert from "node:assert/strict";
-import { browserTest, composed, runSteps, workbench } from "./browser.mjs";
+import { browserTest, runSteps, workbench } from "./browser.mjs";
 import cppDso from "./cases/cpp-dso.json" with { type: "json" };
 
 const fixtures = Object.fromEntries(["dso-check.c", "dso-library.c", "dso-cpp-check.cpp", "dso-cpp-library.cpp",

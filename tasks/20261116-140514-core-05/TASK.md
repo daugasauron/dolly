@@ -11,7 +11,7 @@ From the core audit of 2026-11-16 (`work/audit-1116`, source of `b09b1e243`).
 On `ws/modules`:
 - `test/amy-browser.mjs` covers the core's packages alone (`corePackages`: a recipe at the
   top level); `grep -c 'demos/' test/amy-browser.mjs` prints 0. Its `elsewhere` table holds
-  the core's 19 entries; its main session uses `zig` (which installs `cc`) where it used the
+  the core's entries (20 with modules-r3's `git-http`); its main session uses `zig` (which installs `cc`) where it used the
   demo's `python`, and `ps` where it used `curl` (which default no longer holds).
 - `test/cases/amy-programs.json` (cc, zlib) and `amy-tools.json` (ninja, make,
   session-recover, gzip, zig, mandoc, dolly-docs) install only core packages. The 54 demo
@@ -34,7 +34,8 @@ tools` pass in Chromium and Firefox on the rebuilt core catalog; its check of un
 packages failed once in this tree, for `curl`, which default no longer installs, until its
 `elsewhere` row named where it is installed (so it still fails for an unused core package);
 `npm run test:source` passes with `demos/packages.test.mjs`. The demos' own
-`amy-browser.mjs` run with their images, in the 0.1.8 round's `npm run test:demos`.
+`amy-browser.mjs` run with their images, in the 0.1.8 round's `npm run test:demos`. Tests
+only: no image rebuilds.
 
 ## Found
 

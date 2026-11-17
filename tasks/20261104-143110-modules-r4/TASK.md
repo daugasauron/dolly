@@ -41,8 +41,15 @@ custom recipe's `SOURCE` of the test server's URL is handed over and checked; un
 without a rule for it the build fails at that row, the page's refusal in its log; and a site
 path's `SOURCE` with a wrong pin fails naming the row (`...:5: SOURCE failed`).
 `test/fixtures/dollyfile-cases.mjs` (`image-browser.mjs`), which runs the engine in a
-session, puts its `SOURCE` files where the page would. Left for the 0.1.8 round: the catalog
-builds, `zig-llvm-build` and `go-sdk` among it.
+session, puts its `SOURCE` files where the page would. With the trusted sources gone (the
+core's 43 images rebuilt again, image inputs `f3edb8bb…`), `test/boundary-browser.mjs` passes
+in both browsers: a build's `SOURCE` of a file stored in two parts reads both, checks the
+pin, and fails at its row when a part is corrupt, while a program's `curl` of the file, of a
+part, or of another version's path is refused before Fetch (no part is requested again); so do
+`http-refusals-browser.mjs`, `network-browser.mjs`, `host-compute-browser.mjs` and
+`image-browser.mjs` (logs `work/modules/build/modules-tests/c/`, `d/`, `e/`). Left for the
+0.1.8 round, which rebuilds every image (the seed changed): the catalog builds,
+`zig-llvm-build` and `go-sdk` among it.
 
 ## State (2026-11-12)
 

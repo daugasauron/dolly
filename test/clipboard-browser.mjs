@@ -6,7 +6,7 @@
 // clipboard over and its holder has it back.
 // Usage: node test/clipboard-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
-import { browserTest, composed, workbench } from "./browser.mjs";
+import { browserTest, workbench } from "./browser.mjs";
 
 const fixtures = { "clipboard.c": "test/fixtures/clipboard.c" };
 

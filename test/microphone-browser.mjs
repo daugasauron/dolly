@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { browserTest, composed, workbench } from "./browser.mjs";
+import { browserTest, workbench } from "./browser.mjs";
 
 // One second of a 440 Hz sine, 48 kHz mono 16-bit: Chrome's fake device loops it.
 const tone = new URL("../build/fixtures/microphone-tone.wav", import.meta.url).pathname;

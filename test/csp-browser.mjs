@@ -4,7 +4,7 @@
 // browser reports no violation of the policy.
 // Usage: node test/csp-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
-import { browserTest, composed, workbench } from "./browser.mjs";
+import { browserTest, workbench } from "./browser.mjs";
 
 const policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; " +
   "img-src 'self' blob:; object-src 'none'; base-uri 'none'";

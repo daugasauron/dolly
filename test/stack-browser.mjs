@@ -4,7 +4,7 @@
 // room of the frames an exception unwound, end with the reason of a trap far
 // down, and do so in a thread too.
 import assert from "node:assert/strict";
-import { browserTest, composed, workbench } from "./browser.mjs";
+import { browserTest, workbench } from "./browser.mjs";
 
 const sources = {
   // 200,000 calls: deeper than a native 8 MB stack holds frames of 48 bytes.

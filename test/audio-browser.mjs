@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { browserTest, composed, workbench } from "./browser.mjs";
+import { browserTest, workbench } from "./browser.mjs";
 
 // Meters each played source per channel through a muted gain.
 function meter() {

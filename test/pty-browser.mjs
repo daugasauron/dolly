@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { browserTest, composed, runSteps, workbench } from "./browser.mjs";
+import { browserTest, runSteps, workbench } from "./browser.mjs";
 import pty from "./cases/pty.json" with { type: "json" };
 import { siteReference } from "../page/static-asset.mjs";
 import catalog from "../dist/dolly-images.json" with { type: "json" };

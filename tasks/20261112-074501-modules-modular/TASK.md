@@ -46,7 +46,24 @@ the boot terminal (`kernel/pty.c`), its system snapshot, stream `sockets` and a 
 `http` option (the embedding's `{ policy, relays }`, docs/embedding.md), which the page
 turns into its network.
 
-PLACEHOLDER-DROP
+The drop test, measured on `ws/modules` (`work/modules/build/modules-drop.sh`, log
+`build/modules-drop.log`, 2026-11-17 11:24): with threads@0, pty@0 and console@0 out of
+`host/manifests.mjs`, `npm run build:runtime` builds the kernel and runtime (30 s), and
+`system-build` and `core` build on that seed (`core`'s snapshot is the same bytes as with
+them, `c27f22f4…`); an image composed of `core` alone, which declares none of them, boots in
+Chromium and Firefox on that page and runs its shell (a pipeline, files, a background job and
+its status, `build/modules-drop-probe.mjs`), and neither the page's modules nor its manifests
+name the three. With the manifests put back the runtime is the same bytes as before
+(`04771c98…`) and no image needs a rebuild.
+
+Verified on `ws/modules` with the runtime and the core's 43 images rebuilt on its seed (image
+inputs `f3edb8bb…`): `npm run test:source` (474 tests) and `lint:dollyfiles` pass, and the core
+browser suites pass in Chromium and Firefox (logs `work/modules/build/modules-tests/*/`;
+the last full run, all 56 files after the drop test, in `e/`, and the GPU suites on a private
+Xvfb display in `gpu/`). Rebuilds every image (the seed changed): the
+0.1.8 round's, which also confirms the seed compiler's part: build `llvm-cc` from `demos/llvm`
+with this seed (the pinned compiler links `-pthread` from `threads/` as before, the part's
+name), pin it, rebuild the seed, and the next `llvm-cc` must be the same bytes.
 
 For Donna (it runs the kernel and contracts unchanged; these are the changes it meets):
 - `dolly-image-0`: `dolly_snapshot_format_version` is gone, and
@@ -66,6 +83,12 @@ For Donna (it runs the kernel and contracts unchanged; these are the changes it 
   `pthread.sysroot` (the part's directory name) beside `pthread.exports`.
 - `test/cases/amy-programs.json` and `amy-tools.json` hold the core's packages alone; each
   demo's are its `demos/DEMO/test/amy-cases.json` (core-05).
+- The page's HTTP policy has no trusted bootstrap sources: a program's request for a file of
+  the site is judged like any URL (modules-r4).
+- The image's own receipt may name its root recipe `FILE:/etc/dolly/upload.Dollyfile` (an
+  image built from an uploaded recipe), which `dollyfile install` now accepts there.
+- `system` and `system-tools` hold no `curl`, `download` or `upload`, and `git` no HTTP
+  remote helpers (the `git-http` package) (modules-r3).
 
 ## State (2026-11-14): the compiler's part waits for a compiler round
 
