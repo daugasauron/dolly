@@ -163,9 +163,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN] and looking:
 			player.jump_queue = 2
 	elif event is InputEventMouseMotion and looking:
-		yaw += event.relative.x * LOOK
-		pitch = clampf(pitch - event.relative.y * LOOK, -1.48, 1.48)
-		turned += Vector2(event.relative.x, -event.relative.y) * LOOK
+		# The pointer's own pixels, as Airtime turns, which the stretch to 1280 by 720 leaves unscaled.
+		var motion: Vector2 = event.screen_relative
+		yaw += motion.x * LOOK
+		pitch = clampf(pitch - motion.y * LOOK, -1.48, 1.48)
+		turned += Vector2(motion.x, -motion.y) * LOOK
 	elif event is InputEventKey and not event.echo:
 		var down: bool = event.pressed
 		match event.physical_keycode:

@@ -24,7 +24,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.7/dist/static/godot/airtime.tar ef0b1620c9c915aab15493873972f6dba9752f917e4b5126c607171cda671beb /tmp/airtime.tar
+SOURCE /v0.1.7/dist/static/godot/airtime.tar b8e049c9203fc252372900fb4d3859765834e19c98db3184361923df17761cec /tmp/airtime.tar
 SLOP CWD / tar -xf /tmp/airtime.tar
 SLOP mkdir -p /usr/share/airtime-godot
 SLOP cp -r /usr/src/airtime /usr/share/airtime-godot/project
