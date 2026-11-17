@@ -31,6 +31,9 @@ INSTALL /demos/tools/Dollyfile-bzip2 9ba0544ea6eb6e96c7f58f8fade57c3ea969e4996a1
 INSTALL /demos/tools/Dollyfile-sqlite d79438270b1af3866a2fc671d43f461a0cae2a436b7f1763554f4493a1bae2ed
 INSTALL /demos/tools/Dollyfile-binaryen 18aec5d267008348dfb6b7d9dbf61a559d72c62cde0f56bb2871eca15045e4db
 INSTALL /demos/python/Dollyfile-python 8833885bddfe56551862fba3d762153089994aa977f0d3c91110cebe4393bcc7
+# What the python package links and does not bring: libpython's modules need them.
+INSTALL /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6e458431e
+INSTALL /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL patch
@@ -43,7 +46,7 @@ REQUIRES LIB lzma
 REQUIRES LIB bz2
 REQUIRES LIB sqlite3
 
-SOURCE /dist/static/blender/deps.tar.gz 752e0c2621af8ecdd9e4bb1a89081df195bb583336ae39a9fdebed44e252d327 /tmp/blender-deps.tar.gz
+SOURCE /dist/static/blender/deps.tar.gz b5d97a8451e787f78573bab5fbc9220fb87835d8f4d9dc78db1f556be56dc393 /tmp/blender-deps.tar.gz
 SLOP gzip -dc /tmp/blender-deps.tar.gz | tar -xf - -C /
 SLOP rm /tmp/blender-deps.tar.gz
 SLOP cc -O2 /tmp/blender-deps/ccfilter.c -o /usr/bin/ccfilter
@@ -129,7 +132,7 @@ SLOP CWD /tmp/blender-deps/libepoxy cp include/epoxy/gl.h include/epoxy/common.h
 # What a program that links libpython3.14.a needs beside it: CPython builds
 # its HACL archives and its own expat there and installs neither. Its Makefile
 # makes them in the prepared tree the python package was built from.
-SOURCE /dist/static/python/cpython.tar.gz 14c1e5ba898d41d32ff11e912179671fdb80cd42334dbab7f2a01e05a65a71bf /tmp/cpython.tar.gz
+SOURCE /dist/static/python/cpython.tar.gz 4d96d70f2c8762ad6e5b7cca5450b342df94586b45d7ad30e0f46c9319483501 /tmp/cpython.tar.gz
 SLOP gzip -dc /tmp/cpython.tar.gz | tar -xf - -C /
 SLOP rm /tmp/cpython.tar.gz
 SLOP CWD /usr/src/python time make -j4 Modules/expat/libexpat.a Modules/_hacl/libHacl_Hash_MD5.a \
@@ -140,6 +143,20 @@ SLOP cp /usr/src/python/Modules/expat/libexpat.a /usr/lib/python3.14/embed/libpy
 SLOP CWD /usr/src/python/Modules/_hacl cp libHacl_Hash_MD5.a libHacl_Hash_SHA1.a libHacl_Hash_SHA2.a libHacl_Hash_SHA3.a \
   libHacl_Hash_BLAKE2.a libHacl_HMAC.a /usr/lib/python3.14/embed
 SLOP rm -rf /usr/src/python /tmp/blender-deps
+# The interpreter links and runs with the options Dollyfile-blender gives
+# Blender's link, an hour of compiling before that link.
+FILE /tmp/embed.c
+    #include <Python.h>
+    int main(void) {
+      Py_Initialize();
+      int status = PyRun_SimpleString("import sqlite3, hashlib, pyexpat, bz2, lzma, urllib.request");
+      Py_Finalize();
+      return status != 0;
+    }
+SLOP cc -pthread /tmp/embed.c -I/usr/include/python3.14 -o /tmp/embed -lpython3.14 --dolly-cast-emulation \
+  -lffi -llzma -lbz2 -lsqlite3 -lcurl -L/usr/lib/python3.14/embed -lpyexpat -lHacl_HMAC -lHacl_Hash_BLAKE2 \
+  -lHacl_Hash_MD5 -lHacl_Hash_SHA1 -lHacl_Hash_SHA2 -lHacl_Hash_SHA3 -lz -lm
+SLOP /tmp/embed
 
 FOLDER /usr/include
 FOLDER /usr/lib

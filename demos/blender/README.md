@@ -26,7 +26,9 @@ blender -b --python script.py -- arguments
 - Cycles renders with its scalar kernel and its own BVH, on as many threads
   as `-t` says (four by default, through oneTBB; `threads@0`). The default
   scene at 1920 by 1080 and 64 samples took 14.4 s on four threads and 50.7 s
-  on one, in Chrome on a busy machine (2026-11-17).
+  on one, in Chrome on a machine at load 40; Blender's own Linux build, with
+  its AVX2 kernel and Embree, took 8.8 s and 32.0 s there at load 10
+  (2026-11-17; the two were not measured under the same load).
 - Images are written as PNG, JPEG, TIFF and OpenEXR (OpenImageIO), with
   OpenColorIO's colour management.
 
@@ -37,7 +39,9 @@ blender -b --python script.py -- arguments
   not render. Cycles on the CPU is the renderer.
 - It is linked through cast emulation (below), so it loads no Python extension
   module: `import numpy` inside Blender fails, and with it the add-ons that
-  need NumPy (glTF).
+  need NumPy (glTF), and `import ctypes` fails with `MemoryError`, as such a
+  program gets no closures. What lifts this is in the
+  [task](../../tasks/20261116-230506-blender-2/TASK.md).
 - Left out, each by upstream's option: OSL, Embree, the denoiser, path
   guiding, volumes (OpenVDB), USD, Alembic, sound and video, the fluid and
   rigid-body solvers, translations (upstream's `blender_lite.cmake`).
@@ -85,12 +89,19 @@ Make at four jobs. What the platform decided:
 - **Epoxy** is required by Blender's build even with no OpenGL backend: its
   dispatch is built from its generator and two sources, without Meson.
 
+The stage ends by linking and running an interpreter with the options
+Blender's link gets, so a library the `python` package stops bringing fails
+there and not after an hour of compiling. Each library's licence files are in
+`/usr/share/licenses/blender`, Blender's own notices in
+`/usr/share/doc/blender/license`.
+
 In Chrome on a machine busy with other builds (2026-11-17), `blender-deps`
-built in 637 s (OpenImageIO 197 s, OpenColorIO 90 s) and `blender` in 4,046 s,
-of which `make -j4` took 3,865 s for 2,838 units; the kernel held 1,977 MiB at
-the end. The program is 124 MB, its data 68 MB, the package 177 MB.
+built in about 11 minutes (OpenImageIO 197 s, OpenColorIO 90 s) and `blender`
+in 4,562 s, of which `make -j4` took 4,356 s for 2,838 units; the build's
+Node and Chrome peaked at 6,590 MiB, the kernel held 1,976 MiB at the end.
+The program is 124 MB, its data 68 MB, the package 177 MB.
 
 Test: [`test/blender-browser.mjs`](test/blender-browser.mjs) installs the
 package into `default`, runs a script on the default scene (a mesh added and
 arrayed, a `.blend` saved and loaded) and renders it with Cycles to a PNG
-whose size and pixels it checks, in Chromium (16.8 s) and Firefox (20.2 s).
+whose size and pixels it checks, in Chromium (16.3 s) and Firefox (18.1 s).
