@@ -47,3 +47,14 @@ yes, it should minimize the difference between the payoff to hedge and the \"rep
 No Expected Shortfall, no confidence. Ticks: "Keep vague for now, I just dont want weird errors
 because tick sizeo nthe wings." A sketch of the model that follows is with the owner; no code
 changes before the owner agrees to it.
+
+## The owner, 2026-11-17 evening, fourth answer
+
+To the sketch (spread as replication cost alone, no price of risk): not so. "There is a price
+of risk, but the risk is very much tied to how hard it is to get out of the position. The
+\"price of risk\" is how much you risk loosing before you're able to close out the position, and
+how much that would cost." The hedger's loss need not be the squared miss: "it's just an
+example, my pooint earlier is that ES for example has a side, but MSE is symmetric so it
+doesn't have the drift problem." And the tick is no parameter of the model: "The trader
+doesn't care bout the tick." Asked back: the time it takes to get out, and how bad a case the
+spread has to cover.
