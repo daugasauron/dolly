@@ -29,7 +29,7 @@ USE /Dollyfile-libdolly-clipboard 99746a8bd9b9eb136098753ccc526ac94a14540e6d2608
 USE /demos/x11/Dollyfile-x11-window 6c29ccec820d4a812e304cf59a5e876cd6c459bfb37a8a05cc0aa906791d7e86
 USE /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
 USE /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
-USE /Dollyfile-libdolly-touch 3c23d1f22584166c434123c76bbc1be95ffe3738cbef0382e672e768a934f8d7
+USE /Dollyfile-libdolly-touch e575ebfcfdeb0bd32c82b34d59b0a25b627a1189a5a5ebdcc930073fe86594f0
 
 REQUIRES TOOL cp
 REQUIRES TOOL grep

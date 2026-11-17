@@ -23,8 +23,8 @@ REQUIRES HOST threads@0
 # - Brotli for FreeType, which Blender puts on the link line only with its
 #   precompiled libraries.
 # - ccfilter for compiles and the link: see its source.
-FROM /demos/blender/Dollyfile-blender-deps 164399b3e2255735e722dea303c126d59901e6a4b4846c328bbaef6e94e29348
-INSTALL /demos/python/Dollyfile-python 8833885bddfe56551862fba3d762153089994aa977f0d3c91110cebe4393bcc7
+FROM /demos/blender/Dollyfile-blender-deps a30124090671d7521ee76a2f3fa077fff639afb12790f9be9d54813ece34c2df
+INSTALL /demos/python/Dollyfile-python b04978c4f69f45ff84f5de1644fe962a532e0b952363910045043e5027572a2a
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL patch
