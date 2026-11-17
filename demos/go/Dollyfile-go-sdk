@@ -10,7 +10,7 @@ INSTALL /Dollyfile-gzip cef69a22c3b9f73889f4c819fcfaee2fb4487474ea4efa364117b879
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
 SOURCE /dist/static/go/go-source.tar.gz ff2cedfda915d79e084c431cc8f30ec7ee41afa3a9b9ef47d4415cdb1891131a /tmp/go-source.tar.gz
-SOURCE /dist/static/go/go-seed.tar.gz d1aee8933f9613899e26231a8c584d944516eab0cc9a05adaef76373ce661936 /tmp/go-seed.tar.gz
+SOURCE /dist/static/go/go-seed.tar.gz fd1b17456aeb6971a04ab2d1d76a73de88bc1dd7f5fc2bc8845a2827d51a9b19 /tmp/go-seed.tar.gz
 SLOP gzip -dc /tmp/go-source.tar.gz | tar -xf - -C /
 SLOP gzip -dc /tmp/go-seed.tar.gz | tar -xf - -C /
 SLOP rm /tmp/go-source.tar.gz /tmp/go-seed.tar.gz

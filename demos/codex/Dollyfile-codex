@@ -8,11 +8,11 @@ REQUIRES HOST threads@0
 # Codex compiled by Cargo from its pinned sources, offline, with the launcher
 # that seeds CODEX_HOME and the search tools Codex runs. The lock file is kept
 # as the build's record.
-FROM /demos/rust/Dollyfile-rust-build 7a95d3888af893fab677b3a44663cec08809bfdd3adb8a74bbc68b8d724f0d0c
+FROM /demos/rust/Dollyfile-rust-build b15e7267d71733e38795183bb3692340fb0da55ccc2112bf6cdb0779d539e3ee
 USE /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
-USE /demos/rust/Dollyfile-protox fe17e8e61cfa473e6cee5f9de988673709e030c7b019cd9bff17e28c7e0cc43d
-INSTALL /demos/rust/Dollyfile-ripgrep fd1827c6e1194aa6f5b56a56a6a8aa32e7b784645d70b0c6f6828dc42a6c5a7f
-INSTALL /demos/rust/Dollyfile-fd 54b2ee7832d175267fb3d7b7f1df118ab8cb70a3cbd71e1065e6e289f52b4e6d
+USE /demos/rust/Dollyfile-protox 5cf9a8554a2d341eea98879d2562f7971ecc7e1b80d079865cc79561f7f04d4b
+INSTALL /demos/rust/Dollyfile-ripgrep ffb16c75469b7e628f81dfddcdd334de578f5c669975dd54c3646c978464704b
+INSTALL /demos/rust/Dollyfile-fd 063117a46bff691ce97f070557eaf0dd133875e8760acd69ed3cf2685570a8e9
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL cargo
@@ -26,11 +26,11 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL protox
 
-SOURCE /dist/static/codex/sources-00.part 75a0781c2d72eda40ac9954af6b7fecb053475d26aeaac156ff6a2cdd5a18d4d /tmp/codex-sources-00.part
-SOURCE /dist/static/codex/sources-01.part 44cff0b44ce3ba92d32d847fe8e469f8722f4a37c81f4aaacf7823dc810a3cc8 /tmp/codex-sources-01.part
-SOURCE /dist/static/codex/sources-02.part b7f6343a29b3f1172ad0910c3209b7d205dbc00a74d17a4b07656ecb2f1b6d08 /tmp/codex-sources-02.part
-SOURCE /dist/static/codex/sources-03.part b1e566edd561ca38a6b6be6fa0b3ec127590d161df02fd766644c9c0e7229da4 /tmp/codex-sources-03.part
-SOURCE /dist/static/codex/sources-04.part b11a6e3718fa12f5aa5445a8e0a3b81c1a936a01c64dd97f840fcdbfeff9d2c2 /tmp/codex-sources-04.part
+SOURCE /dist/static/codex/sources-00.part 1ca442e0a777d38e9458a840670fe1b482071f494b03b307756a749f14f6f5e2 /tmp/codex-sources-00.part
+SOURCE /dist/static/codex/sources-01.part 86721a663ddb3409987e522bb487be1879780728b4ebeccbd70af25e9fd615be /tmp/codex-sources-01.part
+SOURCE /dist/static/codex/sources-02.part 3b6373dd7e568e85c565b7daf4eb45615801d71f7cd9b05149aff9e26f37cccc /tmp/codex-sources-02.part
+SOURCE /dist/static/codex/sources-03.part b1f035f769d9bdd7b85364172576b6b29ab05f647ac963ae8d5588407202a622 /tmp/codex-sources-03.part
+SOURCE /dist/static/codex/sources-04.part bf45e60d9c9fb89a7bbe43a57545fe800fcb413ebcc4220ab96c96bb7035172e /tmp/codex-sources-04.part
 SOURCE /dist/static/codex/no-js.c 5b2a995a8f36f4917f40f39af9806be9d4646d90850585fbc8bd904ff18c45fd /tmp/codex-no-js.c
 SLOP cat /tmp/codex-sources-00.part /tmp/codex-sources-01.part /tmp/codex-sources-02.part /tmp/codex-sources-03.part /tmp/codex-sources-04.part | gzip -dc - | tar -xf - -C /
 SLOP rm /tmp/codex-sources-00.part /tmp/codex-sources-01.part /tmp/codex-sources-02.part /tmp/codex-sources-03.part /tmp/codex-sources-04.part

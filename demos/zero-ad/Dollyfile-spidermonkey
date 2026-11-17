@@ -10,8 +10,8 @@ REQUIRES HOST runtime@0
 FROM /Dollyfile-system-tools 7b1306fddb4975e68b655f6d0bd6a478f6f02ba877ce033af921969099844d2d
 INSTALL /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
 USE /demos/python/Dollyfile-python b04978c4f69f45ff84f5de1644fe962a532e0b952363910045043e5027572a2a
-USE /demos/rust/Dollyfile-cargo 5361318b49b7d9b182d1a579203628332a4fca08f23eb4d7dc2b02b0db7ddf9f
-USE /demos/rust/Dollyfile-cbindgen b0f012f2b085c4b3a31e038ef5f61738327f70ad54bafba03eeed5e4f7436bda
+USE /demos/rust/Dollyfile-cargo 68301b10b3416f7a02a95fe5b002d019bc839934c38a58c52bab2ddf76c2be18
+USE /demos/rust/Dollyfile-cbindgen ec21dee53eadc62f8bc44d5cc0aac30677f4163adbb8e8b43ffac26aef51d6c4
 USE /demos/tools/Dollyfile-pkgconf 8e2d10a742a5f3dc0a5da7426f3f276c233bf6672cc0a777fa849672d0f1e0b3
 REQUIRES HEADER zlib
 REQUIRES LIB z
@@ -33,7 +33,7 @@ REQUIRES TOOL sh
 REQUIRES TOOL rm
 
 # The pinned tree without its test suites, 0 A.D.'s patches and Dolly's.
-SOURCE /dist/static/spidermonkey/source.tar.gz a0e7bd4549c698ba1c84c437e4191345afde2e24746eb7ac41e7d799f1ba8808 /tmp/mozjs.tar.gz
+SOURCE /dist/static/spidermonkey/source.tar.gz 5ce7dbde086665dcbec37584707cefb82792aa13a4b10726d5e6824d8b33647e /tmp/mozjs.tar.gz
 SLOP gzip -dc /tmp/mozjs.tar.gz | tar -xf - -C /
 SLOP CWD /tmp/mozjs/mozjs-128.13.0 sh ../patches/patch.sh
 SLOP patch -p1 -d /tmp/mozjs/mozjs-128.13.0 -i /tmp/mozjs/spidermonkey.patch

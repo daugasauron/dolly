@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # esbuild, built by go-build's toolchain from its release and the module it
 # vendors.
-FROM /demos/go/Dollyfile-go-build ed094abf01572b36b9c03c707b73a7f95972df9fff0decad62634a132cc5fe77
+FROM /demos/go/Dollyfile-go-build 6d24a0498854a8632555a1492f7ac0bf058aa7c89249ecd22f0386242e80ed92
 REQUIRES TOOL go
 SOURCE /dist/static/go/esbuild.tar fd6632585faaac4195cd5ba9ac53f50c71c5714087c9e93ad427955854f97591 /tmp/esbuild.tar
 SLOP tar -xf /tmp/esbuild.tar -C /
