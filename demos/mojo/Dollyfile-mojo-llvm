@@ -91,8 +91,8 @@ FILE /tmp/mojo-llvm/Dolly.cmake
 SLOP time cmake -C /tmp/mojo-llvm/Dolly.cmake -S /tmp/mojo-llvm/llvm -B /tmp/mojo-llvm/build
 
 # The roots of what Mojo's BUILD.bazel files name of @llvm-project, MLIR's
-# first; Make builds the TableGen tools and the libraries below them. Four jobs
-# fit the 32-process cap; -k reports every failing unit, not only the first.
+# first; Make builds the TableGen tools and the libraries below them. Four jobs,
+# as many as nproc reports; -k reports every failing unit, not only the first.
 SLOP CWD /tmp/mojo-llvm/build time make -k -j4 MLIRCAPIIR MLIRCAPITransforms MLIRLspServerSupportLib \
   MLIRIndexToLLVM MLIRReconcileUnrealizedCasts MLIRBuiltinToLLVMIRTranslation MLIRLLVMToLLVMIRTranslation \
   MLIRNVVMToLLVMIRTranslation MLIRROCDLToLLVMIRTranslation clangBasic LLVMOrcDebugging LLVMMCJIT \

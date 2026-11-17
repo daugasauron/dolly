@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 # Build-only: the libraries of Clang, LLD and the WebAssembly backend that the
 # seed compiler links, compiled inside Dolly by its own c++, then the rest of
 # LLVM in the same tree for the llvm package.
-FROM /v0.1.7/demos/llvm/Dollyfile-llvm-tablegen 2dd999021e466c5e6183a0915619f06471478ebeb2139930c4fe5045425499c7
+FROM /v0.1.7/demos/llvm/Dollyfile-llvm-tablegen e807ffc7a47ccedd07f29fd0ebde043354e98120402947a9bbb4a4a508b6123d
 REQUIRES TOOL llvm-tblgen
 REQUIRES TOOL clang-tblgen
 REQUIRES TOOL cmake
@@ -69,8 +69,8 @@ FILE /usr/lib/llvm-build/Dolly.cmake
     set(LLVM_LINK_LLVM_DYLIB OFF CACHE BOOL "")
 SLOP time cmake -C /usr/lib/llvm-build/Dolly.cmake -S /tmp/llvm-project/llvm -B /tmp/llvm-build
 
-# The seed compiler's libraries. Four jobs fit the 32-process
-# cap; -k reports every failing unit of an hour's build, not only the first.
+# The seed compiler's libraries. Four jobs, as many as nproc reports;
+# -k reports every failing unit of an hour's build, not only the first.
 SLOP CWD /tmp/llvm-build time make -k -j4 clangFrontendTool clangCodeGen clang-resource-headers lldWasm LLVMWebAssemblyCodeGen
 # The archives, Clang's resource directory, and the configured and generated
 # headers a program including LLVM, Clang or LLD needs, by build-tree path.

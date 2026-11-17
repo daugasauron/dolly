@@ -56,7 +56,7 @@ FILE /usr/lib/llvm22-build/Dolly.cmake
     set(LLVM_LINK_LLVM_DYLIB OFF CACHE BOOL "")
 SLOP time cmake -C /usr/lib/llvm22-build/Dolly.cmake -S /tmp/llvm-project/llvm -B /tmp/llvm-build
 
-# Each job is three processes (Slop, c++, compiler); -j8 exceeds the 32-process cap.
+# Each job is three processes (Slop, c++, compiler); four jobs, as many as nproc reports.
 SLOP CWD /tmp/llvm-build time make -j4 llvm-min-tblgen llvm-tblgen clang-tblgen
 SLOP CWD /tmp/llvm-build cp bin/llvm-min-tblgen bin/llvm-tblgen bin/clang-tblgen /usr/bin
 SLOP rm -rf /tmp/llvm-build /tmp/llvm-project
