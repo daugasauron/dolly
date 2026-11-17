@@ -104,7 +104,10 @@ file matches its `deployment.sha256`. The checkout's registry was unchanged afte
 The machine was not the round's: other agents' builds and browser tests held a load of 30 to 52 on
 its 16 threads all morning (`vmstat`: no idle CPU), and the same `verify` took 4 min 20 s and
 7 min an hour apart. Back to back on the same inputs instead: the packs step, 0.1.7's script (a
-gzip of every pack) 567 s against this one's 253 s (`share-compare.log`). Starting the largest
+gzip of every pack) 567 s against this one's 253 s (`share-compare.log`); the acceptance of eight
+of the heaviest images (go-build, dollyfile-studio, go-tools, zig-llvm-build, llvm-build,
+zero-ad-deps, python-data, cmake-build) one at a time 778 s, four side by side 233 s, at a load of
+15 to 21 (`ab-acceptance.sh`, `ab-acceptance.log`). Starting the largest
 image's acceptance first, replayed on the serial loop's times, saves 5% (388 s against 368 s,
 `simulate-acceptance.txt`), so the order stays. What these runs cannot show, the 0.1.8 round's
 packaging on a quiet machine times: the steps above against 0.1.7's 31 and 38 minutes.
