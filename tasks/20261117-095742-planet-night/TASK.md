@@ -130,6 +130,113 @@ told its own), is under the budget, and it goes on up at once while that holds; 
 the rate is let go when the answer is under the budget. Beside the owner's tab the new game
 stayed on the first level in Firefox and drew 51.5 frames a second.
 
+The pacing's logic by itself, without a GPU (`build/planet/mkpace.py`: the game run with Godot's
+dummy renderer, its pacing told the RTX 5070's cost of each level, four times as much from the
+20th to the 40th second of a flight of 150 s, as beside a program that takes three quarters of
+the card):
+
+| | the levels it went to, and when |
+| --- | --- |
+| 0.1.8's | 1 at 20.1 s, 2 at 20.6 s; 1 at 80.4 s; on 1 to the end |
+| now | 1 at 31.0 s, 2 at 31.3 s; 1 at 42.1 s, 0 at 42.5 s |
+
 ## Before and after
 
-(filled in below as the runs come in)
+Before is 0.1.8's game (`39e6de34a`), after is `22140c51b` (causes 1 to 3; the rings and the
+steering come after it and have their own numbers below). Each pair is the same morning flight,
+one run after the other under the same conditions; "frames" are the game's own.
+
+| | frames a second | median, ms | p95 | p99 | longest | over 2x, 4x the median | GPU ms | level |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| NVIDIA, Chrome, a quiet card, before (19:06, 19:22) | 33.9, 36.9 | 30.1, 28.0 | 36.4, 34.7 | 42.0, 39.1 | 55.6, 61.8 | 0, 0 | 7.8 | 0 |
+| after (19:42) | 60.0 | 16.7 | 26.8 | 28.9 | 72.3 | 8, 1 of 3,439 | 8.1 | 0 |
+| NVIDIA, Chrome, the CPUs 83% busy, before (21:20) | 31.8 | 31.2 | | 51.5 | 97.1 | 2 | 7.8 | 0 |
+| after (21:14) | 47.3 | 19.1 | 37.4 | 49.0 | 98.1 | 111, 3 of 2,672 | 8.2 | 0 |
+| NVIDIA, Firefox, beside the owner's tab (64% of the card), before (20:36) | 38.8 | 25.1 | 33.5 | 47.1 | 74.2 | 18 | 5.6 | 2 |
+| after (20:32) | 51.5 | 18.6 | 26.5 | 40.2 | 117.1 | 34, 13 of 2,908 | 16.2 | 0 |
+| AMD 13c0, Chrome, before (18:54) | 23.7 | 41.7 | 48.4 | 52.8 | 74.5 | 0 | 19.4 | 6 |
+| after (21:53) | 29.6 | 33.4 | 40.2 | 46.0 | 83.7 | 8, 0 of 1,611 | 19.3 | 6 |
+
+The game's test on the image of `22140c51b` (30 s on the ground, then 100 s that leave the
+planet to 263,000 units; the page 1600 by 900):
+
+| | ground: frames a second, median, p95, p99, longest | leaving: frames a second, median, p95, p99, longest |
+| --- | --- | --- |
+| NVIDIA, Chrome, two cores (20:11) | 60.0, 16.6, 18.4, 20.5, 61.3 | 60.0, 16.7, 20.6, 27.4, 71.2 |
+| NVIDIA, Firefox, sixteen CPUs, load 30 (21:18) | 58.3, 16.7, 24.5, 38.7, 89.3 | 58.5, 16.8, 24.9, 38.0, 81.4 |
+| the afternoon's, 0.1.8's game (load 15 to 20): Chrome | 17.8, 50.8, , 122.3, 148.7 | 33.3, 31.4, , 52.4, 86.7 |
+| the afternoon's: Firefox | 29.7, 33.1, , 54.0, 86.7 | 37.0, 25.8, , 46.2, 89.6 |
+
+On the AMD GPU the game now holds "an even 30": it is on the last level two seconds after its
+start (a level asked at 0.6 s, the next at 2.0 s), its frames 33.4 ms apart in the median and
+40.2 at the 95th percentile, where they were 41.7 and 48.4 while each waited for its own timing.
+
+## Rings instead of beams
+
+The beacons, their shafts of light and the thermals over towns are gone (`shaft.gdshader`,
+`thermal.gdshader`, and the nodes, lights and materials of 25 beacons, each tended every
+frame). A reward is a ring to fly through: a six-sided hoop of glass with three motes circling
+it, in its chain's colour (the beacons' four), amber once passed
+([`ring.gdshader`](../../demos/godot/voxel-flyover/ring.gdshader)). Passing through counts, gives
+the boost and a note; missing does nothing. The light that runs out over the ground and the
+warmth that melts the snow now come from under a passed ring.
+
+- **Chains** (`chain_of`): seven plots of 300 units in ten have one, of three to six rings
+  (4.5 on average: of 900 plots around the start 627 have a chain). The first ring hangs nine
+  units clear of the ground and the roofs under and beside it. Each next is 105 units on and
+  higher, up a way that steepens from 17 to 37 degrees and round a bend that tightens (12 to
+  22 degrees at the first, a quarter more at each next), and narrower (7 units of radius, then
+  6.5, 6, 5.5, 5). A chain's top is 72 to 284 units over its first ring, 182 in the median.
+- **Chaining**: a chain's first ring is always open. The next opens as one is passed and closes
+  2.8 seconds later; the boost (26 over the board's 30, to 1/e in 2.5 s) covers the 105 units
+  in 2.23 s for a hand that turns at once. A ring flown through asleep does nothing; a chain
+  let lapse starts again at its first ring. The open ring beats, faster as it closes; the
+  others of its chain are faint. Each ring counts once in the score; the note rises along a
+  chain.
+- **How hard**: the probe's test pilot (`build/planet/probe.gd --pilot`), which aims at the
+  open ring and turns no faster than a given rate, makes whole chains of six at 3 and at 1.2
+  radians a second (2.23 to 2.27 s a ring). Made to see each new ring late and hold its course
+  meanwhile, it still makes them 0.45 s late and loses most second rings 0.6 s late. A person
+  also has to aim: it is meant to take practice.
+- **One thing to draw**: every ring with its motes is an instance of one mesh, placed, faded in
+  with the distance to its chain's foot, coloured and lit by its shader; how a ring glows is
+  written into the instances' data when it changes. A frame of the flight has 270 to 277 draws
+  where it had 270 to 570, and the game's scripts and scene take 0.7 ms a frame with Godot's
+  dummy renderer where they took 4.7.
+- The corgi flying itself makes for first rings and for the open ring of a chain it is in, as
+  steeply as it dares (26 units a second): it gets a second ring now and then.
+
+## The mouse steers
+
+- The pointer the page captures at the click turns the heading: 0.0025 radians a pixel, around
+  and up and down (to 77 degrees), with no smoothing between the hand and the heading. The board
+  flies the way it is headed at 30 units a second; nothing but a ring changes that near the
+  ground (the dive's gain, the climb's loss, the wind, the skim over the sea, the flock's and
+  the slopes' and thermals' lift are gone). No key steers; Enter no longer takes the board (a
+  click or a touch does), Z and X no longer zoom (the wheel does).
+- The player's camera looks the way the board is headed, from 15 units behind and 5 over the
+  flyer, so what the board will reach is in the middle of the screen, over the corgi's ears,
+  and a small ring marks it. (With the view that looked down at the flyer from behind, the
+  corgi hid the ring it flew at.)
+- The ground still turns the board away: its nose is raised in time for what stands on the
+  way of the next second and a half, and held ten units over the ground or the sea it comes
+  level.
+- Touch: the first touch takes the board, a finger's drag steers as the mouse does (a drag
+  across the screen's shorter side as 1,080 pixels), two fingers zoom, the ring at the top
+  right gives the board back. The stick is gone.
+
+## Orbit, against "a steady speed"
+
+Kept: over 420 units the board is faster the higher it is (twice as fast every 110 units), by
+its height alone. Chosen over reaching orbit by ring chains only, because:
+
+- The planet seen whole is what the owner called "completely awesome" on the 17th; behind a
+  chain that "shouldn't be easy" most flights would never see it.
+- The speed there is not the player's doing: no key or dive changes it, and at any one height
+  it is one speed. It is the scale of what is flown over that changes, and the board's speed
+  with it; near the ground, where the rings are and the flying is done, it is 30 and a ring's
+  boost, as asked.
+- The chains lead to it: a chain's top is 250 to 300 units over the ground, and a board that
+  leaves it nose up with its boost is past 420 three seconds later. So the skilled way off
+  the planet is a chain, and the plain way is to hold the nose up: 18 s to 420 units at 45
+  degrees, and under a minute to where the planet is whole.

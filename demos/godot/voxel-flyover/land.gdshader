@@ -2,7 +2,7 @@
 // (ground.gdshader). The fragment stage takes the slope from the same heights and dresses the
 // ground by it: meadow, heath or desert by the climate, bare rock where it is steep, snow where
 // it is high and lies, sand by the sea. Veins of crystal glow at night, the clouds lay their
-// shade, and rings of light run out from lit beacons, around which the snow melts. Low wet
+// shade, and light runs out from under the rings the flyer has passed, where the snow melts. Low wet
 // plains are marsh, with pools that mirror the sky and freeze in winter.
 shader_type spatial;
 #include "res://terrain.gdshaderinc"
@@ -56,10 +56,10 @@ void fragment() {
 	float moisture = here.z + (grain - 0.5) * 0.04 - relief * 0.012;
 	float steep = 1.0 - normal.y;
 	// Winter brings the snow down the slopes, and rain the wet (or in winter more snow).
-	// A shower leaves the ground wet behind it for a while. A lit beacon warms the ground
-	// around it: the snow draws back up the slope there, and more flowers stand.
+	// A shower leaves the ground wet behind it for a while. A passed ring warms the ground
+	// under it: the snow draws back up the slope there, and more flowers stand.
 	float wet = far_off < 1.0 ? max(rain_on(p), 0.7 * rained_on(p)) * (1.0 - far_off) : 0.0;
-	float warmed = beacon_warmth(p);
+	float warmed = ring_warmth(p);
 	// In the cold of the poles the snow lies down to the sea all year: the planet's caps.
 	float snowline = SEA + 78.0 - (0.5 - warmth) * 70.0 - winter * (52.0 + 14.0 * wet) + 70.0 * warmed + relief * 2.5 - 260.0 * smoothstep(0.2, 0.0, warmth);
 

@@ -1,6 +1,6 @@
 // The sea, a mirror for the sky: its colour deepens with the ground under it, which the ground's
 // texture gives, and ripples break the reflection. Foam follows the shore and glows at night, as
-// do the rings from lit beacons that cross the water. In winter the cold seas carry ice: floes
+// does the light of passed rings that crosses the water. In winter the cold seas carry ice: floes
 // that drift with the wind, with open water between them.
 shader_type spatial;
 #include "res://terrain.gdshaderinc"
@@ -59,10 +59,10 @@ void fragment() {
 	foam = max(foam, skims.z * max(exp(-under * under / 30.0), 0.6 * exp(-ring * ring / 5.0)));
 	// Rain pocks the sea.
 	foam = max(foam, 0.25 * rain_on(p) * smoothstep(0.7, 0.9, noise(p * 1.7 + vec2(clock * 0.9, -clock * 0.7))) * (1.0 - smoothstep(0.3, 1.0, wide)));
-	// Ice: plates of a noise that drifts slowly, on the seas of the cold lands in winter; a lit
-	// beacon's warmth opens the water around it.
+	// Ice: plates of a noise that drifts slowly, on the seas of the cold lands in winter; a passed
+	// ring's warmth opens the water under it.
 	float warmth = ground_under.y;
-	float cold = winter * smoothstep(0.52, 0.42, warmth) * (1.0 - beacon_warmth(p));
+	float cold = winter * smoothstep(0.52, 0.42, warmth) * (1.0 - ring_warmth(p));
 	vec2 adrift = p - vec2(0.93, 0.36) * clock * 0.6;
 	float floe = cold > 0.0 ? cold * smoothstep(0.47, 0.5 + wide * 0.02, fbm_seen(adrift / 26.0 + vec2(7.0, 51.0), 3, wide / 26.0)) : 0.0;
 	NORMAL = normalize(mix(NORMAL, (VIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz, floe));

@@ -185,11 +185,17 @@ static func weather(p: Vector2, drift: Vector3) -> float:
 ## What the flight has computed of the chart, which holds until the chart's anchor moves.
 static var grounds := {} # a point of the flight's lattice -> the ground's height there
 static var tops := {} # a lot's corner -> its building's top
+## The tables before these, each let go when the one after it is full: what the flight still
+## looks at is found in it, so no long frame computes a table anew.
+static var grounds_before := {}
+static var tops_before := {}
 
 
 static func forget() -> void:
 	grounds.clear()
+	grounds_before.clear()
 	tops.clear()
+	tops_before.clear()
 	marks.clear()
 	slow_place = Vector3(INF, INF, INF)
 
@@ -208,9 +214,10 @@ static func ground(p: Vector2) -> float:
 static func ground_at(x: int, y: int) -> float:
 	var point := Vector2i(x, y)
 	if not grounds.has(point):
-		if grounds.size() > 30000:
-			grounds.clear()
-		grounds[point] = height(Vector2(point) * 4.0)
+		if grounds.size() >= 8192:
+			grounds_before = grounds
+			grounds = {}
+		grounds[point] = grounds_before[point] if grounds_before.has(point) else height(Vector2(point) * 4.0)
 	return grounds[point]
 
 
@@ -377,9 +384,10 @@ static func island(p: Vector2) -> Vector2:
 static func roof(p: Vector2) -> float:
 	var lot := Vector2i((p / LOT).floor())
 	if not tops.has(lot):
-		if tops.size() > 4000:
-			tops.clear()
-		tops[lot] = building_top(Vector2(lot) * LOT)
+		if tops.size() >= 1024:
+			tops_before = tops
+			tops = {}
+		tops[lot] = tops_before[lot] if tops_before.has(lot) else building_top(Vector2(lot) * LOT)
 	var top := maxf(surface(p), tops[lot])
 	var mark := landmark(Vector2i((p / MARK_PLOT).floor()))
 	if not mark.is_empty() and mark[2] != FLOATING and p.distance_to(mark[0]) < mark[5] + 4.0:

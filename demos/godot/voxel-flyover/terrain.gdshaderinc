@@ -23,9 +23,8 @@ uniform float autumn = 0.0;
 uniform float winter = 0.0;
 uniform vec3 to_light = vec3(0.0, 1.0, 0.0); // toward the sun, or the moon once it has set
 uniform float handover = 1.0; // 0 at the moment the sun hands over to the moon, 1 away from it: what the light's side lights fades through it
-// The lit beacons around the flyer: where each stands (xy), how long ago its ring set off (z),
-// how long ago it was lit (z), and how strong its rings are (w), which is less the further it
-// is from the flyer.
+// The last rings the flyer has passed: where each is (xy), how long ago it was passed (z), and
+// how strong its light on the ground is (w), which is less the further it is from the flyer.
 uniform vec4 pulses[8];
 // The chart on the planet, and the flyer in it.
 uniform mat3 anchor_frame = mat3(1.0); // the chart's x, up and z at its anchor, in the planet's axes
@@ -483,9 +482,9 @@ float rained_on(vec2 p) {
 	return rain_on(p - vec2(9.0, 3.5) * 45.0);
 }
 
-// The warmth of the lit beacons on a place, between 0 and 1: it spreads from a beacon in the
-// seconds after it is lit, to some 90 units around, where the snow melts and the ground flowers.
-float beacon_warmth(vec2 p) {
+// The warmth of the passed rings on a place, between 0 and 1: it spreads from under a ring in
+// the seconds after it is passed, to some 90 units around, where the snow melts and the ground flowers.
+float ring_warmth(vec2 p) {
 	float warmth = 0.0;
 	for (int i = 0; i < 8; i++) {
 		float spread = min(pulses[i].z * 14.0, 90.0);
@@ -494,7 +493,7 @@ float beacon_warmth(vec2 p) {
 	return warmth;
 }
 
-// The light of the rings that run out from lit beacons, every nine seconds each.
+// The light that runs out over the ground from under the passed rings, every nine seconds each.
 float pulse_light(vec2 p) {
 	float light = 0.0;
 	for (int i = 0; i < 8; i++) {

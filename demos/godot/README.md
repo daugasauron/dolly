@@ -34,7 +34,7 @@ Dolly, as it exported Dodge the Creeps for `amy install dodge-the-creeps`
 - `airtime-godot`: Airtime: Foundry in Godot, the strafe trials of bhop on Airtime's own movement and course, drawn by Forward+ on `gpu@0` as a foundry at night over molten metal; `airtime-godot` plays it.
 - `godot-airtime`: Airtime in Godot on the page, which starts at once; Q leaves a shell where `godot-editor -e --path ~/airtime` opens a copy of its project in Godot's editor, the course in its 3D view. The eye beside Hud in the Scene dock hides the game's display, F5 plays the game so, and Ctrl+S saves the scene.
 - `voxel-flyover`: Voxel Flyover, a corgi's flight on a jet surfboard, with a pelican on a bicycle pedalling under it for the jets, over a planet of mountains, forests and sea that can be left: a sphere of 600,000 units which the GPU builds in its shaders, drawn by Forward+ on `gpu@0`, with a curved horizon, and whole from out of its air; `voxel-flyover` plays it.
-- `godot-voxel-flyover`: Voxel Flyover on the page at once: the corgi flies itself until Enter, a click or a touch takes the board; keep climbing to leave the planet, dive to come back, and Q leaves a shell.
+- `godot-voxel-flyover`: Voxel Flyover on the page at once: the corgi flies itself until a click or a touch takes the board; the mouse or a finger then steers it, through chains of rings and, kept climbing, off the planet; Q leaves a shell.
 
 ## Lantern Drift
 
@@ -65,7 +65,7 @@ the slope from the same texture and dresses the ground by it
 [`ground.gdshaderinc`](voxel-flyover/ground.gdshaderinc)): meadow, heath or desert by the climate,
 mottled and dotted with flowers, bare rock in strata where it is steep, snow where it is high and
 lies, sand by the sea, veins of crystal that glow at night with a light that runs along them, and
-the rings that run out over land and sea from each beacon the flyer has lit. A tree stands in
+the light that runs out over land and sea from under each ring the flyer has passed. A tree stands in
 a plot of 4 units where the climate has one and the ground is not steep
 ([`flora.gdshaderinc`](voxel-flyover/flora.gdshaderinc),
 [`trees.gdshader`](voxel-flyover/trees.gdshader)): a trunk and a ball, which the vertex stage
@@ -86,11 +86,11 @@ to 420, and eight triangles to 690. Where two rings overlap, one's trees thin ou
 the other's fill in, both asking the same number of the pixel, and past the last ring the land's
 shader paints the same crowns on the ground they stand on, round over their plots' edges, and
 further still the colour of the climate's share of them. The land's grids blend their heights by
-the distance from the flyer, which moves smoothly while the grids step, and the beacons brighten
-from 340 units to 230. A beacon takes its light by degrees when it is lit, its ring of light grows
-out of nothing and is gone before the next sets off, and the rings of a beacon fade with its
-distance from the flyer. A tree, a beacon's crystal or its shaft thins out before the camera,
-which may fly through it. The camera follows a point that follows the next of its views, so it
+the distance from the flyer, which moves smoothly while the grids step, and a chain of rings
+grows out of nothing as the flight comes from 600 units to 520 of its foot. A ring takes its
+glow and its amber by degrees, the ring of light that bursts from it grows out of nothing and
+is gone before the next sets off, and the light a passed ring sends over the ground fades with
+its distance from the flyer. A tree thins out before the camera, which may fly through it. The camera follows a point that follows the next of its views, so it
 neither sets off nor arrives at once, and the ground lifts it by degrees before it is reached.
 
 Nothing finer than a pixel is drawn as it is, since the flight would carry it across the pixels as
@@ -99,7 +99,7 @@ place, or of the hairs' own coordinates) and lets detail finer than that give wa
 octaves of the ground's grain one by one, its flowers, the tilt of its light, the sea's three
 sizes of ripple (whose lost slope becomes roughness, so the sun's glitter widens into a glare),
 the clumps of a crown's leaves, the fur's hairs, which merge into a coat of their mean length, and
-the links of the pelican's chain. A vein of crystal and a far beacon's shaft keep a width of a
+the links of the pelican's chain. A vein of crystal and a far ring's hoop keep a width of a
 pixel or a few and grow fainter in proportion; a wake seen on edge fades; the painted crowns merge
 into their share's colour where a pixel covers a crown.
 
@@ -158,7 +158,7 @@ trees, gold for most of the year and green in spring and after rain. Low wet gro
 is marsh, with few trees and pools that mirror the sky. In winter the pools and the seas of the
 cold lands carry ice ([`water.gdshader`](voxel-flyover/water.gdshader)), and a town's lamps are
 each lot's own colour. A shower leaves the ground wet behind it for three quarters of a minute.
-A lit beacon warms the ground some 90 units around it: the snow and the ice draw back there and
+A passed ring warms the ground some 90 units around the place under it: the snow and the ice draw back there and
 more flowers stand. A hollow of the ground is wetter and darker than a spur and keeps its snow
 longer (the difference of the ground's two textures).
 
@@ -211,29 +211,39 @@ stands a little off its lot's middle at an angle of its own, so a village is not
 Trees stand in woods with glades between them (patches cut from the climate's two fields, which
 the ground's texture already holds), and among the broad crowns stand palms in the hot wet
 lowlands, cypresses where it is warm and dry, and birches toward the cold. The game makes its
-sounds before the flight: the jets' drone, a note for each beacon, the rain's patter and the
+sounds before the flight: the jets' drone, a note for each ring of a chain, the rain's patter and the
 wash of the sea under a low flight.
 
-The flight keeps what it gains and stays pointless: a dive gives speed and a climb takes it,
-the wind (the clouds' drift) helps at the back, low over the sea the board skims faster in its
-own spray, a slope that faces the wind lifts it, as does the warm air over a town by day
-([`thermal.gdshader`](voxel-flyover/thermal.gdshader)), a beacon gives a push of speed as it is lit (anywhere along its beam, within 11 units of it: the
-push comes on in under a second and wears off over six; no key gives speed), and
-a flock of birds ([`bird.gdshader`](voxel-flyover/bird.gdshader)) falls in behind the board
-when it passes and carries it a little faster for a while; in rain or snow the birds close up
-and fly low. Nothing is flown through: the flight looks along its turn for the ground and the
-roofs of the next second and a half and climbs in time to clear them, and the camera is lifted
-over the roofs around it. Streaks of air show at speed
-([`speed.gdshader`](voxel-flyover/speed.gdshader)); the flyer's wash bends the crowns it
-passes low over.
+The board has one speed, 30 units a second, whatever it does: the mouse turns its heading,
+around and up and down, as it turns the view of a game played on foot, and no key steers or
+gives speed. Only a ring gives more: flown through, it adds 26, which wears off (to 1/e in two
+and a half seconds). The rings stand in chains (`chain_of`,
+[`ring.gdshader`](voxel-flyover/ring.gdshader)): seven plots of 300 units in ten have one, of
+three to six rings. The first hangs low over the ground and what stands on it; each next is 105
+units on and higher, up a way that steepens from 17 to 37 degrees and round a bend that
+tightens, and it is narrower, from 7 units of radius to 5. A chain's first ring is always open.
+The next opens as one is passed, beats faster as it closes, and closes after 2.8 seconds, which
+the boost just covers: a hand that aims at once and well arrives in 2.2 (a test pilot that
+turns 3 radians a second; one that sees each ring 0.6 s late loses most second rings).
+A ring flown through asleep, or missed, does nothing, and a chain let lapse starts again at its
+first ring. Each ring counts once in the score. A ring is a six-sided hoop of glass with three
+motes circling it, in its chain's colour, amber once passed; all of them are instances of one
+mesh, placed and lit by its shader, so they cost the renderer one thing to draw. A chain of six
+tops out 280 units over its first ring, under the height from which the board is faster the
+higher it is: the way off the planet. Low over the sea dolphins come up beside the board, and a
+flock of birds ([`bird.gdshader`](voxel-flyover/bird.gdshader)) falls in behind it when it
+passes; in rain or snow the birds close up and fly low. The ground is not flown through: the
+flight looks along its turn for the ground and the roofs of the next second and a half and
+raises the board's nose in time to clear them, and the camera is lifted over the roofs around
+it. Streaks of air show at a ring's speed ([`speed.gdshader`](voxel-flyover/speed.gdshader));
+the flyer's wash bends the crowns it passes low over.
 
 The board flies up to 420 units, over the low clouds and under the high layer. At sunrise and
 sunset the sky is in bands (fire at the horizon on the sun's side, rose over it, violet higher,
 and opposite the sun the earth's shadow under a rose band), the sun's disc is larger with a band
 of light along the horizon, and the clouds are lit from below
 ([`sky.gdshader`](voxel-flyover/sky.gdshader)). A landmark's still parts are one mesh
-(`Parts.bake`), as are a beacon's gem and its motes: the renderer's time goes by the number of
-things it draws.
+(`Parts.bake`): the renderer's time goes by the number of things it draws.
 
 While the game flies itself the camera shows the world: a round of 68 seconds of wide views
 behind, beside, above and ahead of the flyer that glide into one another, and five seconds
@@ -302,9 +312,10 @@ with detail its points cannot hold, and a range that rises over the horizon gain
 it nears. A grid's own detail gives way to the coarser grid's by the distance from the flyer, and by the flyer's height: 300 of its cells up a grid shows the next one's
 ground and is no longer drawn. Far grids draw the sea themselves, level, with its glint.
 
-A board that keeps climbing past the flight's own ceiling is faster the higher it is (twice as fast
-every 110 units over 420, in every direction), so space is a minute and a half away and the
-whole planet two. The haze thins with height, the sky's shader
+A board that climbs past 420 units is faster the higher it is (twice as fast every 110 units
+over 420, in every direction): the one place its speed changes without a ring, and by its
+height alone, as the scale of what it flies over changes. With its nose 45 degrees up space is
+under a minute from the ground. The haze thins with height, the sky's shader
 ([`sky.gdshader`](voxel-flyover/sky.gdshader)) takes the air a ray looks through from the
 camera's height (a closed form for an air that thins by 1/e every 7,000 units): the zenith goes
 dark first, the stars come out by day, and from outside the air is a rim around the planet, lit
@@ -325,23 +336,22 @@ whose anchor is near, anywhere on the planet.
 `--high HEIGHT` starts at a height and keeps it.
 
 [`terrain.gd`](voxel-flyover/terrain.gd) computes the world's function for the flight, with the
-same integer hash, so the board clears the ground the GPU draws and finds the beacons that float
-over it. The flight looks at the ground at some thirty places a frame, nearly all beside those of
+same integer hash, so the board clears the ground the GPU draws and its rings hang clear of it. The flight looks at the ground at some thirty places a frame, nearly all beside those of
 the frame before: it takes the height between the points of a lattice of 4 units, each computed
 once, and a lot's building once (`ground`, `tops`), which is 0.9 ms of script a frame where
-computing each place took 7, and a frame of 35 to 58 ms each time the look ahead came to a new lot. The corgi flies itself until Enter or a click takes the board, and until then the camera
-glides between five views of it, one of them the pelican's. The click also gives the game the
-pointer (the page captures it at a person's click alone), and the mouse then turns the view
-around the flyer while the keys steer, and the wheel or Z and X zoom; Escape gives the pointer
-and the board back, and the view and its zoom come round again. The player's view looks at the
-flyer from straight behind it. The one number on the screen is the score, the beacons lit.
-On a touchscreen nothing needs a key ([`touch.gd`](voxel-flyover/touch.gd)): the first touch
-takes the board, and the controls show from then on. A stick stands where the left thumb comes
-down on the lower left of the screen: sideways it steers, up it climbs (held, out of the air and
-on to where the planet is whole), down it dives. A finger anywhere else turns the view, two of
-them moving apart or together zoom, and the ring at the top right gives the board back. Their
-sizes go by the screen's shorter side, and a screen held upright takes its angle of view across,
-so the flyer and the land beside it stay in it. The game draws 1920 by 1080, which the page fits
+computing each place took 7, and a frame of 35 to 58 ms each time the look ahead came to a new lot. The corgi flies itself until a click takes the board (it makes for the rings too, and now and
+then gets a second one), and until then the camera glides between five views of it, one of them
+the pelican's. The click also gives the game the pointer (the page captures it at a person's
+click alone), and the mouse then steers: the heading turns 0.0025 radians for a pixel of its
+way. The player's camera looks the way the board is headed, from behind and over the flyer, so
+what the board will reach is in the middle of the screen, over the corgi's ears, where a small
+ring marks it ([`touch.gd`](voxel-flyover/touch.gd)). The wheel zooms; Escape gives the pointer
+and the board back. The one number on the screen is the score, the rings passed.
+On a touchscreen nothing needs a key: the first touch takes the board; then a finger's drag
+steers as the mouse does (a drag across the screen's shorter side as 1,080 pixels), two fingers
+moving apart or together zoom, and the ring with a cross at the top right gives the board back.
+Their sizes go by the screen's shorter side, and a screen held upright takes its angle of view
+across, so the flyer and the land beside it stay in it. The game draws 1920 by 1080, which the page fits
 into a screen that lies on its side; on a screen held upright it sizes its window to the screen,
 in its shape, with no more pixels than 1080 by 1920 (in Firefox no frame is drawn once a surface
 of `gpu@0` is sized again, so there the game needs a screen on its side: found 2026-11-17, not
@@ -349,7 +359,7 @@ looked into further).
 `-- --autopilot SECONDS` prints its frame rate, how even its frames were (median, 95th and 99th
 percentiles, maximum, and the frames of over twice and four times the median), the time a frame
 took the GPU and the renderer (asked over the flight's last second and a half, whose frames are
-not among those counted), the beacons it lit and what its frame shows.
+not among those counted), the rings it passed and what its frame shows.
 
 The world was blocks, then hexagonal columns, and is now smooth land. Its 1920 by 1080 frames take
 the GPU 5.2 to 5.5 ms by Godot's own measure and its renderer's thread 0.6 to 0.8 ms, and it draws
@@ -515,16 +525,16 @@ Both games passed in both browsers on 2026-11-13, the editor's log without an er
 
 [`test/godot-flyover-browser.mjs`](test/godot-flyover-browser.mjs) opens `godot-voxel-flyover` from
 the front page's list of applications, on a hardware adapter, in Chrome and Firefox: the game
-draws on `gpu@0`, a click captures the pointer and 300 pixels of the mouse turn the view 60
-degrees, Q leaves the shell, and a flight by itself through a morning reaches a beacon and
+draws on `gpu@0`, a click captures the pointer and 240 pixels of the mouse raise the board's
+nose 34 degrees, Q leaves the shell, and a flight by itself through a morning passes a ring and
 reports even frames and a frame with the sky along its top; it then leaves the planet by itself and
 reports a height of over 150,000 units, a chart whose anchor moved on the way, and a frame with
 the planet's colours.
 [`test/godot-flyover-touch-browser.mjs`](test/godot-flyover-touch-browser.mjs) plays it with
 fingers alone on a phone's screen (Chrome's touch events, Firefox's touch PointerEvents): held
-sideways, a tap takes the board, the thumb's stick climbs and turns it while a second finger
-drags the view, and two fingers apart zoom; held upright (in Chrome), a tap takes the board and the ring
-gives it back.
+sideways, a tap takes the board, a finger's drag up the screen raises its nose and it climbs,
+and two fingers apart zoom; held upright (in Chrome), a tap takes the board and the ring gives
+it back.
 
 [`test/godot-x11-browser.mjs`](test/godot-x11-browser.mjs) installs the editor and Lantern Drift
 with amy in `x11-desktop`'s xterm: the game and then the editor open windows of their own on the

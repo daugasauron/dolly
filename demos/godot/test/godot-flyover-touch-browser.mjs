@@ -1,9 +1,8 @@
 // Voxel Flyover's touch controls on gpu@0, on a real adapter, on the private X display DISPLAY
 // names: Chrome on Vulkan with its own touch events (CDP), or the installed Firefox with the touch
 // PointerEvents its touchscreen sends a page. A phone's screen held sideways: a tap takes the
-// board; the left thumb holds the stick up and to the right while another finger drags the view
-// round, so two fingers are down at once, and the board climbs and turns; two fingers moving
-// apart zoom in. Then, in Chrome, the phone upright: a tap takes the board and the ring at the top right
+// board; a finger's drag steers it as the mouse does, up the screen to raise its nose, and
+// the board climbs; two fingers moving apart zoom in. Then, in Chrome, the phone upright: a tap takes the board and the ring at the top right
 // gives it back. No key is pressed but the Q that ends each flight, whose report says what the
 // fingers did (the game counts its touches: none is the page's pointer).
 // Usage: node demos/godot/test/godot-flyover-touch-browser.mjs [chromium|firefox ...]
@@ -62,14 +61,14 @@ for (const name of browsers) {
       await page.keyboard.press("q");
       await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
       const report = await page.evaluate(() => __dolly.visibleTerminalText());
-      const [, helm, high, heading, zoom, touches] = report.match(/^FLYOVER helm (\d) high (-?\d+) heading (-?\d+) zoom ([\d.]+) touches (\d+)$/m) ?? [];
-      const [, view] = report.match(/^FLYOVER flown \d+ beacons \d+ view (-?\d+) -?\d+$/m) ?? [];
+      const [, helm, high, pitch, zoom, touches] = report.match(/^FLYOVER flown \d+ rings \d+ helm (\d) high (-?\d+) heading -?\d+ pitch (-?\d+) zoom ([\d.]+) touches (\d+)$/m) ?? [];
       assert.deepEqual(errors, []);
       await context.close();
-      return { helm: Number(helm), high: Number(high), heading: Number(heading), zoom: Number(zoom), touches: Number(touches), view: Number(view), report };
+      return { helm: Number(helm), high: Number(high), pitch: Number(pitch), zoom: Number(zoom), touches: Number(touches), report };
     }
 
-    // Sideways: the stick up and to the right for ten seconds, and meanwhile a second finger drags the view.
+    // Sideways: a finger drags a fifth of the screen's shorter side up, which raises the board's nose 31 degrees
+    // (a drag across that side steers as the mouse does in 1,080 pixels), and the board climbs for eight seconds.
     // A phone's screen in Chrome, a tablet's in Firefox, which at 844 by 390 with a touchscreen presents one frame of gpu@0 and
     // no more (it draws at that size without one, and with one at 1600 by 900: found 2026-11-17, not looked into).
     const sideways = await flight(name === "firefox" ? { width: 1180, height: 820 } : { width: 844, height: 390 }, async ({ fingers, at, unit, sleep, shot }) => {
@@ -77,20 +76,15 @@ for (const name of browsers) {
       await fingers([at(0.5, 0.5)]);
       await fingers([]);
       await sleep(500);
-      const thumb = at(0.2, 0.7), pushed = [thumb[0] + unit * 0.08, thumb[1] - unit * 0.1];
-      await fingers([thumb]);
-      for (let step = 1; step <= 5; step++) await fingers([[thumb[0] + unit * 0.016 * step, thumb[1] - unit * 0.02 * step]]);
-      await sleep(4000);
-      const gaze = at(0.7, 0.5);
-      await fingers([pushed, gaze]);
+      const finger = at(0.6, 0.7);
+      await fingers([finger]);
       for (let step = 1; step <= 10; step++) {
-        await fingers([pushed, [gaze[0] + unit * 0.04 * step, gaze[1]]]);
+        await fingers([[finger[0], finger[1] - unit * 0.02 * step]]);
         await sleep(40);
       }
-      await sleep(5000);
-      await shot("stick");
-      await fingers([pushed]);
       await fingers([]);
+      await sleep(8000);
+      await shot("climb");
       // Two fingers apart: closer in.
       const one = at(0.6, 0.5), two = at(0.7, 0.5);
       await fingers([one, two]);
@@ -100,9 +94,8 @@ for (const name of browsers) {
       }
       await sleep(600);
     });
-    // The stick's push right turns the board (its heading starts at 90 degrees), its push up climbs it from
-    // some 50 units, the drag turned the view, and the fingers apart zoomed in from 1.
-    assert.ok(sideways.helm === 1 && sideways.high > 120 && sideways.heading > 100 && Math.abs(sideways.view) >= 5 && sideways.zoom < 0.95 && sideways.touches >= 5,
+    // The drag raised the board's nose, it climbed from some 50 units, and the fingers apart zoomed in from 1.
+    assert.ok(sideways.helm === 1 && sideways.high > 120 && sideways.pitch >= 15 && sideways.zoom < 0.95 && sideways.touches >= 4,
       `fingers fly the board on a phone held sideways: ${sideways.report}`);
 
     // Upright (in Chrome: Firefox draws no frame once a surface of gpu@0 is sized again, which an upright screen needs): a tap
@@ -118,7 +111,7 @@ for (const name of browsers) {
       await sleep(1000);
     });
     assert.ok(upright.helm === 0 && upright.touches === 2, `the ring gives the board back on a phone held upright: ${upright.report}`);
-    console.log(name, `sideways: high ${sideways.high} heading ${sideways.heading} view ${sideways.view} zoom ${sideways.zoom} touches ${sideways.touches}; upright: touches ${upright.touches}`);
+    console.log(name, `sideways: high ${sideways.high} pitch ${sideways.pitch} zoom ${sideways.zoom} touches ${sideways.touches}; upright: touches ${upright.touches}`);
     console.log(`godot-flyover-touch: ${name} passed`);
   } finally {
     clearTimeout(deadline);

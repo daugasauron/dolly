@@ -97,13 +97,14 @@ static func bake(root: Node3D, apart: Array = []) -> ArrayMesh:
 			continue
 		var arrays := arrays_of(part.mesh as PrimitiveMesh)
 		var first := vertices.size()
-		var turned := place.basis.inverse().transposed()
-		var colour := Color(paint.albedo_color, 1.0 if paint.emission_enabled else 0.0)
-		for vertex: Vector3 in arrays[Mesh.ARRAY_VERTEX]:
-			vertices.append(place * vertex)
-			colours.append(colour)
-		for normal: Vector3 in arrays[Mesh.ARRAY_NORMAL]:
-			normals.append((turned * normal).normalized())
+		# A part's points and normals are moved all at once; the normals' lengths are left to the
+		# fragment stage, which makes them one.
+		vertices.append_array(place * (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array))
+		normals.append_array(Transform3D(place.basis.inverse().transposed(), Vector3.ZERO) * (arrays[Mesh.ARRAY_NORMAL] as PackedVector3Array))
+		var colour := PackedColorArray()
+		colour.resize(vertices.size() - first)
+		colour.fill(Color(paint.albedo_color, 1.0 if paint.emission_enabled else 0.0))
+		colours.append_array(colour)
 		for index: int in arrays[Mesh.ARRAY_INDEX]:
 			indices.append(first + index)
 		part.get_parent().remove_child(part)
