@@ -21,6 +21,7 @@ seaborn
 python-dateutil
 openblas
 ffmpeg
+blender
 rts-arena
 rust-tools
 zero-ad

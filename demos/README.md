@@ -7,6 +7,7 @@ README. Demos may use each other; the core never uses a demo.
 - [classicube](classicube/README.md): ClassiCube block world with Pi agents.
 - [closed-source-agent](closed-source-agent/README.md): Claude Code, downloaded from npm into the session after a notice.
 - [cmake](cmake/README.md): CMake and libuv, a base for C/C++ ports.
+- [blender](blender/README.md): Blender 5.3 headless, built inside Dolly by its own CMake: `blender -b` with its Python and Cycles on the CPU, as a package.
 - [codex](codex/README.md): the Codex CLI built from Rust source inside Dolly.
 - [deep-hedger](deep-hedger/README.md): an option-pricing model fitted to a live option chain in Mojo kernels on WebGPU, behind an ImGui program; its theory.
 - [emacs](emacs/README.md): GNU Emacs for the terminal, as a package and an application.

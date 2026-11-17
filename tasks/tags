@@ -14,6 +14,7 @@ architecture, Where a responsibility lives among kernel, modules and page
 art, Look of the Slopyard world
 audio, Sound playback and capture
 audit, An audit's finding, or a task to audit something
+blender, The Blender port
 bootstrap, What is still built outside Dolly, and building it inside
 boundary, The browser host boundary and its trusted code
 browser, Behaviour particular to a browser or its engine

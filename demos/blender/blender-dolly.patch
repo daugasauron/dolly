@@ -1,0 +1,46 @@
+--- a/intern/cycles/util/stack_allocator.h
++++ b/intern/cycles/util/stack_allocator.h
+@@ -24,9 +24,11 @@
+ 
+   /* Allocator construction/destruction. */
+ 
+-  StackAllocator() : pointer_(0), use_stack_(true) {}
++  /* Dolly: the storage inside the allocator is not used, since libc++ grows a vector through a
++   * copy of its allocator, which a pointer into another copy does not survive. */
++  StackAllocator() : pointer_(0), use_stack_(false) {}
+ 
+-  StackAllocator(const StackAllocator & /*unused*/) : pointer_(0), use_stack_(true) {}
++  StackAllocator(const StackAllocator & /*unused*/) : pointer_(0), use_stack_(false) {}
+ 
+   template<class U>
+   StackAllocator(const StackAllocator<SIZE, U> & /*unused*/) : pointer_(0), use_stack_(false)
+--- a/source/blender/blenlib/intern/expr_pylike_eval.cc
++++ b/source/blender/blenlib/intern/expr_pylike_eval.cc
+@@ -28,6 +28,15 @@
+ 
+ #include <cctype>
+ #include <cfenv>
++
++/* C defines these only where the implementation has the flags: WebAssembly has none, so a
++ * division by zero is not reported there, its result is infinite or not a number. */
++#ifndef FE_DIVBYZERO
++#  define FE_DIVBYZERO 0
++#endif
++#ifndef FE_INVALID
++#  define FE_INVALID 0
++#endif
+ #include <cmath>
+ #include <cstddef>
+ #include <cstdlib>
+--- a/source/blender/blenlib/intern/storage.cc
++++ b/source/blender/blenlib/intern/storage.cc
+@@ -14,7 +14,8 @@
+ 
+ #include <sys/stat.h>
+ 
+-#if defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__) || defined(__HAIKU__)
++#if defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__) || defined(__HAIKU__) || \
++    defined(__dolly__)
+ /* Other modern unix OS's should probably use this also. */
+ #  include <sys/statvfs.h>
+ #  define USE_STATFS_STATVFS

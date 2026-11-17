@@ -1,0 +1,176 @@
+DOLLY 8
+TOOLCHAIN blender-deps
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST input@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+
+# Build-only: the libraries Blender 5.3.0 links beyond Dolly's packages, each
+# from the archive Blender pins (build_files/build_environment/cmake/versions.cmake
+# there; build-sources.txt here), unchanged but for OpenImageIO's patch, built
+# by its own CMake project and installed in /usr.
+# - Everything is compiled with -pthread: Blender is, and OpenEXR's call_once
+#   links only so.
+# - ccfilter runs the compiler without the options upstream passes to every
+#   Clang and Dolly's cc refuses; its source says which and why.
+# - FreeType, {fmt} and libjpeg are built here though Dolly has packages of
+#   them: Blender's fonts are WOFF2, which FreeType reads with Brotli; it uses
+#   {fmt} 12 (the package is 7); it takes libjpeg's boolean as an integer,
+#   which it is in libjpeg-turbo.
+# - binaryen is for Blender's link (Dollyfile-blender).
+FROM /demos/cmake/Dollyfile-cmake-build 80318c713e588e7871dd624ebf404a7580518af49692c8b5a27d909fe22cd8f3
+INSTALL /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
+INSTALL /Dollyfile-gzip cef69a22c3b9f73889f4c819fcfaee2fb4487474ea4efa364117b8796465d1a4
+INSTALL /demos/tools/Dollyfile-libpng e366774feb4f3c2d01536c2b954f7f18399301df90111fbf75f3b86e6b5a5b2b
+INSTALL /demos/tools/Dollyfile-zstd 61db5f6286bfd76d12631da5259b319f11f6a77f1441644bc23274cd736f26ef
+INSTALL /demos/tools/Dollyfile-xz 096ffdfc8b9a37b1bc6cab494bce2aac391f3b598e402be8a28936986a7dfa2a
+INSTALL /demos/tools/Dollyfile-bzip2 9ba0544ea6eb6e96c7f58f8fade57c3ea969e4996a1f0d0fc8b09af8dd7f723a
+INSTALL /demos/tools/Dollyfile-sqlite d79438270b1af3866a2fc671d43f461a0cae2a436b7f1763554f4493a1bae2ed
+INSTALL /demos/tools/Dollyfile-binaryen 18aec5d267008348dfb6b7d9dbf61a559d72c62cde0f56bb2871eca15045e4db
+INSTALL /demos/python/Dollyfile-python 8833885bddfe56551862fba3d762153089994aa977f0d3c91110cebe4393bcc7
+# What the python package links and does not bring: libpython's modules need them.
+INSTALL /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6e458431e
+INSTALL /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL patch
+REQUIRES TOOL python3
+REQUIRES TOOL wasm-opt
+REQUIRES LIB z
+REQUIRES LIB png16
+REQUIRES LIB zstd
+REQUIRES LIB lzma
+REQUIRES LIB bz2
+REQUIRES LIB sqlite3
+
+SOURCE /dist/static/blender/deps.tar.gz b5d97a8451e787f78573bab5fbc9220fb87835d8f4d9dc78db1f556be56dc393 /tmp/blender-deps.tar.gz
+SLOP gzip -dc /tmp/blender-deps.tar.gz | tar -xf - -C /
+SLOP rm /tmp/blender-deps.tar.gz
+SLOP cc -O2 /tmp/blender-deps/ccfilter.c -o /usr/bin/ccfilter
+EXPORTS TOOL ccfilter
+
+# build NAME [cmake options]: configures /tmp/blender-deps/NAME for Dolly,
+# builds it at four jobs, installs it and removes its objects.
+FILE /tmp/blender-deps/build
+    name=$1
+    shift
+    cmake -S "/tmp/blender-deps/$name" -B /tmp/blender-deps/objects -DCMAKE_SYSTEM_NAME=Dolly \
+      -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib \
+      -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+      -DCMAKE_C_FLAGS=-pthread -DCMAKE_CXX_FLAGS=-pthread \
+      -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccfilter -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccfilter "$@" &&
+    cmake --build /tmp/blender-deps/objects -j4 &&
+    cmake --install /tmp/blender-deps/objects &&
+    rm -rf /tmp/blender-deps/objects
+
+SLOP time sh /tmp/blender-deps/build brotli -DBROTLI_DISABLE_TESTS=ON
+SLOP time sh /tmp/blender-deps/build freetype -DFT_DISABLE_BZIP2=ON -DFT_DISABLE_HARFBUZZ=ON -DFT_REQUIRE_BROTLI=ON \
+  -DFT_REQUIRE_ZLIB=ON -DFT_REQUIRE_PNG=ON
+# libjpeg-turbo resolves a relative library directory against the build's.
+SLOP time sh /tmp/blender-deps/build libjpeg-turbo -DCMAKE_INSTALL_LIBDIR=/usr/lib -DWITH_SIMD=OFF -DENABLE_SHARED=OFF -DENABLE_STATIC=ON -DWITH_TURBOJPEG=OFF
+SLOP time sh /tmp/blender-deps/build fmt -DFMT_TEST=OFF -DFMT_DOC=OFF
+SLOP time sh /tmp/blender-deps/build imath -DBUILD_TESTING=OFF
+SLOP time sh /tmp/blender-deps/build libdeflate -DLIBDEFLATE_BUILD_SHARED_LIB=OFF -DLIBDEFLATE_BUILD_GZIP=OFF
+SLOP time sh /tmp/blender-deps/build openjph -DOJPH_BUILD_TESTS=OFF -DOJPH_ENABLE_TIFF_SUPPORT=OFF -DOJPH_BUILD_EXECUTABLES=OFF
+SLOP time sh /tmp/blender-deps/build openexr -DBUILD_TESTING=OFF -DOPENEXR_BUILD_PYTHON=OFF -DOPENEXR_INSTALL_TOOLS=OFF \
+  -DOPENEXR_BUILD_TOOLS=OFF -DOPENEXR_BUILD_EXAMPLES=OFF -DOPENEXR_INSTALL_DOCS=OFF -DBUILD_WEBSITE=OFF
+# libtiff's CMake package names a Deflate::Deflate target it does not export: zlib alone.
+SLOP time sh /tmp/blender-deps/build tiff -Dlibdeflate=OFF -Dlzma=OFF -Djbig=OFF -Dzstd=OFF -Dwebp=OFF -Dlerc=OFF \
+  -Dtiff-tests=OFF -Dtiff-tools=OFF -Dtiff-contrib=OFF -Dtiff-docs=OFF -Dsphinx=OFF -Dtiff-opengl=OFF
+SLOP time sh /tmp/blender-deps/build robin-map
+SLOP time sh /tmp/blender-deps/build pugixml
+# libpython3.14.a carries CPython's own expat, which renames its API
+# (pyexpatns.h) but not two internal symbols: this one renames those.
+SLOP time sh /tmp/blender-deps/build expat -DEXPAT_BUILD_DOCS=OFF -DEXPAT_BUILD_EXAMPLES=OFF -DEXPAT_BUILD_TESTS=OFF \
+  -DEXPAT_BUILD_TOOLS=OFF -DEXPAT_SHARED_LIBS=OFF \
+  "-DCMAKE_C_FLAGS=-pthread -Dg_reparseDeferralEnabledDefault=expat_reparseDeferralEnabledDefault -D_INTERNAL_trim_to_complete_utf8_characters=expat_trim_to_complete_utf8_characters"
+SLOP time sh /tmp/blender-deps/build yaml-cpp -DYAML_CPP_BUILD_TESTS=OFF -DYAML_CPP_BUILD_TOOLS=OFF -DYAML_CPP_BUILD_CONTRIB=OFF
+SLOP time sh /tmp/blender-deps/build minizip-ng -DMZ_FETCH_LIBS=OFF -DMZ_LIBCOMP=OFF -DMZ_PKCRYPT=OFF -DMZ_WZAES=OFF \
+  -DMZ_OPENSSL=OFF -DMZ_SIGNING=OFF -DMZ_PPMD=OFF -DMZ_LZMA=OFF -DMZ_ZSTD=OFF -DMZ_BZIP2=OFF -DMZ_ICONV=OFF \
+  -DMZ_ZLIB=ON -DMZ_ZLIB_FLAVOR=zlib
+# pystring is one source file with a Makefile for libtool.
+SLOP CWD /tmp/blender-deps/pystring c++ -O2 -pthread -c pystring.cpp -o pystring.o
+SLOP CWD /tmp/blender-deps/pystring ar rcs /usr/lib/libpystring.a pystring.o
+SLOP mkdir -p /usr/include/pystring
+SLOP cp /tmp/blender-deps/pystring/pystring.h /usr/include/pystring/pystring.h
+SLOP time sh /tmp/blender-deps/build opencolorio -DOCIO_BUILD_APPS=OFF -DOCIO_BUILD_PYTHON=OFF -DOCIO_BUILD_NUKE=OFF \
+  -DOCIO_BUILD_JAVA=OFF -DOCIO_BUILD_DOCS=OFF -DOCIO_BUILD_TESTS=OFF -DOCIO_BUILD_GPU_TESTS=OFF -DOCIO_USE_SIMD=OFF \
+  -DOCIO_INSTALL_EXT_PACKAGES=NONE -Dyaml-cpp_VERSION=0.8.0
+# OpenImageIO with its tools: Blender's build names the oiiotool target.
+SLOP CWD /tmp/blender-deps/openimageio patch -p1 -i /tmp/blender-deps/openimageio-dolly.patch
+SLOP time sh /tmp/blender-deps/build openimageio -DUSE_PYTHON=OFF -DOIIO_BUILD_TOOLS=ON -DOIIO_BUILD_TESTS=OFF \
+  -DBUILD_TESTING=OFF -DBUILD_DOCS=OFF -DINSTALL_DOCS=OFF -DSTOP_ON_WARNING=OFF -DLINKSTATIC=ON \
+  -DUSE_EXTERNAL_PUGIXML=ON -DUSE_TBB=OFF -DUSE_FREETYPE=OFF -DUSE_QT=OFF -DUSE_OPENCV=OFF -DUSE_FFMPEG=OFF \
+  -DUSE_NUKE=OFF -DUSE_OPENVDB=OFF -DUSE_GIF=OFF -DUSE_LIBRAW=OFF -DUSE_LIBHEIF=OFF -DUSE_PTEX=OFF -DUSE_WEBP=OFF \
+  -DUSE_OPENJPEG=OFF -DUSE_JXL=OFF -DUSE_DCMTK=OFF -DUSE_R3DSDK=OFF -DUSE_OPENGL=OFF \
+  -DOpenImageIO_BUILD_MISSING_DEPS=none
+SLOP time sh /tmp/blender-deps/build eigen -DBUILD_TESTING=OFF -DEIGEN_BUILD_DOC=OFF -DEIGEN_BUILD_BLAS=OFF \
+  -DEIGEN_BUILD_LAPACK=OFF -DEIGEN_BUILD_DEMOS=OFF
+SLOP time sh /tmp/blender-deps/build onetbb -DTBB_TEST=OFF -DTBBMALLOC_BUILD=OFF -DTBB_STRICT=OFF \
+  -DTBB_DISABLE_HWLOC_AUTOMATIC_SEARCH=ON -DTBB_EXAMPLES=OFF
+
+# Epoxy's OpenGL dispatch alone (no EGL, GLX or X11), as its meson.build
+# builds it: its generator on the registry, then the two sources. Blender's
+# build requires the library even with no OpenGL backend.
+SLOP mkdir -p /tmp/blender-deps/libepoxy/build/epoxy /usr/include/epoxy
+SLOP CWD /tmp/blender-deps/libepoxy python3 src/gen_dispatch.py --header --no-source --outputdir=build registry/gl.xml
+SLOP CWD /tmp/blender-deps/libepoxy python3 src/gen_dispatch.py --source --no-header --outputdir=build registry/gl.xml
+FILE /tmp/blender-deps/libepoxy/build/config.h
+    #define ENABLE_GLX 0
+    #define ENABLE_EGL 0
+    #define ENABLE_X11 0
+    #define EPOXY_PUBLIC __attribute__((visibility("default"))) extern
+SLOP cp /tmp/blender-deps/libepoxy/build/gl_generated.h /tmp/blender-deps/libepoxy/build/epoxy/gl_generated.h
+SLOP CWD /tmp/blender-deps/libepoxy cc -O2 -pthread -Ibuild -Iinclude -Isrc -c src/dispatch_common.c -o build/dispatch_common.o
+SLOP CWD /tmp/blender-deps/libepoxy cc -O2 -pthread -Ibuild -Iinclude -Isrc -c build/gl_generated_dispatch.c -o build/gl_generated_dispatch.o
+SLOP CWD /tmp/blender-deps/libepoxy ar rcs /usr/lib/libepoxy.a build/dispatch_common.o build/gl_generated_dispatch.o
+SLOP CWD /tmp/blender-deps/libepoxy cp include/epoxy/gl.h include/epoxy/common.h build/gl_generated.h /usr/include/epoxy
+
+# What a program that links libpython3.14.a needs beside it: CPython builds
+# its HACL archives and its own expat there and installs neither. Its Makefile
+# makes them in the prepared tree the python package was built from.
+SOURCE /dist/static/python/cpython.tar.gz 4d96d70f2c8762ad6e5b7cca5450b342df94586b45d7ad30e0f46c9319483501 /tmp/cpython.tar.gz
+SLOP gzip -dc /tmp/cpython.tar.gz | tar -xf - -C /
+SLOP rm /tmp/cpython.tar.gz
+SLOP CWD /usr/src/python time make -j4 Modules/expat/libexpat.a Modules/_hacl/libHacl_Hash_MD5.a \
+  Modules/_hacl/libHacl_Hash_SHA1.a Modules/_hacl/libHacl_Hash_SHA2.a Modules/_hacl/libHacl_Hash_SHA3.a \
+  Modules/_hacl/libHacl_Hash_BLAKE2.a Modules/_hacl/libHacl_HMAC.a
+SLOP mkdir -p /usr/lib/python3.14/embed
+SLOP cp /usr/src/python/Modules/expat/libexpat.a /usr/lib/python3.14/embed/libpyexpat.a
+SLOP CWD /usr/src/python/Modules/_hacl cp libHacl_Hash_MD5.a libHacl_Hash_SHA1.a libHacl_Hash_SHA2.a libHacl_Hash_SHA3.a \
+  libHacl_Hash_BLAKE2.a libHacl_HMAC.a /usr/lib/python3.14/embed
+SLOP rm -rf /usr/src/python /tmp/blender-deps
+# The interpreter links and runs with the options Dollyfile-blender gives
+# Blender's link, an hour of compiling before that link.
+FILE /tmp/embed.c
+    #include <Python.h>
+    int main(void) {
+      Py_Initialize();
+      int status = PyRun_SimpleString("import sqlite3, hashlib, pyexpat, bz2, lzma, urllib.request");
+      Py_Finalize();
+      return status != 0;
+    }
+SLOP cc -pthread /tmp/embed.c -I/usr/include/python3.14 -o /tmp/embed -lpython3.14 --dolly-cast-emulation \
+  -lffi -llzma -lbz2 -lsqlite3 -lcurl -L/usr/lib/python3.14/embed -lpyexpat -lHacl_HMAC -lHacl_Hash_BLAKE2 \
+  -lHacl_Hash_MD5 -lHacl_Hash_SHA1 -lHacl_Hash_SHA2 -lHacl_Hash_SHA3 -lz -lm
+SLOP /tmp/embed
+
+FOLDER /usr/include
+FOLDER /usr/lib
+FOLDER /usr/share/OpenColorIO
+FOLDER /usr/share/eigen3
+# Each library's licence files, which the archive puts there for the blender package.
+FOLDER /usr/share/licenses/blender
+# OpenImageIO's CMake package checks that each of its tools is there.
+EXPORTS TOOL oiiotool
+EXPORTS TOOL iconvert
+EXPORTS TOOL idiff
+EXPORTS TOOL igrep
+EXPORTS TOOL iinfo
+EXPORTS TOOL maketx
+EXPORTS TOOL testtex
+
+ENTRY /bin/foreground -i /bin/slop
