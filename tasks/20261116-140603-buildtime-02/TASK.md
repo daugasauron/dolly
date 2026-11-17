@@ -29,6 +29,9 @@ builder is not an image input.
   4; the four heaviest that can build at once peaked at 34.9 GiB together. `DOLLY_IMAGE_JOBS`
   still overrides it.
 
+- The five recipe comments that gave the kernel's old 32-process cap as the reason for `-j4` say
+  it is `nproc`'s count (`4202ce360`; the jobs are unchanged).
+
 The round: build the catalog without `DOLLY_IMAGE_JOBS` (the count is the default, 4, in the
 `MemoryMax=36G` scope), then put its wall time and the peak lines
 (`grep "peak memory" catalog-1.log`) in this task against 5 h 49 min at 2. The round scripts
