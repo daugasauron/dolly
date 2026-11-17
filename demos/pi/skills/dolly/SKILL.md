@@ -153,8 +153,8 @@ to the running session, and `cc` links them at once.
   `sdl2-mixer`. `<dolly/raylib.h>` (`-ldolly-raylib`) serves a program that holds
   the display itself.
 - Others, such as `box3d` (3D physics), `freetype`, `libpng`, `libjpeg` and
-  `sqlite`: `amy files NAME` lists their headers, archives and any `.pc`
-  file, which names the flags (`pkg-config` comes with `amy install pkgconf`).
+  `sqlite`: once installed, `amy files NAME` lists their headers, archives and
+  any `.pc` file, which names the flags (`pkg-config` comes with `amy install pkgconf`).
 - Fonts for a program's text are in `/usr/share/fonts`: `IosevkaTerm-SemiBold.ttf`
   (the terminal's, monospace), `DroidSansFallback.ttf` (CJK) and
   `NotoEmoji-Regular.ttf`; FreeType and raylib's `LoadFontEx` read them.

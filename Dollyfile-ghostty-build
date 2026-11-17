@@ -5,9 +5,9 @@ REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST http@0
 
-FROM /v0.1.7/Dollyfile-zig-build e287be4f96fdafe2bb518e77978e94cbc5b27d694e05b17cd2e665c19f50090c
-INSTALL /v0.1.7/Dollyfile-libdolly-display dca7d4755a50b8dbaa6abc4fd5b8fa34cccbb6400a4fd167d90e9a0f1bcee9ad
-INSTALL /v0.1.7/Dollyfile-libdolly-input 80f7d6d7b775fa542711f6d0205280a3d3f4c5a68eb0f3223f81fc2fe64df08e
+FROM /v0.1.7/Dollyfile-zig-build 3edde396fa82038346fee4b387ebae2b500d54ced8a94d67858f70670e129422
+INSTALL /v0.1.7/Dollyfile-libdolly-display 54d721d6cb0b447f3341408b6e759a90b4b252ebc129499db89ea6f5cdd0e009
+INSTALL /v0.1.7/Dollyfile-libdolly-input ccaac99ff384f08f2f16647b3375dbabc640d52645134d37fe94da003e30d90e
 
 REQUIRES HEADER libc
 REQUIRES HEADER display

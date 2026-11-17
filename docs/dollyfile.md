@@ -184,7 +184,8 @@ mounted, and reads no other version's.
   packages the package itself installed: the record lists the packages an
   image or session holds. It holds a recipe at one pin: an `INSTALL` of a
   recipe it holds at another pin fails, naming the recipe, in a session as
-  in a build.
+  in a build. Where the row is kept, its files are listed in
+  `/etc/dolly/files/NAME` (below).
 - `USE` is a package recipe's `INSTALL` of what only its build needs, such as
   a library its program links statically or the tools that build it: the
   package and the ones its record names are installed as by `INSTALL`, and
@@ -385,11 +386,12 @@ EXPORTS TOOL rg
   admits a GET of it, as a request of the guest's, and passes only packages
   built for the page's runtime: a pin the server does not publish, or
   publishes for another, fails by name and installs nothing.
-- `amy install` then says what it added (files, bytes and the commands now in
-  `/bin` or `/usr/bin`) and keeps the list in `/etc/dolly/files/NAME`, one
-  `SIZE PATH` line per file or link the snapshot holds outside `/etc/dolly`,
-  Dolly's own record of an image. `amy files NAME` prints that list, or, for a
-  package no session installed, reads it from the release's snapshot.
+- An `INSTALL` row the filesystem keeps, a build's or a session's, records the
+  package's files in `/etc/dolly/files/NAME`, one `SIZE PATH` line per file or
+  link the snapshot holds outside `/etc/dolly`, Dolly's own record of an image.
+  `amy install` then says what it added (files, bytes and the commands now in
+  `/bin` or `/usr/bin`), and `amy files NAME` prints the list; a package not
+  installed has none.
 - Installed files are session files, within the 8 GiB a save holds. Exported
   variables apply when the session is next loaded; the current shell keeps its
   environment ([sessions](sessions.md)).

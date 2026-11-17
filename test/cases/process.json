@@ -13,6 +13,7 @@
     "process-dispositions.c": "test/fixtures/process-dispositions.c",
     "process-interrupt.c": "test/fixtures/process-interrupt.c",
     "process-exec.c": "test/fixtures/process-exec.c",
+    "process-serial-threads.c": "test/fixtures/process-serial-threads.c",
     "process-wrong-import.wasm": "build/process-wrong-import.wasm"
   },
   "steps": [
@@ -45,6 +46,11 @@
     {
       "why": "A handler that leaves by siglongjmp or longjmp is over: the mask follows sigsetjmp, and later signals arrive.",
       "script": "timeout 30 /tmp/dolly-process-test/jump",
+      "status": 0
+    },
+    {
+      "why": "Built without -pthread, a program is one thread: a lock it holds is busy, a timed wait lasts to its deadline, a barrier of two cannot be.",
+      "script": "timeout 30 /tmp/dolly-process-test/serial-threads",
       "status": 0
     },
     {

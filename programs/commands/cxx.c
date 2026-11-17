@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include <dolly/toolchain.h>
+#include "toolchain.h"
 
 int main(int argc, char **argv) {
   // As cc's: Clang's banner for `c++ -v` or `c++ --version` alone.

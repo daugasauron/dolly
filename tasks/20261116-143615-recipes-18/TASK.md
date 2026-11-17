@@ -1,17 +1,19 @@
 # In tmux-panes, pi-phone and closed-source-agent amy refuses a third of the packages, telling the session to add REQUIRES HOST
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 90
 - TAGS: audit,amy,0.1.8
 
 From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`).
 
-## State (2026-11-16)
+## State (2026-11-17)
 
-Counted from the catalog and read from the engine; not run in those three images (their ENTRY
-starts tmux, Pi or the agent's key prompt, which the audit's driver does not reach). Nothing
-changed yet.
+Fixed on `ws/seed` (`7079a2d21`; the engine is in the seed: every image rebuilds). In a live
+install the engine knows it is a session (`Engine.live`, `install_live`); without `nena@0` the
+refusal names the modules, says the image does not declare them and cannot enable them, and names
+`default`; a build still says `add REQUIRES HOST M`, and a session with `nena@0` `nena enable M`.
+The same engine answers in `pi-phone` and `closed-source-agent`.
 
 ## Found
 
@@ -46,3 +48,18 @@ enable it, and name an image that can (`default`).
 
 `amy install python` in `tmux-panes` is refused with that message, and `amy-browser`'s refusal
 case checks it.
+
+## Closed (2026-11-17)
+
+On the rebuilt seed (image inputs `58c25885…`), `amy install python` typed into a pane of
+`tmux-panes` is refused, nothing installed, Chromium and Firefox
+(`work/audit-1116-evidence/core/fix-seed/tmux-refusal-chromium.log`, `-firefox.log`):
+
+```
+dollyfile: /v0.1.7/demos/python/Dollyfile-python needs dso@0 and threads@0, which this image does
+not declare and, without nena@0, cannot enable: install it in an image with nena@0, such as default
+amy: python: not installed
+```
+
+`amy-browser`'s `amy refusal` case (`system`) checks that the refusal names the modules and
+`default`, Chromium and Firefox (`amy-subset-1.log`).

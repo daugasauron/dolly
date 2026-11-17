@@ -1227,7 +1227,7 @@ static int create_through_link(int directory, const char *path, int flags, int d
       ? snprintf(named, sizeof(named), "%s", target)
       : snprintf(named, sizeof(named), "%.*s/%s", (int)(slash - path), path, target);
   if ((size_t)written >= sizeof(named)) return -ENAMETOOLONG;
-  const int descriptor = openat(directory, named, flags, 0666);
+  const int descriptor = openat(directory, named, flags, 0777);
   if (descriptor >= 0) return descriptor;
   return errno == ENOENT ? create_through_link(directory, named, flags, depth - 1) : -errno;
 }
@@ -2201,7 +2201,10 @@ static int64_t path_open_packet(dolly_kernel_process *process, uintptr_t request
   if (result == 0 && guest_fd < 0) result = guest_fd;
   int kernel_fd = -1;
   if (result == 0) {
-    kernel_fd = openat(directory, path, flags, 0666);
+    /* A process makes a file with the mode an image's is restored with
+     * (fs-record.h): modes are not permissions, and programs read 0755 as
+     * a command, as SCons does to find a compiler. */
+    kernel_fd = openat(directory, path, flags, 0777);
     if (kernel_fd < 0 && errno == ENOENT && (flags & O_CREAT) != 0)
       kernel_fd = create_through_link(directory, path, flags, 40);
     else if (kernel_fd < 0) kernel_fd = -errno;

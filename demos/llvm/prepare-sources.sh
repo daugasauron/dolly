@@ -58,6 +58,7 @@ if has_image llvm-cc; then
   # The seed's driver and the contract digests npm run build:runtime generates.
   copy_static programs/compiler.cpp llvm/compiler.cpp
   copy_static programs/compiler-main.c llvm/compiler-main.c
+  copy_static programs/commands/toolchain.h llvm/toolchain.h
   copy_static build/generated/dolly-process-abi-digest.h llvm/dolly-process-abi-digest.h
   copy_static build/generated/dolly-kernel-plugin-abi-digest.h llvm/dolly-kernel-plugin-abi-digest.h
 fi

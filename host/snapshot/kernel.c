@@ -415,7 +415,7 @@ static int restore_open_record(void) {
     return append_record(&restore.directories, restore.path, DOLLY_SESSION_DIRECTORY, 0, restore.modified);
   }
   if (restore.kind == DOLLY_SESSION_FILE) {
-    restore.descriptor = open(restore.path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    restore.descriptor = open(restore.path, O_WRONLY | O_CREAT | O_TRUNC, 0777);
     return restore.descriptor < 0 ? -1 : 0;
   }
   restore.target_used = 0;

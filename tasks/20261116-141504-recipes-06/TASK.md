@@ -1,6 +1,6 @@
 # After 64 package snapshots a page refuses every amy install with Quota exceeded, and does not say a reload resets it
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 220
 - TAGS: audit,amy,packages,0.1.8
 
@@ -23,9 +23,13 @@ succeed, 79 rows recorded (Chromium, `fix-amy/quota-chromium.jsonl`); with trans
 to 2 by a source override, the third install fails with Quota exceeded and the status line shows the
 notice, Chromium and Firefox (`fix-amy/scripts/quota-notice.mjs`, `quota-notice.log`).
 
-For the compiler round (amy.c is in the seed): in `channel()`, on `-EDQUOT` print what to do instead
-of `strerror` ("amy: NAME: this page has handed over its package snapshots: save the session and
-reload the page for more"); the 64 KiB `MAX_INDEX_BYTES` (about 318 packages) is not reached yet.
+amy's part, on `ws/seed` (`7079a2d21`; amy.c is in the seed): on `-EDQUOT` `channel()` says "amy:
+NAME: this page has handed over all the package snapshots a page load gives: save the session
+(Ctrl+Shift+S) and reload the page to install more" instead of `strerror`. `amy-browser`'s new
+`amy quota` case (the page's quota set to 2 by a source override) checks that the third install is
+refused naming the reload, Chromium and Firefox, on the rebuilt seed
+(`work/audit-1116-evidence/core/fix-seed/amy-subset-2.log`). The 64 KiB `MAX_INDEX_BYTES` (about
+318 packages) is not reached: the index is 34 KB for 165 packages.
 
 ## Found
 
@@ -78,3 +82,10 @@ Evidence: `work/audit-1116-evidence/recipes/quota.jsonl` (case `quota`, `cases-q
 In one `default` session, the 70 installs of `cases-quota.json` succeed (the whole index does not
 fit a session's 8 GiB), and the refusal past the quota names the reload; `test/amy-browser.mjs`
 covers the message.
+
+## Closed (2026-11-17)
+
+The quota is 1024 snapshots a page load (`fix/amy`, `d5216e1b5`, in `integrate/0.1.8`): the 70
+installs of `cases-quota.json` succeed in one `default` session (`fix-amy/quota-chromium.jsonl`),
+and past it the page and amy name the reload (`fix-amy/quota-notice.log`; `amy quota` in
+`test/amy-browser.mjs`, `ws/seed` `7079a2d21`, Chromium and Firefox).

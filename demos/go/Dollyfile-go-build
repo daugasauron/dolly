@@ -5,5 +5,5 @@ REQUIRES HOST http@0
 
 # The base of Go builds: the seed's toolchain with the go package, which holds
 # Go's own build, installed over it.
-FROM /v0.1.7/demos/go/Dollyfile-go-sdk 8855f573d118db847be08b9ff3d0818d8a1be25ac373944ed59902dd6166f536
-INSTALL /v0.1.7/demos/go/Dollyfile-go a71b5ffa682c8af1211a0f2b9b9838b1dd139ece3de6f114fa959affa1855442
+FROM /v0.1.7/demos/go/Dollyfile-go-sdk 029011f55fa41e9957bdd59a967d63c05906a476124023b1f1453825f2e896c8
+INSTALL /v0.1.7/demos/go/Dollyfile-go b46d64f87d0c2edefd24a5acc8eae0141787f9e5fc308c66027e910c848f9958
