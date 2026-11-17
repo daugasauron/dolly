@@ -23,7 +23,9 @@ Built in `work/packages`: `gtk-build` over the packages (371,121,626 bytes, 1,65
 Meson found expat 2.8.5 and gperf, GTK's libtiff-4 4.7.2, libjpeg 3.2.0 and the five X libraries,
 libepoxy Mesa's `egl.pc`; its check links and runs a GTK program.
 
-`ghostty-gtk`, the one program built on `gtk-build`, is the consumer with a browser test (`demos/ghostty-gtk/test/`); it builds on Zig's chain (`zig-llvm`), which this tree does not build: the next round builds it and runs that test.
+`ghostty-gtk`, the one program built on `gtk-build`, is the consumer with a browser test
+(`demos/ghostty-gtk/test/`); it builds on Zig's chain (`zig-llvm`), which this tree does not build:
+the next round builds it and runs that test.
 
 ## Candidate
 

@@ -14,7 +14,8 @@ from `/opt/mojo-llvm/lib`), and its licence copy comes from the package.
 Mojo is a heavy chain this tree does not build: the next round builds `mojo-llvm`, `mojo`,
 `mojo-gpu` and `deep-hedger` and runs the mojo test.
 
-The `mojo/zstd.tar` row and its staging are gone; nothing else of Mojo's staged sources changes for this.
+The `mojo/zstd.tar` row and its staging are gone; nothing else of Mojo's staged sources changes for
+this.
 
 ## Candidate
 
