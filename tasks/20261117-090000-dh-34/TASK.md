@@ -66,5 +66,6 @@ On `fix/firefox-gpu` (`dd68e8d6a`), in Firefox 159, a still page, nothing compos
 - Ctrl+C with a fit running ended `dh-gui` and the shell answered after it, 20 of 20 times
   (`ctrlc-ff-fix.log`).
 - The test has dropped the frame and leaves `dh-gui` by Ctrl+C with the fit running
-  (`758ac2b07`). It passed in Chrome 156 and Firefox 159 (`test-2.log`: 740 and 680
-  iterations, the loss to 0.25 and 0.22, 27% of the unhedged risk left).
+  (`758ac2b07`). It passed twice in Chrome 156 and Firefox 159 (`test-2.log`, `test-3.log`: 740
+  and 760 iterations in Chrome, 680 in Firefox, the loss to 0.25 or less, 27% of the unhedged
+  risk left).
