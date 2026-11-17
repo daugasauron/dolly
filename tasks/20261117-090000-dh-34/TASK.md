@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 160
-- TAGS: dh,gpu,firefox,browser,core
+- TAGS: dh,gpu,firefox,browser,core,0.1.8
 
 Found on 2026-11-17 by the deep hedger's test (`demos/deep-hedger/test/deep-hedger-browser.mjs`),
 in Firefox 159 (the installed snap, WebGPU enabled, an Xvfb display, RTX 5070). Chrome 156 showed
