@@ -1,6 +1,6 @@
 # Deep hedger, to confirm: funding is mean plus lambda times deviation
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: dh,owner
 
@@ -24,3 +24,10 @@ is monotone where the deviation is not and needs a sort for every book on the GP
 
 In `dh-fit.mojo` (`quote`, `adjoint`); the GUI's "risk price". Measured with it: tasks dh-25 and
 dh-19. Waits for the owner's yes, or for another `rho`.
+
+## Closed 2026-11-17
+
+Not confirmed: replaced. The owner's last word on the price of risk names Expected Shortfall
+("like es confidence intterval or whatever", neil, 2026-10-23; task dh-08), so the deviation and
+its `lambda` are out of `dh-fit.mojo` and of the theory. What took their place and what it
+measured: task dh-28.

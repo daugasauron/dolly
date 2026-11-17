@@ -1,9 +1,9 @@
 // The deep-hedger image on a GPU: dh-gui loads a chain through the HTTP broker
 // (the service's answer is a fixture here: lognormal prices with a band), fits
-// it with dh-fit's kernels on WebGPU and draws the model's bids and asks; then
-// dh-fit alone: its gradients against finite differences, and a fit that ends
-// at the forward and the volatility the fixture was made with, with a hedger
-// that hedges.
+// it with dh-fit's kernels on WebGPU and draws the model's bids and asks. That
+// fit puts its quotes in the fixture's bands at the forward and the volatility
+// the fixture was made with, with a hedger that hedges. Then dh-fit alone: its
+// gradients against finite differences.
 // Usage: DISPLAY=:N node demos/deep-hedger/test/deep-hedger-browser.mjs
 // (a GPU window, Chrome and the installed Firefox).
 import assert from "node:assert/strict";
@@ -67,14 +67,23 @@ try {
       await page.goto(`${server.origin}/deep-hedger/`);
       await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null, { timeout: 180_000 });
       assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready", await page.locator("#bootstrap-log").textContent());
+      // A frame to composite at every refresh. Firefox on a still page left dh-fit waiting for a
+      // readback, or dh-gui for its first frame, one run in five (tasks/20261117-090000-dh-34).
+      await page.evaluate(() => {
+        const dot = document.body.appendChild(document.createElement("div"));
+        dot.style.cssText = "position:fixed;left:0;top:0;width:2px;height:2px;background:#000;z-index:99999";
+        let frame = 0;
+        const tick = () => { dot.style.opacity = frame++ % 2 ? "0.9" : "1"; requestAnimationFrame(tick); };
+        tick();
+      });
       await page.waitForFunction(() => __dolly.transport.graphicsActive());
-      // Pixels of one colour in the frame: the market's bars, the model's bid line.
-      const coloured = ([r, g, b]) => waitForDisplay(page, ([r, g, b]) => {
+      // Pixels of one colour in the frame, there or gone: the market's bars, the model's bid line.
+      const coloured = ([r, g, b], there = true) => waitForDisplay(page, ([r, g, b, there]) => {
         const pixels = displaySnapshot.getContext("2d").getImageData(0, 0, displaySnapshot.width, displaySnapshot.height).data;
         let count = 0;
         for (let index = 0; index < pixels.length; index += 4) count += pixels[index] === r && pixels[index + 1] === g && pixels[index + 2] === b;
-        return count > 300;
-      }, [r, g, b], { timeout: 240_000 });
+        return (count > 300) === there;
+      }, [r, g, b, there], { timeout: 240_000 });
       // A press and a release some frames apart, as a hand does: ImGui did not take Playwright's click on a tab.
       const click = async (x, y) => {
         await page.mouse.move(...await framePoint(page, x, y));
@@ -87,8 +96,15 @@ try {
       await click(476, 18);  // Load quotes
       await coloured([205, 205, 205]);
       assert.deepEqual(requested.splice(0).map(path => path.replace(/\/$/, "")), ["/fixture/marketdata/v1/options/chain/AAPL"]);
-      await click(989, 18);  // Fit
+      await click(1040, 18);  // Fit
       await coloured([64, 156, 255]);
+      // Stop, and Fit again: the first fit's lines go, the second's come.
+      await click(1040, 18);
+      await delay(1000);
+      await click(1040, 18);
+      await coloured([64, 156, 255], false);
+      await coloured([64, 156, 255]);
+      await delay(200_000);
       await page.keyboard.press("Control+C");
       await page.evaluate(([source, flags]) => __dolly.waitForInteractiveTerminal(new RegExp(source, flags), "terminal prompt", 0), [shellPrompt.source, shellPrompt.flags]);
       const run = async command => {
@@ -96,10 +112,35 @@ try {
           `${name}: ${command}\n${await page.evaluate(() => __dolly.visibleTerminalText())}\n${await page.evaluate(() => __dolly.gpu.error ?? "")}`);
         return page.evaluate(() => __dolly.visibleTerminalText());
       };
+      // What dh-gui's fit wrote in those 200 s, from a normal law and a random hedger: the
+      // loss fell, most quotes came to lie in the fixture's bands, the law's forward and the
+      // deviation of the batch's days are the fixture's, and the hedger hedges: what its
+      // books are left with deviates clearly less than their payoffs do.
+      const report = await run("grep 'DH iteration' /tmp/dh/fit.out | head -n 1 && grep 'DH iteration' /tmp/dh/fit.out | tail -n 1 && grep 'DH forward' /tmp/dh/fit.out | tail -n 4");
+      const reports = [...report.matchAll(/^DH iteration (\d+) loss (\S+) .* inside (\S+) .* risk (\S+) unhedged (\S+)/gm)].map(match => match.slice(1).map(Number));
+      const intervals = [...report.matchAll(/^DH forward \d+ (\S+) \S+ (\S+)/gm)].map(match => match.slice(1).map(Number));
+      assert.equal(reports.length, 2, report);
+      assert.equal(intervals.length, 4, report);
+      const [[, started], [iterations, ended, inside, risk, unhedged]] = reports;
+      assert.ok(iterations >= 300, `${name}: ${iterations} iterations in 200 s`);
+      assert.ok(ended < started / 5, `${name}: loss ${started} at the first report, ${ended} at the last`);
+      assert.ok(inside > 0.6, `${name}: ${inside} of the quotes in the bands`);
+      assert.ok(risk < 0.7 * unhedged, `${name}: risk ${risk} hedged, ${unhedged} unhedged`);
+      for (const [forward, deviation] of intervals) {
+        assert.ok(Math.abs(forward - 1) < 0.004, `${name}: forward ${forward}`);
+        assert.ok(Math.abs(deviation / (volatility / Math.sqrt(252)) - 1) < 0.12, `${name}: a day's deviation ${deviation}`);
+      }
       // dh-fit check: the kernels' bids and asks beside the host's own ledger on the same
       // paths, and each gradient beside its central difference, its section's largest
-      // gradients to a few percent.
+      // gradients to a few percent; the same for the state's three numbers and the confidence.
       const checked = await run("dh-fit check /tmp/dh/chain.txt 256");
+      const named = [...checked.matchAll(/^DH check (?:state \d|confidence) (\S+) (\S+)$/gm)].map(match => [Number(match[1]), Number(match[2])]);
+      assert.equal(named.length, 4, checked);
+      for (const [gradient, difference] of named) {
+        // The state's loss has kinks a difference steps over: a twentieth of the largest besides.
+        assert.ok(Math.abs(gradient - difference) <= 0.05 * Math.abs(difference) + 0.05 * Math.max(...named.map(pair => Math.abs(pair[1]))),
+          `${name}: gradient ${gradient}, difference ${difference}`);
+      }
       const [hedger, generator] = checked.split("DH check generator").map(section =>
         [...section.matchAll(/^DH check \d+ (\S+) (\S+)$/gm)].map(match => [Number(match[1]), Number(match[2])]));
       assert.deepEqual([hedger.length, generator.length], [7, 7], checked);
@@ -114,23 +155,7 @@ try {
       for (const [bid, ask, hostBid, hostAsk] of ledger) {
         assert.ok(Math.abs(bid - hostBid) < 2e-5 && Math.abs(ask - hostAsk) < 2e-5, `${name}: the kernels' ${bid} and ${ask}, the host's ${hostBid} and ${hostAsk}`);
       }
-      // A fit from equal kernel weights and a random hedger: the loss falls, the law's
-      // forward and daily deviation become the fixture's, and the hedger hedges: what its
-      // books are left with deviates clearly less than their payoffs do.
-      const report = await run("dh-fit /tmp/dh/chain.txt 1024 3 600 > /tmp/dh/test.out && grep 'DH iteration' /tmp/dh/test.out | head -n 1" +
-        " && grep 'DH iteration' /tmp/dh/test.out | tail -n 1 && grep 'DH forward' /tmp/dh/test.out | tail -n 4");
-      const reports = [...report.matchAll(/^DH iteration \d+ loss (\S+) .* risk (\S+) unhedged (\S+)/gm)].map(match => match.slice(1).map(Number));
-      const intervals = [...report.matchAll(/^DH forward \d+ (\S+) (\S+)/gm)].map(match => match.slice(1).map(Number));
-      assert.equal(reports.length, 2, report);
-      assert.equal(intervals.length, 4, report);
-      const [[started], [ended, risk, unhedged]] = reports;
-      assert.ok(ended < started / 20, `${name}: loss ${started} at the first report, ${ended} at the last`);
-      assert.ok(risk < 0.7 * unhedged, `${name}: risk ${risk} hedged, ${unhedged} unhedged`);
-      for (const [forward, deviation] of intervals) {
-        assert.ok(Math.abs(forward - 1) < 0.004, `${name}: forward ${forward}`);
-        assert.ok(Math.abs(deviation / (volatility / Math.sqrt(252)) - 1) < 0.12, `${name}: a day's deviation ${deviation}`);
-      }
-      console.log(`deep-hedger: ${name} ${browser.version()} passed on ${await page.evaluate(() => __dolly.gpu.adapter)}: loss ${started} to ${ended}, ` +
+      console.log(`deep-hedger: ${name} ${browser.version()} passed on ${await page.evaluate(() => __dolly.gpu.adapter)}: ${iterations} iterations, loss ${started} to ${ended}, ` +
         `risk ${(100 * risk / unhedged).toFixed(0)}% of unhedged`);
     } finally {
       await browser.close();

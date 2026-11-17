@@ -2,10 +2,11 @@
 
 The model is demos/deep-hedger/THEORY.md, sections 3 and 4, with the stock as
 the only hedge instrument. Every number of an iteration is made by the kernels
-below; the host keeps the two parameter vectors and their Adam moments.
+below; the host keeps the parameters (the law's weights and its volatility state's
+three numbers, the hedger's network, the confidence) and their Adam moments.
 
   dh-fit CHAIN PATHS SEED [ITERATIONS]     fit, reporting on stdout until killed
-  dh-fit check CHAIN PATHS [ITERATIONS]    both gradients against finite differences
+  dh-fit check CHAIN PATHS [ITERATIONS]    the gradients against finite differences
   dh-fit time CHAIN PATHS                  seconds of an iteration's parts
 """
 
@@ -18,7 +19,7 @@ from std.time import perf_counter_ns
 from gpu import global_idx
 from gpu.host import DeviceBuffer, DeviceContext
 
-# The generator: KERNELS hat-shaped densities of the daily log return on a fixed
+# The generator: KERNELS hat-shaped densities of a day's shock on a fixed
 # grid, dense near zero and reaching +-20%. Their number is the model's one
 # structural choice.
 comptime KERNELS = 49
@@ -27,7 +28,7 @@ comptime GRID_SCALE = 0.01019
 comptime GRID_STRETCH = 3.68
 
 # The hedger: INPUTS -> HIDDEN relu -> HIDDEN relu -> tanh, one position.
-comptime INPUTS = 6
+comptime INPUTS = 7
 comptime HIDDEN = 16
 comptime B1 = HIDDEN * INPUTS
 comptime W2 = B1 + HIDDEN
@@ -43,10 +44,24 @@ comptime GROUPS = 8
 comptime BLOCK = 64
 # A contract is strike, expiry day, +1 call or -1 put, bid, ask, band unit.
 comptime CONTRACT = 6
-# A contract's results: bid, ask, cost short, cost long, risk short, risk long, loss, risk unhedged.
-comptime RESULT = 8
-# A book's statistics for the backward pass: mean, deviation, the loss's derivative.
-comptime BOOK = 4
+# A contract's results: bid, ask, cost short, cost long, deviation short, deviation long, loss,
+# deviation unhedged, mean short, mean long, the confidence's own loss and its derivative, the
+# hedger's funding short and long.
+comptime RESULT = 14
+# A book's numbers for the backward pass: its quantile at the hedger's preference, the loss's
+# derivative by its price, its quantile at the price's confidence.
+comptime BOOK = 3
+
+# The volatility state's numbers: what a day keeps of it, what the size of a day's shock adds,
+# what its sign adds. They follow the law's tables in their buffer, then each interval's unit.
+comptime STATE = 3
+# The mean size of a standard normal number: a shock of that size leaves the state alone.
+comptime MEAN_SIZE = 0.7978846
+# The state's bounds: a day's scale is between exp(-1.5) and exp(1.5).
+comptime MAX_LOG_SCALE = 1.5
+# A day of a path: the law's density at its shock, its log scale, its mean move less one, and
+# that mean move's derivative by the log scale.
+comptime DRAW = 4
 
 comptime Floats = Pointer[Float32, MutAnyOrigin]
 
@@ -63,25 +78,54 @@ def uniform(path: Int, day: Int, seed: UInt32) -> Float32:
     return 1 - u if (path & 1) == 1 else u
 
 
+def curve(h: Float32) -> Float32:
+    """(exp(h) - 1 - h) / h^2 of a small h, by its series."""
+    return 0.5 + h * (1.0 / 6 + h * (1.0 / 24 + h * (1.0 / 120 + h * (1.0 / 720 + h / 5040))))
+
+
+def curve_slope(h: Float32) -> Float32:
+    """The derivative of curve."""
+    return 1.0 / 6 + h * (1.0 / 12 + h * (1.0 / 40 + h * (1.0 / 180 + h / 1008)))
+
+
+def kernel_growth(lo: Float32, peak: Float32, hi: Float32, scale: Float32) -> Float32:
+    """A kernel's mean of exp(scale * shock), less one; the kernel is a hat from
+    lo over its peak to hi."""
+    var body = (peak - lo) * curve(scale * (lo - peak)) + (hi - peak) * curve(scale * (hi - peak))
+    return 2 / (hi - lo) * exp(scale * peak) * body - 1
+
+
 def simulate(
     law: Floats,
     nodes: Floats,
     interval_of_day: Floats,
     logx: Floats,
-    density: Floats,
+    draw: Floats,
     paths: Int,
     days: Int,
+    intervals: Int,
+    kernels: Int,
     seed: UInt32,
 ):
-    """A path: each day's return is the day's law at a uniform number, the law
-    being piecewise linear between the nodes (heights, then cumulative mass)."""
+    """A path. A day's return is its scale times a shock; the shock is the
+    day's law at a uniform number, the law being piecewise linear between the
+    nodes (heights, then cumulative mass). The scale is the path's volatility
+    state: its logarithm keeps a share of itself each day and moves with the
+    size and the sign of the day's shock, in units of the interval's own.
+    `kernels` is KERNELS, as a value the compiler does not unroll a loop by."""
     var p = global_idx.x
     if p >= paths:
         return
+    var tail = intervals * NODES * 2
+    var keep = law[unsafe_offset=tail]
+    var swing = law[unsafe_offset=tail + 1]
+    var lean = law[unsafe_offset=tail + 2]
     var level = Float32(0)
+    var log_scale = Float32(0)
     logx[unsafe_offset=p * (days + 1)] = 0
     for t in range(days):
-        var base = Int(interval_of_day[unsafe_offset=t]) * NODES * 2
+        var interval = Int(interval_of_day[unsafe_offset=t])
+        var base = interval * NODES * 2
         var u = uniform(p, t, seed)
         var lo = 0
         var hi = NODES - 1
@@ -98,9 +142,33 @@ def simulate(
         var mass = max(u - law[unsafe_offset=base + NODES + lo], 0)
         var root = sqrt(max(height * height + 2 * slope * mass, 0))
         var step = min(2 * mass / (height + root + 1e-30), width)
-        level += left + step
+        var shock = left + step
+        var scale = exp(log_scale)
+        level += scale * shock
         logx[unsafe_offset=p * (days + 1) + t + 1] = level
-        density[unsafe_offset=p * days + t] = max(height + slope * step, 0.01)
+        # The day's mean move under its law at this scale, and how it moves with the scale.
+        var growth = Float32(0)
+        var growth_slope = Float32(0)
+        for k in range(kernels):
+            var a = nodes[unsafe_offset=k]
+            var peak = nodes[unsafe_offset=k + 1]
+            var b = nodes[unsafe_offset=k + 2]
+            var weight = law[unsafe_offset=base + k + 1] * (b - a) / 2
+            var down = scale * (a - peak)
+            var up = scale * (b - peak)
+            var body = (peak - a) * curve(down) + (b - peak) * curve(up)
+            var front = 2 / (b - a) * exp(scale * peak)
+            growth += weight * (front * body - 1)
+            growth_slope += weight * front * (
+                scale * peak * body + (peak - a) * down * curve_slope(down) + (b - peak) * up * curve_slope(up)
+            )
+        var d = (p * days + t) * DRAW
+        draw[unsafe_offset=d] = max(height + slope * step, 0.01)
+        draw[unsafe_offset=d + 1] = log_scale
+        draw[unsafe_offset=d + 2] = growth
+        draw[unsafe_offset=d + 3] = growth_slope
+        var e = shock / law[unsafe_offset=tail + STATE + interval]
+        log_scale = min(max(keep * log_scale + swing * (abs(e) - MEAN_SIZE) + lean * e, -MAX_LOG_SCALE), MAX_LOG_SCALE)
 
 
 def policy(
@@ -109,6 +177,7 @@ def policy(
     days_left: Float32,
     call: Float32,
     side: Float32,
+    log_scale: Float32,
     held: Float32,
     mut inputs: Array[Float32, INPUTS],
     mut first: Array[Float32, HIDDEN],
@@ -125,7 +194,8 @@ def policy(
     inputs[2] = min(max(moneyness / (horizon * 0.15), -4), 4)
     inputs[3] = call
     inputs[4] = side
-    inputs[5] = held
+    inputs[5] = log_scale
+    inputs[6] = held
     for i in range(hidden):
         var z = phi[unsafe_offset=B1 + i]
         for m in range(INPUTS + hidden - HIDDEN):
@@ -153,7 +223,7 @@ def roll(
     phi: Floats,
     residual: Floats,
     paid: Floats,
-    growth: Floats,
+    draw: Floats,
     paths: Int,
     days: Int,
     books: Int,
@@ -163,8 +233,9 @@ def roll(
     """Every book of a path, hedged from empty to its expiry: what is left
     with the dealer, and what the hedge paid in costs. A position decided on
     day u-1 is bought at day u's price and held from then; it is bought
-    forward, so a day earns it the move less the law's mean move (`growth`),
-    and holding stock is a fair game under any law. Neighbouring threads
+    forward, so a day earns it the move less the day's mean move on its path,
+    and holding stock is a fair game under any law. The hedger sees the
+    volatility state its last seen day had. Neighbouring threads
     are neighbouring paths on the same books, so a block runs in step."""
     var thread = global_idx.x
     if thread >= paths * GROUPS:
@@ -193,6 +264,7 @@ def roll(
                 Float32(expiry - u + 1),
                 call,
                 side,
+                draw[unsafe_offset=(p * days + u - 1) * DRAW + 1],
                 position,
                 inputs,
                 first,
@@ -200,7 +272,8 @@ def roll(
                 hidden,
             )
             var fee = cost * abs(target - position) * price
-            cash += target * (exp(logx[unsafe_offset=row + u + 1]) - growth[unsafe_offset=u] * price) - fee
+            var grown = 1 + draw[unsafe_offset=(p * days + u) * DRAW + 2]
+            cash += target * (exp(logx[unsafe_offset=row + u + 1]) - grown * price) - fee
             fees += fee
             position = target
         var last = exp(logx[unsafe_offset=row + expiry])
@@ -226,6 +299,31 @@ def beyond(error: Float32) -> Float32:
     return size * size if size <= 1 else 2 * size - 1
 
 
+def level_at(residual: Floats, b: Int, books: Int, paths: Int, share: Float32, mean: Float32, deviation: Float32) -> Float32:
+    """A book's quantile by halving: the least level with that share of its paths at or under it."""
+    var under = mean - 12 * deviation
+    var over = mean + 12 * deviation
+    for _ in range(26):
+        var level = (under + over) / 2
+        var count = Float32(0)
+        for p in range(paths):
+            count += max(direction(level - residual[unsafe_offset=p * books + b]), 0)
+        if count < share * Float32(paths):
+            under = level
+        else:
+            over = level
+    return over
+
+
+def shortfall(residual: Floats, b: Int, books: Int, paths: Int, share: Float32, level: Float32) -> Float32:
+    """A book's Expected Shortfall at a share, from its quantile there: the mean
+    of all but the best that share of its paths."""
+    var excess = Float32(0)
+    for p in range(paths):
+        excess += max(residual[unsafe_offset=p * books + b] - level, 0)
+    return level + excess / (Float32(paths) * (1 - share))
+
+
 def quote(
     residual: Floats,
     paid: Floats,
@@ -236,18 +334,27 @@ def quote(
     paths: Int,
     days: Int,
     books: Int,
-    risk: Float32,
+    confidence: Float32,
+    preference: Float32,
     offset: Int,
 ):
-    """A contract's two books: each one's funding, mean plus risk times
-    deviation of its residual, is the model's ask and minus its bid. The
-    loss is their distance outside the market's band."""
+    """A contract's two books. A book's price is the Expected Shortfall of its
+    residual at the confidence c: q + mean(max(L - q, 0)) / (1 - c) at that
+    quantile q, which moves with c by (price - q) / (1 - c). The short book's
+    is the model's ask, the long book's minus its bid. The hedger's own
+    funding is the same at its preference. The generator's loss is the quotes'
+    distance outside the market's band, nothing inside it. That leaves the
+    spread's width free, so the confidence has a loss of its own: the model's
+    bid from the market's bid and its ask from the market's ask."""
     var i = global_idx.x
     if i >= books // 2:
         return
     var funding = Array[Float32, 2](fill=0)
     var deviation = Array[Float32, 2](fill=0)
     var fees = Array[Float32, 2](fill=0)
+    var means = Array[Float32, 2](fill=0)
+    var quantile = Array[Float32, 2](fill=0)
+    var hedger_funding = Array[Float32, 2](fill=0)
     for s in range(2):
         var b = 2 * i + s
         var sum = Float32(0)
@@ -261,10 +368,14 @@ def quote(
             var d = residual[unsafe_offset=p * books + b] - mean
             squares += d * d
         deviation[s] = sqrt(squares / Float32(paths) + 1e-12)
-        funding[s] = mean + risk * deviation[s]
+        quantile[s] = level_at(residual, b, books, paths, confidence, mean, deviation[s])
+        funding[s] = shortfall(residual, b, books, paths, confidence, quantile[s])
+        var hedged = level_at(residual, b, books, paths, preference, mean, deviation[s])
+        hedger_funding[s] = shortfall(residual, b, books, paths, preference, hedged)
+        means[s] = mean
+        book_stats[unsafe_offset=b * BOOK] = hedged
+        book_stats[unsafe_offset=b * BOOK + 2] = quantile[s]
         fees[s] = fee / Float32(paths)
-        book_stats[unsafe_offset=b * BOOK] = mean
-        book_stats[unsafe_offset=b * BOOK + 1] = deviation[s]
     var c = i * CONTRACT
     var market_bid = contracts[unsafe_offset=c + 3]
     var market_ask = contracts[unsafe_offset=c + 4]
@@ -274,8 +385,8 @@ def quote(
     var ask_error = outside(ask, market_bid, market_ask, unit)
     var bid_error = outside(bid, market_bid, market_ask, unit)
     var contracts_count = Float32(books // 2)
-    book_stats[unsafe_offset=2 * i * BOOK + 2] = 2 * min(max(ask_error, -1), 1) / (unit * contracts_count)
-    book_stats[unsafe_offset=(2 * i + 1) * BOOK + 2] = -2 * min(max(bid_error, -1), 1) / (unit * contracts_count)
+    book_stats[unsafe_offset=2 * i * BOOK + 1] = 2 * min(max(ask_error, -1), 1) / (unit * contracts_count)
+    book_stats[unsafe_offset=(2 * i + 1) * BOOK + 1] = -2 * min(max(bid_error, -1), 1) / (unit * contracts_count)
     var expiry = Int(contracts[unsafe_offset=c + 1])
     # The payoff's own deviation: the risk of a book that does not hedge.
     var payoff = Float32(0)
@@ -298,6 +409,16 @@ def quote(
     result[unsafe_offset=r + 5] = deviation[1]
     result[unsafe_offset=r + 6] = beyond(ask_error) + beyond(bid_error)
     result[unsafe_offset=r + 7] = sqrt(max(payoff_squares / Float32(paths) - payoff * payoff, 0))
+    result[unsafe_offset=r + 8] = means[0]
+    result[unsafe_offset=r + 9] = means[1]
+    var ask_gap = (ask - market_ask) / unit
+    var bid_gap = (bid - market_bid) / unit
+    result[unsafe_offset=r + 10] = beyond(ask_gap) + beyond(bid_gap)
+    result[unsafe_offset=r + 11] = (
+        2 * min(max(ask_gap, -1), 1) * (funding[0] - quantile[0]) - 2 * min(max(bid_gap, -1), 1) * (funding[1] - quantile[1])
+    ) / (unit * contracts_count * (1 - confidence))
+    result[unsafe_offset=r + 12] = hedger_funding[0]
+    result[unsafe_offset=r + 13] = hedger_funding[1]
 
 
 def adjoint(
@@ -308,16 +429,17 @@ def adjoint(
     gradient_rows: Floats,
     level_rows: Floats,
     held_rows: Floats,
-    growth: Floats,
+    draw: Floats,
     paths: Int,
     days: Int,
     books: Int,
     cost: Float32,
-    risk: Float32,
+    confidence: Float32,
+    preference: Float32,
     hidden: Int,
 ):
     """The backward pass of roll and quote for a thread's books. For the
-    hedger, the derivative of the sum of all fundings by its parameters,
+    hedger, the derivative of the sum of its books' fundings by its parameters,
     through every day's position and the position it was decided from. For the
     generator, the derivative of the loss by the path's levels with the
     positions held fixed (THEORY.md, section 4), and by each day's mean move. A thread sums into words of
@@ -356,6 +478,7 @@ def adjoint(
                 Float32(expiry - u + 1),
                 call,
                 side,
+                draw[unsafe_offset=(p * days + u - 1) * DRAW + 1],
                 before,
                 inputs,
                 first,
@@ -363,15 +486,20 @@ def adjoint(
                 hidden,
             )
             held_rows[unsafe_offset=u * threads + thread] = after
-            cash += after * (exp(logx[unsafe_offset=row + u + 1]) - growth[unsafe_offset=u] * price) - cost * abs(after - before) * price
+            cash += after * (
+                exp(logx[unsafe_offset=row + u + 1]) - (1 + draw[unsafe_offset=(p * days + u) * DRAW + 2]) * price
+            ) - cost * abs(after - before) * price
             before = after
         var last = exp(logx[unsafe_offset=row + expiry])
         var closing = before
         var left = side * max(call * (last - strike), 0) - (cash - cost * abs(closing) * last)
-        # The funding's derivative by this path's residual.
-        var seed = (1 + risk * (left - book_stats[unsafe_offset=b * BOOK]) / book_stats[unsafe_offset=b * BOOK + 1]) / Float32(paths)
-
-        var loss_seed = book_stats[unsafe_offset=b * BOOK + 2] * seed
+        # An Expected Shortfall's derivative by this path's residual: its share of the
+        # mean above the quantile, nothing under it. The hedger's funding, then the price.
+        var seed = max(direction(left - book_stats[unsafe_offset=b * BOOK]), 0) / (Float32(paths) * (1 - preference))
+        var loss_seed = (
+            book_stats[unsafe_offset=b * BOOK + 1]
+            * max(direction(left - book_stats[unsafe_offset=b * BOOK + 2]), 0) / (Float32(paths) * (1 - confidence))
+        )
         var in_the_money = max(direction(call * (last - strike)), 0)
         level_rows[unsafe_offset=expiry * threads + thread] += loss_seed * (side * call * in_the_money - closing + cost * abs(closing))
 
@@ -382,7 +510,7 @@ def adjoint(
             var now = held_rows[unsafe_offset=u * threads + thread]
             var earlier = held_rows[unsafe_offset=(u - 1) * threads + thread]
             var turn = direction(now - earlier)
-            var grown = growth[unsafe_offset=u]
+            var grown = 1 + draw[unsafe_offset=(p * days + u) * DRAW + 2]
             level_rows[unsafe_offset=u * threads + thread] += loss_seed * (grown * now - earlier + cost * abs(now - earlier))
             # The day's mean move is the law's too: the loss's derivative by it, after the levels'.
             level_rows[unsafe_offset=(MAX_DAYS + 1 + u) * threads + thread] += loss_seed * now * price
@@ -393,6 +521,7 @@ def adjoint(
                 Float32(expiry - u + 1),
                 call,
                 side,
+                draw[unsafe_offset=(p * days + u - 1) * DRAW + 1],
                 earlier,
                 inputs,
                 first,
@@ -433,32 +562,67 @@ def sum_gradient(gradient_rows: Floats, result: Floats, rows: Int):
     result[unsafe_offset=n] = sum
 
 
-def return_adjoint(level_rows: Floats, logx: Floats, on_return: Floats, paths: Int, days: Int):
-    """The loss's derivative by each day's return, a return moving every later
-    level; and after those, by each day's mean move, summed over the path's threads."""
+def return_adjoint(
+    level_rows: Floats,
+    logx: Floats,
+    on_return: Floats,
+    draw: Floats,
+    interval_of_day: Floats,
+    law: Floats,
+    paths: Int,
+    days: Int,
+    intervals: Int,
+):
+    """A path's backward pass through its days: the loss's derivative by each
+    day's shock and by each day's mean move, and by the state's three numbers.
+    A return moves every later level; a shock moves its return and, through
+    the state, the scale of every later day."""
     var p = global_idx.x
     if p >= paths:
         return
     var threads = paths * GROUPS
+    var tail = intervals * NODES * 2
+    var keep = law[unsafe_offset=tail]
+    var swing = law[unsafe_offset=tail + 1]
+    var lean = law[unsafe_offset=tail + 2]
     var later = Float32(0)
-    var u = days
-    while u >= 1:
+    var on_state = Float32(0)
+    var by_keep = Float32(0)
+    var by_swing = Float32(0)
+    var by_lean = Float32(0)
+    var t = days - 1
+    while t >= 0:
         var on_level = Float32(0)
         var on_growth = Float32(0)
         for group in range(GROUPS):
-            on_level += level_rows[unsafe_offset=u * threads + group * paths + p]
-            on_growth += level_rows[unsafe_offset=(MAX_DAYS + 1 + u) * threads + group * paths + p]
-        later += on_level * exp(logx[unsafe_offset=p * (days + 1) + u])
-        on_return[unsafe_offset=p * days + u - 1] = later
-        if u < days:
-            on_return[unsafe_offset=(paths + p) * days + u] = on_growth
-        u -= 1
+            on_level += level_rows[unsafe_offset=(t + 1) * threads + group * paths + p]
+            on_growth += level_rows[unsafe_offset=(MAX_DAYS + 1 + t) * threads + group * paths + p]
+        later += on_level * exp(logx[unsafe_offset=p * (days + 1) + t + 1])
+        var d = (p * days + t) * DRAW
+        var log_scale = draw[unsafe_offset=d + 1]
+        var scale = exp(log_scale)
+        var moved = logx[unsafe_offset=p * (days + 1) + t + 1] - logx[unsafe_offset=p * (days + 1) + t]
+        var unit = law[unsafe_offset=tail + STATE + Int(interval_of_day[unsafe_offset=t])]
+        var e = moved / (scale * unit)
+        var next = keep * log_scale + swing * (abs(e) - MEAN_SIZE) + lean * e
+        # At its bound the next day's state does not move.
+        var passed = on_state * max(direction(MAX_LOG_SCALE - abs(next)), 0)
+        on_return[unsafe_offset=p * days + t] = later * scale + passed * (swing * direction(e) + lean) / unit
+        on_return[unsafe_offset=(paths + p) * days + t] = on_growth
+        by_keep += passed * log_scale
+        by_swing += passed * (abs(e) - MEAN_SIZE)
+        by_lean += passed * e
+        on_state = later * moved + on_growth * draw[unsafe_offset=d + 3] + keep * passed
+        t -= 1
+    on_return[unsafe_offset=2 * paths * days + p] = by_keep
+    on_return[unsafe_offset=2 * paths * days + paths + p] = by_swing
+    on_return[unsafe_offset=2 * paths * days + 2 * paths + p] = by_lean
 
 
 def law_gradient(
     on_return: Floats,
     logx: Floats,
-    density: Floats,
+    draw: Floats,
     nodes: Floats,
     interval_of_day: Floats,
     result: Floats,
@@ -467,13 +631,22 @@ def law_gradient(
     intervals: Int,
     offset: Int,
 ):
-    """The loss's derivative by one kernel's weight in one interval. A return
+    """The loss's derivative by one kernel's weight in one interval. A shock
     drawn at a fixed uniform number moves by minus the kernel's cumulative mass
     there over the law's density there; and the day's mean move is the weights'
-    sum of the kernels' own, which are after the nodes in their buffer, less one."""
+    sum of the kernels' own at the day's scale. Less one for a kernel: a
+    constant over the kernels changes no logit's gradient, and the differences
+    are what a Float32 sum has to keep. The threads after the kernels' sum the
+    paths' derivatives by the state's numbers."""
     var id = global_idx.x
     var interval = id // KERNELS
     if interval >= intervals:
+        var n = id - intervals * KERNELS
+        if n < STATE:
+            var total = Float32(0)
+            for p in range(paths):
+                total += on_return[unsafe_offset=2 * paths * days + n * paths + p]
+            result[unsafe_offset=offset + id] = total
         return
     var k = id % KERNELS + 1
     var lo = nodes[unsafe_offset=k - 1]
@@ -483,7 +656,9 @@ def law_gradient(
     for t in range(days):
         if Int(interval_of_day[unsafe_offset=t]) == interval:
             for p in range(paths):
-                var r = logx[unsafe_offset=p * (days + 1) + t + 1] - logx[unsafe_offset=p * (days + 1) + t]
+                var d = (p * days + t) * DRAW
+                var scale = exp(draw[unsafe_offset=d + 1])
+                var r = (logx[unsafe_offset=p * (days + 1) + t + 1] - logx[unsafe_offset=p * (days + 1) + t]) / scale
                 var below = Float32(1)
                 if r <= lo:
                     below = 0
@@ -491,8 +666,8 @@ def law_gradient(
                     below = (r - lo) * (r - lo) / ((peak - lo) * (hi - lo))
                 elif r < hi:
                     below = 1 - (hi - r) * (hi - r) / ((hi - peak) * (hi - lo))
-                sum -= on_return[unsafe_offset=p * days + t] * below / density[unsafe_offset=p * days + t]
-                sum += on_return[unsafe_offset=(paths + p) * days + t] * nodes[unsafe_offset=NODES + k - 1]
+                sum -= on_return[unsafe_offset=p * days + t] * below / draw[unsafe_offset=d]
+                sum += on_return[unsafe_offset=(paths + p) * days + t] * kernel_growth(lo, peak, hi, scale)
     result[unsafe_offset=offset + interval * KERNELS + k - 1] = sum
 
 
@@ -532,19 +707,19 @@ def number(text: String) -> Float64:
 struct Chain(Movable):
     """What dh-gui wrote: prices over the forward, strikes over the forward.
 
-    cost C risk R
+    cost C hedge H             a stock trade's cost, the hedger's risk preference
     days D1 D2 ...             each expiry's business day, increasing
     STRIKE EXPIRY-INDEX CALL(1|-1) BID ASK     one line a contract
     """
 
     var cost: Float32
-    var risk: Float32
+    var preference: Float32
     var expiry_days: List[Int]
     var contracts: List[Float32]
 
     def __init__(out self, path: String) raises:
         self.cost = 0
-        self.risk = 0
+        self.preference = 0
         self.expiry_days = List[Int]()
         self.contracts = List[Float32]()
         for line in Path(path).read_text().split("\n"):
@@ -554,7 +729,7 @@ struct Chain(Movable):
                     fields.append(String(field))
             if len(fields) == 4 and fields[0] == "cost":
                 self.cost = Float32(number(fields[1]))
-                self.risk = Float32(number(fields[3]))
+                self.preference = Float32(number(fields[3]))
             elif len(fields) > 1 and fields[0] == "days":
                 for i in range(1, len(fields)):
                     self.expiry_days.append(Int(number(fields[i])))
@@ -618,21 +793,26 @@ struct Model(Movable):
     var intervals: Int
     var books: Int
     var cost: Float32
-    var risk: Float32
+    var preference: Float32
     var grid: List[Float32]
-    var kernel_growth: List[Float64]
+    var state: List[Float32]
+    var unit: List[Float32]
     var interval_of_day: List[Int]
     var logits: List[Float32]
+    var confidence_logit: List[Float32]
     var weights: List[Float32]
     var phi: List[Float32]
     var result: List[Float32]
+    var logx: List[Float32]
+    var draw: List[Float32]
+    var residual: List[Float32]
     var nodes_buffer: DeviceBuffer[DType.float32]
     var interval_buffer: DeviceBuffer[DType.float32]
     var contracts_buffer: DeviceBuffer[DType.float32]
     var law_buffer: DeviceBuffer[DType.float32]
     var phi_buffer: DeviceBuffer[DType.float32]
     var logx_buffer: DeviceBuffer[DType.float32]
-    var density_buffer: DeviceBuffer[DType.float32]
+    var draw_buffer: DeviceBuffer[DType.float32]
     var residual_buffer: DeviceBuffer[DType.float32]
     var paid_buffer: DeviceBuffer[DType.float32]
     var book_buffer: DeviceBuffer[DType.float32]
@@ -640,7 +820,6 @@ struct Model(Movable):
     var level_rows: DeviceBuffer[DType.float32]
     var held_rows: DeviceBuffer[DType.float32]
     var return_buffer: DeviceBuffer[DType.float32]
-    var growth_buffer: DeviceBuffer[DType.float32]
     var result_buffer: DeviceBuffer[DType.float32]
 
     def __init__(out self, chain: Chain, paths: Int, seed: UInt64) raises:
@@ -650,13 +829,40 @@ struct Model(Movable):
         self.days = chain.expiry_days[self.intervals - 1]
         self.books = 2 * chain.count()
         self.cost = chain.cost
-        self.risk = chain.risk
+        self.preference = chain.preference
+        # The confidence starts at 0.12.
+        self.confidence_logit = [Float32(-2)]
         self.grid = List[Float32](length=NODES, fill=0)
         for j in range(NODES):
             var u = GRID_STRETCH * (2 * Float64(j) / Float64(NODES - 1) - 1)
             self.grid[j] = Float32(GRID_SCALE * (exp(u) - exp(-u)) / 2)
-        # Every kernel weighs the same at the start: nothing of the quotes.
+        # The law starts normal, each interval at its expiry's own volatility: a call at
+        # the forward is worth 0.4 deviations of its expiry. That deviation of a day is
+        # also the interval's unit, in which the state measures a shock.
         self.logits = List[Float32](length=self.intervals * KERNELS, fill=0)
+        self.unit = List[Float32](length=self.intervals, fill=0)
+        for interval in range(self.intervals):
+            var nearest = -1
+            for i in range(chain.count()):
+                if (
+                    Int(chain.contracts[i * CONTRACT + 1]) == chain.expiry_days[interval]
+                    and chain.contracts[i * CONTRACT + 2] > 0
+                    and (nearest < 0 or abs(chain.contracts[i * CONTRACT] - 1) < abs(chain.contracts[nearest * CONTRACT] - 1))
+                ):
+                    nearest = i
+            if nearest < 0:
+                raise Error("an expiry without a call")
+            var strike = Float64(chain.contracts[nearest * CONTRACT])
+            var mid = Float64(chain.contracts[nearest * CONTRACT + 3] + chain.contracts[nearest * CONTRACT + 4]) / 2
+            var daily = max((mid + (strike - 1) / 2) / (0.4 * sqrt(Float64(chain.expiry_days[interval]))), 0.002)
+            self.unit[interval] = Float32(daily)
+            for k in range(KERNELS):
+                var z = Float64(self.grid[k + 1]) / daily
+                self.logits[interval * KERNELS + k] = Float32(
+                    max(-0.5 * z * z + log(Float64(self.grid[k + 2] - self.grid[k]) / 2), -30)
+                )
+        # The state keeps 0.9 of itself a day and moves a tenth with a shock's size.
+        self.state = [Float32(2.2), Float32(0.1), Float32(0)]
         self.weights = List[Float32](length=self.intervals * KERNELS, fill=0)
         self.phi = List[Float32](length=PARAMS, fill=0)
         var state = seed
@@ -666,27 +872,11 @@ struct Model(Movable):
             self.phi[n] = noise(state) * Float32(sqrt(2.0 / Float64(HIDDEN)))
         for n in range(W3, B3):
             self.phi[n] = noise(state) * Float32(sqrt(1.0 / Float64(HIDDEN)))
-        self.result = List[Float32](length=PARAMS + self.intervals * KERNELS + chain.count() * RESULT, fill=0)
+        self.result = List[Float32](length=PARAMS + self.intervals * KERNELS + STATE + chain.count() * RESULT, fill=0)
 
-        # A kernel's mean of exp(return): a hat from lo over its peak to hi.
-        self.kernel_growth = List[Float64](length=KERNELS, fill=0)
-        var nodes_and_growth = List[Float32](length=NODES + KERNELS, fill=0)
-        for j in range(NODES):
-            nodes_and_growth[j] = self.grid[j]
-        for k in range(KERNELS):
-            var lo = Float64(self.grid[k])
-            var peak = Float64(self.grid[k + 1])
-            var hi = Float64(self.grid[k + 2])
-            var rising = ((peak - lo - 1) * exp(peak) + exp(lo)) / (peak - lo)
-            var falling = (exp(hi) - (hi - peak + 1) * exp(peak)) / (hi - peak)
-            self.kernel_growth[k] = 2 * (rising + falling) / (hi - lo)
-            # Less one for the kernel: a constant over the kernels changes no logit's
-            # gradient, and the differences are what a Float32 sum has to keep.
-            nodes_and_growth[NODES + k] = Float32(self.kernel_growth[k] - 1)
-        self.nodes_buffer = self.ctx.enqueue_create_buffer[DType.float32](NODES + KERNELS)
-        self.nodes_buffer.enqueue_copy_from(nodes_and_growth.unsafe_ptr())
+        self.nodes_buffer = self.ctx.enqueue_create_buffer[DType.float32](NODES)
+        self.nodes_buffer.enqueue_copy_from(self.grid.unsafe_ptr())
         self.interval_of_day = List[Int](length=self.days, fill=0)
-        self.growth_buffer = self.ctx.enqueue_create_buffer[DType.float32](self.days)
         var interval_of_day = List[Float32](length=self.days, fill=0)
         var interval = 0
         for t in range(self.days):
@@ -699,22 +889,32 @@ struct Model(Movable):
         self.interval_buffer.enqueue_copy_from(interval_of_day.unsafe_ptr())
         self.contracts_buffer = self.ctx.enqueue_create_buffer[DType.float32](len(chain.contracts))
         self.contracts_buffer.enqueue_copy_from(chain.contracts.unsafe_ptr())
-        self.law_buffer = self.ctx.enqueue_create_buffer[DType.float32](self.intervals * NODES * 2)
+        self.law_buffer = self.ctx.enqueue_create_buffer[DType.float32](self.intervals * NODES * 2 + STATE + self.intervals)
         self.phi_buffer = self.ctx.enqueue_create_buffer[DType.float32](PARAMS)
         self.logx_buffer = self.ctx.enqueue_create_buffer[DType.float32](paths * (self.days + 1))
-        self.density_buffer = self.ctx.enqueue_create_buffer[DType.float32](paths * self.days)
+        self.draw_buffer = self.ctx.enqueue_create_buffer[DType.float32](paths * self.days * DRAW)
         self.residual_buffer = self.ctx.enqueue_create_buffer[DType.float32](paths * self.books)
         self.paid_buffer = self.ctx.enqueue_create_buffer[DType.float32](paths * self.books)
         self.book_buffer = self.ctx.enqueue_create_buffer[DType.float32](self.books * BOOK)
         self.gradient_rows = self.ctx.enqueue_create_buffer[DType.float32](paths * GROUPS * PARAMS)
         self.level_rows = self.ctx.enqueue_create_buffer[DType.float32](paths * GROUPS * 2 * (MAX_DAYS + 1))
         self.held_rows = self.ctx.enqueue_create_buffer[DType.float32](paths * GROUPS * (MAX_DAYS + 1))
-        self.return_buffer = self.ctx.enqueue_create_buffer[DType.float32](2 * paths * self.days)
+        self.return_buffer = self.ctx.enqueue_create_buffer[DType.float32](2 * paths * self.days + STATE * paths)
         self.result_buffer = self.ctx.enqueue_create_buffer[DType.float32](len(self.result))
+        self.logx = List[Float32](length=paths * (self.days + 1), fill=0)
+        self.draw = List[Float32](length=paths * self.days * DRAW, fill=0)
+        self.residual = List[Float32](length=paths * self.books, fill=0)
 
     def law(mut self) -> List[Float32]:
-        """Each interval's density at the nodes and its cumulative mass there."""
-        var table = List[Float32](length=self.intervals * NODES * 2, fill=0)
+        """Each interval's density at the nodes and its cumulative mass there;
+        then the state's numbers and each interval's unit."""
+        var table = List[Float32](length=self.intervals * NODES * 2 + STATE + self.intervals, fill=0)
+        var tail = self.intervals * NODES * 2
+        table[tail] = self.keep()
+        table[tail + 1] = self.state[1]
+        table[tail + 2] = self.state[2]
+        for interval in range(self.intervals):
+            table[tail + STATE + interval] = self.unit[interval]
         for interval in range(self.intervals):
             var largest = self.logits[interval * KERNELS]
             for k in range(KERNELS):
@@ -733,36 +933,32 @@ struct Model(Movable):
                 table[base + NODES + j] = Float32(mass)
         return table^
 
-    def growth(self) -> List[Float32]:
-        """Each day's mean move under the law: the weights' sum of the kernels' own."""
-        var growth = List[Float32](length=self.days, fill=0)
-        for t in range(self.days):
-            var mean = Float64(0)
-            for k in range(KERNELS):
-                mean += Float64(self.weights[self.interval_of_day[t] * KERNELS + k]) * self.kernel_growth[k]
-            growth[t] = Float32(mean)
-        return growth^
+    def confidence(self) -> Float32:
+        """The Expected Shortfall's confidence, between 0 (the mean) and 1 (the worst path)."""
+        return 1 / (1 + exp(-self.confidence_logit[0]))
+
+    def keep(self) -> Float32:
+        """The share of its logarithm the volatility state keeps a day."""
+        return 1 / (1 + exp(-self.state[0]))
 
     def forward(mut self, seed: UInt32) raises:
         """Paths, every book rolled, every contract quoted."""
         var table = self.law()
         self.law_buffer.enqueue_copy_from(table.unsafe_ptr())
-        var growth = self.growth()
-        self.growth_buffer.enqueue_copy_from(growth.unsafe_ptr())
         self.phi_buffer.enqueue_copy_from(self.phi.unsafe_ptr())
         var threads = self.paths * GROUPS
         self.ctx.enqueue_function[simulate](
-            self.law_buffer, self.nodes_buffer, self.interval_buffer, self.logx_buffer, self.density_buffer,
-            self.paths, self.days, seed, grid_dim=(self.paths + BLOCK - 1) // BLOCK, block_dim=BLOCK,
+            self.law_buffer, self.nodes_buffer, self.interval_buffer, self.logx_buffer, self.draw_buffer,
+            self.paths, self.days, self.intervals, KERNELS, seed, grid_dim=(self.paths + BLOCK - 1) // BLOCK, block_dim=BLOCK,
         )
         self.ctx.enqueue_function[roll](
             self.logx_buffer, self.contracts_buffer, self.phi_buffer, self.residual_buffer, self.paid_buffer,
-            self.growth_buffer, self.paths, self.days, self.books, self.cost, HIDDEN, grid_dim=threads // BLOCK, block_dim=BLOCK,
+            self.draw_buffer, self.paths, self.days, self.books, self.cost, HIDDEN, grid_dim=threads // BLOCK, block_dim=BLOCK,
         )
         self.ctx.enqueue_function[quote](
             self.residual_buffer, self.paid_buffer, self.contracts_buffer, self.logx_buffer, self.book_buffer,
-            self.result_buffer, self.paths, self.days, self.books, self.risk,
-            PARAMS + self.intervals * KERNELS, grid_dim=(self.books // 2 + BLOCK - 1) // BLOCK, block_dim=BLOCK,
+            self.result_buffer, self.paths, self.days, self.books, self.confidence(), self.preference,
+            PARAMS + self.intervals * KERNELS + STATE, grid_dim=(self.books // 2 + BLOCK - 1) // BLOCK, block_dim=BLOCK,
         )
 
     def backward(mut self) raises:
@@ -774,7 +970,7 @@ struct Model(Movable):
         var threads = self.paths * GROUPS
         self.ctx.enqueue_function[adjoint](
             self.logx_buffer, self.contracts_buffer, self.phi_buffer, self.book_buffer, self.gradient_rows,
-            self.level_rows, self.held_rows, self.growth_buffer, self.paths, self.days, self.books, self.cost, self.risk, HIDDEN,
+            self.level_rows, self.held_rows, self.draw_buffer, self.paths, self.days, self.books, self.cost, self.confidence(), self.preference, HIDDEN,
             grid_dim=threads // BLOCK, block_dim=BLOCK,
         )
 
@@ -784,20 +980,27 @@ struct Model(Movable):
             self.gradient_rows, self.result_buffer, threads, grid_dim=(PARAMS + BLOCK - 1) // BLOCK, block_dim=BLOCK,
         )
         self.ctx.enqueue_function[return_adjoint](
-            self.level_rows, self.logx_buffer, self.return_buffer, self.paths, self.days,
+            self.level_rows, self.logx_buffer, self.return_buffer, self.draw_buffer, self.interval_buffer, self.law_buffer,
+            self.paths, self.days, self.intervals,
             grid_dim=(self.paths + BLOCK - 1) // BLOCK, block_dim=BLOCK,
         )
         self.ctx.enqueue_function[law_gradient](
-            self.return_buffer, self.logx_buffer, self.density_buffer, self.nodes_buffer, self.interval_buffer,
+            self.return_buffer, self.logx_buffer, self.draw_buffer, self.nodes_buffer, self.interval_buffer,
             self.result_buffer, self.paths, self.days, self.intervals, PARAMS,
-            grid_dim=(self.intervals * KERNELS + BLOCK - 1) // BLOCK, block_dim=BLOCK,
+            grid_dim=(self.intervals * KERNELS + STATE + BLOCK - 1) // BLOCK, block_dim=BLOCK,
         )
+
+    def read_batch(mut self) raises:
+        """The last batch's paths, days and residuals, for the reports."""
+        self.logx_buffer.enqueue_copy_to(self.logx.unsafe_ptr())
+        self.draw_buffer.enqueue_copy_to(self.draw.unsafe_ptr())
+        self.residual_buffer.enqueue_copy_to(self.residual.unsafe_ptr())
 
     def read(mut self) raises:
         self.result_buffer.enqueue_copy_to(self.result.unsafe_ptr())
 
     def contract(self, i: Int, field: Int) -> Float32:
-        return self.result[PARAMS + self.intervals * KERNELS + i * RESULT + field]
+        return self.result[PARAMS + self.intervals * KERNELS + STATE + i * RESULT + field]
 
     def loss(self) -> Float64:
         """The generator's: mean squared distance outside the bands."""
@@ -806,11 +1009,18 @@ struct Model(Movable):
             sum += Float64(self.contract(i, 6))
         return sum / Float64(self.books // 2)
 
-    def funding(self) -> Float64:
-        """The hedger's: the sum of every book's funding, ask minus bid."""
+    def confidence_loss(self) -> Float64:
+        """The confidence's: mean squared distance of the model's bids and asks from the market's own."""
         var sum = Float64(0)
         for i in range(self.books // 2):
-            sum += Float64(self.contract(i, 1) - self.contract(i, 0))
+            sum += Float64(self.contract(i, 10))
+        return sum / Float64(self.books // 2)
+
+    def funding(self) -> Float64:
+        """The hedger's: the sum of every book's Expected Shortfall at its preference."""
+        var sum = Float64(0)
+        for i in range(self.books // 2):
+            sum += Float64(self.contract(i, 12) + self.contract(i, 13))
         return sum
 
     def hedger_gradient(self) -> List[Float64]:
@@ -832,17 +1042,35 @@ struct Model(Movable):
                 gradient[at] = Float64(self.weights[at]) * (Float64(self.result[PARAMS + at]) - mean)
         return gradient^
 
+    def state_gradient(self) -> List[Float64]:
+        """By the state's numbers as they are stored: the kept share's logit, the two others."""
+        var at = PARAMS + self.intervals * KERNELS
+        var keep = Float64(self.keep())
+        return [Float64(self.result[at]) * keep * (1 - keep), Float64(self.result[at + 1]), Float64(self.result[at + 2])]
+
+    def confidence_gradient(self) -> List[Float64]:
+        """Of the confidence's loss, by its logit."""
+        var sum = Float64(0)
+        for i in range(self.books // 2):
+            sum += Float64(self.contract(i, 11))
+        var confidence = Float64(self.confidence())
+        return [sum * confidence * (1 - confidence)]
+
 
 struct Training(Movable):
-    """The two optimizers and one joint step: fresh paths, both gradients from
+    """The optimizers and one joint step: fresh paths, every gradient from
     the same parameters, then both updates."""
 
     var hedger: Adam
     var generator: Adam
+    var confidence: Adam
+    var state: Adam
 
     def __init__(out self, intervals: Int):
         self.hedger = Adam(PARAMS, 0.005)
         self.generator = Adam(intervals * KERNELS, 0.05)
+        self.confidence = Adam(1, 0.05)
+        self.state = Adam(STATE, 0.01)
 
     def step(mut self, mut model: Model, seed: UInt32) raises:
         model.forward(seed)
@@ -850,8 +1078,12 @@ struct Training(Movable):
         model.read()
         var hedger_gradient = model.hedger_gradient()
         var generator_gradient = model.generator_gradient()
+        var confidence_gradient = model.confidence_gradient()
+        var state_gradient = model.state_gradient()
         self.hedger.step(model.phi, hedger_gradient)
         self.generator.step(model.logits, generator_gradient)
+        self.confidence.step(model.confidence_logit, confidence_gradient)
+        self.state.step(model.state, state_gradient)
 
 
 def generator_differences(mut model: Model, seed: UInt32) raises:
@@ -860,6 +1092,20 @@ def generator_differences(mut model: Model, seed: UInt32) raises:
     model.backward()
     model.read()
     var gradient = model.generator_gradient()
+    var by_state = model.state_gradient()
+    for n in range(STATE):
+        var kept = model.state[n]
+        var step = Float32(0.02)
+        model.state[n] = kept + step
+        model.forward(seed)
+        model.read()
+        var up = model.loss()
+        model.state[n] = kept - step
+        model.forward(seed)
+        model.read()
+        var down = model.loss()
+        model.state[n] = kept
+        print("DH check state", n, by_state[n], (up - down) / Float64(2 * step))
     for n in [3, 20, 24, 25, 30, 45, KERNELS + 24]:
         if n < len(model.logits):
             var kept = model.logits[n]
@@ -874,6 +1120,20 @@ def generator_differences(mut model: Model, seed: UInt32) raises:
             var down = model.loss()
             model.logits[n] = kept
             print("DH check", n, gradient[n], (up - down) / Float64(2 * step))
+    model.forward(seed)
+    model.read()
+    var by_confidence = model.confidence_gradient()[0]
+    var kept = model.confidence_logit[0]
+    model.confidence_logit[0] = kept + 0.05
+    model.forward(seed)
+    model.read()
+    var up = model.confidence_loss()
+    model.confidence_logit[0] = kept - 0.05
+    model.forward(seed)
+    model.read()
+    var down = model.confidence_loss()
+    model.confidence_logit[0] = kept
+    print("DH check confidence", by_confidence, (up - down) / 0.1)
 
 
 def ledger(mut model: Model, chain: Chain, seed: UInt32, position: Float64) raises:
@@ -882,8 +1142,7 @@ def ledger(mut model: Model, chain: Chain, seed: UInt32, position: Float64) rais
     here for a hedger that holds one constant position."""
     model.forward(seed)
     model.read()
-    var logx = model.logx_buffer.to_host()
-    var growth = model.growth()
+    model.read_batch()
     var row = model.days + 1
     for i in [0, chain.count() // 2, chain.count() - 1]:
         var strike = Float64(chain.contracts[i * CONTRACT])
@@ -891,24 +1150,28 @@ def ledger(mut model: Model, chain: Chain, seed: UInt32, position: Float64) rais
         var call = Float64(chain.contracts[i * CONTRACT + 2])
         var funding = List[Float64]()
         for side in [Float64(1), Float64(-1)]:
-            var sum = Float64(0)
-            var squares = Float64(0)
+            var residuals = List[Float64]()
             for p in range(model.paths):
                 var cash = Float64(0)
                 for u in range(1, expiry):
                     cash += position * (
-                        exp(Float64(logx[p * row + u + 1])) - Float64(growth[u]) * exp(Float64(logx[p * row + u]))
+                        exp(Float64(model.logx[p * row + u + 1]))
+                        - (1 + Float64(model.draw[(p * model.days + u) * DRAW + 2])) * exp(Float64(model.logx[p * row + u]))
                     )
                 if expiry > 1:
                     # Bought once on day 1, sold once at the expiry.
                     cash -= Float64(model.cost) * abs(position) * (
-                        exp(Float64(logx[p * row + 1])) + exp(Float64(logx[p * row + expiry]))
+                        exp(Float64(model.logx[p * row + 1])) + exp(Float64(model.logx[p * row + expiry]))
                     )
-                var left = side * max(call * (exp(Float64(logx[p * row + expiry])) - strike), 0) - cash
-                sum += left
-                squares += left * left
-            var mean = sum / Float64(model.paths)
-            funding.append(mean + Float64(model.risk) * sqrt(max(squares / Float64(model.paths) - mean * mean, 0)))
+                residuals.append(side * max(call * (exp(Float64(model.logx[p * row + expiry])) - strike), 0) - cash)
+            # Expected Shortfall from the sorted residuals' quantile.
+            sort(residuals)
+            var confidence = Float64(model.confidence())
+            var level = residuals[min(Int(confidence * Float64(model.paths)), model.paths - 1)]
+            var excess = Float64(0)
+            for p in range(model.paths):
+                excess += max(residuals[p] - level, 0)
+            funding.append(level + excess / (Float64(model.paths) * (1 - confidence)))
         print("DH check", i, model.contract(i, 0), model.contract(i, 1), -funding[1], funding[0])
 
 
@@ -920,6 +1183,8 @@ def check(mut model: Model, chain: Chain, iterations: Int) raises:
     columns differ by what the hedger's response to the paths adds, which is
     nothing at a hedger that cannot be improved (THEORY.md, section 4)."""
     var seed = UInt32(7)
+    # A state that leans, so that every term of its backward pass is checked.
+    model.state[2] = -0.1
     model.forward(seed)
     model.backward()
     model.read()
@@ -1002,12 +1267,12 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
         training.step(model, UInt32((seed + UInt64(iteration)) * 2654435761 & 0xFFFFFFFF))
         window_loss += model.loss()
         for i in range(contracts * RESULT):
-            window[i] += Float64(model.result[PARAMS + model.intervals * KERNELS + i])
+            window[i] += Float64(model.result[PARAMS + model.intervals * KERNELS + STATE + i])
         if iteration % REPORT == 0:
             var seconds = Float64(perf_counter_ns() - started) / 1e9
             # Of the window's mean bids and asks, the share inside the market's band;
-            # mean spreads of the market and of the model, the model's two parts (costs,
-            # and the deviation the risk price multiplies), and that deviation unhedged.
+            # mean spreads of the market and of the model, the hedges' costs, the deviation
+            # of what they leave, and the payoffs' own.
             var inside = 0
             var market = Float64(0)
             var spread = Float64(0)
@@ -1030,12 +1295,14 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
                 "DH iteration", iteration, "loss", window_loss / REPORT, "seconds", seconds,
                 "inside", Float64(inside) / Float64(2 * contracts), "market", market / Float64(contracts),
                 "model", spread / Float64(contracts), "cost", fees / Float64(contracts),
-                "risk", deviations / Float64(contracts), "unhedged", unhedged / Float64(contracts), flush=True,
+                "risk", deviations / Float64(contracts), "unhedged", unhedged / Float64(contracts),
+                "confidence", model.confidence(), "keep", model.keep(), "swing", model.state[1], "lean", model.state[2], flush=True,
             )
             for i in range(contracts):
                 line = String("DH quote ") + String(i)
                 for field in range(RESULT):
-                    line += " " + String(window[i * RESULT + field] / REPORT)
+                    if field < 10:
+                        line += " " + String(window[i * RESULT + field] / REPORT)
                     window[i * RESULT + field] = 0
                 print(line)
             for interval in range(model.intervals):
@@ -1043,28 +1310,53 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
                 for k in range(KERNELS):
                     line += " " + String(model.weights[interval * KERNELS + k])
                 print(line)
-            var logx = model.logx_buffer.to_host()
-            var growth = model.growth()
-            var forward = Float64(1)
+            model.read_batch()
+            var row = model.days + 1
             var day = 0
             for interval in range(model.intervals):
-                # The law's forward at the expiry: its days' mean moves, multiplied.
-                while day < chain.expiry_days[interval]:
-                    forward *= Float64(growth[day])
-                    day += 1
-                # The deviation of one day's return in the interval, from its weights: a hat's
-                # mean is that of its three nodes, its variance (a2 + b2 + c2 - ab - ac - bc) / 18.
-                var first = Float64(0)
-                var second = Float64(0)
-                for k in range(KERNELS):
-                    var a = Float64(model.grid[k])
-                    var c = Float64(model.grid[k + 1])
-                    var b = Float64(model.grid[k + 2])
-                    var centre = (a + b + c) / 3
-                    var weight = Float64(model.weights[interval * KERNELS + k])
-                    first += weight * centre
-                    second += weight * ((a * a + b * b + c * c - a * b - a * c - b * c) / 18 + centre * centre)
-                print("DH forward", interval, forward, sqrt(second - first * first))
+                # The law's forward at the expiry. On a path the level over the product of
+                # its days' mean moves has mean one, so the batch's mean level is corrected
+                # by that ratio's own error: 1 + mean(x (1 - 1 / product)).
+                var expiry = chain.expiry_days[interval]
+                var correction = Float64(0)
+                # And the days of the interval as the batch has them: mean, deviation,
+                # skewness, excess kurtosis, and how a day's size goes with the day before's.
+                var count = Float64(0)
+                var moments = [Float64(0), Float64(0), Float64(0), Float64(0)]
+                var sizes = [Float64(0), Float64(0), Float64(0), Float64(0), Float64(0)]
+                for p in range(model.paths):
+                    var product = Float64(1)
+                    for t in range(expiry):
+                        product *= 1 + Float64(model.draw[(p * model.days + t) * DRAW + 2])
+                    correction += exp(Float64(model.logx[p * row + expiry])) * (1 - 1 / product)
+                    for t in range(day, expiry):
+                        var moved = Float64(model.logx[p * row + t + 1] - model.logx[p * row + t])
+                        count += 1
+                        moments[0] += moved
+                        moments[1] += moved * moved
+                        moments[2] += moved * moved * moved
+                        moments[3] += moved * moved * moved * moved
+                        if t > 0:
+                            var before = abs(Float64(model.logx[p * row + t] - model.logx[p * row + t - 1]))
+                            sizes[0] += 1
+                            sizes[1] += abs(moved)
+                            sizes[2] += before
+                            sizes[3] += abs(moved) * before
+                            sizes[4] += moved * moved + before * before
+                day = expiry
+                var mean = moments[0] / count
+                var variance = moments[1] / count - mean * mean
+                var third = moments[2] / count - 3 * mean * moments[1] / count + 2 * mean * mean * mean
+                var fourth = (
+                    moments[3] / count - 4 * mean * moments[2] / count + 6 * mean * mean * moments[1] / count
+                    - 3 * mean * mean * mean * mean
+                )
+                var size_mean = (sizes[1] + sizes[2]) / (2 * sizes[0])
+                var together = (sizes[3] / sizes[0] - size_mean * size_mean) / (sizes[4] / (2 * sizes[0]) - size_mean * size_mean)
+                print(
+                    "DH forward", interval, 1 + correction / Float64(model.paths), mean, sqrt(variance),
+                    third / (variance * sqrt(variance)), fourth / (variance * variance) - 3, together,
+                )
             # The first paths, which are any paths, then the batch's ten lowest at the
             # last day and its ten highest.
             var shown = List[Int]()
@@ -1074,14 +1366,18 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
                 var best = -1
                 for p in range(model.paths):
                     if p not in shown:
-                        var level = logx[p * (model.days + 1) + model.days]
-                        if best < 0 or (level < logx[best * (model.days + 1) + model.days]) == (extreme < EXTREME_PATHS):
+                        var level = model.logx[p * (model.days + 1) + model.days]
+                        if best < 0 or (level < model.logx[best * (model.days + 1) + model.days]) == (extreme < EXTREME_PATHS):
                             best = p
                 shown.append(best)
             for index in range(len(shown)):
                 line = String("DH path ") + String(index)
                 for t in range(model.days + 1):
-                    line += " " + String(logx[shown[index] * (model.days + 1) + t])
+                    line += " " + String(model.logx[shown[index] * (model.days + 1) + t])
+                print(line)
+                line = String("DH scale ") + String(index)
+                for t in range(model.days):
+                    line += " " + String(exp(model.draw[(shown[index] * model.days + t) * DRAW + 1]))
                 print(line)
             # What the hedger holds along the first paths shown, short three calls of the
             # middle expiry: its lowest strike, the one nearest the forward, its highest.
@@ -1089,7 +1385,13 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
             var first_layer = Array[Float32, HIDDEN](fill=0)
             var second_layer = Array[Float32, HIDDEN](fill=0)
             var hedge = 0
+            # And what each of those hedges left on every path, short and long.
             for chosen in shown_contracts(chain):
+                for side in range(2):
+                    line = String("DH residual ") + String(chosen) + " " + String(side)
+                    for p in range(model.paths):
+                        line += " " + String(model.residual[p * model.books + 2 * chosen + side])
+                    print(line)
                 var expiry = Int(chain.contracts[chosen * CONTRACT + 1])
                 var log_strike = log(chain.contracts[chosen * CONTRACT])
                 for p in range(HEDGED_PATHS):
@@ -1099,10 +1401,11 @@ def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
                     for u in range(1, expiry):
                         position = policy(
                             rebind[Floats](model.phi.unsafe_ptr()),
-                            logx[p * (model.days + 1) + u - 1] - log_strike,
+                            model.logx[p * (model.days + 1) + u - 1] - log_strike,
                             Float32(expiry - u + 1),
                             1,
                             1,
+                            model.draw[(p * model.days + u - 1) * DRAW + 1],
                             position,
                             inputs,
                             first_layer,

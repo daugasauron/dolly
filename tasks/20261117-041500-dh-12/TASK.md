@@ -18,3 +18,12 @@ the same strike is worth 0.0002; the calls agree with put-call parity (0.1944 ag
 
 The choices: leave such puts out (what the demo does, task dh-16); price exercise in the model,
 which makes the hedger decide it; or fit a European chain (SPX; task dh-20).
+
+## Decided 2026-11-17
+
+Looked for again on 2026-11-17: nothing in the owner's words on early exercise, American
+options or dividends as a modelling question. It stays the owner's. What each answer changes:
+leaving such puts out (now, task dh-16) loses the in-the-money puts of the longer expiries and
+nothing else; pricing exercise makes the holder's decision part of the long book and the
+writer's risk part of the short one, a second policy and a stopping time in the kernels; a
+European chain (an index) removes the question and is not the single name the owner wants.

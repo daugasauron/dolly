@@ -1,6 +1,7 @@
 # The deep hedger: problem, assumptions, theory
 
-Reconciled on 2026-11-16 from the owner's own messages in every earlier attempt
+Reconciled on 2026-11-16, its open questions decided on 2026-11-17, from the
+owner's own messages in every earlier attempt
 (2,193 messages, February to October 2026: `cher`, `cher-sim`, `fable`, `fable-2`,
 `sig-mmd`, `boom`, `codex-2`, `braut`, `dh`, `mano`, `neil`), read against the
 documents those projects left. A decision cites the owner's words as
@@ -63,6 +64,8 @@ asset pricing, with frictions (cher-sim, 04-09; braut, 07-22).
 | 21 | First model a liquid name correctly; the illiquid names are the product, later. | "the first part is just to model liquid options correctly using this model, thats my goal" (codex-2, 07-17); "one of the main points is for this to work on semi illiquid names" (cher, 03-23) |
 | 22 | The verdict on a hedger is a fair realized backtest at real bid and ask against a cost-aware classical hedge. | "This should be the golden numerical verdict for any model - actual fair backtest PL on read data." (fable-2, 07-01) |
 | 23 | GPU kernels in Mojo, hand-written backward pass, one code path. | "The goal was to do the backprop in mojo without pytorch" (braut, 08-11); "I want to have ONE code path with no flags" (fable, 06-28) |
+| 24 | Few numbers beside the generator, each with a meaning; the price of risk is an Expected Shortfall's confidence, and the market implies it. | "as few parameters as possible (I do think there has to be some in the end, like es confidence intterval or whatever), where each paramter has an intuitive meaning" (neil, 10-23); "a certain confidence level is implied by the market?" (braut, 08-17) |
+| 25 | What the past teaches enters as properties of the law with their own parameters, volatility clustering first; a law of rare jumps is not a realistic one. | "express everything that comes from historical paths as parametric properties (vol clustering), not add the returns directly" (braut, 07-25); "almost all returns are close to 0 and then there are soem sudden jumps [...] it's not a realistic path law" (braut, 07-25); "shouldn't vol of vol give a lot of kurtosis?" (fable, 06-24) |
 
 ## 3. Assumptions
 
@@ -77,29 +80,41 @@ then divided by `D F` and every strike by `F`. The model has no rate.
 **Time.** Business days. One decision a day; it fills at the next day's price
 (decision 9), so the last day before expiry cannot be hedged at all.
 
-**The path law.** `x_0 = 1`, `log x_{t+1} = log x_t + r_t`, with `r_t` drawn
-from a density that is a weighted sum of N fixed kernels on a fixed grid of
-returns. The weights are the parameters. They may depend on the calendar day
-(the listed expiries cut time into intervals, one weight vector each) and, in
-the full model, on the path's own past returns and on event dates (decisions
-3, 18). No constraint is put on the mean: `x` is in forward units, and a law
-whose mean leaves 1 puts calls above and puts below their bands, so the
-forward is fitted with everything else ("there is an implied forward price in
-the option chains that I sort of hope will" emerge, boom, 07-22).
+**The path law.** `x_0 = 1`, `log x_{t+1} = log x_t + s_t z_t`. The shock
+`z_t` is drawn from a density that is a weighted sum of N fixed kernels on a
+fixed grid; the weights are parameters, one set an interval between listed
+expiries, started normal at the expiry's own at-the-money volatility. The
+scale `s_t` is the path's volatility state, made of the path's own past
+shocks and nothing observed (decisions 1, 25):
+
+    log s_{t+1} = keep * log s_t + swing * (|e_t| - 0.798) + lean * e_t,    s_0 = 1
+
+with `e_t` the shock in units of the interval's starting deviation and 0.798
+the mean size of a normal one. Three numbers: `keep`, the share of the state
+that lasts a day; `swing`, what a large day adds to the next day's volatility;
+`lean`, what a fall adds that a rise takes away. They are fitted with the
+weights. A smile's skew and its fat tails over weeks can then come from days
+that cluster and lean, where a law of independent days can only make them out
+of rare jumps. Event dates (decision 18) are not in it. No constraint is put
+on the mean: `x` is in forward units, and a law whose mean leaves 1 puts calls
+above and puts below their bands, so the forward is fitted with everything
+else ("there is an implied forward price in the option chains that I sort of
+hope will" emerge, boom, 07-22).
 
 **Frictions.** A stock trade pays a fraction `c` of its value, the stock's
 half-spread and slippage: a measured quantity of the name, not a fitted one.
 An option trade crosses the model's own bid or ask (decision 12).
 
 **Carry of the hedge.** The stock is bought forward, at the law's own mean
-move `g_u` of the day: a position earns the day's move less that mean. Holding
+move `g_u` of the day on its path, which the day's scale decides: a position
+earns the day's move less that mean. Holding
 stock is then a fair game under any law, and nothing can be earned from a
 drift (conflict 3). It is the ledger's statement that a forward costs its
 forward price; the law itself is not corrected.
 
 **The hedger.** A function of what a trader can see on the day: the contract's
-terms relative to the stock, the time left, the side, the position held
-(decisions 7, 8, 19). It never sees a quote or the future.
+terms relative to the stock, the time left, the side, the position held, the
+path's volatility state as of the last day seen (decisions 7, 8, 19). It never sees a quote or the future.
 
 ## 4. Theory
 
@@ -117,49 +132,46 @@ What is left with the dealer is the residual `L = Y - W` (short) or
 **The price is the funding of the residual** (decision 14): `ask = rho(Y - W)`,
 `bid = -rho(-Y - W)`.
 
-**What `rho` is, is the open question of the whole program** (section 5). With
-`rho` the mean, the stock a fair game and a hedger that only reduces variance,
-`ask - bid` is the expected cost of two hedges and nothing else: the second
-friction, the risk that daily hedging leaves, is not paid for. The owner saw
-it: "The bid=ask=E[Y] is a fundamental problem. I somehow imagined that the
-spread would emerge from the replication error" (braut, 08-13); "the seller
-should also be compensated by taking on the risk of hedging errors" (braut,
-08-13). This reconciliation takes
+**`rho` is an Expected Shortfall** (decision 24):
 
-    rho(L) = mean(L) + lambda * std(L)
+    rho_a(L) = mean of L over all but its best share `a` of the paths
+             = min over q of  q + mean(max(L - q, 0)) / (1 - a)
 
-with one number `lambda`, the price of a unit of risk that hedging cannot
-remove, and has the hedger minimize `rho` itself. Then:
+with one number, the confidence `a`, between 0 and 1. With the mean in its
+place (`a = 0`) and the stock a fair game, a position changes a book's price
+by its cost alone: nobody hedges, `bid = ask = E[Y]`, and the risk that
+hedging leaves is not paid for. The owner saw it: "The bid=ask=E[Y] is a
+fundamental problem. I somehow imagined that the spread would emerge from the
+replication error" (braut, 08-13); "the seller should also be compensated by
+taking on the risk of hedging errors" (braut, 08-13).
 
-- `ask - bid = (cost of the short hedge + cost of the long hedge) + lambda *
-  (std of the short residual + std of the long residual)`: the two frictions of
-  decision 10, each in currency, each emerging from the path law and the
-  hedger. Nothing sets a spread.
-- `std(L)` is the root of the owner's replication error `mean((Y - W - p)^2)`.
-  The hedger still replicates; `lambda` is the rate at which it may pay cost to
-  replicate better. Without that rate a squared error cannot weigh cost at
-  all: centered, it ignores the mean, so it ignores cost (measured in `braut`
-  attempt 10: three hedger seeds, one generator, spreads of 8, 17 and 27 bp;
-  an agent's result, its note read, not rerun); uncentered, `mean((Y - W)^2)`
-  penalizes cost on the short side and rewards it on the long side, where the
-  mean residual is `-(E[Y] - cost)`. The second half is this reconciliation's
-  own algebra; `~/dev/neil/THESIS.md` 4.3 claims the uncentered loss is the
-  remedy and is wrong for the long book.
-- `lambda = 0`: nobody hedges, `bid = ask = E[Y]`: the owner's first
-  formulation, "something that generated stock price paths such that the
-  expected value (from simulating with this) of all puts/calls on a surface
-  ends up within the bid ask spread" (cher, 03-20). `c = 0`, continuous time,
-  a complete law: perfect replication, no spread, any `lambda`. The classical
-  models are these two corners.
-- The market's spreads then imply a `lambda`, as the owner asked: "this should
-  make the spread a function of the confidence level? With some imagination
-  you couldn then say that a certain confidence level is implied by the
-  market?" (braut, 08-17); "what does it mean to calibrate a model like this
-  to the market? The implied hedge cost/risk aversion in the market?" (mano,
-  09-07). For a normal residual `lambda` maps to an Expected Shortfall level;
-  the standard deviation is used because it is the replication error itself
-  and needs no sort. It has a known defect that Expected Shortfall has not:
-  it is not monotone, a residual that is never worse can be charged more.
+It is used twice, at two confidences, because one confidence cannot do both
+jobs on a liquid name (section 6):
+
+- **The hedger's**, `h`, is its risk preference and is given (0.5: it makes
+  the mean of the worse half of its outcomes small). It is the mandate to
+  replicate: "The whole point of the project is to REPLICATE payoffs under
+  transaction cost, then the price will be the replication cost." (cher-sim,
+  05-14). The hedger minimizes `rho_h` of every book.
+- **The quotes'**, `a`, is what the market pays for the risk that hedge
+  leaves, and is fitted: `ask = rho_a(Y - W)`, `bid = -rho_a(-Y - W)`. The
+  generator's loss is zero inside a band (decision 16), so it leaves the
+  width of the model's spread free, and left to it the width goes to nothing.
+  The confidence is therefore moved by a loss of its own, the model's bid
+  from the market's bid and its ask from the market's ask: it is the
+  confidence "implied by the market" (braut, 08-17).
+
+Then:
+
+- `ask - bid` is the cost of the two hedges plus what the two residuals' bad
+  tails exceed their means by at `a`: the two frictions of decision 10, each
+  in currency, each emerging from the path law and the hedger. Nothing sets a
+  spread, and there is no mid.
+- `c = 0`, continuous time, a complete law: perfect replication, no spread,
+  any `a`. `a = 0`: a spread of the two hedges' cost alone.
+- `rho` is monotone and subadditive, which the deviation this document
+  proposed on 2026-11-16 (`mean + lambda * std`) is not: a residual that is
+  never worse is never charged more.
 
 **Calibration.** The generator's loss is, over today's contracts, the distance
 of the model's bid and of its ask outside the market's band, zero inside
@@ -177,8 +189,8 @@ is optimal among functions of the day's information satisfies
 `E[d rho / d h_t | day t] = 0`. Moving the law moves the states the hedger
 sees, and the change in its positions is itself a function of the day's
 information, so its first-order effect on `rho` is zero. The generator's
-gradient may hold positions fixed: exact at a converged hedger, measured
-otherwise (section 6).
+gradient may hold positions fixed: exact at a converged hedger when the two
+confidences are one, an approximation otherwise, and measured (the README).
 
 **No-arbitrage is a consequence**, not a constraint (neil, 10-23): one law
 prices every contract, so the levels are consistent in strike and expiry, and
@@ -190,9 +202,11 @@ prices every contract, so the levels are consistent in strike and expiry, and
 | Number | What it is | Where it comes from |
 |---|---|---|
 | N, the count of return kernels | how smooth a day's law may be | chosen: 49 |
-| the kernels' weights, one set an interval between expiries | the market's implied law of a day's return | fitted to today's bids and asks |
+| the kernels' weights, one set an interval between expiries | the market's implied law of a day's shock | fitted to today's bids and asks |
+| `keep`, `swing`, `lean` | how long volatility lasts, what a large day and what a fall do to it | fitted to today's bids and asks |
+| `h` | the hedger's risk preference: the share of its best outcomes it does not count | given: 0.5 |
+| `a` | the quotes' confidence: how much of the bad tail a price pays for | fitted to today's bids and asks |
 | `c` | what a stock trade costs | the stock's own market |
-| `lambda` | the price of a unit of risk that hedging leaves | chosen, or read off the market's spreads |
 | the clock and the lag | one decision a day, filled the next | the trader's situation |
 
 The hedger's network is not among them: it is the solver, judged by the risk
@@ -202,56 +216,39 @@ it leaves.
 if some contracts are worth buying on average since the hedged PL of those
 contracts to expiry gives a good terminal PL distribution"). The model's bid
 of a contract is what a dealer who hedges it as the hedger does can pay and be
-left, on average and after `lambda` for the risk, with nothing. A market ask
+left, after its charge for the bad tail, with nothing. A market ask
 under the model's bid is a contract worth buying and hedging, by that much; a
-market bid over the model's ask, one worth selling.
+market bid over the model's ask, one worth selling. Before that charge, the
+trade's result on every path is the distribution itself: its mean says whether
+the contract is worth buying on average, its tail what that costs.
 
-## 5. Open conflicts
+## 5. The conflicts, as decided on 2026-11-17
 
-1. **What the spread is.** The owner's positions, in order: side-dependent
-   execution alone (07-22); `price = average(W)` (08-12); `bid = ask = E[Y]`
-   is a problem (08-13); mid plus mean replication error, "I like it" (08-13);
-   Expected Shortfall with a confidence level (08-17), and of the standard
-   error as the spread, the same day, "I can't convince myself why it makes
-   sense"; "You are focusing way too much on ES and missing the big picture.
-   The spread should emerge" yet "I do think there has to be some in the end,
-   like es confidence intterval or whatever" (neil, 10-23). Earlier: "Why do
-   you keep talking about lambda? In my mind there are no parameters in this
-   models except for the genrator." (sig-mmd, 07-07). Section 4 is a
-   proposal that keeps every later statement and gives up the 07-07 one. Not
-   decided by the owner.
-2. **Historical returns** (the conflict `mano` flags). Refused on 07-22
-   ("You forgot to remove the dependence on recent historical returns"),
-   allowed as a short window on 07-25 ("fine to use the actual historical
-   returns with a short history"), refused on 09-07 (decision 1).
-   `braut/mojo`, the newest code, still reads observed returns
-   (`gpu_generator.mojo:104-139`, checked). The latest word decides: none.
-   What history may give later is temporal structure "as parametric
-   properties (vol clustering), not add the returns directly" (braut, 07-25).
-3. **Drift.** "Regarding 0 drift, I'm not sure" (boom, 07-22). A hedger that
-   minimizes `rho` holds stock for a drift once the drift over the holding
-   time exceeds `lambda` times the deviation over it, whatever it hedges, and
-   the generator then moves the drift: measured here before the forward was
-   in the ledger (section 6). `neil/THESIS.md` 4.5 proposes to constrain the
-   law's mean. The demo leaves the law free, so that the forward is fitted,
-   and takes the drift out of the hedge instrument (section 3). With a law
-   that has memory the mean move depends on the path's past and has to be
-   computed there.
-4. **Pathwise option prices** (decision 13) against the agents' objection
-   that a fill price made of the path's own future is not known on the day.
-   The owner asked to measure, not argue (braut, 07-22). Not measured in any
-   project. It does not arise while the hedger trades the stock only.
-5. **The illiquid thesis is untested.** Every attempt used AAPL or another
-   liquid name; none ran an illiquid one (`fable`, an agent's audit). The
-   claim that spreads are manufacturing cost is about names where they are
-   wide (cher-sim, 05-23: "Thats EXACTLY the point of the whole model").
-6. **American exercise.** Listed single-name options are American; the model
-   prices the payoff at expiry. No project addressed it. In-the-money puts
-   carry an early-exercise premium the model does not have: on AAPL's 45-day
-   expiry their bids sit 0.4% of the forward above the payoff's value, and a
-   fit with them in put the forward that much too low (section 6). The demo
-   leaves a put out when it is in the money and the interest on its strike
-   until expiry, the most early exercise can be worth, is over half its band.
+Each was taken back to the owner's last and most specific words; the tasks
+(`tatr ls :dh`) hold the quotations on every side.
+
+1. **What the spread is.** Decided (decision 24, task dh-08): hedge cost plus
+   an Expected Shortfall of what the hedge leaves, its confidence fitted.
+   That the hedger hedges at a preference of its own is this document's
+   (task dh-30). Of
+   the earlier positions it gives up "there are no parameters in this models
+   except for the genrator" (sig-mmd, 07-07), as the owner did on 10-23.
+2. **Historical returns.** Decided (decisions 1 and 25, task dh-13): none; the
+   law's memory is a property with its own parameters.
+3. **Drift.** Decided as far as the owner spoke (task dh-09): the forward
+   emerges, no rate, nothing corrected in the generator. That the hedge is
+   carried at the law's own mean move (section 3) is this document's, for the
+   owner to confirm (task dh-15): without it a hedger that minimizes `rho` is
+   paid for holding a drift and the generator supplies one, measured.
+4. **Pathwise option prices.** Decided by the owner every time (decision 13,
+   task dh-10). It arises with options as hedge instruments (task dh-06).
+5. **The illiquid name.** The order is decided: liquid first ("Start with a
+   name that is very liquid.", 2026-11-16). The illiquid run is work left
+   (task dh-11).
+6. **American exercise.** Open: the owner's words do not mention it (task
+   dh-12). The demo leaves a put out when it is in the money and the interest
+   on its strike until expiry, the most early exercise can be worth, is over
+   half its band (task dh-16).
 
 ## 6. What the evidence shows
 
@@ -269,25 +266,24 @@ Of the earlier projects, from their own records and not rerun here:
   "multi-seed" run on seed 42 (`cher-sim-v2`).
 
 Of this demo: [the README](README.md) has the measurements, each with its
-command.
+command. One of them shaped section 4: with one confidence for the hedger and
+the quotes, the confidence a liquid name's tight quotes imply is so near the
+mean that the hedger stops hedging, and a price is then no cost of
+replication. Hence two.
 
 ## 7. What the demo implements, and what it does not
 
 Implemented: assumptions and theory of sections 3 and 4 with **the stock as
-the only hedge instrument** and weights that depend on the calendar interval
-only (independent daily returns). This is the first experiment the owner
-asked for when the idea was new ("Try this with stock only hedge", sig-mmd,
-07-06) and not the model of decision 12.
+the only hedge instrument**. This is the first experiment the owner asked for
+when the idea was new ("Try this with stock only hedge", sig-mmd, 07-06) and
+not the model of decision 12.
 
 Not implemented, in the order the theory needs them:
 
 1. Options as hedge instruments at the model's own quotes, pathwise, with
    dropout (decisions 12, 13, 19). It is where `braut` measured most of the
    spread to come from (an agent's claim: 6.27 of 6.36 bp).
-2. Weights conditioned on the path's own past returns and on event dates
-   (decisions 3, 18): without them the law has no volatility clustering, and
-   it can give an expiry its skew only by rare daily jumps, which is what
-   the fit finds.
+2. Event dates as inputs of the law (decision 18).
 3. The stock's cost read from the stock's own market, and growing with size
    and with the path's own turbulence ("the spreads increase/decrease with
    vol, they should definitely increase during e.g. COVID", fable, 06-28).

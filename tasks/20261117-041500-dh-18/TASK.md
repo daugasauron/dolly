@@ -1,6 +1,6 @@
 # Deep hedger: the fitted law is made of jumps
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 130
 - TAGS: dh,demo
 
@@ -22,3 +22,14 @@ Cause (`demos/deep-hedger/THEORY.md`, section 7, item 2): with independent days 
 skew can only be made of rare daily jumps. The theory's answer is a law with memory (task
 dh-17), whose one trial had calmer days and a worse fit. Done when a fit of the chain has days
 a trader accepts on the Law tab, at a fit no worse.
+
+## Closed 2026-11-17
+
+With the volatility state (task dh-17) the same chain is fitted as well by days a trader
+accepts: at iteration 2,400 a day's return has an excess kurtosis of 4.0 to 6.6 in the eight
+intervals where independent days had 22 to 70, a skewness of -0.73 to +0.50 where they had -1.9
+to -5.8, and a deviation of 1.07% to 1.69% (`build/dh-evidence/batch7-run.log`, the `DH forward`
+lines: mean, deviation, skewness, excess kurtosis). The Law tab shows these numbers of the last
+batch's days, and the paths' scale by day. The owner's question of 2026-06-24, "shouldn't vol
+of vol give a lot of kurtosis?", is answered yes: the weeks' fat tails now come from days that
+cluster.

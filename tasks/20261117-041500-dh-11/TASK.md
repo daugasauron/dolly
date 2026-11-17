@@ -22,3 +22,11 @@ spreads are what manufacturing costs is about names where they are wide, and has
 For the owner: which name, and from where. The demo's source serves any US symbol with a token
 (task dh-20); a Japanese single name, the product the owner described on 2026-04-04, needs
 another source.
+
+## Decided 2026-11-17
+
+The order is the owner's: "Start with a name that is very liquid." (2026-11-16), after "the
+first part is just to model liquid options correctly using this model, thats my goal" (codex-2,
+2026-07-17). So the liquid name first, which is what the demo does; the semi-illiquid name stays
+the point and this task stays open as work, not as a question. It needs quotes the page can
+read for such a name (task dh-20: a token for any US symbol; another source for a Japanese one).

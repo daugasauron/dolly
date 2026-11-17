@@ -66,6 +66,7 @@ icu
 premake
 mojo
 mojo-gpu
+deep-hedger
 sqlite
 jq
 xz

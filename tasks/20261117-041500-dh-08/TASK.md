@@ -1,6 +1,6 @@
 # Deep hedger, for the owner: what the spread is
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 60
 - TAGS: dh,owner
 
@@ -28,3 +28,17 @@ owner's words, in order, on each side:
 
 Waits for the owner. What the demo does meanwhile is task dh-14; what it measured about the
 shape of the spreads that follow is task dh-19.
+
+## Decided 2026-11-17
+
+By the owner's last and most specific words on it (neil, 2026-10-23, both messages of that
+hour): "what I want is a model with as few parameters as possible (I do think there has to be
+some in the end, like es confidence intterval or whatever), where each paramter has an intuitive
+meaning", and "The spread should emerge, and illiquidity adn slippage is a first class citizen
+of the model."
+
+So: the spread is what hedging costs (the stock's cost, an input) plus what the hedge leaves,
+priced by Expected Shortfall at one confidence, and that confidence is not set but fitted with
+the law, as the owner imagined it on 2026-08-17 ("a certain confidence level is implied by the
+market"). No mid, no risk price times a deviation. In the demo since task dh-28;
+`demos/deep-hedger/THEORY.md`, section 4.
