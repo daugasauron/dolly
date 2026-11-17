@@ -20,7 +20,8 @@ On `ws/ports`:
   asks and `-rdynamic` keeps, since it exports libuv's API; Dolly's libc defined them (ENOSYS)
   for one-thread programs alone (`process/libc-adapter.c`, under `#ifndef
   __EMSCRIPTEN_PTHREADS__`). They are defined for threaded programs too now, a seed change the
-  compiler round builds. Replayed in a session of round 1113's `system` with `stack-wrap` and
+  compiler round builds (`npm run build:runtime` in this tree puts them in
+  `build/process-threads/libdolly-process.a`, where they were not). Replayed in a session of round 1113's `system` with `stack-wrap` and
   `libuv` (`lean-replay.mjs`), `Dollyfile-lean-stage0`'s rows from this branch's `port.tar`, with
   the same two functions compiled beside the link, build the first lean (make 621 to 788 s), a
   212.6 MiB program that prints `Lean (version 4.35.0, wasm64-unknown-dolly, "Release")`; with

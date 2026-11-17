@@ -8,8 +8,8 @@ REQUIRES HOST touch@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.7/Dollyfile-system-tools 6699b9ce9339fe8ee70c02972b8a4b10242adb71dd63c3a5ac5da48f8d1828ed
-INSTALL /v0.1.7/demos/sdl2/Dollyfile-sdl2 832288efb693b46dc4bdb039016c977d69cfc9fd3e812fd3061b13789680dd87
+FROM /v0.1.7/Dollyfile-system-tools bce9e1cff97e322dfd8158cff9090a7e556b714d9b54169baf7fb5e03c969956
+INSTALL /v0.1.7/demos/sdl2/Dollyfile-sdl2 c659bb8b3fdb9b6a73e83d7d43afb09a23f80ff6ed359aafed0908b10af3b6f1
 REQUIRES HEADER cpp
 REQUIRES HEADER sdl2
 REQUIRES HEADER zlib

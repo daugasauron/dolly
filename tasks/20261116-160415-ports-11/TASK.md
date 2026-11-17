@@ -73,6 +73,11 @@ Its GIMP session, which no Firefox run had reached, compares the stroke drawn wi
 saved within a pixel: in Firefox the stroke as drawn keeps one pixel of the tool's mark (4002
 against 4001, measured, `rel-ff2`).
 
+The round confirms the rest: the demos suite (`npm run test:demos`) on its images, every test
+with a Firefox line or the need that keeps it out; among them `xonotic` in Firefox and
+`pi-phone` in Chromium, which this tree could not run on its own builds. Images the change
+rebuilds: none (tests).
+
 ## What
 
 `docs/deployment.md:143-144` asks for "browser suites in both browsers, demos" before a release.

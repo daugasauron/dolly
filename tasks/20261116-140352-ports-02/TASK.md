@@ -27,7 +27,10 @@ this tree proved, and what only the round can (the heavy chains):
    its Firefox run was refused once `rust-sdk`'s pin changed under it (naga is in its closure),
    so the round runs it.
 4. Make: the 16 `#pragma once` hunks and `load_too_high` are gone. Staged, the prepared tree
-   holds no pragma and no `__dolly__` in `load_too_high`.
+   holds no pragma and no `__dolly__` in `load_too_high`. `system-build` builds from it in this
+   tree (with the runtime of this branch), and a recipe over it that runs `make -j2 -l 1` (a
+   probe, not committed: `build-5.log`) runs both jobs and prints `make: cannot enforce load
+   limits on this operating system`, as upstream does without `getloadavg`.
 5. OCaml's `addclose` hunk is gone (and the README's bullet that described it): Dolly's spawn
    takes the close action (`process/runtime-adapter.c`, `FDOP_CLOSE`). `ocaml` builds in this
    tree, and the ocaml test (`Unix.create_process` over a pipe among it) and its fixpoint

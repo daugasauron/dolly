@@ -20,17 +20,17 @@ REQUIRES HOST sockets@0
 # dialogs, on the same platforms. Where DISPLAY names an X server (x11-desktop) the app and zenity
 # are windows of it (x11-window, over Xlib), their frames read back from gpu@0; copy and paste
 # are the page's clipboard (clipboard@0) on the page and there.
-FROM /v0.1.7/demos/rust/Dollyfile-rust-build 8c4df463354126c74b3d058d59a849ed56ce030fbb21c935493a4aa82dd13878
-USE /v0.1.7/Dollyfile-libdolly-gpu b13690913448e04e3795994af89d032f7a1537ce13b54c0c73f696ee4375c6d0
-USE /v0.1.7/Dollyfile-libdolly-clipboard 2e385abeefaaf674a33ac178323df84ea08ec231f8a59e7fb95ba0d175e12b3b
-USE /v0.1.7/Dollyfile-libdolly-sockets c6b3e098f7bd988e69bdfdda8306af2e6c565b0e7abcdb9bda5dba2a48a2bfa9
-USE /v0.1.7/demos/x11/Dollyfile-x11-window 9dc5f6c6f8860a5f37c98b0b9bd29c7b2410c64b11b25c71b5e5c7d2e9d45f30
+FROM /v0.1.7/demos/rust/Dollyfile-rust-build 8ba6c2dd60720786b34b87ab724aa30b4e94178824889162e772f0d9df61e323
+USE /v0.1.7/Dollyfile-libdolly-gpu e8771fc27ff3f09862062791e9ca1fc02ebadd10ac7f80c3e8b7739743449acf
+USE /v0.1.7/Dollyfile-libdolly-clipboard bff3cafae3bc6ab3f13cc6620d0798b95a2d22b6f18b9d4ac21f4b825332c99a
+USE /v0.1.7/Dollyfile-libdolly-sockets 30ee8c7da2e85afcced274b939310cc7d25efeb94486d5e356e77266590b73ec
+USE /v0.1.7/demos/x11/Dollyfile-x11-window cc9e567b699f851f78f2556300637e8ebf3be11b0697bab15e9c949fa5b11831
 # The X client libraries x11-window links, for the link alone; the binary keeps their licences.
-USE /v0.1.7/demos/x11/Dollyfile-x11-libs e6baacbf8f5a4215c27a20962933256a9128c111b6263ff668dbcf20725e6698
-USE /v0.1.7/Dollyfile-libdolly-display dca7d4755a50b8dbaa6abc4fd5b8fa34cccbb6400a4fd167d90e9a0f1bcee9ad
-USE /v0.1.7/Dollyfile-libdolly-input 80f7d6d7b775fa542711f6d0205280a3d3f4c5a68eb0f3223f81fc2fe64df08e
-USE /v0.1.7/Dollyfile-libdolly-upload 14f4545e2fb3a6c4440e435088caffb7261ee640d6650424b3547a94114deb66
-USE /v0.1.7/Dollyfile-libdolly-download bf7303fc0e340e9d2049ae295205598ee876e0af0cbfe160583c055f2f588439
+USE /v0.1.7/demos/x11/Dollyfile-x11-libs 4a3bddda2da69501a807a7d23b4b84721b7d819f49437b752cde376dd316d773
+USE /v0.1.7/Dollyfile-libdolly-display c42a80131a9c222c528dd52e1eb24df8ec1826c879c11b8f2db97c84b38fff75
+USE /v0.1.7/Dollyfile-libdolly-input 5897d287bb6d02c09e50a348d12c8519ee548ab77d4bf82dfc11973b6da39ed8
+USE /v0.1.7/Dollyfile-libdolly-upload 4286822bd3438dc99fc085aecc605923650c939377f04e789af97ecfb246c650
+USE /v0.1.7/Dollyfile-libdolly-download 347140ed1104328c3020f598b1e02cdbcfe91fbbff1f497b5dee73fade7e8556
 REQUIRES TOOL cargo
 REQUIRES TOOL cat
 REQUIRES TOOL gzip
