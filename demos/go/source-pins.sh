@@ -2,8 +2,8 @@
 
 # The seed: Go's commands for dolly/wasm64 as the previous round built them
 # (demos/go/pin-seed.mjs writes both lines).
-DOLLY_GO_SEED_URL='https://github.com/daugasauron/dolly/releases/download/v0.1.7/dolly-go-seed-d1aee8933f9613899e26231a8c584d944516eab0cc9a05adaef76373ce661936.tar.gz'
-DOLLY_GO_SEED_SHA256=d1aee8933f9613899e26231a8c584d944516eab0cc9a05adaef76373ce661936
+DOLLY_GO_SEED_URL='https://github.com/daugasauron/dolly/releases/download/v0.1.7/dolly-go-seed-fd1b17456aeb6971a04ab2d1d76a73de88bc1dd7f5fc2bc8845a2827d51a9b19.tar.gz'
+DOLLY_GO_SEED_SHA256=fd1b17456aeb6971a04ab2d1d76a73de88bc1dd7f5fc2bc8845a2827d51a9b19
 # Go: the release's source, patched for GOOS=dolly GOARCH=wasm64 (demos/go), and upstream's
 # linux/amd64 toolchain of the same release, which vendors Go programs' modules and
 # cross-builds the tools rclone's staging lists files with (build-go-toolchain.sh).
