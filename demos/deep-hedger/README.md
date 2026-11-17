@@ -171,8 +171,8 @@ confidence 0.5.
 The test ([`test/`](test)) drives the image as a user does, the service's
 answer being a lognormal chain of its own: Load quotes, Fit, Stop, Fit again,
 200 s of fitting, then `dh-fit check` in the shell. It passes in Chrome 156 and
-in Firefox 159: 640 and 680 iterations in the 200 s, the loss from 11.97 to
-0.21 and 0.22, 27% of the unhedged risk left, forward and daily deviation the
+in Firefox 159: 660 and 680 iterations in the 200 s, the loss from 11.97 to
+0.22 in both, 27% of the unhedged risk left, forward and daily deviation the
 chain's, every gradient at its difference. The page composites a frame at
 every refresh while it runs: on a still page Firefox left one `dh-fit` in five
 waiting for a readback (`tasks/20261117-090000-dh-34`). Software adapters

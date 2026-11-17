@@ -25,7 +25,7 @@ REQUIRES TOOL c++
 REQUIRES TOOL mojo
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/deep-hedger/dh-gui.cpp be64a77e787c4dd7d8a5cc0ee6a459e2b023993f4313236e653f002ec2e720d2 /tmp/deep-hedger/dh-gui.cpp
+SOURCE /v0.1.7/dist/static/deep-hedger/dh-gui.cpp 36d3d48b7c15d853cff54b1e54ef7beab1ad6ec30becce117e5b516a012a2996 /tmp/deep-hedger/dh-gui.cpp
 SOURCE /v0.1.7/dist/static/deep-hedger/dh-fit.mojo 41105442e50440a4d60d71424b76640fba5b2f336eb912570b02c3ba8b55cbe7 /tmp/deep-hedger/dh-fit.mojo
 SLOP c++ -O2 -std=c++17 -I/usr/include/imgui -I/usr/include/SDL2 /tmp/deep-hedger/dh-gui.cpp -o /usr/bin/dh-gui -limgui -lSDL2 -lm
 SLOP mojo build -o /usr/bin/dh-fit /tmp/deep-hedger/dh-fit.mojo

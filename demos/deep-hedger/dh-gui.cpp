@@ -546,7 +546,7 @@ static void hedge_tab() {
   ImGui::SameLine();
   ImGui::TextColored(ImColor(bid_colour), "  above: paths that end out of it; below: bought at the market's ask");
   ImGui::SameLine();
-  ImGui::TextUnformatted("   above, the stock held by day; below, the trade's result at expiry, hedged, by share of the paths");
+  ImGui::TextUnformatted("   the stock held by day; the trade's result at expiry, hedged");
   ImVec2 available = ImGui::GetContentRegionAvail();
   ImVec2 size((available.x - 16) / 3, (available.y - 16) / 2);
   std::vector<int> shown;
