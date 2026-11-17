@@ -83,6 +83,13 @@ const textRows = (page, x, y, width, height) => snapshotDisplay(page).then(() =>
   }
   return rows;
 }, [x, y, width, height]));
+// The right end of the white text on the caption of a window at the top of the frame: its title.
+const titleEnd = page => snapshotDisplay(page).then(() => page.evaluate(() => {
+  const data = displaySnapshot.getContext("2d").getImageData(0, 6, 700, 12).data;
+  let end = 0;
+  for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] === 765) end = Math.max(end, i / 4 % 700);
+  return end;
+}));
 async function until(check, what, timeout = 60_000) {
   for (const deadline = Date.now() + timeout; Date.now() < deadline; await delay(200)) {
     const result = await check();
@@ -354,7 +361,9 @@ async function gimp(page, prompt, start) {
   await click(page, ...toolbox);
   await page.keyboard.press("Control+1");
   await pixelIs(page, 270, 220, white);
-  await until(async () => await stroke() === painted, "the saved stroke in the image opened again");
+  // In Firefox the stroke as drawn keeps one pixel of the tool's mark at its end (4002 against the
+  // saved 4001, measured), however the pointer leaves the canvas.
+  await until(async () => Math.abs(await stroke() - painted) <= 1, "the saved stroke in the image opened again");
   await quit();
   await click(page, 30, height - 14);
   await delay(700);
@@ -508,13 +517,14 @@ async function site(page, prompt, start, waitText, server) {
   await startMenu("s");
   await until(async () => (await coloured(page, dark)).count > 200_000, "the site's landing page as the home page");
   await page.screenshot({ path: `${evidence}netsurf-home.png` });
-  // The home page drawn again, before the address is typed: NetSurf sets the field when it is.
-  const home = (await coloured(page, dark)).count;
-  const isHome = async () => Math.abs((await coloured(page, dark)).count - home) < home / 100;
+  // NetSurf names the page it has loaded in its title, and sets its address field, over what is
+  // typed there, when it shows one: the title tells a loaded page from another, where the address
+  // changes while the page is still fetched.
+  const home = await titleEnd(page);
   await click(page, 95, 459);                 // "Licences and sources", the first of the row of links under IMAGES
-  await until(async () => !await isHome(), "the licences page");
+  await until(async () => await titleEnd(page) > home, "the licences page");
   await click(page, 18, 58);                  // Back
-  await until(isHome, "the home page after Back");
+  await until(async () => await titleEnd(page) === home, "the home page after Back");
 
   await click(page, 600, 58);
   await page.keyboard.press("Home");
@@ -557,12 +567,7 @@ async function fileManager(page, start) {
   // names the directory: the right end of that text moves with it.
   const names = () => textRows(page, 334, 112, 46, 440);
   const open = async row => page.mouse.dblclick(...await at(page, 342, 119 + 16 * row));
-  const title = () => snapshotDisplay(page).then(() => page.evaluate(() => {
-    const data = displaySnapshot.getContext("2d").getImageData(0, 6, 700, 12).data;
-    let end = 0;
-    for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] === 765) end = Math.max(end, i / 4 % 700);
-    return end;
-  }));
+  const title = () => titleEnd(page);
   await until(async () => await names() >= 2, "the entries of Z:\\home");
   await click(page, 79, 135);
   await until(async () => await names() === 5, "the five entries of 0test");

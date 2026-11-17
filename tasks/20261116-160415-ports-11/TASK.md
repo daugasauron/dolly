@@ -49,16 +49,29 @@ fixtures drive Chrome's DevTools input), 0 A.D.'s shader check (Chrome's SwiftSh
 its visual multiplayer modes (Chrome's GPU window), Mojo without a display (Firefox has WebGPU in
 a window only). `sdl2-browser.mjs` drives Firefox through Playwright's keyboard (a repeated
 down is a repeat) and the page's key events for text off its layout, where Chrome takes
-DevTools key events; its probe prints what it was typed. Wine's `site` session waits until the
-home page is drawn again after Back (its dark pixels within 1% of the home page's) instead of
-two seconds, and until the licences page differs before it presses Back.
+DevTools key events; its probe prints what it was typed. Wine's `site` session waits until
+NetSurf's title names the licences page before it presses Back, and the home page again after
+it, instead of 2.5 and 2 s. The page's dark pixels do not tell the two pages apart, and the
+address does not tell a loaded page: NetSurf shows the licences address while it still fetches
+the page, its Back button disabled, and a Back pressed then leaves the licences page (measured,
+`ff-3`: the address's right end stayed at x 154 against the home page's 73).
 
 Runs on `ws/ports` (logs in `work/audit-1116-evidence/ports/fix-ports/`, `both-*`, `ff-*`,
 `cc-*`), each test once per browser by `demos/browsers.mjs`, at a load of 35 to 42 on 16 cores
 (round 1117 ran the same tests 3 to 6 times faster): in Chromium and Firefox, `sdl2`,
 `janis-install`, Pi's ask-user, frontend, `pi` and session tests, the studio, `imgui`,
 `sdl2 audio`, `ocaml` and its fixpoint, `emacs` and its package, `pi-local`'s start screen,
-`javascript`; ClassiCube in Chromium, its Firefox line saying why it is skipped.
+`javascript`, `vendor-crates`, `rts` and its layout and input; ClassiCube in Chromium, its
+Firefox line saying why it is skipped; `xonotic` in Chromium (its Firefox run was refused when
+`rust-sdk`'s pin changed under it, `tasks/20261116-140352-ports-02`). On round 1113's images
+(the release's recipes, catalog and snapshots in place, `released-mode.sh`), in Firefox:
+`cmake`, `codex`, `neovim`, `tmux` (its three parts), `python-data` with `openblas` and `numpy`,
+`ghostty-gtk`, 0 A.D.'s OpenAL, SpiderMonkey, ENet, engine and headless multiplayer checks, the
+speech packages (with `pi-phone`'s line saying why it skips), ClassiCube's skip line (`rel-ff`,
+`rel-ff2`, `rel-ff3`), and `wine` (`rel-ff3`; on this branch's `wine` in Chromium, `both-17`).
+Its GIMP session, which no Firefox run had reached, compares the stroke drawn with the stroke
+saved within a pixel: in Firefox the stroke as drawn keeps one pixel of the tool's mark (4002
+against 4001, measured, `rel-ff2`).
 
 ## What
 
