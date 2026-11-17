@@ -38,7 +38,10 @@ long, when), the browser on two cores, the NVIDIA RTX 5070:
 | Firefox, 90 s on the ground | 40 | 1,132 | 4.6 s | 0.4 s | 30 s after gpu@0 opened |
 
 No pipeline is made after the flight's first seconds: the game draws everything it will draw
-once at its start (`warm_up`). What this task would give the game is its start in Chrome,
+once at its start (`warm_up`). The one exception was the game's own doing: its change from four
+samples a pixel to one, when its pacing went from its second level to its third, made every
+pipeline anew, 5.8 s without a frame in Chrome (measured twice). The game now makes that change
+only in its first ten seconds. What this task would give the game is its start in Chrome,
 where the first frames wait half a minute in sum for pipelines Godot could draw without; in
 Firefox the same pipelines cost a seventh of that. Not started: it takes the contract's
 addition, the driver's change and a build of Godot, and the browser host of

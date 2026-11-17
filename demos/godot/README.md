@@ -264,7 +264,10 @@ since another program on the same GPU makes frames long, not every one of them, 
 is not to change for that. Once a level has held, the game leaves it only for an answer half as
 much again over the budget: it is rather slower than softer. It goes a level up when the answer,
 times what that level costs more, is under the budget; a level that then proves too much has
-told what it costs, and is tried again when that would fit. (Until 2026-11-17 a level up took a
+told what it costs, and is tried again when that would fit. The change between the second and
+the third level is made only in a flight's first ten seconds: a pixel has four samples on one
+side of it and one on the other, every pipeline is made for its samples, and the first such
+change was 5.8 s without a frame in Chrome. (Until 2026-11-17 a level up took a
 minute of answers under 4.9 ms, a third of the budget, and the second level costs the RTX 5070
 7.5 ms, the first 7.9: a game that another program on the GPU had once slowed stayed on the
 level it fell to, softer, and at the last level it stayed held to 30, 20 or 12 frames a second,

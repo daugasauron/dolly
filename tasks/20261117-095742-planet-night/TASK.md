@@ -15,7 +15,25 @@ resolution". Brief: `work/briefs-2026-11-17/planet-night.md`.
 
 ## State (2026-11-18)
 
-Filled in at the end of the night; the sections below are the record.
+Done, on `feature/planet`: the performance (`22140c51b`: 34 to 37 frames a second became the
+display's 60 on the RTX 5070 in Chrome and 58 in Firefox, and 24 became an even 30 on the AMD
+GPU), the rings and the mouse's steering (`71a4f4247`), served on 9049. The sections below are
+the record.
+
+Left:
+
+- **Firefox on two loaded cores** sometimes does not start Godot at all
+  (`tasks/20261117-122407-godot-firefox-start`); on sixteen CPUs the tests pass.
+- **Godot's driver waits for the GPU while a render time is measured**
+  (`tasks/20261117-121059-godot-timestamps-wait`): the game no longer asks, the editor's
+  profiler and other projects would.
+- **The game's start in Chrome** waits 33 s in sum for pipelines on two cores
+  (`tasks/20261109-143500-gpu-background-pipelines`), and its `_ready` takes 2 to 3 s of script.
+- **In Chrome the page has a new frame in 47 to 51 of 60 animation frames** while the game
+  makes 59: not explained ("The game as it is").
+- **A person has not chained rings**: the test pilot does, the corgi gets a second ring now
+  and then; how hard it is for a hand is the owner's to say (`RING_OPEN`, 2.8 s, is the knob).
+- The owner's phone, as before.
 
 ## How it was measured
 
@@ -138,7 +156,22 @@ the card):
 | | the levels it went to, and when |
 | --- | --- |
 | 0.1.8's | 1 at 20.1 s, 2 at 20.6 s; 1 at 80.4 s; on 1 to the end |
-| now | 1 at 31.0 s, 2 at 31.3 s; 1 at 42.1 s, 0 at 42.5 s |
+| `22140c51b` | 1 at 31.0 s, 2 at 31.3 s; 1 at 42.1 s, 0 at 42.5 s |
+| now | 1 at 31.0 s; 0 at 41.8 s |
+
+**The change between the second and the third level makes every pipeline anew**: from the third
+level on a pixel has one sample where it had four. Holding each level for five seconds in turn
+(`build/planet/mklevels.py`, Chrome, the RTX 5070), the first change from the second level to
+the third was 5.8 s without a frame, twice in two runs (20:40 and 00:10); the changes after it
+took a frame. So a game that another program pushed to the third level froze for six seconds
+on the way, which is the worst the owner can have seen. Now that change is made only in a
+flight's first ten seconds, among its loading (`remakes`): afterwards the game stays on the
+side it is on, slower if it must. The levels' costs on a quiet card, from the same run: 7.6,
+6.6, 3.0, 1.5, 1.45, 1.5 and 0.9 ms.
+
+A staged program on the same GPU (`hog.html`: up to 400 full-screen passes of 600 sines a
+frame in a second Chrome) did not slow the card enough to move either game, so the pacing's
+proof is the sim above and what the owner's own tab did.
 
 ## Before and after
 
@@ -170,6 +203,56 @@ planet to 263,000 units; the page 1600 by 900):
 On the AMD GPU the game now holds "an even 30": it is on the last level two seconds after its
 start (a level asked at 0.6 s, the next at 2.0 s), its frames 33.4 ms apart in the median and
 40.2 at the 95th percentile, where they were 41.7 and 48.4 while each waited for its own timing.
+
+## The game as it is (`71a4f4247`: rings, steering, and the rest of the hitches)
+
+After the rings: every kind of landmark is built once before the flight (a kind's first build
+read its parts' shapes back from the GPU: frames of 92 to 127 ms, four in a flight of 150 s);
+a bake moves a part's points at once (a landmark in 1 to 8 ms with the dummy renderer, from 1
+to 15); what the flight has computed of the ground is kept in two generations, so letting the
+old go computes nothing anew (one table emptied whole was some 150 heights in one frame every
+five minutes); the towns' lots are laid out ring by ring (0.3 s of the start).
+
+The morning flight (60 s), the browser on two cores, 23:08 to 23:55, the machine's load 15 to 18:
+
+| | frames a second | median, ms | p95 | p99 | longest | over 2x, 4x the median | GPU ms | level |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| NVIDIA, Chrome | 59.0 | 15.3 | 30.1 | 33.0 | 45.3 | 108, 0 of 3,370 | 8.1 | 0 |
+| NVIDIA, Chrome, the night (`--day 22`) | 58.8 | 15.0 | 30.3 | 33.0 | 70.5 | 193, 2 | 8.1 | 0 |
+| NVIDIA, Chrome, leaving the planet (100 s) | 59.6 | 16.4 | 29.0 | 31.8 | 77.4 | 30, 1 of 5,787 | 6.7 | 0 |
+| NVIDIA, Firefox | 58.7 | 17.0 | 18.9 | 25.2 | 68.6 | 21, 1 of 3,495 | 8.5 | 0 |
+| AMD 13c0, Chrome | 29.8 | 33.4 | 37.3 | 41.6 | 88.2 | 2, 0 of 1,743 | 19.9 | 6 |
+| AMD 13c0, Firefox | 30.0 | 33.2 | 35.9 | 37.4 | 75.6 | 1, 0 of 1,766 | 20.5 | 6 |
+
+The game's tests on its image (Chrome on two cores, Firefox on all sixteen): Chrome 60.0 frames
+a second on the ground (median 16.8, p95 26.7, p99 29.2, longest 47.2 ms) and 60.0 leaving the
+planet (16.7, 22.6, 27.9, 46.7); Firefox 58.5 (16.9, 20.0, 27.9, 79.5) and 58.7 (16.9, 20.3,
+26.8, 78.3); the touch test passes in both.
+
+In Chrome the game's frames are a display's frame apart in the median with one in twenty 30 ms
+long, and the page had a new frame in 47 to 51 of its 60 animation frames a second (58 in
+Firefox, 60 in Chrome while the board is in space). Holding the game to 60 or 62 frames a second
+changed neither (page 51.0 and 47.1 against 49.8 unheld, the same flight three times in a row),
+so it is not the game outrunning the display; not kept, and not explained: the host shows the
+last frame it was given at each of the page's animation frames, and what the page's own frames
+do in Chrome under this load was not looked into.
+
+## Pipelines in mid-flight: none
+
+Asked by the integrator (`tasks/20261109-143500-gpu-background-pipelines`, where the numbers
+are): counted in the GPU Worker, a flight of 180 s that climbs to 8,260 units makes its last
+pipeline five seconds after it starts, in Chrome and in Firefox. The 1,132 pipelines of its
+start wait 33 s in sum in Chrome (4.6 s in Firefox): that task would shorten the game's start
+in Chrome, not smooth its flight, and was not started.
+
+## Disk
+
+Asked by the integrator at 22:55: removed from `work/planet` the flyover's old scratch
+(`build/flyover4`), two unused build profiles (`.cache/snapshot-browser-profile-1`, `-2`), the
+planet's own images of the 16th, which no recipe names any more, and the night's old runs:
+3.9 GB. Of `dist/` (75 GB by `du`) 71.3 GB are files other trees link too, which removing here
+frees nothing of; 3.8 GB are this tree's alone, of which the sources under `dist/static` (3.1
+GB) are read when recipes are pinned and were left.
 
 ## Rings instead of beams
 

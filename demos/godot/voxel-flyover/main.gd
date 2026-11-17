@@ -545,12 +545,15 @@ func pace(delta: float) -> void:
 	if timed_frames < 20 and (timed_frames < 10 or timed_for < 1.5):
 		return
 	var last := LEVELS.size() - 1
+	var down := level
 	if level < last and gpu_cost > FRAME_BUDGET * (1.5 if held and tried_from == 0.0 else 1.0):
+		down = level + (1 if tried_from > 0.0 else 4 if gpu_cost > FRAME_BUDGET * 8.0 else 3 if gpu_cost > FRAME_BUDGET * 5.0 else 2 if gpu_cost > FRAME_BUDGET * 2.5 else 1)
+		if remakes(down):
+			down = 1
+	if down != level:
 		if tried_from > 0.0:
 			dearer[level] = gpu_cost / tried_from
-			set_level(level + 1)
-		else:
-			set_level(level + (4 if gpu_cost > FRAME_BUDGET * 8.0 else 3 if gpu_cost > FRAME_BUDGET * 5.0 else 2 if gpu_cost > FRAME_BUDGET * 2.5 else 1))
+		set_level(down)
 		tried_from = 0.0
 		time_gpu(true)
 		return
@@ -558,7 +561,7 @@ func pace(delta: float) -> void:
 	tried_from = 0.0
 	# Even at the rate the adapter holds: a half, a third or a quarter of the display's.
 	Engine.max_fps = 0 if level < last or gpu_cost <= FRAME_BUDGET else 30 if gpu_cost < (27.0 if Engine.max_fps == 30 else 24.0) else 20 if gpu_cost < 36.0 else 12
-	if level > 0 and gpu_cost * dearer[level - 1] < FRAME_BUDGET * 0.9 and elapsed > climbs_after:
+	if level > 0 and gpu_cost * dearer[level - 1] < FRAME_BUDGET * 0.9 and elapsed > climbs_after and not remakes(level - 1):
 		tried_from = gpu_cost
 		set_level(level - 1)
 		time_gpu(true)
@@ -567,6 +570,14 @@ func pace(delta: float) -> void:
 	climbs_after = elapsed + 10.0
 	second_ends = elapsed + 1.0
 	time_gpu(false)
+
+
+## Whether going to that level now would make every pipeline anew. From the third level on a
+## pixel has one sample where it had four, and a pipeline is made for its samples: the first
+## change between the two was 5.8 s without a frame in Chrome. It is made in a flight's first
+## ten seconds, among its loading, and not after: the game stays on the side it is on.
+func remakes(to: int) -> bool:
+	return elapsed > 10.0 and (level < 2) != (to < 2)
 
 
 ## Tells every shader that draws the world.
