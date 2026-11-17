@@ -40,3 +40,14 @@ Measured on AAPL's chain of 2026-11-13, 1,024 paths (`build/dh-evidence/batch13-
 Simplified that night, each said where it is: the stock is the only hedge instrument (task
 dh-06); the closure's numbers move the law through the charge, not through a gradient; a day's
 middle is a line in the volatility state over the 64 paths nearest in the stock.
+
+## Corrected 2026-11-18, the same night
+
+`carry` took a cost-to-go's mean given the day as a line in the volatility state over the
+nearest paths in the stock, and so left the value's slope in the stock in what it called risk:
+the variance still to come rose with the day where it must fall (seen on the reference: 0.39 of
+the whole at day 1 and 0.70 at day 17 for a 20-day call in the money). It is a plane in the
+stock and the state now, and falls: 0.20 at day 1 and 0.13 at day 17 for that call, 0.83 and
+0.41 at the money (`build/dh-evidence/batch13-n6-run.log`). The third closure's numbers do not
+use it and stand. The first's are, by expiry, 0.0064, 0.0023, 0.035, 0.0044, 0.0036, 0.0021,
+0.014 and 0.0017, the miss 0.48 as before; the second's miss is 0.9.

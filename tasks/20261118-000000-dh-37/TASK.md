@@ -45,6 +45,7 @@ market's spreads pay for, and the model is one loop: the spreads imply the price
 sets the hedge, the hedge sets the risk the spreads are read against. On AAPL the loop settles
 by iteration at one answer and changes little: the hedger leaves 37% of the risk where the
 replicating one leaves 35%, at a hedge cost of 0.000071 of the forward against 0.000075, the
-expiries' prices within a tenth of the replicating hedger's, the same 65% of the quotes in band.
+expiries' prices near the replicating hedger's (within a sixth but for the first), the same 65%
+of the quotes in band.
 Stock is cheap enough to trade that even at these prices of risk the hedger hedges nearly in
 full. It would matter in a name where the stock is dear to trade.

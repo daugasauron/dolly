@@ -394,6 +394,7 @@ def carry(
     carried: Floats,
     residual: Floats,
     draw: Floats,
+    logx: Floats,
     order: Floats,
     contracts: Floats,
     left: Floats,
@@ -404,9 +405,10 @@ def carry(
     """The variance a book's cost-to-go from a check day still has once that
     day's stock and volatility state are known (THEORY.md, section 4: U_h).
     The cost-to-go is the residual with the hedge's gains before that day
-    given back. Its mean given the day is a line in the volatility state over
-    the NEAR paths nearest in the stock; `order` has the paths by their stock
-    of each check day. Minus one for a book that has expired by then."""
+    given back. Its mean given the day is a plane in the stock and the
+    volatility state over the NEAR paths nearest in the stock; `order` has the
+    paths by their stock of each check day. Minus one for a book that has
+    expired by then."""
     var id = global_idx.x
     var k = id // books
     if k >= CHECKS:
@@ -419,27 +421,50 @@ def carry(
     var total = Float32(0)
     for j in range(paths):
         var start = min(max(j - NEAR // 2, 0), paths - NEAR)
-        var states = Float32(0)
-        var squares = Float32(0)
-        var costs = Float32(0)
-        var products = Float32(0)
+        var p = Int(order[unsafe_offset=k * paths + j])
+        var level = logx[unsafe_offset=p * (days + 1) + day]
+        var state = draw[unsafe_offset=(p * days + day) * DRAW + 1]
+        # Sums over the neighbours of the stock (in percent of the path's own) and the
+        # state, each from the path's own, and of the cost-to-go.
+        var x = Float32(0)
+        var s = Float32(0)
+        var xx = Float32(0)
+        var xs = Float32(0)
+        var ss = Float32(0)
+        var c = Float32(0)
+        var cx = Float32(0)
+        var cs = Float32(0)
         for n in range(NEAR):
             var q = Int(order[unsafe_offset=k * paths + start + n])
-            var state = draw[unsafe_offset=(q * days + day) * DRAW + 1]
+            var dx = 100 * (logx[unsafe_offset=q * (days + 1) + day] - level)
+            var ds = draw[unsafe_offset=(q * days + day) * DRAW + 1] - state
             var togo = residual[unsafe_offset=q * books + b] + carried[unsafe_offset=(k * books + b) * paths + q]
-            states += state
-            squares += state * state
-            costs += togo
-            products += togo * state
-        var p = Int(order[unsafe_offset=k * paths + j])
-        var state = draw[unsafe_offset=(p * days + day) * DRAW + 1] - states / NEAR
-        var togo = residual[unsafe_offset=p * books + b] + carried[unsafe_offset=(k * books + b) * paths + p] - costs / NEAR
-        var spread = squares / NEAR - (states / NEAR) * (states / NEAR)
-        # No line where the state hardly varies.
-        var slope = (products / NEAR - (states / NEAR) * (costs / NEAR)) * max(direction(spread - 1e-6), 0) / max(spread, 1e-6)
-        var miss = togo - slope * state
+            x += dx
+            s += ds
+            xx += dx * dx
+            xs += dx * ds
+            ss += ds * ds
+            c += togo
+            cx += togo * dx
+            cs += togo * ds
+        x /= NEAR
+        s /= NEAR
+        c /= NEAR
+        # The plane's slopes, from the neighbours' covariances; a little is added to the two
+        # variances, so that a state that does not vary gets no slope.
+        var vx = xx / NEAR - x * x + 1e-7
+        var vs = ss / NEAR - s * s + 1e-7
+        var cross = xs / NEAR - x * s
+        var by_x = cx / NEAR - c * x
+        var by_s = cs / NEAR - c * s
+        var det = vx * vs - cross * cross
+        var slope_x = (by_x * vs - by_s * cross) / det
+        var slope_s = (by_s * vx - by_x * cross) / det
+        # The plane at the path's own stock and state.
+        var togo = residual[unsafe_offset=p * books + b] + carried[unsafe_offset=(k * books + b) * paths + p]
+        var miss = togo - (c - slope_x * x - slope_s * s)
         total += miss * miss
-    left[unsafe_offset=k * books + b] = total / Float32(paths) * NEAR / (NEAR - 2)
+    left[unsafe_offset=k * books + b] = total / Float32(paths) * NEAR / (NEAR - 3)
 
 
 def adjoint(
@@ -1022,7 +1047,7 @@ struct Model(Movable):
                 order[k * self.paths + rank] = Float32(p)
         self.order_buffer.enqueue_copy_from(order.unsafe_ptr())
         self.ctx.enqueue_function[carry](
-            self.carried_buffer, self.residual_buffer, self.draw_buffer, self.order_buffer, self.contracts_buffer,
+            self.carried_buffer, self.residual_buffer, self.draw_buffer, self.logx_buffer, self.order_buffer, self.contracts_buffer,
             self.left_buffer, self.paths, self.days, self.books,
             grid_dim=(self.books * CHECKS + BLOCK - 1) // BLOCK, block_dim=BLOCK,
         )

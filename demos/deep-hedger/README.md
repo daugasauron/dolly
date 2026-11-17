@@ -134,16 +134,16 @@ On an RTX 5070 in Chrome 156 (Vulkan), AAPL's chain of 2026-11-13 as loaded on
   risk of not hedging. The law's forward at each expiry is within 0.2% of the
   one its quotes imply.
 - **What the spreads imply** (THEORY.md, section 4; the Spreads tab). Under
-  the chain of dealers, over a floor of a tick or so, the price of a day's
-  deviation is by expiry 0.0077, 0.0017, 0.035, 0.0044, 0.0050, 0.0032, 0.026
-  and 0.0026: the three monthly expiries (5, 25 and 45 days) 0.002 to 0.003,
-  the three weekly ones 0.004 to 0.008, and Nov 25 and Dec 31, which are
-  neither, 0.03. Held to expiry, over the same floor, the price of the whole
-  residual's deviation is 0.011, 0.005, 0.098, 0.013, 0.016, 0.010, 0.077 and
-  0.011. Either leaves the model's half spreads within a factor of 1.3 of the
+  the chain of dealers, over a floor of a tick, the price of a day's
+  deviation is by expiry 0.0064, 0.0023, 0.035, 0.0044, 0.0036, 0.0021, 0.014
+  and 0.0017: the three monthly expiries (5, 25 and 45 days) 0.002, the three
+  weekly ones 0.004 to 0.006, and Nov 25 and Dec 31, which are neither, 0.035
+  and 0.014. Held to expiry, over half a tick, the price of the whole
+  residual's deviation is 0.017, 0.008, 0.100, 0.015, 0.017, 0.011, 0.078 and
+  0.012. Either leaves the model's half spreads within a factor of 1.3 of the
   market's for the middle half of the out-of-the-money contracts (the miss
-  0.45 to 0.53 in log units over the reports); out after some days, 0.8. One
-  number for the name under any of them: 1.2 to 1.4.
+  0.48 and 0.49 in log units); out after some days, 0.9. With one number for
+  the name the miss is 1.2 held to expiry.
 - **The days a spread pays for**, at one deviation over the floor: at the
   money a hundredth of a day or less in every expiry; in the wings of the
   20-day expiry a day; in the money a sixth of a day. In the money the
@@ -153,8 +153,9 @@ On an RTX 5070 in Chrome 156 (Vulkan), AAPL's chain of 2026-11-13 as loaded on
   After 900 iterations each: the same 65% of the charged quotes in band (bids
   54%, asks 76%), 79% and 82% of the middles, 35% of the risk left, the state
   0.902, 0.210, -0.116 and 0.902, 0.215, -0.120; the expiries' prices of a
-  day's deviation within 15% of each other but for the 5-day expiry's (0.0017
-  and 0.0025); the forwards within 0.35% of each other, at the last expiry.
+  day's deviation within a tenth of each other from the 10-day expiry on, the
+  two shortest expiries' moving by a third from report to report; the
+  forwards within 0.35% of each other, at the last expiry.
 - **A second implementation and the open interest agree.** A PyTorch
   reference of the model on the CPU (not in the repository; 256 paths, 400
   iterations, no floor) puts the expiries in the same order at the same
@@ -175,8 +176,8 @@ The test ([`test/`](test)) drives the image as a user does, the service's
 answer being a lognormal chain of its own: Load quotes, Fit, Stop, Fit again,
 a row of the Quotes tab clicked, 200 s of fitting, Stop, Quit, then the fit's
 numbers and `dh-fit check` in the shell. It passes in Chrome 156 and in
-Firefox 159 with the same numbers: 660 iterations in the 200 s, the loss from
-2.07 to 0.17, the
+Firefox 159: 680 and 660 iterations in the 200 s, the loss from 2.07 to 0.20
+and 0.17, the
 clicked row's contract the one the fit's reports hedge from then on, 27% of
 the unhedged risk left, forward and daily deviation the chain's, every
 gradient at its difference. Three things in the test are for Firefox

@@ -193,7 +193,8 @@ one under which few numbers serve the whole chain.
 **What AAPL's chain said** (the README has the numbers). No closure serves
 the chain with one number for the name: the market's spreads differ between
 expiries by more than any risk does, the monthly expiries tight, the weekly
-ones two to three times wider, two odd-dated ones ten times. So the number is an
+ones two to three times wider, two odd-dated ones five to fifteen times. So the
+number is an
 expiry's: each listed expiry has its own liquidity, and the market implies it.
 The model reads no volume; the order its numbers put the expiries in is the
 order of their open interest in the feed (the monthlies 0.7 to 1.3 million
