@@ -96,18 +96,38 @@ browsers and on the AMD GPU in Firefox:
 
 ## Numbers
 
-The game's test on the new Godot (the image of `14:29`, load 10, other agents' browsers on the
-NVIDIA card): 30 s on the ground, then 100 s that leave the planet.
+The game's test on the new Godot, on the last image (`feature/planet` at 15:29; load 15 to 20,
+other agents' browsers on the NVIDIA card, so the rates say little: the GPU's own time a frame
+is the number to compare): 30 s on the ground, then 100 s that leave the planet to 264,000 units
+with ten moves of the chart's anchor. All four pass, and the touch test passes in both browsers.
 
 | | Ground: rate, GPU ms, median, p99, longest, hitches | Leaving: rate, GPU ms, median, p99, longest, hitches |
 | --- | --- | --- |
-| NVIDIA, Chrome | 31.0, 8.5, 32.3, 40.4, 73.0, 2 | 35.5, 6.6, 29.8, 42.0, 165.1, 4 |
-| NVIDIA, Firefox | 32.4, 9.7, 30.2, 50.2, 78.0, 4 | 44.5, 6.9, 20.6, 37.5, 86.7, 33 |
-| AMD, Firefox | 23.5, 21.0, 40.7, 61.5, 70.0, 0 | 27.3, 16.7, 35.0, 53.8, 73.5, 2 |
-| AMD, Chrome | 23.3, 20.3, 41.8, 54.0, 62.4, 0 | 27.0, 16.1, 35.7, 51.4, 63.0, 0 |
+| NVIDIA, Chrome | 17.8, 8.4, 50.8, 122.3, 148.7, 18 | 33.3, 6.4, 31.4, 52.4, 86.7, 5 |
+| NVIDIA, Firefox | 29.7, 9.4, 33.1, 54.0, 86.7, 5 | 37.0, 6.9, 25.8, 46.2, 89.6, 27 |
+| AMD, Firefox | 23.4, 18.7, 40.2, 70.3, 89.4, 1 | 22.5, 15.6, 40.7, 88.4, 125.5, 35 |
+| AMD, Chrome | 22.3, 18.3, 44.3, 54.7, 58.4, 0 | 24.5, 15.2, 40.2, 63.0, 77.4, 0 |
 
-On the AMD GPU the game went between 30 and 20 a second with its GPU at 21 ms a frame: its
-pacing took 30 only under 22 ms. It takes it under 24 now (and keeps it under 27, as before).
+The same test an hour and a half earlier (load 10): NVIDIA 31.0 and 32.4 a second on the ground
+with the GPU at 8.5 and 9.7 ms; AMD 23.5 and 23.3 with the GPU at 21.0 and 20.3. Last night, with
+a load of 5: NVIDIA 40 and 43 a second, the GPU at 7.7 and 8.3.
+
+On the AMD GPU the game went between 30 and 20 a second with its GPU at 21 ms a frame. Two
+changes for it today: its pacing takes 30 a second under 24 ms (22 before; it keeps it under 27),
+and the weakest level has no shadows of the sun, which brought the GPU to 18.7 ms, under the
+flat flyover's 19.6, at which that game held an even 30 on a quiet machine. Whether the planet
+now does is not measured: the machine was not quiet.
+
+FSR 1 on that GPU, measured and not kept: 35.3 ms a frame at half the frame against 21.1 with
+the smooth scaling at 0.27.
+
+## The take and the page
+
+`work/videos-2026-11-17/voxel-flyover/take1.mp4` (5:14, its README beside it), recorded at 30.5
+frames a second on the shared card. Its cut (2:59, 23.8 MiB) and a poster of the planet whole
+are the demos page's Voxel Flyover video and poster, and the section's text is the planet's
+(`sites/slopshare.dev/agents/`, `f5c2665f0`). The take is of the image before the weakest
+level lost its shadows, which changes nothing on that card.
 
 ## The research tasks
 

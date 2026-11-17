@@ -42,3 +42,5 @@ FSR 1 was measured there and not kept: Godot's FSR 1 at half the frame took the 
 Left: an even 30 a second on that GPU (the game's test there draws 25, between 30 and 20), which
 is the planet's own to keep (`tasks/20261116-223911-planet-day`); the slope in the texture (the
 trees read the ground three times, the buildings five) has no free channel now.
+
+Since 15:29 the weakest level also has no shadows of the sun: 18.7 ms a frame in Firefox and 18.3 in Chrome on that GPU, under the flat flyover's 19.6; the rate at that was 23 a second on a machine with a load of 15, and is to be measured on a quiet one.
