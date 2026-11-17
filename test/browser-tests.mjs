@@ -14,7 +14,7 @@ import { runSideBySide } from "./side-by-side.mjs";
 const limit = 4;
 // fs-growth fills 8 GiB of kernel memory and times its appends; session-large-file holds a file over 2 GiB.
 const alone = ["fs-growth-browser.mjs", "session-large-file-browser.mjs"];
-const hardware = ["gpu-render-browser.mjs", "gpu-explicit-browser.mjs"];
+const hardware = ["gpu-render-browser.mjs", "gpu-explicit-browser.mjs", "pointer-browser.mjs"];
 
 const started = performance.now();
 const options = Object.fromEntries(process.argv.slice(2).filter(word => word.startsWith("--"))

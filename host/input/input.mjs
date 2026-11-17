@@ -581,7 +581,7 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
   // Windows may beside a rotation sensor), the touchpad moves a mouse's pointer.
   const bar = mount.appendChild(document.createElement("div"));
   bar.id = "buttons";
-  bar.style.cssText = "display:none;flex-wrap:wrap;gap:0.5rem;padding:0.4rem";
+  bar.style.cssText = "grid-area:2/1;display:none;flex-wrap:wrap;gap:0.5rem;padding:0.4rem";
   const button = (label, press) => {
     const node = document.createElement("button");
     node.type = "button";

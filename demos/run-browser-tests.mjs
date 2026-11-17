@@ -34,6 +34,7 @@ const display = new Map([
   ["mojo/test/mojo-browser.mjs", both],
   ["photocraft/test/photocraft-gpu-browser.mjs", both],
   ["photocraft/test/photocraft-x11-browser.mjs", both],
+  ["photocraft/test/photocraft-touch-browser.mjs", "a GPU window on a hardware adapter, in Chrome"],
   ["slopyard/test/slopyard-browser.mjs", "a GPU window"],
   ["xonotic/test/xonotic-browser.mjs", "a GPU window in Chrome"],
   ["zero-ad/test/0ad-graphics-browser.mjs", "a GPU window"],
