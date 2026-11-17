@@ -8,7 +8,7 @@ Blender's GPU module) is in the tasks tagged `blender`.
 ## Images
 
 - `blender`: Blender 5.3 without its interface: `blender -b` runs Python scripts on scenes and `.blend` files, and Cycles renders on the CPU.
-- `blender-deps`: A build stage: the libraries Blender links beyond Dolly's packages, at the versions it pins (OpenImageIO, OpenColorIO, OpenEXR, oneTBB and sixteen more).
+- `blender-deps`: A build stage: the libraries Blender links beyond Dolly's packages, at the versions it pins (OpenImageIO, OpenColorIO, OpenEXR, oneTBB and ten more), over the packages of FreeType with Brotli, libjpeg-turbo, libtiff, expat and {fmt}.
 
 ## Use
 
@@ -71,7 +71,7 @@ Make at four jobs. What the platform decided:
   and its own expat beside `libpython3.14.a` and installs neither: the build
   stage makes them with CPython's Makefile in the prepared tree the `python`
   package was built from. That expat and OpenColorIO's share two symbol
-  names, which the stage's expat is compiled without.
+  names, which the `expat` package renames.
 - **This libc++.** Two upstream sources depend on how an older libc++ behaved:
   Cycles' `StackAllocator` hands out storage inside the allocator, which a
   vector that grows through a copy of its allocator does not survive, and
@@ -82,10 +82,8 @@ Make at four jobs. What the platform decided:
   Dolly beside the systems whose plain libc paths it shares
   ([`openimageio-dolly.patch`](openimageio-dolly.patch),
   [`blender-dolly.patch`](blender-dolly.patch)).
-- **Three of Dolly's packages are not used.** FreeType is built again with
-  Brotli (Blender's fonts are WOFF2), {fmt} at 12 (the package is 7), and
-  libjpeg-turbo in place of IJG's library (Blender takes `boolean` as an
-  integer).
+- **FreeType reads Brotli** (Blender's fonts are WOFF2), and JPEG is
+  libjpeg-turbo's (Blender takes `boolean` as an integer): the packages'.
 - **Epoxy** is required by Blender's build even with no OpenGL backend: its
   dispatch is built from its generator and two sources, without Meson.
 

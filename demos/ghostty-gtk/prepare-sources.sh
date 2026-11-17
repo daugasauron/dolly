@@ -1,5 +1,5 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_image mesa-build; then
+if has_image mesa; then
   # Mesa patched, with its parsers made on the host (prepare-mesa.sh), and the
   # Python modules its build runs, as published.
   node scripts/build-source-tar.mjs "${static_dir}/ghostty-gtk/mesa.tar.gz" "$(bash demos/ghostty-gtk/prepare-mesa.sh)" /tmp/mesa/mesa

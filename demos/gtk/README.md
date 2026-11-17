@@ -31,9 +31,9 @@ for libffi.
   upstream's Meson build; the patch makes `g_unix_fd_query_path` say it is not
   supported here, as on Hurd, where upstream stops with an `#error`.
 - [`Dollyfile-pcre2`](Dollyfile-pcre2): PCRE2 from its generic configuration.
-- [`Dollyfile-gtk-build`](Dollyfile-gtk-build): each library by its own Meson or
-  CMake build; gperf 3.1 (fontconfig's build runs it) and the X extension
-  libraries GTK links beyond `x11-build`'s by this recipe's Makefile and script.
+- [`Dollyfile-gtk-build`](Dollyfile-gtk-build): each library by its own Meson
+  build, over the packages of FreeType, expat, libjpeg-turbo, libtiff, gperf
+  (fontconfig's build runs it), pixman, Mesa and X's client libraries.
   Two patches: [`fontconfig-dolly.patch`](fontconfig-dolly.patch) names Dolly
   in `fcstat.c`'s list of systems whose `statfs` it reads, where upstream stops
   with an `#error`; [`gtk-dolly.patch`](gtk-dolly.patch) builds GTK's library

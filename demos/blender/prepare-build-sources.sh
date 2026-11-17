@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Prints a directory with Blender's release archive and the verified upstream
-# archives of build-sources.txt unpacked, without the two symbolic links
-# Dolly's tar would refuse (OpenEXR's fuzz directory, expat's top-level README).
+# archives of build-sources.txt unpacked, without the symbolic links
+# Dolly's tar would refuse (OpenEXR's fuzz directory).
 set -euo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${project_dir}"

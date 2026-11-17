@@ -401,7 +401,7 @@ Godot's build is SCons over its own platforms, each a directory of
 - [`SCsub`](platform/SCsub) links the program, with Godot's GLAD loader,
   which takes OpenGL's functions from `eglGetProcAddress`.
 
-The recipe builds on `mesa-build` ([Ghostty's GTK demo](../ghostty-gtk/README.md))
+The recipe builds with the `mesa` package ([Ghostty's GTK demo](../ghostty-gtk/README.md))
 and leaves out the modules a 2D project does not need
 (`modules_enabled_by_default=no`): GDScript, 2D physics and the fallback
 text server with FreeType, and no 3D, 761 units in place of Godot's 2,097.

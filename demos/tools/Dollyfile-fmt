@@ -13,7 +13,7 @@ REQUIRES TOOL make
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /dist/static/fmt/source.tar.gz 66a92e97c25eb9542032e3d4b3bac3021b573a3bdd1dde3aa31c138afd709ed1 /tmp/fmt.tar.gz
+SOURCE /dist/static/fmt/source.tar.gz 86d3b4a90ee63b261d1cbdbd7c5dc7ee5734cb0400619d01acf1493d5be862dd /tmp/fmt.tar.gz
 SLOP gzip -dc /tmp/fmt.tar.gz | tar -xf - -C /
 SLOP cmake -S /tmp/fmt -B /tmp/fmt-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \
@@ -25,5 +25,5 @@ EXPORTS LIB    fmt       /usr/lib/libfmt.a
 EXPORTS HEADER fmt       /usr/include/fmt
 EXPORTS FOLDER fmt-cmake /usr/lib/cmake/fmt
 FILE /usr/lib/pkgconfig/fmt.pc
-FILE /usr/share/licenses/fmt/LICENSE.rst
+FILE /usr/share/licenses/fmt/LICENSE
 SLOP rm -rf /tmp/fmt /tmp/fmt-build /tmp/fmt.tar.gz

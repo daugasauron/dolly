@@ -8,11 +8,6 @@ DOLLY_XONOTIC_SHA256=50850f8d800e7499722f6ea61e478e96464a375494b5a24da93aa0598cb
 DOLLY_XONOTIC_SOURCE_URL='https://dl.xonotic.org/xonotic-0.8.6-source.zip'
 DOLLY_XONOTIC_SOURCE_SHA256=8b92ac781cff4ae89c121a23eacd7dec05a2aabedaccc23a19d1a0958b4012a8
 
-# IJG libjpeg, linked into Xonotic's client for its JPEG textures.
-DOLLY_JPEG_VERSION=9f
-DOLLY_JPEG_URL='https://www.ijg.org/files/jpegsrc.v9f.tar.gz'
-DOLLY_JPEG_SHA256=04705c110cb2469caa79fb71fba3d7bf834914706e9641a4589485c1f832565b
-
 # Ogg and Vorbis, linked into Xonotic's client and 0 A.D.'s engine for their Ogg Vorbis sounds.
 DOLLY_LIBOGG_VERSION=1.3.5
 DOLLY_LIBOGG_URL='https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.gz'

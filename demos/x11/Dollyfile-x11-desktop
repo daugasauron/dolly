@@ -18,16 +18,16 @@ REQUIRES HOST nena@0
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
 INSTALL /Dollyfile-posix 05628fd9859d6aa86359accd20db6cf32c0b1469e573da158734ce7a2caab0bf
 INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
-INSTALL /demos/x11/Dollyfile-xorg-server 4e38cbab4a4f90ff6379631b46ce80b74841970965719073db26ef19789de017
-INSTALL /demos/x11/Dollyfile-twm a73f2faf84497dfe868c0afe2132b70b016a5e51a8c48d1ca2f8126cb7bb79d7
-INSTALL /demos/x11/Dollyfile-xclock dc37572f7fcc9d09314653f3ce51a0c2988c73fe44cca79b658ddce72fbc9a98
-INSTALL /demos/x11/Dollyfile-xeyes 67cd4bb0a181d57a7fd52e342c09f732a4397f0da8680e960f0558a19b5f3821
-INSTALL /demos/x11/Dollyfile-xterm dfbdb88cacceba9713943bf758894b1e2b3b085142850cd917d96f1e6d4ba3c4
+INSTALL /demos/x11/Dollyfile-xorg-server 552c0292e2c4e783c4fbf237c0aa3f79474ac1d07299217aa4858c7136089df7
+INSTALL /demos/x11/Dollyfile-twm db761a2044c328fe3ba3bda5342ba3c08bb1d0b64a2e4e2da7a6ffea08b42008
+INSTALL /demos/x11/Dollyfile-xclock 8910a2cd529a96d6bf096863721af6a7fbbe78be6d45891b133162ede618b00e
+INSTALL /demos/x11/Dollyfile-xeyes 213318a73d4d73a59db9d107f773f02955a1c353f6c788dfc529647391701602
+INSTALL /demos/x11/Dollyfile-xterm f39a2627d88f7c6c8b87f97ec1ad01ed0e44daf92f49c65430477937f4ef2b72
 # amy installs packages into the session (tmux, nvim and the rest); nena
 # enables the host modules they need.
 INSTALL /Dollyfile-amy 95b7ecb251d9d5c3d28eb8aaa63b6bd2a465fac35756bdf95b520884a61547e4
 INSTALL /Dollyfile-nena 67a37d644a04e3eddd12fe2e5d335dcf473b1b549337f0a9ce2f445f00b91ad8
-INSTALL /demos/sdl2/Dollyfile-imgui-x11 3688156883e782f51e8dcea81475d1c81762bb4850945eee79fa3a50cc88e406
+INSTALL /demos/sdl2/Dollyfile-imgui-x11 40ce1cda25b63096bd07c2ee0a844344265fb9e8edfc9ef77cdc430222455837
 
 # The server takes the display, the keyboard and the pointer until it ends
 # (kill $(cat /tmp/.X0-pid) in the terminal); its clients end with it, and

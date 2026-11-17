@@ -13,7 +13,7 @@ INSTALL /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a4
 INSTALL /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
 INSTALL /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
 # FreeType (with its libpng) for gdi32's fonts, as 0 A.D. built them; libpng's headers for NetSurf.
-INSTALL /demos/tools/Dollyfile-freetype ec16b9ddb1c4a31ad83204654c0669da661ae0f551e98271e39b06b7174dc89a
+INSTALL /demos/tools/Dollyfile-freetype cb073fa00533688584684aeca85e8d1a26cd918295fb1c3dff5f2dbabeb3cd80
 REQUIRES HEADER curl
 REQUIRES HEADER zlib
 REQUIRES LIB curl

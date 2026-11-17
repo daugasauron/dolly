@@ -157,6 +157,61 @@
       "status": 0
     },
     { "script": "cd /tmp/amy-tar && tar -cf in.tar in && tar -xf in.tar -C out && cmp out/in/deep/numbers in/deep/numbers && test \"$(readlink out/in/link)\" = deep/numbers && tar -czf in.tgz in && tar -tzf in.tgz | grep -qx in/link && tar -cjf in.tbz in && tar -tjf in.tbz | grep -qx in/link && tar -cJf in.txz in && tar -tJf in.txz | grep -qx in/link", "status": 0 },
-    { "script": "man tar > /tmp/amy-man && grep -q 'archive' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 }
+    { "script": "man tar > /tmp/amy-man && grep -q 'archive' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
+    {
+      "fresh": true,
+      "why": "A text compressed by Brotli's encoder is smaller, and its decoder gives it back; pkg-config names libbrotlicommon with either.",
+      "script": "amy install brotli",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <brotli/decode.h>' '#include <brotli/encode.h>' '#include <string.h>' 'int main(void) {' '  static const char text[] = \"Dolly Dolly Dolly Dolly Dolly Dolly Dolly Dolly\";' '  uint8_t packed[256], unpacked[256];' '  size_t packed_size = sizeof packed, unpacked_size = sizeof unpacked;' '  if (!BrotliEncoderCompress(BROTLI_DEFAULT_QUALITY, BROTLI_DEFAULT_WINDOW, BROTLI_MODE_TEXT, sizeof text,' '                             (const uint8_t *)text, &packed_size, packed)) return 1;' '  if (BrotliDecoderDecompress(packed_size, packed, &unpacked_size, unpacked) != BROTLI_DECODER_RESULT_SUCCESS) return 2;' '  return !(packed_size < sizeof text && unpacked_size == sizeof text && memcmp(text, unpacked, sizeof text) == 0);' '}' > /tmp/amy-brotli.c && cc $(pkg-config --cflags libbrotlienc libbrotlidec) /tmp/amy-brotli.c $(pkg-config --libs libbrotlienc libbrotlidec) -o /tmp/amy-brotli && /tmp/amy-brotli", "status": 0 },
+    {
+      "fresh": true,
+      "why": "An image written as JPEG in memory reads back at its size and in its color.",
+      "script": "amy install libjpeg-turbo",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <stdio.h>' '#include <jpeglib.h>' 'int main(void) {' '  struct jpeg_compress_struct out;' '  struct jpeg_decompress_struct in;' '  struct jpeg_error_mgr errors;' '  unsigned char row[3 * 32], *jpeg = NULL;' '  unsigned long size = 0;' '  out.err = jpeg_std_error(&errors);' '  jpeg_create_compress(&out);' '  jpeg_mem_dest(&out, &jpeg, &size);' '  out.image_width = 32, out.image_height = 16, out.input_components = 3, out.in_color_space = JCS_RGB;' '  jpeg_set_defaults(&out);' '  jpeg_start_compress(&out, TRUE);' '  for (int x = 0; x < 3 * 32; x++) row[x] = x % 3 == 0 ? 200 : 40;' '  while (out.next_scanline < out.image_height) { JSAMPROW rows[1] = {row}; jpeg_write_scanlines(&out, rows, 1); }' '  jpeg_finish_compress(&out);' '  in.err = jpeg_std_error(&errors);' '  jpeg_create_decompress(&in);' '  jpeg_mem_src(&in, jpeg, size);' '  jpeg_read_header(&in, TRUE);' '  jpeg_start_decompress(&in);' '  JSAMPROW rows[1] = {row};' '  jpeg_read_scanlines(&in, rows, 1);' '  int red = row[0] > 150 && row[1] < 90;' '  jpeg_abort_decompress(&in);' '  return !(in.output_width == 32 && in.output_height == 16 && red);' '}' > /tmp/amy-jpeg.c && cc $(pkg-config --cflags libjpeg) /tmp/amy-jpeg.c $(pkg-config --static --libs libjpeg) -o /tmp/amy-jpeg && /tmp/amy-jpeg && cc /tmp/amy-jpeg.c -ljpeg -o /tmp/amy-jpeg && /tmp/amy-jpeg", "status": 0 },
+    {
+      "fresh": true,
+      "why": "A TIFF compressed with JPEG is written and read back: libtiff carries libjpeg-turbo's codec.",
+      "script": "amy install libtiff",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <tiffio.h>' 'int main(void) {' '  unsigned char row[3 * 16];' '  TIFF *out = TIFFOpen(\"/tmp/amy.tif\", \"w\");' '  if (!out) return 1;' '  TIFFSetField(out, TIFFTAG_IMAGEWIDTH, 16);' '  TIFFSetField(out, TIFFTAG_IMAGELENGTH, 16);' '  TIFFSetField(out, TIFFTAG_SAMPLESPERPIXEL, 3);' '  TIFFSetField(out, TIFFTAG_BITSPERSAMPLE, 8);' '  TIFFSetField(out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);' '  TIFFSetField(out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);' '  TIFFSetField(out, TIFFTAG_ROWSPERSTRIP, 16);' '  TIFFSetField(out, TIFFTAG_COMPRESSION, COMPRESSION_JPEG);' '  for (int x = 0; x < 3 * 16; x++) row[x] = x % 3 == 2 ? 220 : 30;' '  for (int y = 0; y < 16; y++) if (TIFFWriteScanline(out, row, y, 0) < 0) return 2;' '  TIFFClose(out);' '  TIFF *in = TIFFOpen(\"/tmp/amy.tif\", \"r\");' '  uint32_t width = 0;' '  uint16_t compression = 0;' '  if (!in) return 3;' '  TIFFGetField(in, TIFFTAG_IMAGEWIDTH, &width);' '  TIFFGetField(in, TIFFTAG_COMPRESSION, &compression);' '  if (TIFFReadScanline(in, row, 0, 0) < 0) return 4;' '  TIFFClose(in);' '  return !(width == 16 && compression == COMPRESSION_JPEG && row[2] > 150 && row[0] < 90);' '}' > /tmp/amy-tiff.c && cc $(pkg-config --cflags libtiff-4) /tmp/amy-tiff.c $(pkg-config --static --libs libtiff-4) -o /tmp/amy-tiff && /tmp/amy-tiff", "status": 0 },
+    {
+      "fresh": true,
+      "why": "A document's attribute is read by expat's callbacks.",
+      "script": "amy install expat",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <expat.h>' '#include <stdlib.h>' '#include <string.h>' 'static long answer;' 'static void start(void *data, const XML_Char *name, const XML_Char **attributes) {' '  (void)data;' '  if (strcmp(name, \"b\") == 0 && attributes[0] && strcmp(attributes[0], \"x\") == 0) answer = strtol(attributes[1], NULL, 10);' '}' 'static void end(void *data, const XML_Char *name) { (void)data; (void)name; }' 'int main(void) {' '  static const char document[] = \"<a><b x='\"'\"'42'\"'\"'/></a>\";' '  XML_Parser parser = XML_ParserCreate(NULL);' '  XML_SetElementHandler(parser, start, end);' '  int parsed = XML_Parse(parser, document, sizeof document - 1, 1) == XML_STATUS_OK;' '  XML_ParserFree(parser);' '  return !(parsed && answer == 42);' '}' > /tmp/amy-expat.c && cc $(pkg-config --cflags expat) /tmp/amy-expat.c $(pkg-config --static --libs expat) -o /tmp/amy-expat && /tmp/amy-expat", "status": 0 },
+    {
+      "fresh": true,
+      "why": "{fmt} formats as std::format does, and as printf does.",
+      "script": "amy install fmt",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <fmt/format.h>' '#include <fmt/printf.h>' 'int main() { return fmt::format(\"{}-{:x}\", 42, 255) == \"42-ff\" && fmt::sprintf(\"%05.1f\", 3.14159) == \"003.1\" ? 0 : 1; }' > /tmp/amy-fmt.cpp && c++ $(pkg-config --cflags fmt) /tmp/amy-fmt.cpp $(pkg-config --static --libs fmt) -o /tmp/amy-fmt && /tmp/amy-fmt", "status": 0 },
+    {
+      "fresh": true,
+      "why": "gperf writes a perfect hash for three keywords, which tells them from a fourth word.",
+      "script": "! command -v gperf",
+      "status": 0
+    },
+    { "script": "amy install gperf", "status": 0 },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' %% red green blue %% 'int main(void) { return !(in_word_set(\"green\", 5) && !in_word_set(\"grey\", 4)); }' > /tmp/amy-words.gperf && gperf --includes --output-file=/tmp/amy-words.c /tmp/amy-words.gperf && cc /tmp/amy-words.c -o /tmp/amy-words && /tmp/amy-words", "status": 0 },
+    { "script": "man gperf > /tmp/amy-man && grep -q 'hash' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 }
   ]
 }

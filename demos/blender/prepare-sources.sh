@@ -8,16 +8,6 @@ if has_image blender-deps; then
   node scripts/build-source-tar.mjs "${static_dir}/blender/deps.tar.gz" \
     demos/blender/ccfilter.c /tmp/blender-deps/ccfilter.c \
     demos/blender/openimageio-dolly.patch /tmp/blender-deps/openimageio-dolly.patch \
-    "${blender_dir}/brotli-1.0.10" /tmp/blender-deps/brotli \
-    "${blender_dir}/brotli-1.0.10/LICENSE" "${blender_licences}/brotli/LICENSE" \
-    "${blender_dir}/freetype-VER-2-14-3" /tmp/blender-deps/freetype \
-    "${blender_dir}/freetype-VER-2-14-3/LICENSE.TXT" "${blender_licences}/freetype/LICENSE.TXT" \
-    "${blender_dir}/freetype-VER-2-14-3/docs/FTL.TXT" "${blender_licences}/freetype/FTL.TXT" \
-    "${blender_dir}/libjpeg-turbo-2.1.3" /tmp/blender-deps/libjpeg-turbo \
-    "${blender_dir}/libjpeg-turbo-2.1.3/LICENSE.md" "${blender_licences}/libjpeg-turbo/LICENSE.md" \
-    "${blender_dir}/libjpeg-turbo-2.1.3/README.ijg" "${blender_licences}/libjpeg-turbo/README.ijg" \
-    "${blender_dir}/fmt-12.1.0" /tmp/blender-deps/fmt \
-    "${blender_dir}/fmt-12.1.0/LICENSE" "${blender_licences}/fmt/LICENSE" \
     "${blender_dir}/Imath-3.2.2" /tmp/blender-deps/imath \
     "${blender_dir}/Imath-3.2.2/LICENSE.md" "${blender_licences}/imath/LICENSE.md" \
     "${blender_dir}/libdeflate-1.18" /tmp/blender-deps/libdeflate \
@@ -26,14 +16,10 @@ if has_image blender-deps; then
     "${blender_dir}/OpenJPH-0.25.2/LICENSE" "${blender_licences}/openjph/LICENSE" \
     "${blender_dir}/openexr-3.4.10" /tmp/blender-deps/openexr \
     "${blender_dir}/openexr-3.4.10/LICENSE.md" "${blender_licences}/openexr/LICENSE.md" \
-    "${blender_dir}/tiff-4.7.1" /tmp/blender-deps/tiff \
-    "${blender_dir}/tiff-4.7.1/LICENSE.md" "${blender_licences}/tiff/LICENSE.md" \
     "${blender_dir}/robin-map-1.3.0" /tmp/blender-deps/robin-map \
     "${blender_dir}/robin-map-1.3.0/LICENSE" "${blender_licences}/robin-map/LICENSE" \
     "${blender_dir}/pugixml-1.10" /tmp/blender-deps/pugixml \
     "${blender_dir}/pugixml-1.10/LICENSE.md" "${blender_licences}/pugixml/LICENSE.md" \
-    "${blender_dir}/libexpat-R_2_7_5/expat" /tmp/blender-deps/expat \
-    "${blender_dir}/libexpat-R_2_7_5/expat/COPYING" "${blender_licences}/expat/COPYING" \
     "${blender_dir}/yaml-cpp-0.8.0" /tmp/blender-deps/yaml-cpp \
     "${blender_dir}/yaml-cpp-0.8.0/LICENSE" "${blender_licences}/yaml-cpp/LICENSE" \
     "${blender_dir}/pystring-1.1.3" /tmp/blender-deps/pystring \

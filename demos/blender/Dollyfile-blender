@@ -23,7 +23,7 @@ REQUIRES HOST threads@0
 # - Brotli for FreeType, which Blender puts on the link line only with its
 #   precompiled libraries.
 # - ccfilter for compiles and the link: see its source.
-FROM /demos/blender/Dollyfile-blender-deps 1f72df0680cc2bc141162cfbbbfe5d8115ece72034f27082ce7173fc1876bb22
+FROM /demos/blender/Dollyfile-blender-deps 98543a73fd4d9be464ad9c004db6c7d5805b76f47e9cd77fc0c2d743cedf2301
 INSTALL /demos/python/Dollyfile-python 964cd2681453dbb4da3f00eb1feadf7d873b33764e83b668111de230df6f6639
 REQUIRES TOOL cmake
 REQUIRES TOOL make
@@ -44,7 +44,7 @@ SLOP time cmake -S /tmp/blender/source -B /tmp/blender/build \
   -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccfilter -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccfilter \
   -DCMAKE_C_LINKER_LAUNCHER=/usr/bin/ccfilter -DCMAKE_CXX_LINKER_LAUNCHER=/usr/bin/ccfilter \
   "-DPYTHON_LINKFLAGS=--dolly-cast-emulation -lffi -llzma -lbz2 -lsqlite3 -lcurl -L/usr/lib/python3.14/embed -lpyexpat -lHacl_HMAC -lHacl_Hash_BLAKE2 -lHacl_Hash_MD5 -lHacl_Hash_SHA1 -lHacl_Hash_SHA2 -lHacl_Hash_SHA3" \
-  "-DCMAKE_EXE_LINKER_FLAGS=-lbrotlidec-static -lbrotlicommon-static" \
+  "-DCMAKE_EXE_LINKER_FLAGS=-lbrotlidec -lbrotlicommon" \
   -DWITH_HEADLESS=ON -DWITH_GHOST_WAYLAND=OFF -DWITH_GHOST_X11=OFF \
   -DWITH_OPENGL_BACKEND=OFF -DWITH_VULKAN_BACKEND=OFF \
   -DWITH_CYCLES=ON -DWITH_TBB=ON -DWITH_PUGIXML=ON -DWITH_ASSERT_RELEASE=OFF \
@@ -73,13 +73,10 @@ FOLDER /usr/share/blender
 FOLDER /usr/share/doc/blender
 # The licences of what is linked into the program: Blender's (its own notices
 # are in /usr/share/doc/blender/license), the build stage's libraries', which
-# that stage keeps here, and those of zlib, libpng and Zstandard. libpython's
-# are the python package's.
-SLOP mkdir -p /usr/share/licenses/blender/zlib /usr/share/licenses/blender/libpng /usr/share/licenses/blender/zstd
+# that stage keeps here, and those of the packages it links. libpython's are
+# the python package's.
 SLOP cp /tmp/blender/source/COPYING /usr/share/licenses/blender/COPYING
-SLOP cp /usr/share/licenses/zlib/LICENSE /usr/share/licenses/blender/zlib/LICENSE
-SLOP cp /usr/share/licenses/libpng/LICENSE /usr/share/licenses/blender/libpng/LICENSE
-SLOP cp /usr/share/licenses/zstd/LICENSE /usr/share/licenses/blender/zstd/LICENSE
+SLOP CWD /usr/share/licenses cp -R zlib libpng zstd freetype brotli libjpeg-turbo libtiff expat fmt /usr/share/licenses/blender
 FOLDER /usr/share/licenses/blender
 SLOP blender --help > /usr/share/man/cat1/blender.1
 FILE /usr/share/man/cat1/blender.1

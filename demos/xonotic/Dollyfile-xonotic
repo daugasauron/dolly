@@ -11,13 +11,14 @@ REQUIRES HOST touch@0
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
 INSTALL /Dollyfile-posix 05628fd9859d6aa86359accd20db6cf32c0b1469e573da158734ce7a2caab0bf
 INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
-COPY /demos/xonotic/Dollyfile-xonotic-build 57eb41aeee5c0e2c1ba340b28cfeb0c1660a9e068f1ff7db5726efff50ed2600 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+COPY /demos/xonotic/Dollyfile-xonotic-build eeb01b5fdd4f547759506b064ed90b336e5eb1d1602d444f716b5df5445e8722 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
 INSTALL /demos/xonotic/Dollyfile-xonotic-shaders f02e42413d91f2d8f0b18296ba432c1d6726ccc27d63cb789d88d2145db5b86d
-COPY /demos/xonotic/Dollyfile-xonotic-build 57eb41aeee5c0e2c1ba340b28cfeb0c1660a9e068f1ff7db5726efff50ed2600 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY /demos/xonotic/Dollyfile-xonotic-build eeb01b5fdd4f547759506b064ed90b336e5eb1d1602d444f716b5df5445e8722 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
 COPY /demos/sdl2/Dollyfile-sdl2 1809d16636eb124e08cc9188a7709890dfeb22657ae4ce989987d185b99b5193 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
-COPY /demos/xonotic/Dollyfile-xonotic-build 57eb41aeee5c0e2c1ba340b28cfeb0c1660a9e068f1ff7db5726efff50ed2600 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
-COPY /demos/tools/Dollyfile-freetype ec16b9ddb1c4a31ad83204654c0669da661ae0f551e98271e39b06b7174dc89a /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /demos/tools/Dollyfile-libjpeg-turbo 04db0d617e53e5ad835e7fee4a3fcba679b74ec9f35beea3f7f4eba947b89880 /usr/share/licenses/libjpeg-turbo /usr/share/licenses/libjpeg-turbo
+COPY /demos/tools/Dollyfile-freetype cb073fa00533688584684aeca85e8d1a26cd918295fb1c3dff5f2dbabeb3cd80 /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /demos/tools/Dollyfile-brotli 758e92611ba80bb2d5b5a09bfda7edf6339630057f93e813f78448ba61ac6a0f /usr/share/licenses/brotli /usr/share/licenses/brotli
 COPY /demos/tools/Dollyfile-libpng f9220787128996320c6fa8b6f98a3d61945c69bcba9fbe41eb1b48f699ae3e16 /usr/share/licenses/libpng /usr/share/licenses/libpng
 COPY /demos/xonotic/Dollyfile-libogg 317950ae7f25a2cc797e06a596cfaeca5300c65431f43156ab7d32d9d81fede0 /usr/share/licenses/libogg /usr/share/licenses/libogg
 COPY /demos/xonotic/Dollyfile-libvorbis f1badf5a8e6b36551ace0ef618613d5ebc4568813231c82145e1c523110db37a /usr/share/licenses/libvorbis /usr/share/licenses/libvorbis
@@ -27,8 +28,8 @@ FILE /usr/share/licenses/xonotic/NOTICE
     Notices for the xonotic image, beside Xonotic's COPYING, GPL-2 and GPL-3.
     
     This software is based in part on the work of the Independent JPEG Group:
-    libjpeg 9f is linked into /usr/bin/xonotic-sdl (its README is at
-    /usr/share/licenses/libjpeg/README).
+    libjpeg-turbo is linked into /usr/bin/xonotic-sdl (its README.ijg is at
+    /usr/share/licenses/libjpeg-turbo/README.ijg).
     
     FreeType is used under its GPL option (/usr/share/licenses/freetype).
     

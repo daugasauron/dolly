@@ -1,17 +1,17 @@
 DOLLY 8
-TOOLCHAIN mesa-build
+PACKAGE mesa
 REQUIRES HOST runtime@0
-REQUIRES HOST display@0
-REQUIRES HOST input@0
-REQUIRES HOST http@0
-REQUIRES HOST dso@0
-REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
-# A build stage over gtk-build: Mesa's OpenGL through EGL's surfaceless
-# platform, drawing with softpipe in the program itself (mesa-dolly.patch; its
-# parsers are made on the host, prepare-mesa.sh). Static libraries in /usr/lib.
-FROM /demos/gtk/Dollyfile-gtk-build 3e5c5d63e709b6075a2319bbaadf2b3afa0404df6524e9810af8aa13ed34b337
+# Mesa's OpenGL through EGL's surfaceless platform, drawing with softpipe in
+# the program itself (mesa-dolly.patch; its parsers are made on the host,
+# prepare-mesa.sh), for programs the cc package builds: libEGL and the gallium
+# driver it links, static, with the EGL, KHR and GL headers. Mesa is partly
+# C++: a program links it with c++, -lEGL -lgallium_dri -lz -lm -pthread.
+FROM /Dollyfile-system-tools 7b1306fddb4975e68b655f6d0bd6a478f6f02ba877ce033af921969099844d2d
+INSTALL /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
+USE /demos/tools/Dollyfile-meson 4c1605d54a6e0a0349b9514fd8a083a4bcb1e918463e212bdeea58a6d20729c4
+USE /demos/tools/Dollyfile-pkgconf 8e2d10a742a5f3dc0a5da7426f3f276c233bf6672cc0a777fa849672d0f1e0b3
 
 REQUIRES TOOL   ar
 REQUIRES TOOL   c++
@@ -97,8 +97,16 @@ SLOP cc -O1 -pthread -c /tmp/mesa/egl-check.c -o /tmp/mesa/egl-check.o && \
 
 SLOP mkdir -p /usr/share/licenses/mesa
 SLOP cp /tmp/mesa/mesa/docs/license.rst /usr/share/licenses/mesa/license.rst
-FOLDER /usr/lib/pkgconfig
-FOLDER /usr/include
-FOLDER /usr/lib
-FOLDER /usr/share/licenses
-ENTRY /bin/foreground -i /bin/slop
+SLOP rm -rf /tmp/mesa
+
+EXPORTS LIB    EGL         /usr/lib/libEGL.a
+EXPORTS LIB    gallium_dri /usr/lib/libgallium_dri.a
+EXPORTS HEADER egl         /usr/include/EGL
+EXPORTS HEADER khr         /usr/include/KHR
+FILE /usr/include/GL/gl.h
+FILE /usr/include/GL/glcorearb.h
+FILE /usr/include/GL/glext.h
+FILE /usr/include/GL/internal/dri_interface.h
+FILE /usr/lib/pkgconfig/egl.pc
+FILE /usr/lib/pkgconfig/dri.pc
+FILE /usr/share/licenses/mesa/license.rst

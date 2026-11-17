@@ -21,9 +21,9 @@ REQUIRES HOST upload@0
 FROM /Dollyfile-system d114f508562868a2209ab755b4fe14322f1d326d6aab23639cfeff39df4d3605
 INSTALL /demos/python/Dollyfile-python 964cd2681453dbb4da3f00eb1feadf7d873b33764e83b668111de230df6f6639
 INSTALL /demos/tools/Dollyfile-meson 4c1605d54a6e0a0349b9514fd8a083a4bcb1e918463e212bdeea58a6d20729c4
-INSTALL /demos/tools/Dollyfile-freetype ec16b9ddb1c4a31ad83204654c0669da661ae0f551e98271e39b06b7174dc89a
+INSTALL /demos/tools/Dollyfile-freetype cb073fa00533688584684aeca85e8d1a26cd918295fb1c3dff5f2dbabeb3cd80
 INSTALL /demos/tools/Dollyfile-pkgconf 8e2d10a742a5f3dc0a5da7426f3f276c233bf6672cc0a777fa849672d0f1e0b3
-INSTALL /demos/xonotic/Dollyfile-libjpeg e774ab809a8c0c83fc142ebcbb2092fcc16212a126461b78db41df1da25d5519
+INSTALL /demos/tools/Dollyfile-libjpeg-turbo 04db0d617e53e5ad835e7fee4a3fcba679b74ec9f35beea3f7f4eba947b89880
 REQUIRES HEADER freetype2
 REQUIRES HEADER jpeglib
 REQUIRES HEADER zlib
@@ -107,12 +107,13 @@ SLOP gzip -dc /tmp/python-data/contourpy-1.4.0.tar.gz | tar -xf - -C /tmp/python
 SLOP slop /tmp/python-data/install contourpy 1.4.0 --config-settings=setup-args=-Dwerror=false \
   --config-settings=build-dir=/tmp/python-data/contourpy-1.4.0/build
 # Pillow's FreeType module links -lfreetype alone, and the freetype package's
-# static library needs libpng and zlib, which its freetype2.pc requires: the
-# linker takes them from LDFLAGS.
-SLOP LDFLAGS='-lpng16 -lz' slop /tmp/python-data/install pillow 13.0.0
-# Pillow links libjpeg, whose licence asks for its README beside the program.
-SLOP mkdir -p /opt/python-data/pillow/usr/share/licenses/libjpeg
-SLOP cp /usr/share/licenses/libjpeg/README /opt/python-data/pillow/usr/share/licenses/libjpeg/README
+# static library needs libpng, Brotli and zlib, which its freetype2.pc
+# requires: the linker takes them from LDFLAGS.
+SLOP LDFLAGS='-lpng16 -lbrotlidec -lbrotlicommon -lz' slop /tmp/python-data/install pillow 13.0.0
+# Pillow links libjpeg-turbo, whose licence asks for its README.ijg beside the
+# program, and FreeType's Brotli.
+SLOP mkdir -p /opt/python-data/pillow/usr/share/licenses
+SLOP cp -R /usr/share/licenses/libjpeg-turbo /usr/share/licenses/brotli /opt/python-data/pillow/usr/share/licenses/
 # Matplotlib's own FreeType, 2.6.1, calls its autofitter through a function
 # pointer of another signature (af_dummy_hints_apply takes two parameters, the
 # call passes three), which Wasm traps: it links the freetype package's 2.14.3
@@ -121,10 +122,11 @@ SLOP cp /usr/share/licenses/libjpeg/README /opt/python-data/pillow/usr/share/lic
 SLOP MESON_PACKAGE_CACHE_DIR=/tmp/python-data/packagecache slop /tmp/python-data/install matplotlib 3.10.9 \
   --config-settings=setup-args=-Db_lto=false --config-settings=setup-args=-Dsystem-freetype=true \
   --config-settings=setup-args=-Dprefer_static=true
-# Its extensions link FreeType, libpng and Qhull, whose licences its wheel does not carry.
+# Its extensions link FreeType with Brotli, libpng and Qhull, whose licences its wheel does not carry.
 SLOP gzip -dc /tmp/python-data/packagecache/qhull-8.0.2.tgz | tar -xf - -C /tmp/python-data
 SLOP mkdir -p /opt/python-data/matplotlib/usr/share/licenses/qhull /opt/python-data/matplotlib/usr/share/licenses/libpng
 SLOP cp -R /usr/share/licenses/freetype /opt/python-data/matplotlib/usr/share/licenses/freetype
+SLOP cp -R /usr/share/licenses/brotli /opt/python-data/matplotlib/usr/share/licenses/brotli
 SLOP cp /usr/share/licenses/libpng/LICENSE /opt/python-data/matplotlib/usr/share/licenses/libpng/LICENSE
 SLOP cp /tmp/python-data/qhull-8.0.2/COPYING.txt /opt/python-data/matplotlib/usr/share/licenses/qhull/COPYING.txt
 SLOP slop /tmp/python-data/install seaborn 0.13.2

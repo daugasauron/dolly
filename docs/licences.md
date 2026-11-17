@@ -42,7 +42,7 @@ fails when a recipe `SOURCE` or a pin of [`source-pins.sh`](../config/source-pin
 | Family | Shipped as binaries | Obligation | Status |
 | --- | --- | --- | --- |
 | GPL-2.0/3.0 | Git, Make, less (through GNU termcap), Emacs, tree, dte, the lz4 program, Seven Kingdoms, 0 A.D. engine, Xonotic (engine, game logic, data, fonts), Blender, Dolly's GPL files | Complete corresponding source, including build scripts, or a written offer | Met: the prepared source archives and the recipe that builds them are served beside the images, for 0 A.D., Xonotic and Blender too (below) |
-| IJG | libjpeg in Xonotic and Pillow (`python-data`); libjpeg-turbo in Blender | Source: the unaltered `README` with it; binaries: the documentation states that the software is based in part on the work of the Independent JPEG Group | `README` kept as `/usr/share/licenses/libjpeg/README`, libjpeg-turbo's as `/usr/share/licenses/blender/libjpeg-turbo/README.ijg`; the statement is in the Xonotic section below, under combined binaries and on `/licences/` |
+| IJG | IJG libjpeg in Wine's NetSurf; libjpeg-turbo in Xonotic, Pillow (`python-data`), GTK and Blender | Source: the unaltered `README` with it; binaries: the documentation states that the software is based in part on the work of the Independent JPEG Group | `README` kept as `/usr/share/licenses/libjpeg/README` in `wine`, libjpeg-turbo's `README.ijg` as `/usr/share/licenses/libjpeg-turbo/README.ijg` (and `/usr/share/licenses/blender/libjpeg-turbo/README.ijg`); the statement is in the Xonotic section below, under combined binaries and on `/licences/` |
 | LGPL-2.0+ | OpenAL Soft, static in the 0 A.D. engine; FFmpeg (LGPL-2.1-or-later), static in `ffmpeg` and `ffprobe` | Source, and the means to relink | Source served (`openal/source.tar`, `ffmpeg/ffmpeg-9.0.2.tar.gz` as released), and the engine's (below), so it can be relinked; the `ffmpeg` package holds its libraries' archives |
 | MPL-2.0 | SpiderMonkey in 0 A.D.; MPL crates vendored by Codex; Eigen's headers in Blender | Source of the MPL files available; tell recipients where | Codex sources served; SpiderMonkey's pinned tarball is served (below); its MPL text is in `zero-ad`; Eigen's source is in the served `blender/deps.tar.gz`, unchanged, its texts in `blender` |
 | Apache-2.0 | LLVM (with exception), Mojo (with exception), TypeScript, Neovim, luv, Codex, WAMR, Meson, WABT, Droid Sans Fallback, crates, npm packages; OpenImageIO and oneTBB in Blender | Licence copy, NOTICE files, modified files marked | OpenImageIO's changed files are those of `openimageio-dolly.patch`, served with its source; its and oneTBB's licence and third-party notices are in `blender`. Codex `NOTICE`, crates' notices and TypeScript notices shipped; the Android fonts' `NOTICE`, the licence's text, is in `display`. LLVM's text is in every compiler image as `/usr/share/licenses/libcxx`; its exception covers runtime code compiled into programs. The Mojo compiler's patched files are those of `mojo-dolly.patch` and the target's patches, served with its source |
@@ -70,7 +70,7 @@ fails when a recipe `SOURCE` or a pin of [`source-pins.sh`](../config/source-pin
   program links GNU readline or ncurses.
 - `wine` is one executable, so the licences of all it links meet in it: Wine
   and ReactOS Paint (LGPL-2.1-or-later), GLib, ATK, Pango, GTK+ and libart
-  (LGPL-2.0-or-later), FreeType (taken under GPL-2.0), libpng, IJG libjpeg,
+  (LGPL-2.0-or-later), FreeType (taken under GPL-2.0) with Brotli, libpng, IJG libjpeg,
   fontconfig and Expat (permissive), GIMP (GPL-2.0-or-later) and NetSurf with
   its libraries (GPL-2.0-only). As a whole it is GPL-2.0-only. Every source
   is in the served `wine/source.tar.gz` and each licence under
@@ -95,13 +95,13 @@ fails when a recipe `SOURCE` or a pin of [`source-pins.sh`](../config/source-pin
   packaging (Apache-2.0 OR BSD-2-Clause), tzdata (Apache-2.0)
   and Matplotlib (its PSF-style licence; OFL-1.1 and Bitstream Vera fonts), whose
   extensions link FreeType (under the FTL: portions of this software are
-  copyright The FreeType Project, www.freetype.org), libpng, zlib and Qhull
-  statically. Pillow
-  links zlib and IJG libjpeg: this software is based in part on the work of the
+  copyright The FreeType Project, www.freetype.org) with Brotli (MIT), libpng,
+  zlib and Qhull statically. Pillow
+  links zlib, FreeType and libjpeg-turbo: this software is based in part on the work of the
   Independent JPEG Group. Each library's licence files
   are in its `*.dist-info/licenses/`, as its wheel installs them (Matplotlib's
-  include its bundled fonts'); FreeType's, libpng's and Qhull's are in
-  Matplotlib's root under `usr/share/licenses`, and libjpeg's `README` in Pillow's.
+  include its bundled fonts'); FreeType's, Brotli's, libpng's and Qhull's are in
+  Matplotlib's root under `usr/share/licenses`, and libjpeg-turbo's and Brotli's in Pillow's.
 - `blender` is one executable: Blender (GPL-3.0-or-later as a whole; its own
   sources GPL-2.0-or-later, Cycles Apache-2.0, and the libraries it bundles
   under the licences its `doc/license` lists, kept in
@@ -115,7 +115,7 @@ fails when a recipe `SOURCE` or a pin of [`source-pins.sh`](../config/source-pin
   Epoxy (MIT and alike), minizip-ng, zlib, libpng and Zstandard. All are
   compatible with GPL-3.0. Each one's licence files are in
   `/usr/share/licenses/blender`, the sources in the served
-  `blender/blender.tar.gz` and `blender/deps.tar.gz` with the two recipes
+  `blender/blender.tar.gz` and `blender/deps.tar.gz` and the packages' archives, with the recipes
   that build them.
 - less links GNU termcap (GPL-2.0-or-later) statically, so the program is a
   GPL one. less itself is taken under its own two-clause licence, which the
@@ -185,9 +185,9 @@ compiled into its `libjsrust.a` (Mozilla's own crates are MPL-2.0).
 
 Xonotic 0.8.6 is built in Dolly: `xonotic-build` compiles DarkPlaces
 (GPL-2.0-or-later), gmqcc (MIT) and Dolly's files for the port from
-`xonotic/source.tar.gz`, the release's source zip, and links IJG libjpeg 9f
-(its own licence, the `README` kept as `/usr/share/licenses/libjpeg/README`),
-which the `libjpeg` package builds from `libjpeg/source.tar.gz`; the site
+`xonotic/source.tar.gz`, the release's source zip, and links libjpeg-turbo
+(its own licences, `README.ijg` kept as `/usr/share/licenses/libjpeg-turbo/README.ijg`),
+which the `libjpeg-turbo` package builds from `libjpeg-turbo/source.tar.gz`; the site
 serves both as recipe inputs, together with the
 QuakeC game logic (`qcsrc`, GPL-3.0-or-later; `lib/warpzone` MIT or
 GPL-2.0-or-later, `lib/csqcmodel` MIT) that gmqcc compiles there.
@@ -210,8 +210,8 @@ whose `xonotic/` directory and Makefile build the shipped GPL variant from
 the FontForge sources) and keeps Xonotic's `COPYING`, `GPL-2` and
 `GPL-3`, the warpzone and csqcmodel MIT notices, Xolonium's README,
 Bitstream's notice for the Vera glyph sheet, Dolly's `NOTICE` (the IJG
-sentence and the fonts' terms), gmqcc's `LICENSE`, libjpeg's, FreeType's,
-libpng's, Ogg's, Vorbis's and SDL2's under `/usr/share/licenses/`.
+sentence and the fonts' terms), gmqcc's `LICENSE`, libjpeg-turbo's, FreeType's,
+Brotli's, libpng's, Ogg's, Vorbis's and SDL2's under `/usr/share/licenses/`.
 This software is based in part on the work of the Independent JPEG Group.
 The pass over the shipped archives (task `20261006-122433-xonotic`,
 2026-10-07) found every statement inside them GPL or GPL-compatible and none

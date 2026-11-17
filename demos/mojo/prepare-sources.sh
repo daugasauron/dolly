@@ -26,24 +26,16 @@ if has_image mojo-llvm; then
     mojo_inputs+=("${mojo_llvm_dir}/${path}" "/tmp/mojo-llvm/${path}")
   done
   node scripts/build-source-tar.mjs "${static_dir}/mojo/mojo-llvm.tar.gz" "${mojo_inputs[@]}"
-  # The library alone, without its legacy formats and dictionary builder.
-  zstd_dir="$(bash scripts/fetch-pinned-source.sh zstd)"
-  mojo_inputs=()
-  for path in lib/common lib/compress lib/decompress lib/zstd.h lib/zstd_errors.h lib/zdict.h LICENSE; do
-    mojo_inputs+=("${zstd_dir}/${path}" "/tmp/zstd/${path}")
-  done
-  node scripts/build-source-tar.mjs "${static_dir}/mojo/zstd.tar" "${mojo_inputs[@]}"
   copy_static demos/llvm/llvm-host-triple.patch mojo/llvm-host-triple.patch
   # The one patch of Mojo's LLVM (bazel/public-patches/llvm_source.bzl) outside LLDB and the Bazel overlay.
   copy_static "${mojo_dir}/bazel/public-patches/llvm-machinefunction-sti-ref-to-ptr.patch" mojo/llvm-machinefunction-sti-ref-to-ptr.patch
 fi
 if has_image mojo; then
   mojo_dir="$(bash scripts/fetch-pinned-checkout.sh modular)"
-  fmt_dir="$(bash scripts/fetch-pinned-source.sh fmt)"
   xxhash_dir="$(bash scripts/fetch-pinned-source.sh xxhash)"
   opentelemetry_dir="$(bash scripts/fetch-pinned-source.sh opentelemetry)"
   # The packages of the compiler's closure and the standard library: no tests,
-  # docs, examples, other tools or max/. Of {fmt}, xxHash and OpenTelemetry,
+  # docs, examples, other tools or max/. Of xxHash and OpenTelemetry,
   # what is compiled or included. The target's patches (one names Bazel's
   # list of LLVM backends) and its package gpu.
   mojo_inputs=()
@@ -54,7 +46,6 @@ if has_image mojo; then
       Init/BUILD.bazel Init/include Init/lib; do
     mojo_inputs+=("${mojo_dir}/${path}" "/tmp/mojo/modular/${path}")
   done
-  for path in include src/format.cc LICENSE; do mojo_inputs+=("${fmt_dir}/${path}" "/tmp/mojo/fmt/${path}"); done
   for path in xxhash.c xxhash.h xxh3.h LICENSE; do mojo_inputs+=("${xxhash_dir}/${path}" "/tmp/mojo/xxhash/${path}"); done
   for path in api/include sdk/include LICENSE; do
     mojo_inputs+=("${opentelemetry_dir}/${path}" "/tmp/mojo/opentelemetry/${path}")

@@ -100,3 +100,23 @@ DOLLY_LIBPNG_SHA256=d80dd2a38a37f803cb9b6ac7b14bd6e74ddc3b654780a8380bdf93523fdb
 DOLLY_PKGCONF_VERSION=2.5.1
 DOLLY_PKGCONF_URL='https://distfiles.ariadne.space/pkgconf/pkgconf-2.5.1.tar.xz'
 DOLLY_PKGCONF_SHA256=cd05c9589b9f86ecf044c10a2269822bc9eb001eced2582cfffd658b0a50c243
+DOLLY_BROTLI_VERSION=1.2.1
+DOLLY_BROTLI_URL='https://github.com/google/brotli/archive/refs/tags/v1.2.1.tar.gz'
+DOLLY_BROTLI_SHA256=98d35d11a78dc453aebb7d10c3748f3f73ff78c8267c0dc697b8631f67bf7e8f
+DOLLY_LIBJPEG_TURBO_VERSION=3.2.0
+DOLLY_LIBJPEG_TURBO_URL='https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.2.0/libjpeg-turbo-3.2.0.tar.gz'
+DOLLY_LIBJPEG_TURBO_SHA256=6f30092cef9fb839779646608f4ee14ae3cbac989c47fa05e841b0841f09878e
+DOLLY_LIBTIFF_VERSION=4.7.2
+DOLLY_LIBTIFF_URL='https://download.osgeo.org/libtiff/tiff-4.7.2.tar.xz'
+DOLLY_LIBTIFF_SHA256=4996f0c4f93094719b1ca5c6279b20e588773ba8a247533e486416fb662ddb88
+DOLLY_EXPAT_VERSION=2.8.5
+DOLLY_EXPAT_URL='https://github.com/libexpat/libexpat/releases/download/R_2_8_5/expat-2.8.5.tar.xz'
+DOLLY_EXPAT_SHA256=1e727b8933ec51a77a9a9d9afcf8e688bce45d907c13e36ab7393fe36e703182
+# {fmt}: the release Blender 5.3 pins, the newest of the catalog's three.
+DOLLY_FMT_VERSION=12.1.0
+DOLLY_FMT_URL='https://github.com/fmtlib/fmt/archive/refs/tags/12.1.0.tar.gz'
+DOLLY_FMT_SHA256=ea7de4299689e12b6dddd392f9896f08fb0777ac7168897a244a6d6085043fea
+# gperf 3.1, whose library is plain C and C++ (later releases need gnulib's configure).
+DOLLY_GPERF_VERSION=3.1
+DOLLY_GPERF_URL='https://ftp.gnu.org/gnu/gperf/gperf-3.1.tar.gz'
+DOLLY_GPERF_SHA256=588546b945bba4b70b6a3a616e80b4ab466e3f33024a352fc2198112cdbb3ae2

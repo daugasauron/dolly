@@ -1,0 +1,59 @@
+DOLLY 8
+PACKAGE gperf
+REQUIRES HOST runtime@0
+
+# GNU gperf 3.1 from upstream's release archive, unchanged: a perfect hash
+# function generator (fontconfig's build runs it). Its library is plain C
+# and C++, written in C++14; Slop does not run its configure, so config.h
+# says what it would find.
+FROM /demos/tools/Dollyfile-tools-build bfbb7483707086afb8948275f9b68e85f375a9076f2fe687a147eaeea1d2b184
+
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES TOOL   c++
+REQUIRES TOOL   cc
+REQUIRES TOOL   gzip
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   tar
+REQUIRES TOOL   test
+REQUIRES TOOL   text-page
+
+SOURCE /dist/static/gperf/source.tar.gz 4887e0ab23161fd0b2e1dfd1b34aac1ba63e6c858c42e1b10f3427d8cc5cedca /tmp/gperf.tar.gz
+SLOP gzip -dc /tmp/gperf.tar.gz | tar -xf - -C /
+
+FILE /tmp/gperf.mk
+    .RECIPEPREFIX := >
+    G := /tmp/gperf
+    B := /tmp/gperf-build
+    FLAGS := -O2 -I$(B) -I$(G)/lib
+    OBJ := lib/getline lib/getopt lib/getopt1 lib/hash src/bool-array src/hash-table src/input \
+      src/keyword-list src/keyword src/main src/options src/output src/positions src/search src/version
+    all: /usr/bin/gperf
+    $(B)/config.h:
+    >mkdir -p $(B)
+    >printf '#define HAVE_DYNAMIC_ARRAY 1\n#define PACKAGE_VERSION "3.1"\n' > $@
+    $(B)/%.o: $(G)/%.cc $(B)/config.h
+    >mkdir -p $(@D)
+    >c++ -std=gnu++14 $(FLAGS) -c $< -o $@
+    $(B)/%.o: $(G)/%.c $(B)/config.h
+    >mkdir -p $(@D)
+    >cc $(FLAGS) -c $< -o $@
+    /usr/bin/gperf: $(addprefix $(B)/,$(addsuffix .o,$(OBJ)))
+    >c++ $^ -o $@
+SLOP make -j4 -f /tmp/gperf.mk
+SLOP text-page /tmp/gperf/doc/gperf.1
+
+# Three keywords and a word that is none of them.
+FILE /tmp/gperf-check/words.gperf
+    %%
+    red
+    green
+    blue
+    %%
+    int main(void) { return !(in_word_set("green", 5) && !in_word_set("grey", 4)); }
+SLOP CWD /tmp/gperf-check gperf --includes --output-file=words.c words.gperf && cc words.c -o words && ./words
+
+EXPORTS TOOL gperf
+FILE /usr/share/licenses/gperf/COPYING
+FILE /usr/share/man/cat1/gperf.1

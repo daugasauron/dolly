@@ -76,6 +76,20 @@ if has_image freetype; then
     "${tool_dir}/LICENSE.TXT" /usr/share/licenses/freetype/LICENSE.TXT \
     "${tool_dir}/docs/FTL.TXT" /usr/share/licenses/freetype/FTL.TXT
 fi
+for library in brotli:LICENSE libjpeg-turbo:LICENSE.md:README.ijg libtiff:LICENSE.md expat:COPYING fmt:LICENSE \
+    gperf:COPYING; do
+  library_name="${library%%:*}"
+  if has_image "${library_name}"; then
+    tool_dir="$(bash scripts/fetch-pinned-source.sh "${library_name//-/_}")"
+    library_licences=()
+    IFS=: read -ra library_files <<< "${library#*:}"
+    for tool_file in "${library_files[@]}"; do
+      library_licences+=("${tool_dir}/${tool_file}" "/usr/share/licenses/${library_name}/${tool_file}")
+    done
+    node scripts/build-source-tar.mjs "${static_dir}/${library_name}/source.tar.gz" "${tool_dir}" "/tmp/${library_name}" \
+      "${library_licences[@]}"
+  fi
+done
 if has_image pkgconf; then
   tool_dir="$(bash scripts/fetch-pinned-source.sh pkgconf)"
   node scripts/build-source-tar.mjs "${static_dir}/pkgconf/source.tar" \

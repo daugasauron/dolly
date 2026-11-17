@@ -24,9 +24,9 @@ FROM /demos/rust/Dollyfile-rust-build 1a10f9b39662d8d42e695aadc59271c520cd99fa0d
 USE /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
 USE /Dollyfile-libdolly-clipboard 99746a8bd9b9eb136098753ccc526ac94a14540e6d26082ae8748eb6e3fa08a6
 USE /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
-USE /demos/x11/Dollyfile-x11-window 0b4f9e3598fb8d495df7ecf2432faf2482963f027b1cdcafc1f969e7c2ddb116
+USE /demos/x11/Dollyfile-x11-window e12fc59a5a617d61d086aed2289ee782e1c41b54c3db89efc23f9349fd0bc58a
 # The X client libraries x11-window links, for the link alone; the binary keeps their licences.
-USE /demos/x11/Dollyfile-x11-libs 2f529e01320df5e29c1df73216f5fd7411941ea57c2928ec663e23c622de0b47
+USE /demos/x11/Dollyfile-x11-libs e39c58a699459e5c5f78644a892cb75d583be06c3abf2a806f49b38900da8ef2
 USE /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
 USE /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
 USE /Dollyfile-libdolly-upload 8ac6d3294c36592ef7147a9d0fddfe1558ab9edfae12e51b857aeea90527d7d9

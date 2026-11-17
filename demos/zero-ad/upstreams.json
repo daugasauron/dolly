@@ -5,7 +5,6 @@
 {"name": "SpiderMonkey", "use": "JavaScript engine linked into 0 A.D., built inside Dolly by the spidermonkey package", "licence": "MPL-2.0", "repository": "https://github.com/mozilla-firefox/firefox", "sources": ["dist/static/spidermonkey/source.tar.gz"]},
 {"name": "ICU", "use": "Unicode library and data: the icu package, linked into 0 A.D.", "licence": "Unicode-DFS-2016 AND ICU AND BSD-3-Clause", "repository": "https://github.com/unicode-org/icu", "sources": ["dist/static/icu/source.tar.gz", "dist/static/zero-ad-data/tools.tar"]},
 {"name": "Boost (headers)", "use": "C++ header libraries: the boost-headers package, used by 0 A.D.", "licence": "BSL-1.0", "repository": "https://github.com/boostorg/boost", "sources": ["dist/static/boost-headers/source.tar.gz"]},
-{"name": "{fmt}", "use": "Formatting: the fmt package, linked into 0 A.D.", "licence": "MIT", "repository": "https://github.com/fmtlib/fmt", "sources": ["dist/static/fmt/source.tar.gz"]},
 {"name": "libxml2", "use": "XML parsing: the libxml2 package, linked into 0 A.D.", "licence": "MIT", "repository": "https://gitlab.gnome.org/GNOME/libxml2", "sources": ["dist/static/libxml2/source.tar.gz"]},
 {"name": "ENet", "use": "0 A.D. multiplayer transport", "licence": "MIT", "repository": "https://github.com/lsalzman/enet", "sources": ["dist/static/zero-ad-build/deps.tar.gz"]},
 {"name": "libsodium", "use": "Cryptography: the libsodium package, linked into 0 A.D.", "licence": "ISC", "repository": "https://github.com/jedisct1/libsodium", "sources": ["dist/static/libsodium/source.tar.gz"]},

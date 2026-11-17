@@ -6,7 +6,7 @@ stage_x11() {
     copy_static "$(bash scripts/fetch-pinned-archive.sh "${pin}")" "x11/${archive}"
   done
 }
-if has_image x11-build; then
+if has_image x11-libs; then
   stage_x11 <<'ARCHIVES'
 xorgproto xorgproto-2026.1.tar.gz
 xtrans xtrans-1.6.0.tar.gz
@@ -24,6 +24,11 @@ libxt libXt-1.3.1.tar.gz
 libxmu libXmu-1.3.1.tar.gz
 libxpm libXpm-3.5.19.tar.gz
 libxaw libXaw-1.0.16.tar.gz
+libxrandr libXrandr-1.5.5.tar.xz
+libxcursor libXcursor-1.2.3.tar.xz
+libxdamage libXdamage-1.1.7.tar.xz
+libxcomposite libXcomposite-0.4.7.tar.xz
+libxinerama libXinerama-1.1.6.tar.xz
 ARCHIVES
 fi
 while read -r program pin archive; do

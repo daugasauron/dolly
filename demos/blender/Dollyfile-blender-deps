@@ -16,15 +16,19 @@ REQUIRES HOST threads@0
 #   links only so.
 # - ccfilter runs the compiler without the options upstream passes to every
 #   Clang and Dolly's cc refuses; its source says which and why.
-# - FreeType, {fmt} and libjpeg are built here though Dolly has packages of
-#   them: Blender's fonts are WOFF2, which FreeType reads with Brotli; it uses
-#   {fmt} 12 (the package is 7); it takes libjpeg's boolean as an integer,
-#   which it is in libjpeg-turbo.
+# - The packages: FreeType with Brotli (Blender's fonts are WOFF2),
+#   libjpeg-turbo (Blender takes libjpeg's boolean as an integer, which it is
+#   there), libtiff, expat and {fmt}.
 # - binaryen is for Blender's link (Dollyfile-blender).
 FROM /demos/cmake/Dollyfile-cmake-build ef925b15c0342d66937cb491e956474f5dbb37d60cb2063e6e7ec91e0cb85d71
 INSTALL /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
 INSTALL /Dollyfile-gzip cef69a22c3b9f73889f4c819fcfaee2fb4487474ea4efa364117b8796465d1a4
 INSTALL /demos/tools/Dollyfile-libpng f9220787128996320c6fa8b6f98a3d61945c69bcba9fbe41eb1b48f699ae3e16
+INSTALL /demos/tools/Dollyfile-freetype cb073fa00533688584684aeca85e8d1a26cd918295fb1c3dff5f2dbabeb3cd80
+INSTALL /demos/tools/Dollyfile-libjpeg-turbo 04db0d617e53e5ad835e7fee4a3fcba679b74ec9f35beea3f7f4eba947b89880
+INSTALL /demos/tools/Dollyfile-libtiff 33ebfdb762eeb3b41052b4d0db872d174268fde69a740f3de90f953d3942ceb8
+INSTALL /demos/tools/Dollyfile-expat eb9a4b151c32a7da07b510bf5860263845ccb00fc5a37bd43459a0fb719ed3a7
+INSTALL /demos/tools/Dollyfile-fmt 95f417b949de4697ea4ce8b584c1250bce00b9dd6d231ae5d983136048b418bb
 INSTALL /demos/tools/Dollyfile-zstd 86647afd8dd74cea9f34f68efb4e6a5d87aba07083a29f899591f3be6f9dd6d7
 INSTALL /demos/tools/Dollyfile-xz d469de338c35f239e62a272216458e722dfdd7eb2909ed4a35a21d5694f2ad81
 INSTALL /demos/tools/Dollyfile-bzip2 76653f54f6f089826b7ef5ca6e86cae5286f7b441e3c5ef91d0894f819ea8b7b
@@ -41,12 +45,18 @@ REQUIRES TOOL python3
 REQUIRES TOOL wasm-opt
 REQUIRES LIB z
 REQUIRES LIB png16
+REQUIRES LIB freetype
+REQUIRES LIB brotlidec
+REQUIRES LIB jpeg
+REQUIRES LIB tiff
+REQUIRES LIB expat
+REQUIRES LIB fmt
 REQUIRES LIB zstd
 REQUIRES LIB lzma
 REQUIRES LIB bz2
 REQUIRES LIB sqlite3
 
-SOURCE /dist/static/blender/deps.tar.gz b5d97a8451e787f78573bab5fbc9220fb87835d8f4d9dc78db1f556be56dc393 /tmp/blender-deps.tar.gz
+SOURCE /dist/static/blender/deps.tar.gz 24d1dfd183c5db04b3f0ac9d87aaa32d08169b06526973c7b7dbb098f1c29009 /tmp/blender-deps.tar.gz
 SLOP gzip -dc /tmp/blender-deps.tar.gz | tar -xf - -C /
 SLOP rm /tmp/blender-deps.tar.gz
 SLOP cc -O2 /tmp/blender-deps/ccfilter.c -o /usr/bin/ccfilter
@@ -66,27 +76,13 @@ FILE /tmp/blender-deps/build
     cmake --install /tmp/blender-deps/objects &&
     rm -rf /tmp/blender-deps/objects
 
-SLOP time sh /tmp/blender-deps/build brotli -DBROTLI_DISABLE_TESTS=ON
-SLOP time sh /tmp/blender-deps/build freetype -DFT_DISABLE_BZIP2=ON -DFT_DISABLE_HARFBUZZ=ON -DFT_REQUIRE_BROTLI=ON \
-  -DFT_REQUIRE_ZLIB=ON -DFT_REQUIRE_PNG=ON
-# libjpeg-turbo resolves a relative library directory against the build's.
-SLOP time sh /tmp/blender-deps/build libjpeg-turbo -DCMAKE_INSTALL_LIBDIR=/usr/lib -DWITH_SIMD=OFF -DENABLE_SHARED=OFF -DENABLE_STATIC=ON -DWITH_TURBOJPEG=OFF
-SLOP time sh /tmp/blender-deps/build fmt -DFMT_TEST=OFF -DFMT_DOC=OFF
 SLOP time sh /tmp/blender-deps/build imath -DBUILD_TESTING=OFF
 SLOP time sh /tmp/blender-deps/build libdeflate -DLIBDEFLATE_BUILD_SHARED_LIB=OFF -DLIBDEFLATE_BUILD_GZIP=OFF
 SLOP time sh /tmp/blender-deps/build openjph -DOJPH_BUILD_TESTS=OFF -DOJPH_ENABLE_TIFF_SUPPORT=OFF -DOJPH_BUILD_EXECUTABLES=OFF
 SLOP time sh /tmp/blender-deps/build openexr -DBUILD_TESTING=OFF -DOPENEXR_BUILD_PYTHON=OFF -DOPENEXR_INSTALL_TOOLS=OFF \
   -DOPENEXR_BUILD_TOOLS=OFF -DOPENEXR_BUILD_EXAMPLES=OFF -DOPENEXR_INSTALL_DOCS=OFF -DBUILD_WEBSITE=OFF
-# libtiff's CMake package names a Deflate::Deflate target it does not export: zlib alone.
-SLOP time sh /tmp/blender-deps/build tiff -Dlibdeflate=OFF -Dlzma=OFF -Djbig=OFF -Dzstd=OFF -Dwebp=OFF -Dlerc=OFF \
-  -Dtiff-tests=OFF -Dtiff-tools=OFF -Dtiff-contrib=OFF -Dtiff-docs=OFF -Dsphinx=OFF -Dtiff-opengl=OFF
 SLOP time sh /tmp/blender-deps/build robin-map
 SLOP time sh /tmp/blender-deps/build pugixml
-# libpython3.14.a carries CPython's own expat, which renames its API
-# (pyexpatns.h) but not two internal symbols: this one renames those.
-SLOP time sh /tmp/blender-deps/build expat -DEXPAT_BUILD_DOCS=OFF -DEXPAT_BUILD_EXAMPLES=OFF -DEXPAT_BUILD_TESTS=OFF \
-  -DEXPAT_BUILD_TOOLS=OFF -DEXPAT_SHARED_LIBS=OFF \
-  "-DCMAKE_C_FLAGS=-pthread -Dg_reparseDeferralEnabledDefault=expat_reparseDeferralEnabledDefault -D_INTERNAL_trim_to_complete_utf8_characters=expat_trim_to_complete_utf8_characters"
 SLOP time sh /tmp/blender-deps/build yaml-cpp -DYAML_CPP_BUILD_TESTS=OFF -DYAML_CPP_BUILD_TOOLS=OFF -DYAML_CPP_BUILD_CONTRIB=OFF
 SLOP time sh /tmp/blender-deps/build minizip-ng -DMZ_FETCH_LIBS=OFF -DMZ_LIBCOMP=OFF -DMZ_PKCRYPT=OFF -DMZ_WZAES=OFF \
   -DMZ_OPENSSL=OFF -DMZ_SIGNING=OFF -DMZ_PPMD=OFF -DMZ_LZMA=OFF -DMZ_ZSTD=OFF -DMZ_BZIP2=OFF -DMZ_ICONV=OFF \

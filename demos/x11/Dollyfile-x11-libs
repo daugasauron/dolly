@@ -3,13 +3,328 @@ PACKAGE x11-libs
 REQUIRES HOST runtime@0
 REQUIRES HOST sockets@0
 
-# The X Window System's client libraries as x11-build builds them, for what a
-# session or another package compiles: Xlib over libxcb and libXau, the
-# extension libraries and the Athena toolkit's stack, static, with their
-# headers, X.Org's protocol headers and the pkg-config files of both. xcb and
-# ICE reach the X server through sockets@0's client, which comes with them.
-FROM /demos/x11/Dollyfile-x11-build e85a2e7d452e4912c2c730c44479b8f560b440022b269e1b10446add8cddaae2
+# The X Window System's client libraries from X.Org's release archives,
+# unchanged, for what a session or another package compiles: the protocol
+# headers, xtrans, libXau and libxcb (whose protocol code xcb-proto's Python
+# generator writes), libX11, the extension libraries and the Athena toolkit's
+# stack. Static libraries with their headers, X.Org's protocol headers and the
+# pkg-config files of both. xcb and ICE reach the X server through sockets@0's
+# client, which comes with them.
+FROM /demos/tools/Dollyfile-tools-build bfbb7483707086afb8948275f9b68e85f375a9076f2fe687a147eaeea1d2b184
+USE /demos/python/Dollyfile-python 964cd2681453dbb4da3f00eb1feadf7d873b33764e83b668111de230df6f6639
+USE /demos/tools/Dollyfile-tar 41a8b3eb2eb4e9ab4bf0d8d1708a5859cbf89872b2658344741c27affa220ffb
 INSTALL /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
+
+REQUIRES HEADER libc
+REQUIRES TOOL ar
+REQUIRES TOOL cc
+REQUIRES TOOL cp
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL mkdir
+REQUIRES TOOL python3
+REQUIRES TOOL sed
+REQUIRES TOOL tar
+REQUIRES TOOL xz
+
+SOURCE /dist/static/x11/xorgproto-2026.1.tar.gz 7fa90e48cbaca6bc4c99d176e88c5c147ab0ed42358e14a0869ee9c8a610ae7e /tmp/x11/xorgproto.tar.gz
+SOURCE /dist/static/x11/xtrans-1.6.0.tar.gz 936b74c60b19c317c3f3cb1b114575032528dbdaf428740483200ea874c2ca0a /tmp/x11/xtrans.tar.gz
+SOURCE /dist/static/x11/xcb-proto-1.17.0.tar.gz 392d3c9690f8c8202a68fdb89c16fd55159ab8d65000a6da213f4a1576e97a16 /tmp/x11/xcb-proto.tar.gz
+SOURCE /dist/static/x11/libXau-1.0.12.tar.gz 2402dd938da4d0a332349ab3d3586606175e19cb32cb9fe013c19f1dc922dcee /tmp/x11/libXau.tar.gz
+SOURCE /dist/static/x11/libxcb-1.17.0.tar.gz 2c69287424c9e2128cb47ffe92171e10417041ec2963bceafb65cb3fcf8f0b85 /tmp/x11/libxcb.tar.gz
+SOURCE /dist/static/x11/libX11-1.8.13.tar.gz acf0e7cd7541110e6330ecb539441a2d53061f386ec7be6906dfde0de2598470 /tmp/x11/libX11.tar.gz
+SOURCE /dist/static/x11/libXext-1.3.7.tar.gz 6564608dc3b816b0cfddf0c7ddc62bc579055dd70b2f28113a618df2acb64189 /tmp/x11/libXext.tar.gz
+SOURCE /dist/static/x11/libXrender-0.9.12.tar.gz 0fff64125819c02d1102b6236f3d7d861a07b5216d8eea336c3811d31494ecf7 /tmp/x11/libXrender.tar.gz
+SOURCE /dist/static/x11/libXfixes-6.0.2.tar.gz 041331b8e6e36038b3bf836785b6b175ec8515f964c9e4e3316b3bfed0f53ac7 /tmp/x11/libXfixes.tar.gz
+SOURCE /dist/static/x11/libXi-1.8.3.tar.gz 6648c44127e4585f4e7842c0802d265008fa6f9741df0ea6ee7934a5267adf63 /tmp/x11/libXi.tar.gz
+SOURCE /dist/static/x11/libICE-1.1.2.tar.gz 1da62f732f8679c20045708a29372b82dff9e7eceee543ed488b845002b3b0ff /tmp/x11/libICE.tar.gz
+SOURCE /dist/static/x11/libSM-1.2.6.tar.gz 166b4b50d606cdd83f1ddc61b5b9162600034f848b3e32ccbb0e63536b7d6cdd /tmp/x11/libSM.tar.gz
+SOURCE /dist/static/x11/libXt-1.3.1.tar.gz cf2212189869adb94ffd58c7d9a545a369b83d2274930bfbe148da354030b355 /tmp/x11/libXt.tar.gz
+SOURCE /dist/static/x11/libXmu-1.3.1.tar.gz 5c8f44e26ccc9b14188599524e67ce788a205b38e297834babdeb12090be835b /tmp/x11/libXmu.tar.gz
+SOURCE /dist/static/x11/libXpm-3.5.19.tar.gz f241f705c607fba1a53338f7e1c12005d6da326b5cb55a11a10847781b4578c0 /tmp/x11/libXpm.tar.gz
+SOURCE /dist/static/x11/libXaw-1.0.16.tar.gz 012f90adf8739f2f023d63a5fee1528949cf2aba92ef7ac1abcfc2ae9cf28798 /tmp/x11/libXaw.tar.gz
+SOURCE /dist/static/x11/libXrandr-1.5.5.tar.xz 72b922c2e765434e9e9f0960148070bd4504b288263e2868a4ccce1b7cf2767a /tmp/x11/libXrandr.tar.xz
+SOURCE /dist/static/x11/libXcursor-1.2.3.tar.xz fde9402dd4cfe79da71e2d96bb980afc5e6ff4f8a7d74c159e1966afb2b2c2c0 /tmp/x11/libXcursor.tar.xz
+SOURCE /dist/static/x11/libXdamage-1.1.7.tar.xz 127067f521d3ee467b97bcb145aeba1078e2454d448e8748eb984d5b397bde24 /tmp/x11/libXdamage.tar.xz
+SOURCE /dist/static/x11/libXcomposite-0.4.7.tar.xz 8bdf310967f484503fa51714cf97bff0723d9b673e0eecbf92b3f97c060c8ccb /tmp/x11/libXcomposite.tar.xz
+SOURCE /dist/static/x11/libXinerama-1.1.6.tar.xz d00fc1599c303dc5cbc122b8068bdc7405d6fcb19060f4597fc51bd3a8be51d7 /tmp/x11/libXinerama.tar.xz
+SLOP CWD /tmp/x11 for archive in *.tar.gz; do gzip -dc "$archive" | tar -xf -; done
+SLOP CWD /tmp/x11 for archive in *.tar.xz; do xz -dc "$archive" | tar -xf -; done
+
+FILE /tmp/x11/libs.mk
+    .RECIPEPREFIX := >
+    .DELETE_ON_ERROR:
+    .SECONDARY:
+    MAKEFLAGS += -r
+    S := /tmp/x11
+    B := /tmp/x11/build
+    I := /usr/include/X11
+    
+    # Slop does not run the configure scripts, so these say what they would
+    # find here: libc's pthread functions, which serve Xlib's locks without
+    # threads, as XTHREADS. Not claimed: TCP (sockets@0 is local, and xtrans's
+    # TCP code needs gethostbyaddr, which libc lacks), shared memory,
+    # descriptor passing (xcb sends none) and loadable modules.
+    # malloc(0) is taken to return NULL, configure's answer when it cannot run
+    # a test program.
+    HAVE := -D_GNU_SOURCE -DHAVE_UNISTD_H -DHAVE_STDINT_H -DHAVE_INTTYPES_H \
+      -DHAVE_STRING_H -DHAVE_STRINGS_H -DHAVE_STDLIB_H -DHAVE_SYS_SOCKET_H -DHAVE_SYS_IOCTL_H \
+      -DHAVE_SYS_PARAM_H -DHAVE_SYS_SELECT_H -DHAVE_WCHAR_H -DHAVE_WCTYPE_H -DHAVE_POLL_H \
+      -DHAVE_REALLOCARRAY -DHAVE_STRLCPY -DHAVE_STRLCAT -DHAVE_STRCASECMP -DHAVE_STRTOL \
+      -DHAVE_ASPRINTF -DHAVE_GETPAGESIZE -DHAVE_ISWALNUM -DHAVE_SOCKLEN_T -DHAVE_UNAME \
+      -DHAVE_STRUCT_SOCKADDR_STORAGE -DHAVE_GETADDRINFO -DHAVE_INET_NTOP -DHAVE_GETENTROPY \
+      -DHAVE_EXPLICIT_BZERO -DHAVE_PATHCONF -DUSE_POLL -DMALLOC_0_RETURNS_NULL \
+      -DUNIXCONN -D_CONST_X_STRING -DXTHREADS -DXUSE_MTSAFE_API
+    CC := cc -O2 $(HAVE)
+    
+    all: $(addprefix /usr/lib/lib,$(addsuffix .a,Xau xcb X11 X11-xcb \
+      Xext Xrender Xfixes Xi ICE SM Xt Xmu Xmuu Xpm Xaw7)) /usr/lib/libXaw.a \
+      $(addprefix /usr/lib/pkgconfig/,$(addsuffix .pc,xau xcb x11 x11-xcb xext xrender xfixes \
+      xi ice sm xt xmu xmuu xpm xaw7))
+    
+    # Each library's objects, built from its sources with its own flags.
+    # $(call objects,LIB,SOURCES) names them; the pattern rules compile them.
+    objects = $(patsubst $(S)/%.c,$(B)/$(1)/%.o,$(2))
+    
+    # Protocol headers and their pkg-config files, as xorgproto installs them;
+    # Xpoll.h names musl's fd_set member.
+    $(B)/xorgproto:
+    >mkdir -p $(B) /usr/share/pkgconfig
+    >cp -r $(S)/xorgproto-2026.1/include/X11 $(S)/xorgproto-2026.1/include/GL /usr/include/
+    >sed 's/@USE_FDS_BITS@/fds_bits/' $(S)/xorgproto-2026.1/include/X11/Xpoll.h.in > $(I)/Xpoll.h
+    >for pc in $(S)/xorgproto-2026.1/*.pc.in; do \
+       sed -e 's,@prefix@,/usr,' -e 's,@includedir@,/usr/include,' -e 's,@datarootdir@,/usr/share,' \
+         -e 's,@datadir@,/usr/share,' -e 's,@exec_prefix@,/usr,' -e 's,@libdir@,/usr/lib,' \
+         $$pc > /usr/share/pkgconfig/$$(basename $$pc .in); done
+    >touch $@
+    
+    # xtrans's configure finds fchown, and no sticky bit: Dolly has no modes.
+    $(B)/xtrans: $(B)/xorgproto
+    >mkdir -p $(I)/Xtrans
+    >cp $(S)/xtrans-1.6.0/*.c $(S)/xtrans-1.6.0/*.h $(I)/Xtrans/
+    >sed -e 's,@prefix@,/usr,' -e 's,@includedir@,/usr/include,' -e 's,@PACKAGE_VERSION@,1.6.0,' \
+       -e 's,@datarootdir@,/usr/share,' -e 's,@datadir@,/usr/share,' -e 's,@fchown_define@,-DHAS_FCHOWN,' \
+       -e 's,@sticky_bit_define@,,' $(S)/xtrans-1.6.0/xtrans.pc.in > /usr/share/pkgconfig/xtrans.pc
+    >touch $@
+    
+    # xcbgen, the Python module, and the protocol descriptions it reads.
+    XCBPY := /usr/lib/python3.14/site-packages
+    $(B)/xcbproto: $(B)/xorgproto
+    >mkdir -p /usr/share/xcb $(XCBPY)/xcbgen
+    >cp $(S)/xcb-proto-1.17.0/src/*.xml /usr/share/xcb/
+    >cp $(S)/xcb-proto-1.17.0/xcbgen/*.py $(XCBPY)/xcbgen/
+    >touch $@
+    
+    # libXau.
+    XAU := $(addprefix $(S)/libXau-1.0.12/,AuDispose.c AuFileName.c AuGetAddr.c AuGetBest.c \
+      AuLock.c AuRead.c AuUnlock.c AuWrite.c)
+    $(B)/Xau/%.o: $(S)/%.c $(B)/xorgproto
+    >mkdir -p $(@D)
+    >$(CC) -I$(S)/libXau-1.0.12/include -c $< -o $@
+    /usr/lib/libXau.a: $(call objects,Xau,$(XAU))
+    >cp $(S)/libXau-1.0.12/include/X11/Xauth.h $(I)/
+    >ar rcs $@ $^
+    
+    # libxcb: the connection code and the core protocol, which c_client.py
+    # writes from xproto.xml with the two extensions every client needs.
+    XCB := $(S)/libxcb-1.17.0/src
+    XCBGEN := $(B)/xcbgen
+    /usr/share/xcb/%.xml: $(B)/xcbproto ;
+    $(XCBGEN)/%.c: /usr/share/xcb/%.xml
+    >mkdir -p $(@D)
+    >cd $(@D) && python3 $(XCB)/c_client.py -c 'libxcb 1.17.0' -l 'X Version 11' -s 3 \
+       -p $(XCBPY) $<
+    XCB_GENERATED := xproto bigreq xc_misc
+    $(B)/xcb/%.o: $(S)/%.c /usr/lib/libXau.a $(addprefix $(XCBGEN)/,$(addsuffix .c,$(XCB_GENERATED)))
+    >mkdir -p $(@D)
+    >$(CC) -DXCB_QUEUE_BUFFER_SIZE=16384 -I$(XCB) -I$(XCBGEN) -c $< -o $@
+    $(B)/xcb/gen/%.o: $(XCBGEN)/%.c $(addprefix $(XCBGEN)/,$(addsuffix .c,$(XCB_GENERATED)))
+    >mkdir -p $(@D)
+    >$(CC) -I$(XCB) -I$(XCBGEN) -c $< -o $@
+    /usr/lib/libxcb.a: $(call objects,xcb,$(addprefix $(XCB)/xcb_,$(addsuffix .c,auth conn ext in list out util xid))) \
+      $(addprefix $(B)/xcb/gen/,$(addsuffix .o,$(XCB_GENERATED)))
+    >mkdir -p /usr/include/xcb
+    >cp $(XCB)/xcb.h $(XCB)/xcbext.h $(addprefix $(XCBGEN)/,$(addsuffix .h,$(XCB_GENERATED))) /usr/include/xcb/
+    >ar rcs $@ $^
+    
+    # libX11 with its locale, input and output method modules linked in, as
+    # configure builds it by default, and libX11-xcb. ks_tables.h is written
+    # by makekeys, a program of the build, from the keysym headers.
+    X11 := $(S)/libX11-1.8.13
+    X11_CORE := $(filter-out %/reallocarray.c %/x11_xcb.c,$(wildcard $(X11)/src/*.c))
+    X11_XIM := $(wildcard $(X11)/modules/im/ximcp/*.c)
+    X11_SOURCES := $(X11_CORE) $(X11_XIM) $(wildcard $(X11)/src/xcms/*.c $(X11)/src/xkb/*.c) \
+      $(filter-out %/XlcDL.c %/XlcSL.c,$(wildcard $(X11)/src/xlibi18n/*.c)) \
+      $(wildcard $(X11)/modules/lc/*/*.c $(X11)/modules/om/generic/*.c)
+    $(call objects,X11,$(X11_CORE) $(X11)/src/x11_xcb.c): TRANSPORT := -DX11_t -DTRANS_CLIENT
+    $(call objects,X11,$(X11_XIM)): TRANSPORT := -DXIM_t -DTRANS_CLIENT
+    X11_FLAGS := -I$(X11)/include -I$(X11)/include/X11 -I$(X11)/src -I$(X11)/src/xcms \
+      -I$(X11)/src/xkb -I$(X11)/src/xlibi18n -I$(B)/X11 -D_BSD_SOURCE -DUSE_THREAD_SAFETY_CONSTRUCTOR \
+      -DXCMS -DXLOCALE -DXKB -DXF86BIGFONT -DCOMPOSECACHE \
+      -DX11_DATADIR='"/usr/share/X11"' -DXLOCALEDIR='"/usr/share/X11/locale"' \
+      -DXLOCALELIBDIR='"/usr/lib/X11/locale"' -DXLOCALEDATADIR='"/usr/share/X11/locale"' \
+      -DXERRORDB='"/usr/share/X11/XErrorDB"' -DXKEYSYMDB='"/usr/share/X11/XKeysymDB"' \
+      -DXCMSDIR='"/usr/share/X11"' -DX11_LIBDIR='"/usr/lib/X11"'
+    $(B)/X11/ks_tables.h: $(X11)/src/util/makekeys.c $(B)/xorgproto
+    >mkdir -p $(@D)
+    >sed -e 's/#undef XTHREADS/#define XTHREADS 1/' -e 's/#undef XUSE_MTSAFE_API/#define XUSE_MTSAFE_API 1/' \
+       $(X11)/include/X11/XlibConf.h.in > $(X11)/include/X11/XlibConf.h
+    >cc -O1 -I$(X11)/include $< -o $(B)/X11/makekeys
+    >$(B)/X11/makekeys $(addprefix $(I)/,keysymdef.h XF86keysym.h Sunkeysym.h DECkeysym.h HPkeysym.h) > $@
+    $(B)/X11/%.o: $(S)/%.c $(B)/X11/ks_tables.h /usr/lib/libxcb.a
+    >mkdir -p $(@D)
+    >$(CC) $(X11_FLAGS) $(TRANSPORT) -c $< -o $@
+    /usr/lib/libX11.a: $(call objects,X11,$(X11_SOURCES))
+    >mkdir -p $(I)/extensions /usr/share/X11
+    >cp $(addprefix $(X11)/include/X11/,ImUtil.h XKBlib.h Xcms.h Xlib-xcb.h Xlib.h Xlibint.h \
+       Xlocale.h Xregion.h Xresource.h Xutil.h cursorfont.h) $(I)/
+    >cp $(X11)/include/X11/XlibConf.h $(I)/
+    >cp $(X11)/include/X11/extensions/XKBgeom.h $(I)/extensions/
+    >cp $(X11)/src/XErrorDB /usr/share/X11/
+    >ar rcs $@ $^
+    /usr/lib/libX11-xcb.a: $(call objects,X11,$(X11)/src/x11_xcb.c)
+    >ar rcs $@ $^
+    
+    # The extension libraries: each compiles its src directory but for the files
+    # upstream's Makefile.am leaves out.
+    EXT_FLAGS = -I$(S)/$(1)/include -I$(S)/$(1)/include/X11/extensions
+    define extension
+    $(B)/$(1)/%.o: $(S)/%.c /usr/lib/libX11.a $(2)
+    >mkdir -p $$(@D)
+    >$$(CC) $$(call EXT_FLAGS,$(1)) $(3) -c $$< -o $$@
+    /usr/lib/$(word 1,$(subst -, ,$(1))).a: $$(call objects,$(1),$$(filter-out %/reallocarray.c %/XFreeLst.c,$$(wildcard $(S)/$(1)/src/*.c)))
+    >mkdir -p $(I)/extensions
+    >cp $(S)/$(1)/include/X11/extensions/*.h $(I)/extensions/
+    >ar rcs $$@ $$^
+    endef
+    $(eval $(call extension,libXext-1.3.7))
+    $(eval $(call extension,libXrender-0.9.12,/usr/lib/libXext.a))
+    $(eval $(call extension,libXfixes-6.0.2,/usr/lib/libXext.a))
+    $(eval $(call extension,libXi-1.8.3,/usr/lib/libXfixes.a))
+    
+    # The inter-client exchange and session management libraries over xtrans.
+    $(B)/libICE-1.1.2/%.o: $(S)/%.c $(B)/xtrans $(B)/xorgproto
+    >mkdir -p $(@D)
+    >$(CC) -I$(S)/libICE-1.1.2/include -DICE_t -DTRANS_CLIENT -DTRANS_SERVER -c $< -o $@
+    /usr/lib/libICE.a: $(call objects,libICE-1.1.2,$(wildcard $(S)/libICE-1.1.2/src/*.c))
+    >mkdir -p $(I)/ICE
+    >cp $(S)/libICE-1.1.2/include/X11/ICE/*.h $(I)/ICE/
+    >ar rcs $@ $^
+    $(B)/libSM-1.2.6/%.o: $(S)/%.c /usr/lib/libICE.a
+    >mkdir -p $(@D)
+    >$(CC) -I$(S)/libSM-1.2.6/include -c $< -o $@
+    /usr/lib/libSM.a: $(call objects,libSM-1.2.6,$(filter-out %/sm_auth.c,$(wildcard $(S)/libSM-1.2.6/src/*.c)))
+    >mkdir -p $(I)/SM
+    >cp $(S)/libSM-1.2.6/include/X11/SM/*.h $(I)/SM/
+    >ar rcs $@ $^
+    
+    # The X Toolkit Intrinsics. makestrs writes the string tables, StringDefs.h
+    # and Shell.h from string.list.
+    XT := $(S)/libXt-1.3.1
+    XT_SEARCH := /usr/share/X11/%L/%T/%N%C%S:/usr/share/X11/%l/%T/%N%C%S:/usr/share/X11/%T/%N%C%S:/usr/share/X11/%L/%T/%N%S:/usr/share/X11/%l/%T/%N%S:/usr/share/X11/%T/%N%S
+    $(B)/Xt/StringDefs.c: $(XT)/util/makestrs.c
+    >mkdir -p $(@D)
+    >cc -O1 $< -o $(B)/Xt/makestrs
+    >cd $(@D) && ./makestrs -i $(XT) < $(XT)/util/string.list > StringDefs.c
+    >cp $(@D)/StringDefs.h $(@D)/Shell.h $(XT)/include/X11/
+    $(B)/Xt/%.o: $(S)/%.c $(B)/Xt/StringDefs.c /usr/lib/libSM.a /usr/lib/libX11.a
+    >mkdir -p $(@D)
+    >$(CC) -I$(XT)/include -I$(XT)/include/X11 -DXKB -DLIBXT_COMPILATION \
+       -DXFILESEARCHPATHDEFAULT='"$(XT_SEARCH)"' -DERRORDB='"/usr/share/X11/XtErrorDB"' -c $< -o $@
+    $(B)/Xt/gen/StringDefs.o: $(B)/Xt/StringDefs.c
+    >mkdir -p $(@D)
+    >$(CC) -I$(XT)/include -I$(XT)/include/X11 -c $< -o $@
+    /usr/lib/libXt.a: $(call objects,Xt,$(wildcard $(XT)/src/*.c)) $(B)/Xt/gen/StringDefs.o
+    >cp $(XT)/include/X11/*.h $(I)/
+    >ar rcs $@ $^
+    
+    # Miscellaneous utilities, and Xmuu, the five of them that need no Xt.
+    XMU := $(S)/libXmu-1.3.1
+    $(B)/Xmu/%.o: $(S)/%.c /usr/lib/libXt.a /usr/lib/libXext.a
+    >mkdir -p $(@D)
+    >$(CC) -I$(XMU)/include -I$(XMU)/include/X11/Xmu -DBITMAPDIR='"/usr/include/X11/bitmaps"' -c $< -o $@
+    /usr/lib/libXmu.a: $(call objects,Xmu,$(filter-out %/reallocarray.c,$(wildcard $(XMU)/src/*.c)))
+    >mkdir -p $(I)/Xmu
+    >cp $(XMU)/include/X11/Xmu/*.h $(I)/Xmu/
+    >ar rcs $@ $^
+    /usr/lib/libXmuu.a: $(call objects,Xmu,$(addprefix $(XMU)/src/,ClientWin.c CursorName.c DefErrMsg.c GetHost.c Lower.c))
+    >ar rcs $@ $^
+    
+    # The pixmap library; compressed files are not read through a pipe.
+    $(B)/Xpm/%.o: $(S)/%.c /usr/lib/libX11.a
+    >mkdir -p $(@D)
+    >$(CC) -I$(S)/libXpm-3.5.19/include/X11 -DNO_ZPIPE -c $< -o $@
+    /usr/lib/libXpm.a: $(call objects,Xpm,$(wildcard $(S)/libXpm-3.5.19/src/*.c))
+    >cp $(S)/libXpm-3.5.19/include/X11/xpm.h $(I)/
+    >ar rcs $@ $^
+    
+    # The Athena widgets, version 7.
+    XAW := $(S)/libXaw-1.0.16
+    $(B)/Xaw/%.o: $(S)/%.c /usr/lib/libXmu.a /usr/lib/libXpm.a
+    >mkdir -p $(@D)
+    >$(CC) -I$(XAW)/include -DXAW7 -DPROJECT_ROOT='"/usr"' -c $< -o $@
+    /usr/lib/libXaw7.a: $(call objects,Xaw,$(wildcard $(XAW)/src/*.c))
+    >mkdir -p $(I)/Xaw
+    >cp $(XAW)/include/X11/Xaw/*.h $(I)/Xaw/
+    >ar rcs $@ $^
+    /usr/lib/libXaw.a: /usr/lib/libXaw7.a
+    >cp $< $@
+    
+    # pkg-config files as the configure scripts write them, with what a static
+    # link needs: xcb and ICE take their sockets from sockets@0's client.
+    # $(call pc,NAME,LIBRARY,VERSION,REQUIRES,LIBS)
+    define pc
+    /usr/lib/pkgconfig/$(1).pc: /usr/lib/lib$(2).a
+    >mkdir -p $$(@D)
+    >printf '%s\n' 'prefix=/usr' 'Name: $(1)' 'Description: $(1)' 'Version: $(3)' 'Requires: $(4)' \
+       'Libs: -L/usr/lib -l$(2) $(5)' 'Cflags: -I/usr/include' > $$@
+    endef
+    $(eval $(call pc,xau,Xau,1.0.12,xproto))
+    $(eval $(call pc,xcb,xcb,1.17.0,xau,-ldolly-sockets))
+    $(eval $(call pc,x11,X11,1.8.13,xproto kbproto xcb))
+    $(eval $(call pc,x11-xcb,X11-xcb,1.8.13,x11 xcb))
+    $(eval $(call pc,xext,Xext,1.3.7,x11 xextproto))
+    $(eval $(call pc,xrender,Xrender,0.9.12,x11 renderproto))
+    $(eval $(call pc,xfixes,Xfixes,6.0.2,x11 fixesproto))
+    $(eval $(call pc,xi,Xi,1.8.3,xext xfixes inputproto))
+    $(eval $(call pc,ice,ICE,1.1.2,xproto,-ldolly-sockets))
+    $(eval $(call pc,sm,SM,1.2.6,ice))
+    $(eval $(call pc,xt,Xt,1.3.1,sm x11))
+    $(eval $(call pc,xmu,Xmu,1.3.1,xt xext x11))
+    $(eval $(call pc,xmuu,Xmuu,1.3.1,x11))
+    $(eval $(call pc,xpm,Xpm,3.5.19,x11))
+    $(eval $(call pc,xaw7,Xaw7,1.0.16,xmu xt xpm xext x11))
+# One Make for every library would spend many minutes choosing its first
+# jobs from scratch: the libraries go in four groups, each on the last.
+SLOP make -j4 -f /tmp/x11/libs.mk /tmp/x11/build/xorgproto /tmp/x11/build/xtrans /tmp/x11/build/xcbproto
+SLOP make -j4 -f /tmp/x11/libs.mk /usr/lib/libXau.a /usr/lib/libxcb.a
+SLOP make -j4 -f /tmp/x11/libs.mk /usr/lib/libX11.a /usr/lib/libX11-xcb.a
+SLOP make -j4 -f /tmp/x11/libs.mk
+# The extension libraries GTK's X11 backend links beyond these: each compiles
+# its src directory, as the others do, with a pkg-config file as theirs.
+FILE /tmp/x11/xlibs.slop
+    cd /tmp/x11
+    for spec in libXrandr-1.5.5:Xrandr:1.5.5:x11_xext_xrender_randrproto libXdamage-1.1.7:Xdamage:1.1.7:x11_xfixes_damageproto \
+        libXcomposite-0.4.7:Xcomposite:0.4.7:x11_xfixes_compositeproto libXinerama-1.1.6:Xinerama:1.1.6:x11_xext_xineramaproto \
+        libXcursor-1.2.3:Xcursor:1.2.3:x11_xrender_xfixes; do
+      source=${spec%%:*}; rest=${spec#*:}; name=${rest%%:*}; rest=${rest#*:}; version=${rest%%:*}
+      requires=$(echo ${rest#*:} | tr _ ' ')
+      mkdir -p build/$name
+      for c in $source/src/*.c; do
+        cc -O2 -DHAVE_XFIXES '-DICONDIR="/usr/share/icons"' '-DXCURSORPATH="~/.icons:/usr/share/icons:/usr/share/pixmaps"' \
+          -I$source/include/X11/Xcursor -I$source/include -I$source/include/X11/extensions \
+          -c $c -o build/$name/$(basename $c .c).o || exit 1
+      done
+      ar rcs /usr/lib/lib$name.a build/$name/*.o
+      if test -d $source/include/X11/extensions; then cp $source/include/X11/extensions/*.h /usr/include/X11/extensions/
+      else mkdir -p /usr/include/X11/Xcursor && cp $source/include/X11/Xcursor/Xcursor.h /usr/include/X11/Xcursor/; fi
+      lower=$(echo $name | tr A-Z a-z)
+      printf '%s\n' 'prefix=/usr' "Name: $lower" "Description: $lower" "Version: $version" "Requires: $requires" \
+        "Libs: -L/usr/lib -l$name" 'Cflags: -I/usr/include' > /usr/lib/pkgconfig/$lower.pc
+    done
+SLOP slop /tmp/x11/xlibs.slop
+SLOP CWD /tmp/x11 for source in */COPYING; do mkdir -p /usr/share/licenses/${source%%-[0-9]*} && cp $source /usr/share/licenses/${source%%-[0-9]*}/; done
+SLOP mkdir -p /usr/share/licenses/xorgproto && cp /tmp/x11/xorgproto-2026.1/COPYING-* /usr/share/licenses/xorgproto/
 
 EXPORTS HEADER x11 /usr/include/X11
 EXPORTS HEADER xcb /usr/include/xcb
@@ -29,6 +344,11 @@ EXPORTS LIB Xmuu /usr/lib/libXmuu.a
 EXPORTS LIB Xpm /usr/lib/libXpm.a
 EXPORTS LIB Xaw7 /usr/lib/libXaw7.a
 EXPORTS LIB Xaw /usr/lib/libXaw.a
+EXPORTS LIB Xrandr /usr/lib/libXrandr.a
+EXPORTS LIB Xdamage /usr/lib/libXdamage.a
+EXPORTS LIB Xcomposite /usr/lib/libXcomposite.a
+EXPORTS LIB Xinerama /usr/lib/libXinerama.a
+EXPORTS LIB Xcursor /usr/lib/libXcursor.a
 FILE /usr/lib/pkgconfig/xau.pc
 FILE /usr/lib/pkgconfig/xcb.pc
 FILE /usr/lib/pkgconfig/x11.pc
@@ -44,6 +364,11 @@ FILE /usr/lib/pkgconfig/xmu.pc
 FILE /usr/lib/pkgconfig/xmuu.pc
 FILE /usr/lib/pkgconfig/xpm.pc
 FILE /usr/lib/pkgconfig/xaw7.pc
+FILE /usr/lib/pkgconfig/xrandr.pc
+FILE /usr/lib/pkgconfig/xdamage.pc
+FILE /usr/lib/pkgconfig/xcomposite.pc
+FILE /usr/lib/pkgconfig/xinerama.pc
+FILE /usr/lib/pkgconfig/xcursor.pc
 FOLDER /usr/share/pkgconfig
 FILE /usr/share/X11/XErrorDB
 FOLDER /usr/share/licenses/xorgproto
@@ -62,3 +387,8 @@ FOLDER /usr/share/licenses/libXt
 FOLDER /usr/share/licenses/libXmu
 FOLDER /usr/share/licenses/libXpm
 FOLDER /usr/share/licenses/libXaw
+FOLDER /usr/share/licenses/libXrandr
+FOLDER /usr/share/licenses/libXdamage
+FOLDER /usr/share/licenses/libXcomposite
+FOLDER /usr/share/licenses/libXinerama
+FOLDER /usr/share/licenses/libXcursor

@@ -1,12 +1,4 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_image libjpeg; then
-  jpeg_archive="$(bash scripts/fetch-pinned-archive.sh jpeg)"
-  jpeg_dir="build/generated/jpeg-$(source config/source-pins.sh && echo "${DOLLY_JPEG_VERSION}")"
-  if [[ ! -d "${jpeg_dir}" ]]; then mkdir -p build/generated && tar -xzf "${jpeg_archive}" -C build/generated; fi
-  node scripts/build-source-tar.mjs "${static_dir}/libjpeg/source.tar.gz" \
-    "${jpeg_dir}" /tmp/libjpeg/source \
-    "${jpeg_dir}/README" /usr/share/licenses/libjpeg/README
-fi
 # Ogg and Vorbis, unchanged, with their licences.
 for xiph in libogg libvorbis; do
   if has_image "${xiph}"; then

@@ -22,6 +22,10 @@ DOLLY_TINYCC_WIN64_SHA256=34a721949a2583fdff725312da092fa0f5f1f284b702e6f811c695
 DOLLY_NETSURF_VERSION=3.11
 DOLLY_NETSURF_URL='https://download.netsurf-browser.org/netsurf/releases/source-full/netsurf-all-3.11.tar.gz'
 DOLLY_NETSURF_SHA256=4dea880ff3c2f698bfd62c982b259340f9abcd7f67e6c8eb2b32c61f71644b7b
+# IJG libjpeg for the Wine demo's NetSurf, whose module compiles its units with Wine's headers and flags.
+DOLLY_JPEG_VERSION=9f
+DOLLY_JPEG_URL='https://www.ijg.org/files/jpegsrc.v9f.tar.gz'
+DOLLY_JPEG_SHA256=04705c110cb2469caa79fb71fba3d7bf834914706e9641a4589485c1f832565b
 DOLLY_ATK_VERSION=1.9.1
 DOLLY_ATK_URL='https://download.gnome.org/sources/atk/1.9/atk-1.9.1.tar.bz2'
 DOLLY_ATK_SHA256=65732d71c6c02e957673f49f8c5818f2cad3f451116b58ab1636c73dc8ab0dc6

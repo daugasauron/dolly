@@ -21,8 +21,6 @@ audio on `audio@0`. The task is `tasks/20261006-122433-xonotic/TASK.md`.
   as WGSL in `/usr/share/xonotic/shaders`, for the client's `gpu@0` path:
   `dpshaders.c` rewrites the engine's GLSL as naga's GLSL front end reads it
   and the `naga` package translates it, in the build.
-- `libjpeg`: IJG libjpeg 9f, a library for programs the `cc` package builds;
-  it brings no compiler.
 - `libogg`: Ogg 1.3.5 from upstream's CMake project, a library for programs
   the `cc` package builds.
 - `libvorbis`: Vorbis 1.3.7 with vorbisfile and vorbisenc from upstream's
@@ -83,9 +81,10 @@ and is printed once (`dpgpurast: no WGSL for shader mode M permutation P`).
   reads among it; the engine sees `__dolly__`, never `__linux__`.
 - The engine is not linked as a host of shared objects, so its `dlopen`
   fails, and the libraries it would load at run time are linked as
-  upstream's Android build links them: IJG libjpeg 9f
-  (`LINK_TO_LIBJPEG`), FreeType with its libpng (`DP_FREETYPE_STATIC`) and
-  Vorbis with its Ogg (`LINK_TO_LIBVORBIS`), installed from their packages. PNG
+  upstream's Android build links them: libjpeg-turbo, where Android's build
+  has IJG libjpeg (`LINK_TO_LIBJPEG`), FreeType with its libpng and Brotli
+  (`DP_FREETYPE_STATIC`) and Vorbis with its Ogg (`LINK_TO_LIBVORBIS`),
+  installed from their packages. PNG
   textures, curl, ODE and d0_blind_id stay unavailable.
 - Dolly's libc answers the engine's socket calls with failures, so the INET
   ports are reported unavailable; only the loopback address type carries

@@ -11,7 +11,7 @@ files.
 
 - `mojo-llvm`: a build stage: the LLVM, MLIR and Clang Basic libraries the
   compiler links, at the revision Mojo pins, with Mojo's one patch to LLVM's
-  code generator, and Zstandard. WebAssembly is the only backend. It keeps
+  code generator, over the `zstd` package. WebAssembly is the only backend. It keeps
   `/opt/mojo-llvm`: `llvm-tblgen`, `mlir-tblgen`, the archives and the headers.
 - `mojo`: the package that holds the compiler's build: compiled and linked
   from those archives with the target's patches, with the standard library

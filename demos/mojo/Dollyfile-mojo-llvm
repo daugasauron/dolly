@@ -9,11 +9,13 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
 # Build-only: the LLVM, MLIR and Clang Basic libraries the Mojo compiler
-# links, at the revision Mojo pins, and Zstandard, compiled inside Dolly by
-# its own cc and c++.
+# links, at the revision Mojo pins, compiled inside Dolly by its own cc and
+# c++, over the zstd package: LLVM's Support compresses with Zstandard, and
+# Mojo's precompiled packages are compressed.
 FROM /demos/cmake/Dollyfile-cmake-build ef925b15c0342d66937cb491e956474f5dbb37d60cb2063e6e7ec91e0cb85d71
 # LLVM's CMake requires a Python 3 interpreter.
 INSTALL /demos/python/Dollyfile-python 964cd2681453dbb4da3f00eb1feadf7d873b33764e83b668111de230df6f6639
+INSTALL /demos/tools/Dollyfile-zstd 86647afd8dd74cea9f34f68efb4e6a5d87aba07083a29f899591f3be6f9dd6d7
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python
@@ -40,19 +42,6 @@ SLOP patch -p1 -d /tmp/mojo-llvm -i /tmp/llvm-host-triple.patch
 SOURCE /dist/static/mojo/llvm-machinefunction-sti-ref-to-ptr.patch 6226c7dca544ff5ea5cf384bafecdfb49a4ef8f43d88c3996d310f25a42d6a53 /tmp/llvm-sti.patch
 SLOP patch -p1 -d /tmp/mojo-llvm -i /tmp/llvm-sti.patch
 
-# Zstandard, with which LLVM's Support compresses: Mojo's precompiled
-# packages are compressed.
-SOURCE /dist/static/mojo/zstd.tar 9a873f533780038d91f831cc4d24d6360bc745f2a2c1c6eaf62a2699c16cb133 /tmp/zstd.tar
-SLOP tar -xf /tmp/zstd.tar -C /
-FILE /tmp/zstd/Makefile
-    .RECIPEPREFIX := >
-    OBJECTS := $(patsubst %.c,%.o,$(wildcard lib/common/*.c lib/compress/*.c lib/decompress/*.c))
-    libzstd.a: $(OBJECTS)
-    >ar rcs $@ $^
-    %.o: %.c
-    >cc -O2 -c $< -o $@
-SLOP CWD /tmp/zstd time make -j4
-
 # As demos/llvm configures the seed's LLVM, with MLIR and Zstandard and
 # without LLD. The default target is what Mojo compiles for when it is given
 # none: a Dolly program, which its own target description turns into the
@@ -75,9 +64,9 @@ FILE /tmp/mojo-llvm/Dolly.cmake
     endforeach()
     set(LLVM_ENABLE_ZSTD FORCE_ON CACHE STRING "")
     set(LLVM_USE_STATIC_ZSTD ON CACHE BOOL "")
-    set(zstd_INCLUDE_DIR /tmp/zstd/lib CACHE PATH "")
-    set(zstd_LIBRARY /tmp/zstd/libzstd.a CACHE FILEPATH "")
-    set(zstd_STATIC_LIBRARY /tmp/zstd/libzstd.a CACHE FILEPATH "")
+    set(zstd_INCLUDE_DIR /usr/include CACHE PATH "")
+    set(zstd_LIBRARY /usr/lib/libzstd.a CACHE FILEPATH "")
+    set(zstd_STATIC_LIBRARY /usr/lib/libzstd.a CACHE FILEPATH "")
     foreach(option TESTS EXAMPLES BENCHMARKS DOCS)
       set(LLVM_INCLUDE_${option} OFF CACHE BOOL "")
     endforeach()
@@ -97,12 +86,11 @@ SLOP CWD /tmp/mojo-llvm/build time make -k -j4 MLIRCAPIIR MLIRCAPITransforms MLI
 # The TableGen tools, the archives, and every header and TableGen source of
 # the three projects with the configured and generated ones over them.
 SLOP mkdir -p /opt/mojo-llvm/bin /opt/mojo-llvm/lib /opt/mojo-llvm/include
-SLOP CWD /tmp/mojo-llvm/build slop -c 'cp bin/llvm-tblgen bin/mlir-tblgen /opt/mojo-llvm/bin && cp lib/*.a /tmp/zstd/libzstd.a /opt/mojo-llvm/lib'
+SLOP CWD /tmp/mojo-llvm/build slop -c 'cp bin/llvm-tblgen bin/mlir-tblgen /opt/mojo-llvm/bin && cp lib/*.a /opt/mojo-llvm/lib'
 SLOP CWD /tmp/mojo-llvm cp -R llvm/include/llvm llvm/include/llvm-c mlir/include/mlir mlir/include/mlir-c clang/include/clang clang/include/clang-c /opt/mojo-llvm/include
 SLOP CWD /tmp/mojo-llvm/build slop -c 'for tree in include tools/mlir/include tools/clang/include; do for f in $(cd $tree && find . -name CMakeFiles -prune -o -type f \( -name "*.inc" -o -name "*.def" -o -name "*.h" \) -print); do mkdir -p "/opt/mojo-llvm/include/${f%/*}"; cp "$tree/$f" "/opt/mojo-llvm/include/$f"; done; done'
 SLOP cp /tmp/mojo-llvm/llvm/LICENSE.TXT /opt/mojo-llvm/LICENSE.TXT
-SLOP cp /tmp/zstd/LICENSE /opt/mojo-llvm/LICENSE.zstd
-SLOP rm -rf /tmp/mojo-llvm /tmp/zstd /tmp/zstd.tar /tmp/llvm-host-triple.patch /tmp/llvm-sti.patch
+SLOP rm -rf /tmp/mojo-llvm /tmp/llvm-host-triple.patch /tmp/llvm-sti.patch
 
 FOLDER /opt/mojo-llvm
 SLOP /opt/mojo-llvm/bin/mlir-tblgen --version

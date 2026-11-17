@@ -16,8 +16,8 @@ own under a stock window manager.
 - `xclock`: xclock, the Athena clock.
 - `xeyes`: xeyes, the eyes that follow the pointer.
 - `xterm`: xterm, the terminal emulator for X, with a shell on a pseudo-terminal.
-- `x11-build`: A build stage: X's client libraries, from the protocol headers and libxcb to the Athena widgets, as static libraries.
-- `x11-libs`: X's client libraries as x11-build builds them, Xlib, libxcb and libXau to the Athena widgets, static, with their headers, the protocol headers and pkg-config files: for what a session compiles.
+- `x11-build`: A build stage: the `x11-libs` package and Python, where X's programs and libraries are built.
+- `x11-libs`: X's client libraries, Xlib, libxcb and libXau to the Athena widgets and the extension libraries GTK links, static, with their headers, the protocol headers and pkg-config files: for what a session or another package compiles.
 - `x11-window`: A program's window on the X server, for a platform that draws on the page through display@0 and input@0: frames go in, input@0's records come out. Godot and PhotoCraft draw their X windows through it.
 
 Open `/x11-desktop/`; build with `npm run image -- x11-desktop`. The session
@@ -31,13 +31,14 @@ is back.
 
 ## How it is built
 
-- [`Dollyfile-x11-build`](Dollyfile-x11-build): xorgproto, xtrans, xcb-proto,
+- [`Dollyfile-x11-libs`](Dollyfile-x11-libs): xorgproto, xtrans, xcb-proto,
   libXau, libxcb, libX11, libXext, libXrender, libXfixes, libXi, libICE,
   libSM, libXt, libXmu, libXpm and libXaw, unchanged, by a Makefile that
-  states what their configure scripts would find; xcb's protocol code is
-  written by xcb-proto's generator in Dolly's Python. Static libraries and
-  pkg-config files: `pkg-config --libs xaw7` names what to link, sockets@0's
-  client (`-ldolly-sockets`) included.
+  states what their configure scripts would find, and libXrandr, libXcursor,
+  libXdamage, libXcomposite and libXinerama, which GTK links, by a script;
+  xcb's protocol code is written by xcb-proto's generator in Dolly's Python.
+  Static libraries and pkg-config files: `pkg-config --libs xaw7` names what
+  to link, sockets@0's client (`-ldolly-sockets`) included.
 - pixman, libxkbfile and xkbcomp are packages, each built by upstream's Meson;
   xkeyboard-config's package writes its evdev rules with its own generator.
   [`Dollyfile-xorg-server`](Dollyfile-xorg-server) builds xorg-server 21.1.25

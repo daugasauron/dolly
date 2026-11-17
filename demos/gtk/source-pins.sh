@@ -1,9 +1,5 @@
 # The gtk demo's upstream source pins, sourced by config/source-pins.sh.
 
-DOLLY_GPERF_VERSION=3.1
-DOLLY_GPERF_URL='https://ftp.gnu.org/gnu/gperf/gperf-3.1.tar.gz'
-DOLLY_GPERF_SHA256=588546b945bba4b70b6a3a616e80b4ab466e3f33024a352fc2198112cdbb3ae2
-
 DOLLY_PCRE2_VERSION=10.49
 DOLLY_PCRE2_URL='https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.49/pcre2-10.49.tar.gz'
 DOLLY_PCRE2_SHA256=929f0b20e62879252a15886b06c89f1edef61a363cbd5826fb041080a5e557ae
@@ -16,18 +12,9 @@ DOLLY_FRIBIDI_SHA256=6949dcde27d41cebad1fd741fcafc36d55a1020d2d872d4a6eb3914caab
 DOLLY_HARFBUZZ_VERSION=14.6.0
 DOLLY_HARFBUZZ_URL='https://github.com/harfbuzz/harfbuzz/releases/download/14.6.0/harfbuzz-14.6.0.tar.xz'
 DOLLY_HARFBUZZ_SHA256=d07a007327277708a2a73ae437887cdbaf282937f6d03ca5467723e9099af586
-DOLLY_EXPAT_VERSION=2.8.5
-DOLLY_EXPAT_URL='https://github.com/libexpat/libexpat/releases/download/R_2_8_5/expat-2.8.5.tar.xz'
-DOLLY_EXPAT_SHA256=1e727b8933ec51a77a9a9d9afcf8e688bce45d907c13e36ab7393fe36e703182
 DOLLY_FONTCONFIG_VERSION=2.18.3
 DOLLY_FONTCONFIG_URL='https://gitlab.freedesktop.org/api/v4/projects/890/packages/generic/fontconfig/2.18.3/fontconfig-2.18.3.tar.xz'
 DOLLY_FONTCONFIG_SHA256=4f7b554a38cdf78c033f666c8871f3749e14a094f65a07f630c91ed0b43d35e3
-DOLLY_LIBJPEG_TURBO_VERSION=3.2.0
-DOLLY_LIBJPEG_TURBO_URL='https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.2.0/libjpeg-turbo-3.2.0.tar.gz'
-DOLLY_LIBJPEG_TURBO_SHA256=6f30092cef9fb839779646608f4ee14ae3cbac989c47fa05e841b0841f09878e
-DOLLY_LIBTIFF_VERSION=4.7.2
-DOLLY_LIBTIFF_URL='https://download.osgeo.org/libtiff/tiff-4.7.2.tar.xz'
-DOLLY_LIBTIFF_SHA256=4996f0c4f93094719b1ca5c6279b20e588773ba8a247533e486416fb662ddb88
 DOLLY_CAIRO_VERSION=1.18.6
 DOLLY_CAIRO_URL='https://cairographics.org/releases/cairo-1.18.6.tar.xz'
 DOLLY_CAIRO_SHA256=1c767308174337a74694da0f3ec069c271452163a1ef4540964c50c301f157d4
@@ -46,18 +33,3 @@ DOLLY_PANGO_SHA256=342385b6ca3b7c73455d7c80a13b7dbe4489e00bc3bd4c5bd6ed4dce421e3
 DOLLY_GTK_VERSION=4.24.1
 DOLLY_GTK_URL='https://download.gnome.org/sources/gtk/4.24/gtk-4.24.1.tar.xz'
 DOLLY_GTK_SHA256=e98abe720e16129c8c0f50761dee0a2e9ae2478055e31018f6cf977fcf6513e9
-DOLLY_LIBXRANDR_VERSION=1.5.5
-DOLLY_LIBXRANDR_URL='https://www.x.org/releases/individual/lib/libXrandr-1.5.5.tar.xz'
-DOLLY_LIBXRANDR_SHA256=72b922c2e765434e9e9f0960148070bd4504b288263e2868a4ccce1b7cf2767a
-DOLLY_LIBXCURSOR_VERSION=1.2.3
-DOLLY_LIBXCURSOR_URL='https://www.x.org/releases/individual/lib/libXcursor-1.2.3.tar.xz'
-DOLLY_LIBXCURSOR_SHA256=fde9402dd4cfe79da71e2d96bb980afc5e6ff4f8a7d74c159e1966afb2b2c2c0
-DOLLY_LIBXDAMAGE_VERSION=1.1.7
-DOLLY_LIBXDAMAGE_URL='https://www.x.org/releases/individual/lib/libXdamage-1.1.7.tar.xz'
-DOLLY_LIBXDAMAGE_SHA256=127067f521d3ee467b97bcb145aeba1078e2454d448e8748eb984d5b397bde24
-DOLLY_LIBXCOMPOSITE_VERSION=0.4.7
-DOLLY_LIBXCOMPOSITE_URL='https://www.x.org/releases/individual/lib/libXcomposite-0.4.7.tar.xz'
-DOLLY_LIBXCOMPOSITE_SHA256=8bdf310967f484503fa51714cf97bff0723d9b673e0eecbf92b3f97c060c8ccb
-DOLLY_LIBXINERAMA_VERSION=1.1.6
-DOLLY_LIBXINERAMA_URL='https://www.x.org/releases/individual/lib/libXinerama-1.1.6.tar.xz'
-DOLLY_LIBXINERAMA_SHA256=d00fc1599c303dc5cbc122b8068bdc7405d6fcb19060f4597fc51bd3a8be51d7

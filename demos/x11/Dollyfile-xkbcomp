@@ -7,10 +7,10 @@ REQUIRES HOST sockets@0
 # xkbcomp, X.Org's XKB keymap compiler, which the X server runs for its
 # keymap: from its release archive, built by its Meson project against the
 # libxkbfile package, which it links statically.
-FROM /demos/x11/Dollyfile-x11-build e85a2e7d452e4912c2c730c44479b8f560b440022b269e1b10446add8cddaae2
+FROM /demos/x11/Dollyfile-x11-build 943125cdfcaa6f305953a73a1ae48fd512bd2e4465110c1be88213b60c430ba3
 USE /demos/tools/Dollyfile-meson 4c1605d54a6e0a0349b9514fd8a083a4bcb1e918463e212bdeea58a6d20729c4
 USE /demos/tools/Dollyfile-pkgconf 8e2d10a742a5f3dc0a5da7426f3f276c233bf6672cc0a777fa849672d0f1e0b3
-USE /demos/x11/Dollyfile-libxkbfile 2f3cec825d303cbee4c1e3b001c4fead86fe9a701fd1db2a5c11f70f362dff6d
+USE /demos/x11/Dollyfile-libxkbfile 8f0b1b7fa76dad5ef0813b74d63dbc1cbff20597f8ca07c4243a771dadde5e40
 USE /demos/tools/Dollyfile-yacc 6b1155f366bb568ee19a9caaccbf205fa9ff99fb42961ce7a062d08368eecaab
 REQUIRES TOOL meson
 REQUIRES TOOL byacc

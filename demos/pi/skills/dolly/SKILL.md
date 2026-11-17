@@ -152,7 +152,7 @@ to the running session, and `cc` links them at once.
   work; link `-lraylib -lm`. Its audio module is not built: for sound, use `sdl2` with
   `sdl2-mixer`. `<dolly/raylib.h>` (`-ldolly-raylib`) serves a program that holds
   the display itself.
-- Others, such as `box3d` (3D physics), `freetype`, `libpng`, `libjpeg` and
+- Others, such as `box3d` (3D physics), `freetype`, `libpng`, `libjpeg-turbo` and
   `sqlite`: once installed, `amy files NAME` lists their headers, archives and
   any `.pc` file, which names the flags (`pkg-config` comes with `amy install pkgconf`).
 - Fonts for a program's text are in `/usr/share/fonts`: `IosevkaTerm-SemiBold.ttf`

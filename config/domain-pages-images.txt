@@ -62,6 +62,12 @@ box3d
 pkgconf
 libpng
 freetype
+brotli
+libjpeg-turbo
+libtiff
+expat
+gperf
+mesa
 fmt
 libxml2
 libsodium

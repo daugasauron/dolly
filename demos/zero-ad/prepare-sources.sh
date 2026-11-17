@@ -9,7 +9,7 @@ if has_image openal; then
     "${openal_dir}/LICENSE-pffft" /usr/share/licenses/OpenAL/LICENSE-pffft \
     "${openal_dir}/fmt-11.1.1/LICENSE" /usr/share/licenses/OpenAL/fmt
 fi
-if has_image zero-ad-deps || has_image zero-ad-engine || has_image spidermonkey || has_image fmt ||
+if has_image zero-ad-deps || has_image zero-ad-engine || has_image spidermonkey ||
    has_image libxml2 || has_image libsodium ||
    has_image boost-headers || has_image icu || has_image premake || has_image zero-ad-data; then
   zad_dir="$(bash demos/zero-ad/prepare-build-sources.sh)"
@@ -39,11 +39,6 @@ if has_image zero-ad-data; then
     "${data_source}/license_gpl-2.0.txt" /tmp/0ad-source/license_gpl-2.0.txt \
     "${data_source}/license_lgpl-2.1.txt" /tmp/0ad-source/license_lgpl-2.1.txt \
     "${data_source}/license_mit.txt" /tmp/0ad-source/license_mit.txt
-fi
-if has_image fmt; then
-  node scripts/build-source-tar.mjs "${static_dir}/fmt/source.tar.gz" \
-    "${zad_dir}/fmt-7.1.3" /tmp/fmt \
-    "${zad_dir}/fmt-7.1.3/LICENSE.rst" /usr/share/licenses/fmt/LICENSE.rst
 fi
 if has_image libxml2; then
   node scripts/build-source-tar.mjs "${static_dir}/libxml2/source.tar.gz" \

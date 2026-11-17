@@ -2,8 +2,8 @@
 
 # Mojo: tag mojo/v1.1.0 of Modular's repository, the LLVM it pins
 # (bazel/public-patches/llvm_source.bzl) and what its compiler takes besides
-# LLVM (bazel/common.MODULE.bazel): two libraries, OpenTelemetry's headers, and
-# Zstandard, which LLVM compresses a precompiled package with.
+# LLVM (bazel/common.MODULE.bazel): xxHash and OpenTelemetry's headers; {fmt} and
+# Zstandard, with which LLVM compresses a precompiled package, are the packages'.
 DOLLY_MODULAR_VERSION=1.1.0
 DOLLY_MODULAR_COMMIT=c6fa49f712fe15c99d0461ad2baaf2a15cbc58ce
 DOLLY_MODULAR_URL='https://github.com/modular/modular.git'
@@ -13,9 +13,6 @@ DOLLY_MOJO_LLVM_URL='https://github.com/llvm/llvm-project.git'
 # neither repository is wanted whole.
 DOLLY_MODULAR_SPARSE='Mojo AsyncRT Support Cache Config Init bazel Licenses'
 DOLLY_MOJO_LLVM_SPARSE='llvm mlir clang cmake third-party libc'
-DOLLY_FMT_VERSION=11.2.0
-DOLLY_FMT_URL='https://github.com/fmtlib/fmt/archive/refs/tags/11.2.0.tar.gz'
-DOLLY_FMT_SHA256=bc23066d87ab3168f27cef3e97d545fa63314f5c79df5ea444d41d56f962c6af
 DOLLY_XXHASH_VERSION=0.8.3
 DOLLY_XXHASH_URL='https://github.com/Cyan4973/xxHash/archive/refs/tags/v0.8.3.tar.gz'
 DOLLY_XXHASH_SHA256=aae608dfe8213dfd05d909a57718ef82f30722c392344583d3f39050c7f29a80

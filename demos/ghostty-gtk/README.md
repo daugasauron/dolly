@@ -8,7 +8,7 @@ with Zig and LLVM built in Dolly ([zig](../zig/README.md)).
 
 ## Images
 
-- `mesa-build`: A build stage: Mesa's OpenGL through EGL's surfaceless platform, drawing with softpipe, over `gtk-build`.
+- `mesa`: Mesa's OpenGL through EGL's surfaceless platform, drawing with softpipe in the program, a library for programs the `cc` package builds (Ghostty, Godot); `gtk-build` installs it.
 - `ghostty-gtk`: Ghostty's GTK application, a package; it needs an X server.
 
 Open `/x11-desktop/` and, in its xterm, `amy install ghostty-gtk`, then
@@ -48,8 +48,8 @@ softpipe, with `$SHELL` in its terminal.
   draws with cairo: GTK finds no EGL or GLX library to open, so it uses no GL.
 - [`translate-c-dolly.patch`](translate-c-dolly.patch): the build's tool.
 
-- [`Dollyfile-mesa-build`](Dollyfile-mesa-build), [`Dollyfile-ghostty-gtk`](Dollyfile-ghostty-gtk):
-  the build. libadwaita
+- [`Dollyfile-mesa`](Dollyfile-mesa), [`Dollyfile-ghostty-gtk`](Dollyfile-ghostty-gtk):
+  the builds. libadwaita
   built static names its copies of five GTK builder helpers its own, and the
   program exports `adw_get_resource` and `adw_stylesheet_get_resource`, without
   which wasm-ld drops the constructors that register its resources. Zig hands

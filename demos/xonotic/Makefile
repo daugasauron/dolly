@@ -52,7 +52,7 @@ all: /usr/bin/xonotic-dedicated /usr/bin/xonotic-sdl
 
 /usr/bin/xonotic-sdl: $(CLIENT_OBJECTS) $(ENGINE)/builddate.c
 	$(CC) $(CLIENT_CFLAGS) -DSVNREVISION=xonotic-v0.8.6 -DBUILDTYPE=release $(CLIENT_OBJECTS) $(ENGINE)/builddate.c -o $@ \
-	  -ljpeg -lfreetype -lpng16 -lvorbisfile -lvorbis -logg -lSDL2 -lz -lm -Wl,--initial-memory=134217728
+	  -ljpeg -lfreetype -lbrotlidec -lbrotlicommon -lpng16 -lvorbisfile -lvorbis -logg -lSDL2 -lz -lm -Wl,--initial-memory=134217728
 
 $(BUILD)/engine/%.o: $(ENGINE)/%.c
 	mkdir -p $(@D)

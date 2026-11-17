@@ -7,7 +7,7 @@ REQUIRES HOST sockets@0
 # sources, configured where X's libraries are, with upstream's X11 video
 # driver in place of Dolly's, so it draws on the server DISPLAY names. ImGui
 # and the example are the imgui package's sources, unchanged.
-FROM /demos/x11/Dollyfile-x11-build e85a2e7d452e4912c2c730c44479b8f560b440022b269e1b10446add8cddaae2
+FROM /demos/x11/Dollyfile-x11-build 943125cdfcaa6f305953a73a1ae48fd512bd2e4465110c1be88213b60c430ba3
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES TOOL c++
@@ -45,7 +45,8 @@ SLOP mkdir -p /usr/lib/imgui-x11
 SLOP CWD /tmp/imgui/source c++ -O2 -I. -Ibackends -I/tmp/sdl2/install/include/SDL2 \
   imgui.cpp imgui_draw.cpp imgui_tables.cpp imgui_widgets.cpp imgui_demo.cpp \
   backends/imgui_impl_sdl2.cpp backends/imgui_impl_sdlrenderer2.cpp examples/example_sdl2_sdlrenderer2/main.cpp \
-  -L/tmp/sdl2/install/lib -lSDL2 -lXi -lXfixes -lXrender -lXext -lX11 -lxcb -lXau -ldolly-sockets -lm -o /usr/lib/imgui-x11/imgui-x11
+  -L/tmp/sdl2/install/lib -lSDL2 -lXcursor -lXrandr -lXi -lXfixes -lXrender -lXext -lX11 -lxcb -lXau -ldolly-sockets -lm \
+  -o /usr/lib/imgui-x11/imgui-x11
 FILE /usr/lib/imgui-x11/imgui-x11
 # Upstream's example asks for an accelerated renderer; SDL's software one is
 # the renderer here, which /usr/bin/imgui-x11 names where the caller names none.
@@ -61,6 +62,8 @@ SLOP rm -rf /tmp/sdl2 /tmp/imgui /tmp/imgui.tar
 EXPORTS TOOL imgui-x11
 FILE /usr/share/licenses/imgui-x11/SDL2-LICENSE.txt
 FILE /usr/share/licenses/imgui-x11/imgui-LICENSE.txt
+FOLDER /usr/share/licenses/libXcursor
+FOLDER /usr/share/licenses/libXrandr
 FOLDER /usr/share/licenses/libXi
 FOLDER /usr/share/licenses/libXfixes
 FOLDER /usr/share/licenses/libXrender
