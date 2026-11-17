@@ -37,6 +37,7 @@ for (const name of browsers) {
       // The fingers that are down, by their places in the page, in the order they went down.
       let down = [];
       async function fingers(next) {
+        if (!next.length && !down.length) return;
         if (cdp) {
           const type = next.length > down.length ? "touchStart" : next.length < down.length ? "touchEnd" : "touchMove";
           await cdp.send("Input.dispatchTouchEvent", { type, touchPoints: next.map(([x, y], id) => ({ x, y, id })) });
@@ -53,7 +54,7 @@ for (const name of browsers) {
         down = next;
       }
       const at = (x, y) => [box.x + box.width * x, box.y + box.height * y];
-      await play({ fingers, at, unit, sleep });
+      await play({ fingers, at, unit, sleep, shot: async label => process.env.DOLLY_TOUCH_SHOTS && void await page.screenshot({ path: `${process.env.DOLLY_TOUCH_SHOTS}/${name}-${viewport.width}-${label}.png` }) });
       await fingers([]);
       await page.keyboard.press("q");
       await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
@@ -66,7 +67,7 @@ for (const name of browsers) {
     }
 
     // Sideways: the stick up and to the right for ten seconds, and meanwhile a second finger drags the view.
-    const sideways = await flight({ width: 844, height: 390 }, async ({ fingers, at, unit, sleep }) => {
+    const sideways = await flight({ width: 844, height: 390 }, async ({ fingers, at, unit, sleep, shot }) => {
       await sleep(3000);
       await fingers([at(0.5, 0.5)]);
       await fingers([]);
@@ -82,6 +83,7 @@ for (const name of browsers) {
         await sleep(40);
       }
       await sleep(5000);
+      await shot("stick");
       await fingers([pushed]);
       await fingers([]);
       // Two fingers apart: closer in.
@@ -99,11 +101,12 @@ for (const name of browsers) {
       `fingers fly the board on a phone held sideways: ${sideways.report}`);
 
     // Upright: a tap takes the board, the stick dives it a little, and the ring gives it back.
-    const upright = await flight({ width: 390, height: 844 }, async ({ fingers, at, unit, sleep }) => {
+    const upright = await flight({ width: 390, height: 844 }, async ({ fingers, at, unit, sleep, shot }) => {
       await sleep(3000);
       await fingers([at(0.5, 0.5)]);
       await fingers([]);
       await sleep(1500);
+      await shot("helm");
       await fingers([[at(1, 0)[0] - unit * 0.1, at(1, 0)[1] + unit * 0.1]]);
       await fingers([]);
       await sleep(1000);
