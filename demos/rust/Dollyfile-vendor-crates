@@ -10,8 +10,8 @@ REQUIRES HOST threads@0
 # for the files its cache holds, so Cargo cannot resolve there from a page.
 # It is one Janis script linked with the runner, as janis-install is, and
 # checks and decompresses crates with sha256sum (posix) and gzip.
-FROM /Dollyfile-system-tools 9bf7b939f6f7618b08e3af8d670717747e9a38311a736479bcc002db79e2c112
-INSTALL /demos/javascript/Dollyfile-janis cdba9acccf4c34df50e5ca80026b5ab3c1c557440365644ca1e61b2dbcac29dc
+FROM /Dollyfile-system-tools 7b1306fddb4975e68b655f6d0bd6a478f6f02ba877ce033af921969099844d2d
+INSTALL /demos/javascript/Dollyfile-janis ece3b8a57e841213b45163dee5d821cecd1bec8901ca0be7d52e35c6504a52b9
 INSTALL /Dollyfile-gzip cef69a22c3b9f73889f4c819fcfaee2fb4487474ea4efa364117b8796465d1a4
 
 REQUIRES HEADER libc

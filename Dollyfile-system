@@ -6,14 +6,14 @@ REQUIRES HOST input@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 
-FROM /Dollyfile-system-tools 9bf7b939f6f7618b08e3af8d670717747e9a38311a736479bcc002db79e2c112
+FROM /Dollyfile-system-tools 7b1306fddb4975e68b655f6d0bd6a478f6f02ba877ce033af921969099844d2d
 INSTALL /Dollyfile-session-recover 5198d53e78105afeee50c99adff1e562fecd3603043794b56a37b126fb197ed5
 # The packages made of what system-build and system-tools built: this image
 # holds their files, and its record says so, as it does for every INSTALL.
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
 INSTALL /Dollyfile-cc 3c50048026aec1c0c21ac6c0b74d93f53b5c0a3fa83b5c9930d86924a3b59eaa
-INSTALL /Dollyfile-posix 135a308c65e7797939f58d35f54046ea6667d3630dc3ac09c6bf0b659667039d
-INSTALL /Dollyfile-ninja 524951e291867f616f704765bf5942925c98d89c7e6ce35bf6c49aacceddc69c
+INSTALL /Dollyfile-posix 05628fd9859d6aa86359accd20db6cf32c0b1469e573da158734ce7a2caab0bf
+INSTALL /Dollyfile-ninja 1f74b1a15cef8caac9deede91e10a8f723ee1585836060cfc01d23460d4ab647
 # The headers and clients of the modules this toolchain declares, for the
 # programs it builds.
 INSTALL /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919

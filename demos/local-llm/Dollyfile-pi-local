@@ -14,7 +14,7 @@ REQUIRES HOST nena@0
 REQUIRES HOST gpu@0
 
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix 135a308c65e7797939f58d35f54046ea6667d3630dc3ac09c6bf0b659667039d
+INSTALL /Dollyfile-posix 05628fd9859d6aa86359accd20db6cf32c0b1469e573da158734ce7a2caab0bf
 INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
 # The tools Pi's dolly skill teaches: cc and make with the host modules' client
 # libraries, Git, curl.
@@ -31,7 +31,7 @@ INSTALL /Dollyfile-amy 95b7ecb251d9d5c3d28eb8aaa63b6bd2a465fac35756bdf95b520884a
 INSTALL /Dollyfile-nena 67a37d644a04e3eddd12fe2e5d335dcf473b1b549337f0a9ce2f445f00b91ad8
 # Pi with its provider of the models it runs in the tab: pi-dolly, dolly-llama
 # and Qwen3.5-2B.
-INSTALL /demos/local-llm/Dollyfile-pi-llm 9c1464a45c95b29497191bf27764c4768d7535d7ab388fcd9eda62d5a635f364
+INSTALL /demos/local-llm/Dollyfile-pi-llm 3454fc0964caae28580b85fdda09a1a4007b437331cdea2c6251804e3d443562
 
 FILE /etc/dolly/init.slop
     if test -f "$HOME/.dollyrc"; then

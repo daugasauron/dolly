@@ -16,18 +16,18 @@ REQUIRES HOST nena@0
 # the pointer and a terminal with a shell, where imgui-x11 starts Dear ImGui's
 # example in a window of its own.
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix 135a308c65e7797939f58d35f54046ea6667d3630dc3ac09c6bf0b659667039d
+INSTALL /Dollyfile-posix 05628fd9859d6aa86359accd20db6cf32c0b1469e573da158734ce7a2caab0bf
 INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
-INSTALL /demos/x11/Dollyfile-xorg-server 678c4d653b18f0047b8563ab42a11a140363a1b5677a9f2238349e2adf7ed862
-INSTALL /demos/x11/Dollyfile-twm fab8088c8c8fa50ca66c46d2916d7a1b7ce8862b64166b1c34272e2322bc6964
-INSTALL /demos/x11/Dollyfile-xclock ab3c12dbf8d453080fda244215eaf09510abeed8683e758ab18eb3fc455f6f9d
-INSTALL /demos/x11/Dollyfile-xeyes b15451ce0f60a213ad47aa995ab078e89beabbff63ea6d054077bb0bdf497de8
-INSTALL /demos/x11/Dollyfile-xterm d2974b06e7451d1989a465315a681a7acbe5fbfb4c6e12c092daf7bf366eb825
+INSTALL /demos/x11/Dollyfile-xorg-server 873e69f1016ac814860225f2b582af561a6a34fff5c6be6e9756e79c610ba0c1
+INSTALL /demos/x11/Dollyfile-twm f422b65b078d03875f24cdcaa2cc984494319ceecccb0f71b2092474e39c72e6
+INSTALL /demos/x11/Dollyfile-xclock e532a9877fce4b0f4cde38879814b1531d4cf7a0fb3a7670743150cd311c85a5
+INSTALL /demos/x11/Dollyfile-xeyes d4c7ac41f49eb13819e75c71b752f25a8ebcc6ed4f25363d385d6a2888c7b319
+INSTALL /demos/x11/Dollyfile-xterm b92a68833a9c6734df34dd39a5bffe44d7c97519fbe45bdddd0d34d8ffad601c
 # amy installs packages into the session (tmux, nvim and the rest); nena
 # enables the host modules they need.
 INSTALL /Dollyfile-amy 95b7ecb251d9d5c3d28eb8aaa63b6bd2a465fac35756bdf95b520884a61547e4
 INSTALL /Dollyfile-nena 67a37d644a04e3eddd12fe2e5d335dcf473b1b549337f0a9ce2f445f00b91ad8
-INSTALL /demos/sdl2/Dollyfile-imgui-x11 7f5ee8fbc876c333171891d4dd2c9a4da0c0e35501a401ffb4a7ef1533e9a291
+INSTALL /demos/sdl2/Dollyfile-imgui-x11 6bb502e1a635778113ec4069884a9a02ed7032e2d58c6a21c15132997475fcaf
 
 # The server takes the display, the keyboard and the pointer until it ends
 # (kill $(cat /tmp/.X0-pid) in the terminal); its clients end with it, and

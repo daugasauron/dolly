@@ -13,15 +13,15 @@ REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix 135a308c65e7797939f58d35f54046ea6667d3630dc3ac09c6bf0b659667039d
+INSTALL /Dollyfile-posix 05628fd9859d6aa86359accd20db6cf32c0b1469e573da158734ce7a2caab0bf
 INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
 # download and upload, which the agent's settings and relay run (transfer).
 INSTALL /Dollyfile-transfer 06c7f7e4b4d53f6ef7d342f48293d1e61af6e9a330d4d857b597f26471ce8c07
-INSTALL /demos/pi/Dollyfile-pi-dolly df829510ad337b5ee65daf5aaa5ee2f0398c69dd7ea7982938437f8ea783d1cf
-INSTALL /demos/classicube/Dollyfile-classicube-agent 59aeaaf32d5b57cdbad7dc9f07f7394a9c9895e500136413bf25c4dd53de9515
-COPY /demos/classicube/Dollyfile-classicube-build 0591cb8859dd2f4b9a588105d372b683cd05504efd51b63bd73cbb17e0520d8d /usr/bin/classicube /usr/bin/classicube
-COPY /demos/classicube/Dollyfile-classicube-build 0591cb8859dd2f4b9a588105d372b683cd05504efd51b63bd73cbb17e0520d8d /usr/share/classicube /home/dolly/classicube
-COPY /demos/classicube/Dollyfile-classicube-build 0591cb8859dd2f4b9a588105d372b683cd05504efd51b63bd73cbb17e0520d8d /usr/share/licenses/classicube /usr/share/licenses/classicube
+INSTALL /demos/pi/Dollyfile-pi-dolly 6d8862779ba0080893487374a222c10d71ff9fd7955caf72ee747c5b1a52b529
+INSTALL /demos/classicube/Dollyfile-classicube-agent cd51981b126aeef7d7cf95a12dd2978edc1772980cd1c4b9e9b1c91cfb7931b1
+COPY /demos/classicube/Dollyfile-classicube-build 2550068ea3008ec03968ffe1df9a3e97cc8a41417fdbfd9293801ff1f358ec07 /usr/bin/classicube /usr/bin/classicube
+COPY /demos/classicube/Dollyfile-classicube-build 2550068ea3008ec03968ffe1df9a3e97cc8a41417fdbfd9293801ff1f358ec07 /usr/share/classicube /home/dolly/classicube
+COPY /demos/classicube/Dollyfile-classicube-build 2550068ea3008ec03968ffe1df9a3e97cc8a41417fdbfd9293801ff1f358ec07 /usr/share/licenses/classicube /usr/share/licenses/classicube
 EXPORTS TOOL classicube
 REQUIRES TOOL pi
 REQUIRES TOOL classicube-agent

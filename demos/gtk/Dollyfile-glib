@@ -11,14 +11,14 @@ REQUIRES HOST threads@0
 # which traps in WebAssembly: GObject's pkg-config file asks cc for
 # --dolly-cast-emulation (Binaryen's wasm-opt --fpcast-emu after the link),
 # and this package's own programs are passed through it here.
-FROM /demos/tools/Dollyfile-tools-build 31cb49f3b529c9ae06cdc07d7a1909bb09e89ce6b6185c1b9aedc2386d8a83b3
-USE /demos/tools/Dollyfile-meson 338990b32e6514badf70f862eae93f72841975ac5477df525ac0b5ec95fa81d5
-USE /demos/tools/Dollyfile-pkgconf 82980e20a11eae307bd025ffdcde74342aa09c4778d559c04595c52254ca2086
-USE /demos/tools/Dollyfile-xz 304b4ea0e2f0a35f7e3039003eaa28651e8d8e8db7a39e6ef0fe4b5543002bdc
-USE /demos/tools/Dollyfile-tar d3c898375bd06b64dfe1ec877d077d00d17a6436e58ed52d6bc263fe92d6fbff
-USE /demos/tools/Dollyfile-binaryen 25cb6af24a7f1e916912d03c434ddd2c66755e94fce9f8777bd2124193363e5e
-INSTALL /demos/python/Dollyfile-libffi 086ecc6d3cff4059d1c3a7c5b5d2f0cbcb3e1a07f05810abfc9e95bbeb8f3457
-INSTALL /demos/gtk/Dollyfile-pcre2 37d580e1e684988cc0f3fcd7d73a3f2d419972de1a718df73fbfa7adf6f97b3a
+FROM /demos/tools/Dollyfile-tools-build bfbb7483707086afb8948275f9b68e85f375a9076f2fe687a147eaeea1d2b184
+USE /demos/tools/Dollyfile-meson 8fe27e1e267d16d01c94e6be500ac41016158f41694430707ee8e23f88e98c4c
+USE /demos/tools/Dollyfile-pkgconf 8e2d10a742a5f3dc0a5da7426f3f276c233bf6672cc0a777fa849672d0f1e0b3
+USE /demos/tools/Dollyfile-xz d469de338c35f239e62a272216458e722dfdd7eb2909ed4a35a21d5694f2ad81
+USE /demos/tools/Dollyfile-tar 41a8b3eb2eb4e9ab4bf0d8d1708a5859cbf89872b2658344741c27affa220ffb
+USE /demos/tools/Dollyfile-binaryen 62d42b20ce549007859d3d4c69dd57b1f33a097c9e59a7cb9d39cc44afe3742e
+INSTALL /demos/python/Dollyfile-libffi 73042854492adcdff039933b0b788a0379dd69c31d0dad20db31fb5e542c4dc1
+INSTALL /demos/gtk/Dollyfile-pcre2 d69b807b383c788c1a5b23d4659f0e88e43cfb04b78ab451093715fb98a62cf5
 INSTALL /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
 
 REQUIRES HEADER ffi

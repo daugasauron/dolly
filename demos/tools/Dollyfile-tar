@@ -8,10 +8,10 @@ REQUIRES HOST runtime@0
 # comes first on PATH. Its -z, -j and -J start gzip, bzip2 or xz from PATH,
 # by posix_spawn instead of fork (sbase-tar-spawn.patch), and tar waits for it:
 # the three come with it.
-FROM /demos/tools/Dollyfile-tools-build 31cb49f3b529c9ae06cdc07d7a1909bb09e89ce6b6185c1b9aedc2386d8a83b3
+FROM /demos/tools/Dollyfile-tools-build bfbb7483707086afb8948275f9b68e85f375a9076f2fe687a147eaeea1d2b184
 INSTALL /Dollyfile-gzip cef69a22c3b9f73889f4c819fcfaee2fb4487474ea4efa364117b8796465d1a4
-INSTALL /demos/tools/Dollyfile-bzip2 dc2e05de0f19bc6ca117685b5fc72f6ad9a39cd18ffa86704bed5ed7255d8064
-INSTALL /demos/tools/Dollyfile-xz 304b4ea0e2f0a35f7e3039003eaa28651e8d8e8db7a39e6ef0fe4b5543002bdc
+INSTALL /demos/tools/Dollyfile-bzip2 76653f54f6f089826b7ef5ca6e86cae5286f7b441e3c5ef91d0894f819ea8b7b
+INSTALL /demos/tools/Dollyfile-xz d469de338c35f239e62a272216458e722dfdd7eb2909ed4a35a21d5694f2ad81
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar

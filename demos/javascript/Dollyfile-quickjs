@@ -11,8 +11,8 @@ REQUIRES HOST threads@0
 # threads, is compiled with it and linked through Binaryen's cast emulation:
 # upstream starts a Worker's thread through a pointer of another type
 # (js_thread_create in cutils.h). os.exec fails because nothing here forks.
-FROM /Dollyfile-system-tools 9bf7b939f6f7618b08e3af8d670717747e9a38311a736479bcc002db79e2c112
-USE /demos/tools/Dollyfile-binaryen 25cb6af24a7f1e916912d03c434ddd2c66755e94fce9f8777bd2124193363e5e
+FROM /Dollyfile-system-tools 7b1306fddb4975e68b655f6d0bd6a478f6f02ba877ce033af921969099844d2d
+USE /demos/tools/Dollyfile-binaryen 62d42b20ce549007859d3d4c69dd57b1f33a097c9e59a7cb9d39cc44afe3742e
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar

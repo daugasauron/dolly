@@ -9,10 +9,10 @@ REQUIRES HOST pty@0
 REQUIRES HOST sockets@0
 
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix 135a308c65e7797939f58d35f54046ea6667d3630dc3ac09c6bf0b659667039d
+INSTALL /Dollyfile-posix 05628fd9859d6aa86359accd20db6cf32c0b1469e573da158734ce7a2caab0bf
 INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
 INSTALL /Dollyfile-amy 95b7ecb251d9d5c3d28eb8aaa63b6bd2a465fac35756bdf95b520884a61547e4
-INSTALL /demos/tmux/Dollyfile-tmux bb7057ada773d0f73ecce44b7d305504eb82325a6378b7aaa720747674310920
+INSTALL /demos/tmux/Dollyfile-tmux e52ff2c6025559419100144fd9c7909e9dcf07297ab0126750c81fa88961bd1f
 
 FILE /usr/share/tmux/welcome.txt
     tmux inside Dolly: two shells, each on a pseudo-terminal.
