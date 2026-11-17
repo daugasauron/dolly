@@ -10,7 +10,7 @@
     },
     { "script": "amy install cc", "status": 0 },
     { "script": "amy install pkgconf", "status": 0 },
-    { "script": "grep -qx audio@0 /etc/dolly/enabled && grep -qx touch@0 /etc/dolly/enabled && mkdir /tmp/amy-sdl2 && cd /tmp/amy-sdl2 && printf '%s\\n' '#include <SDL.h>' 'int main(void) { SDL_Window *window; int failed = SDL_Init(SDL_INIT_VIDEO) || !(window = SDL_CreateWindow(\"\", 0, 0, 64, 48, 0)) || !SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED); SDL_Quit(); return failed; }' > window.c && cc -O0 window.c $(pkg-config --cflags --static --libs sdl2) -o window && ./window", "status": 0 },
+    { "script": "grep -qx audio@0 /etc/dolly/enabled && grep -qx touch@0 /etc/dolly/enabled && printf '%s\\n' '#include <SDL.h>' 'int main(void) { SDL_Window *window; int failed = SDL_Init(SDL_INIT_VIDEO) || !(window = SDL_CreateWindow(\"\", 0, 0, 64, 48, 0)) || !SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED); SDL_Quit(); return failed; }' > window.c && cc -O0 window.c $(pkg-config --cflags --static --libs sdl2) -o window && ./window", "status": 0 },
     {
       "fresh": true,
       "why": "SDL_mixer plays a short silent clip on a channel until it ends: SDL's audio driver pulls it.",

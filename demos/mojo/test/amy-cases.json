@@ -9,6 +9,6 @@
       "status": 0
     },
     { "script": "amy install mojo", "status": 0 },
-    { "script": "mkdir /tmp/amy-mojo && cd /tmp/amy-mojo && printf 'def main():\\n    print(\"hello\", 6 * 7)\\n' > hello.mojo && mojo build hello.mojo && test \"$(./hello)\" = 'hello 42'", "status": 0 }
+    { "script": "printf 'def main():\\n    print(\"hello\", 6 * 7)\\n' > hello.mojo && mojo build hello.mojo && test \"$(./hello)\" = 'hello 42'", "status": 0 }
   ]
 }

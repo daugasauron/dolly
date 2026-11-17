@@ -9,7 +9,7 @@
       "status": 0
     },
     { "script": "amy install rust", "status": 0 },
-    { "script": "printf 'fn main() { println!(\"{}\", 6 * 7); }\\n' > /tmp/amy.rs && rustc /tmp/amy.rs -o /tmp/amy-rust && test \"$(/tmp/amy-rust)\" = 42", "status": 0 },
+    { "script": "printf 'fn main() { println!(\"{}\", 6 * 7); }\\n' > /tmp/amy.rs && rustc /tmp/amy.rs -o /tmp/amy && test \"$(/tmp/amy)\" = 42", "status": 0 },
     {
       "fresh": true,
       "why": "Cargo runs a crate, its compiler and cc brought with it.",
