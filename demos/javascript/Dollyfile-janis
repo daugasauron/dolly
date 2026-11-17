@@ -3,13 +3,14 @@ PACKAGE janis
 REQUIRES HOST runtime@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
+REQUIRES HOST threads@0
 
 # Janis: Dolly's runner on the QuickJS library, with Node's module rules and
 # a finite node:* surface over Dolly's files, processes and HTTP. The runner
 # is a library too: a program that is one script (tsc, pi, a game's agent)
 # links -ldolly-js -lquickjs and reads the two scripts kept here when it starts.
 FROM /v0.1.7/Dollyfile-system-tools 6699b9ce9339fe8ee70c02972b8a4b10242adb71dd63c3a5ac5da48f8d1828ed
-INSTALL /v0.1.7/demos/javascript/Dollyfile-quickjs 81f4c42d34ac604c925dec675a8e006a91296339fbfc6ef2fee6cb4f4c7b6200
+INSTALL /v0.1.7/demos/javascript/Dollyfile-quickjs 124d6fd5f2021bc22b6072c27da4b89ad524c05f7ecaa2a75cf746ce532208db
 INSTALL /v0.1.7/Dollyfile-libdolly-download bf7303fc0e340e9d2049ae295205598ee876e0af0cbfe160583c055f2f588439
 
 REQUIRES HEADER libc
@@ -32,6 +33,7 @@ SLOP ar rcs /usr/lib/libdolly-js.a /tmp/janis/quickjs-main.o
 SLOP cc -I /usr/include/dolly /tmp/janis/janis.c -ldolly-js -lquickjs -o /usr/bin/janis
 
 SLOP test "$(janis -e 'console.log(require("node:fs").readFileSync("/tmp/janis/janis.c", "utf8").includes("dolly_quickjs_run"))')" = true
+SLOP test "$(janis -e 'console.log(typeof Atomics, typeof SharedArrayBuffer)')" = "object function"
 SLOP janis --help > /usr/share/man/cat1/janis.1
 
 EXPORTS TOOL   janis

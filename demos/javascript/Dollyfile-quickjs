@@ -1,13 +1,18 @@
 DOLLY 7
 PACKAGE quickjs
 REQUIRES HOST runtime@0
+REQUIRES HOST threads@0
 
 # QuickJS-ng from its pinned checkout, unchanged, as upstream's CMakeLists.txt
-# builds it: the engine as a library (-lquickjs, <quickjs.h>) and upstream's
-# qjs, the engine with its own std, os and bjson modules and nothing of Node.
-# EMSCRIPTEN is upstream's switch for a target without threads: there is no
-# os.Worker, and os.exec fails because nothing here forks.
+# builds it for Unix: the engine as a library (-lquickjs, <quickjs.h>) and
+# upstream's qjs, the engine with its own std, os and bjson modules and nothing
+# of Node. The library is compiled without -pthread, so that a program linking
+# it is one thread unless it asks for more; qjs, whose os.Worker starts
+# threads, is compiled with it and linked through Binaryen's cast emulation:
+# upstream starts a Worker's thread through a pointer of another type
+# (js_thread_create in cutils.h). os.exec fails because nothing here forks.
 FROM /v0.1.7/Dollyfile-system-tools 6699b9ce9339fe8ee70c02972b8a4b10242adb71dd63c3a5ac5da48f8d1828ed
+USE /v0.1.7/demos/tools/Dollyfile-binaryen e9018a3b0f85a39af18aac559e63a2fa0b376dac189a97fa930c1f5c56e29fef
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -16,6 +21,7 @@ REQUIRES TOOL   cp
 REQUIRES TOOL   make
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
+REQUIRES TOOL   wasm-opt
 
 SOURCE /v0.1.7/dist/static/default/quickjs.tar 9fd1cf2a32d292362acf460b48b2332e1e4a8dd49e603b62ad9ba87bc1205af8 /tmp/quickjs.tar
 SLOP tar -xf /tmp/quickjs.tar -C /
@@ -25,19 +31,38 @@ FILE /tmp/quickjs.mk
     SOURCE := /usr/src/quickjs
     ENGINE := dtoa libregexp libunicode quickjs
     COMMAND := qjs quickjs-libc gen/repl gen/standalone
-    CFLAGS := -O2 -std=gnu11 -funsigned-char -DEMSCRIPTEN=1 -D_GNU_SOURCE -DQUICKJS_NG_BUILD -DNDEBUG
-    objects = $(addprefix $(SOURCE)/,$(addsuffix .o,$(1)))
-    all: /usr/bin/qjs
-    $(SOURCE)/%.o: $(SOURCE)/%.c
+    CFLAGS := -O2 -std=gnu11 -funsigned-char -D_GNU_SOURCE -DQUICKJS_NG_BUILD -DNDEBUG
+    objects = $(addprefix $(SOURCE)/$(2)/,$(addsuffix .o,$(1)))
+    all: /usr/lib/libquickjs.a /usr/bin/qjs
+    $(SOURCE)/library/%.o: $(SOURCE)/%.c
+    >mkdir -p $(@D)
     >cc $(CFLAGS) -c $< -o $@
-    /usr/lib/libquickjs.a: $(call objects,$(ENGINE))
+    $(SOURCE)/threaded/%.o: $(SOURCE)/%.c
+    >mkdir -p $(@D)
+    >cc $(CFLAGS) -pthread -c $< -o $@
+    /usr/lib/libquickjs.a: $(call objects,$(ENGINE),library)
     >ar rcs $@ $^
-    /usr/bin/qjs: $(call objects,$(COMMAND)) /usr/lib/libquickjs.a
-    >cc $^ -o $@
+    /usr/bin/qjs: $(call objects,$(ENGINE) $(COMMAND),threaded)
+    >cc -pthread --dolly-cast-emulation $^ -o $@
 SLOP make -j4 -f /tmp/quickjs.mk
 SLOP cp /usr/src/quickjs/quickjs.h /usr/include/quickjs.h
 
 SLOP test "$(qjs -e 'console.log(6 * 7)')" = 42
+FILE /tmp/quickjs-worker.mjs
+    import * as os from "qjs:os";
+    const parent = os.Worker.parent;
+    if (parent) {
+      parent.onmessage = message => { parent.postMessage(message.data * 2); parent.onmessage = null; };
+    } else {
+      const worker = new os.Worker("/tmp/quickjs-worker.mjs");
+      worker.onmessage = message => {
+        const shared = new Int32Array(new SharedArrayBuffer(4));
+        console.log(message.data, Atomics.add(shared, 0, 1) + Atomics.load(shared, 0));
+        worker.onmessage = null;
+      };
+      worker.postMessage(21);
+    }
+SLOP test "$(qjs -m /tmp/quickjs-worker.mjs)" = "42 1"
 # qjs --help ends with status 1.
 SLOP qjs --help > /usr/share/man/cat1/qjs.1 || test -s /usr/share/man/cat1/qjs.1
 

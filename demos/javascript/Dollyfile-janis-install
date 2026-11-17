@@ -3,13 +3,14 @@ PACKAGE janis-install
 REQUIRES HOST runtime@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
+REQUIRES HOST threads@0
 
 # janis-install NAME[@VERSION] installs a package from the npm registry and
 # the packages it depends on into /usr/lib/node_modules, with a /usr/bin
 # launcher for each command it names. It is one Janis script linked with the
 # runner, as tsc is, and checks and decompresses tarballs with sha512sum and gzip.
 FROM /v0.1.7/Dollyfile-system-tools 6699b9ce9339fe8ee70c02972b8a4b10242adb71dd63c3a5ac5da48f8d1828ed
-INSTALL /v0.1.7/demos/javascript/Dollyfile-janis 427f184ffb58d8b64d094c2ba0ad403d4a5cbb29cde20365cca9c231f7296b1f
+INSTALL /v0.1.7/demos/javascript/Dollyfile-janis 0a6b1358f1205cd88bc486544d2252b94f00a729c8732b45b7a348786b7c34c4
 INSTALL /v0.1.7/Dollyfile-gzip fe37ea911f935be9f5dc2fcf29fdddba385759e05220a033ebaea81a810a16b5
 INSTALL /v0.1.7/demos/tools/Dollyfile-sbase a6fbfede1d09af42fd0ebc4569a27207c8d61c49878102fe5969ee24dd4545c4
 
