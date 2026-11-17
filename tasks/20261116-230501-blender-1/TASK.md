@@ -98,6 +98,11 @@ on one, on a machine at load 40. The frame is `build/blender-evidence/default-cu
   lays out otherwise; upstream already excludes aarch64 for it. The patch excludes WebAssembly
   too, which takes the plain assignment (one line). Cycles uses `ustring` throughout.
 
+**The recipes** (13:00): `demos/blender/Dollyfile-blender-deps` built and sealed as an image
+(`npm run image`, 637 s with packaging; its library steps about 7 minutes: OpenImageIO 197 s,
+OpenColorIO 90 s, OpenEXR 34 s, the rest under 20 s each; kernel memory 1,011 MiB, a 368 MB
+snapshot). `Dollyfile-blender` configures on it (36 s) and is building.
+
 To debug a cast-emulated program: link an `abort` that traps and run `wasm-opt -g --fpcast-emu`
 by hand, which keeps the function names for the page's console.
 

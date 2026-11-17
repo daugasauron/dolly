@@ -1,0 +1,75 @@
+DOLLY 7
+PACKAGE blender
+REQUIRES HOST runtime@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+
+# Blender 5.3.0 from upstream's release archive, built headless by its own
+# CMake project inside Dolly: `blender -b` with its Python (the python
+# package's CPython 3.14) and Cycles on the CPU. blender-dolly.patch is three
+# small changes; its head lines say why each.
+# - blender_lite.cmake, upstream's configuration with every optional library
+#   off, then Cycles and pugixml (OpenImageIO's static library needs it) on.
+# - WITH_HEADLESS: no window system. No OpenGL or Vulkan backend: the GPU
+#   module's dummy backend remains, so EEVEE and Workbench do not render.
+# - Dolly claims no x86 or ARM: Cycles builds its scalar kernel and its own
+#   BVH (Embree off, as in the lite configuration).
+# - PYTHON_LINKFLAGS, by default ELF's -Xlinker -export-dynamic: what
+#   libpython's built-in modules link, and cc --dolly-cast-emulation, since
+#   Blender defines Python methods taking no arguments with one parameter,
+#   which CPython calls with two. Such a program loads no extension module.
+# - Brotli for FreeType, which Blender puts on the link line only with its
+#   precompiled libraries.
+# - ccfilter for compiles and the link: see its source.
+FROM /v0.1.7/demos/blender/Dollyfile-blender-deps 2b7ff5eaaa2742dc73d5c6e0ffd7b72e7bc4f14f2d9530297ea4ebecb2d37f62
+INSTALL /v0.1.7/demos/python/Dollyfile-python c97238b02344b36aad552b36fd2f73d450811ecaf7f5464374e82e8af15b80d7
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL patch
+REQUIRES TOOL python3
+REQUIRES TOOL wasm-opt
+REQUIRES TOOL ccfilter
+
+SOURCE /v0.1.7/dist/static/blender/blender.tar.gz 03f4920b7ce1d4dc0a537b9cd96c18bcff1093525678cee5d55d0c447e21b26f /tmp/blender.tar.gz
+SLOP gzip -dc /tmp/blender.tar.gz | tar -xf - -C /
+SLOP rm /tmp/blender.tar.gz
+SLOP CWD /tmp/blender/source patch -p1 -i /tmp/blender/blender-dolly.patch
+SLOP time cmake -S /tmp/blender/source -B /tmp/blender/build \
+  -C /tmp/blender/source/build_files/cmake/config/blender_lite.cmake \
+  -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+  -DCMAKE_C_FLAGS=-pthread -DCMAKE_CXX_FLAGS=-pthread \
+  -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccfilter -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccfilter \
+  -DCMAKE_C_LINKER_LAUNCHER=/usr/bin/ccfilter -DCMAKE_CXX_LINKER_LAUNCHER=/usr/bin/ccfilter \
+  "-DPYTHON_LINKFLAGS=--dolly-cast-emulation -lffi -llzma -lbz2 -lsqlite3 -lcurl -L/usr/lib/python3.14/embed -lpyexpat -lHacl_HMAC -lHacl_Hash_BLAKE2 -lHacl_Hash_MD5 -lHacl_Hash_SHA1 -lHacl_Hash_SHA2 -lHacl_Hash_SHA3" \
+  "-DCMAKE_EXE_LINKER_FLAGS=-lbrotlidec-static -lbrotlicommon-static" \
+  -DWITH_HEADLESS=ON -DWITH_GHOST_WAYLAND=OFF -DWITH_GHOST_X11=OFF \
+  -DWITH_OPENGL_BACKEND=OFF -DWITH_VULKAN_BACKEND=OFF \
+  -DWITH_CYCLES=ON -DWITH_TBB=ON -DWITH_PUGIXML=ON -DWITH_ASSERT_RELEASE=OFF \
+  -DPYTHON_VERSION=3.14 -DWITH_PYTHON_INSTALL=OFF -DWITH_INSTALL_PORTABLE=OFF \
+  -DWITH_LIBS_PRECOMPILED=OFF -DWITH_LINKER_LLD=OFF -DWITH_LINKER_MOLD=OFF -DWITH_COMPILER_CCACHE=OFF \
+  -DWITH_DOC_MANPAGE=OFF -DWITH_CPU_CHECK=OFF -DWITH_GTESTS=OFF
+SLOP time make -C /tmp/blender/build -j4
+SLOP cmake --install /tmp/blender/build
+
+# Its Python, the default scene, and that scene rendered by Cycles to a PNG.
+SLOP CWD /tmp test "$(blender -b --python-expr 'import bpy, sys; print("check", bpy.app.version_string, sys.platform, [o.name for o in bpy.data.objects])' | grep check)" = \
+  "check 5.3.0 dolly ['Camera', 'Cube', 'Light']"
+FILE /tmp/blender/render.py
+    import bpy
+    scene = bpy.context.scene
+    scene.render.engine = "CYCLES"
+    scene.cycles.samples = 4
+    scene.render.resolution_percentage = 10
+    scene.render.filepath = "/tmp/blender/render.png"
+    bpy.ops.render.render(write_still=True)
+SLOP CWD /tmp time blender -b --python /tmp/blender/render.py
+SLOP test -s /tmp/blender/render.png
+
+EXPORTS TOOL blender
+FOLDER /usr/share/blender
+FOLDER /usr/share/doc/blender
+SLOP blender --help > /usr/share/man/cat1/blender.1
+FILE /usr/share/man/cat1/blender.1
