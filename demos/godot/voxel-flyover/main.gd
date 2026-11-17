@@ -1,21 +1,35 @@
 extends Node3D
-## Voxel Flyover: a corgi on a jet surfboard flies over an endless world, from dawn through the day
-## into night, and under the board a pelican on a bicycle pedals for the jets. The world is a function (terrain.gdshaderinc): the GPU draws its ground into
-## textures as the flight goes, raises grids of land to it and stands trees on it, and nothing of
-## it is kept. The corgi flies itself until Enter takes the board.
+## Voxel Flyover: a flight over a planet that can be left. A corgi on a jet surfboard,
+## a pelican on a bicycle pedalling under it for the jets, flies over a world that is a sphere of
+## 600,000 units: the land runs on to a curved horizon, and a board that keeps climbing leaves
+## the air and sees the planet whole. The world is a function (terrain.gdshaderinc): the GPU
+## draws its ground into textures as the flight goes, raises grids of land to it and stands
+## trees on it. The game computes in a flat chart around an anchor on the planet, and the
+## shaders carry every vertex onto the sphere (terrain.gdshaderinc's lift).
 ##
 ## `-- --autopilot SECONDS` flies by itself, prints its frame rate, how even its frames were, the
 ## time a frame took and what the frame shows, and quits: Dolly's test uses it. `--day HOUR`
-## starts at that hour of 24. Q prints how far the flight went and where the view was turned.
+## starts at that hour of 24, and `--tour SECOND` leaves the planet at that second of a flight by
+## itself, looks at it from 900,000 units up (`--top`), and comes back; `--high HEIGHT` starts
+## a flight by itself at that height and keeps it. Q prints how far the flight went and where
+## the view was turned.
 
 const Terrain := preload("res://terrain.gd")
 const Landmarks := preload("res://landmarks.gd")
 const Parts := preload("res://parts.gd")
 const Pelican := preload("res://pelican.gd")
+const Touch := preload("res://touch.gd")
 ## The grids of land around the flyer, each around the one before: cells across, a cell's width.
-const RINGS := [[256, 1.5], [256, 6.0], [192, 24.0]]
-## The grids follow the flight in steps of the coarsest cell, so every point stays where it is.
+## The first three are the flyover's; the others carry the land on to the horizon and round the
+## planet (the last covers all of it from any place).
+const RINGS := [[256, 1.5], [256, 6.0], [192, 24.0], [192, 96.0], [192, 384.0], [192, 1536.0], [192, 6144.0], [160, 24576.0]]
+## The first so many grids have the ground in a texture of their own (ground.gdshader), drawn as
+## they step; the others read the texture of the whole planet.
+const OWN := 6
+## A grid follows the flight in steps of the next coarser grid's cell (and no less than this),
+## so every point stays where it is and a grid's rim lies on the next one's lines.
 const STEP := 24.0
+const PLANET_TEXELS := Vector2i(4096, 2048) # the whole planet's ground, by longitude and latitude
 const PLOT := 4.0 # a tree's plot
 ## The trees' grids, each a ring around the flyer with less detail than the one inside it: plots
 ## across, a crown's rings, and how far out its trees fill in and thin out (trees.gdshader).
@@ -35,10 +49,20 @@ const YEAR_DAYS := 3.0 # a year's seasons pass in so many days
 const WIND := Vector2(0.93, 0.36) # the way the clouds drift, and the air with them
 const CRUISE := 30.0
 const BOOST := 26.0
-const CEILING := 420.0
+const CEILING := 420.0 # the flight by itself stays under it
+const SOARS_FROM := 420.0 # over this height, the flyover's ceiling, the board is faster the higher it is
+const SOARS_BY := 110.0 # twice as fast this far over it, and so on: every 8 s of climbing multiply the height by e, and space is 80 s from the ground
+const SPACE := 1.4e6 # the highest the board goes: the planet is a disc of 35 degrees from there
+const AIR := 7000.0 # the height over which the air thins to 1/e (sky.gdshader's)
+const LOWERED_STEP := 8192.0
+const ANCHOR_FROM := 8000.0 # the chart's anchor moves only over this height, where nothing that stands on its lattice is seen
+const ANCHOR_REACH := 120000.0 # and only once the flyer is this far from it
 const BEACON_PLOT := 180.0
 const BEACON_REACH := 11.0 # how near its beam the board lights a beacon, at any height of the beam
-const START := Vector2(2250, 4750)
+## Where on the planet the flight starts: on the equator at this longitude (radians), the chart's
+## z toward the north pole. The sun goes round the pole, so the chart's x is east.
+const START_LONGITUDE := 1.3177
+const START := Vector2.ZERO
 const WAKE := 64 # the places the wakes keep
 const WAKE_APART := 1.2
 ## The camera's views: where it stands in the flyer's frame, what it aims at, its angle of view,
@@ -68,7 +92,7 @@ const LEVELS := [
 	[0.6, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 160.0, 8, 2],
 	[0.55, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 120.0, 6, 2],
 	[0.5, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 90.0, 5, 2],
-	[0.3, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 90.0, 5, 2],
+	[0.27, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 90.0, 5, 2],
 ]
 const FRAME_BUDGET := 14.0 # milliseconds of the GPU: over it the display's 60 a second are lost
 
@@ -78,7 +102,24 @@ var sun := DirectionalLight3D.new()
 var camera := Camera3D.new()
 var materials: Array[ShaderMaterial] = [sky_material] # every one that draws the world
 var lands: Array[MeshInstance3D] = []
-var grounds: Array[SubViewport] = [] # each grid's ground, for the shaders to read
+var grounds: Array[SubViewport] = [] # each near grid's ground, for the shaders to read
+var planet: SubViewport # the whole planet's ground
+var planet_frames := 0 # the frames since it was drawn
+var rebake := 0.0
+var ground_life := Node3D.new() # the grids of what lives near the ground: trees, towns, clouds, boats, birds; not drawn from high up
+var charts: Array[ShaderMaterial] = [] # the materials that draw the grounds: they are told the chart's anchor
+var stale: Array[bool] = [true, true, true, true, true, true, true, true] # the grids whose grounds are to be drawn anew: all at the start and when the chart's anchor moves
+var lowered := 0.0 # the height taken off everything drawn, once the flyer is high
+var weather := Vector3.ZERO # how far a second moves the weather, in the planet's axes
+var sun_frame := Basis.IDENTITY # the axes the sun's arc is given in, fixed to the planet: the start's
+var scored := 0 # the beacons lit in charts left behind
+var rings_run := false # the shaders have been told of lit beacons' rings
+var tour := 0.0 # with --tour: the flight by itself leaves the planet at that second, looks, and comes back
+var tour_phase := 0
+var tour_held := 0.0
+var tour_top := 900000.0 # how high the tour goes (--top)
+var highest := 0.0 # the flyer was this high
+var anchors := 0 # the chart's anchor moved so many times
 var groves: Array[MultiMeshInstance3D] = []
 var water := MeshInstance3D.new()
 var cities: Array[MultiMeshInstance3D] = [] # the towns' buildings, a lot each: the near ones, and the far
@@ -102,6 +143,7 @@ var fires: Array[ShaderMaterial] = [] # the flames' light and its heart
 var searchlight := SpotLight3D.new()
 var lamp := OmniLight3D.new()
 var hud := CanvasLayer.new()
+var touch := Touch.new() # the controls on a touchscreen
 var title := Label.new()
 var hint := Label.new()
 var score := Label.new()
@@ -150,6 +192,7 @@ var gem_mesh: ArrayMesh # a beacon's gem, and its motes
 var motes_mesh: ArrayMesh
 var clouds: Array[MultiMeshInstance3D] = [] # the low clouds, and the mist
 var clouded := 0.0 # how deep in a cloud the camera is
+var mist_density := 0.006 # of the haze over the sea, at the sea
 var falling := ShaderMaterial.new() # the drops and flakes around the camera
 var shower := MultiMeshInstance3D.new()
 var fallen: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO] # how far the rain and the snow have fallen and drifted
@@ -168,6 +211,7 @@ var aim: Vector3 = SHOTS[0][1]
 var view_led: Vector3 = view # what the view follows on its way to the next: it sets off gently
 var aim_led: Vector3 = aim
 var fov_led := 66.0
+var fov_seen := 66.0 # the angle of view on its way there
 var autopilot_seconds := 0.0
 var elapsed := 0.0
 var frames := 0
@@ -190,12 +234,28 @@ func option(name: String, otherwise: float) -> float:
 
 
 func _ready() -> void:
+	# A screen held upright (a phone's): the game fills it, in its shape, with no more pixels than
+	# 1080 by 1920 and no taller than a surface of gpu@0 may be. A screen that lies on its side keeps
+	# the game's 1920 by 1080, which the page fits into it.
+	var page := DisplayServer.screen_get_size()
+	if page.x > 0 and float(page.y) / page.x > 1.1:
+		var fit := minf(1.0, minf(sqrt(1080.0 * 1920.0 / float(page.x * page.y)), 2304.0 / page.y))
+		get_window().size = Vector2i(maxi(int(page.x * fit) / 2 * 2, 2), maxi(int(page.y * fit) / 2 * 2, 2))
 	autopilot_seconds = option("--autopilot", 0.0)
 	day = option("--day", day * 24.0) / 24.0
 	year = option("--season", year)
 	build_light()
-	for ring: Array in RINGS:
-		grounds.append(build_ground(ring[0] + 4, ring[1]))
+	add_child(ground_life)
+	var up := Vector3(cos(START_LONGITUDE), 0.0, sin(START_LONGITUDE))
+	Terrain.anchor = Basis(up.cross(Vector3.UP), up, Vector3.UP)
+	weather = Terrain.anchor * Vector3(9.0, 0.0, 3.5)
+	sun_frame = Terrain.anchor
+	tour = option("--tour", 0.0)
+	tour_top = option("--top", tour_top)
+	rebake = option("--rebake", 0.0)
+	for ring in OWN:
+		grounds.append(build_ground(RINGS[ring][0] + 4, RINGS[ring][1]))
+	build_planet()
 	var hole := 0.0
 	for ring in RINGS.size():
 		var across: int = RINGS[ring][0]
@@ -208,7 +268,12 @@ func _ready() -> void:
 		land.mesh = plane
 		land.material_override = reads_ground(preload("res://land.gdshader"), ring)
 		materials[-1].set_shader_parameter("hole", hole)
-		land.custom_aabb = AABB(Vector3(-across * cell / 2.0, 0, -across * cell / 2.0), Vector3(across * cell, 260, across * cell))
+		materials[-1].set_shader_parameter("seas", ring >= 3)
+		land.custom_aabb = AABB(Vector3.ONE * -1e7, Vector3.ONE * 2e7)
+		if ring >= 3:
+			land.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# What reads the planet's ground waits until it is drawn.
+		land.visible = ring < OWN
 		# Every grid casts shadows: a low sun lays a far mountain's over the land near by, and it
 		# would come at once as a finer grid stepped under the mountain.
 		add_child(land)
@@ -239,13 +304,16 @@ func _ready() -> void:
 		cities.append(town)
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(8000, 8000)
+	plane.subdivide_width = 79
+	plane.subdivide_depth = 79
 	water.mesh = plane
+	water.custom_aabb = AABB(Vector3.ONE * -1e5, Vector3.ONE * 2e5)
 	water.material_override = reads_ground(preload("res://water.gdshader"), 1)
 	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(water)
 	build_pod()
 	build_flyer()
-	camera.far = 3000.0
+	camera.far = 3.0e6
 	camera.fov = fov_led
 	camera.near = 0.3
 	add_child(camera)
@@ -325,6 +393,13 @@ func _ready() -> void:
 	shower.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(shower)
 	flyer.position = Vector3(START.x, Terrain.surface(START) + 30.0, START.y)
+	# With --high the flight by itself starts at that height and keeps it.
+	var held_at := option("--high", 0.0)
+	if held_at > 0.0:
+		lowered = maxf(held_at - 8000.0, 0.0)
+		flyer.position.y = held_at - lowered
+		tour_phase = 2
+		tour_held = -1e9
 	baked.shader = preload("res://baked.gdshader")
 	materials.append(baked)
 	warm_up()
@@ -338,7 +413,7 @@ func _ready() -> void:
 	set_level(int(option("--level", 0.0)))
 	if autopilot_seconds <= 0.0:
 		# The page gives the pointer at a click, and takes it back at Escape.
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.emulate_touch_from_mouse else Input.MOUSE_MODE_CAPTURED
 	else:
 		print("FLYOVER adapter ", RenderingServer.get_video_adapter_name(), " ", RenderingServer.get_current_rendering_method())
 
@@ -354,6 +429,9 @@ func set_level(to: int) -> void:
 	environment.ssao_enabled = what[3]
 	sun.directional_shadow_mode = what[4]
 	sun.directional_shadow_max_distance = what[5]
+	# The weakest level has no shadows of the sun: they are the 2 ms a frame that an even 30 a
+	# second on an integrated GPU lacks since the world is a planet.
+	sun.shadow_enabled = level < LEVELS.size() - 1
 	# A weak adapter has a smaller map for its shadows and a smaller sky to light the scene by.
 	RenderingServer.directional_shadow_atlas_set_size(4096 if level < 2 else 2048, true)
 	environment.sky.radiance_size = Sky.RADIANCE_SIZE_256 if level < 2 else Sky.RADIANCE_SIZE_64
@@ -412,7 +490,7 @@ func pace(delta: float) -> void:
 		set_level(level + (4 if mean > FRAME_BUDGET * 8.0 else 3 if mean > FRAME_BUDGET * 5.0 else 2 if mean > FRAME_BUDGET * 2.5 else 1))
 	elif mean > FRAME_BUDGET:
 		# Even at the rate the adapter holds: a half, a third or a quarter of the display's.
-		Engine.max_fps = 30 if mean < (27.0 if Engine.max_fps == 30 else 22.0) else 20 if mean < 36.0 else 12
+		Engine.max_fps = 30 if mean < (27.0 if Engine.max_fps == 30 else 24.0) else 20 if mean < 36.0 else 12
 	elif mean < FRAME_BUDGET * 0.35 and level > 0:
 		calm_windows += 1
 		if calm_windows > 120:
@@ -479,13 +557,54 @@ func reads_ground(shader: Shader, ring: int) -> ShaderMaterial:
 	var beyond := mini(ring + 1, RINGS.size() - 1)
 	var material := ShaderMaterial.new()
 	material.shader = shader
-	material.set_shader_parameter("ground", grounds[ring].get_texture())
-	material.set_shader_parameter("ground_beyond", grounds[beyond].get_texture())
+	if ring < OWN:
+		material.set_shader_parameter("ground", grounds[ring].get_texture())
+	if beyond < OWN:
+		material.set_shader_parameter("ground_beyond", grounds[beyond].get_texture())
+	material.set_shader_parameter("planet_ground", planet.get_texture())
+	material.set_shader_parameter("source", 0 if beyond < OWN else 1 if ring < OWN else 2)
 	material.set_shader_parameter("cell", RINGS[ring][1])
 	material.set_shader_parameter("cell_beyond", RINGS[beyond][1])
-	material.set_shader_parameter("reach", (RINGS[ring][0] * RINGS[ring][1] - STEP) / 2.0)
+	material.set_shader_parameter("reach", (RINGS[ring][0] * RINGS[ring][1] - ring_step(ring)) / 2.0)
 	materials.append(material)
 	return material
+
+
+## The step a grid follows the flight in.
+static func ring_step(ring: int) -> float:
+	return maxf(STEP, RINGS[mini(ring + 1, RINGS.size() - 1)][1])
+
+
+## The whole planet's ground as a texture (ground.gdshader's `whole`), drawn once at the start.
+func build_planet() -> void:
+	planet = SubViewport.new()
+	planet.size = PLANET_TEXELS
+	planet.use_hdr_2d = true
+	planet.transparent_bg = true
+	planet.disable_3d = true
+	planet.render_target_update_mode = SubViewport.UPDATE_ONCE
+	var strip := ColorRect.new()
+	strip.size = PLANET_TEXELS
+	var material := ShaderMaterial.new()
+	material.shader = preload("res://ground.gdshader")
+	material.set_shader_parameter("whole", true)
+	material.set_shader_parameter("whole_size", Vector2(PLANET_TEXELS))
+	strip.material = material
+	planet.add_child(strip)
+	add_child(planet)
+
+
+## Once the planet's ground is drawn, the far grids show.
+func draw_planet() -> void:
+	planet_frames += 1
+	# With --rebake SECOND the planet's ground is drawn again then: that frame's time is its cost.
+	if rebake > 0.0 and elapsed > rebake:
+		rebake = 0.0
+		planet.render_target_update_mode = SubViewport.UPDATE_ONCE
+		print("FLYOVER rebake at frame ", planet_frames)
+	if planet_frames == 3:
+		for ring in range(OWN, RINGS.size()):
+			lands[ring].visible = true
 
 
 ## Gives a grid so many instances for each of its plots (a shader tells them apart by their number).
@@ -601,7 +720,7 @@ func build_grid(mesh: Mesh, across: int, plot: float, material: Material) -> Mul
 	instance.material_override = material
 	var half := (across / 2.0 + 1.0) * plot
 	instance.custom_aabb = AABB(Vector3(-half, 0, -half), Vector3(half * 2.0, 280, half * 2.0))
-	add_child(instance)
+	ground_life.add_child(instance)
 	return instance
 
 
@@ -620,6 +739,8 @@ func build_ground(texels: int, cell: float) -> SubViewport:
 	material.shader = preload("res://ground.gdshader")
 	material.set_shader_parameter("cell", cell)
 	material.set_shader_parameter("texels", float(texels))
+	material.set_shader_parameter("anchor_frame", Terrain.anchor)
+	charts.append(material)
 	points.material = material
 	viewport.add_child(points)
 	add_child(viewport)
@@ -852,6 +973,9 @@ func ride(delta: float) -> void:
 	# The wakes keep a place for every stretch flown, the newest at the board's tail: each exactly
 	# a stretch from the one before, so the ribbon's pattern keeps its place as one is added.
 	wake[0] = flyer.to_global(Vector3(0, -0.3, 3.0))
+	if wake[0].distance_to(wake[1]) > WAKE * WAKE_APART:
+		for place in range(1, WAKE):
+			wake[place] = wake[0] + flyer.global_basis.z * place * WAKE_APART
 	while wake[0].distance_to(wake[1]) > WAKE_APART:
 		wake.insert(1, wake[1] + (wake[0] - wake[1]).normalized() * WAKE_APART)
 		wake.resize(WAKE)
@@ -967,6 +1091,10 @@ func build_hud() -> void:
 	streaks.material = speed_lines
 	hud.add_child(streaks)
 	hud.move_child(streaks, 0)
+	touch.game = self
+	hud.add_child(touch)
+	# With --touch the mouse is a finger, for trying the touch controls at a desk.
+	Input.emulate_touch_from_mouse = option("--touch", 0.0) > 0.0
 	show_helm()
 
 
@@ -975,8 +1103,14 @@ func show_helm() -> void:
 	hint.visible = autopilot_seconds <= 0.0
 	hint_until = elapsed + 7.0
 	helm_shown = helm
-	hint.text = "The corgi flies itself. Enter or a click takes the board.    Wheel or Z, X: zoom    Q: quit" if not helm \
-		else "Arrows or WASD: steer, climb, dive    %s    Wheel or Z, X: zoom    T: hours    Esc: let go    Q: quit" % ("Mouse: look" if captured else "Click: mouse look")
+	if touch.active:
+		# A phone's screen is small: larger words, in lines that fit it upright.
+		hint.add_theme_font_size_override("font_size", 38)
+		hint.text = "The corgi flies itself.\nA touch takes the board." if not helm \
+			else "Left thumb: steer, up to climb, down to dive\nA finger elsewhere: look    Two fingers: zoom\nKeep climbing to leave the planet"
+		return
+	hint.text = "The corgi flies itself. Enter, a click or a touch takes the board.    Wheel or Z, X: zoom    Q: quit" if not helm \
+		else "Arrows or WASD: steer, climb, dive    Keep climbing to leave the planet    %s    Wheel or Z, X: zoom    T: hours    Esc: let go    Q: quit" % ("Mouse: look" if captured else "Click: mouse look")
 
 
 func _input(event: InputEvent) -> void:
@@ -988,6 +1122,12 @@ func _input(event: InputEvent) -> void:
 		var motion := (event as InputEventMouseMotion).relative
 		look.x += motion.x * 0.0035
 		look.y = clampf(look.y + motion.y * 0.0035, -0.5, 1.0)
+	if event is InputEventScreenTouch:
+		touch.touched(event)
+		if helm != helm_shown:
+			show_helm()
+	elif event is InputEventScreenDrag:
+		touch.dragged(event)
 	if event is InputEventMouseButton and event.pressed:
 		match (event as InputEventMouseButton).button_index:
 			MOUSE_BUTTON_WHEEL_UP:
@@ -1002,7 +1142,8 @@ func _input(event: InputEvent) -> void:
 		KEY_ESCAPE:
 			helm = false
 		KEY_Q:
-			print("FLYOVER flown %d beacons %d view %d %d" % [int(flown), lit.size(), int(rad_to_deg(looked.x)), int(rad_to_deg(looked.y))])
+			print("FLYOVER flown %d beacons %d view %d %d" % [int(flown), scored + lit.size(), int(rad_to_deg(looked.x)), int(rad_to_deg(looked.y))])
+			print("FLYOVER helm %d high %d heading %d zoom %.2f touches %d" % [int(helm), int(flyer.position.y + lowered), int(rad_to_deg(heading)), zoom, touch.touches])
 			leave()
 	if helm != helm_shown:
 		show_helm()
@@ -1045,25 +1186,36 @@ func _process(delta: float) -> void:
 	day = fposmod(day + delta * hours / DAY_SECONDS, 1.0)
 	year = fposmod(year + delta * hours / DAY_SECONDS / YEAR_DAYS, 1.0)
 	tell("clock", elapsed)
-	set_day()
+	draw_planet()
 	fly(delta)
-	tend_beacons(delta)
-	tend_landmarks()
+	set_day()
+	# What lives near the ground has gone by degrees by 5,000 units up (the trees and towns
+	# under the haze, the low clouds, beacons and landmarks by their height's share), and is
+	# not drawn from over 9,000.
+	if flyer.position.y + lowered < 6000.0:
+		tend_beacons(delta)
+		tend_landmarks()
+	else:
+		let_go()
+	ground_life.visible = flyer.position.y + lowered < (9000.0 if ground_life.visible else 8000.0)
+	flock.visible = flyer.position.y + lowered < (2600.0 if flock.visible else 2000.0)
 	follow(delta)
 	speed_lines.set_shader_parameter("rush", clampf((speed - CRUISE - 4.0) / 30.0, 0.0, 1.0))
 	speed_lines.set_shader_parameter("clock", elapsed)
 	title.modulate.a = clampf(9.0 - elapsed, 0.0, 1.0)
 	hint.modulate.a = clampf(hint_until - elapsed, 0.0, 1.0)
 	# The score swells as a beacon is lit.
-	shown_score = lerpf(shown_score, lit.size(), 1.0 - exp(-delta * 6.0))
-	score.text = str(lit.size())
-	score.scale = Vector2.ONE * (1.0 + 0.5 * sin(PI * clampf(lit.size() - shown_score, 0.0, 1.0)))
+	shown_score = lerpf(shown_score, scored + lit.size(), 1.0 - exp(-delta * 6.0))
+	score.text = str(scored + lit.size())
+	score.scale = Vector2.ONE * (1.0 + 0.5 * sin(PI * clampf(scored + lit.size() - shown_score, 0.0, 1.0)))
 	if autopilot_seconds > 0.0:
 		watch()
 
 
 func fly(delta: float) -> void:
 	var here := Vector2(flyer.position.x, flyer.position.z)
+	var alt := flyer.position.y + lowered
+	var soar := 1.0 + maxf(alt - SOARS_FROM, 0.0) / SOARS_BY
 	var forward := Vector3(sin(heading), 0.0, -cos(heading))
 	# What stands on the way of the next second and a half, along the turn the board is in: the
 	# highest of it, and the climb that clears all of it in the time the board takes to reach it.
@@ -1073,23 +1225,25 @@ func fly(delta: float) -> void:
 	for step in 12:
 		var time := step * 0.14
 		var way := heading + turn * 0.55 * time / 2.0
-		var top := Terrain.roof(here + Vector2(sin(way), -cos(way)) * maxf(speed, 30.0) * time)
+		if alt > 3000.0:
+			break
+		var top := Terrain.roof(here + Vector2(sin(way), -cos(way)) * maxf(speed, 30.0) * soar * time)
 		# An island that floats on the way is passed over or under, by where the board is.
-		var isle := Terrain.island(here + Vector2(sin(way), -cos(way)) * maxf(speed, 30.0) * time)
+		var isle := Terrain.island(here + Vector2(sin(way), -cos(way)) * maxf(speed, 30.0) * soar * time)
 		if isle != Vector2.ZERO:
-			if flyer.position.y > (isle.x + isle.y) / 2.0:
+			if alt > (isle.x + isle.y) / 2.0:
 				top = maxf(top, isle.y)
 			else:
 				under = minf(under, isle.x)
 		ground = maxf(ground, top)
-		must = maxf(must, (top + 5.0 - flyer.position.y) / maxf(time, 0.25))
+		must = maxf(must, (top + 5.0 - alt) / maxf(time, 0.25))
 	var wanted_turn: float
 	var wanted_climb: float
 	# The flight keeps what it gains: a dive gives speed and a climb takes it, the wind at the
 	# back gives a little, and low over the sea the board skims and runs faster still.
 	var wanted_speed := CRUISE + clampf(-climb * 1.2, -9.0, 18.0) + 5.0 * WIND.dot(Vector2(forward.x, forward.z))
 	var over_sea := Terrain.height(here) < Terrain.SEA
-	skim = lerpf(skim, smoothstep(13.0, 8.5, flyer.position.y - Terrain.SEA) if over_sea else 0.0, 1.0 - exp(-delta * 3.0))
+	skim = lerpf(skim, smoothstep(13.0, 8.5, alt - Terrain.SEA) if over_sea else 0.0, 1.0 - exp(-delta * 3.0))
 	wanted_speed += 14.0 * skim
 	tell("skims", Vector3(flyer.position.x, flyer.position.z, skim))
 	# Dolphins come up beside a board that skims the sea, and leap along with it.
@@ -1103,19 +1257,37 @@ func fly(delta: float) -> void:
 		one.rotation = Vector3(cos(phase) * 0.7, -heading, 0)
 	# Where the wind meets a slope it rises, and carries the board up with it near the ground.
 	var slope := (Terrain.height(here + WIND * 14.0) - Terrain.height(here - WIND * 14.0)) / 28.0
-	var updraft := clampf(slope, 0.0, 1.0) * 9.0 * smoothstep(70.0, 20.0, flyer.position.y - ground)
-	updraft += tend_thermals()
+	var updraft := clampf(slope, 0.0, 1.0) * 9.0 * smoothstep(70.0, 20.0, alt - ground)
+	if alt < 6000.0:
+		updraft += tend_thermals()
 	# A beacon's push: it comes on in under a second and wears off over the next six.
 	var since := elapsed - pushed
 	wanted_speed += BOOST * smoothstep(0.0, 0.7, since) * (1.0 - smoothstep(2.5, 6.5, since))
 	wanted_speed += fly_flock(delta, forward)
 	if helm:
-		wanted_turn = Input.get_axis("ui_left", "ui_right") + key_axis(KEY_A, KEY_D)
-		wanted_climb = (Input.get_axis("ui_down", "ui_up") + key_axis(KEY_S, KEY_W)) * 14.0
+		var thumb: Vector2 = touch.push()
+		wanted_turn = Input.get_axis("ui_left", "ui_right") + key_axis(KEY_A, KEY_D) + thumb.x
+		wanted_climb = clampf(Input.get_axis("ui_down", "ui_up") + key_axis(KEY_S, KEY_W) + thumb.y, -1.0, 1.0) * 14.0
 		# The ground pushes the board up, and its ceiling holds it down.
-		wanted_climb = maxf(wanted_climb, (ground + (8.0 if over_sea else 14.0) - flyer.position.y) * 2.0)
-		wanted_climb = minf(wanted_climb, (maxf(CEILING, ground + 45.0) - flyer.position.y) * 2.0)
+		wanted_climb = maxf(wanted_climb, (ground + (8.0 if over_sea else 14.0) - alt) * 2.0)
+		# No ceiling but space's: the board climbs out of the air, and the planet falls away.
+		wanted_climb = minf(wanted_climb, (SPACE - alt) / soar)
+	elif tour_phase > 0:
+		# The tour: up until the planet is whole, a look around it, and down again.
+		wanted_turn = 0.25 if tour_phase == 2 else 0.0
+		wanted_climb = 14.0 if tour_phase == 1 else 0.0 if tour_phase == 2 else -14.0
+		if tour_phase == 1 and alt > tour_top:
+			tour_phase = 2
+		elif tour_phase == 2:
+			tour_held += delta
+			if tour_held > 14.0:
+				tour_phase = 3
+		elif tour_phase == 3 and alt < maxf(ground + 60.0, CEILING * 0.5):
+			tour_phase = 0
+		wanted_climb = maxf(wanted_climb, (ground + 24.0 - alt) * 0.7)
 	else:
+		if tour > 0.0 and elapsed > tour and tour_held == 0.0:
+			tour_phase = 1
 		# A wandering course at a steady height over the ground ahead, by way of the next beacon.
 		wanted_turn = sin(flown * 0.0037) * 0.5 + sin(flown * 0.0013 + 1.0) * 0.4
 		var height := ground + 22.0
@@ -1125,9 +1297,9 @@ func fly(delta: float) -> void:
 			wanted_turn = clampf(forward.signed_angle_to(Vector3(to.x, 0.0, to.z), Vector3.DOWN) * 2.5, -1.0, 1.0)
 			if Vector2(to.x, to.z).length() < 110.0:
 				height = maxf(ground + 10.0, beacon.position.y)
-		wanted_climb = clampf((height - flyer.position.y) * 0.7, -9.0, 14.0)
+		wanted_climb = clampf((height - alt) * 0.7, -9.0, 14.0)
 	if under < INF:
-		wanted_climb = minf(wanted_climb, (under - 9.0 - flyer.position.y) * 2.0)
+		wanted_climb = minf(wanted_climb, (under - 9.0 - alt) * 2.0)
 		must = -INF
 	var ease := 1.0 - exp(-delta * 2.5)
 	turn = lerpf(turn, clampf(wanted_turn, -1.0, 1.0), ease)
@@ -1137,21 +1309,55 @@ func fly(delta: float) -> void:
 	speed = lerpf(speed, wanted_speed, 1.0 - exp(-delta * 1.2))
 	heading += turn * 0.55 * delta
 	flown += speed * delta
-	flyer.position += forward * speed * delta + Vector3.UP * (climb + updraft) * delta
-	flyer.position.y = maxf(flyer.position.y, Terrain.surface(Vector2(flyer.position.x, flyer.position.z)) + 10.0)
+	# High up a step is `soar` times longer. What follows the flyer (the camera, the wakes, the
+	# birds) is carried along by all of the step but the board's own, so up there they see the
+	# board fly as it does below, and the planet turn under it.
+	var stride := (forward * speed + Vector3.UP * (climb + updraft)) * delta
+	flyer.position += stride * soar
+	carry(stride * (soar - 1.0))
+	if alt < 3000.0:
+		flyer.position.y = maxf(flyer.position.y, Terrain.surface(Vector2(flyer.position.x, flyer.position.z)) + 10.0 - lowered)
+	keep_low()
+	move_anchor()
+	highest = maxf(highest, flyer.position.y + lowered)
 	# The board banks into its turns and noses up into its climbs.
 	flyer.rotation = Vector3(clampf(climb, -20.0, 24.0) * 0.02, -heading, -turn * 0.6)
 	engine.pitch_scale = 0.8 + speed / CRUISE * 0.3
+	# No air carries the engines' sound in space.
+	engine.volume_db = -16.0 - 50.0 * (1.0 - exp(-alt / (AIR * 3.0)))
 	ride(delta)
-	var middle := Vector2(snappedf(flyer.position.x, STEP), snappedf(flyer.position.z, STEP))
-	if lands[0].position.x != middle.x or lands[0].position.z != middle.y:
-		for ring in RINGS.size():
-			var cell: float = RINGS[ring][1]
+	var high := flyer.position.y + lowered
+	for ring in RINGS.size():
+		var cell: float = RINGS[ring][1]
+		var step := ring_step(ring)
+		var middle := Vector2(snappedf(flyer.position.x, step), snappedf(flyer.position.z, step))
+		# A grid with a texture of its own is not drawn once the flyer is 300 of its cells high:
+		# by then it shows the coarser grid's ground (ground.gdshaderinc), which that grid then
+		# draws itself, its square filled. Its ground is drawn anew when it is next seen.
+		var shown := ring >= OWN or high < 300.0 * cell
+		if lands[ring].position.x != middle.x or lands[ring].position.z != middle.y or stale[ring]:
+			stale[ring] = not shown
 			lands[ring].position = Vector3(middle.x, 0.0, middle.y)
-			# The texture's first point is one before the grid's own, for the slopes at its edge.
-			(grounds[ring].get_child(0) as ColorRect).material.set_shader_parameter("first", (middle / cell).round() - Vector2.ONE * (RINGS[ring][0] / 2 + 1))
-			grounds[ring].render_target_update_mode = SubViewport.UPDATE_ONCE
-		tell("middle", middle)
+			if ring < OWN and shown:
+				# The texture's first point is one before the grid's own, for the slopes at its edge.
+				(grounds[ring].get_child(0) as ColorRect).material.set_shader_parameter("first", (middle / cell).round() - Vector2.ONE * (RINGS[ring][0] / 2 + 1))
+				grounds[ring].render_target_update_mode = SubViewport.UPDATE_ONCE
+			if ring + 1 < RINGS.size():
+				(lands[ring + 1].material_override as ShaderMaterial).set_shader_parameter("middle", middle)
+		if ring < OWN:
+			lands[ring].visible = shown
+			(lands[ring + 1].material_override as ShaderMaterial).set_shader_parameter("hole", RINGS[ring][0] * cell / 2.0 if lands[ring].visible else 0.0)
+	# The chart, and the flyer in it, for every vertex stage (terrain.gdshaderinc's lift).
+	var over_ground := Vector2(flyer.position.x, flyer.position.z)
+	tell("flyer_over", over_ground)
+	tell("flyer_dir", Terrain.chart_dir(over_ground))
+	tell("flyer_frame", Terrain.chart_frame(over_ground).transposed())
+	tell("anchor_frame", Terrain.anchor)
+	tell("lowered", lowered)
+	tell("altitude", high)
+	tell("drift", weather * elapsed)
+	tell("weather_near", Terrain.weather(over_ground, weather * elapsed))
+	tell("realm_near", Terrain.realm(over_ground))
 	var among := Vector2(snappedf(flyer.position.x, PLOT * 4.0), snappedf(flyer.position.z, PLOT * 4.0))
 	for grove in groves:
 		grove.position = Vector3(among.x, 0.0, among.y)
@@ -1171,8 +1377,70 @@ func fly(delta: float) -> void:
 	# The clouds drift with the wind.
 	tell("adrift", WIND * elapsed * 4.0)
 	tell("flyer", Vector2(flyer.position.x, flyer.position.z))
-	tell("flyer_at", flyer.position)
+	tell("flyer_at", flyer.position + Vector3(0.0, lowered, 0.0))
 	water.position = Vector3(flyer.position.x, Terrain.SEA - 0.2, flyer.position.z)
+
+
+## Moves what follows the flyer by that much.
+func carry(by: Vector3) -> void:
+	trail += by
+	flock_at += by
+	for bird in birds.size():
+		birds[bird] += by
+	for place in wake.size():
+		wake[place] += by
+
+
+## Once the flyer is high, a height is taken off everything drawn (the shaders' `lowered`), in
+## steps: float32 has steps of a sixteenth of a unit at a million, which would shake a close
+## view of the flyer by some pixels. The flyer's own height stays under 14,000.
+func keep_low() -> void:
+	var by := 0.0
+	if flyer.position.y > 14000.0:
+		by = floorf((flyer.position.y - 4000.0) / LOWERED_STEP) * LOWERED_STEP
+	elif flyer.position.y < 2000.0 and lowered > 0.0:
+		by = -minf(lowered, ceilf((2000.0 - flyer.position.y) / LOWERED_STEP) * LOWERED_STEP)
+	if by != 0.0:
+		lowered += by
+		flyer.position.y -= by
+		carry(Vector3.DOWN * by)
+
+
+## High up, where nothing that stands on the chart's lattice is seen, the chart's anchor moves
+## under the flyer once it is far from it: the new chart's axes are the old one's at that place,
+## so the heading stays, and the flyer is at the new chart's origin. What kept a place in the
+## old chart is let go, and the grids' grounds are drawn anew.
+func move_anchor() -> void:
+	var here := Vector2(flyer.position.x, flyer.position.z)
+	if flyer.position.y + lowered < ANCHOR_FROM or here.length() < ANCHOR_REACH:
+		return
+	Terrain.anchor = (Terrain.anchor * Terrain.chart_frame(here)).orthonormalized()
+	Terrain.marks.clear()
+	Terrain.slow_place = Vector3(INF, INF, INF)
+	flyer.position -= Vector3(here.x, 0.0, here.y)
+	carry(-Vector3(here.x, 0.0, here.y))
+	for chart in charts:
+		chart.set_shader_parameter("anchor_frame", Terrain.anchor)
+	scored += lit.size()
+	lit.clear()
+	let_go()
+	stale.fill(true)
+	anchors += 1
+
+
+## Frees what stands at places of the chart: the beacons, the thermals and the landmarks.
+func let_go() -> void:
+	if rings_run:
+		# The rings of light from lit beacons are told by tend_beacons, which no longer runs.
+		var none := PackedVector4Array()
+		none.resize(8)
+		tell("pulses", none)
+		rings_run = false
+	for kept: Dictionary in [beacons, thermals, landmarks]:
+		for plot: Vector2i in kept:
+			if kept[plot]:
+				kept[plot].queue_free()
+		kept.clear()
 
 
 ## The flock: sixteen birds that wait ahead of the board, fall in behind it in a wedge when it
@@ -1281,7 +1549,7 @@ func tend_landmarks() -> void:
 	for plot: Vector2i in landmarks:
 		var mark: Node3D = landmarks[plot]
 		if mark:
-			Landmarks.tend(mark, elapsed, night_share, 1.0 - smoothstep(700.0, 880.0, Vector2(mark.position.x, mark.position.z).distance_to(here)))
+			Landmarks.tend(mark, elapsed, night_share, (1.0 - smoothstep(700.0, 880.0, Vector2(mark.position.x, mark.position.z).distance_to(here))) * (1.0 - smoothstep(3000.0, 5500.0, flyer.position.y)))
 
 
 ## Keeps the thermals of the plots around the flyer: over a town, by day, a column of warm air
@@ -1319,7 +1587,7 @@ func tend_thermals() -> float:
 		if column.get_child_count() == 0:
 			continue
 		var apart := Vector2(column.position.x - flyer.position.x, column.position.z - flyer.position.z).length()
-		var strength := (1.0 - night_share) * (1.0 - smoothstep(230.0, 340.0, apart))
+		var strength := (1.0 - night_share) * (1.0 - smoothstep(230.0, 340.0, apart)) * (1.0 - smoothstep(2500.0, 5000.0, flyer.position.y))
 		var air := (column.get_child(0) as MeshInstance3D).material_override as ShaderMaterial
 		air.set_shader_parameter("strength", strength)
 		air.set_shader_parameter("clock", elapsed)
@@ -1382,7 +1650,7 @@ func tend_beacons(delta: float) -> void:
 		burst.visible = bursting < 1.6
 		burst.scale = Vector3.ONE * (1.0 + 26.0 * (1.0 - exp(-bursting * 2.2)))
 		(burst.material_override as StandardMaterial3D).albedo_color.a = 0.8 * (1.0 - smoothstep(0.2, 1.6, bursting))
-		var seen := 1.0 - smoothstep(230.0, 340.0, Vector2(beacon.position.x - flyer.position.x, beacon.position.z - flyer.position.z).length())
+		var seen := (1.0 - smoothstep(230.0, 340.0, Vector2(beacon.position.x - flyer.position.x, beacon.position.z - flyer.position.z).length())) * (1.0 - smoothstep(2500.0, 5000.0, flyer.position.y))
 		# A beacon takes its light by degrees once it is lit.
 		var alight: float = lerpf(beacon.get_meta("alight"), 1.0 if lit.has(plot) else 0.0, 1.0 - exp(-delta * 3.0))
 		beacon.set_meta("alight", alight)
@@ -1411,11 +1679,12 @@ func tend_beacons(delta: float) -> void:
 	var newest := lit.values()
 	newest.reverse()
 	for at: Vector4 in newest:
-		var strength := 1.0 - smoothstep(520.0, 760.0, Vector2(at.x, at.y).distance_to(here))
+		var strength := (1.0 - smoothstep(520.0, 760.0, Vector2(at.x, at.y).distance_to(here))) * (1.0 - smoothstep(2500.0, 5000.0, flyer.position.y))
 		if strength > 0.0 and pulses.size() < 8:
 			pulses.append(Vector4(at.x, at.y, elapsed - at.z, strength))
 	pulses.resize(8)
 	tell("pulses", pulses)
+	rings_run = true
 
 
 ## A crystal that turns over the ground, a light, and a shaft of light seen from far off.
@@ -1532,7 +1801,12 @@ func follow(delta: float) -> void:
 	fov_led = lerpf(fov_led, shot[2], glide)
 	view = view.lerp(view_led, glide)
 	aim = aim.lerp(aim_led, glide)
-	camera.fov = lerpf(camera.fov, fov_led, glide)
+	# A screen held upright takes its angle of view across: the flyer and the land beside it
+	# stay in it, and it sees further up and down.
+	var upright := get_viewport().get_visible_rect().size.aspect() < 1.0
+	camera.keep_aspect = Camera3D.KEEP_WIDTH if upright else Camera3D.KEEP_HEIGHT
+	fov_seen = lerpf(fov_seen, fov_led, glide)
+	camera.fov = fov_seen * (0.82 if upright else 1.0)
 	# The mouse turns the view around the flyer while the player has the board; let go, the view
 	# comes back the short way round.
 	if not helm:
@@ -1549,7 +1823,13 @@ func follow(delta: float) -> void:
 	turned = lerp_angle(turned, heading, late)
 	zoom = clampf(zoom * exp(key_axis(KEY_Z, KEY_X) * delta * 1.2), 0.45, 3.2)
 	zoomed = lerpf(zoomed, zoom, 1.0 - exp(-delta * 6.0))
-	var frame := Basis(Vector3.UP, -turned - looked.x) * Basis(Vector3.RIGHT, -looked.y)
+	# From high up the camera looks down: the planet's rim lies under eye level by the dip of
+	# the horizon. Most of the dip is added to the view's pitch, and from space more than
+	# that, toward straight down: the flyer is then seen over the planet, which is near the
+	# view's middle and round in it (a sphere at a wide view's edge is drawn out).
+	var dip := acos(Terrain.RADIUS / (Terrain.RADIUS + maxf(flyer.position.y + lowered, 0.0)))
+	var down := smoothstep(0.03, 0.9, dip)
+	var frame := Basis(Vector3.UP, -turned - looked.x) * Basis(Vector3.RIGHT, -looked.y - dip * 0.9 * down - (PI / 2.0 - dip) * 0.6 * down * down)
 	# A close view looks at the corgi, from its own height.
 	var close := Vector3(0, 2.4, 0) * (1.0 - smoothstep(0.45, 1.0, zoomed)) * (1.0 if helm else 0.0)
 	var place := trail + frame * (aim + close + (view - aim) * zoomed)
@@ -1561,26 +1841,39 @@ func follow(delta: float) -> void:
 		ground = maxf(ground, Terrain.roof(Vector2(place.x, place.z) + Vector2(sin(heading), -cos(heading)) * step * 15.0))
 	for beside in 6:
 		ground = maxf(ground, Terrain.roof(Vector2(place.x, place.z) + Vector2.from_angle(beside * TAU / 6.0) * 14.0))
-	var over := place.y - ground - 6.0
+	var over := place.y + lowered - ground - 6.0
 	var wanted_lift := (sqrt(over * over + 9.0) - over) / 2.0
 	lift = lerpf(lift, wanted_lift, 1.0 - exp(-delta * (9.0 if wanted_lift > lift else 3.0)))
 	place.y += lift
 	camera.position = place
 	camera.look_at(flyer.position + frame * (aim + close))
-	tell("eye", camera.position)
+	var eye_height := camera.position.y + lowered
+	# Higher up the nearest thing drawn is the flyer, and the furthest the planet's other rim.
+	camera.near = lerpf(0.3, 1.2, smoothstep(2000.0, 20000.0, eye_height))
+	tell("eye", camera.position + Vector3(0.0, lowered, 0.0))
 	# It rains, or in winter snows, where the cloud over the camera is deep.
-	var above := (Vector2(camera.position.x, camera.position.z) + Vector2(9.0, 3.5) * elapsed) / 1000.0
-	falls = lerpf(falls, smoothstep(0.66, 0.78, Terrain.fbm(above + Vector2(31.0, 7.0), 3)), 1.0 - exp(-delta * 1.5))
+	var cloud_over := Terrain.cloud_depth(Vector2(camera.position.x, camera.position.z), weather * elapsed)
+	falls = lerpf(falls, smoothstep(0.66, 0.78, cloud_over) * (1.0 - smoothstep(Terrain.CLOUD_HEIGHT - 60.0, Terrain.CLOUD_HEIGHT, eye_height)), 1.0 - exp(-delta * 1.5))
 	sky_material.set_shader_parameter("rains", falls)
 	# Rain is heard (snow is not), and so is the sea under a low flight.
 	patter.volume_db = linear_to_db(maxf(0.22 * falls * (1.0 - season_share(0.85)), 0.0001))
-	var over_sea_by := flyer.position.y - Terrain.SEA
+	var over_sea_by := flyer.position.y + lowered - Terrain.SEA
 	var sea_near := (1.0 - smoothstep(14.0, 70.0, over_sea_by)) if Terrain.height(Vector2(flyer.position.x, flyer.position.z)) < Terrain.SEA + 1.5 else 0.0
 	sea_heard = lerpf(sea_heard, sea_near, 1.0 - exp(-delta * 1.2))
 	wash.volume_db = linear_to_db(maxf(0.35 * sea_heard, 0.0001))
 	# In a cloud the air is white.
-	clouded = lerpf(clouded, in_cloud(camera.position), 1.0 - exp(-delta * 1.5))
-	environment.fog_density = lerpf(0.0006, 0.01, clouded)
+	# In a cloud the air is white: in a low cloud's ball, and on the way through the cloud
+	# layer where cloud stands in it. The sky's shader shows the layer from under it and the
+	# land's from over it; in it, it is this white.
+	var in_layer := smoothstep(0.5, 0.7, cloud_over) * smoothstep(Terrain.CLOUD_HEIGHT - 110.0, Terrain.CLOUD_HEIGHT - 20.0, eye_height) * (1.0 - smoothstep(Terrain.CLOUD_HEIGHT + 40.0, Terrain.CLOUD_HEIGHT + 240.0, eye_height))
+	clouded = lerpf(clouded, maxf(in_cloud(camera.position) if eye_height < 2500.0 else 0.0, in_layer), 1.0 - exp(-delta * 1.5))
+	# The haze thins with height: from over it the far ranges stand clear, and in space there
+	# is none between the eye and the planet but the planet's own (land.gdshader's veil).
+	var thin := exp(-eye_height / 900.0)
+	environment.fog_density = lerpf(0.00045 * thin + 0.00004 * exp(-eye_height / AIR), 0.01, clouded)
+	environment.fog_height_density = mist_density * exp(-eye_height / 500.0)
+	environment.volumetric_fog_density = 0.0011 * exp(-eye_height / 1500.0)
+	sky_material.set_shader_parameter("eye_height", eye_height)
 	# A drop falls 22 units a second and a flake 2.6. The wind carries them, and the flight
 	# slants them back by no more than half of their fall, so on the screen they come down.
 	shower.visible = falls > 0.004 or elapsed < 3.0
@@ -1628,21 +1921,30 @@ func season_share(middle: float) -> float:
 
 ## The light of the hour: the sun's arc, then the moon's, in one light.
 func set_day() -> void:
+	# The sun's arc is the flyover's at the place the flight started; the planet turns under
+	# it, so elsewhere it is another hour, and from high up the sun is seen over the planet's
+	# rim after the ground below has lost it.
 	var angle := TAU * (day - 0.25)
-	var to_sun := Vector3(cos(angle), sin(angle) * 0.85, 0.42).normalized()
+	var sun_of_planet := sun_frame * Vector3(cos(angle), sin(angle) * 0.85, 0.42).normalized()
+	var here := Vector2(flyer.position.x, flyer.position.z)
+	var to_sun := (Terrain.anchor * Terrain.chart_frame(here)).transposed() * sun_of_planet
 	var height := to_sun.y
-	var sunlight := smoothstep(-0.04, 0.12, height)
+	var dip := acos(Terrain.RADIUS / (Terrain.RADIUS + maxf(flyer.position.y + lowered, 0.0)))
+	var seen := sin(minf(asin(clampf(height, -1.0, 1.0)) + dip, PI / 2.0))
+	var out_of_air := 1.0 - exp(-maxf(flyer.position.y + lowered, 0.0) / AIR)
+	var sunlight := smoothstep(-0.04, 0.12, seen)
 	var low_sun := smoothstep(-0.25, 0.0, height) * (1.0 - smoothstep(0.05, 0.45, height))
 	var night := smoothstep(0.02, 0.3, -height)
-	var warm := Color(1.0, 0.42, 0.18).lerp(Color(1.0, 0.95, 0.86), smoothstep(0.0, 0.45, height))
-	var to_light := to_sun if height > -0.06 else -to_sun
+	var warm := Color(1.0, 0.42, 0.18).lerp(Color(1.0, 0.95, 0.86), smoothstep(0.0, 0.45, seen))
+	var to_light := to_sun if seen > -0.06 else -to_sun
 	sun.basis = Basis.looking_at(-to_light)
-	if height > -0.06:
+	if seen > -0.06:
 		sun.light_color = warm
 		sun.light_energy = 1.9 * sunlight
 	else:
+		# From out of the air the night side is dark but for its towns: the moon's light is the ground's.
 		sun.light_color = Color(0.45, 0.6, 1.0)
-		sun.light_energy = 0.7 * smoothstep(0.1, 0.35, -height)
+		sun.light_energy = 0.7 * smoothstep(0.1, 0.35, -height) * lerpf(1.0, 0.1, out_of_air)
 	# The seasons: each a share that rises and falls around its place in the year.
 	tell("spring", season_share(0.1))
 	tell("autumn", season_share(0.55))
@@ -1652,14 +1954,16 @@ func set_day() -> void:
 	tell("night", night)
 	night_share = night
 	tell("to_light", to_light)
-	tell("handover", smoothstep(0.0, 0.1, absf(height + 0.06)))
+	tell("sun_way", Terrain.anchor.transposed() * sun_of_planet)
+	sky_material.set_shader_parameter("sun_seen", seen)
+	tell("handover", smoothstep(0.0, 0.1, absf(seen + 0.06)))
 	environment.ambient_light_color = Color(0.85, 0.82, 0.78).lerp(Color(0.15, 0.22, 0.5), night)
-	environment.ambient_light_energy = lerpf(1.0, 0.55, night)
+	environment.ambient_light_energy = lerpf(1.0, 0.55, night) * lerpf(1.0, 0.12, out_of_air)
 	environment.volumetric_fog_albedo = Color(0.75, 0.82, 1.0).lerp(warm, 0.5)
 	# Mist lies low at dawn, and a little at dusk: the haze over the sea thickens, and the banks
 	# of mist with it. The clouds take the light's colour and the sky's.
 	var dawn := smoothstep(-0.1, 0.03, height) * (1.0 - smoothstep(0.08, 0.42, height)) * (1.0 if day < 0.5 else 0.4)
-	environment.fog_height_density = lerpf(0.006, 0.022, dawn)
+	mist_density = lerpf(0.006, 0.022, dawn)
 	for bank in clouds:
 		var cloud := bank.material_override as ShaderMaterial
 		cloud.set_shader_parameter("thick", 0.2 + 0.8 * dawn)
@@ -1687,7 +1991,8 @@ func watch() -> void:
 	autopilot_seconds = 0.0
 	var steady := frames - 120
 	print("FLYOVER level %d scale %.2f gpu %.1f" % [level, LEVELS[level][0], RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid())])
-	print("FLYOVER seconds %.1f frames %d fps %.1f gpu %.1f cpu %.1f flown %d beacons %d" % [elapsed, frames, steady * 1000.0 / (Time.get_ticks_msec() - steady_from), gpu_milliseconds / steady, cpu_milliseconds / steady, int(flown), lit.size()])
+	print("FLYOVER seconds %.1f frames %d fps %.1f gpu %.1f cpu %.1f flown %d beacons %d" % [elapsed, frames, steady * 1000.0 / (Time.get_ticks_msec() - steady_from), gpu_milliseconds / steady, cpu_milliseconds / steady, int(flown), scored + lit.size()])
+	print("FLYOVER highest %d anchors %d" % [int(highest), anchors])
 	# How even the frames were: a hitch is a frame of over twice the median.
 	frame_milliseconds.sort()
 	var median := frame_milliseconds[steady / 2]

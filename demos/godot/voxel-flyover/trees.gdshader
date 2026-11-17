@@ -17,7 +17,6 @@ shader_type spatial;
 uniform vec4 ring = vec4(-2.0, -1.0, 64.0, 80.0);
 uniform bool sways = true; // whether the gusts bend the crowns
 uniform bool sinks = false; // the last grid of trees, and the shadows'
-uniform vec3 eye; // where the camera is
 uniform vec3 flyer_at; // where the flyer is: its wash bends the crowns it passes low over
 
 varying flat vec3 colour;
@@ -29,7 +28,7 @@ void vertex() {
 	vec4 tree = plot_tree(MODEL_MATRIX[3].xz);
 	vec2 place = tree.xy;
 	float kind = tree.w;
-	float away = distance(place, flyer);
+	float away = far_from(place);
 	float come = smoothstep(ring.x, ring.y, away);
 	float gone = smoothstep(ring.z, ring.w, away);
 	// A plot outside the grid's ring has no tree here: its ground is not looked up.
@@ -58,10 +57,10 @@ void vertex() {
 	colour = vec3(0.0);
 	glow = 0.0;
 	crown = leafy ? 0.02 + 0.98 * up : 0.0;
-	if (come <= 0.0 || gone >= 1.0 || !grows(top, warmth) || steep > 3.4 || tree.z > tree_share(warmth, moisture) * (1.0 - 0.85 * marsh_at(top, moisture)) * (1.0 - 0.94 * farmed_at(place, top)) || town_near(place, top) > 0.0) {
+	if (come <= 0.0 || gone >= 1.0 || !grows(top, warmth) || steep > 3.4 || tree.z > tree_share(warmth, moisture) * (1.0 - 0.85 * marsh_at(top, moisture)) * (1.0 - 0.94 * farmed_from(here.w, top)) || town_near_from(here.w, top) > 0.0) {
 		VERTEX = vec3(0.0);
 	} else {
-		vec4 leaves = crown_colour(place, kind, warmth, moisture, here.w);
+		vec4 leaves = crown_colour(place, kind, warmth, moisture, realm_at(place));
 		vec3 at;
 		vec3 facing = NORMAL;
 		if (!leafy) {
@@ -129,6 +128,7 @@ void vertex() {
 		VERTEX = at * tree_size(kind) * size + vec3(place.x, top - 0.15, place.y) - MODEL_MATRIX[3].xyz;
 	}
 	world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	VERTEX = lift(VERTEX + MODEL_MATRIX[3].xyz) - MODEL_MATRIX[3].xyz;
 }
 
 void fragment() {

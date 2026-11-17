@@ -33,8 +33,8 @@ Dolly, as it exported Dodge the Creeps for `amy install dodge-the-creeps`
 - `godot-lantern-drift`: Lantern Drift on the page at once; Q leaves a shell where `godot-editor -e --path ~/lantern-drift` opens a copy of its project in Godot's editor, the islands in its 3D view. The eye beside HUD in the Scene dock hides the game's display, F5 plays the game so, and Ctrl+S saves the scene.
 - `airtime-godot`: Airtime: Foundry in Godot, the strafe trials of bhop on Airtime's own movement and course, drawn by Forward+ on `gpu@0` as a foundry at night over molten metal; `airtime-godot` plays it.
 - `godot-airtime`: Airtime in Godot on the page, which starts at once; Q leaves a shell where `godot-editor -e --path ~/airtime` opens a copy of its project in Godot's editor, the course in its 3D view. The eye beside Hud in the Scene dock hides the game's display, F5 plays the game so, and Ctrl+S saves the scene.
-- `voxel-flyover`: Voxel Flyover, a corgi's flight on a jet surfboard, with a pelican on a bicycle pedalling under it for the jets, over an endless world of mountains, forests and sea through a day and a night, which the GPU builds in its shaders, drawn by Forward+ on `gpu@0`; `voxel-flyover` plays it.
-- `godot-voxel-flyover`: Voxel Flyover on the page at once: the corgi flies itself until Enter or a click takes the board, the mouse then turns the view, and Q leaves a shell.
+- `voxel-flyover`: Voxel Flyover, a corgi's flight on a jet surfboard, with a pelican on a bicycle pedalling under it for the jets, over a planet of mountains, forests and sea that can be left: a sphere of 600,000 units which the GPU builds in its shaders, drawn by Forward+ on `gpu@0`, with a curved horizon, and whole from out of its air; `voxel-flyover` plays it.
+- `godot-voxel-flyover`: Voxel Flyover on the page at once: the corgi flies itself until Enter, a click or a touch takes the board; keep climbing to leave the planet, dive to come back, and Q leaves a shell.
 
 ## Lantern Drift
 
@@ -251,6 +251,62 @@ first level drew 5 frames a second 200 ms apart, the game settles on the last le
 seconds and draws 30 a second 33 ms apart, as it does in Chrome on that GPU (2026-11-15); on the
 NVIDIA RTX 5070 it stays on the first, at 60 in Chrome and 59 in Firefox with the GPU at 5.5 ms
 a frame.
+### The planet
+
+The world is a planet: a sphere of 600,000 units (a lap along the ground at the board's 30 a
+second would take 35 hours) with a horizon that curves, and space over it. Until 2026-11-17 the
+game's world was an endless plane; what the planet leaves for later is in its tasks
+(`tatr ls :planet`).
+
+The game computes in a flat chart: x and z are distances along the ground from the chart's
+anchor, a point of the planet, and the flight, the grids and everything that stands on a lattice
+(plots of trees, lots of towns, fields) are as on a plane. Two things put it on the sphere
+([`terrain.gdshaderinc`](voxel-flyover/terrain.gdshaderinc)):
+
+- The slow fields of the world (heights, climate, towns, clouds) are evaluated at the point of
+  the sphere a chart's place is (`planet_at`), with noise in three dimensions, so they have no
+  seam and are the same from every chart. The planet adds fields of its own size: continents and
+  oceans, belts of mountains, the weather of whole regions, and the cold of its poles, where the
+  snow lies down to the sea and the sea is ice.
+- Every vertex stage carries its chart place onto the sphere, relative to the flyer (`lift`).
+  Godot here computes in float32, whose steps are a sixteenth of a unit at the planet's radius:
+  near the flyer the ground falls away by `2 R sin²(d / 2R)`, computed without the difference of
+  two large numbers, and far off the place is turned from the anchor's axes into the flyer's,
+  where such steps are nothing. So the flyer's own surroundings stay as flat and as exact as
+  a plane's, and the planet is drawn around them.
+
+Eight grids of land instead of three reach round the planet
+([`main.gd`](voxel-flyover/main.gd)'s `RINGS`): three to 2,300 units, then cells of
+96, 384 and 1,536 units to 147,000, each with its ground in a texture drawn as it steps, and two
+of 6,144 and 24,576 that read a texture of the whole planet by longitude and latitude, drawn once
+at the start ([`ground.gdshader`](voxel-flyover/ground.gdshader)'s `whole`). A ground read
+coarsely is the mean of what is finer than it is read (`fbm3_seen`): far ground does not sparkle
+with detail its points cannot hold, and a range that rises over the horizon gains its spurs as
+it nears. A grid's own detail gives way to the coarser grid's by the distance from the flyer, and by the flyer's height: 300 of its cells up a grid shows the next one's
+ground and is no longer drawn. Far grids draw the sea themselves, level, with its glint.
+
+A board that keeps climbing past the flight's own ceiling is faster the higher it is (twice as fast
+every 110 units over 420, in every direction), so space is a minute and a half away and the
+whole planet two. The haze thins with height, the sky's shader
+([`sky.gdshader`](voxel-flyover/sky.gdshader)) takes the air a ray looks through from the
+camera's height (a closed form for an air that thins by 1/e every 7,000 units): the zenith goes
+dark first, the stars come out by day, and from outside the air is a rim around the planet, lit
+by the sun of the place where the ray passes nearest the ground, so the rim has its day, its
+night and its sunsets. The sun is fixed to the planet, which has a day side and a night side.
+From over the cloud layer the land's and the sea's shaders lay the layer's clouds over them
+(`from_above`), and from out of the air a veil of the planet's own, thin straight down and thick
+toward the rim; at night a settled region's towns are one glow. A height is taken off
+everything drawn once the flyer is high (`lowered`), so a close view of the corgi does not shake
+at a million units, and what follows the flyer (camera, wakes, birds) is carried along with it.
+
+High up, where nothing that stands on the chart's lattice can be seen (over 8,000 units), the
+chart's anchor moves under the flyer once it is 120,000 units from it: the new chart's axes are
+the old one's at that place, so the heading stays. A dive from orbit so comes down in a chart
+whose anchor is near, anywhere on the planet.
+
+`voxel-flyover -- --autopilot SECONDS --tour SECOND` leaves the planet by itself and comes back;
+`--high HEIGHT` starts at a height and keeps it.
+
 [`terrain.gd`](voxel-flyover/terrain.gd) computes the world's function for the flight, with the
 same integer hash, so the board clears the ground the GPU draws and finds the beacons that float
 over it. The corgi flies itself until Enter or a click takes the board, and until then the camera
@@ -259,6 +315,17 @@ pointer (the page captures it at a person's click alone), and the mouse then tur
 around the flyer while the keys steer, and the wheel or Z and X zoom; Escape gives the pointer
 and the board back, and the view and its zoom come round again. The player's view looks at the
 flyer from straight behind it. The one number on the screen is the score, the beacons lit.
+On a touchscreen nothing needs a key ([`touch.gd`](voxel-flyover/touch.gd)): the first touch
+takes the board, and the controls show from then on. A stick stands where the left thumb comes
+down on the lower left of the screen: sideways it steers, up it climbs (held, out of the air and
+on to where the planet is whole), down it dives. A finger anywhere else turns the view, two of
+them moving apart or together zoom, and the ring at the top right gives the board back. Their
+sizes go by the screen's shorter side, and a screen held upright takes its angle of view across,
+so the flyer and the land beside it stay in it. The game draws 1920 by 1080, which the page fits
+into a screen that lies on its side; on a screen held upright it sizes its window to the screen,
+in its shape, with no more pixels than 1080 by 1920 (in Firefox no frame is drawn once a surface
+of `gpu@0` is sized again, so there the game needs a screen on its side: found 2026-11-17, not
+looked into further).
 `-- --autopilot SECONDS` prints its frame rate, how even its frames were (median, 99th percentile,
 maximum, and the frames of over twice the median), the time a frame took, the beacons it lit and
 what its frame shows.
@@ -314,7 +381,10 @@ Godot's build is SCons over its own platforms, each a directory of
   is `main`.
 - [`display_server_dolly.cpp`](platform/display_server_dolly.cpp) is the
   window: the page's canvas through `display@0`, keys, text, the pointer and
-  the wheel of `input@0` (keys mapped by Godot's web platform's table), and an
+  the wheel of `input@0` (keys mapped by Godot's web platform's table), the
+  fingers of `touch@0` as Godot's screen touches and drags (each with the lowest
+  free index from its down to its up; Godot makes the mouse of the first where
+  a project leaves `emulate_mouse_from_touch` on, its default), and an
   OpenGL 3.3 core context on Mesa's surfaceless EGL platform. Godot draws into
   a pbuffer of the window's size; each frame is read back, turned upright and
   presented, and with vsync Godot then waits for the page's next animation
@@ -426,7 +496,14 @@ Both games passed in both browsers on 2026-11-13, the editor's log without an er
 the front page's list of applications, on a hardware adapter, in Chrome and Firefox: the game
 draws on `gpu@0`, a click captures the pointer and 300 pixels of the mouse turn the view 60
 degrees, Q leaves the shell, and a flight by itself through a morning reaches a beacon and
-reports even frames and a frame with the sky along its top.
+reports even frames and a frame with the sky along its top; it then leaves the planet by itself and
+reports a height of over 150,000 units, a chart whose anchor moved on the way, and a frame with
+the planet's colours.
+[`test/godot-flyover-touch-browser.mjs`](test/godot-flyover-touch-browser.mjs) plays it with
+fingers alone on a phone's screen (Chrome's touch events, Firefox's touch PointerEvents): held
+sideways, a tap takes the board, the thumb's stick climbs and turns it while a second finger
+drags the view, and two fingers apart zoom; held upright (in Chrome), a tap takes the board and the ring
+gives it back.
 
 [`test/godot-airtime-browser.mjs`](test/godot-airtime-browser.mjs) opens `godot-airtime` from the
 front page, on a hardware adapter, in Chrome and Firefox: a click on the crosshair captures the

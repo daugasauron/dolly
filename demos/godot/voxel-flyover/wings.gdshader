@@ -18,7 +18,7 @@ void vertex() {
 	float own = hash(number * 16.0 + vec2(bird, 3.0));
 	vec2 home = (number + 0.3 + 0.4 * vec2(hash(number + 3.0), hash(number + 11.0))) * CELL;
 	float ground_height = ground_here(home).x;
-	float fade = 1.0 - smoothstep(1250.0, 1500.0, distance(home, flyer));
+	float fade = 1.0 - smoothstep(1250.0, 1500.0, far_from(home));
 	vec3 place = vec3(0.0);
 	vec2 ahead = vec2(1.0, 0.0);
 	float size = 0.0;
@@ -53,6 +53,7 @@ void vertex() {
 	vec3 forward = vec3(ahead.x, 0.0, ahead.y);
 	vec3 right = vec3(-ahead.y, 0.0, ahead.x);
 	VERTEX = (right * at_bird.x + vec3(0.0, at_bird.y, 0.0) - forward * at_bird.z) * size * fade * 1.4 + place - MODEL_MATRIX[3].xyz;
+	VERTEX = lift(VERTEX + MODEL_MATRIX[3].xyz) - MODEL_MATRIX[3].xyz;
 }
 
 void fragment() {

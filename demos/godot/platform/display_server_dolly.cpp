@@ -25,6 +25,7 @@
 #include <dolly/clipboard.h>
 #include <dolly/display.h>
 #include <dolly/input.h>
+#include <dolly/touch.h>
 #include <x11-window.h>
 
 #include <errno.h>
@@ -113,7 +114,7 @@ Error DisplayServerDolly::create_gl_surface() {
 
 bool DisplayServerDolly::has_feature(DisplayServerEnums::Feature p_feature) const {
 	return p_feature == DisplayServerEnums::FEATURE_MOUSE || p_feature == DisplayServerEnums::FEATURE_CURSOR_SHAPE ||
-			p_feature == DisplayServerEnums::FEATURE_CLIPBOARD;
+			p_feature == DisplayServerEnums::FEATURE_CLIPBOARD || (p_feature == DisplayServerEnums::FEATURE_TOUCHSCREEN && touch);
 }
 
 // The page's clipboard while the program holds it (clipboard@0); its own otherwise.
@@ -428,6 +429,68 @@ void DisplayServerDolly::read_event(const dolly_input_event &p_event) {
 	}
 }
 
+// The fingers' records since the last frame, as Godot's screen touches and drags.
+void DisplayServerDolly::read_touches() {
+	dolly_touch_record records[64];
+	int count = 0;
+	while (touch && (count = dolly_touch_read(touch, records, 64, 0)) > 0) {
+		for (int i = 0; i < count; i++) {
+			const dolly_touch_record &record = records[i];
+			if (record.phase == DOLLY_TOUCH_PRESS) {
+				continue;
+			}
+			int index = -1;
+			for (uint32_t finger = 0; finger < DOLLY_TOUCH_FINGERS; finger++) {
+				if (finger_down[finger] && finger_ids[finger] == record.id) {
+					index = finger;
+				}
+			}
+			const Point2 position(record.x, record.y);
+			if (record.phase == DOLLY_TOUCH_DOWN) {
+				for (uint32_t finger = 0; index < 0 && finger < DOLLY_TOUCH_FINGERS; finger++) {
+					if (!finger_down[finger]) {
+						index = finger;
+					}
+				}
+				if (index < 0) {
+					continue;
+				}
+				finger_down[index] = true;
+				finger_ids[index] = record.id;
+			} else if (index < 0) {
+				continue;
+			}
+			if (record.phase == DOLLY_TOUCH_MOVE) {
+				Ref<InputEventScreenDrag> drag;
+				drag.instantiate();
+				drag->set_index(index);
+				drag->set_position(position);
+				drag->set_relative(position - finger_at[index]);
+				drag->set_relative_screen_position(position - finger_at[index]);
+				drag->set_pressure(record.pressure / 1000.0f);
+				Input::get_singleton()->parse_input_event(drag);
+			} else {
+				Ref<InputEventScreenTouch> press;
+				press.instantiate();
+				press->set_index(index);
+				press->set_position(position);
+				press->set_pressed(record.phase == DOLLY_TOUCH_DOWN);
+				press->set_canceled(record.phase == DOLLY_TOUCH_CANCEL);
+				Input::get_singleton()->parse_input_event(press);
+				finger_down[index] = record.phase == DOLLY_TOUCH_DOWN;
+			}
+			finger_at[index] = position;
+		}
+		if (count < 64) {
+			break;
+		}
+	}
+	if (count < 0) {
+		// The page's touch module was switched off (nena): fingers are the pointer again.
+		touch = 0;
+	}
+}
+
 // The next record of the page's input or of the X window.
 int DisplayServerDolly::next_event(dolly_input_event &r_event, double p_timeout_milliseconds) {
 	return x11 ? x11_window_next_event(x11, &r_event, p_timeout_milliseconds) : dolly_input_next_event(input, &r_event, p_timeout_milliseconds);
@@ -448,6 +511,7 @@ void DisplayServerDolly::process_events() {
 	while (next_event(event, 0) > 0) {
 		read_event(event);
 	}
+	read_touches();
 	Input::get_singleton()->flush_buffered_events();
 }
 
@@ -520,6 +584,10 @@ DisplayServerDolly::DisplayServerDolly(const String &p_rendering_driver, Display
 		size = fills_screen(p_mode) ? screen : p_size;
 		error = dolly_input_acquire(&input);
 		ERR_FAIL_COND_MSG(error != 0, vformat("Dolly's input: %s.", strerror(-error)));
+		// Without touch@0, or beside a program that holds it, a finger is the page's pointer.
+		if (dolly_touch_acquire(&touch) != 0) {
+			touch = 0;
+		}
 		error = dolly_display_set_size(display, size.width, size.height, &surface);
 		ERR_FAIL_COND_MSG(error != 0, vformat("Dolly's display at %dx%d: %s.", size.width, size.height, strerror(-error)));
 #ifdef TOOLS_ENABLED
@@ -598,6 +666,9 @@ DisplayServerDolly::~DisplayServerDolly() {
 	}
 	if (terminal >= 0) {
 		close(terminal);
+	}
+	if (touch) {
+		dolly_touch_release(touch);
 	}
 	if (input) {
 		dolly_input_release(input);

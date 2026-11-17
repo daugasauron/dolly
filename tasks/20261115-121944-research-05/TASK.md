@@ -25,10 +25,19 @@ functions; afl_ext's ocean is MIT by its header, to be confirmed on its page and
 
 ## Done when
 
-It is in the game on `feature/flyover-4`, checked by looking (screenshots at near, middle and far
+It is in the game on `feature/flyover-4` (since 2026-11-17 the planet, `feature/planet`, which took the game's place), checked by looking (screenshots at near, middle and far
 zoom) and in a take, with frame times on NVIDIA in Chrome and Firefox and on the AMD GPU no worse
 than before it (60, 59 and 30 a second) and no new pop, flicker or hitch over the fixed flight.
 
-## State (2026-11-16, 04:45)
+## State (2026-11-17): on the planet
 
-Partly done: rivers at the sea's level in valleys, and since 04:45 lakes: in some stretches (a field of 1,300 units) the river's width in its noise grows from 0.012 to 0.062, so the valley's floor is water (`terrain_height` and its twin; maps before and after by `map.mjs`). The lakes are at the sea's level, as the rivers are. Not done: lakes above the sea (a lake's one level for all of it is not a function of the place alone), a flow drawn on the water, waterfalls, bridges.
+Partly done, as before, now on the sphere: a river follows the contour of a noise in three
+dimensions, bent by a second (`river_on`), at the sea's level in a valley through land under 90
+units, and widens into lakes in some stretches (a field of 1,300 units). Measured over 80,000
+points of the planet (`build/planet/rivers.mjs`): 12.3 % of the land is river or lake. A ground
+read more coarsely than 150 units has no rivers (they are some tens of units wide), so far
+grids and the planet seen from orbit show none. Looked at on the stills of the flight at the
+start (a town on a river that runs to the sea).
+
+Not done: lakes above the sea (a lake's one level for all of it is not a function of the place
+alone), a flow drawn on the water, waterfalls, bridges; rivers seen from far and from orbit.

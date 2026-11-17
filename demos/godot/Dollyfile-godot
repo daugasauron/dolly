@@ -4,6 +4,7 @@ REQUIRES HOST runtime@0
 REQUIRES HOST audio@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
+REQUIRES HOST touch@0
 REQUIRES HOST threads@0
 REQUIRES HOST sockets@0
 REQUIRES HOST gpu@0
@@ -28,6 +29,7 @@ USE /Dollyfile-libdolly-clipboard 99746a8bd9b9eb136098753ccc526ac94a14540e6d2608
 USE /demos/x11/Dollyfile-x11-window 6c29ccec820d4a812e304cf59a5e876cd6c459bfb37a8a05cc0aa906791d7e86
 USE /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
 USE /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
+USE /Dollyfile-libdolly-touch 3c23d1f22584166c434123c76bbc1be95ffe3738cbef0382e672e768a934f8d7
 
 REQUIRES TOOL cp
 REQUIRES TOOL grep
@@ -39,7 +41,7 @@ REQUIRES TOOL scons
 REQUIRES TOOL tar
 REQUIRES TOOL text-page
 
-SOURCE /dist/static/godot/source.tar.gz 1c8f59cd511f3343cb327b76994fc4d3290b19924e512e8f6dd4f476bc53147d /tmp/godot-source.tar.gz
+SOURCE /dist/static/godot/source.tar.gz ecb29258bcec3b698c9a9a32d978fe0a0424099c1159e0a801bb6ba6f8756167 /tmp/godot-source.tar.gz
 SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
 # Godot's modern renderers take only the drivers main.cpp names; glslang builds beside them;
 # Forward+ starts SDFGI only on a device with image atomics, which its voxelization takes.

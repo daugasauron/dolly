@@ -3,6 +3,7 @@ APPLICATION godot-voxel-flyover
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
+REQUIRES HOST touch@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST audio@0
 REQUIRES HOST gpu@0
@@ -20,7 +21,7 @@ REQUIRES TOOL voxel-flyover
 FILE /etc/dolly/init.slop
     /bin/foreground /usr/bin/voxel-flyover
     printf '\nVoxel Flyover has quit; voxel-flyover plays it again, and man voxel-flyover lists its options.\n'
-    printf 'Its project is /usr/share/voxel-flyover/project: the world is terrain.gdshaderinc.\n'
+    printf 'Its project is /usr/share/voxel-flyover/project: the planet is terrain.gdshaderinc.\n'
     /bin/foreground -i /bin/slop
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

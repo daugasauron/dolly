@@ -2,10 +2,12 @@
 // Vulkan, or the installed Firefox (docs/gpu.md). The front page lists godot-voxel-flyover among
 // its applications, and its link starts the game on the page. A click gives the game the pointer
 // and the player the board, and the mouse then turns the view: Q prints how far it was turned,
-// and leaves the shell, where the game flies itself through a morning and reports: its flyer
-// reached a beacon, so the ground the script flies over is the ground the shaders draw, its
-// frame has the sky along the top and a scene's worth of colours, and few of its frames took
-// over twice the median. Chrome shows its frames on the X display by copies
+// and leaves the shell. There the game flies itself through a morning and reports: its flyer
+// reached a beacon, so the ground the script flies over is the ground the shaders draw on the
+// sphere, its frame has the sky along the top and a scene's worth of colours, and few of its
+// frames took over twice the median. Then it leaves the planet by itself: it reports a height
+// of over 150,000 units, a chart whose anchor moved on the way, and a frame with a scene's
+// worth of colours (the planet under it). Chrome shows its frames on the X display by copies
 // (--disable-vulkan-surface): its Vulkan swapchain there shows a full-screen page at half the
 // display's rate, whatever the page draws.
 // Usage: [DOLLY_BROWSER=firefox] node demos/godot/test/godot-flyover-browser.mjs
@@ -23,7 +25,7 @@ for (const name of browsers) {
     : await chromium.launch({ channel: "chrome", headless: false,
       args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan,VulkanFromANGLE",
         "--disable-vulkan-surface"] });
-  const deadline = setTimeout(() => void browser.close(), 600_000);
+  const deadline = setTimeout(() => void browser.close(), 900_000);
   try {
     const page = await browser.newPage({ viewport: { width: 1600, height: 900 } }), errors = [];
     page.setDefaultTimeout(0);
@@ -64,8 +66,15 @@ for (const name of browsers) {
     assert.ok(Number(fps) >= 10 && Number(beacons) >= 1 && Number(sky) > 100 && Number(colours) > 150, `Voxel Flyover flies and draws: ${report}`);
     // Of some 1,700 frames; a loaded machine drops a few.
     assert.ok(hitches !== undefined && Number(hitches) <= 60, `Voxel Flyover's frames are even: ${report}`);
+    await run("voxel-flyover -- --autopilot 100 --day 9 --tour 2 --top 250000 > /tmp/flyover.out 2>&1");
+    await run("! grep -qE 'refused a batch|SCRIPT ERROR|SHADER ERROR' /tmp/flyover.out");
+    await run("clear; grep '^FLYOVER ' /tmp/flyover.out");
+    const tour = await page.evaluate(() => __dolly.visibleTerminalText());
+    const [, highest, anchors] = tour.match(/^FLYOVER highest (\d+) anchors (\d+)$/m) ?? [];
+    const [, lit] = tour.match(/^FLYOVER frame \d+x\d+ sky \d+ colours (\d+)$/m) ?? [];
+    assert.ok(Number(highest) > 150_000 && Number(anchors) >= 1 && Number(lit) > 60, `Voxel Flyover is left: ${tour}`);
     assert.deepEqual(errors, []);
-    console.log(name, `view ${view}`, ...report.match(/^FLYOVER (seconds|frame) .*$/gm));
+    console.log(name, `view ${view}`, ...report.match(/^FLYOVER (seconds|frame) .*$/gm), "tour:", ...tour.match(/^FLYOVER (seconds|frame|highest) .*$/gm));
     console.log(`godot-flyover: ${name} passed`);
   } finally {
     clearTimeout(deadline);

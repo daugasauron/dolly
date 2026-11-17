@@ -19,7 +19,7 @@ void vertex() {
 	float since = fract(clock / 7.0 + hash(number + 61.0)) * 7.0;
 	vec2 home = (number + 0.2 + 0.6 * vec2(hash(number + turn), hash(number + turn + 7.0))) * CELL;
 	vec4 here = ground_here(home);
-	float show = step(hash(number + turn * 3.0 + 5.0), 0.3) * step(0.3, town_at(home, here.x)) * night * (1.0 - smoothstep(1300.0, 1600.0, distance(home, flyer)));
+	float show = step(hash(number + turn * 3.0 + 5.0), 0.3) * step(0.3, town_from(here.w, here.x)) * night * (1.0 - smoothstep(1300.0, 1600.0, far_from(home)));
 	// A spark's way out of the burst: its own direction, slowing; it sinks as it goes.
 	float a = hash(vec2(spark, turn)) * 6.2832;
 	float b = hash(vec2(turn, spark)) * 2.0 - 1.0;
@@ -32,7 +32,7 @@ void vertex() {
 	float life = burst > 0.0 ? (1.0 - smoothstep(1.6, 3.6, burst)) * (0.65 + 0.35 * sin(clock * 31.0 + spark * 2.4) * smoothstep(1.0, 2.0, burst)) : 0.4 * step(spark, 11.5);
 	glow = (0.5 + 0.5 * cos(6.2832 * (hash(number + turn + 11.0) + vec3(0.0, 0.33, 0.67)))) * show * life * 4.0;
 	in_card = VERTEX.xy * 2.0;
-	vec3 centre = (VIEW_MATRIX * vec4(place, 1.0)).xyz;
+	vec3 centre = (VIEW_MATRIX * vec4(lift(place), 1.0)).xyz;
 	float size = max(1.5, length(centre) * 0.0042) * step(0.001, show * life);
 	VERTEX = centre + vec3(VERTEX.x, VERTEX.y, 0.0) * 2.0 * size;
 }

@@ -5,6 +5,7 @@
 
 #include <EGL/egl.h>
 #include <dolly/input.h>
+#include <dolly/touch.h>
 
 class NativeMenu;
 class RenderingContextDriver;
@@ -13,7 +14,7 @@ class RenderingDevice;
 struct x11_window;
 
 // One window: the page's canvas through display@0, with the keys and pointer
-// of input@0, or, where DISPLAY names an X server, a window of its own there
+// of input@0 and the fingers of touch@0, or, where DISPLAY names an X server, a window of its own there
 // (x11-window.h), whose records are input@0's. Godot's Mobile and Forward+
 // renderers draw on gpu@0's surface (the webgpu driver), or into a texture
 // read back for the X window; its Compatibility renderer draws with Mesa's
@@ -25,6 +26,13 @@ class DisplayServerDolly : public DisplayServer {
 
 	uint64_t display = 0;
 	uint64_t input = 0;
+	// The fingers on a touchscreen (touch@0), where the page has them: each is a screen touch of
+	// Godot's, with the lowest free index from its down to its up, and Godot makes the mouse of
+	// the first where a project asks it to (emulate_mouse_from_touch, its default).
+	uint64_t touch = 0;
+	uint32_t finger_ids[DOLLY_TOUCH_FINGERS] = {};
+	bool finger_down[DOLLY_TOUCH_FINGERS] = {};
+	Point2 finger_at[DOLLY_TOUCH_FINGERS];
 	uint64_t clipboard_lease = 0;
 	String clipboard;
 	// The editor's terminal and its modes as the editor found them, which it gives back (-1:
@@ -71,6 +79,7 @@ class DisplayServerDolly : public DisplayServer {
 	Error create_gl_surface();
 	void send_window_event(DisplayServerEnums::WindowEvent p_event) const;
 	void read_event(const dolly_input_event &p_event);
+	void read_touches();
 	int next_event(dolly_input_event &r_event, double p_timeout_milliseconds);
 	void resized(const Size2i &p_size);
 	void present(const uint8_t *p_pixels, uint32_t p_width, uint32_t p_height, size_t p_stride, bool p_rgba);

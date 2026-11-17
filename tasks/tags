@@ -3,6 +3,7 @@
 0.1.6, Goes with release v0.1.6
 0.1.7, Goes with release v0.1.7
 0.1.8, Goes with release v0.1.8
+0.1.9, Goes with release v0.1.9
 0ad, The 0 A.D. port and its build
 abi, Machine ABI and contract numbers, layouts and digests
 agent, A coding agent running inside Dolly, or a model driving a demo
@@ -132,6 +133,7 @@ pi-local, Pi on a locally run model
 pipes, Pipes, their buffers and SIGPIPE
 placement, Where Slopyard puts structures
 plan, A plan to agree on before work
+planet, Voxel Planet, the Voxel Flyover on a sphere that can be left
 port, An upstream program brought to Dolly
 ports, The porting rules applied to the demos and the userspace (an audit's area)
 process, The process contract, spawn, wait, pipes and signals

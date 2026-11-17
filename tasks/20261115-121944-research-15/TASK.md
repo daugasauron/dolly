@@ -23,10 +23,24 @@ functions; afl_ext's ocean is MIT by its header, to be confirmed on its page and
 
 ## Done when
 
-It is in the game on `feature/flyover-4`, checked by looking (screenshots at near, middle and far
+It is in the game on `feature/flyover-4` (since 2026-11-17 the planet, `feature/planet`, which took the game's place), checked by looking (screenshots at near, middle and far
 zoom) and in a take, with frame times on NVIDIA in Chrome and Firefox and on the AMD GPU no worse
 than before it (60, 59 and 30 a second) and no new pop, flicker or hitch over the fixed flight.
 
-## State (2026-11-16, 03:22)
+## State (2026-11-17): on the planet
 
-Partly done by measurement: the weakest level draws the scene at 0.30 of its size (0.33 until 03:15, when the night's additions had taken its slack), 26 lots of buildings, no banks of mist, curtains of rain, herds or fireworks, and holds 30 a second. Left: the slope in the ground's texture, FSR 1.
+Done on the planet, another way than the slope in the texture: the ground's textures' fourth
+channel holds how settled a place is, and a town's kind takes its climate from them, so a
+tree's or a house's vertex no longer evaluates slow fields (which on the sphere are noise in
+three dimensions). Measured in Firefox on the AMD GPU at the weakest level
+(`tasks/20261116-133746-planet`, "The AMD GPU"): 27 ms a frame before, 22 after, and 20.5 with
+the weakest level at 0.27 of the frame for 0.30; the flat flyover took 19.6. Everything that
+lives near the ground (trees, towns, low clouds, boats, birds) is 10.5 of those milliseconds.
+
+FSR 1 was measured there and not kept: Godot's FSR 1 at half the frame took the GPU 35.3 ms a frame (14.5 frames a second) where the smooth scaling at 0.27 of the frame takes 21.1 (25 s by itself in Firefox, `build/planet/runs13.sh`): its pass costs more than the pixels it saves.
+
+Left: an even 30 a second on that GPU (the game's test there draws 25, between 30 and 20), which
+is the planet's own to keep (`tasks/20261116-223911-planet-day`); the slope in the texture (the
+trees read the ground three times, the buildings five) has no free channel now.
+
+Since 15:29 the weakest level also has no shadows of the sun: 18.7 ms a frame in Firefox and 18.3 in Chrome on that GPU, under the flat flyover's 19.6; the rate at that was 23 a second on a machine with a load of 15, and is to be measured on a quiet one.
