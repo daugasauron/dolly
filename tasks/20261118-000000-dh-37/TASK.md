@@ -37,8 +37,14 @@ What would tell the first from the third without the owner: a name whose expirie
 in length than AAPL's eight (task dh-20), since a sum of days and a whole residual grow
 differently with the days to expiry.
 
-A candidate for after the answers, not tried: under the third closure the hedger could trade
-cost against risk at the expiry's implied price, making small its mean residual plus that price
-times its deviation, which is the price itself and has no side. Then a hedge is as tight as
-the market's spreads pay for, and the model has one loop: the spreads imply the price, the
-price sets the hedge, the hedge sets the risk the spreads are read against.
+A fourth, tried in the night as a variant and not in the tree (`work/dh-evidence/loop.py`,
+`build/dh-evidence/batch13-loop-run.log`, this machine): under the third closure the hedger
+trades cost against risk at its expiry's implied price, making small its mean residual plus that
+price times its deviation, which is its quote and has no side. Then a hedge is as tight as the
+market's spreads pay for, and the model is one loop: the spreads imply the price, the price
+sets the hedge, the hedge sets the risk the spreads are read against. On AAPL the loop settles
+by iteration at one answer and changes little: the hedger leaves 37% of the risk where the
+replicating one leaves 35%, at a hedge cost of 0.000071 of the forward against 0.000075, the
+expiries' prices within a tenth of the replicating hedger's, the same 65% of the quotes in band.
+Stock is cheap enough to trade that even at these prices of risk the hedger hedges nearly in
+full. It would matter in a name where the stock is dear to trade.
