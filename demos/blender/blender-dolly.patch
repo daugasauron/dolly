@@ -1,3 +1,36 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -338,6 +338,8 @@
+   OFF
+ )
+ mark_as_advanced(WITH_GHOST_SDL)
++option(WITH_GHOST_DOLLY "Enable building Blender against Dolly's page for windowing" OFF)
++mark_as_advanced(WITH_GHOST_DOLLY)
+ 
+ if(UNIX AND NOT (APPLE OR HAIKU))
+   option(WITH_GHOST_X11 "Enable building Blender against X11 for windowing" ON)
+@@ -984,6 +986,10 @@
+   mark_as_advanced(WITH_VULKAN_BACKEND)
+ endif()
+ 
++# WebGPU, on Dolly's gpu@0
++option(WITH_WEBGPU_BACKEND "Enable WebGPU on Dolly's gpu@0 as graphics backend" OFF)
++mark_as_advanced(WITH_WEBGPU_BACKEND)
++
+ # Metal
+ if(APPLE)
+   option(WITH_METAL_BACKEND "\
+@@ -1649,6 +1655,10 @@
+ # -----------------------------------------------------------------------------
+ # Configure Metal
+ 
++if(WITH_WEBGPU_BACKEND)
++  add_definitions(-DWITH_WEBGPU_BACKEND)
++endif()
++
+ if(WITH_METAL_BACKEND)
+   add_definitions(-DWITH_METAL_BACKEND)
+ 
 --- a/intern/cycles/util/stack_allocator.h
 +++ b/intern/cycles/util/stack_allocator.h
 @@ -24,9 +24,11 @@
@@ -14,6 +47,104 @@
  
    template<class U>
    StackAllocator(const StackAllocator<SIZE, U> & /*unused*/) : pointer_(0), use_stack_(false)
+--- a/intern/ghost/CMakeLists.txt
++++ b/intern/ghost/CMakeLists.txt
+@@ -159,6 +159,16 @@
+   list(APPEND LIB
+     bf::dependencies::optional::sdl
+   )
++elseif(WITH_GHOST_DOLLY)
++  # Dolly: the page's surface, input and clipboard (display@0, input@0, clipboard@0).
++  list(APPEND SRC
++    intern/GHOST_ContextWebGPU.hh
++    intern/GHOST_SystemDolly.cc
++    intern/GHOST_SystemDolly.hh
++    intern/GHOST_WindowDolly.cc
++    intern/GHOST_WindowDolly.hh
++  )
++  add_definitions(-DWITH_GHOST_DOLLY)
+ elseif(APPLE AND NOT WITH_GHOST_X11)
+   list(APPEND SRC
+     intern/GHOST_SystemCocoa.mm
+--- a/intern/ghost/GHOST_IContext.hh
++++ b/intern/ghost/GHOST_IContext.hh
+@@ -11,9 +11,8 @@
+ 
+ #include "GHOST_Types.hh"
+ 
+-#ifdef WITH_VULKAN_BACKEND
+-#  include <functional>
+-#endif
++#include <cstdint>
++#include <functional>
+ 
+ /**
+  * Interface for GHOST context.
+@@ -107,5 +106,13 @@
+       std::function<void(GHOST_VulkanOpenXRData *)> openxr_release_framebuffer_image_callback) = 0;
+ #endif
+ 
++  /**
++   * Dolly: the function the WebGPU backend presents the window's frame with when its swap buffer
++   * is released (GHOST_ContextWebGPU).
++   */
++  virtual GHOST_TSuccess setWebGPUSwapBuffersCallback(std::function<void(void)> callback) = 0;
++  /** The size in pixels of the window a WebGPU context draws, or failure off-screen. */
++  virtual GHOST_TSuccess getWebGPUSurfaceSize(uint32_t &r_width, uint32_t &r_height) = 0;
++
+   MEM_CXX_CLASS_ALLOC_FUNCS("GHOST:GHOST_IContext")
+ };
+--- a/intern/ghost/GHOST_Types.hh
++++ b/intern/ghost/GHOST_Types.hh
+@@ -300,6 +300,8 @@
+ #ifdef WITH_VULKAN_BACKEND
+   GHOST_kDrawingContextTypeVulkan,
+ #endif
++  /* Dolly: the WebGPU backend on gpu@0 (GHOST_ContextWebGPU). */
++  GHOST_kDrawingContextTypeWebGPU,
+ };
+ 
+ /** Set "None" as -1 so this can be used as an index. */
+--- a/intern/ghost/intern/GHOST_Context.hh
++++ b/intern/ghost/intern/GHOST_Context.hh
+@@ -154,6 +154,15 @@
+     return 0;
+   }
+ 
++  GHOST_TSuccess setWebGPUSwapBuffersCallback(std::function<void(void)> /*callback*/) override
++  {
++    return GHOST_kFailure;
++  }
++  GHOST_TSuccess getWebGPUSurfaceSize(uint32_t & /*r_width*/, uint32_t & /*r_height*/) override
++  {
++    return GHOST_kFailure;
++  }
++
+ #ifdef WITH_VULKAN_BACKEND
+   /** \copydoc #GHOST_IContext::getVulkanHandles */
+   GHOST_TSuccess getVulkanHandles(GHOST_VulkanHandles & /* r_handles */) override
+--- a/intern/ghost/intern/GHOST_ISystem.cc
++++ b/intern/ghost/intern/GHOST_ISystem.cc
+@@ -24,6 +24,8 @@
+ #  include "GHOST_SystemWayland.hh"
+ #elif defined(WITH_GHOST_SDL)
+ #  include "GHOST_SystemSDL.hh"
++#elif defined(WITH_GHOST_DOLLY)
++#  include "GHOST_SystemDolly.hh"
+ #elif defined(WIN32)
+ #  include "GHOST_SystemWin32.hh"
+ #elif defined(__APPLE__)
+@@ -152,6 +154,10 @@
+       delete system_;
+       system_ = nullptr;
+     }
++#elif defined(WITH_GHOST_DOLLY)
++    backends_attempted.push_back({"DOLLY"});
++    CLOG_INFO(&LOG, "Create Dolly system");
++    system_ = new GHOST_SystemDolly(background);
+ #elif defined(WIN32)
+     backends_attempted.push_back({"WIN32"});
+     CLOG_INFO(&LOG, "Create Windows system");
 --- a/source/blender/blenlib/intern/expr_pylike_eval.cc
 +++ b/source/blender/blenlib/intern/expr_pylike_eval.cc
 @@ -28,6 +28,15 @@
@@ -44,3 +175,250 @@
  /* Other modern unix OS's should probably use this also. */
  #  include <sys/statvfs.h>
  #  define USE_STATFS_STATVFS
+--- a/source/blender/gpu/CMakeLists.txt
++++ b/source/blender/gpu/CMakeLists.txt
+@@ -10,6 +10,7 @@
+   opengl
+   shader_tool
+   vulkan
++  webgpu
+   ../makesrna
+ 
+   # For theme color access.
+@@ -502,6 +503,39 @@
+   list(APPEND SRC ${METAL_SRC})
+ endif()
+ 
++# Dolly: WebGPU on gpu@0; shaders go to SPIR-V with glslang and to WGSL with spirv-wgsl.
++if(WITH_WEBGPU_BACKEND)
++  list(APPEND SRC
++    webgpu/wgpu_backend.cc
++    webgpu/wgpu_batch.cc
++    webgpu/wgpu_buffer.cc
++    webgpu/wgpu_context.cc
++    webgpu/wgpu_framebuffer.cc
++    webgpu/wgpu_shader.cc
++    webgpu/wgpu_texture.cc
++    vulkan/vk_data_conversion.cc
++    vulkan/vk_memory_layout.cc
++
++    webgpu/wgpu_backend.hh
++    webgpu/wgpu_batch.hh
++    webgpu/wgpu_buffer.hh
++    webgpu/wgpu_context.hh
++    webgpu/wgpu_device.hh
++    webgpu/wgpu_framebuffer.hh
++    webgpu/wgpu_shader.hh
++    webgpu/wgpu_texture.hh
++  )
++  list(APPEND LIB
++    glslang-default-resource-limits
++    glslang
++    SPIRV
++    MachineIndependent
++    OSDependent
++    GenericCodeGen
++    spirv-wgsl
++  )
++endif()
++
+ 
+ if(WITH_VULKAN_BACKEND)
+   list(APPEND INC
+--- a/source/blender/gpu/GPU_platform_backend_enum.h
++++ b/source/blender/gpu/GPU_platform_backend_enum.h
+@@ -16,6 +16,8 @@
+   GPU_BACKEND_OPENGL = 1 << 0,
+   GPU_BACKEND_METAL = 1 << 1,
+   GPU_BACKEND_VULKAN = 1 << 3,
++  /* Dolly: WebGPU on gpu@0. */
++  GPU_BACKEND_WEBGPU = 1 << 4,
+   GPU_BACKEND_ANY = 0xFFFFFFFFu
+ };
+ 
+--- a/source/blender/gpu/intern/gpu_context.cc
++++ b/source/blender/gpu/intern/gpu_context.cc
+@@ -38,6 +38,9 @@
+ #ifdef WITH_VULKAN_BACKEND
+ #  include "vk_backend.hh"
+ #endif
++#ifdef WITH_WEBGPU_BACKEND
++#  include "wgpu_backend.hh"
++#endif
+ #ifdef WITH_OPENGL_BACKEND
+ #  include "gl_backend.hh"
+ #  include "gl_context.hh"
+@@ -460,6 +463,8 @@
+       return "Vulkan";
+     case GPU_BACKEND_METAL:
+       return "Metal";
++    case GPU_BACKEND_WEBGPU:
++      return "WebGPU";
+     case GPU_BACKEND_NONE:
+       return "None";
+     case GPU_BACKEND_ANY:
+@@ -498,6 +503,9 @@
+ #if defined(WITH_VULKAN_BACKEND)
+   backends_to_check.add(GPU_BACKEND_VULKAN);
+ #endif
++#if defined(WITH_WEBGPU_BACKEND)
++  backends_to_check.add(GPU_BACKEND_WEBGPU);
++#endif
+ 
+   for (const GPUBackendType backend_type : backends_to_check) {
+     GPU_backend_type_selection_set(backend_type);
+@@ -545,6 +553,12 @@
+ #else
+       return false;
+ #endif
++    case GPU_BACKEND_WEBGPU:
++#ifdef WITH_WEBGPU_BACKEND
++      return WGPUBackend::is_supported();
++#else
++      return false;
++#endif
+     case GPU_BACKEND_NONE:
+       return true;
+     default:
+@@ -582,6 +596,11 @@
+       g_backend = MEM_new<MTLBackend>(__func__);
+       break;
+ #endif
++#ifdef WITH_WEBGPU_BACKEND
++    case GPU_BACKEND_WEBGPU:
++      g_backend = MEM_new<WGPUBackend>(__func__);
++      break;
++#endif
+     case GPU_BACKEND_NONE:
+       g_backend = MEM_new<DummyBackend>(__func__);
+       break;
+@@ -631,6 +650,12 @@
+   }
+ #endif
+ 
++#ifdef WITH_WEBGPU_BACKEND
++  if (g_backend && dynamic_cast<WGPUBackend *>(g_backend) != nullptr) {
++    return GPU_BACKEND_WEBGPU;
++  }
++#endif
++
+   return GPU_BACKEND_NONE;
+ }
+ 
+@@ -667,6 +692,10 @@
+     case GPU_BACKEND_METAL:
+       return GHOST_kDrawingContextTypeMetal;
+ #endif
++#ifdef WITH_WEBGPU_BACKEND
++    case GPU_BACKEND_WEBGPU:
++      return GHOST_kDrawingContextTypeWebGPU;
++#endif
+     default:
+       BLI_assert_unreachable();
+       return GHOST_kDrawingContextTypeNone;
+--- a/source/blender/gpu/intern/gpu_shader.cc
++++ b/source/blender/gpu/intern/gpu_shader.cc
+@@ -176,6 +176,9 @@
+     case GPU_BACKEND_VULKAN:
+       sources.append("#define GPU_VULKAN\n");
+       break;
++    case GPU_BACKEND_WEBGPU:
++      sources.append("#define GPU_VULKAN\n#define GPU_WEBGPU\n");
++      break;
+     default:
+       BLI_assert_msg(false, "Invalid GPU Backend Type");
+       break;
+--- a/source/blender/gpu/vulkan/vk_data_conversion.hh
++++ b/source/blender/gpu/vulkan/vk_data_conversion.hh
+@@ -12,7 +12,12 @@
+ 
+ #include "gpu_texture_private.hh"
+ 
+-#include "vk_common.hh"
++#ifdef WITH_VULKAN_BACKEND
++#  include "vk_common.hh"
++#else
++#  include "BLI_index_range.hh"
++#  include "gpu_texture_private.hh"
++#endif
+ 
+ namespace blender::gpu {
+ struct VKWorkarounds;
+--- a/source/blender/gpu/vulkan/vk_memory_layout.hh
++++ b/source/blender/gpu/vulkan/vk_memory_layout.hh
+@@ -13,7 +13,12 @@
+ #include "BLI_math_base_c.hh"
+ #include "BLI_math_vector_types.hh"
+ 
+-#include "vk_common.hh"
++#ifdef WITH_VULKAN_BACKEND
++#  include "vk_common.hh"
++#else
++#  include "BLI_index_range.hh"
++#  include "gpu_texture_private.hh"
++#endif
+ 
+ namespace blender::gpu {
+ 
+--- a/source/blender/makesdna/DNA_userdef_types.h
++++ b/source/blender/makesdna/DNA_userdef_types.h
+@@ -212,10 +212,13 @@
+   USER_GPU_BACKEND_OPENGL = 1 << 0,
+   USER_GPU_BACKEND_METAL = 1 << 1,
+   USER_GPU_BACKEND_VULKAN = 1 << 3,
++  USER_GPU_BACKEND_WEBGPU = 1 << 4,
+ #ifdef __APPLE__
+   USER_GPU_BACKEND_DEFAULT = USER_GPU_BACKEND_METAL,
+ #elif defined(WIN32) && (defined(_M_ARM64) || defined(__aarch64__))
+   USER_GPU_BACKEND_DEFAULT = USER_GPU_BACKEND_OPENGL,
++#elif defined(__dolly__)
++  USER_GPU_BACKEND_DEFAULT = USER_GPU_BACKEND_WEBGPU,
+ #else
+   USER_GPU_BACKEND_DEFAULT = USER_GPU_BACKEND_VULKAN,
+ #endif
+--- a/source/blender/makesrna/intern/rna_userdef.cc
++++ b/source/blender/makesrna/intern/rna_userdef.cc
+@@ -211,6 +211,7 @@
+     {GPU_BACKEND_OPENGL, "OPENGL", 0, "OpenGL", "Use OpenGL backend"},
+     {GPU_BACKEND_METAL, "METAL", 0, "Metal", "Use Metal backend"},
+     {GPU_BACKEND_VULKAN, "VULKAN", 0, "Vulkan", "Use Vulkan backend"},
++    {GPU_BACKEND_WEBGPU, "WEBGPU", 0, "WebGPU", "Use WebGPU backend"},
+     {0, nullptr, 0, nullptr, nullptr},
+ };
+ static const EnumPropertyItem rna_enum_preference_video_decoding_device_items[] = {
+@@ -1681,6 +1682,11 @@
+       continue;
+     }
+ #  endif
++#  ifndef WITH_WEBGPU_BACKEND
++    if (item->value == GPU_BACKEND_WEBGPU) {
++      continue;
++    }
++#  endif
+     RNA_enum_item_add(&result, &totitem, item);
+   }
+ 
+--- a/source/blender/python/gpu/gpu_py_platform.cc
++++ b/source/blender/python/gpu/gpu_py_platform.cc
+@@ -305,6 +305,10 @@
+       backend = "OPENGL";
+       break;
+     }
++    case GPU_BACKEND_WEBGPU: {
++      backend = "WEBGPU";
++      break;
++    }
+     case GPU_BACKEND_ANY:
+       break;
+   }
+--- a/source/blender/windowmanager/intern/wm_window.cc
++++ b/source/blender/windowmanager/intern/wm_window.cc
+@@ -2436,6 +2436,8 @@
+ #endif
+       BLI_assert_unreachable();
+       return GHOST_kDrawingContextTypeNone;
++    case GPU_BACKEND_WEBGPU:
++      return GHOST_kDrawingContextTypeWebGPU;
+   }
+ 
+   /* Avoid control reaches end of non-void function compilation warning, which could be promoted
