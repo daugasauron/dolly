@@ -27,10 +27,10 @@ INSTALL /v0.1.7/Dollyfile-transfer c581eb92dcc14d12e251f686ba9ff508aeab68afcc420
 INSTALL /v0.1.7/Dollyfile-html d0f2559ed00977f24f66e949ba47b177f835383f6f929c6041115908b3a88682
 INSTALL /v0.1.7/Dollyfile-ps 39cdf2bfaa3fb52f3c161672634f9600381754e6f006971896d6f79b6b345b77
 INSTALL /v0.1.7/demos/python/Dollyfile-python c97238b02344b36aad552b36fd2f73d450811ecaf7f5464374e82e8af15b80d7
-INSTALL /v0.1.7/demos/python/Dollyfile-numpy fa873f460c89c332de686cd2b333d5b285ec80d143918a6542fec4593c9baf50
-INSTALL /v0.1.7/demos/python/Dollyfile-pandas 4cedefe5d01b6904aff832406f9eea61f373e63f8452524f08722a3c996d2e32
-INSTALL /v0.1.7/demos/python/Dollyfile-matplotlib a3357d1281e77252f36ca33c01ab6cb3562b58dd3fbb19d29e1b2ce121cc9ec6
-INSTALL /v0.1.7/demos/python/Dollyfile-seaborn e200cba8997d1f575af289a4b38167bf2137dae82bb38d103315cd15010efbed
+INSTALL /v0.1.7/demos/python/Dollyfile-numpy 80399eaefb021d1e150fc232abfc74256a1df57a1f29dcc7cd2d7183efeb0d70
+INSTALL /v0.1.7/demos/python/Dollyfile-pandas 6885da97492c6ad326b5e566faa45977be2957e1162c3ac81409c62b9dd33ae3
+INSTALL /v0.1.7/demos/python/Dollyfile-matplotlib c35e6a00af2c14c23ba6fcf61693aaed2c195f23fa399cf28aad38b7e026e21c
+INSTALL /v0.1.7/demos/python/Dollyfile-seaborn 89571f840e3ee158d6f2fe1c568b00f854581fbc0969f7135a65425636de9106
 REQUIRES TOOL python
 
 # The font list Matplotlib writes on its first import, which takes 6 s, kept

@@ -39,6 +39,7 @@ REQUIRES TOOL   pkg-config
 REQUIRES TOOL   pip
 REQUIRES TOOL   python
 REQUIRES TOOL   tar
+REQUIRES TOOL   test
 
 SOURCE /v0.1.7/dist/static/python-data/numpy-2.5.4.tar.gz 9a94cf751c9ad8ebaa835bcd3d40dacf8534ad086b88c38029b65123c7999d2a /tmp/python-data/numpy-2.5.4.tar.gz
 SOURCE /v0.1.7/dist/static/python-data/pandas-3.0.5.tar.gz dca3734d6ab7c906e6730f0788b0a1dbb9f2467731f9711f77995c8e9d62d712 /tmp/python-data/pandas-3.0.5.tar.gz
@@ -75,15 +76,18 @@ SOURCE /v0.1.7/dist/static/python-data/qhull-8.0.2.tar.gz 8774e9a12c70b0180b95d6
 SLOP pip install --no-index --no-deps --no-compile --find-links /tmp/python-data \
   meson-python cython pyproject-metadata packaging pybind11 setuptools setuptools-scm cppy versioneer
 
-# install NAME VERSION [PIP-OPTION…]: NAME==VERSION from the staged files into
-# /opt/python-data/NAME, whatever / holds (--ignore-installed), then into /
+# install NAME VERSION [PIP-OPTION…]: NAME==VERSION from the staged files, or
+# from its source where a row unpacked it into /tmp/python-data/NAME-VERSION,
+# into /opt/python-data/NAME, whatever / holds (--ignore-installed), then into /
 # for the libraries built after it.
 FILE /tmp/python-data/install
     name="$1" version="$2"
     shift 2
+    requirement="$name==$version"
+    if test -d "/tmp/python-data/$name-$version"; then requirement="/tmp/python-data/$name-$version"; fi
     pip install --no-index --find-links /tmp/python-data --no-build-isolation --no-deps --no-compile \
       --no-cache-dir --ignore-installed --no-warn-script-location --root "/opt/python-data/$name" "$@" \
-      "$name==$version" || exit 1
+      "$requirement" || exit 1
     cp -R "/opt/python-data/$name/." /
 
 SLOP slop /tmp/python-data/install numpy 2.5.4
@@ -96,8 +100,12 @@ SLOP slop /tmp/python-data/install cycler 0.12.1
 SLOP slop /tmp/python-data/install fonttools 4.68.0
 SLOP slop /tmp/python-data/install kiwisolver 1.5.1
 # contourpy's default werror=true fails on what Clang 24 reports in pybind11's
-# headers (-Wunused-template).
-SLOP slop /tmp/python-data/install contourpy 1.4.0 --config-settings=setup-args=-Dwerror=false
+# headers (-Wunused-template). It writes the directories it is built in into
+# contourpy.util.build_config(): built from its source unpacked here, in a build
+# directory named here, where pip and meson-python name theirs at random.
+SLOP gzip -dc /tmp/python-data/contourpy-1.4.0.tar.gz | tar -xf - -C /tmp/python-data
+SLOP slop /tmp/python-data/install contourpy 1.4.0 --config-settings=setup-args=-Dwerror=false \
+  --config-settings=build-dir=/tmp/python-data/contourpy-1.4.0/build
 # Pillow's FreeType module links -lfreetype alone, and the freetype package's
 # static library needs libpng and zlib, which its freetype2.pc requires: the
 # linker takes them from LDFLAGS.
