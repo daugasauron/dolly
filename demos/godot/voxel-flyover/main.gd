@@ -95,6 +95,7 @@ const LEVELS := [
 	[0.27, false, false, false, DirectionalLight3D.SHADOW_ORTHOGONAL, 90.0, 5, 2],
 ]
 const FRAME_BUDGET := 14.0 # milliseconds of the GPU: over it the display's 60 a second are lost
+const LATE := 21.0 # milliseconds: a frame this long missed one of the display's
 
 var environment := Environment.new()
 var sky_material := ShaderMaterial.new()
@@ -214,6 +215,7 @@ var fov_led := 66.0
 var fov_seen := 66.0 # the angle of view on its way there
 var autopilot_seconds := 0.0
 var elapsed := 0.0
+var step := 1.0 / 60.0 # of the flight, a frame: the last frames' time, evened
 var frames := 0
 var steady_from := 0
 var gpu_milliseconds := 0.0
@@ -221,9 +223,20 @@ var cpu_milliseconds := 0.0
 var frame_began := 0
 var level := 0
 var coats: Array[MultiMeshInstance3D] = [] # the fur's and feathers' shells
-var gpu_window := 0.0 # the GPU's milliseconds over the frames counted since the level was set
-var gpu_frames := -8 # the first frames after a change are not counted
-var calm_windows := 0
+var timed_frames := 0 # the frames the GPU has been timed for; -1 while it is not timed
+var timed_for := 0.0 # and the seconds
+var gpu_cost := INF # the least of their milliseconds
+var second_ends := 1.0 # the second whose late frames are being counted
+var second_frames := 0
+var late_frames := 0
+var asks_after := 0.0 # late frames next have the GPU timed after this,
+var climbs_after := 0.0 # and a level under the first after this
+var held := false # a level has held: the adapter's is found
+var tried_from := 0.0 # the answer at the level below, while the level above it is tried
+var dearer: Array[float] = [1.2, 2.7, 1.8, 1.2, 1.15, 2.0] # what a level costs, in the next one's: as measured on two adapters, until this one tells
+var reporting := false # a flight by itself is timing the GPU for its report
+var reported_frames := 0
+var steady_seconds := 0.0
 var frame_milliseconds := PackedFloat32Array() # each steady frame's, for a flight by itself
 
 
@@ -421,6 +434,8 @@ func _ready() -> void:
 ## Sets what the adapter draws (LEVELS).
 func set_level(to: int) -> void:
 	level = clampi(to, 0, LEVELS.size() - 1)
+	if autopilot_seconds > 0.0:
+		print("FLYOVER level %d at %.1f s" % [level, elapsed])
 	var what: Array = LEVELS[level]
 	get_viewport().scaling_3d_scale = what[0]
 	get_viewport().msaa_3d = Viewport.MSAA_4X if what[1] else Viewport.MSAA_DISABLED
@@ -466,37 +481,73 @@ func set_level(to: int) -> void:
 	var second: Vector4 = GROVES[1][2] if level < 6 else Vector4(64, 80, 150, 176)
 	(groves[1].material_override as ShaderMaterial).set_shader_parameter("ring", second)
 	tell("paint_from", (second.z if drawn == 2 else GROVES[drawn - 1][2].z) - 20.0)
-	gpu_window = 0.0
-	gpu_frames = -8
-	calm_windows = 0
 
 
-## Follows what the adapter manages: a level down when 20 frames took the GPU over the budget
-## on average (more when far over), a level up after a minute well under it. Below the last
-## level the rate is held even at what the adapter can draw. Where the browser has no GPU
-## timer, the time between frames stands in.
+## Times the GPU from the next frame on, or no longer.
+func time_gpu(on: bool) -> void:
+	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), on or reporting)
+	timed_frames = 0 if on else -1
+	timed_for = 0.0
+	gpu_cost = INF
+
+
+## Follows what the adapter manages (LEVELS). A frame whose GPU time is asked for waits for the
+## GPU (Godot reads its timestamps back), which takes a fast adapter from 56 frames a second to
+## 35: so the GPU is timed only for an answer. At the start; when most of a second's frames
+## came late; and below the first level every ten seconds, for whether the level above would
+## fit. The answer is the least of fourteen frames: another program on the GPU makes frames
+## long, not every one of them, and the picture does not change for that. At the start the
+## game goes down while the answer is over the budget (more levels when far over). Once a
+## level has held, it is left only for an answer half as much again over the budget: the game
+## is rather slower than softer. Under the last level the rate is held even at what the
+## adapter draws. A level up is tried when the answer, times what that level costs more, is
+## under the budget; a level that then proves too much has told what it costs, and is tried
+## again when that would fit. Where the browser has no GPU timer, the time between frames
+## stands in.
 func pace(delta: float) -> void:
-	var gpu := RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid())
-	gpu_frames += 1
-	if gpu_frames <= 0:
+	if timed_frames < 0:
+		second_frames += 1
+		late_frames += int(delta * 1000.0 > LATE)
+		if elapsed < second_ends:
+			return
+		var late := late_frames * 2 > second_frames
+		second_ends = elapsed + 1.0
+		second_frames = 0
+		late_frames = 0
+		if (late and elapsed > asks_after) or (level > 0 and elapsed > climbs_after):
+			time_gpu(true)
 		return
-	gpu_window += gpu if gpu > 0.0 else maxf(delta * 1000.0 - 6.0, 0.0)
-	if gpu_frames < 20 and gpu_window < 1500.0:
+	timed_frames += 1
+	timed_for += delta
+	# The first frames' answers are of the frames before.
+	if timed_frames > 6:
+		var gpu := RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid())
+		gpu_cost = minf(gpu_cost, gpu if gpu > 0.0 else maxf(delta * 1000.0 - 6.0, 0.0))
+	if timed_frames < 20 and (timed_frames < 10 or timed_for < 1.5):
 		return
-	var mean := gpu_window / gpu_frames
-	gpu_window = 0.0
-	gpu_frames = 0
-	if mean > FRAME_BUDGET and level < LEVELS.size() - 1:
-		set_level(level + (4 if mean > FRAME_BUDGET * 8.0 else 3 if mean > FRAME_BUDGET * 5.0 else 2 if mean > FRAME_BUDGET * 2.5 else 1))
-	elif mean > FRAME_BUDGET:
-		# Even at the rate the adapter holds: a half, a third or a quarter of the display's.
-		Engine.max_fps = 30 if mean < (27.0 if Engine.max_fps == 30 else 24.0) else 20 if mean < 36.0 else 12
-	elif mean < FRAME_BUDGET * 0.35 and level > 0:
-		calm_windows += 1
-		if calm_windows > 120:
-			set_level(level - 1)
-	else:
-		calm_windows = 0
+	var last := LEVELS.size() - 1
+	if level < last and gpu_cost > FRAME_BUDGET * (1.5 if held and tried_from == 0.0 else 1.0):
+		if tried_from > 0.0:
+			dearer[level] = gpu_cost / tried_from
+			set_level(level + 1)
+		else:
+			set_level(level + (4 if gpu_cost > FRAME_BUDGET * 8.0 else 3 if gpu_cost > FRAME_BUDGET * 5.0 else 2 if gpu_cost > FRAME_BUDGET * 2.5 else 1))
+		tried_from = 0.0
+		time_gpu(true)
+		return
+	held = true
+	tried_from = 0.0
+	# Even at the rate the adapter holds: a half, a third or a quarter of the display's.
+	Engine.max_fps = 0 if level < last or gpu_cost <= FRAME_BUDGET else 30 if gpu_cost < (27.0 if Engine.max_fps == 30 else 24.0) else 20 if gpu_cost < 36.0 else 12
+	if level > 0 and gpu_cost * dearer[level - 1] < FRAME_BUDGET * 0.9 and elapsed > climbs_after:
+		tried_from = gpu_cost
+		set_level(level - 1)
+		time_gpu(true)
+		return
+	asks_after = elapsed + 30.0
+	climbs_after = elapsed + 10.0
+	second_ends = elapsed + 1.0
+	time_gpu(false)
 
 
 ## Tells every shader that draws the world.
@@ -1178,10 +1229,14 @@ func key_axis(negative: Key, positive: Key) -> float:
 
 
 func _process(delta: float) -> void:
-	delta = minf(delta, 0.1)
+	pace(delta)
+	# The page shows the frames evenly, one at each of the display's, but they are made unevenly:
+	# one waits for room in the GPU's queue and the next does not. A step of the flight is so
+	# the time of the last frames together, and what moves, moves evenly.
+	step = lerpf(step, minf(delta, 0.1), 0.1)
+	delta = step
 	elapsed += delta
 	hold_pointer()
-	pace(delta)
 	var hours := 8.0 if helm and Input.is_physical_key_pressed(KEY_T) else 1.0
 	day = fposmod(day + delta * hours / DAY_SECONDS, 1.0)
 	year = fposmod(year + delta * hours / DAY_SECONDS / YEAR_DAYS, 1.0)
@@ -1242,7 +1297,7 @@ func fly(delta: float) -> void:
 	# The flight keeps what it gains: a dive gives speed and a climb takes it, the wind at the
 	# back gives a little, and low over the sea the board skims and runs faster still.
 	var wanted_speed := CRUISE + clampf(-climb * 1.2, -9.0, 18.0) + 5.0 * WIND.dot(Vector2(forward.x, forward.z))
-	var over_sea := Terrain.height(here) < Terrain.SEA
+	var over_sea := Terrain.ground(here) < Terrain.SEA
 	skim = lerpf(skim, smoothstep(13.0, 8.5, alt - Terrain.SEA) if over_sea else 0.0, 1.0 - exp(-delta * 3.0))
 	wanted_speed += 14.0 * skim
 	tell("skims", Vector3(flyer.position.x, flyer.position.z, skim))
@@ -1252,11 +1307,11 @@ func fly(delta: float) -> void:
 		var one := pod[index]
 		var phase := elapsed * 2.2 + index * 1.9
 		var at := flyer.position + Vector3(-forward.z, 0, forward.x) * (index % 2 * 2 - 1) * (10.0 + 4.0 * (index / 2)) - forward * (5.0 * index - 14.0)
-		one.visible = pod_out > 0.0 and Terrain.height(Vector2(at.x, at.z)) < Terrain.SEA - 2.5
+		one.visible = pod_out > 0.0 and Terrain.ground(Vector2(at.x, at.z)) < Terrain.SEA - 2.5
 		one.position = Vector3(at.x, Terrain.SEA - 1.6 + 3.4 * sin(phase) * pod_out - 4.0 * (1.0 - pod_out), at.z)
 		one.rotation = Vector3(cos(phase) * 0.7, -heading, 0)
 	# Where the wind meets a slope it rises, and carries the board up with it near the ground.
-	var slope := (Terrain.height(here + WIND * 14.0) - Terrain.height(here - WIND * 14.0)) / 28.0
+	var slope := (Terrain.ground(here + WIND * 14.0) - Terrain.ground(here - WIND * 14.0)) / 28.0
 	var updraft := clampf(slope, 0.0, 1.0) * 9.0 * smoothstep(70.0, 20.0, alt - ground)
 	if alt < 6000.0:
 		updraft += tend_thermals()
@@ -1415,8 +1470,7 @@ func move_anchor() -> void:
 	if flyer.position.y + lowered < ANCHOR_FROM or here.length() < ANCHOR_REACH:
 		return
 	Terrain.anchor = (Terrain.anchor * Terrain.chart_frame(here)).orthonormalized()
-	Terrain.marks.clear()
-	Terrain.slow_place = Vector3(INF, INF, INF)
+	Terrain.forget()
 	flyer.position -= Vector3(here.x, 0.0, here.y)
 	carry(-Vector3(here.x, 0.0, here.y))
 	for chart in charts:
@@ -1858,7 +1912,7 @@ func follow(delta: float) -> void:
 	# Rain is heard (snow is not), and so is the sea under a low flight.
 	patter.volume_db = linear_to_db(maxf(0.22 * falls * (1.0 - season_share(0.85)), 0.0001))
 	var over_sea_by := flyer.position.y + lowered - Terrain.SEA
-	var sea_near := (1.0 - smoothstep(14.0, 70.0, over_sea_by)) if Terrain.height(Vector2(flyer.position.x, flyer.position.z)) < Terrain.SEA + 1.5 else 0.0
+	var sea_near := (1.0 - smoothstep(14.0, 70.0, over_sea_by)) if Terrain.ground(Vector2(flyer.position.x, flyer.position.z)) < Terrain.SEA + 1.5 else 0.0
 	sea_heard = lerpf(sea_heard, sea_near, 1.0 - exp(-delta * 1.2))
 	wash.volume_db = linear_to_db(maxf(0.35 * sea_heard, 0.0001))
 	# In a cloud the air is white.
@@ -1973,30 +2027,40 @@ func set_day() -> void:
 	lamp.light_energy = 0.2 + 2.2 * night
 
 
-## For automated runs: the frame rate once the first frames' pipelines are made, the time the
-## GPU and the renderer's thread took for a frame, and what the frame shows, then quit.
+## For automated runs: the frame rate and how even the frames were, once the first frames'
+## pipelines are made; then, over the flight's last second and a half, the time the GPU and the
+## renderer's thread take for a frame (asking it makes frames longer, so those are not among
+## the frames counted); and what the frame shows, then quit.
 func watch() -> void:
 	frames += 1
 	if frames == 120:
 		steady_from = Time.get_ticks_msec()
 	var now := Time.get_ticks_usec()
-	if frames > 120:
+	var viewport := get_viewport().get_viewport_rid()
+	if reporting:
+		reported_frames += 1
+		if reported_frames > 8:
+			gpu_milliseconds += RenderingServer.viewport_get_measured_render_time_gpu(viewport)
+			cpu_milliseconds += RenderingServer.viewport_get_measured_render_time_cpu(viewport) + RenderingServer.get_frame_setup_time_cpu()
+	elif frames > 120:
 		frame_milliseconds.append((now - frame_began) / 1000.0)
-		var viewport := get_viewport().get_viewport_rid()
-		gpu_milliseconds += RenderingServer.viewport_get_measured_render_time_gpu(viewport)
-		cpu_milliseconds += RenderingServer.viewport_get_measured_render_time_cpu(viewport) + RenderingServer.get_frame_setup_time_cpu()
+		if elapsed > autopilot_seconds - 1.5:
+			steady_seconds = (Time.get_ticks_msec() - steady_from) / 1000.0
+			reporting = true
+			RenderingServer.viewport_set_measure_render_time(viewport, true)
 	frame_began = now
 	if elapsed < autopilot_seconds:
 		return
 	autopilot_seconds = 0.0
-	var steady := frames - 120
-	print("FLYOVER level %d scale %.2f gpu %.1f" % [level, LEVELS[level][0], RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid())])
-	print("FLYOVER seconds %.1f frames %d fps %.1f gpu %.1f cpu %.1f flown %d beacons %d" % [elapsed, frames, steady * 1000.0 / (Time.get_ticks_msec() - steady_from), gpu_milliseconds / steady, cpu_milliseconds / steady, int(flown), scored + lit.size()])
+	var steady := frame_milliseconds.size()
+	var timed := maxi(reported_frames - 8, 1)
+	print("FLYOVER level %d scale %.2f" % [level, LEVELS[level][0]])
+	print("FLYOVER seconds %.1f frames %d fps %.1f gpu %.1f cpu %.1f flown %d beacons %d" % [elapsed, frames, steady / steady_seconds, gpu_milliseconds / timed, cpu_milliseconds / timed, int(flown), scored + lit.size()])
 	print("FLYOVER highest %d anchors %d" % [int(highest), anchors])
-	# How even the frames were: a hitch is a frame of over twice the median.
+	# How even the frames were: the long ones are counted against the median.
 	frame_milliseconds.sort()
 	var median := frame_milliseconds[steady / 2]
-	print("FLYOVER frame times median %.1f p99 %.1f max %.1f hitches %d" % [median, frame_milliseconds[steady * 99 / 100], frame_milliseconds[-1], steady - frame_milliseconds.bsearch(median * 2.0, false)])
+	print("FLYOVER frame times median %.1f p95 %.1f p99 %.1f max %.1f over2x %d over4x %d" % [median, frame_milliseconds[steady * 95 / 100], frame_milliseconds[steady * 99 / 100], frame_milliseconds[-1], steady - frame_milliseconds.bsearch(median * 2.0, false), steady - frame_milliseconds.bsearch(median * 4.0, false)])
 	var image := get_viewport().get_texture().get_image()
 	if image and not image.is_empty():
 		# The sky's pixels along the top, and how many colours the frame has.

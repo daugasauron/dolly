@@ -244,7 +244,24 @@ What an adapter draws is a ladder of seven levels (`LEVELS` in
 or one with smoothed edges, the fog's shafts and ambient occlusion, the shadows' cascades, reach
 and map, the sky's light, the coats' shells, and how many of the trees' grids are drawn before
 the land paints their crowns. The game starts at the top and goes down while a frame takes the
-GPU over 14 ms by Godot's timer, and below the last level holds an even rate. No level thins
+GPU over 14 ms by Godot's timer, and below the last level holds an even rate. Asking that timer
+is not free: Godot reads a frame's timestamps back before the next, and in its WebGPU driver for
+Dolly the game's thread then waits for the GPU every frame, which took the planet from 56 frames
+a second to 35 on the RTX 5070 (2026-11-17, two cores). So the game asks only for an answer
+(`pace`): at the start; when most of a second's frames came late; and below the first level every
+ten seconds, for whether the level above would fit. The answer is the least of fourteen frames,
+since another program on the same GPU makes frames long, not every one of them, and the picture
+is not to change for that. Once a level has held, the game leaves it only for an answer half as
+much again over the budget: it is rather slower than softer. It goes a level up when the answer,
+times what that level costs more, is under the budget; a level that then proves too much has
+told what it costs, and is tried again when that would fit. (Until 2026-11-17 a level up took a
+minute of answers under 4.9 ms, a third of the budget, and the second level costs the RTX 5070
+7.5 ms, the first 7.9: a game that another program on the GPU had once slowed stayed on the
+level it fell to, softer, and at the last level it stayed held to 30, 20 or 12 frames a second,
+since that hold was never let go. The levels' costs on that card are 7.9, 7.5, 2.9, 1.6, 1.5,
+1.4 and 0.9 ms, and on the integrated AMD GPU 246, 205, 75, 42, 36, 34 and 18.) The game's step is the time of its last frames together, not of the
+last alone: the page shows frames evenly, one at each of the display's, but they are made
+unevenly. No level thins
 anything by a screen-door of pixels: where two grids of trees overlap, the coarser tree grows
 inside the finer one, which then draws back. In Firefox on an integrated AMD GPU, where the
 first level drew 5 frames a second 200 ms apart, the game settles on the last level within four
@@ -309,7 +326,10 @@ whose anchor is near, anywhere on the planet.
 
 [`terrain.gd`](voxel-flyover/terrain.gd) computes the world's function for the flight, with the
 same integer hash, so the board clears the ground the GPU draws and finds the beacons that float
-over it. The corgi flies itself until Enter or a click takes the board, and until then the camera
+over it. The flight looks at the ground at some thirty places a frame, nearly all beside those of
+the frame before: it takes the height between the points of a lattice of 4 units, each computed
+once, and a lot's building once (`ground`, `tops`), which is 0.9 ms of script a frame where
+computing each place took 7, and a frame of 35 to 58 ms each time the look ahead came to a new lot. The corgi flies itself until Enter or a click takes the board, and until then the camera
 glides between five views of it, one of them the pelican's. The click also gives the game the
 pointer (the page captures it at a person's click alone), and the mouse then turns the view
 around the flyer while the keys steer, and the wheel or Z and X zoom; Escape gives the pointer
@@ -326,9 +346,10 @@ into a screen that lies on its side; on a screen held upright it sizes its windo
 in its shape, with no more pixels than 1080 by 1920 (in Firefox no frame is drawn once a surface
 of `gpu@0` is sized again, so there the game needs a screen on its side: found 2026-11-17, not
 looked into further).
-`-- --autopilot SECONDS` prints its frame rate, how even its frames were (median, 99th percentile,
-maximum, and the frames of over twice the median), the time a frame took, the beacons it lit and
-what its frame shows.
+`-- --autopilot SECONDS` prints its frame rate, how even its frames were (median, 95th and 99th
+percentiles, maximum, and the frames of over twice and four times the median), the time a frame
+took the GPU and the renderer (asked over the flight's last second and a half, whose frames are
+not among those counted), the beacons it lit and what its frame shows.
 
 The world was blocks, then hexagonal columns, and is now smooth land. Its 1920 by 1080 frames take
 the GPU 5.2 to 5.5 ms by Godot's own measure and its renderer's thread 0.6 to 0.8 ms, and it draws

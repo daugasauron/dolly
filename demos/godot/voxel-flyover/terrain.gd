@@ -182,9 +182,41 @@ static func weather(p: Vector2, drift: Vector3) -> float:
 	return (fbm3(q, 3) - 0.5) * 0.55
 
 
+## What the flight has computed of the chart, which holds until the chart's anchor moves.
+static var grounds := {} # a point of the flight's lattice -> the ground's height there
+static var tops := {} # a lot's corner -> its building's top
+
+
+static func forget() -> void:
+	grounds.clear()
+	tops.clear()
+	marks.clear()
+	slow_place = Vector3(INF, INF, INF)
+
+
+## The ground's height for the flight, which looks at some thirty places a frame, nearly all of
+## them beside those of the frame before: between the heights at the points of a lattice of 4
+## units, each computed once (a height is some twenty noises). The ground's finest hills are 16
+## units long, so this is within half a unit of it.
+static func ground(p: Vector2) -> float:
+	var q := p / 4.0
+	var x := floori(q.x)
+	var y := floori(q.y)
+	return lerpf(lerpf(ground_at(x, y), ground_at(x + 1, y), q.x - x), lerpf(ground_at(x, y + 1), ground_at(x + 1, y + 1), q.x - x), q.y - y)
+
+
+static func ground_at(x: int, y: int) -> float:
+	var point := Vector2i(x, y)
+	if not grounds.has(point):
+		if grounds.size() > 30000:
+			grounds.clear()
+		grounds[point] = height(Vector2(point) * 4.0)
+	return grounds[point]
+
+
 ## The surface a flight stays above: the ground or the sea.
 static func surface(p: Vector2) -> float:
-	return maxf(height(p), SEA)
+	return maxf(ground(p), SEA)
 
 
 const LOT := 16.0
@@ -343,7 +375,12 @@ static func island(p: Vector2) -> Vector2:
 ## What a flight looks ahead for: the surface, the roof of the building whose lot the place is
 ## in, or the top of the landmark that stands there.
 static func roof(p: Vector2) -> float:
-	var top := maxf(surface(p), building_top((p / LOT).floor() * LOT))
+	var lot := Vector2i((p / LOT).floor())
+	if not tops.has(lot):
+		if tops.size() > 4000:
+			tops.clear()
+		tops[lot] = building_top(Vector2(lot) * LOT)
+	var top := maxf(surface(p), tops[lot])
 	var mark := landmark(Vector2i((p / MARK_PLOT).floor()))
 	if not mark.is_empty() and mark[2] != FLOATING and p.distance_to(mark[0]) < mark[5] + 4.0:
 		top = maxf(top, mark[1] + mark[4])

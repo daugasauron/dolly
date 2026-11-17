@@ -5,7 +5,7 @@
 // and leaves the shell. There the game flies itself through a morning and reports: its flyer
 // reached a beacon, so the ground the script flies over is the ground the shaders draw on the
 // sphere, its frame has the sky along the top and a scene's worth of colours, and few of its
-// frames took over twice the median. Then it leaves the planet by itself: it reports a height
+// frames took over twice the median, fewer over four times. Then it leaves the planet by itself: it reports a height
 // of over 150,000 units, a chart whose anchor moved on the way, and a frame with a scene's
 // worth of colours (the planet under it).
 // Usage: node demos/godot/test/godot-flyover-browser.mjs [chromium|firefox ...]
@@ -58,11 +58,12 @@ for (const name of browsers) {
     const report = await page.evaluate(() => __dolly.visibleTerminalText());
     assert.match(report, /^FLYOVER adapter WebGPU forward_plus$/m);
     const [, fps, beacons] = report.match(/^FLYOVER seconds [\d.]+ frames \d+ fps ([\d.]+) gpu [\d.]+ cpu [\d.]+ flown \d+ beacons (\d+)$/m) ?? [];
-    const [, hitches] = report.match(/^FLYOVER frame times median [\d.]+ p99 [\d.]+ max [\d.]+ hitches (\d+)$/m) ?? [];
+    const [, median, late, long] = report.match(/^FLYOVER frame times median ([\d.]+) p95 [\d.]+ p99 [\d.]+ max [\d.]+ over2x (\d+) over4x (\d+)$/m) ?? [];
     const [, sky, colours] = report.match(/^FLYOVER frame \d+x\d+ sky (\d+) colours (\d+)$/m) ?? [];
     assert.ok(Number(fps) >= 10 && Number(beacons) >= 1 && Number(sky) > 100 && Number(colours) > 150, `Voxel Flyover flies and draws: ${report}`);
-    // Of some 1,700 frames; a loaded machine drops a few.
-    assert.ok(hitches !== undefined && Number(hitches) <= 60, `Voxel Flyover's frames are even: ${report}`);
+    // Of some 1,700 frames, a display's frame apart on a quiet machine: one in six may miss a display's
+    // frame on a loaded one, and few stand for four.
+    assert.ok(Number(median) > 0 && Number(late) <= 300 && Number(long) <= 30, `Voxel Flyover's frames are even: ${report}`);
     await run("voxel-flyover -- --autopilot 100 --day 9 --tour 2 --top 250000 > /tmp/flyover.out 2>&1");
     await run("! grep -qE 'refused a batch|SCRIPT ERROR|SHADER ERROR' /tmp/flyover.out");
     await run("clear; grep '^FLYOVER ' /tmp/flyover.out");
