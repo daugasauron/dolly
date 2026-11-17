@@ -18,7 +18,8 @@ REQUIRES HOST threads@0
 #   Clang and Dolly's cc refuses; its source says which and why.
 # - The packages: FreeType with Brotli (Blender's fonts are WOFF2),
 #   libjpeg-turbo (Blender takes libjpeg's boolean as an integer, which it is
-#   there), libtiff, expat and {fmt}.
+#   there), libtiff, expat, {fmt}, and Python with libpython and what a
+#   program that embeds it links.
 # - binaryen is for Blender's link (Dollyfile-blender).
 FROM /demos/cmake/Dollyfile-cmake-build ef925b15c0342d66937cb491e956474f5dbb37d60cb2063e6e7ec91e0cb85d71
 INSTALL /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
@@ -34,7 +35,7 @@ INSTALL /demos/tools/Dollyfile-xz d469de338c35f239e62a272216458e722dfdd7eb2909ed
 INSTALL /demos/tools/Dollyfile-bzip2 76653f54f6f089826b7ef5ca6e86cae5286f7b441e3c5ef91d0894f819ea8b7b
 INSTALL /demos/tools/Dollyfile-sqlite 926ac562e54fc44fab836444bf00e6ce3792915c3bcfea5d31f81b4eae682dd6
 INSTALL /demos/tools/Dollyfile-binaryen 62d42b20ce549007859d3d4c69dd57b1f33a097c9e59a7cb9d39cc44afe3742e
-INSTALL /demos/python/Dollyfile-python 964cd2681453dbb4da3f00eb1feadf7d873b33764e83b668111de230df6f6639
+INSTALL /demos/python/Dollyfile-python 81519af666177ca3c80d094bf15ab940a3be2863bf2f0c73ea8307941fbff12f
 # What the python package links and does not bring: libpython's modules need them.
 INSTALL /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6e458431e
 INSTALL /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
@@ -42,6 +43,7 @@ REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL patch
 REQUIRES TOOL python3
+REQUIRES LIB python
 REQUIRES TOOL wasm-opt
 REQUIRES LIB z
 REQUIRES LIB png16
@@ -125,20 +127,7 @@ SLOP CWD /tmp/blender-deps/libepoxy cc -O2 -pthread -Ibuild -Iinclude -Isrc -c b
 SLOP CWD /tmp/blender-deps/libepoxy ar rcs /usr/lib/libepoxy.a build/dispatch_common.o build/gl_generated_dispatch.o
 SLOP CWD /tmp/blender-deps/libepoxy cp include/epoxy/gl.h include/epoxy/common.h build/gl_generated.h /usr/include/epoxy
 
-# What a program that links libpython3.14.a needs beside it: CPython builds
-# its HACL archives and its own expat there and installs neither. Its Makefile
-# makes them in the prepared tree the python package was built from.
-SOURCE /dist/static/python/cpython.tar.gz 4d96d70f2c8762ad6e5b7cca5450b342df94586b45d7ad30e0f46c9319483501 /tmp/cpython.tar.gz
-SLOP gzip -dc /tmp/cpython.tar.gz | tar -xf - -C /
-SLOP rm /tmp/cpython.tar.gz
-SLOP CWD /usr/src/python time make -j4 Modules/expat/libexpat.a Modules/_hacl/libHacl_Hash_MD5.a \
-  Modules/_hacl/libHacl_Hash_SHA1.a Modules/_hacl/libHacl_Hash_SHA2.a Modules/_hacl/libHacl_Hash_SHA3.a \
-  Modules/_hacl/libHacl_Hash_BLAKE2.a Modules/_hacl/libHacl_HMAC.a
-SLOP mkdir -p /usr/lib/python3.14/embed
-SLOP cp /usr/src/python/Modules/expat/libexpat.a /usr/lib/python3.14/embed/libpyexpat.a
-SLOP CWD /usr/src/python/Modules/_hacl cp libHacl_Hash_MD5.a libHacl_Hash_SHA1.a libHacl_Hash_SHA2.a libHacl_Hash_SHA3.a \
-  libHacl_Hash_BLAKE2.a libHacl_HMAC.a /usr/lib/python3.14/embed
-SLOP rm -rf /usr/src/python /tmp/blender-deps
+SLOP rm -rf /tmp/blender-deps
 # The interpreter links and runs with the options Dollyfile-blender gives
 # Blender's link, an hour of compiling before that link.
 FILE /tmp/embed.c
@@ -150,7 +139,7 @@ FILE /tmp/embed.c
       return status != 0;
     }
 SLOP cc -pthread /tmp/embed.c -I/usr/include/python3.14 -o /tmp/embed -lpython3.14 --dolly-cast-emulation \
-  -lffi -llzma -lbz2 -lsqlite3 -lcurl -L/usr/lib/python3.14/embed -lpyexpat -lHacl_HMAC -lHacl_Hash_BLAKE2 \
+  -lffi -llzma -lbz2 -lsqlite3 -lcurl -L/usr/lib/python3.14/embed -lpyexpat -lHacl_Hash_BLAKE2 \
   -lHacl_Hash_MD5 -lHacl_Hash_SHA1 -lHacl_Hash_SHA2 -lHacl_Hash_SHA3 -lz -lm
 SLOP /tmp/embed
 

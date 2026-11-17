@@ -236,6 +236,13 @@ SLOP test \
 SLOP cp \
   /usr/src/python/libpython3.14.a \
   /usr/lib/libpython3.14.a
+# And what it links beside it, which CPython's build makes and installs
+# nowhere: the HACL archives of its hashes and its own expat, whose API
+# pyexpatns.h renames.
+SLOP mkdir -p /usr/lib/python3.14/embed
+SLOP cp /usr/src/python/Modules/expat/libexpat.a /usr/lib/python3.14/embed/libpyexpat.a
+SLOP CWD /usr/src/python/Modules/_hacl cp libHacl_Hash_MD5.a libHacl_Hash_SHA1.a libHacl_Hash_SHA2.a \
+  libHacl_Hash_SHA3.a libHacl_Hash_BLAKE2.a /usr/lib/python3.14/embed
 SLOP mv \
   /usr/src/python/python \
   /usr/bin/python

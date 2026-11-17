@@ -29,7 +29,7 @@ REQUIRES TOOL sed
 REQUIRES TOOL sort
 REQUIRES TOOL tar
 
-SOURCE /dist/static/wine/source.tar.gz bb03fbe00d605bdc37a6986618bee59f14b04c22f7b163730747cf01552e5d22 /tmp/wine-source.tar.gz
+SOURCE /dist/static/wine/source.tar.gz 45fbd809c080afdd8d4b0dd667438b84124cd6a55a3d583b8ca971c8895fff28 /tmp/wine-source.tar.gz
 SLOP gzip -dc /tmp/wine-source.tar.gz | tar -xf - -C /
 # TinyCC's win64 binaries, unmodified: x86-64 code for x86emu, which builds the Start menu's x86-64 sample with them.
 SOURCE /dist/static/wine/tinycc.tar.gz 20709ea054c77d290a1837699bd8993dfbe84f97b5900002057a50dfd002fe4a /tmp/tinycc.tar.gz

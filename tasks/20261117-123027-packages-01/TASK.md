@@ -26,7 +26,9 @@ CMake: "Found BrotliDec").
 
 Tested: its amy case (`demos/tools/test/amy-cases.json`, run alone with the other new packages' cases) passed in Chromium and Firefox (`work/packages-evidence-1117/runs/test-amy-new.log`). The FreeType session of `demos/zero-ad/test/amy-browser.mjs` (`pkg-config --static --libs freetype2`, now with Brotli) passed in both (`test-amy-zero-ad.log`).
 
-Built in `work/packages`: `blender-deps` over the packages (460,838,815 bytes, 873 s): OpenColorIO found expat 2.8.5, OpenImageIO {fmt} 12.1.0, TIFF 4.7.2 and JPEG 62 (by FindJPEG: the libjpeg-turbo package keeps no CMake config, which OpenImageIO tries first), and the stage's embedded interpreter links and runs.
+Built in `work/packages`: `blender-deps` over the packages (460,838,815 bytes, 873 s): OpenColorIO found expat 2.8.5, OpenImageIO {fmt} 12.1.0, TIFF 4.7.2 and JPEG 62 (FindJPEG's `libjpeg.a`, as when the stage built libjpeg-turbo: OpenImageIO takes libjpeg-turbo's CMake config only for its shared `libjpeg-turbo::jpeg`), and the stage's embedded interpreter links and runs.
+
+Built and tested in `work/packages`: `wine-build` and `wine` over FreeType with Brotli (431 s); `demos/wine/test/wine-browser.mjs` passed in Chromium and Firefox (NetSurf drew a PNG and a JPEG, GIMP, Notepad, Paint; `work/packages-evidence-1117/runs/test-wine.log`).
 
 ## Candidate
 

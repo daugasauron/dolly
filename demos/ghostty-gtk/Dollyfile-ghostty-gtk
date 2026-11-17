@@ -10,8 +10,8 @@ REQUIRES HOST threads@0
 # compiled interface files, built by Zig in Dolly over gtk-build: libadwaita
 # and Ghostty's own build.zig
 # (ghostty-dolly.patch; its packages fetched on the host, prepare-ghostty.sh).
-FROM /demos/gtk/Dollyfile-gtk-build 85b9899c172bfdf3bf0bead250b6b5341cfce597dd6b197f6817044f42218939
-USE /demos/zig/Dollyfile-zig-llvm 6569a7d5447844084fd4f714fe5dd77a3689efc583c12ed57f7a9e49c8514d09
+FROM /demos/gtk/Dollyfile-gtk-build 1466df55c6bf1ad467bf7643084b0b54ff49596216e749a0492605297d70c21c
+USE /demos/zig/Dollyfile-zig-llvm 9812233229cf10fe25526ca782b0da9a7594e2e654ead5a01cc063d37c37a1e5
 USE /Dollyfile-libdolly-pty 2dc46dfff7c7fee8075069868c7bbc87077a3eb712bb1865f34264ac0315dbd9
 
 REQUIRES TOOL   c++

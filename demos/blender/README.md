@@ -8,7 +8,7 @@ Blender's GPU module) is in the tasks tagged `blender`.
 ## Images
 
 - `blender`: Blender 5.3 without its interface: `blender -b` runs Python scripts on scenes and `.blend` files, and Cycles renders on the CPU.
-- `blender-deps`: A build stage: the libraries Blender links beyond Dolly's packages, at the versions it pins (OpenImageIO, OpenColorIO, OpenEXR, oneTBB and ten more), over the packages of FreeType with Brotli, libjpeg-turbo, libtiff, expat and {fmt}.
+- `blender-deps`: A build stage: the libraries Blender links beyond Dolly's packages, at the versions it pins (OpenImageIO, OpenColorIO, OpenEXR, oneTBB and ten more), over the packages of FreeType with Brotli, libjpeg-turbo, libtiff, expat, {fmt} and Python.
 
 ## Use
 
@@ -68,10 +68,9 @@ Make at four jobs. What the platform decided:
   WebAssembly traps on. The program is linked with `cc --dolly-cast-emulation`
   ([process model](../../docs/process-model.md)).
 - **libpython for a program that embeds it.** CPython builds its HACL archives
-  and its own expat beside `libpython3.14.a` and installs neither: the build
-  stage makes them with CPython's Makefile in the prepared tree the `python`
-  package was built from. That expat and OpenColorIO's share two symbol
-  names, which the `expat` package renames.
+  and its own expat beside `libpython3.14.a` and installs neither: the
+  `python` package keeps them, in `/usr/lib/python3.14/embed`. That expat and
+  OpenColorIO's share two symbol names, which the `expat` package renames.
 - **This libc++.** Two upstream sources depend on how an older libc++ behaved:
   Cycles' `StackAllocator` hands out storage inside the allocator, which a
   vector that grows through a copy of its allocator does not survive, and

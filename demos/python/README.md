@@ -28,6 +28,10 @@ Install it with `INSTALL` or `amy install python`; build with
 - `urllib.request` and `requests`, including pip's vendored copy, send
   through `env.dolly_http_dispatch` and its browser policy.
 - `sys.platform` is `"dolly"`. Emscripten/Pyodide wheels are not compatible.
+- A program that embeds Python (Blender) links `-lpython3.14` and, from
+  `/usr/lib/python3.14/embed`, CPython's own expat (`-lpyexpat`) and its HACL
+  archives (`-lHacl_Hash_*`), which its build makes and installs nowhere, with
+  SQLite, bzip2, XZ, zlib, libffi and curl, which the program installs.
 - pip's settings live in `/etc/pip.conf` ([`Dollyfile-python`](Dollyfile-python)); sdists build
   as upstream builds its wheels.
 

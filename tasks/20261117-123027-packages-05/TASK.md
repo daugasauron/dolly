@@ -25,7 +25,7 @@ Built in `work/packages`: `fmt` 12.1.0 (923,458 bytes).
 
 Mojo's staged `mojo/mojo.tar.gz` no longer holds {fmt}: its `SOURCE` pin is refreshed when the next round stages Mojo (this tree does not stage it).
 
-Built in `work/packages`: `blender-deps` over the packages (460,838,815 bytes, 873 s): OpenColorIO found expat 2.8.5, OpenImageIO {fmt} 12.1.0, TIFF 4.7.2 and JPEG 62 (by FindJPEG: the libjpeg-turbo package keeps no CMake config, which OpenImageIO tries first), and the stage's embedded interpreter links and runs.
+Built in `work/packages`: `blender-deps` over the packages (460,838,815 bytes, 873 s): OpenColorIO found expat 2.8.5, OpenImageIO {fmt} 12.1.0, TIFF 4.7.2 and JPEG 62 (FindJPEG's `libjpeg.a`, as when the stage built libjpeg-turbo: OpenImageIO takes libjpeg-turbo's CMake config only for its shared `libjpeg-turbo::jpeg`), and the stage's embedded interpreter links and runs.
 
 ## Candidate
 

@@ -12,13 +12,13 @@ REQUIRES HOST threads@0
 # build, over the libpng, FreeType, expat, libjpeg-turbo, libtiff, pixman and
 # Mesa packages: Meson for FriBidi, HarfBuzz, fontconfig (whose build runs the
 # gperf package), cairo, graphene, libepoxy, gdk-pixbuf, pango and GTK (its
-# X11 backend alone, over x11-build's X libraries). Mesa's EGL and KHR headers serve
-# libepoxy's EGL dispatch and GTK's EGL code, and a GTK program draws with its
-# libraries. Static libraries in /usr/lib, as a GTK program links them; GLib's
-# pkg-config file has cc cast-emulate every GObject program, those these
-# builds run among them.
-FROM /demos/x11/Dollyfile-x11-build 943125cdfcaa6f305953a73a1ae48fd512bd2e4465110c1be88213b60c430ba3
-INSTALL /demos/tools/Dollyfile-meson 4c1605d54a6e0a0349b9514fd8a083a4bcb1e918463e212bdeea58a6d20729c4
+# X11 backend alone, over x11-build's X libraries). Mesa's EGL and KHR
+# headers serve libepoxy's EGL dispatch and GTK's EGL code; its libraries, a
+# program that draws with OpenGL itself (Ghostty). Static libraries in
+# /usr/lib, as a GTK program links them; GLib's pkg-config file has cc
+# cast-emulate every GObject program, those these builds run among them.
+FROM /demos/x11/Dollyfile-x11-build 5f9800a3ec63dcebba6a101cdde90d69ef548c8fc6ce1e4baac360c62625761a
+INSTALL /demos/tools/Dollyfile-meson c4bc7b515f8ede28f2567a32d5f491a8f1c439936eca67057ecf51f4f87c3b47
 INSTALL /demos/tools/Dollyfile-pkgconf 8e2d10a742a5f3dc0a5da7426f3f276c233bf6672cc0a777fa849672d0f1e0b3
 INSTALL /demos/tools/Dollyfile-gperf c07049fb00a844344cb33520b1323d22837195809e7173b8b456b1b90b87a09b
 INSTALL /demos/tools/Dollyfile-libpng f9220787128996320c6fa8b6f98a3d61945c69bcba9fbe41eb1b48f699ae3e16
@@ -26,11 +26,11 @@ INSTALL /demos/tools/Dollyfile-freetype cb073fa00533688584684aeca85e8d1a26cd9182
 INSTALL /demos/tools/Dollyfile-expat eb9a4b151c32a7da07b510bf5860263845ccb00fc5a37bd43459a0fb719ed3a7
 INSTALL /demos/tools/Dollyfile-libjpeg-turbo 04db0d617e53e5ad835e7fee4a3fcba679b74ec9f35beea3f7f4eba947b89880
 INSTALL /demos/tools/Dollyfile-libtiff 33ebfdb762eeb3b41052b4d0db872d174268fde69a740f3de90f953d3942ceb8
-INSTALL /demos/x11/Dollyfile-pixman 0056146d297b931204a544c6fd89a795178cd0f3f689f73b040e1255ff94a6ca
-INSTALL /demos/ghostty-gtk/Dollyfile-mesa e7ba1658bdcc14efc4ccfd487f4fb74552c5efe47ad1371100ca204aa00e9bc1
+INSTALL /demos/x11/Dollyfile-pixman ab15ad7e6aa8c4f6b640bbb1b049180eb64abc79e2d37cfe67c63b877a0ba157
+INSTALL /demos/ghostty-gtk/Dollyfile-mesa f4c17b59c71e0887662c49c80e4b4d08165588211502557ca3586aa01230a84d
 INSTALL /demos/tools/Dollyfile-tar 41a8b3eb2eb4e9ab4bf0d8d1708a5859cbf89872b2658344741c27affa220ffb
 INSTALL /demos/tools/Dollyfile-binaryen 62d42b20ce549007859d3d4c69dd57b1f33a097c9e59a7cb9d39cc44afe3742e
-INSTALL /demos/gtk/Dollyfile-glib 129262054c8489313d56fbc9d5b5a973315bae1508936ac0883cf55b8d6aa4a2
+INSTALL /demos/gtk/Dollyfile-glib 9c6bd1a1b69e452f6d9d125aafe1b3ecf802a13be2240b533eaa841123139dde
 
 REQUIRES HEADER glib
 REQUIRES HEADER zlib

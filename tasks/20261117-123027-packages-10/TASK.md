@@ -16,6 +16,10 @@ Done on `ws/packages`: the python package keeps, in `/usr/lib/python3.14/embed`,
 `blender-deps` installs python and builds none of it. `libHacl_HMAC.a`, which the stage made too,
 is one no CPython module of this build links, so Blender's link no longer names it.
 
+Built in `work/packages`: `python` with the six archives in `/usr/lib/python3.14/embed` (50,244,409 bytes against the round's 49,906,887: 337,522 bytes more in every image that installs python).
+
+Built in `work/packages`: `blender-deps` over it (458,945,739 bytes, 692 s, against 460,838,815 when it made the archives itself); its embedded interpreter links without `-lHacl_HMAC` and runs.
+
 ## Candidate
 
 - Who installs it: Blender's build, any program that embeds CPython; every python install gets
