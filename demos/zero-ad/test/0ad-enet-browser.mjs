@@ -30,7 +30,7 @@ try {
     await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
     assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready");
     await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
-    assert.equal(await page.evaluate(url => __dolly.submit(`curl -fsS ${url}/fixture/enet.wasm -o /tmp/enet`), server.origin), 0);
+    assert.equal(await page.evaluate(url => __dolly.submit(`amy install curl && curl -fsS ${url}/fixture/enet.wasm -o /tmp/enet`), server.origin), 0);
   }
   const submit = (index, role, path = room.endpoints[index].path) => pages[index].evaluate(
     command => __dolly.submit(command), `DOLLY_ENET_RELAY=${relayOrigin}${path} /tmp/enet ${role}`);

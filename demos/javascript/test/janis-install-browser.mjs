@@ -40,7 +40,8 @@ for (const browser of browsers) await demoTest("janis-install", { image: "defaul
   await run("janis-install --prefix /tmp/other/node_modules dolly-left && test -f /tmp/other/node_modules/@dolly/shared/index.js");
   await run(`cd /tmp/other && test "$(janis -e 'console.log(require("dolly-left"))')" = 'left shared 1.0.0' && cd /workspace`);
 
-  // A copy of the registry's files, as a recipe stages them: nothing is fetched.
+  // A copy of the registry's files, as a recipe stages them, with curl: nothing is fetched.
+  await run("amy install curl");
   await run(["dolly-left", "@dolly/shared"].map(name => `mkdir -p /tmp/copy/${name}/- && curl -fsS ${registry}/${name} -o /tmp/copy/${name}/metadata.json`)
     .concat(["dolly-left/-/dolly-left-1.0.0.tgz", "@dolly/shared/-/shared-1.0.0.tgz"].map(path => `curl -fsS ${registry}/${path} -o /tmp/copy/${path}`)).join(" && "));
   const copied = fixture.requests.length;
