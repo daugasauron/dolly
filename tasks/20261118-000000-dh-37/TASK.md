@@ -49,3 +49,33 @@ expiries' prices near the replicating hedger's (within a sixth but for the first
 of the quotes in band.
 Stock is cheap enough to trade that even at these prices of risk the hedger hedges nearly in
 full. It would matter in a name where the stock is dear to trade.
+
+## The owner's answer, 2026-11-18
+
+"Let me rephrase everything in a more simple way. I want you to go back to the fundamentals.
+The idea is to do something like the fundamental theorem of asset pricing, but with spreads and
+slippage as first class parameters. In classical financial mathematics, there is no edge, and
+no spread. How I think about it in this case is that, the spread is determined by the sell
+side/market makers. The market makers think that they can offer those quotes, get the "spread"
+as profit, and hedge everything else. This is not entirely true since there is some demand for
+options as hedges for other types of contracts as well but lets disregard that for now. Does
+that answer your 3 questions?"
+
+What it settles (THEORY.md, decision 30):
+
+- Who holds: one market maker, who hedges its book to expiry. No chain of dealers, no days
+  after which it is out. The closure held to expiry stays; the other two go.
+- The spread is the market makers' and is read off the quotes. The model does not explain its
+  width from a risk and a fitted price of it; what a spread is against the hedge's cost and
+  against what the hedge leaves is a measurement, by contract.
+- The tick: no fitted floor. A quote is known to within a tick, and no more is said of it.
+
+The integrator's reading had, for the first, one price of unhedged risk for the name with the
+expiries' differences left to the demand set aside. The owner's words do not say that there is
+such a price; with one number the model's half spreads are a factor of three from the market's
+(miss 1.2). Put to the owner.
+
+Open after it: on a later day of a path the hedger trades options at that day's quotes
+(decision 28), so the model must say what a spread is on a later day. The reading put to the
+owner: by the rule that gives today's spreads on today's chain.
+
