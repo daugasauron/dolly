@@ -9,10 +9,10 @@ REQUIRES HOST runtime@0
 # -ljs_static -ljsrust -lz.
 FROM /v0.1.7/Dollyfile-system-tools 6699b9ce9339fe8ee70c02972b8a4b10242adb71dd63c3a5ac5da48f8d1828ed
 INSTALL /v0.1.7/Dollyfile-zlib 8de0bd7abb3a8237405fbbe378e6565c995a24694e5a3b55ef24873c5786bdb5
-USE /v0.1.7/demos/python/Dollyfile-python c97238b02344b36aad552b36fd2f73d450811ecaf7f5464374e82e8af15b80d7
-USE /v0.1.7/demos/rust/Dollyfile-cargo 4066e756f2823c5fbc5f2a500941027aad1bca2eee82210a1a8c03c84361d197
-USE /v0.1.7/demos/rust/Dollyfile-cbindgen 9b5b103ae0cfbaba589eb5c7c607fc625a99baa342d989ad3125176b383c7ebc
-USE /v0.1.7/demos/zero-ad/Dollyfile-pkgconf fdb291181297a70fc73950b9122322458fa73450d2f713b931eeefe0f46f6f02
+USE /v0.1.7/demos/python/Dollyfile-python 6823cbe87d98e515fb492e6617c5901dd0a9753a848d8b0d016cd97f6041bbd0
+USE /v0.1.7/demos/rust/Dollyfile-cargo fd8ec1788c43f729f4a4cbe835b1c29362f615426e00374001e46b3db180b6ae
+USE /v0.1.7/demos/rust/Dollyfile-cbindgen 5452ed62e24c2107f18d284ee5b9bec2e8bc8e1ccdb6e750a62f3a3ff6a0cc41
+USE /v0.1.7/demos/tools/Dollyfile-pkgconf fdb291181297a70fc73950b9122322458fa73450d2f713b931eeefe0f46f6f02
 REQUIRES HEADER zlib
 REQUIRES LIB z
 REQUIRES TOOL cc

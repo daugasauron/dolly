@@ -4,7 +4,7 @@
 set -euo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${project_dir}"
-key="$(sha256sum config/source-pins.sh demos/zero-ad/build-sources.tsv demos/zero-ad/prepare-build-sources.sh | sha256sum | cut -d' ' -f1)"
+key="$(sha256sum demos/zero-ad/source-pins.sh demos/zero-ad/build-sources.tsv demos/zero-ad/prepare-build-sources.sh | sha256sum | cut -d' ' -f1)"
 output="${project_dir}/build/generated/zero-ad-build-${key}"
 if [[ ! -d "${output}" ]]; then
   mkdir -p build/generated

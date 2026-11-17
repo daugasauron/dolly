@@ -9,8 +9,8 @@ if has_image openal; then
     "${openal_dir}/LICENSE-pffft" /usr/share/licenses/OpenAL/LICENSE-pffft \
     "${openal_dir}/fmt-11.1.1/LICENSE" /usr/share/licenses/OpenAL/fmt
 fi
-if has_image zero-ad-deps || has_image zero-ad-engine || has_image spidermonkey || has_image pkgconf ||
-   has_image libpng || has_image freetype || has_image fmt || has_image libxml2 || has_image libsodium ||
+if has_image zero-ad-deps || has_image zero-ad-engine || has_image spidermonkey || has_image fmt ||
+   has_image libxml2 || has_image libsodium ||
    has_image boost-headers || has_image icu || has_image premake || has_image zero-ad-data; then
   zad_dir="$(bash demos/zero-ad/prepare-build-sources.sh)"
 fi
@@ -39,23 +39,6 @@ if has_image zero-ad-data; then
     "${data_source}/license_gpl-2.0.txt" /tmp/0ad-source/license_gpl-2.0.txt \
     "${data_source}/license_lgpl-2.1.txt" /tmp/0ad-source/license_lgpl-2.1.txt \
     "${data_source}/license_mit.txt" /tmp/0ad-source/license_mit.txt
-fi
-if has_image pkgconf; then
-  node scripts/build-source-tar.mjs "${static_dir}/pkgconf/source.tar" \
-    "${zad_dir}/pkgconf-2.5.1/libpkgconf" /tmp/pkgconf/libpkgconf \
-    "${zad_dir}/pkgconf-2.5.1/cli" /tmp/pkgconf/cli \
-    "${zad_dir}/pkgconf-2.5.1/COPYING" /usr/share/licenses/pkgconf/COPYING
-fi
-if has_image libpng; then
-  node scripts/build-source-tar.mjs "${static_dir}/libpng/source.tar.gz" \
-    "${zad_dir}/libpng-1.6.58" /tmp/libpng \
-    "${zad_dir}/libpng-1.6.58/LICENSE" /usr/share/licenses/libpng/LICENSE
-fi
-if has_image freetype; then
-  node scripts/build-source-tar.mjs "${static_dir}/freetype/source.tar.gz" \
-    "${zad_dir}/freetype-VER-2-14-3" /tmp/freetype \
-    "${zad_dir}/freetype-VER-2-14-3/LICENSE.TXT" /usr/share/licenses/freetype/LICENSE.TXT \
-    "${zad_dir}/freetype-VER-2-14-3/docs/FTL.TXT" /usr/share/licenses/freetype/FTL.TXT
 fi
 if has_image fmt; then
   node scripts/build-source-tar.mjs "${static_dir}/fmt/source.tar.gz" \

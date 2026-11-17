@@ -65,6 +65,25 @@ if has_image bc; then
     "${tool_dir}/manuals/bc/N.1" /usr/share/man/man1/bc.1 \
     "${tool_dir}/manuals/dc/N.1" /usr/share/man/man1/dc.1
 fi
+# Libraries that other demos build against, from their release archives, with their licences.
+if has_image libpng; then
+  tool_dir="$(bash scripts/fetch-pinned-source.sh libpng)"
+  node scripts/build-source-tar.mjs "${static_dir}/libpng/source.tar.gz" "${tool_dir}" /tmp/libpng \
+    "${tool_dir}/LICENSE" /usr/share/licenses/libpng/LICENSE
+fi
+if has_image freetype; then
+  tool_dir="$(bash scripts/fetch-pinned-source.sh freetype)"
+  node scripts/build-source-tar.mjs "${static_dir}/freetype/source.tar.gz" "${tool_dir}" /tmp/freetype \
+    "${tool_dir}/LICENSE.TXT" /usr/share/licenses/freetype/LICENSE.TXT \
+    "${tool_dir}/docs/FTL.TXT" /usr/share/licenses/freetype/FTL.TXT
+fi
+if has_image pkgconf; then
+  tool_dir="$(bash scripts/fetch-pinned-source.sh pkgconf)"
+  node scripts/build-source-tar.mjs "${static_dir}/pkgconf/source.tar" \
+    "${tool_dir}/libpkgconf" /tmp/pkgconf/libpkgconf \
+    "${tool_dir}/cli" /tmp/pkgconf/cli \
+    "${tool_dir}/COPYING" /usr/share/licenses/pkgconf/COPYING
+fi
 # wabt's source release, with the libraries it vendors, is an xz archive.
 if has_image wabt; then
   tool_archive="$(bash scripts/fetch-pinned-archive.sh wabt)"

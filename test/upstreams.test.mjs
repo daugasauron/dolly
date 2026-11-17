@@ -12,7 +12,7 @@ test("every recipe SOURCE and source pin has a licensed upstream entry, and ever
   const rows = await upstreamRows(projectDir, await discoverImageDefinitions(projectDir));
   const pins = await sourcePins(projectDir);
   const claimed = new Set(rows.flatMap(row => row.pins ?? []));
-  for (const key of pins.keys()) assert.ok(claimed.has(key), `source pin ${key} has no entry in config/upstreams.json`);
+  for (const key of pins.keys()) assert.ok(claimed.has(key), `source pin ${key} has no entry in an upstreams.json`);
   for (const row of rows) {
     for (const key of row.pins ?? []) assert.ok(pins.has(key), `${row.name}: unknown source pin ${key}`);
     for (const pattern of row.patterns) {

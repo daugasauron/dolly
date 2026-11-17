@@ -78,9 +78,10 @@ checks the compiler against `dolly-process-0`.
 ## Pins and identity
 
 - Upstream versions, URLs and archive digests live in
-  [`source-pins.sh`](../config/source-pins.sh) and the npm lockfile. Dollyfiles
-  pin the exact served bytes, since preparation can change bytes without changing
-  upstream.
+  [`source-pins.sh`](../config/source-pins.sh) for what the core reads, in each
+  demo's `demos/DEMO/source-pins.sh`, which it sources, and in the npm
+  lockfile. Dollyfiles pin the exact served bytes, since preparation can change
+  bytes without changing upstream.
 - [`prepare-image-sources.sh`](../scripts/prepare-image-sources.sh) stages the
   selected catalog's inputs (each demo adds a `prepare-sources.sh` hook);
   [`generate-routes.mjs`](../scripts/generate-routes.mjs) checks every

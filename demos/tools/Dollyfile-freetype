@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # project, for programs the cc package builds, with the libpng and zlib it
 # reads fonts with.
 FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 99ba4b0dfea5dfd2099047bbbd136adbff138ac5c2316c7f57f4fa485f50968f
-INSTALL /v0.1.7/demos/zero-ad/Dollyfile-libpng 1832831a62d75eedcd633b1879910e0556deb2c271857ca8a64e25b540f0e0bc
+INSTALL /v0.1.7/demos/tools/Dollyfile-libpng 3d16f7b66f204ab4072ff91dba950586c5731c8d837756da81bd9ed5ed1557b7
 REQUIRES HEADER libc
 REQUIRES HEADER png
 REQUIRES HEADER zlib
@@ -17,7 +17,7 @@ REQUIRES TOOL gzip
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.7/dist/static/freetype/source.tar.gz 045b71defb2d966dd1452aca8425a50842772ec28961b74804640cd638cca984 /tmp/freetype.tar.gz
+SOURCE /v0.1.7/dist/static/freetype/source.tar.gz 229060bd70268807f773b7020facda27f9d25521fc3703b0332f464663d5f448 /tmp/freetype.tar.gz
 SLOP gzip -dc /tmp/freetype.tar.gz | tar -xf - -C /
 SLOP cmake -S /tmp/freetype -B /tmp/freetype-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \

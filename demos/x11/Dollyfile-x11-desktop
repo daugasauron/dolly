@@ -19,16 +19,16 @@ REQUIRES HOST nena@0
 INSTALL /v0.1.7/Dollyfile-core 0400b7c98241821542518a568100a4d8abf5e6642e2dbbc3b09f3512dfc75ba0
 INSTALL /v0.1.7/Dollyfile-posix 1253bee9688e620f912bff5694ce133044a38d20392218a152f9da4d3a290e63
 INSTALL /v0.1.7/Dollyfile-display a6680af8ee3a48c935c74f701bdd3b31b15ea2aa9e7d98cd8776d9509c81fbd2
-INSTALL /v0.1.7/demos/x11/Dollyfile-xorg-server a5b5d5eac1c78d8bcd4d7363898c12379e555e03bc2d007f96f7dd4ebb6748ce
-INSTALL /v0.1.7/demos/x11/Dollyfile-twm e30b9293f3419f80d0861ee70210f68aeb51f9923df3aeeb45ee014f7a9828e1
-INSTALL /v0.1.7/demos/x11/Dollyfile-xclock 2fa1ffd584b90b207b811f217e24f68faae3ccafa14f26e6dc44498fe4e9e4c9
-INSTALL /v0.1.7/demos/x11/Dollyfile-xeyes db1f72a91a0ea6c26d2b4dd75663ebd8ceabf920829504a7bbb2da1ef904b6c1
-INSTALL /v0.1.7/demos/x11/Dollyfile-xterm 39d05500887f7d6cb99fdbe4146e96e2f5f2674adbeb3a035788ee00ae160410
+INSTALL /v0.1.7/demos/x11/Dollyfile-xorg-server a9468cfc1703cbce8132b471aff0b30e38afab565f6d92c9c7c52877fe6db394
+INSTALL /v0.1.7/demos/x11/Dollyfile-twm 2d5bbe31748234f90c76ae239c681abd0c7f8008a8abb0e1675a533895c4507c
+INSTALL /v0.1.7/demos/x11/Dollyfile-xclock 9e3557a66ac584b4395dc4bdac45dfad76f76369647797be0798c3ebc5cf80b0
+INSTALL /v0.1.7/demos/x11/Dollyfile-xeyes 544b0f1e39fc23e303f510faaa16d16cd6076897ce8670151bf2825ef286d568
+INSTALL /v0.1.7/demos/x11/Dollyfile-xterm 4282516e3666f128734e76db6e25dd4a5378d1cc17d71590dd66a2297bc85024
 # amy installs packages into the session (tmux, nvim and the rest); nena
 # enables the host modules they need.
 INSTALL /v0.1.7/Dollyfile-amy 68444169857e8d1bcac03c0541ea52c1b8660b8bffa61a466c83de79ddc79f76
 INSTALL /v0.1.7/Dollyfile-nena 034d9012d6b5e77516510c595148261044f289c279457d35b437052292439b75
-INSTALL /v0.1.7/demos/sdl2/Dollyfile-imgui-x11 f7f1b97157b794de2aa2ce14148bc4e273f2010c6828c1558a4203e06b204d4e
+INSTALL /v0.1.7/demos/sdl2/Dollyfile-imgui-x11 0506b94cee9d3484e47724fdabd50dd50f0605f4c1a82aaf2bcd21fad7635ee1
 
 # The server takes the display, the keyboard and the pointer until it ends
 # (kill $(cat /tmp/.X0-pid) in the terminal); its clients end with it, and

@@ -4,10 +4,37 @@
 - PRIORITY: 100
 - TAGS: audit,ports,demo,cleanup,0.1.8
 
-## State (2026-11-16 night audit)
+## State (2026-11-17)
 
-Measured by reading; nothing changed. A move of pins changes no staged byte, so no image
-rebuilds for it.
+Done on `ws/ports`, with two scripts the integrator runs again after merging branches that add
+pins or licence rows to the core's files (both idempotent; `work/audit-1116-evidence/ports/fix-ports/`):
+
+- `move-demo-pins.mjs` moved every component of `config/source-pins.sh` that no core file reads
+  (a variable named, or the component fetched by name) to `demos/DEMO/source-pins.sh`, comments
+  with it; the core's file sources them at its end (`for demo_pins in .../demos/*/source-pins.sh`),
+  so every script that sources it sees the same variables: `same-pins.sh` compares every
+  `DOLLY_` variable before and after (615, the same, plus the five below and pkgconf's three of
+  `ports-12`). The core keeps 75 assignments: EMSDK, Emscripten, the seed's compiler, sbase,
+  awk, Bison, Make, curl, zlib, Git, less, termcap, samurai, mandoc, Ghostty, Wuffs,
+  translate-c, uucode, Zig, WAMR, Iosevka, Droid, stb, fontTools; LLVM's commit went to
+  `demos/llvm`, whose recipes build it (AGENTS.md: the core reads only the compiler's pin).
+  Components several demos read are given to the demo whose recipes build them (named in the
+  script).
+- `move-demo-upstreams.mjs` moved every `config/upstreams.json` entry no core input needs to
+  `demos/DEMO/upstreams.json`; `scripts/upstreams.mjs` reads the core's file, then each demo's,
+  for pins and licence rows alike.
+- `fetch-pinned-checkout.sh` has no case list: `DOLLY_NAME_CHECKOUT` names a cache directory that
+  is not NAME (`quickjs-ng`, `emscripten-source`) and `DOLLY_NAME_SPARSE` the trees a sparse
+  checkout takes (Emscripten's, Modular's, Mojo's LLVM); `git grep -i 'raylib\|modular\|mojo'
+  scripts/` finds nothing.
+- `demos/zero-ad/prepare-build-sources.sh` keys its extraction on `demos/zero-ad/source-pins.sh`.
+
+The other per-demo formats stay: they are each demo's already (Rust's and PhotoCraft's
+`sources.json`, Codex's `codex-git.json`, 0 A.D.'s `build-sources.tsv`, Wine's `mspaint.sha256`),
+read by that demo's Python or shell, which a shell file of pins would not serve better.
+
+Images the change rebuilds: none. No staged source changed, since every script sees the same
+pins, and `dolly-docs` holds neither `docs/licences.md` nor `docs/sources.md`.
 
 ## What
 
