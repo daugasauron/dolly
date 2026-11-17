@@ -36,7 +36,9 @@ this tree proved, and what only the round can (the heavy chains):
    blocking pool, the non-blocking log writer and SQLite's worker thread are upstream's).
    Round: `codex` builds, and the codex test (its sign-in included) passes.
 7. Lean's spawn takes no signal attributes: the child keeps what Lean ignores and blocks, as a
-   forked one does (README). Round: the Lean chain and the lean test.
+   forked one does (README). The first lean built from this branch's port spawns a child that
+   exits 0 (`IO.Process.output`, `tasks/20261116-153517-ports-10`). Round: the Lean chain and
+   the lean test.
 8. Emacs: `prepare-emacs.sh` no longer makes `src/lisp.mk` on the host; the release's `.elc`
    files are not staged and the recipe runs upstream's bootstrap
    (`tasks/20261116-143518-ports-08`); `process.c`'s hunk that passed no wait options is gone

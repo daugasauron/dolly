@@ -95,8 +95,11 @@ Left:
   `os.execvp` of the linker with `subprocess.call` (its shebang hunk stays): the round's
   `spidermonkey` build (0 A.D.'s chain) must link through it. `os.execvp` of `cc` from Python, as
   that script ends, works (above). The host freezing step went too
-  (`tasks/20261116-143518-ports-08`), so the archive no longer depends on the host Python's patch
-  version, and its digest is no longer `14c1e5ba…`: the round's staging gives the pin.
+  (`tasks/20261116-143518-ports-08`): the archive no longer depends on the host Python's patch
+  version; it is `4d96d70f…`, the same when prepared again from nothing, and `python` built from
+  it in `ws/ports` passes every check of its recipe (`work/audit-1116-evidence/ports/fix-ports/`,
+  `build-3.log`). So of the first bullet the round's rebuild confirms what installs python as a
+  build tool and `functions.py` on the published package.
 
 ## What
 

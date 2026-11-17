@@ -1,12 +1,13 @@
 # Bytecode made outside Dolly: Emacs's Lisp, for a stack overflow that no longer happens (upstream's whole bootstrap runs inside in 24 to 32 min), and CPython's frozen modules
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 90
 - TAGS: audit,ports,emacs,python,0.1.8
 
 ## State (2026-11-17)
 
-Decided and done on `ws/ports`: both are built inside Dolly.
+Closed: decided and done on `ws/ports` (`2493b117e`), both built inside Dolly and verified in
+this tree. It rebuilds `emacs` and `gnu-emacs`, and `python` and what installs it.
 
 - Emacs: `prepare-emacs.sh` stages the release without its `.elc` files, and
   `Dollyfile-emacs` runs upstream's bootstrap (`make -C src bootstrap-emacs bootstrap-emacs.pdmp`,
@@ -25,6 +26,12 @@ Decided and done on `ws/ports`: both are built inside Dolly.
   which it builds and runs. configure still asks the host for a Python 3.14 (a cross build
   refuses to start without one of its version), which it only names in the Makefile. The
   archive is `4d96d70f…`, the same when prepared again from nothing (`cpython-again.sh`).
+  `python` builds in this tree (253 s, `build-3.log`): Dolly compiles `Programs/_freeze_module`,
+  which writes the 24 frozen modules (`./Programs/_freeze_module importlib._bootstrap
+  ./Lib/importlib/_bootstrap.py Python/frozen_modules/importlib._bootstrap.h` among them), and
+  every check of the recipe passes (snapshot 49,945,675 bytes, the release's 49,836,173). The
+  python demo test passes on it in Chromium and Firefox, the `python` image and `python on
+  default` (`both-18`).
 
 ## What
 
