@@ -50,6 +50,24 @@ Blender's first full pass (`make -k -j4`, about 80 minutes on a machine at load 
   where the flags exist; WebAssembly has none. The patch defines them as 0 there, so a driver
   expression's division by zero gives an infinity instead of an error.
 
+**It links and starts** (11:39): a 166 MB program (158.4 MiB to prepare, 0.4 s), linked in 4 s;
+`blender --version` prints `Blender 5.3.0` in the session. What the link needed:
+
+- Cycles passes `-fno-trapping-math`, `-fno-signed-zeros`, `-freciprocal-math`, `-ffp-contract=on`,
+  Blender `-ffast-math` (one file) and `-Wl,--version-script=` (ELF symbol versions): the filter
+  leaves them out, for compiles and the link (`CMAKE_<LANG>_LINKER_LAUNCHER`).
+- `PYTHON_LINKFLAGS` is `-Xlinker -export-dynamic` by default: `-rdynamic` here, with what
+  libpython's built-in modules link (libffi, lzma, bz2, SQLite, curl).
+- `libpython3.14.a` is not complete for a program that embeds it: CPython builds its HACL
+  archives and its own expat beside it and installs neither, and the `python` package links
+  SQLite and bzip2 without keeping their libraries. The build stage makes the seven archives
+  with CPython's Makefile in the prepared tree the package was built from, and installs `sqlite`.
+- CPython's expat renames its API but not two internal symbols, which OpenColorIO's expat
+  defines too: the stage's expat is compiled with those two renamed (`-D`).
+- FreeType's Brotli is not on Blender's link line outside its precompiled libraries
+  (`BROTLI_LIBRARIES` is set empty): added through `CMAKE_EXE_LINKER_FLAGS`.
+- OpenImageIO's static library needs pugixml: `WITH_PUGIXML=ON`.
+
 Findings:
 
 - `call_once` (C11 `threads.h`) links only with `-pthread`: OpenEXR's core uses it, so every
