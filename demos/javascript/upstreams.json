@@ -1,6 +1,4 @@
 [
 {"name": "QuickJS-ng", "use": "JavaScript engine for Janis and Pi", "licence": "MIT", "repository": "https://github.com/quickjs-ng/quickjs", "pins": ["QUICKJS"], "sources": ["dist/static/default/quickjs.tar"]},
-{"name": "TypeScript", "use": "tsc, and compiles Pi in Dolly", "licence": "Apache-2.0", "repository": "https://github.com/microsoft/TypeScript", "pins": ["TYPESCRIPT"], "sources": ["dist/static/default/typescript-5.9.3.tgz"]},
-{"name": "QuickJS-ng", "use": "JavaScript engine for Janis and Pi", "licence": "MIT", "repository": "https://github.com/quickjs-ng/quickjs", "pins": ["QUICKJS"], "sources": ["dist/static/default/quickjs.tar"]},
 {"name": "TypeScript", "use": "tsc, and compiles Pi in Dolly", "licence": "Apache-2.0", "repository": "https://github.com/microsoft/TypeScript", "pins": ["TYPESCRIPT"], "sources": ["dist/static/default/typescript-5.9.3.tgz"]}
 ]

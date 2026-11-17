@@ -1,8 +1,5 @@
 [
 {"name": "Go", "use": "The Go toolchain's seed for GOOS=dolly GOARCH=wasm64, cross-built outside Dolly by upstream's linux/amd64 release; the go package rebuilds it in Dolly", "licence": "BSD-3-Clause", "prebuilt": true, "repository": "https://go.googlesource.com/go", "pins": ["GO", "GO_HOST"], "sources": ["dist/static/go/go-sdk.tar.gz"]},
 {"name": "esbuild", "use": "esbuild, built by Go in Dolly", "licence": "MIT", "repository": "https://github.com/evanw/esbuild", "pins": ["ESBUILD"], "sources": ["dist/static/go/esbuild.tar"]},
-{"name": "golang.org/x/sys", "use": "Go module esbuild vendors", "licence": "BSD-3-Clause", "repository": "https://go.googlesource.com/sys", "sources": ["dist/static/go/esbuild.tar"]},
-{"name": "Go", "use": "The Go toolchain's seed for GOOS=dolly GOARCH=wasm64, cross-built outside Dolly by upstream's linux/amd64 release; the go package rebuilds it in Dolly", "licence": "BSD-3-Clause", "prebuilt": true, "repository": "https://go.googlesource.com/go", "pins": ["GO", "GO_HOST"], "sources": ["dist/static/go/go-sdk.tar.gz"]},
-{"name": "esbuild", "use": "esbuild, built by Go in Dolly", "licence": "MIT", "repository": "https://github.com/evanw/esbuild", "pins": ["ESBUILD"], "sources": ["dist/static/go/esbuild.tar"]},
 {"name": "golang.org/x/sys", "use": "Go module esbuild vendors", "licence": "BSD-3-Clause", "repository": "https://go.googlesource.com/sys", "sources": ["dist/static/go/esbuild.tar"]}
 ]

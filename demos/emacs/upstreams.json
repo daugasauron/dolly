@@ -1,4 +1,3 @@
 [
-{"name": "GNU Emacs", "use": "emacs", "licence": "GPL-3.0-or-later", "repository": "https://git.savannah.gnu.org/cgit/emacs.git", "pins": ["EMACS"], "sources": ["dist/static/emacs/emacs.tar.gz"]},
 {"name": "GNU Emacs", "use": "emacs", "licence": "GPL-3.0-or-later", "repository": "https://git.savannah.gnu.org/cgit/emacs.git", "pins": ["EMACS"], "sources": ["dist/static/emacs/emacs.tar.gz"]}
 ]

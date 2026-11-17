@@ -1,4 +1,3 @@
 [
-{"name": "OCaml", "use": "OCaml 5.5: the bytecode compiler, toplevel, tools and libraries the ocaml demo builds in Dolly, with demos/ocaml/ocaml-dolly.patch applied", "licence": "LGPL-2.1-only WITH OCaml-LGPL-linking-exception", "repository": "https://github.com/ocaml/ocaml", "pins": ["OCAML"], "sources": ["dist/static/ocaml/ocaml.tar.gz"]},
 {"name": "OCaml", "use": "OCaml 5.5: the bytecode compiler, toplevel, tools and libraries the ocaml demo builds in Dolly, with demos/ocaml/ocaml-dolly.patch applied", "licence": "LGPL-2.1-only WITH OCaml-LGPL-linking-exception", "repository": "https://github.com/ocaml/ocaml", "pins": ["OCAML"], "sources": ["dist/static/ocaml/ocaml.tar.gz"]}
 ]

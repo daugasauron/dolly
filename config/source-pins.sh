@@ -104,10 +104,6 @@ DOLLY_MANDOC_VERSION=1.14.6
 DOLLY_MANDOC_URL='https://mandoc.bsd.lv/snapshots/mandoc-1.14.6.tar.gz'
 DOLLY_MANDOC_SHA256=8bf0d570f01e70a6e124884088870cbed7537f36328d512909eb10cd53179d9c
 
-DOLLY_FONTTOOLS_VERSION=4.68.0
-DOLLY_FONTTOOLS_URL='https://files.pythonhosted.org/packages/35/74/4ea331ecc65ba05a58b1e4e8ccd604c8a15565f876dfbf93fc2a2ea2e22b/fonttools-4.68.0-py3-none-any.whl'
-DOLLY_FONTTOOLS_SHA256=d76f8fdcb6936f5e1045a0c9dd721a4bf11112e60d1e243bfa1d39f06a8b3104
-
 # Each demo's own pins: demos/DEMO/source-pins.sh.
 for demo_pins in "$(dirname -- "${BASH_SOURCE[0]}")"/../demos/*/source-pins.sh; do
   if [[ -f "${demo_pins}" ]]; then source "${demo_pins}"; fi

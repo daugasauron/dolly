@@ -1,6 +1,4 @@
 [
 {"name": "rclone", "use": "rclone with its local and WebDAV backends, built by Go in Dolly; upstream's linux/amd64 release serves the folder in its test", "licence": "MIT", "repository": "https://github.com/rclone/rclone", "pins": ["RCLONE", "RCLONE_VENDOR", "RCLONE_HOST"], "sources": ["dist/static/rclone/rclone.tar"]},
-{"name": "Go modules rclone vendors", "use": "The 46 modules the rclone package compiles; it keeps each module's licence files in /usr/share/licenses/rclone/modules", "licence": "MIT AND Apache-2.0 AND BSD-3-Clause AND BSD-2-Clause AND CC0-1.0", "repository": "https://proxy.golang.org/", "sources": ["dist/static/rclone/rclone.tar"]},
-{"name": "rclone", "use": "rclone with its local and WebDAV backends, built by Go in Dolly; upstream's linux/amd64 release serves the folder in its test", "licence": "MIT", "repository": "https://github.com/rclone/rclone", "pins": ["RCLONE", "RCLONE_VENDOR", "RCLONE_HOST"], "sources": ["dist/static/rclone/rclone.tar"]},
 {"name": "Go modules rclone vendors", "use": "The 46 modules the rclone package compiles; it keeps each module's licence files in /usr/share/licenses/rclone/modules", "licence": "MIT AND Apache-2.0 AND BSD-3-Clause AND BSD-2-Clause AND CC0-1.0", "repository": "https://proxy.golang.org/", "sources": ["dist/static/rclone/rclone.tar"]}
 ]
