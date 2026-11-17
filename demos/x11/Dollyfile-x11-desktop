@@ -23,7 +23,7 @@ INSTALL /v0.1.7/demos/x11/Dollyfile-xorg-server 458cfda34932ecae66a7c5f15ac85b69
 INSTALL /v0.1.7/demos/x11/Dollyfile-twm 90f0d98fcff13a44d893f8310fe999ecbba9097439dd00dd2ef52520cc5bc93c
 INSTALL /v0.1.7/demos/x11/Dollyfile-xclock c3b48d5ff748f063ee194432ea619c357e96be5cc02d82e61a5eec17011c2b90
 INSTALL /v0.1.7/demos/x11/Dollyfile-xeyes 77bc85789629148f1f3d47cf0b23c4f3615319a8a490504153995b981063a88f
-INSTALL /v0.1.7/demos/x11/Dollyfile-xterm 161be25c6e221fa58655fa85afc735e416a64018f74f337c4c7051fa1ec8a2c2
+INSTALL /v0.1.7/demos/x11/Dollyfile-xterm d7e09b2c719888594480ede1c08f53928bf5a7e2d45ed8db277222741c019030
 # amy installs packages into the session (tmux, nvim and the rest); nena
 # enables the host modules they need.
 INSTALL /v0.1.7/Dollyfile-amy 68444169857e8d1bcac03c0541ea52c1b8660b8bffa61a466c83de79ddc79f76

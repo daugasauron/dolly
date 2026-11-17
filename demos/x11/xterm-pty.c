@@ -3,6 +3,7 @@
  * the command after -e, on its slave. Usage: xterm [xterm option...] [-e
  * command [argument...]]. SPDX-License-Identifier: MIT */
 #include <pty.h>
+#include <signal.h>
 #include <spawn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,13 +14,22 @@
 
 extern char **environ;
 
+/* The program starts with SIGHUP's default, which this one ignores. */
 static pid_t spawn(const char *path, char *argv[], int from, int to, int last) {
   posix_spawn_file_actions_t actions;
   posix_spawn_file_actions_init(&actions);
   for (int descriptor = to; descriptor <= last; descriptor++)
     posix_spawn_file_actions_adddup2(&actions, from, descriptor);
+  posix_spawnattr_t attributes;
+  posix_spawnattr_init(&attributes);
+  sigset_t hangup;
+  sigemptyset(&hangup);
+  sigaddset(&hangup, SIGHUP);
+  posix_spawnattr_setsigdefault(&attributes, &hangup);
+  posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSIGDEF);
   pid_t pid;
-  int error = posix_spawnp(&pid, path, &actions, NULL, argv, environ);
+  int error = posix_spawnp(&pid, path, &actions, &attributes, argv, environ);
+  posix_spawnattr_destroy(&attributes);
   posix_spawn_file_actions_destroy(&actions);
   if (error) {
     fprintf(stderr, "xterm: cannot start %s: %s\n", path, strerror(error));
@@ -35,6 +45,9 @@ static int exit_status(pid_t pid) {
 }
 
 int main(int argc, char *argv[]) {
+  /* xterm's end closes the master, which hangs up whoever holds the slave: this program too,
+   * until it has started the program there. */
+  signal(SIGHUP, SIG_IGN);
   int master, slave;
   char name[64];
   if (openpty(&master, &slave, name, NULL, NULL) != 0) {
