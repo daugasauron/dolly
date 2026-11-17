@@ -8,6 +8,7 @@ import { executableHostRequirements, checkHostAbi } from "../host/requirements.m
 import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 import { hostManifests } from "../host/manifests.mjs";
+import { exportIndex } from "../page/wasm-interface.mjs";
 import { DOLLY_NENA_GIVES_BYTES, DOLLY_NENA_REASON_BYTES } from "../host/nena/abi.mjs";
 import { siteReference } from "../page/static-asset.mjs";
 test("every image declares its complete host set itself", async () => {
@@ -163,7 +164,7 @@ test("no two contracts claim one process operation number", async () => {
     if (!processWorker) continue;
     const { serve } = await import(new URL(processWorker, url));
     // What a process Worker gives a provider, with stack-wrap's two exports.
-    const local = serve({ memory: new WebAssembly.Memory({ initial: 1 }), processInterface: { exports: [] },
+    const local = serve({ memory: new WebAssembly.Memory({ initial: 1 }), processInterface: { exports: exportIndex([]) },
       instance: { exports: { dolly_stack_room: new WebAssembly.Global({ value: "i32", mutable: true }, 0),
         dolly_stack_continue() {} } }, stack: { promisingEntry: false, depths: { direct: 0, promising: 0 } } });
     for (let operation = 0; operation < 256; ++operation) {

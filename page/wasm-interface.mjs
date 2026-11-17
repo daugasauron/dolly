@@ -1,4 +1,5 @@
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+const encoder = new TextEncoder();
 const valueTypes = new Map([
   [0x7f, "i32"],
   [0x7e, "i64"],
@@ -346,6 +347,42 @@ export function parseWasmInterface(input, label = "WebAssembly binary") {
     customSections,
     customSectionData,
   };
+}
+
+// EXPORTS (parseWasmInterface's) as every Worker of a process looks them up by
+// name: the names sorted in one shared buffer, each with the index of its type
+// among the distinct types. As objects, each Worker held a copy of them all,
+// and dso@0 a map of them, in the 4 GiB heap all of a tab's Workers share:
+// lean's 234,338 exports cost each of its Workers 67 MiB of it so.
+export function exportIndex(exports) {
+  const sorted = [...exports].sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
+  const encoded = sorted.map(({ name }) => encoder.encode(name));
+  const names = new Uint8Array(new SharedArrayBuffer(encoded.reduce((size, name) => size + name.length, 0)));
+  const offsets = new Uint32Array(new SharedArrayBuffer(4 * (sorted.length + 1)));
+  const typeIndices = new Uint32Array(new SharedArrayBuffer(4 * sorted.length));
+  // Exports of one function type share its object; each global has its own.
+  const types = [], byObject = new Map(), byText = new Map();
+  sorted.forEach(({ type }, index) => {
+    names.set(encoded[index], offsets[index]);
+    offsets[index + 1] = offsets[index] + encoded[index].length;
+    if (!byObject.has(type)) {
+      const text = JSON.stringify(type, (_, value) => typeof value === "bigint" ? `${value}n` : value);
+      if (!byText.has(text)) byText.set(text, types.push(type) - 1);
+      byObject.set(type, byText.get(text));
+    }
+    typeIndices[index] = byObject.get(type);
+  });
+  return { names, offsets, typeIndices, types };
+}
+
+// The type of export NAME in INDEX (exportIndex), or undefined.
+export function exportType({ names, offsets, typeIndices, types }, name) {
+  for (let low = 0, high = typeIndices.length; low < high;) {
+    const middle = (low + high) >>> 1, found = decoder.decode(names.slice(offsets[middle], offsets[middle + 1]));
+    if (found === name) return types[typeIndices[middle]];
+    if (found < name) low = middle + 1; else high = middle;
+  }
+  return undefined;
 }
 
 function encodeUnsigned(value) {
