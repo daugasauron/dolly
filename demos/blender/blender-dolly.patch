@@ -1,0 +1,30 @@
+--- a/source/blender/blenlib/intern/expr_pylike_eval.cc
++++ b/source/blender/blenlib/intern/expr_pylike_eval.cc
+@@ -28,6 +28,15 @@
+ 
+ #include <cctype>
+ #include <cfenv>
++
++/* C defines these only where the implementation has the flags: WebAssembly has none, so a
++ * division by zero is not reported there, its result is infinite or not a number. */
++#ifndef FE_DIVBYZERO
++#  define FE_DIVBYZERO 0
++#endif
++#ifndef FE_INVALID
++#  define FE_INVALID 0
++#endif
+ #include <cmath>
+ #include <cstddef>
+ #include <cstdlib>
+--- a/source/blender/blenlib/intern/storage.cc
++++ b/source/blender/blenlib/intern/storage.cc
+@@ -14,7 +14,8 @@
+ 
+ #include <sys/stat.h>
+ 
+-#if defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__) || defined(__HAIKU__)
++#if defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__) || defined(__HAIKU__) || \
++    defined(__dolly__)
+ /* Other modern unix OS's should probably use this also. */
+ #  include <sys/statvfs.h>
+ #  define USE_STATFS_STATVFS

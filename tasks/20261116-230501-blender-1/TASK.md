@@ -36,6 +36,20 @@ their own CMake projects at four jobs (configure, build):
 All of them, from unpacking: 845 s in one session. Blender then configured (lite, headless,
 Cycles on, no OpenGL or Vulkan backend, Python 3.14 from the `python` package).
 
+Blender's first full pass (`make -k -j4`, about 80 minutes on a machine at load 40, Chrome at
+3.5 GB): 2,838 units compiled, three sources failed, none of them for a missing interface:
+
+- `makesdna/intern/dna_genfile.cc` and others use `fmt::appender`: Dolly's `fmt` package is
+  7.1.3, Blender pins 12.1.0, which the build stage now builds for itself.
+- `imbuf/intern/format_jpeg.cc` takes libjpeg's `boolean` as an integer, which it is in
+  libjpeg-turbo (Blender's pin, 2.1.3) and not in the IJG library of Dolly's `libjpeg` package:
+  the build stage builds libjpeg-turbo without SIMD.
+- `blenlib/intern/storage.cc` picks `statfs` or `statvfs` by a list of systems:
+  `demos/blender/blender-dolly.patch` adds Dolly to the `statvfs` ones.
+- `blenlib/intern/expr_pylike_eval.cc` uses `FE_DIVBYZERO` and `FE_INVALID`, which C defines only
+  where the flags exist; WebAssembly has none. The patch defines them as 0 there, so a driver
+  expression's division by zero gives an infinity instead of an error.
+
 Findings:
 
 - `call_once` (C11 `threads.h`) links only with `-pthread`: OpenEXR's core uses it, so every
