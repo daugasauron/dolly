@@ -321,7 +321,11 @@ down on the lower left of the screen: sideways it steers, up it climbs (held, ou
 on to where the planet is whole), down it dives. A finger anywhere else turns the view, two of
 them moving apart or together zoom, and the ring at the top right gives the board back. Their
 sizes go by the screen's shorter side, and a screen held upright takes its angle of view across,
-so the flyer and the land beside it stay in it.
+so the flyer and the land beside it stay in it. The game draws 1920 by 1080, which the page fits
+into a screen that lies on its side; on a screen held upright it sizes its window to the screen,
+in its shape, with no more pixels than 1080 by 1920 (in Firefox no frame is drawn once a surface
+of `gpu@0` is sized again, so there the game needs a screen on its side: found 2026-11-17, not
+looked into further).
 `-- --autopilot SECONDS` prints its frame rate, how even its frames were (median, 99th percentile,
 maximum, and the frames of over twice the median), the time a frame took, the beacons it lit and
 what its frame shows.
@@ -498,7 +502,7 @@ the planet's colours.
 [`test/godot-flyover-touch-browser.mjs`](test/godot-flyover-touch-browser.mjs) plays it with
 fingers alone on a phone's screen (Chrome's touch events, Firefox's touch PointerEvents): held
 sideways, a tap takes the board, the thumb's stick climbs and turns it while a second finger
-drags the view, and two fingers apart zoom; held upright, a tap takes the board and the ring
+drags the view, and two fingers apart zoom; held upright (in Chrome), a tap takes the board and the ring
 gives it back.
 
 [`test/godot-x11-browser.mjs`](test/godot-x11-browser.mjs) installs the editor and Lantern Drift
