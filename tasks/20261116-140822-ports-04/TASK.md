@@ -7,7 +7,8 @@
 ## State (2026-11-17)
 
 Decided (below). The duplicated LLVM 22 is `tasks/20261116-140603-buildtime-06`; that a version
-bump rebuilds every image is `tasks/20261116-140453-buildtime-01`.
+bump rebuilds every image is `tasks/20261116-140453-buildtime-01`. Images the decision rebuilds:
+none.
 
 ## Measurement
 

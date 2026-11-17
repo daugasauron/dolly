@@ -8,6 +8,7 @@
 
 Decided: Emscripten's name is kept for the three, each named as an exception in its demo's
 README (closing section). QuickJS's `-DEMSCRIPTEN=1` is gone (`tasks/20261116-151122-ports-09`).
+Images the decision rebuilds: none (READMEs).
 
 ## What
 

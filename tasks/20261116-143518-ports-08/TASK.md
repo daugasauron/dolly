@@ -23,7 +23,8 @@ Decided and done on `ws/ports`: both are built inside Dolly.
   longer holds that Python's version; `Dollyfile-python`'s `make` names CPython's own C freezer
   (`FREEZE_MODULE_BOOTSTRAP`, `FREEZE_MODULE` and their `_DEPS`, `./Programs/_freeze_module`),
   which it builds and runs. configure still asks the host for a Python 3.14 (a cross build
-  refuses to start without one of its version), which it only names in the Makefile.
+  refuses to start without one of its version), which it only names in the Makefile. The
+  archive is `4d96d70f…`, the same when prepared again from nothing (`cpython-again.sh`).
 
 ## What
 

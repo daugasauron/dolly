@@ -1,6 +1,6 @@
 # Demos' source pins and licence records live in the core's config: 159 of 186 pinned components only demos read, while five demos keep their own
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS: audit,ports,demo,cleanup,0.1.8
 
@@ -35,6 +35,12 @@ read by that demo's Python or shell, which a shell file of pins would not serve 
 
 Images the change rebuilds: none. No staged source changed, since every script sees the same
 pins, and `dolly-docs` holds neither `docs/licences.md` nor `docs/sources.md`.
+
+Verified on `ws/ports` (`3da0b9b7d`): `npm run test:source` passes but for the known
+`dist/dolly-abi.json` check (a dist older than the tree's runtime), `upstreams.test.mjs` among it
+(every recipe `SOURCE` and every pin, the demos' too, has a licence row, and every row is used);
+`lint:dollyfiles` passes; staging Lean, Wine and CPython from the moved pins gave the pinned
+bytes (`pin-5.log`, `pin-6.log`, `cpython-again.log`).
 
 ## What
 

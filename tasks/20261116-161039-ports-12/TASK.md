@@ -21,7 +21,11 @@ Built in this tree from those sources: `libpng`, `freetype` and `pkgconf` (pkgco
 from its release archive, with the same pin as before), and over them `glib`, X11's `pixman`,
 `imgui` (whose test passes in Chromium and Firefox, `both-5`), and `gtk-build` over the three
 packages: every library builds against them, and its check, a GTK program linked by
-`pkg-config --libs gtk4`, runs (snapshot 337,110,496 bytes against the release's 336,768,971).
+`pkg-config --libs gtk4`, runs (snapshot 337,110,496 bytes against the release's 336,768,971);
+`sdl2-ttf`, `wine-build` and `wine` (the wine test passes in Chromium, `both-17`), and
+`xonotic-build` and `xonotic` over `freetype` and `libpng` (the xonotic test passes in Chromium,
+`both-15`). The round confirms X11's three, the Mesa
+chain and 0 A.D.'s, and `python-data-build`.
 
 Images the change rebuilds: `libpng` (1.6.58 becomes GTK's 1.6.59), `freetype` (the release
 archive in place of a Git tree of the same tag) and `pkgconf` (the same pin), and what installs or

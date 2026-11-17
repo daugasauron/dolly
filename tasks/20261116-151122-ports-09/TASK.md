@@ -1,13 +1,15 @@
 # QuickJS, the engine under Janis and Pi, is compiled as Emscripten's to turn threads off; built honestly it runs Workers and Atomics at the same speed
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 130
 - TAGS: audit,ports,javascript,pi,0.1.8
 
 ## State (2026-11-17)
 
-Done on `ws/ports`, built and tested in this tree (results below). No recipe defines
-`EMSCRIPTEN` for QuickJS any more. `Dollyfile-quickjs` compiles the engine as upstream does for
+Closed: done on `ws/ports` (`ce32791fc`), built and tested in this tree (results below); it
+rebuilds `quickjs` and what installs it: `janis`, `janis-install`, `typescript`, `vendor-crates`,
+Pi's images, `classicube-agent`, `classicube`, `seven-kingdoms`, `rts-arena`, the studio. No
+recipe defines `EMSCRIPTEN` for QuickJS any more. `Dollyfile-quickjs` compiles the engine as upstream does for
 Unix, twice: without `-pthread` for `libquickjs.a`, so that Janis, Pi, `tsc` and the games'
 agents stay one-thread programs, and with it for `qjs`, linked through `--dolly-cast-emulation`
 (the `binaryen` package) for its `os.Worker`; its checks run a Worker that doubles a number and
@@ -17,10 +19,23 @@ declares it too (`janis`, `janis-install`, `typescript`, `vendor-crates`, `class
 `seven-kingdoms`; Pi's images and `system` did already); none of their programs is linked with
 threads.
 
-A first version linked every program on the engine with `-pthread`, as the audit tried for
-Janis: Pi's ask-user and frontend tests passed in both browsers with it, but ClassiCube's agent
-proof failed twice at "first player streams reasoning with its response held open" (Janis's own
-streamed `fetch` kept working, `janis-stream.mjs`), so the library went back to one thread.
+The library is compiled without `-pthread` by choice: of the programs on it only `qjs` starts
+threads (Janis answers `Worker` with `ENOSYS`, `demos/javascript/README.md`), and a threaded
+program's memory is shared, its maximum taken once a second thread starts
+(`docs/process-model.md:492-497`). A first version linked every program on the engine with
+`-pthread`, as the audit tried for Janis; Pi's ask-user and frontend tests passed with it in
+both browsers.
+
+ClassiCube's test passes in Chromium on the one-thread build (`cc-7`, 696 s at a load of about
+28: the world, the agent's settings, provider timeouts, a saved and restored session, two Pi
+players streaming reasoning at once); its Firefox line says why it skips (the fixtures drive
+Chrome's DevTools input). At a load of 35 to 41 its agent proof missed a 45 or 60 s window with
+either build (`cc-2` threaded, `cc-3` and `cc-5` one-thread: a Pi process took 31 s to send its
+configuration), where round 1117 ran the whole test in 324 s. `pi-phone`'s part of the speech
+test did not run here: at load 35 the speech part before it lost sound ("the model fell
+behind"), and at load 28, the speech parts passing (`cc-8`), the checkout server refused
+`pi-phone` once `rust-sdk`'s pin had changed (ripgrep and fd are in its closure), so the round
+runs it.
 
 Measured on the images built in this tree (logs in `work/audit-1116-evidence/ports/fix-ports/`):
 
@@ -36,7 +51,8 @@ Measured on the images built in this tree (logs in `work/audit-1116-evidence/por
 - In Chromium and Firefox: `janis-install` (`both-4`), Pi's ask-user and frontend tests
   (`both-4`, the frontend's Chromium run again in `cc-4` after a boot timeout at load 40), the
   `pi` test in `pi-agent` (`both-8`), the studio (`cc-3`), `javascript` (`typescript`'s `tsc`,
-  `both-13`), `vendor-crates` (`both-16`), `pi-local`'s start screen (`both-10`).
+  `both-13`), `vendor-crates` (`both-16`), `pi-local`'s start screen (`both-10`), the RTS
+  game and its agent in `rts-arena` (`both-14`).
 
 ## What
 

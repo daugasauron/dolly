@@ -11,13 +11,21 @@ Every hunk below is gone on `ws/ports`, with what each needed, and three more fo
 this tree proved, and what only the round can (the heavy chains):
 
 1. LLVM's main executable: `llvm-main-executable.patch`, its rows in `rust-llvm` and `mojo-llvm`,
-   their staging and licence sources are gone; `rust-llvm` checks that `llvm-config --prefix`,
+   their staging and licence sources are gone: LLVM finds its executable by `dladdr`, which in
+   Dolly names the running program (item 2); `rust-llvm` checks that `llvm-config --prefix`,
    run from `/tmp`, prints `/opt/rust-llvm`. Round: `rust-llvm` (that check) and `mojo-llvm`
    build, and the rust and mojo tests pass.
 2. Zig's `GetExecutablePath` fallback is gone; the patch applies to the prepared tree
-   (`patch --dry-run`). Round: `zig-llvm-build`, and the zig test, whose `zig cc` starts its
+   (`patch --dry-run`). On a Unix that is not Linux, LLVM's `getMainExecutable` asks `dladdr`
+   (`llvm/lib/Support/Unix/Path.inc`), and Dolly's names the running program
+   (`process/libc-adapter.c:1821`), as for item 1. Round: `zig-llvm-build`, and the zig test, whose `zig cc` starts its
    assembler (`-cc1as`) by the path LLVM finds.
-3. DarkPlaces keeps only its loopback hunk (`netconn.c`: Dolly has no IP sockets).
+3. DarkPlaces keeps only its loopback hunk (`netconn.c`: Dolly has no IP sockets); its
+   `select`, session lock, file reads and `dlopen` (which fails: the engine is no host of
+   shared objects) are upstream's. `xonotic-build` and `xonotic` build in this tree, and the
+   xonotic test passes in Chromium (`both-15`: the menu, its sound, a bot match on stormkeep);
+   its Firefox run was refused once `rust-sdk`'s pin changed under it (naga is in its closure),
+   so the round runs it.
 4. Make: the 16 `#pragma once` hunks and `load_too_high` are gone. Staged, the prepared tree
    holds no pragma and no `__dolly__` in `load_too_high`.
 5. OCaml's `addclose` hunk is gone (and the README's bullet that described it): Dolly's spawn
