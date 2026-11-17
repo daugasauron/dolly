@@ -17,7 +17,10 @@ samples in 14.4 s on four threads and 50.7 s on one; 480 by 270 at 16 samples in
 Dolly's libc++ on the way (Cycles' `StackAllocator`, OpenImageIO's `ustring`); both are patched
 (`demos/blender/README.md`). Left:
 
-- the same render in Blender's own Linux build, for the times and for a pixel comparison;
+- Blender's own Linux build (5.3.0, AVX2 kernel and Embree) renders the same frame in 8.8 s on
+  four threads and 32.0 s on one, at load 10 (2026-11-17): Dolly's 14.4 s and 50.7 s were at
+  load 40, so the ratio of about 1.6 is an upper bound to measure again side by side; the pixel
+  comparison is not done;
 - a scene that is more than a cube (textures, many objects), to find what else of this kind
   waits in paths the default scene does not run;
 - the thread count: Cycles takes four (`nproc`), a process may have 32.

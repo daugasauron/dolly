@@ -32,7 +32,13 @@ the default scene (operators, a modifier, saving and loading a `.blend`) in both
 - **The cc option filter stays** (`demos/blender/ccfilter.c`): the driver accepting what Clang
   accepts is `programs/compiler.cpp`, a seed change, so it belongs to a compiler round; the
   filter goes then (the integrator, 2026-11-17).
-- The add-ons: which load, which need NumPy.
+- The add-ons: which load, which need NumPy. Not measured yet in Dolly. Blender's own Linux
+  build loads 12 of its 13 bundled add-ons in background mode (`addon_utils.enable` on each;
+  Rigify fails there too); the same script (`build/blender-dev/share/addons.py`, eleven lines
+  to write again) is the check to run on the package.
+- Done on 2026-11-17: the licence rows (`docs/licences.md`, `demos/blender/upstreams.json`),
+  every linked library's notices in `/usr/share/licenses/blender`, and the branch on
+  integrate/0.1.8's layout (DOLLY 8, `demos/blender/source-pins.sh`).
 - The licence rows in `docs/licences.md`, the libraries' notices in `/usr/share/licenses`, and
   the source archive beside the image.
 - What the package leaves out, by measuring (it is 177 MB).
