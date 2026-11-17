@@ -1,6 +1,6 @@
 # Files a process creates are 0644 where an image's are 0755: SCons finds no compiler that amy installed and falls back to gcc
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 170
 - TAGS: audit,recipes,amy,kernel,0.1.8
 
@@ -9,9 +9,11 @@ From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/rou
 
 ## State (2026-11-17)
 
-Fixed on `ws/seed` (kernel only: the image build ID stays `87c27243…`, so it rebuilds no image) and
-checked in Chrome and Playwright's Firefox (below). Left: the scons recipe's own check still names
-`CC="cc"`, the workaround this removes; it goes with the seed batch of `ws/seed`.
+Fixed on `ws/seed` (`568ea1444`, kernel only: the image build ID stays `87c27243…`, so it rebuilds
+no image by itself). `kernel/process-kernel.c` (a process's open and `create_through_link`),
+`kernel/dolly.c` (the Worker's boot files) and `host/snapshot/kernel.c` (a session's restore, which
+made 0644 too) create with 0777, as an image's restore does. The scons recipe's own check now builds
+with the default environment (`5cb1dbdb5`): it rebuilds `scons` and what holds it.
 
 ## Found
 
@@ -59,3 +61,13 @@ uses, so a file has one mode however it was made. It changes the kernel: a runti
 
 In a fresh `default` session, after `amy install scons`, `ls -l /bin/cc` shows `-rwxr-xr-x` and
 `scons -Q` builds a `Program('m', 'm.c')` with no `CC` given.
+
+## Closed (2026-11-17)
+
+In a fresh `default` session on the kernel of `568ea1444` and round1113's catalog rebuilt for
+python and scons, Chrome and Playwright's Firefox (`work/audit-1116-evidence/core/fix-seed/modes.json`,
+`modes-chromium.log`, `modes-firefox.log`): after `amy install scons`, `/bin/cc`, `/usr/bin/scons`
+and a `cp` of `/bin/ls` are `-rwxr-xr-x`, `scons -Q` builds `Program('m', 'm.c')` with no `CC`
+(`cc -o m.o -c m.c`), and after a save and a reload of the session the modes are the same and
+`scons -Q` builds again. On the rebuilt seed the scons image's own check, `Program("check",
+"check.c")`, builds with `cc` (`build-seed-1.log`).

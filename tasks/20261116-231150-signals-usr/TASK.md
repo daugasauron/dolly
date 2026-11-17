@@ -1,6 +1,6 @@
 # SIGUSR1 and SIGUSR2 are not among the kernel's signals: one sent to another process never arrives
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 180
 - TAGS: bug,process,signals,kernel,0.1.8
 
@@ -10,9 +10,15 @@ two-minute timeout, with 0.1.7's python as with the rebuilt one.
 
 ## State (2026-11-17)
 
-Changed on `ws/seed`; the seed changes with it (the process contract): checked in a rebuilt
-`system` (below). What only the 0.1.8 compiler round can confirm is in the report of the seed
-workstream and in Done when.
+Fixed on `ws/seed` (`51ed51438`; the process contract and the seed change: every image rebuilds,
+and the seed compiler is restamped, `5cb1dbdb5`). Checked on the rebuilt seed (image inputs
+`58c25885…`, the same from a second checkout of the commit, `work/audit-1116-evidence/core/fix-seed/repro.log`):
+`process-browser` passes in Chromium and Firefox with the four signals (`process-browser-3.log`,
+`-4.log`); in `default`, slop's `trap ... USR1` runs its action, `kill -USR2` of a background
+child ends it with 140 and an unhandled `kill -USR1 $$` the shell with 138, in both browsers
+(`seed-checks-a-chromium.log`, `-firefox.log`). The round rebuilds the Rust and Go seeds, which carry the process contract's
+digest, under it (`demos/rust/build-rust-toolchain.sh`, `demos/go/build-go-toolchain.sh`), as for
+any change of `process.h`.
 
 ## Found
 
@@ -42,3 +48,12 @@ two for "reload", "dump state" and between their own processes (daemons, test ha
 
 `process-browser` passes in Chromium and Firefox on the rebuilt seed with the four signals, and
 python's `test_signal` with `test_interprocess_signal` passes in the round's python.
+
+## Closed (2026-11-17)
+
+On the rebuilt seed, python (rebuilt on it) passes CPython's `test_interprocess_signal` in 2.5 s
+in Chromium and Firefox, where 0.1.7's waited until regrtest's two-minute timeout
+(`work/audit-1116-evidence/core/fix-seed/python-signal-chromium.log`, `-firefox.log`; the test files
+from the staged CPython source). `process-browser` and `dso-browser` pass with the four signals in
+both browsers (`process-browser-3.log`, `-4.log`; `dso-browser-3.log` with the harness's 30 s boot
+timeout raised to 120 s by `slow-boot.mjs`: under a load of 36 the page composes its image in 40 s).

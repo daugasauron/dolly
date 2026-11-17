@@ -1,6 +1,6 @@
 # A program without -pthread: trylock, timedwait, setcancelstate and barrier_wait claim what did not happen
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 240
 - TAGS: audit,core,libc,0.1.8
 
@@ -8,7 +8,7 @@ From the core audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1
 
 ## State (2026-11-17)
 
-Fixed on `ws/seed` (process libc: a seed change, every image rebuilds), in
+Fixed on `ws/seed` (`1450ffc92`; process libc: a seed change, every image rebuilds), in
 `process/pthread-stubs.c` over Emscripten's stub, as `pthread_cancel` was: a mutex records that it
 is held in musl's own field (`_m_lock`; `_m_count` for a recursive one; `pthread_mutex_init` keeps
 the attribute's kind), so `trylock` of a held one is `EBUSY`, a lock of it `EDEADLK` (the one
@@ -23,12 +23,9 @@ one is `EBUSY`, a lock that would wait `EDEADLK` or `ETIMEDOUT`), and `pthread_k
 `raise`'s error. Semaphores stay unsupported, explicitly (`sem_init` is `ENOSYS`).
 `docs/process-model.md` says what a program without `-pthread` gets.
 
-Checked on the rebuilt seed: the audit's `stubs.c` without `-pthread` now answers as the
-`-pthread` column (`work/audit-1116-evidence/core/fix-seed/stubs-probe-chromium.log`: trylock 10,
-timedwait 73 after 300 ms and 73 for a past deadline, old cancel state 0, barrier of 2: 6, EAGAIN),
-and `process-browser`'s new case (`test/fixtures/process-serial-threads.c`) passes; see Done when.
 For the round: a serial program that relocks a normal mutex now gets `EDEADLK` (a C++
-`std::mutex::lock` throws) where it went on before; on Linux it would hang. None is known.
+`std::mutex::lock` throws) where it went on before; on Linux it would hang. None is known; the
+round's suites over the whole catalog are where one would show.
 
 ## Found
 
@@ -72,3 +69,13 @@ In `process/pthread-stubs.c`, as `pthread_cancel` is overridden there, define ov
 
 `stubs.c` built without `-pthread` in a rebuilt `system` answers as the `-pthread` column (the
 barrier: EAGAIN at init), checked by a case in `process-browser` in Chromium and Firefox.
+
+## Closed (2026-11-17)
+
+On the rebuilt seed (image inputs `58c25885…`), the audit's `stubs.c` built without `-pthread` in
+`system` answers as the `-pthread` column (`work/audit-1116-evidence/core/fix-seed/stubs-probe-chromium.log`):
+trylock of a held mutex 10 (EBUSY), the timed wait 73 (ETIMEDOUT) after 300 ms and 73 for a past
+deadline, the previous cancel state 0, a barrier of two 6 (EAGAIN). `process-browser`'s new case,
+`test/fixtures/process-serial-threads.c` (mutex kinds, timed lock, condition, cancel state and type,
+barriers, read-write locks, `pthread_kill`), passes in Chromium and Firefox (`process-browser-3.log`,
+`-4.log`); so do `threads-browser` and `cpp-browser`.
