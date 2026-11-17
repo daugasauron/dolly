@@ -135,26 +135,42 @@ async function verifyReleaseFiles(site) {
   return manifest;
 }
 
+const acceptanceText = (manifest, images) => `DOLLY-ACCEPTANCE 1\nfiles sha256:${sha256(manifest)}\n` +
+  images.map(image => `PASS image-inventory ${image}\n`).join("");
+
 async function verifyAcceptance(site, manifest, images) {
-  const expected = `DOLLY-ACCEPTANCE 1\nfiles sha256:${sha256(manifest)}\n` +
-    images.map(image => `PASS image-inventory ${image}\n`).join("");
-  if (await readFile(resolve(site, "release/acceptance.txt"), "utf8") !== expected) {
+  if (await readFile(resolve(site, "release/acceptance.txt"), "utf8") !== acceptanceText(manifest, images)) {
     throw new Error("release browser acceptance is missing or belongs to different bytes");
   }
 }
 
+async function verifySource(site, sourceRoot) {
+  const commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: sourceRoot, encoding: "utf8" });
+  if (await readFile(resolve(site, "release/source.commit"), "utf8") !== commit ||
+      await readFile(resolve(site, "release/source.sha256"), "utf8") !== await sourceManifest(sourceRoot)) {
+    throw new Error("release source does not match the selected checkout");
+  }
+}
+
+// Every file against the seal, every image against its metadata and the acceptance
+// against both: the gate before a release is deployed (scripts/release-checklist.sh).
 export async function verifyRelease(site, sourceRoot) {
   const manifest = await verifyReleaseFiles(site);
   const images = await verifySite(site);
   await verifyAcceptance(site, manifest, images);
-  if (sourceRoot) {
-    const commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: sourceRoot, encoding: "utf8" });
-    if (await readFile(resolve(site, "release/source.commit"), "utf8") !== commit ||
-        await readFile(resolve(site, "release/source.sha256"), "utf8") !== await sourceManifest(sourceRoot)) {
-      throw new Error("release source does not match the selected checkout");
-    }
-  }
+  if (sourceRoot) await verifySource(site, sourceRoot);
   return sha256(manifest);
+}
+
+// The digest of the release's seal, which accept wrote with the acceptance of the
+// same bytes; the files are checked against it where they are read.
+async function sealDigest(site) {
+  const digest = sha256(await readFile(resolve(site, "release/files.sha256")));
+  const acceptance = await readFile(resolve(site, "release/acceptance.txt"), "utf8").catch(() => "");
+  if (!acceptance.startsWith(`DOLLY-ACCEPTANCE 1\nfiles sha256:${digest}\n`)) {
+    throw new Error("release browser acceptance is missing or belongs to different bytes");
+  }
+  return digest;
 }
 
 // Every file of a sealed release as [path, bytes], each checked against the
@@ -162,7 +178,7 @@ export async function verifyRelease(site, sourceRoot) {
 export async function* releaseFiles(site) {
   // Verification resolves a release's links against its real location.
   site = await realpath(site);
-  const digest = await verifyRelease(site);
+  const digest = await sealDigest(site);
   const manifest = await readFile(resolve(site, "release/files.sha256"));
   if (sha256(manifest) !== digest) throw new Error("release changed before export");
   for (const row of manifest.toString().trimEnd().split("\n")) {
@@ -176,7 +192,7 @@ export async function* releaseFiles(site) {
 
 // Moves the verified site into RELEASES, so it must be staged on the same filesystem.
 export async function publishRelease(site, releases) {
-  const digest = await verifyRelease(site);
+  const digest = await sealDigest(site);
   await mkdir(releases, { recursive: true });
   const temporary = await mkdtemp(resolve(releases, ".publish-"));
   try {
@@ -184,7 +200,7 @@ export async function publishRelease(site, releases) {
     try {
       await rename(site, destination);
     } catch (error) {
-      if (!["EEXIST", "ENOTEMPTY"].includes(error.code) || await verifyRelease(destination) !== digest) throw error;
+      if (!["EEXIST", "ENOTEMPTY"].includes(error.code) || await sealDigest(destination) !== digest) throw error;
     }
     await symlink(digest, resolve(temporary, "current"));
     await rename(resolve(temporary, "current"), resolve(releases, "current"));
@@ -194,42 +210,48 @@ export async function publishRelease(site, releases) {
   return digest;
 }
 
+// Verifies the staged site once, accepts its images in Chrome and seals the bytes it
+// verified: publish and export check the files against that seal.
 async function acceptSite(site, project) {
   const images = await verifySite(site);
   const manifest = await siteManifest(site);
   const [{ acceptImage, startSiteServer }, { chromium }] = await Promise.all([
     import("./accept-release.mjs"), import("playwright-core")]);
-  const server = await startSiteServer(site);
-  try {
-    for (const image of images) {
-      // A new profile per image: only the release can supply its artifacts. Its
-      // origin-private storage is on disk, as a person's is; an off-the-record
-      // context holds it in memory, under a limit (3.8 GB on 2026-11-05) that
-      // a build on dollyfile-studio's 1.6 GB image exceeds.
-      const profile = await mkdtemp(resolve(tmpdir(), "dolly-acceptance-"));
-      const browser = await chromium.launchPersistentContext(profile, { channel: "chrome", headless: true,
-        args: ["--no-sandbox", "--disable-gpu", "--enable-unsafe-webgpu"] });
-      const deadline = setTimeout(() => void browser.close(), 900_000);
-      try {
-        await acceptImage(browser, server, image);
-      } catch (error) {
-        throw new Error(`${image}: release browser acceptance failed: ${error.message}`, { cause: error });
-      } finally {
-        clearTimeout(deadline);
-        await browser.close();
-        await rm(profile, { recursive: true, force: true });
+  // Four side by side (24.5 min one at a time, 12.2 side by side on 0.1.7's release:
+  // tasks/20261116-140603-buildtime-03), each with a server whose requests are its own.
+  const queue = [...images], failures = [];
+  await Promise.all(Array.from({ length: Math.min(4, images.length) }, async () => {
+    const server = await startSiteServer(site);
+    try {
+      while (queue.length && !failures.length) {
+        const image = queue.shift();
+        // A new profile per image: only the release can supply its artifacts. Its
+        // origin-private storage is on disk, as a person's is; an off-the-record
+        // context holds it in memory, under a limit (3.8 GB on 2026-11-05) that
+        // a build on dollyfile-studio's 1.6 GB image exceeds.
+        const profile = await mkdtemp(resolve(tmpdir(), "dolly-acceptance-"));
+        const browser = await chromium.launchPersistentContext(profile, { channel: "chrome", headless: true,
+          args: ["--no-sandbox", "--disable-gpu", "--enable-unsafe-webgpu"] });
+        const deadline = setTimeout(() => void browser.close(), 900_000);
+        try {
+          await acceptImage(browser, server, image);
+          console.log(`dolly: accepted ${image}`);
+        } catch (error) {
+          failures.push(new Error(`${image}: release browser acceptance failed: ${error.message}`, { cause: error }));
+        } finally {
+          clearTimeout(deadline);
+          await browser.close();
+          await rm(profile, { recursive: true, force: true });
+        }
       }
-      console.log(`dolly: accepted ${image}`);
+    } finally {
+      await server.close();
     }
-  } finally {
-    await server.close();
-  }
-  if (await siteManifest(site) !== manifest) throw new Error("release changed during acceptance");
+  }));
+  if (failures.length) throw failures[0];
+  await verifySource(site, project);
   await writeFile(resolve(site, "release/files.sha256"), manifest);
-  await writeFile(resolve(site, "release/acceptance.txt"),
-    `DOLLY-ACCEPTANCE 1\nfiles sha256:${sha256(manifest)}\n` +
-    images.map(image => `PASS image-inventory ${image}\n`).join(""));
-  await verifyRelease(site, project);
+  await writeFile(resolve(site, "release/acceptance.txt"), acceptanceText(manifest, images));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

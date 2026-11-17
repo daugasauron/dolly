@@ -144,7 +144,8 @@ test("the release server serves the current release as deployed: its files under
   const next = await readlink(resolve(releases, "current"));
   await writeFile(resolve(releases, next, "page/browser.mjs"), "tampered");
   assert.equal((await get("/v1.3.0/page/browser.mjs")).status, 404);
-  await assert.rejects(publishRelease(resolve(releases, next), releases), /file manifest mismatch/);
+  // Publishing takes the seal of an accepted release: this one was never accepted.
+  await assert.rejects(publishRelease(resolve(releases, next), releases), /acceptance is missing/);
   assert.equal(await readlink(resolve(releases, "current")), next);
   assert.notEqual(current, next);
 });
