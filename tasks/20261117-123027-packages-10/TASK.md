@@ -44,8 +44,9 @@ Python edits, saves and loads a scene, Cycles renders a PNG that Blender loads b
 Tested: the `python` session of `demos/python/test/python-browser.mjs` passed in Chromium and
 Firefox over this python (`test-python.log`), once its probe installs curl: on integrate/0.1.8 the
 probe is `system` with `python`, which only `USE`s curl, so its first step's `curl ... || exit 1`
-ended the shell (`sdl2-browser.mjs` the same; both now `installProbe("curl", ...)`, and sdl2's
-passes in both). Its `python on default` session fails on integrate/0.1.8 too: `default` keeps no
+ended the shell (`sdl2-browser.mjs` and `sdl2-audio-browser.mjs` the same; the three now
+`installProbe("curl", ...)`, and SDL's two pass in both; `javascript-browser.mjs` curls in a probe
+of `typescript` alone too, which this tree has not built). Its `python on default` session fails on integrate/0.1.8 too: `default` keeps no
 `/usr/bin/env`, and NumPy's `numpy/_build_utils/gitversion.py`, which Meson runs, starts
 `#!/usr/bin/env python3`.
 

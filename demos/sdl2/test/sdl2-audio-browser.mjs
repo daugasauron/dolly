@@ -10,7 +10,7 @@ for (const browser of browsers) {
   await demoTest("sdl2 audio", { image: "sdl2", browser, timeout: 600_000,
     server: { fixtures: { "sdl2-tone.c": "demos/sdl2/test/fixtures/sdl2-tone.c",
       "sdl2-mixer-tone.c": "demos/sdl2/test/fixtures/sdl2-mixer-tone.c" } } }, async ({ server, open }) => {
-    const probe = await installProbe("sdl2-mixer");
+    const probe = await installProbe("curl", "sdl2-mixer");
     const { page, run, text } = await open({ ...probe,
       policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
       setup: async page => { await probe.setup(page); await page.addInitScript(meterAudio); } });
