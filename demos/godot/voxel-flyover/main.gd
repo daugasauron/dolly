@@ -234,13 +234,6 @@ func option(name: String, otherwise: float) -> float:
 
 
 func _ready() -> void:
-	# The game fills the page: a phone's screen upright or sideways, a desk's window. A page of more
-	# pixels than a quarter over 1920 by 1080 is drawn at that many, in its shape, and scaled up.
-	var page := DisplayServer.screen_get_size()
-	var fit := minf(1.0, sqrt(1920.0 * 1080.0 * 1.25 / maxf(float(page.x * page.y), 1.0)))
-	var fills := Vector2i(int(page.x * fit) / 2 * 2, int(page.y * fit) / 2 * 2)
-	if fills.x >= 320 and fills.y >= 320:
-		get_window().size = fills
 	autopilot_seconds = option("--autopilot", 0.0)
 	day = option("--day", day * 24.0) / 24.0
 	year = option("--season", year)
