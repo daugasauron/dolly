@@ -1,16 +1,12 @@
 # Packaging takes 31-38 min: 59 acceptances one after another (24.5 min), the sealed site verified five times, every pack gzipped again
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: audit,build,release,0.1.8
 
 From the build-time audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
-`b09b1e243`). Evidence and scripts: `work/audit-1116-evidence/buildtime/`.
-
-## State (2026-11-16)
-
-Measured on 0.1.7's domain release (`build/domain-releases-0.1.7/current`, read only); nothing
-changed.
+`b09b1e243`). Evidence and scripts: `work/audit-1116-evidence/buildtime/`. Measured on 0.1.7's
+domain release (`build/domain-releases-0.1.7/current`, read only).
 
 ## Found
 
@@ -69,3 +65,46 @@ and four times in 0.1.6's.
 A domain packaging of an unchanged catalog, timed per step, runs `verifySite` once, accepts four
 at a time and leaves `dist/dolly-images.json` as it was; the checklist and the export after it run
 `verifySite` once between them.
+
+## Closed (2026-11-17)
+
+On `ws/speed` (`68dcecd52`). No image rebuilds: packaging is not an image input.
+
+- `site-release.mjs accept` runs `verifySite` once and hashes the site once, accepts the images four
+  side by side, each Chrome with a server of its own (so each image's check that it fetched no
+  compiler seed reads its own requests), and writes the seal. `publish` takes the seal's digest
+  (refusing a site whose acceptance is not of it) and renames; the export checks each file
+  against the seal as it reads it, and lists in `deployment.sha256` the digests it hashed rather
+  than reading its 24 GB again. The checklist's `verify` stays the gate: the one `verifySite`
+  between packaging and deployment.
+- `generate-routes.mjs SITE` generates the release's pages, registry and package index in the
+  staged site; the checkout's `dist/dolly-images.json` and `amy-index.txt` are untouched, so no
+  `npm run image` restores them. `package-pages.sh` takes the images and the sources from that
+  registry: `list-images.mjs` ran twice (57 s, the second hashing 12 GB of sources again) and its
+  `--sources` is gone.
+- Packs and sources: `20261115-115901-release-disk`.
+
+Measured: 0.1.7's domain catalog packaged again with these scripts, in a checkout of `b09b1e243`
+inside `work/speed/build` with 0.1.7's images linked (`work/audit-1116-evidence/buildtime/fix-speed/`:
+`scratch-setup.sh`, `package-run.sh`, `package-pages*.log`, `package-run*.log`, `verify*.log`,
+`export*.log`), twice. Both releases are 0.1.7's sealed release file for file but the changed
+scripts and `release/`; the export is 0.1.7's published deployment of v0.1.7 the same way, and every
+file matches its `deployment.sha256`. The checkout's registry was unchanged after each.
+
+| Step | Run 1 | Run 2 (every pack in the store) |
+| --- | --- | --- |
+| pages, registry, index in the site | 30 s, then `list-images` twice 57 s | 25 s, registry read |
+| packs (`share-pages-snapshots.mjs`) | 4 min 14 s, 560 packs written (100 MB) | 4 min 40 s, none written |
+| accept: `verifySite` and the hash | about 6 min | about 7 min |
+| accept: 59 images, four side by side | about 24 min, all accepted | about 31 min, all accepted |
+| packaging in all | 36 min | 43.6 min |
+| checklist's `verify` | 4 min 20 s, 11.1 GB resident | 7 min, 11.1 GB |
+| export (two published versions checked, v0.1.7 exported) | 20 min 50 s, 4.4 GB | 23 min 25 s, 4.4 GB, its list from the digests it hashed |
+
+The machine was not the round's: other agents' builds and browser tests held a load of 30 to 52 on
+its 16 threads all morning (`vmstat`: no idle CPU), and the same `verify` took 4 min 20 s and
+7 min an hour apart. Back to back on the same inputs instead: the packs step, 0.1.7's script (a
+gzip of every pack) 567 s against this one's 253 s (`share-compare.log`). Starting the largest
+image's acceptance first, replayed on the serial loop's times, saves 5% (388 s against 368 s,
+`simulate-acceptance.txt`), so the order stays. What these runs cannot show, the 0.1.8 round's
+packaging on a quiet machine times: the steps above against 0.1.7's 31 and 38 minutes.
