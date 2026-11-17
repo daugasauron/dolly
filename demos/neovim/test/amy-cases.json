@@ -1,0 +1,19 @@
+{
+  "image": "default",
+  "directory": "/tmp/amy-neovim",
+  "steps": [
+    {
+      "fresh": true,
+      "why": "The interpreter and the two modules built for it.",
+      "script": "! command -v lua",
+      "status": 0
+    },
+    { "script": "amy install lua", "status": 0 },
+    { "script": "test \"$(lua -e 'local lpeg, uv = require(\"lpeg\"), require(\"luv\"); assert(uv.now() >= 0); print(lpeg.match(lpeg.R(\"09\")^1, \"42\") * 14)')\" = 42", "status": 0 },
+    { "script": "man lua > /tmp/amy-man && grep -q 'interpreter' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
+    { "fresh": true, "script": "! command -v nvim", "status": 0 },
+    { "script": "amy install nvim", "status": 0 },
+    { "script": "nvim --headless -c 'call writefile([\"written\"], \"/tmp/amy-nvim\")' -c 'qa!' && test \"$(cat /tmp/amy-nvim)\" = written", "status": 0 },
+    { "script": "man nvim > /tmp/amy-man && grep -q 'edit text' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 }
+  ]
+}

@@ -133,7 +133,7 @@ await browserTest("dso", { image: "system", timeout: 300_000, server: { fixtures
   await run("c++ -O0 -shared dso-cpp-library.cpp -o dso-cpp-library.so && c++ -O0 -rdynamic dso-cpp-check.cpp -o dso-cpp-check && ./dso-cpp-check /tmp/dso/dso-cpp-library.so");
   assert.equal(await submit("./dso-check /tmp/dso/dso-library.so 37"), 37,
     "a DSO exits only its owning process through the shared libc provider");
-  await runSteps(submit, server.origin, cppDso);
+  await runSteps(submit, cppDso);
   await run(`rm -rf ${cppDso.directory} && cd /tmp/dso`);
   // A library's own records are checked before it is entered, and packets are bounded.
   await run("cc -O1 -shared denied.c -o denied.so && cc -O1 -rdynamic host.c -o host && ./host && test ! -e /tmp/dso/entered");

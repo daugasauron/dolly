@@ -103,7 +103,7 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
 
   // Lifecycle, descriptors, locks, signals and exec (test/cases/process.json),
   // which compiles the programs below too.
-  await runSteps(submit, server.origin, processCases);
+  await runSteps(submit, processCases);
   // The page's Workers while the shell waits for a line: the runtime's, one per
   // process, and one per large executable compiled, here the compiler's.
   await settle();

@@ -1,4 +1,6 @@
-import { DOLLY_ERRNO, DOLLY_HTTP_MAX_BODY } from "./abi.mjs";
+// The page's HTTP policy: boot()'s `http` option, which judges every request of
+// the guest's that leaves the page (page/network.mjs).
+import { DOLLY_ERRNO } from "./process-constants.mjs";
 
 export class HttpError extends Error {
   constructor(errno, message) { super(message); this.errno = errno; }
@@ -45,7 +47,8 @@ export function stripDollyBrowserOwnedHeaders(headers) {
 
 const defaultLimits = Object.freeze({
   maxRequests: 256,
-  maxRequestBytes: DOLLY_HTTP_MAX_BODY,
+  // As much as the broker carries (dolly-http-0.wat, MAX_BODY).
+  maxRequestBytes: 64 * 1024 * 1024,
   maxResponseBytes: Infinity,
   timeoutMilliseconds: 600_000,
 });

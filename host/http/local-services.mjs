@@ -1,4 +1,4 @@
-import { HttpError } from "./policy.mjs";
+import { HttpError } from "../../page/http-policy.mjs";
 import { DOLLY_ERRNO } from "./abi.mjs";
 
 function reservedLocalURL(url) {
@@ -9,9 +9,8 @@ function reservedLocalURL(url) {
 // Review all local authority here. Remote rules never grant these services;
 // absent services (including in build workers) fail closed, not to Fetch.
 // A service owns one reserved origin and admits a request by returning its
-// limits from authorize(url, method, bytes). Enabled modules add theirs once
-// the image ENTRY starts: build@0 (host/build/build.mjs) and packages@0
-// (host/packages/packages.mjs).
+// limits from authorize(url, method, bytes). An enabled module adds its own
+// once the image ENTRY starts: build@0 (host/build/build.mjs).
 export function localServicesTransport(remotePolicy, services = {}, remoteFetch = globalThis.fetch.bind(globalThis)) {
   function localRule(url, method, bytes) {
     const service = Object.values(services).find(candidate => candidate.origin === url.origin);

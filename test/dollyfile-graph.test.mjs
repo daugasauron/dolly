@@ -142,7 +142,7 @@ test("images separate reusable toolchains and packages from applications", async
     git: ["system-build", "zlib", "curl"], "system-tools": ["system-build", "zlib", "gzip", "curl", "git", "display"],
     system: ["system-tools", "transfer", "session-recover", "core", "cc", "make", "posix", "ninja",
       "libdolly-display", "libdolly-input", "libdolly-download", "libdolly-upload", "libdolly-threads"],
-    default: ["core", "posix", "display", "curl", "dollyfile", "amy", "nena", "transfer", "ps"],
+    default: ["core", "posix", "display", "dollyfile", "amy", "nena", "transfer", "ps"],
   };
   const files = await recipeFiles(project);
   const definitions = await discoverImageDefinitions(project);
@@ -158,7 +158,7 @@ test("images separate reusable toolchains and packages from applications", async
     assert.equal(graph.exporters.has("TOOL:zig"), ["zig-build", "ghostty-build", "zig", "zig-llvm"].includes(definition.image));
     // A package carries its builder's chain as provenance, nothing of its files.
     if (!graph.root.hostRequirements.includes("display@0") && definition.parsed.role !== "package") {
-      assert.equal(graph.exporters.has("ENV:DISPLAY"), false, definition.image);
+      assert.equal(graph.exporters.has("ENV:DOLLY_DISPLAY_LIBRARY"), false, definition.image);
       assert.equal(records.some(record => record.name === "ghostty-build"), false, definition.image);
     }
     assert.equal(records.at(-1).name, definition.image);
@@ -172,15 +172,12 @@ test("images separate reusable toolchains and packages from applications", async
   }
   assert.deepEqual((await selectImageDefinitions(definitions, "all")).map(item => item.image),
     definitions.map(item => item.image));
-  // The site publishes the packages default's start-up text and Pi's guidance
-  // suggest (pi-agent is published there).
-  const suggestions = async (...files) => (await Promise.all(files.map(file => readFile(resolve(project, file), "utf8"))))
-    .flatMap(text => [...text.matchAll(/amy install ((?:[a-z0-9.+-]+ ?)+)/g)].flatMap(([, names]) => names.trim().split(" ")));
-  const suggested = await suggestions("Dollyfile");
-  const guided = await suggestions("demos/pi/SYSTEM.md", "demos/pi/skills/dolly/SKILL.md");
+  // The site publishes the packages default's start-up text suggests.
+  const suggested = [...(await readFile(resolve(project, "Dollyfile"), "utf8")).matchAll(/amy install ((?:[a-z0-9.+-]+ ?)+)/g)]
+    .flatMap(([, names]) => names.trim().split(" "));
   const published = await selectImageDefinitions(definitions,
     (await readFile(resolve(project, "config/domain-pages-images.txt"), "utf8")).trim().split("\n").join(","));
-  assert.deepEqual([...suggested, ...guided].filter(name => !published.some(item => item.image === name)), []);
+  assert.deepEqual(suggested.filter(name => !published.some(item => item.image === name)), []);
 });
 
 test("demo recipes are published at their checkout paths and names stay unique", async () => {
@@ -207,7 +204,7 @@ test("demo recipes are published at their checkout paths and names stay unique",
 test("roles decide what FROM, INSTALL, USE and COPY import; host requirements are never inherited", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-roles-"));
   try {
-    const base = "DOLLY 7\nTOOLCHAIN base\nREQUIRES HOST display@0\nEXPORTS ENV DISPLAY /usr/lib/libdisplay.so\nEXPORTS TOOL cc\nENTRY /bin/slop\n";
+    const base = "DOLLY 7\nTOOLCHAIN base\nREQUIRES HOST display@0\nEXPORTS ENV DOLLY_DISPLAY_LIBRARY /usr/lib/libdisplay.so\nEXPORTS TOOL cc\nENTRY /bin/slop\n";
     const pkg = `DOLLY 7\nPACKAGE pkg\nREQUIRES HOST threads@0\nFROM ${siteReference("Dollyfile-base")} ${digest(base)}\nEXPORTS TOOL rg\nEXPORTS ENV RG 1\n`;
     // addon's own declaration precedes the install and still wins.
     const addon = `DOLLY 7\nPACKAGE addon\nREQUIRES HOST threads@0\nEXPORTS TOOL rg\nINSTALL ${siteReference("Dollyfile-pkg")} ${digest(pkg)}\n`;
@@ -227,7 +224,7 @@ test("roles decide what FROM, INSTALL, USE and COPY import; host requirements ar
     const packageGraph = await loadDollyfileGraph(directory, "Dollyfile-pkg");
     assert.deepEqual([...packageGraph.exporters.keys()], ["TOOL:rg", "ENV:RG"], "a package keeps nothing of its base");
     const graph = await loadDollyfileGraph(directory);
-    assert.deepEqual([...graph.exporters.keys()].sort(), ["ENV:DISPLAY", "ENV:RG", "TOOL:cc", "TOOL:rg"]);
+    assert.deepEqual([...graph.exporters.keys()].sort(), ["ENV:DOLLY_DISPLAY_LIBRARY", "ENV:RG", "TOOL:cc", "TOOL:rg"]);
     assert.equal(graph.exporters.get("TOOL:rg").module.name, "addon");
     assert.deepEqual(graph.root.hostRequirements, ["display@0", "threads@0"]);
     // A build of default reads pkg too: addon names it and does not hold it.

@@ -28,7 +28,8 @@ await demoTest('pi-local start screen',{image:'pi-local',webgpu:true},async({ope
 if(!process.env.DISPLAY){console.log('local-llm: the model steps are skipped, they need a GPU window on DISPLAY');process.exit(0);}
 
 const root=new URL('../../../',import.meta.url).pathname;
-// The model pi-local bundles, and the one the user installs next (DOLLY_LLM_SECOND names another package).
+// The model pi-local bundles, and the one the user installs next (DOLLY_LLM_SECOND names another
+// package of the demo's models: qwen3.5-4b or lfm2.5, run on demand).
 const model='qwen3.5-2b',weights=`/usr/share/dolly/llm/${model}.gguf`,second=process.env.DOLLY_LLM_SECOND??'minicpm5-2b';
 // Playwright drives the installed Firefox, which on Ubuntu is a snap with a
 // private /tmp: its profile and downloads must live under $HOME.

@@ -1,14 +1,40 @@
 # A core test names 73 demo packages: every demo package added edits test/amy-browser.mjs
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: audit,core,test,amy,0.1.8
 
 From the core audit of 2026-11-16 (`work/audit-1116`, source of `b09b1e243`).
 
-## State (2026-11-16)
+## Closed (2026-11-17)
 
-Found by reading and `git log`; nothing changed.
+On `ws/modules`:
+- `test/amy-browser.mjs` covers the core's packages alone (`corePackages`: a recipe at the
+  top level); `grep -c 'demos/' test/amy-browser.mjs` prints 0. Its `elsewhere` table holds
+  the core's 19 entries; its main session uses `zig` (which installs `cc`) where it used the
+  demo's `python`, and `ps` where it used `curl` (which default no longer holds).
+- `test/cases/amy-programs.json` (cc, zlib) and `amy-tools.json` (ninja, make,
+  session-recover, gzip, zig, mandoc, dolly-docs) install only core packages. The 54 demo
+  packages' sessions moved, steps unchanged, to their demos: `demos/DEMO/test/amy-cases.json`
+  for cmake, codex, emacs, javascript, local-llm, mojo, neovim, pi, rust, sdl2, slopyard, tmux,
+  tools (22, `demos/tools/test/` is new), x11, xonotic and zero-ad, each run by its
+  `demos/DEMO/test/amy-browser.mjs` (`amyCases()` of `test/amy-sessions.mjs`, which also holds
+  the runner the core test uses; slopyard's keeps raylib's key and touch steps, tools' the
+  typed editors).
+- `demos/packages.test.mjs`, a source test the demos own, fails for a demo package that no
+  test of its demo installs or names and no recipe builds with (checked once with a
+  `Dollyfile-unusedprobe` in `demos/tools/`: it failed naming `tools: unusedprobe`, removed).
+  Its first run named local-llm's two models that only `DOLLY_LLM_SECOND` exercises, which the
+  demo's test now names.
+- The pi demo's guidance check left the core's `test/dollyfile-graph.test.mjs` for
+  `demos/pi/test/recipes.test.mjs`.
+
+Evidence: `test/amy-browser.mjs`'s `amy`, `amy another directory`, `amy programs` and `amy
+tools` pass in Chromium and Firefox on the rebuilt core catalog; its check of unused core
+packages failed once in this tree, for `curl`, which default no longer installs, until its
+`elsewhere` row named where it is installed (so it still fails for an unused core package);
+`npm run test:source` passes with `demos/packages.test.mjs`. The demos' own
+`amy-browser.mjs` run with their images, in the 0.1.8 round's `npm run test:demos`.
 
 ## Found
 

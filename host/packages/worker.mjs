@@ -1,7 +1,9 @@
-// The packages@0 Worker reads one package of an image directory and merges its
-// packs into its snapshot, a chunk per request, off the page's thread: the page
-// must answer the guest's reads at once, since a guest that finds no record
-// waits 10 ms.
+// The packages@0 Worker reads an image directory's index, or one of its
+// packages and merges its packs into its snapshot, a chunk per request, off
+// the runtime Worker's thread, which answers the guest's reads meanwhile.
+// Another directory than the page's it reads judged (`judged`): each file only
+// once the page's HTTP policy admits it, which its parent asks (transport.mjs),
+// and none of its packs is kept in the page's store (page/pack-store.mjs).
 import { DOLLY_IMAGES, loadImages } from "../../page/images.mjs";
 import { loadPackagedSnapshotMetadata, packagedSystemSnapshot } from "../../page/packaged-snapshot.mjs";
 
@@ -43,6 +45,19 @@ async function judgedFetch(url, init = {}) {
   return new Response(body ?? null, { status: response.status, statusText: response.statusText, headers: response.headers });
 }
 
+// The first LIMIT bytes of a response's body, or null when it holds more.
+async function bounded(response, limit) {
+  if (!response.body) return new Uint8Array();
+  const reader = response.body.getReader(), parts = [];
+  for (let length = 0; ;) {
+    const { done, value } = await reader.read();
+    if (done) return parts.length === 1 ? parts[0] : new Uint8Array(await new Blob(parts).arrayBuffer());
+    length += value.length;
+    if (length > limit) { await reader.cancel(); return null; }
+    parts.push(value);
+  }
+}
+
 onmessage = async ({ data }) => {
   if (data.admitted !== undefined) {
     const { resolve, reject } = admitted.get(data.admitted);
@@ -50,7 +65,13 @@ onmessage = async ({ data }) => {
     return data.refused === undefined ? resolve(data.limits) : reject(new Error(data.refused));
   }
   try {
-    if (data.directory) {
+    if (data.index) {
+      const url = new URL("amy-index.txt", data.directory);
+      const response = await (data.judged ? judgedFetch(url) : fetch(url, { credentials: "same-origin", redirect: "error" }));
+      if (!response.ok) return postMessage({ missing: true });
+      const bytes = await bounded(response, data.index);
+      postMessage({ bytes }, bytes ? [bytes.buffer] : []);
+    } else if (data.directory) {
       await loadImages(data.directory, data.judged ? judgedFetch : undefined);
       const definition = DOLLY_IMAGES.find(candidate => candidate.role === "package" && candidate.sha256 === data.sha256);
       if (!definition) return postMessage({ missing: true });

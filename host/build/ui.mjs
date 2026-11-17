@@ -2,10 +2,9 @@ import { ImageBuildService } from "./service.mjs";
 import { buildLog } from "../../page/build-log.mjs";
 
 // BUILDER is what the page's imageBuilder resolves to (README.md).
-export function mountImageBuild(http, builder, mount, keyboard) {
-  const configuration = { http: http.builder };
+export function mountImageBuild(network, builder, mount, keyboard) {
   const service = new ImageBuildService(builder.inspect,
-    (source, report, signal) => builder.build(source, configuration, report, signal));
+    (source, report, signal) => builder.build(source, network.builder(), report, signal));
   const panel = document.createElement("section");
   panel.id = "image-build";
   panel.hidden = true;
@@ -43,7 +42,7 @@ export function mountImageBuild(http, builder, mount, keyboard) {
     const action = event.target.dataset.action;
     if (action === "cancel") service.cancel();
     else if (action === "open" && service.state === "ready") {
-      try { builder.open({ ...service.result, ...http.inherited }); }
+      try { builder.open({ ...service.result, ...network.inherited() }); }
       catch (error) { panel.querySelector('[role="status"]').textContent = error.message; }
     } else if (action === "close") panel.hidden = true;
     if (action) keyboard?.focus({ preventScroll: true });

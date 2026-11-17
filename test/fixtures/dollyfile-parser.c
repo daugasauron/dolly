@@ -1,30 +1,13 @@
-// Isolated diagnostic of the actual C parser. These test-only hooks serve
-// site paths from a fixture directory, as a page serves its own files, and
-// capture shell arguments; they never run host tools.
+// Isolated diagnostic of the actual C parser. These test-only hooks capture
+// shell arguments; they never run host tools.
 #define main dollyfile_main
 #include "../../programs/dollyfile.c"
 #undef main
 #include <sys/resource.h>
 
-static const char *fixture_directory;
 static int capture_shell;
 static int captured_input = -1;
 
-int dolly_http_perform(const dolly_http_request *request, dolly_http_response *response) {
-  if (fixture_directory == NULL) abort();
-  response->status = 404;
-  if (!site_path(request->url)) return 0;
-  char path[PATH_MAX];
-  snprintf(path, sizeof(path), "%s%s", fixture_directory, strchr(request->url + 1, '/'));
-  Buffer input = {.limit = 1024 * 1024};
-  int status = read_file_buffer(path, &input);
-  response->status = status == 0 ? 200 : 404;
-  if (status == 0 && input.length != 0 &&
-      request->write(input.data, input.length, request->write_context) != input.length) status = -EIO;
-  free(input.data);
-  return status == -ENOENT ? 0 : status;
-}
-void dolly_http_response_dispose(dolly_http_response *response) { (void)response; }
 int dolly_write_file(const char *path, const void *bytes, size_t length) {
   (void)path; (void)bytes; (void)length; abort();
 }
@@ -53,9 +36,7 @@ int main(int argc, char **argv) {
   Engine engine = {0};
 
   if (strcmp(argv[1], "check") == 0) {
-    // Read DIR/Dollyfile as a custom root with the rows DIR/Dollyfile.rows,
-    // fetching its modules from DIR.
-    fixture_directory = argv[2];
+    // Read DIR/Dollyfile as a custom root with the rows DIR/Dollyfile.rows.
     char root[PATH_MAX], rows[PATH_MAX];
     snprintf(root, sizeof(root), "FILE:%s/Dollyfile", argv[2]);
     snprintf(rows, sizeof(rows), "%s/Dollyfile.rows", argv[2]);

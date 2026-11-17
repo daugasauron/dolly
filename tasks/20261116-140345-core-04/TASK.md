@@ -1,14 +1,26 @@
 # The browser APIs the trusted JavaScript calls are reviewed in prose only: no test fails when a module starts calling another
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 110
 - TAGS: audit,core,boundary,test,0.1.8
 
 From the core audit of 2026-11-16 (`work/audit-1116`, source of `b09b1e243`).
 
-## State (2026-11-16)
+## Closed (2026-11-17)
 
-Found by reading and grep; nothing changed.
+`test/browser-apis.test.mjs` (a source test) holds the table: each module directory, `page/`
+and `site/` to the browser APIs its JavaScript calls (`navigator.*` by member, `fetch`,
+Workers, `WebSocket`, `RTC*`, `EventSource`, `BroadcastChannel`, `indexedDB`, `caches`,
+`localStorage`, `sessionStorage`, Web Audio, `OffscreenCanvas`, pointer lock, fullscreen,
+`URL.createObjectURL`, `window.open`, `click()`, file pickers, `Notification`,
+`sendBeacon`), comments left out. It fails on a call outside its row and on a row nothing
+calls any more, so the table stays exact. Against the audit's grep it found three calls the
+table above missed: `navigator.serviceWorker` (snapshot@0's kept runtime, `offline.mjs`;
+`site/route.mjs`) and `navigator.storage` in `site/sessions.mjs`; upload@0's is its file
+picker (`<input type=file>`), not a `click()`. It passes on `ws/modules`; with
+`navigator.usb.requestDevice` appended to `host/audio/audio.mjs` it failed naming
+`host/audio/audio.mjs: navigator.usb` (checked once, reverted). `docs/browser-boundary.md`
+(Host modules) says the test and the Authority column go together. No image rebuilds.
 
 ## Found
 

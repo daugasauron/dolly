@@ -42,7 +42,6 @@
 #include <llvm/Support/VirtualFileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 
-#include <dolly/host-abi.h>
 #include <dolly/toolchain.h>
 
 #include "dolly-kernel-plugin-abi-digest.h"
@@ -850,7 +849,7 @@ std::vector<std::string> host_client_libraries() {
   return libraries;
 }
 
-// The symbols a file of the process sysroot lists, one a line
+// The symbols (or names) a file of the process sysroot lists, one a line
 // (scripts/prepare-process-sysroot.sh); a file that lists none is an error.
 bool read_symbols(const std::string &path, std::vector<std::string> &symbols) {
   auto buffer = llvm::MemoryBuffer::getFile(path, false, false);
@@ -879,7 +878,12 @@ bool link_process_executable(const std::string &output,
                              bool needs_cxx_runtime,
                              bool export_dynamic,
                              bool strip_debug, bool pthread) {
-  const std::string sysroot = std::string(kProcessSysroot) + (pthread ? "/threads" : "");
+  // -pthread links the part of the process sysroot a module's seed gives it
+  // (its manifest's ccSysroot), which pthread.sysroot names.
+  std::string sysroot = kProcessSysroot;
+  std::vector<std::string> part;
+  if (pthread && !read_symbols(sysroot + "/pthread.sysroot", part)) return false;
+  if (pthread) sysroot += "/" + part.front();
   std::vector<std::string> arguments = {
       "wasm-ld",
       "-o", output,
@@ -1375,28 +1379,6 @@ bool validate_process_executable(const std::string &path) {
     std::fprintf(stderr,
                  "dolly-cc: process executable %s does not import exactly memory and call\n",
                  path.c_str());
-    return false;
-  }
-
-  // The loader starts every thread of a program that links the threads client
-  // at dolly_thread_start, so refuse here what it would refuse to run.
-  bool thread_client = false, thread_entry = false;
-  for (const llvm::object::SectionRef &section : executable.object->sections()) {
-    const llvm::object::WasmSection &wasm =
-        executable.object->getWasmSection(section);
-    if (wasm.Type != llvm::wasm::WASM_SEC_CUSTOM || wasm.Name != "dolly.host") continue;
-    for (size_t offset = 0; offset + DOLLY_HOST_RECORD_BYTES <= wasm.Content.size();
-         offset += DOLLY_HOST_RECORD_BYTES) {
-      if (std::strncmp(reinterpret_cast<const char *>(wasm.Content.data() + offset),
-                       "threads", DOLLY_HOST_NAME_BYTES) == 0) thread_client = true;
-    }
-  }
-  for (const llvm::wasm::WasmExport &entry : executable.object->exports()) {
-    if (entry.Name == "dolly_thread_start") thread_entry = true;
-  }
-  if (thread_client && !thread_entry) {
-    std::fputs("dolly-cc: this program uses <dolly/threads.h> without a thread entry: build "
-               "with -pthread, or export dolly_thread_start from your own runtime\n", stderr);
     return false;
   }
 

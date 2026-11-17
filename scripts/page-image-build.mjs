@@ -18,9 +18,8 @@ export async function buildImageInPage(runtime, images, image, custom, modules, 
     throw new Error("this browser has no WebAssembly memory64, which Dolly needs (Chrome 138, Firefox 146 or later)");
   }
   const log = text => void globalThis.dollyBuildLog(text);
-  const [registry, http, transport, builder, graph] = await Promise.all([
-    "page/images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
-    "site/image-builder.mjs", "site/image-build.mjs",
+  const [registry, { pageNetwork }, builder, graph] = await Promise.all([
+    "page/images.mjs", "page/network.mjs", "site/image-builder.mjs", "site/image-build.mjs",
   ].map(path => import(new URL(path, runtime).href)));
   await registry.loadImages(images);
   // A relayed answer is from the URL the relay reached, after its redirects: a program
@@ -29,10 +28,10 @@ export async function buildImageInPage(runtime, images, image, custom, modules, 
     const response = await fetch(`${relay}${url.protocol.slice(0, -1)}/${url.host}${url.pathname}${url.search}`, init);
     return Object.defineProperty(response, "url", { value: response.headers.get("x-dolly-relay-url") ?? url.href });
   });
-  const network = { ...transport.localServicesTransport(new http.DollyHttpPolicy(policy,
-    registry.bootstrapSources(), new URL(images)), {}, remoteFetch), site: images };
+  const network = pageNetwork({ embedding: { policy }, sources: registry.bootstrapSources(),
+    applicationBase: new URL(images), fetchRequest: remoteFetch });
   modules ??= (await import(new URL("host/manifests.mjs", runtime).href)).hostModuleUrls;
-  const build = (name, artifacts) => builder.buildImage(name, artifacts, { http: { network } }, log,
+  const build = (name, artifacts) => builder.buildImage(name, artifacts, network, log,
     { modules, customSource: name === "custom" ? custom : undefined });
   let dependenciesBuilt = 0;
   const dependencies = await graph.prepareImageArtifacts(image, custom, (name, artifacts) => {

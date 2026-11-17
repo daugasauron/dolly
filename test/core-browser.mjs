@@ -25,7 +25,7 @@ await browserTest("core", { image }, async ({ server, open }) => {
     assert.equal(await submit("/tmp/core-invalid"), 126, fixture);
   }
   assert.equal(await submit("rm /tmp/core-invalid"), 0);
-  await runSteps(submit, server.origin, toolchain);
+  await runSteps(submit, toolchain);
   // A program's HTTP goes through the broker to the test server.
   assert.equal(await submit(`DOLLY_PROCESS_HTTP_CHECK_URL=${server.origin}/fixture/http.txt ./http-check`), 0);
   assert.equal(await submit(`cd /workspace && rm -rf ${toolchain.directory}`), 0);

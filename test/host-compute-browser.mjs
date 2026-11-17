@@ -17,11 +17,8 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       // This page is an embedding of its own: its images are the site's.
       const images = await import("/page/images.mjs");
       await images.loadImages(new URL("/", location.href));
-      const { DollyHttpPolicy } = await import("/host/http/policy.mjs");
-      const { localServicesTransport } = await import("/host/http/local-services.mjs");
-      const site = new URL("/", location.href);
-      return { ...localServicesTransport(new DollyHttpPolicy(undefined, images.bootstrapSources(), site)),
-        site: site.href };
+      const { pageNetwork } = await import("/page/network.mjs");
+      return pageNetwork({ sources: images.bootstrapSources(), applicationBase: new URL("/", location.href) });
     };
     globalThis.runHeadless = async (modules, configuration, transfers, running) => {
       // Only the modules it enables: the registry loads what the page names.
@@ -31,8 +28,8 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       let worker;
       const { holdIndicators, showIndicators } = await import("/page/page-indicators.mjs");
       const host = await registry.createHost("browser", modules, { send: message => worker.postMessage(message),
-        resources: { applicationBase: new URL("/", location.href), indicators: { hold: holdIndicators, show: showIndicators } },
-        configuration: { http: { network: await headlessNetwork() } } });
+        resources: { applicationBase: new URL("/", location.href), network: await headlessNetwork(),
+          indicators: { hold: holdIndicators, show: showIndicators } } });
       try {
         worker = new Worker("/site/build-worker.mjs", { type: "module" });
         const exited = new Promise((resolve, reject) => {
@@ -59,7 +56,7 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       const { hostModuleUrls: modules } = await import("/host/manifests.mjs");
       const { prepareImageArtifacts } = await import("/site/image-build.mjs");
       const { siteReference } = await import("/page/static-asset.mjs");
-      const builders = { http: { network: await headlessNetwork() } };
+      const builders = await headlessNetwork();
       const base = catalog.images.find(d => d.image === "system-build");
       const hosts = rows.match(/^(?:REQUIRES HOST [^\n]*\n)*/)[0];
       const installs = packages.map(image => catalog.images.find(d => d.image === image))

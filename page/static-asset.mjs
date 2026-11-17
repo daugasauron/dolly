@@ -35,6 +35,20 @@ export function sitePath(reference) {
   return reference.slice(sitePrefix.length);
 }
 
+// A response's body as a Blob, which a browser may keep on disk: refused past
+// LIMIT bytes.
+export function boundedAssetBlob(response, limit) {
+  if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
+  let size = 0;
+  return new Response(response.body.pipeThrough(new TransformStream({
+    transform(chunk, stream) {
+      size += chunk.length;
+      if (size > limit) throw new Error(`more than ${limit} bytes`);
+      stream.enqueue(chunk);
+    },
+  }))).blob();
+}
+
 export async function boundedAssetBody(response, limit, signal) {
   if (!response.ok || !response.body) throw new Error(`asset returned HTTP ${response.status}`);
   const reader = response.body.getReader(), chunks = [];

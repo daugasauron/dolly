@@ -280,9 +280,8 @@ int dolly_process_bootstrap_prepare(uintptr_t size) {
   return 0;
 }
 
-int dolly_process_bootstrap_resume_prepare(uintptr_t size,
-                                           uint32_t resume_uses) {
-  if (resume_uses != 1 || dolly_kernel_boot_environment() != 0) return 1;
+int dolly_process_bootstrap_resume_prepare(uintptr_t size) {
+  if (dolly_kernel_boot_environment() != 0) return 1;
   puts("dolly: restoring image builder");
   fflush(stdout);
   if (dolly_snapshot_restore_staged(size, "/bin/dollyfile") != 0) {

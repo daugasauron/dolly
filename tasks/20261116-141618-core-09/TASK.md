@@ -9,10 +9,14 @@ the kernel audit of 2026-11-01 (`tasks/20261101-074306-audit-kernel`, "two expor
 nothing": "Dropping both changes the image contract, an image input: a catalog round"); that task
 closed without a task for it, and the 0.1.6 and 0.1.7 catalog rounds passed without it.
 
-## State (2026-11-16)
+## State (2026-11-17)
 
-Still as found on 2026-11-01; nothing changed. It changes the image contract, so the image build
-ID and every image: do it in the next full round, not alone.
+Done on `ws/modules`: `abi/dolly-image-0.wat` has no `dolly_snapshot_format_version` (removed
+from `kernel/system-snapshot.c` and `.h`, `test/image-browser.mjs` and
+`test/fixtures/image-roundtrip.c`), and `dolly_process_bootstrap_resume_prepare` takes the
+staged size alone (`kernel/dolly.c`, `site/build-worker.mjs`). The image contract is an input
+of the image build ID, so every image rebuilds: the 0.1.8 round's. Donna is told in
+`tasks/20261112-074501-modules-modular` (For Donna), to copy into Donna's own task.
 
 ## Found
 

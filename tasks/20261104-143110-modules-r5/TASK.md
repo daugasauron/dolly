@@ -6,38 +6,44 @@
 
 From the module audit (`tasks/20261104-135806-module-audit`, R5, section 4 item 3).
 
-## State (2026-11-16, core audit): what is left, read on 0.1.7's source
+## State (2026-11-17, ws/modules)
 
-Unchanged since the evening of 2026-11-12: the page's own directory comes over packages@0's
-mailbox; a foreign directory (`amy server URL`) still goes through http@0's reserved URL, and
-`Dollyfile-amy:4` and `Dollyfile:7` still declare `http@0`. Read at `b09b1e243`:
-- `host/packages/service.mjs:53` judges the directory's URL once (`this.admit(directory)`);
-  `worker.mjs:12-16` then imports that directory's `dist/dolly-images.json` and the image's
-  metadata as JSON modules, with no byte bound and outside the broker's request count, and its
-  packs are fetched by `page/packaged-snapshot.mjs:175` and written to the origin's pack store
-  (`:130-134`). Reproduced as a bypass of a hardened policy (a rule admitting only `B/` let the
-  service read 15 other files of B): `20261116-140747-core-06`, which can be fixed before this
-  task's redesign.
-- New detail: those packs are never pruned. `page/pack-store.mjs:59` records them under the
-  foreign directory, and `prune` (`:106-108`) keeps every record whose `directory` is not the
-  page's own while the image build ID is unchanged. So a guest that names directories (the
-  default policy admits any) grows the origin's storage until the next runtime release or the
-  user's clear, at most 64 snapshots of 2 GiB per page load. Measured in Chrome
-  (`work/audit-1116-evidence/core/probes/pack-records-probe.mjs`, `pack-records-probe.log`):
-  after one package from a second directory the store's records are the page's `default` and
-  `http://127.0.0.1:40463/ less 1 packs`, and after a reload, which reads and prunes, still both.
-- `page/pack-store.mjs:8-9` ("nothing of the guest reaches it") and the review map's pack-store
-  row ("bytes of the catalog and nothing else") are still not true for a foreign directory.
+Done on `ws/modules`; what is left is the round's (below).
+- The page's HTTP policy is a page resource (`page/network.mjs`), not http@0's: every
+  provider gets `network` (`admit(url)`, `refused`, `fetch`, `builder()`, `inherited()`), so
+  packages@0 judges a URL without depending on http@0 (`host/packages/module.json`:
+  `runtime@0` alone).
+- packages@0 answers another directory over its own mailbox too (`transport.mjs`): its
+  Worker (`worker.mjs`) reads the index, the catalog, the metadata and the packs, each file
+  only once the page's policy admits it (`packages-admit`, counted and shown as the guest's),
+  without credentials, within the rule's size and time, and keeps none of its packs
+  (`page/pack-store.mjs` gives a directory read with a guest's fetch no store); a refusal is
+  `EACCES`, which amy says ("this page's HTTP policy does not admit it"). The broker's
+  `packages.dolly.invalid` service (`service.mjs`) is gone, and so is the pack-store growth the
+  core audit measured: nothing of another directory is recorded.
+- amy (`programs/commands/amy.c`) links no HTTP client and reads every directory through
+  packages@0; `Dollyfile-amy` and `Dollyfile-dollyfile` (with modules-r4's engine) declare no
+  `http@0`.
+- http@0 is no longer `fixed`: its page side takes the page's policy when enabled, and its
+  Worker side ends each transfer in flight with `ECANCELED` when disabled
+  (`HttpMailbox.cancelAll`). The registry refuses to disable a module that an enabled one
+  depends on (http@0 under build@0), in place of the rule that such modules be fixed.
+- `default` drops `curl` and `http@0` (owner, 2026-11-04: http only where an agent fetches):
+  `amy install curl` has nena enable `http@0`. `tmux-panes` and `x11-desktop` drop the `http@0`
+  they declared for amy alone.
 
-`http@0` is still declared by 78 of 231 recipes and 18 of 28 applications (the counts of
-2026-11-12), among them `default`, `wine`, `zero-ad`, `x11-desktop`, `tmux-panes`, `slopyard`,
-`rts-arena`, `classicube` and `python-data`, beside the agents (grep of `REQUIRES HOST http@0`).
-Some fetch for themselves (Wine's NetSurf, the agents); which of them need it only for `amy`,
-`curl` or `transfer` was not checked here.
-
-Left as the State below says: the page's HTTP policy as a page resource, the foreign directory
-over the channel with its packs not kept (which also ends the growth above), `amy` without
-`http@0`, `http@0` switchable.
+Verified in this tree, whose runtime and core catalog (42 images, image inputs `75bf4d6f…`)
+were rebuilt on the changed seed: `test/amy-browser.mjs` passes in Chromium and Firefox on a
+`default` that declares no `http@0` (`amy`: list, info and files of a package the image
+holds, `amy install curl` with nena enabling `http@0`, two installs and a list at once, a
+mirror's package, the engine's rows, a save and its restore; `amy another directory`: a
+rule for the directory's URL alone refuses its index with no request there, a prefix rule
+installs `less` from it with no cookie reaching it and no pack record of it in the store,
+and a quota of 2 refuses it after at most 2 requests; the core's `amy programs` and `amy
+tools`). `test/nena-browser.mjs` passes in both, `nena disable http` and `enable http`
+among it (logs: `work/modules/build/modules-tests/a*/`).
+Left for the 0.1.8 round: the catalog builds (its seal check confirms each image that no
+longer declares `http@0` holds no program recording it) and each demo's `amy-browser.mjs`.
 
 ## State (2026-11-12)
 

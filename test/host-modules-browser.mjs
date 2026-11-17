@@ -26,7 +26,7 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides, 
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
-  await runSteps(submit, server.origin, hostCases);
+  await runSteps(submit, hostCases);
   async function source(code) {
     sourceOverrides.set("/fixture/process-check.c", code);
     await run(`curl -fsS ${server.origin}/fixture/process-check.c -o /tmp/probe.c`);

@@ -34,7 +34,7 @@ test("default copies Ghostty runtime bytes without its compiler or development f
     assert.deepEqual(runtime.files.get(path), builder.files.get(path), path);
   }
   const environment = decodeSnapshotEnvironment(runtime.files.get("/etc/dolly/environment"));
-  assert.equal(environment.get("DISPLAY"), "/usr/lib/libdisplay.so");
+  assert.equal(environment.get("DOLLY_DISPLAY_LIBRARY"), "/usr/lib/libdisplay.so");
   assert.equal(environment.has("ZIG_LIB_DIR"), false);
 });
 

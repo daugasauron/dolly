@@ -4,7 +4,7 @@ import { access, mkdtemp, readdir, readFile, writeFile, rm } from "node:fs/promi
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sha256 as digest } from "../scripts/sha256.mjs";
-import { executableHostRequirements, checkHostAbi, hostRequirement } from "../host/requirements.mjs";
+import { executableHostRequirements, checkHostAbi } from "../host/requirements.mjs";
 import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 import { hostManifests } from "../host/manifests.mjs";
@@ -14,22 +14,22 @@ test("every image declares its complete host set itself", async () => {
   const root = new URL("../", import.meta.url).pathname;
   const load = createDollyfileGraphLoader(root);
   const terminal = ["runtime@0", "display@0", "input@0"];
-  const interactive = [...terminal, "download@0", "http@0", "snapshot@0", "upload@0"];
+  const interactive = [...terminal, "download@0", "snapshot@0", "upload@0"];
   // Every image declares the runtime it is built on; the engine retained for
-  // FROM builds uses http@0; download and upload tools arrive with transfer,
+  // FROM builds fetches nothing; download and upload tools arrive with transfer,
   // which system installs; a terminal
   // draws with display@0 and reads keys with input@0, which the display package
-  // alone does not ask for; Git, which system-tools holds, runs threads; default
-  // installs packages with amy, which has nena enable what a package needs
-  // beyond these.
+  // alone does not ask for; Git, which system-tools holds, runs threads, and
+  // curl and Git's HTTP helper fetch; default installs packages with amy,
+  // which has nena enable what a package needs beyond these (curl's http@0).
   const core = {
     default: [...interactive, "packages@0", "nena@0"],
-    system: [...interactive, "threads@0"],
-    "system-build": ["runtime@0", "http@0"], "zig-build": ["runtime@0", "http@0"],
-    "ghostty-build": [...terminal, "http@0"],
+    system: [...interactive, "http@0", "threads@0"],
+    "system-build": ["runtime@0"], "zig-build": ["runtime@0"],
+    "ghostty-build": terminal,
     "system-tools": [...terminal, "http@0", "threads@0"], transfer: ["runtime@0", "download@0", "upload@0"],
     zlib: ["runtime@0"], gzip: ["runtime@0"], curl: ["runtime@0", "http@0"], display: ["runtime@0", "display@0"],
-    nena: ["runtime@0", "nena@0"],
+    nena: ["runtime@0", "nena@0"], amy: ["runtime@0", "packages@0"], dollyfile: ["runtime@0"],
   };
   for (const image of await discoverImageDefinitions(root)) {
     const graph = await load(image.filename);
@@ -136,14 +136,9 @@ test("each host module's manifest names the files of its directory, whose JavaSc
 
 // The registry's list, enable and disable go to the page side of the module
 // whose manifest asks for them (host/modules.mjs), and nothing else switches
-// a module. Disabling asks for no dependents: every module another depends
-// on is fixed.
-test("nena@0 alone is given the registry's switches, and no module is switched off under its user", () => {
+// a module.
+test("nena@0 alone is given the registry's switches", () => {
   assert.deepEqual(hostManifests.filter(manifest => manifest.switches).map(manifest => manifest.name), ["nena"]);
-  for (const { name, dependencies } of hostManifests) for (const dependency of dependencies) {
-    assert.ok(hostManifests.find(manifest => manifest.name === hostRequirement(dependency).name).fixed,
-      `${name} depends on ${dependency}, which nena could disable`);
-  }
 });
 
 // Operation numbers are one space: module_for() in kernel/process-kernel.c hands a

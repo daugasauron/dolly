@@ -3,10 +3,21 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
 import { createDollyfileGraphLoader, recipeRecords } from "../../../scripts/dollyfile-graph.mjs";
+import { discoverImageDefinitions, selectImageDefinitions } from "../../../scripts/image-definitions.mjs";
 import { siteReference } from "../../../page/static-asset.mjs";
 
 const projectDir = resolve(import.meta.dirname, "../../..");
 const loadProjectGraph = createDollyfileGraphLoader(projectDir);
+
+// The site publishes the packages Pi's guidance suggests (pi-agent is published there).
+test("Pi's guidance suggests only packages the site publishes", async () => {
+  const guided = (await Promise.all(["SYSTEM.md", "skills/dolly/SKILL.md"].map(file => readFile(resolve(import.meta.dirname, "..", file), "utf8"))))
+    .flatMap(text => [...text.matchAll(/amy install ((?:[a-z0-9.+-]+ ?)+)/g)].flatMap(([, names]) => names.trim().split(" ")));
+  const published = await selectImageDefinitions(await discoverImageDefinitions(projectDir),
+    (await readFile(resolve(projectDir, "config/domain-pages-images.txt"), "utf8")).trim().split("\n").join(","));
+  assert.ok(guided.length > 0);
+  assert.deepEqual(guided.filter(name => !published.some(item => item.image === name)), []);
+});
 
 test("QuickJS reaches only Pi-bearing images, through the janis package", async () => {
   const defaultGraph = await loadProjectGraph();

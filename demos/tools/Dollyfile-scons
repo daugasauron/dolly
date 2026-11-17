@@ -8,9 +8,9 @@ REQUIRES HOST threads@0
 
 # SCons from the wheel PyPI publishes, installed by pip; Python runs it. Its base
 # holds the C compiler it starts. The host modules are Python's.
-FROM /v0.1.7/Dollyfile-system 53019922324696a18a573eededf9b475fe22e783d58f35585fe5c73943b926ae
-INSTALL /v0.1.7/demos/python/Dollyfile-python c97238b02344b36aad552b36fd2f73d450811ecaf7f5464374e82e8af15b80d7
-USE /v0.1.7/Dollyfile-mandoc fdcd60b702db22d8823eb0b1ad8afaba884e97d493760d1c91bc87894a9febb9
+FROM /v0.1.7/Dollyfile-system 969a088b41c5d9970d3919459efa7690b216b133f31df7a100e331a74098ddc7
+INSTALL /v0.1.7/demos/python/Dollyfile-python 93c46787732ed24cf52abb7db616dccab304bef5e9485f4f75eafe2fa6b81029
+USE /v0.1.7/Dollyfile-mandoc 126cb8b60bd5fe7ed0222f5be2c67455c685a234ab288a5584c77b71fd5b7012
 
 REQUIRES TOOL cc
 REQUIRES TOOL cp

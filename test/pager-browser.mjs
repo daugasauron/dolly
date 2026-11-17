@@ -120,5 +120,5 @@ await browserTest("pager", { timeout: 300_000 }, async ({ server, open }) => {
   }
   // Not a terminal: nothing is paged and nothing waits, as in a tool call (test/cases/pager.json,
   // in a repository of its own).
-  await runSteps(submit, server.origin, pagerCases);
+  await runSteps(submit, pagerCases);
 });

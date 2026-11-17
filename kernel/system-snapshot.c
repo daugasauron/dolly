@@ -164,10 +164,6 @@ static int checked_add(uintptr_t *total, uintptr_t amount) {
   return dolly_fs_checked_add(total, amount, DOLLY_SNAPSHOT_MAX_SIZE);
 }
 
-uint32_t dolly_snapshot_format_version(void) {
-  return DOLLY_SNAPSHOT_VERSION;
-}
-
 uintptr_t dolly_snapshot_restore_address(uintptr_t size) {
   if (size < DOLLY_SNAPSHOT_HEADER_BYTES || size > DOLLY_SNAPSHOT_MAX_SIZE) {
     return 0;

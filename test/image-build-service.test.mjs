@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ImageBuildService, BUILD_ORIGIN, BUILD_LIMITS } from "../host/build/service.mjs";
-import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
+import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../page/http-policy.mjs";
 import { localServicesTransport } from "../host/http/local-services.mjs";
 import { checkedCustomArtifact } from "../site/custom-image.mjs";
 import { inspectDollyfile } from "../site/dollyfile-view.mjs";

@@ -9,17 +9,17 @@ REQUIRES HOST sockets@0
 # names them. Godot and PhotoCraft draw their X windows through it. A static
 # library over Xlib: a program links it with -lX11 -lxcb -lXau -ldolly-sockets,
 # which come with it, as do the input header its own includes.
-FROM /v0.1.7/demos/x11/Dollyfile-x11-build 0e058acfa14e3aa3f876b90ee94a4d0a9a4a1da866e51cc7f5f432ce891ff6e0
-INSTALL /v0.1.7/demos/x11/Dollyfile-x11-libs 78ce1c47936bce506ae0b50d53545b475e572cbbdaa01e5c81e9f502867feae0
-USE /v0.1.7/Dollyfile-libdolly-display dca7d4755a50b8dbaa6abc4fd5b8fa34cccbb6400a4fd167d90e9a0f1bcee9ad
-INSTALL /v0.1.7/Dollyfile-libdolly-input 80f7d6d7b775fa542711f6d0205280a3d3f4c5a68eb0f3223f81fc2fe64df08e
+FROM /v0.1.7/demos/x11/Dollyfile-x11-build dec72b78fc21f2dddf94fddc9f9bac489c108113a4c99df32dc3747cb2453052
+INSTALL /v0.1.7/demos/x11/Dollyfile-x11-libs 30ccf9dfc3cf6a6f03960a9bbf7f2db21e299f5a63531aaee29c2aa264df0e15
+USE /v0.1.7/Dollyfile-libdolly-display 7ec2ca9ab16858a7edb0a19edd4e6e261cc75e9ddd3c1f12e21da86b0f9581b1
+INSTALL /v0.1.7/Dollyfile-libdolly-input a122cccb1ab8b550d4a178a384a36f2722985d3a78a5d1eef2877ded3196f751
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/x11/x11-window.h e9101346f695e029fc06bd81b24a615958c262bffeaa781ec6343cf839d3b28f /usr/include/x11-window.h
-SOURCE /v0.1.7/dist/static/x11/x11-window.c b83baae42a180c5d00880097ce14ca64ba8700a037d8e5b021522a6379f12b27 /tmp/x11-window/x11-window.c
+SOURCE /v0.1.7/dist/static/x11/x11-window.h 02304c404eb2d265c6c09fd5e75fd10ae145bdf2ad20d38f4f932bd31f5b5158 /usr/include/x11-window.h
+SOURCE /v0.1.7/dist/static/x11/x11-window.c cfff68e730a5cb022de1ba35fa6f4a2ab67c4eb342aa0d39757d52d79bbd1705 /tmp/x11-window/x11-window.c
 SLOP cc -O2 -c /tmp/x11-window/x11-window.c -o /tmp/x11-window/x11-window.o
 SLOP ar rcs /usr/lib/libx11-window.a /tmp/x11-window/x11-window.o
 SLOP rm -rf /tmp/x11-window

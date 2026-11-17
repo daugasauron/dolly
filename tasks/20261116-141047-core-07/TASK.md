@@ -6,10 +6,15 @@
 
 From the core audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at `b09b1e243`).
 
-## State (2026-11-16)
+## State (2026-11-17)
 
-Measured in the released `default`; nothing changed. The fix changes display@0's contract and
-the kernel, so it goes in a full round.
+Done on `ws/modules`: display@0's kernel side reads the library's path from
+`DOLLY_DISPLAY_LIBRARY` (`host/display/kernel.c`, the contract's comment and `display.h`'s,
+so display@0's ABI digest changes), which `Dollyfile-display` and `Dollyfile-ghostty-build`
+export; `DISPLAY` is left unset, as on a Unix system without X, and `x11-desktop` sets
+`DISPLAY=:0` for its clients. `x11_window_display()` returns `getenv("DISPLAY")` (the colon
+test is gone, `demos/x11/x11-window/`), which Godot's and PhotoCraft's platforms call.
+Rebuilds every image with display@0's client or the display package: the round's.
 
 ## Found
 

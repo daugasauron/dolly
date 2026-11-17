@@ -196,9 +196,10 @@ mounted, and reads no other version's.
   imports no environment, exports or host requirements. Imported images are
   earlier builds of at most 2 GiB and 100,000 retained paths; an image cannot
   share a name with one it imports.
-- `SOURCE` downloads through the HTTP broker, creates parent directories and
-  replaces `DESTINATION` only after the digest matches. Downloads are not
-  retained by themselves.
+- `SOURCE` takes the file the page hands the build for the row (a site path's
+  from the image directory, a URL's fetched under the page's HTTP policy),
+  creates parent directories and replaces `DESTINATION` only after the digest
+  matches. Its file is not retained by itself. The engine fetches nothing.
 - Where bytes come from never changes a recipe or its identity; pins cover
   content. A site path names the page's own copy of a file its release
   publishes, so the domain, a site under a path prefix, `npm run serve`, the
@@ -267,8 +268,7 @@ mounted, and reads no other version's.
   ([browser boundary](browser-boundary.md)). An application declares the
   kernel, the terminal (`display@0`, `input@0`), the session's save
   (`snapshot@0`) and what its packages need: `gnu-emacs` the first four,
-  `tmux-panes` also `pty@0`, `sockets@0` and `amy`'s `http@0` and
-  `packages@0`. `default` declares no module for a package it does not hold:
+  `tmux-panes` also `pty@0`, `sockets@0` and `amy`'s `packages@0`. `default` declares no module for a package it does not hold:
   where an image declares `nena@0`, `amy install` has `nena` enable what a
   package needs beyond the image's list (`python` loads modules, `dso@0`;
   every SDL2 program records `touch@0` and `audio@0`). A terminal draws with `display@0` and reads keys
@@ -354,9 +354,9 @@ EXPORTS TOOL rg
   the site for its own pages; a host names its own), which `packages@0` gives,
   unless `amy server URL` names another for the session in
   `/etc/dolly/packages-server` (removing the file goes back). `amy server`
-  prints it. `amy` reads the server's `amy-index.txt`, the page's own
-  directory's from `packages@0` and another's through the
-  [HTTP broker](http.md#transport), and keeps no copy: a published version
+  prints it. `amy` reads the server's `amy-index.txt` from `packages@0`, of
+  another directory than the page's only where the page's
+  [HTTP policy](http.md#policy) admits it, and keeps no copy: a published version
   serves it, as all its files, as immutable (`npm run serve` sends `no-store`),
   and `amy list`, `info` and `install` name the URL they could not read.
   `amy list` prints each name,
@@ -400,7 +400,7 @@ EXPORTS TOOL rg
 flowchart TD
   recipe["Dollyfile, pinned"] --> exec
   bases["FROM / INSTALL / USE / COPY images: cached, published or built first"] --> exec
-  inputs["SOURCE files via the HTTP broker"] --> exec
+  inputs["SOURCE files the page hands over"] --> exec
   exec["/bin/dollyfile in a fresh runtime"] --> snap["Sealed snapshot: retained files, env, ENTRY"]
   snap -- "npm run image: headless Chrome on /IMAGE/rebuild/" --> packs["dist/ snapshot, packaged as shared packs"]
   snap -- "/IMAGE/rebuild/ in a browser" --> cache[("Browser image cache")]

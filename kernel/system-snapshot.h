@@ -21,7 +21,6 @@ int dolly_snapshot_stream_finish(void);
 // the end. A new begin replaces an unfinished capture.
 uintptr_t dolly_snapshot_capture_begin(void);
 uintptr_t dolly_snapshot_capture_read(void);
-uint32_t dolly_snapshot_format_version(void);
 
 // Boot-only: discard an unfinished capture and unretained build inputs.
 // Not a host export.

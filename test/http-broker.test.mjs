@@ -3,7 +3,7 @@ import { sha256 as digest } from "../scripts/sha256.mjs";
 import test from "node:test";
 import { HttpMailbox, NetworkTransport, DOLLY_HTTP_LIMITS } from "../host/http/broker.mjs";
 import { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_HEADER_SIZE, DOLLY_HTTP_WORD_EOF, DOLLY_HTTP_WORD_ERROR, DOLLY_HTTP_WORD_KIND, DOLLY_HTTP_WORD_LENGTH, DOLLY_HTTP_WORD_SEQUENCE, DOLLY_HTTP_WORD_STATE } from "../host/http/abi.mjs";
-import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
+import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../page/http-policy.mjs";
 import { localServicesTransport } from "../host/http/local-services.mjs";
 import { DOLLY_ERRNO as errno } from "../page/process-constants.mjs";
 import { siteReference } from "../page/static-asset.mjs";

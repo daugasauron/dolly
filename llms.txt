@@ -12,9 +12,9 @@ gone when it closes unless you save the session (Ctrl+Shift+S, in this
 browser; a save can be exported and imported). Programs reach the network
 only through the page's HTTP broker.
 
-The default image has a shell (Slop), the usual text and file tools and
-curl; `amy install NAME` adds a package, such as `cc` (C and C++, make) or
-`git`, and `amy list` shows them all. A page downloads its image first:
+The default image has a shell (Slop) and the usual text and file tools;
+`amy install NAME` adds a package, such as `cc` (C and C++, make), `git` or
+`curl`, and `amy list` shows them all. A page downloads its image first:
 megabytes for default, far more for the largest. The bulk is under dist/,
 which crawlers are asked to leave alone.
 

@@ -7,8 +7,10 @@ import { siteReference } from "../page/static-asset.mjs";
 
 const scratch = await mkdtemp(join(tmpdir(), "dolly-custom-session-"));
 const status = page => page.evaluate(() => document.documentElement.dataset.dollyStatus);
+// A rebuild builds its image first: measured at 42 s on a loaded machine.
 async function boot(page) {
-  await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
+  await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null,
+    { timeout: 180_000 });
   assert.equal(await status(page), "ready", await page.locator("#bootstrap-log").textContent());
   await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "session shell"));
 }

@@ -78,10 +78,7 @@ static const unsigned cursor_shapes[] = {
   [DOLLY_DISPLAY_CURSOR_HELP] = XC_question_arrow,
 };
 
-const char *x11_window_display(void) {
-  const char *display = getenv("DISPLAY");
-  return display != NULL && strchr(display, ':') != NULL ? display : NULL;
-}
+const char *x11_window_display(void) { return getenv("DISPLAY"); }
 
 x11_window *x11_window_open(const char *title, uint32_t width, uint32_t height) {
   if (x11_window_display() == NULL) {

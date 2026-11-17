@@ -36,7 +36,7 @@ await browserTest("shell", { image: "system", server: { fixtures: shell.fixtures
   // Input mailbox: ESC [A with empty history, then help with a deleted typo.
   assert.equal(await result(() => page.evaluate(() => __dolly.input("\x1b[Ahelx\x7fp\r"))), 0);
   // Everyday commands (test/cases/shell.json), then those that reach the test server.
-  await runSteps(submit, server.origin, shell);
+  await runSteps(submit, shell);
   const cases = [
     [`curl -fsSL ${server.origin}/fixture/http.txt -o fetched.txt && grep -q FETCHED-THROUGH-BROWSER fetched.txt`],
     // A cluster may end with a letter that takes a value, as agents write curl -fsSLo FILE.

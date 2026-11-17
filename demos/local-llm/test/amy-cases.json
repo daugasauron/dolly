@@ -1,0 +1,12 @@
+{
+  "image": "default",
+  "directory": "/tmp/amy-local-llm",
+  "steps": [
+    {
+      "fresh": true,
+      "why": "dolly-llama computes on the GPU, a host module default does not declare: amy has nena enable gpu@0, which a page admits with or without WebGPU.",
+      "script": "amy install llama && grep -qx gpu@0 /etc/dolly/enabled && command -v dolly-llama",
+      "status": 0
+    }
+  ]
+}

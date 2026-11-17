@@ -19,6 +19,7 @@
 // closed and the test fails, whatever it awaits. launch adds to how the
 // browsers start: { chromium: [argument…], firefox: { preference: value } }.
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "./browser-server.mjs";
 import { siteReference } from "../page/static-asset.mjs";
@@ -26,19 +27,32 @@ import { siteReference } from "../page/static-asset.mjs";
 const projectDir = new URL("..", import.meta.url).pathname;
 export const shellQuote = value => `'${String(value).replaceAll("'", "'\\''")}'`;
 
+// Writes BYTES to PATH in the session through its shell, which needs no network:
+// printf %b takes an octal escape for each byte that is not plain text, in
+// pieces a line of the terminal carries.
+export async function put(submit, path, bytes) {
+  const escaped = byte => byte >= 0x20 && byte < 0x7f && byte !== 0x5c ? String.fromCharCode(byte)
+    : `\\0${byte.toString(8).padStart(3, "0")}`;
+  assert.equal(await submit(`mkdir -p "$(dirname ${path})" && : > ${path}`), 0, path);
+  for (let offset = 0; offset < bytes.length; offset += 8192) {
+    const text = [...bytes.subarray(offset, offset + 8192)].map(escaped).join("");
+    assert.equal(await submit(`printf %b ${shellQuote(text)} >> ${path}`), 0, path);
+  }
+}
+// The file of this repository at PATH, put at its name in the session.
+export const putFixture = async (submit, name, path) => put(submit, name, await readFile(new URL(path, `file://${projectDir}`)));
+
 // Runs a case file's steps (test/cases/README.md) in the session's shell: its
-// files and fixtures first, the fixtures from the test server, which serves each
-// at /fixture/NAME, then each step by /bin/slop in its directory, in order.
-// Fails with the steps whose status was not their own.
-export async function runSteps(submit, origin, { directory, files = {}, fixtures = {}, steps }) {
+// files and fixtures first, each fixture the file of this repository it names,
+// then each step by /bin/slop in its directory, in order. Fails with the steps
+// whose status was not their own.
+export async function runSteps(submit, { directory, files = {}, fixtures = {}, steps }) {
   assert.equal(await submit(`mkdir -p ${directory} && cd ${directory}`), 0, directory);
   for (const [name, text] of Object.entries(files)) {
     const bytes = text.replaceAll("\\", "\\\\").replaceAll("\n", "\\n").replaceAll("\t", "\\t");
     assert.equal(await submit(`mkdir -p "$(dirname ${name})" && printf %b ${shellQuote(bytes)} > ${name}`), 0, name);
   }
-  for (const name of Object.keys(fixtures)) {
-    assert.equal(await submit(`curl -fsS ${origin}/fixture/${name} -o ${name}`), 0, name);
-  }
+  for (const [name, path] of Object.entries(fixtures)) await putFixture(submit, name, path);
   const failures = [];
   for (const { why, script, status, fails } of steps) {
     const actual = await submit(`/bin/slop -c ${shellQuote(script)}`);
@@ -71,7 +85,9 @@ async function openImage(browser, origin, image, { policy, modules, relays, prom
   await routeAttributes(page, { modules, policy, relays });
   await setup?.(page);
   await page.goto(origin + path);
-  await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
+  // A rebuild route builds its image first: measured at 42 s on a loaded machine.
+  await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null,
+    { timeout: path.includes("/rebuild/") ? 180_000 : 30_000 });
   if (await page.evaluate(() => document.documentElement.dataset.dollyStatus) !== "ready") {
     throw new Error(`${path} failed to boot:\n${await page.locator("#bootstrap-log").textContent()}`);
   }
@@ -143,9 +159,10 @@ export async function waitForDisplay(page, predicate, arg, { timeout = 30000 } =
 // open() options for an image the page builds with the named host modules:
 // from packages alone (a root recipe, as `default` is) or on top of a base
 // image, whose own modules it restates since nothing is inherited. files (path
-// -> text) are written into it and entry is its ENTRY; setup(page) runs with
-// the page's own. A test of a host module opens `system` with the module added.
-export async function composed(hosts, packages, { base, files = {}, entry = "/bin/foreground -i /bin/slop", setup } = {}) {
+// -> text) are written into it, rows are further rows of the recipe and entry is
+// its ENTRY; setup(page) runs with the page's own. A test of a host module opens
+// `system` with the module added.
+export async function composed(hosts, packages, { base, files = {}, rows = [], entry = "/bin/foreground -i /bin/slop", setup } = {}) {
   const { default: catalog } = await import("../dist/dolly-images.json", { with: { type: "json" } });
   const definition = name => catalog.images.find(definition => definition.image === name);
   const pin = name => `${siteReference(definition(name).dollyfile)} ${definition(name).sha256}`;
@@ -153,7 +170,7 @@ export async function composed(hosts, packages, { base, files = {}, entry = "/bi
   const recipe = ["DOLLY 7", "APPLICATION composed", ...[...modules].map(module => `REQUIRES HOST ${module}`),
     ...base ? [`FROM ${pin(base)}`] : [], ...packages.map(name => `INSTALL ${pin(name)}`),
     ...Object.entries(files).map(([path, text]) => `FILE ${path}\n${text.trim().split("\n").map(line => `    ${line}`).join("\n")}`),
-    `ENTRY ${entry}`, ""].join("\n");
+    ...rows, `ENTRY ${entry}`, ""].join("\n");
   return { path: "/custom/rebuild/", async setup(page) {
     // The installed Firefox also runs init scripts in a document without a location or storage.
     await page.addInitScript(recipe => { if (location.protocol.startsWith("http")) sessionStorage.setItem("dolly-custom-source", recipe); }, recipe);

@@ -11,7 +11,7 @@ const fixtures = { "pty.c": "test/fixtures/pty.c" };
 await browserTest("pty", { image: "system", server: { fixtures } }, async ({ server, open }) => {
   const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
   const { page, submit } = await open({ policy, ...await composed(pty.hosts, pty.packages, { base: pty.image }) });
-  await runSteps(submit, server.origin, pty);
+  await runSteps(submit, pty);
 
   // The module adds no kernel import: nothing of a pseudo-terminal leaves Wasm.
   assert.equal(await page.evaluate(async () => WebAssembly.Module.imports(

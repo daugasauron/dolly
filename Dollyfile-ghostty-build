@@ -3,11 +3,10 @@ TOOLCHAIN ghostty-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
-REQUIRES HOST http@0
 
-FROM /v0.1.7/Dollyfile-zig-build e287be4f96fdafe2bb518e77978e94cbc5b27d694e05b17cd2e665c19f50090c
-INSTALL /v0.1.7/Dollyfile-libdolly-display dca7d4755a50b8dbaa6abc4fd5b8fa34cccbb6400a4fd167d90e9a0f1bcee9ad
-INSTALL /v0.1.7/Dollyfile-libdolly-input 80f7d6d7b775fa542711f6d0205280a3d3f4c5a68eb0f3223f81fc2fe64df08e
+FROM /v0.1.7/Dollyfile-zig-build f4f311f55ba5636d4dd2130515979905d5c13e6b6254f7d7e25734279730ea0d
+INSTALL /v0.1.7/Dollyfile-libdolly-display 7ec2ca9ab16858a7edb0a19edd4e6e261cc75e9ddd3c1f12e21da86b0f9581b1
+INSTALL /v0.1.7/Dollyfile-libdolly-input a122cccb1ab8b550d4a178a384a36f2722985d3a78a5d1eef2877ded3196f751
 
 REQUIRES HEADER libc
 REQUIRES HEADER display
@@ -181,6 +180,6 @@ SLOP rm \
   /usr/src/uucode
 
 # Opened, the image runs the display library it just built.
-EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
+EXPORTS ENV DOLLY_DISPLAY_LIBRARY /usr/lib/libdisplay.so
 
 ENTRY /bin/foreground -i /bin/slop

@@ -57,7 +57,7 @@ async function largeSharedBuffersInHeap(page) {
   return sizes;
 }
 
-await browserTest("boundary", { server: { handle } }, async ({ name, server, open }) => {
+await browserTest("boundary", { image: "system", server: { handle } }, async ({ name, server, open }) => {
   const { page, submit } = await open({ policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   // Outer imports equal the contract, plugin ABI rejections, policy before
   // Fetch, deadlines, quotas, typed errors, literal metadata and redirects.

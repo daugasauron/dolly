@@ -75,8 +75,7 @@ Godot and PhotoCraft, which draw on the page through `display@0` and
 lantern-drift` or `amy install photocraft` in xterm, then `lantern-drift`,
 `godot-editor -e --path DIRECTORY` or `photocraft
 /usr/share/photocraft/pictures/great-wave.jpg`. Where `DISPLAY` names an X
-display (`:0`; the terminal's own `DISPLAY` is its display library's path)
-their platforms open the window through
+display (`:0`, which only this image sets) their platforms open the window through
 [`x11-window`](x11-window/x11-window.h): a static library over Xlib whose
 records are `input@0`'s, keys named as a browser names them, so a platform
 reads an X window with the code that reads the page. Their frames are drawn

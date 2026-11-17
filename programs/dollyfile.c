@@ -14,7 +14,6 @@
 #include <unistd.h>
 
 #include <dolly/host-abi.h>
-#include <dolly/http.h>
 #include <dolly/runtime.h>
 #include "sha256.h"
 #include "fs-record.h"
@@ -383,27 +382,11 @@ static int mkdir_parents(const char *path, int include_last) {
   return 0;
 }
 
-static int fetch_memory(const char *url, Buffer *buffer) {
-  dolly_http_response response = {0};
-  dolly_http_request request = {
-      .method = "GET",
-      .url = url,
-      .headers = "",
-      .flags = DOLLY_HTTP_FAIL_STATUS,
-      .write = append_buffer,
-      .write_context = buffer,
-  };
-  const int status = dolly_http_perform(&request, &response);
-  const unsigned response_status = response.status;
-  if (status != 0) {
-    fprintf(stderr, "dollyfile: GET %s failed: %d\n", url, status);
-  } else if (response.status < 200 || response.status >= 300) {
-    fprintf(stderr, "dollyfile: GET %s returned HTTP %u\n", url, response.status);
-  }
-  dolly_http_response_dispose(&response);
-  return status == 0 && response_status >= 200 && response_status < 300
-      ? 0 : status != 0 ? status : -EIO;
-}
+// The page hands a build its inputs as files: the text of the root recipe a
+// site path names, and the file of each SOURCE row by its SHA-256, which the
+// engine checks. The engine fetches nothing.
+static const char recipe_text_path[] = "/etc/dolly/recipe.Dollyfile";
+static const char sources_dir[] = "/etc/dolly/sources";
 
 static int read_file_buffer(const char *path, Buffer *buffer) {
   int descriptor = open(path, O_RDONLY);
@@ -431,19 +414,34 @@ static int read_file_buffer(const char *path, Buffer *buffer) {
   return result;
 }
 
-// A recipe locator is a site path or, for an uploaded root, FILE:/path.
+// A recipe locator is a site path, whose text the page wrote at
+// recipe_text_path, or, for an uploaded root, FILE:/path.
 static int fetch_recipe(const char *locator, Buffer *buffer, char digest[65]) {
   int status;
   if (strncmp(locator, "FILE:", 5) == 0) {
     status = valid_absolute_path(locator + 5) ? read_file_buffer(locator + 5, buffer) : -EINVAL;
   } else {
-    status = recipe_file_name(locator) != NULL ? fetch_memory(locator, buffer) : -EINVAL;
+    status = recipe_file_name(locator) != NULL ? read_file_buffer(recipe_text_path, buffer) : -EINVAL;
   }
   if (status != 0) return status;
   if (buffer->length == 0 || buffer->length > MAX_RECIPE_BYTES) return -EFBIG;
   if (memchr(buffer->data, '\0', buffer->length) != NULL) return -EINVAL;
   sha256_bytes(buffer->data, buffer->length, digest);
   return 0;
+}
+
+// Copies the file at PATH into DOWNLOAD; 0 or a negative errno.
+static int copy_input(const char *path, Download *download) {
+  const int descriptor = open(path, O_RDONLY);
+  if (descriptor < 0) return -errno;
+  unsigned char bytes[64 * 1024];
+  int result = 0;
+  for (ssize_t count; result == 0 && (count = read(descriptor, bytes, sizeof(bytes))) != 0;) {
+    if (count < 0) result = -errno;
+    else if (write_download(bytes, (size_t)count, download) != (size_t)count) result = -EFBIG;
+  }
+  if (close(descriptor) != 0 && result == 0) result = -errno;
+  return result;
 }
 
 static int fetch_source(const char *url, const char *expected, const char *destination) {
@@ -463,26 +461,15 @@ static int fetch_source(const char *url, const char *expected, const char *desti
     goto done;
   }
   sha256_init(&download.sha);
-  dolly_http_response response = {0};
-  dolly_http_request request = {
-      .method = "GET",
-      .url = url,
-      .headers = "",
-      .flags = DOLLY_HTTP_FAIL_STATUS,
-      .write = write_download,
-      .write_context = &download,
-  };
+  char input[sizeof(sources_dir) + 66];
+  snprintf(input, sizeof(input), "%s/%s", sources_dir, expected);
   printf("dollyfile: SOURCE %s -> %s\n", url, destination);
   fflush(stdout);
-  status = dolly_http_perform(&request, &response);
+  status = copy_input(input, &download);
   if (close(download.descriptor) != 0 && status == 0) status = -errno;
   download.descriptor = -1;
-  if (status == 0 && (response.status < 200 || response.status >= 300)) status = -EIO;
-  if (status != 0) {
-    fprintf(stderr, "dollyfile: GET %s failed: %d (HTTP %u, %zu bytes)\n",
-            url, status, response.status, download.length);
-  }
-  dolly_http_response_dispose(&response);
+  if (status == -ENOENT) fprintf(stderr, "dollyfile: SOURCE %s: the page handed over no file for it\n", url);
+  else if (status != 0) fprintf(stderr, "dollyfile: SOURCE %s: %s (%d)\n", url, strerror(-status), status);
   if (status == 0) {
     unsigned char digest[32];
     char actual[65];

@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import { browserTest } from "./browser.mjs";
 
-await browserTest("http refusals", {}, async ({ server, open }) => {
+await browserTest("http refusals", { image: "system" }, async ({ server, open }) => {
   const warnings = [];
   const { page, submit } = await open({ policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
     setup: page => page.on("console", message => { if (message.type() === "warning") warnings.push(message.text()); }) });
