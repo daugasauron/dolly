@@ -6,10 +6,16 @@
 
 From the core audit of 2026-11-16 (`work/audit-1116`, source of `b09b1e243`).
 
-## State (2026-11-16)
+## State (2026-11-17)
 
-Found by reading; nothing changed. It changes the seed (the process runtime), so it goes in a
-seed or compiler round.
+Changed on `ws/seed` (a seed change: it rebuilds every image; `system-build`'s recipe and
+`llvm-cc`'s change with it). `dolly_toolchain_proxy` is `programs/commands/toolchain.c` and its
+header `programs/commands/toolchain.h`, beside the four front ends; `Dollyfile-system-build`
+sources both and links the proxy into `cc`, `c++`, `ld` and `ar`, and exports no
+`HEADER toolchain`; runtime@0 names no toolchain header. The compiler's own sources include it
+as `commands/toolchain.h`, which `llvm-cc` sources beside them (`demos/llvm/prepare-sources.sh`).
+Checked on the rebuilt seed: see Done when. For the compiler round: `llvm-cc` builds with the
+header at its new path and gives a compiler whose stamp is the new contract's.
 
 ## Found
 

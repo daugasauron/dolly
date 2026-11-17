@@ -43,7 +43,7 @@
 #include <llvm/Support/raw_ostream.h>
 
 #include <dolly/host-abi.h>
-#include <dolly/toolchain.h>
+#include "commands/toolchain.h"
 
 #include "dolly-kernel-plugin-abi-digest.h"
 #include "dolly-process-abi-digest.h"
