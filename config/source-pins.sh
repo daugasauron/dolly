@@ -10,7 +10,7 @@ DOLLY_EMSCRIPTEN_SPARSE='system/lib/libcxx system/lib/libcxxabi system/lib/libun
 
 # The seed's compiler and Clang's resource headers, as the llvm-cc image built
 # them from DOLLY_LLVM_COMMIT (demos/llvm/pin-seed-compiler.mjs writes both lines).
-DOLLY_SEED_COMPILER_URL='https://github.com/daugasauron/dolly/releases/download/v0.1.7/dolly-seed-compiler-81f862eb1c48880c56382eccf4361e4c3430fc0257764d09e18337baca1990ce.tar'
+DOLLY_SEED_COMPILER_URL='https://github.com/daugasauron/dolly/releases/download/v0.1.8/dolly-seed-compiler-81f862eb1c48880c56382eccf4361e4c3430fc0257764d09e18337baca1990ce.tar'
 DOLLY_SEED_COMPILER_SHA256=81f862eb1c48880c56382eccf4361e4c3430fc0257764d09e18337baca1990ce
 
 DOLLY_SBASE_COMMIT=c546c3a5724c81cee9a11d816a38ccdf17472129
