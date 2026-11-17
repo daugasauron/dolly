@@ -58,3 +58,16 @@ example, my pooint earlier is that ES for example has a side, but MSE is symmetr
 doesn't have the drift problem." And the tick is no parameter of the model: "The trader
 doesn't care bout the tick." Asked back: the time it takes to get out, and how bad a case the
 spread has to cover.
+
+## The owner, 2026-11-17 evening, fifth answer
+
+The time to get out is not a typed number: "this is conceptual about what we are actually
+modeling. It's represented by the width of the spreads." The extremes: "no quotes/infinite
+spreads -> worst case for short call is really bad, need to hold it to expiry. The other
+extreme is tight spreads in both underlying and option -> can hedge cheaply the next day."
+
+Put back to the owner: if getting out means paying another dealer the same spread for the same
+job, getting out is never cheaper than carrying on and the loop has no tight answer (the
+owner's "why isn't the spread shrinking?", braut, 2026-07-23). It closes with one thing from
+outside the dealers: who takes the other side, and how soon. Asked: whether that is customer
+flow, and whether each contract's traded volume in the feed may measure it.
