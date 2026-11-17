@@ -78,8 +78,9 @@ class TerminalMailbox {
 
 // The page's terminal: the foreground program and its interrupt key as the
 // Worker last reported them; the shell's results and interrupts, asked of the
-// Worker, which decides on what it holds then.
-export function browser({ ask }) {
+// Worker, which decides on what it holds then. And the Workers the runtime
+// Worker's processes run in, which the page makes for it (pageWorkers below).
+export function browser({ ask, send }) {
   let foreground = { pid: 0, interrupt: 0 };
   const terminal = {
     foregroundPid: () => foreground.pid,
@@ -89,10 +90,52 @@ export function browser({ ask }) {
     waitForResult: sequence => ask({ type: "terminal-result", sequence }),
     interruptForeground: key => ask({ type: "terminal-interrupt", key }),
   };
+  const workers = new Map();
   return {
     terminal,
     page: { terminal, get foregroundPid() { return foreground.pid; } },
-    messages: { "terminal-foreground"({ pid, interrupt }) { foreground = { pid, interrupt }; } },
+    messages: {
+      "terminal-foreground"({ pid, interrupt }) { foreground = { pid, interrupt }; },
+      "worker-start"({ id, url, options, port }) {
+        // Only from the runtime Worker's own code: the process Worker's bundle or a module holder.
+        if (new URL(url).protocol !== "blob:") throw new Error("a process Worker's code is a blob: URL");
+        const worker = new Worker(url, options);
+        workers.set(id, worker);
+        worker.onerror = event => { event.preventDefault(); send({ type: "worker-error", id, message: event.message }); };
+        worker.postMessage({ supervisor: port }, [port]);
+      },
+      "worker-end"({ id }) {
+        workers.get(id)?.terminate();
+        workers.delete(id);
+      },
+    },
+    dispose() { for (const worker of workers.values()) worker.terminate(); },
+  };
+}
+
+// A Worker the page makes for this one, which reaches it on the port the page
+// sends it first: in Firefox 159, new Worker() in a Worker whose other Workers
+// were ending waited for good, one launch in a few under load
+// (tasks/20261117-090000-dh-34); the page's never did. It has a Worker's
+// postMessage, terminate and events.
+function pageWorkers(send) {
+  const workers = new Map();
+  let last = 0;
+  return {
+    create(url, options) {
+      const id = ++last, { port1, port2 } = new MessageChannel(), worker = new EventTarget();
+      port1.onmessage = ({ data }) => worker.dispatchEvent(new MessageEvent("message", { data }));
+      port1.onmessageerror = () => worker.dispatchEvent(new Event("messageerror"));
+      worker.postMessage = (message, transfer) => port1.postMessage(message, transfer);
+      worker.terminate = () => {
+        port1.close();
+        if (workers.delete(id)) send({ type: "worker-end", id });
+      };
+      workers.set(id, worker);
+      send({ type: "worker-start", id, url: String(url), options, port: port2 }, [port2]);
+      return worker;
+    },
+    failed(id, message) { workers.get(id)?.dispatchEvent(new ErrorEvent("error", { message, cancelable: true })); },
   };
 }
 
@@ -144,6 +187,7 @@ export function worker({ send, runtimeBase, abi, service }) {
   // them, by requirement: the bundle (a Blob) that Worker imports and the
   // configuration its serve() receives.
   const processModules = new Map();
+  const workers = pageWorkers(send);
   // The bytes a kernel import names, or null: inside kernel memory, at most `limit`.
   const span = (address, length, limit) => {
     const [start, size] = [address, length].map(Number);
@@ -161,6 +205,7 @@ export function worker({ send, runtimeBase, abi, service }) {
       "terminal-result-sequence": () => terminal.currentResultSequence(),
       "terminal-result": ({ sequence }) => terminal.waitForResult(sequence),
       "terminal-interrupt": ({ key }) => terminal.interruptForeground(key),
+      "worker-error": ({ id, message }) => workers.failed(id, message),
     },
     bindings: {
       "env.memory": memory,
@@ -201,7 +246,8 @@ export function worker({ send, runtimeBase, abi, service }) {
       if (module) processModules.set(requirement, module); else processModules.delete(requirement);
     },
     async supervisor(kernel) {
-      return supervisor ??= await DollyProcessSupervisor.create(kernel, memory, runtimeBase, abi, service, threadProvider, processModules);
+      return supervisor ??= await DollyProcessSupervisor.create(kernel, memory, runtimeBase, abi, service, threadProvider, processModules,
+        workers.create);
     },
     start({ kernel }) {
       terminal = new TerminalMailbox(memory.buffer, Number(kernel.dolly_terminal_mailbox_address()));

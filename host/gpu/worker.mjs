@@ -48,27 +48,32 @@ function present(scope, completed) {
   scope.frames.push(frame);
   if (scope.shows.length === 1) void show(scope);
 }
-// The texture a surface scope draws a frame into: the canvas's, or, while another scope's surface
-// covers it, a texture of its own, which the page never shows, charged to the quota.
+// Firefox 159 on NVIDIA's driver loses the device presenting a canvas whose width is not a multiple
+// of 32 pixels (tasks/20261117-083224-ffgpu-resize): the canvas takes the next such width.
+const canvasWidth = width => Math.ceil(width / 32) * 32;
+// The texture a surface scope draws a frame into: the canvas's, or a texture of its own, charged
+// to the quota, while another scope's surface covers it or while the frame is narrower than the
+// canvas. The shown scope's own texture is copied into the canvas's first columns at SUBMIT, and
+// the page shows only those (gpu.mjs).
 function surfaceTexture(scope, width, height) {
   if (surfaces.at(-1) === scope) {
-    if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
-    return context.getCurrentTexture();
+    if (canvas.width !== canvasWidth(width) || canvas.height !== height) { canvas.width = canvasWidth(width); canvas.height = height; }
+    if (canvas.width === width) return context.getCurrentTexture();
   }
-  if (scope.covered?.width !== width || scope.covered?.height !== height) {
-    dropCovered(scope);
+  if (scope.own?.width !== width || scope.own?.height !== height) {
+    dropOwn(scope);
     ensure(width * height * 4 <= maxBytes - usedBytes, "Texture allocation quota", E.ENOMEM);
-    scope.covered = device.createTexture({ size: [width, height], format,
+    scope.own = device.createTexture({ size: [width, height], format,
       usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC });
     usedBytes += width * height * 4;
   }
-  return scope.covered;
+  return scope.own;
 }
-function dropCovered(scope) {
-  if (!scope.covered) return;
-  usedBytes -= scope.covered.width * scope.covered.height * 4;
-  scope.covered.destroy();
-  scope.covered = null;
+function dropOwn(scope) {
+  if (!scope.own) return;
+  usedBytes -= scope.own.width * scope.own.height * 4;
+  scope.own.destroy();
+  scope.own = null;
 }
 // One frame per animation frame of the runtime Worker; a canvas no page shows waits for none.
 async function show(scope) {
@@ -189,7 +194,8 @@ async function getDevice() {
     if (canvas) {
       context = canvas.getContext("webgpu");
       ensure(context, "WebGPU canvas unavailable", E.ENOSYS);
-      context.configure({ device, format, alphaMode: "opaque", usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC });
+      context.configure({ device, format, alphaMode: "opaque", usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC |
+        GPUTextureUsage.COPY_DST });
     }
     created.lost.then(info => {
       if (device !== created) return;
@@ -314,7 +320,7 @@ function retire(scope) {
       r.value.destroy?.();
       usedBytes -= r.size;
     }
-    dropCovered(scope);
+    dropOwn(scope);
     scope.objects.clear();
     collectReleased(scope, Infinity);
     for (const t of scope.timers ?? []) { t.query.destroy(); t.resolve.destroy(); t.read.destroy(); }
@@ -611,6 +617,10 @@ operation(A.DOLLY_GPU_SUBMIT, { bytes: 8,
       batch.encoder.copyBufferToBuffer(measured.resolve, 0, measured.read, 0, count * 8);
       measured.busy = true;
     }
+    const { texture } = batch;
+    // A frame narrower than the canvas goes into its first columns (surfaceTexture).
+    if (texture && texture === scope.own && surfaces.at(-1) === scope)
+      batch.encoder.copyTextureToTexture({ texture }, { texture: context.getCurrentTexture() }, [texture.width, texture.height]);
     device.queue.submit([batch.encoder.finish()]);
     batch.encoder = null;
     const submittedWork = ++progress.queued;
@@ -628,10 +638,9 @@ operation(A.DOLLY_GPU_SUBMIT, { bytes: 8,
     }).finally(() => scope.submissions.splice(scope.submissions.indexOf(completed), 1));
     scope.submissions.push(completed);
     completed.catch(() => {});
-    const { texture } = batch;
     if (!texture) return;
     present(scope, completed);
-    scope.size = { width: texture.width, height: texture.height };
+    scope.size = { width: texture.width, height: texture.height, canvasWidth: canvasWidth(texture.width) };
     if (surfaces.at(-1) === scope) {
       stats.frames++;
       postMessage({ type: "status", active: true, ...scope.size, stats: { ...stats, allocatedBytes: usedBytes } });
@@ -1487,7 +1496,7 @@ async function open(request, scope) {
   ensure((width === 0 && height === 0) || (width > 0 && height > 0 && width <= 4096 && height <= 2304), "Invalid surface size");
   ensure(!width || context, "GPU presentation requires the display provider", E.ENOSYS);
   scope.surface = width > 0;
-  if (scope.surface) { scope.size = { width, height }; surfaces.push(scope); }
+  if (scope.surface) { scope.size = { width, height, canvasWidth: canvasWidth(width) }; surfaces.push(scope); }
   scope.gpuMs = 0; scope.gpuTotalMs = 0; scope.gpuSamples = 0;
   if (device.features.has("timestamp-query")) scope.timers = Array.from({ length: 3 }, () => ({
     query: device.createQuerySet({ type: "timestamp", count: timestampQueries }),

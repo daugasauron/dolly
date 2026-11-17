@@ -27,7 +27,11 @@ flowchart LR
 - The page shows one surface, the newest open. Any process may open the first;
   another only a descendant of the process shown, as the display lease
   nests, and the surface below is shown again when it closes. A covered
-  surface draws into a texture of its own, charged to the quota.
+  surface draws into a texture of its own, charged to the quota. So does one
+  whose width is not a multiple of 32: Firefox 159 lost the device presenting
+  such a canvas on NVIDIA's driver (Xid 69, 2026-11-17), so the canvas takes the
+  next multiple, the frame is copied into its first columns and the page shows
+  only those.
 - The kernel ([`host/gpu/kernel.c`](../host/gpu/kernel.c)) ties each scope to a process
   and revokes it on exit, abort or forced termination.
 - The provider copies each packet before acknowledging it and validates structure

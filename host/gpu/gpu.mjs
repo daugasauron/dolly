@@ -67,19 +67,30 @@ function indicate(page, info, unavailable) {
 
 export function browser(page) {
   const { mount } = page;
-  let canvas, surface;
+  let box, canvas, surface, fitted;
   if (mount) {
-    canvas = document.createElement("canvas");
-    canvas.id = "gpu-display";
-    canvas.hidden = true;
     // Over the terminal: beside a smaller surface, its letterbox is the terminal's background, as
     // display@0's is.
-    canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;" +
-      "background:var(--dolly-ui-background)";
-    mount.append(canvas);
+    box = mount.appendChild(document.createElement("div"));
+    box.hidden = true;
+    box.style.cssText = "position:absolute;inset:0;overflow:hidden;pointer-events:none;background:var(--dolly-ui-background)";
+    canvas = box.appendChild(document.createElement("canvas"));
+    canvas.id = "gpu-display";
+    canvas.style.position = "absolute";
     surface = canvas.transferControlToOffscreen();
+    new ResizeObserver(() => { fitted = null; fit(); }).observe(box);
   }
   let status = {};
+  // The frame fills the box at its own shape, centred. The canvas may be wider than the frame
+  // (worker.mjs): its other columns are clipped.
+  function fit() {
+    const { width, height, canvasWidth } = status, bounds = box.getBoundingClientRect();
+    if (!status.active || fitted === `${width} ${height} ${canvasWidth}`) return;
+    fitted = `${width} ${height} ${canvasWidth}`;
+    const scale = Math.min(bounds.width / width, bounds.height / height);
+    Object.assign(canvas.style, { left: `${(bounds.width - width * scale) / 2}px`, top: `${(bounds.height - height * scale) / 2}px`,
+      width: `${canvasWidth * scale}px`, height: `${height * scale}px`, clipPath: `inset(0 ${(canvasWidth - width) * scale}px 0 0)` });
+  }
   return {
     configuration: { canvas: surface }, transfers: surface ? [surface] : [],
     page: { get gpu() { return status; } },
@@ -89,10 +100,13 @@ export function browser(page) {
       if (info || unavailable) Object.assign(message, indicate(page, info, unavailable));
       status = { ...status, ...message };
       if (message.active) delete status.error;
-      if (canvas && message.active !== undefined) canvas.hidden = !message.active;
+      if (box && message.active !== undefined) {
+        box.hidden = !message.active;
+        fit();
+      }
       if (message.error) console.warn("Dolly GPU:", message.error);
     } },
-    dispose() { canvas?.remove(); },
+    dispose() { box?.remove(); },
     // Disabled while the page goes on: a session without gpu@0 shows no adapter.
     disabled() {
       document.querySelector("#gpu-status")?.remove();

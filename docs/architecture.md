@@ -34,7 +34,7 @@ flowchart LR
 | Host modules | [`host/`](../host/README.md) | One directory and manifest per bridge: JavaScript provider, WAT contract, C header, kernel C, process client; see [browser boundary](browser-boundary.md) |
 | Runtime Worker | [`worker-image.mjs`](../page/worker-image.mjs), [`runtime-worker.mjs`](../page/runtime-worker.mjs) (served bundled), [`build-worker.mjs`](../site/build-worker.mjs) | Instantiates the kernel with the host modules' imports, restores the image from its packs, or, for the site, builds it or restores a custom one, and runs its ENTRY |
 | Kernel | [`dolly.c`](../kernel/dolly.c), [`process-kernel.c`](../kernel/process-kernel.c), [`pty.c`](../kernel/pty.c), [`system-snapshot.c`](../kernel/system-snapshot.c), [`file-blocks.cpp`](../kernel/file-blocks.cpp) | WasmFS, open files, pipes, processes, signals, pseudo-terminals and the boot terminal, image snapshots; module operations go to each module's `kernel.c` ([build](../toolchain/CMakeLists.txt)) |
-| Supervisor | [`process-supervisor.mjs`](../page/process-supervisor.mjs) | Compiles executables, gives each process a Worker (one per thread) and each Worker a mailbox in kernel memory, dispatches syscalls, and starts, interrupts and stops Workers as the kernel's events decide (a timed spawn's deadline is the kernel's) |
+| Supervisor | [`process-supervisor.mjs`](../page/process-supervisor.mjs) | Compiles executables, gives each process a Worker that the page makes for it and each further thread a Worker of its own, each Worker a mailbox in kernel memory, dispatches syscalls, and starts, interrupts and stops Workers as the kernel's events decide (a timed spawn's deadline is the kernel's) |
 | Process Worker | [`process-worker.mjs`](../page/process-worker.mjs) | Makes the process's memory and gate, instantiates the executable, copies each packet between that memory and its mailbox and enters the kernel for it; for an executable that records `dso@0`, imports the loader and FFI ([`host/dso/process.mjs`](../host/dso/process.mjs)) |
 | Process libc | [`libc-adapter.c`](../process/libc-adapter.c), [`signal.c`](../process/signal.c) | Maps Emscripten musl's low-level calls to process operations |
 | Kernel libc | [`libc-host.c`](../kernel/libc-host.c) | Answers what Emscripten musl and WasmFS ask of a host from the kernel's own imports |
@@ -79,7 +79,7 @@ sequenceDiagram
   P->>L: read(fd, buf, n)
   L->>W: dolly_process_0.call(op, request, response)
   W->>G: request(): copy packet into the Worker's mailbox
-  W->>S: postMessage, then Atomics.wait
+  W->>S: Atomics.store + notify on its doorbell word, then Atomics.wait
   S->>K: dolly_process_dispatch(pid, op, sizes)
   K-->>S: response size, -errno or deferred
   Note over S,K: deferred calls retry when the kernel wakes them, and on a 16 ms tick
