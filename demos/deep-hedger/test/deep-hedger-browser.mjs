@@ -67,15 +67,6 @@ try {
       await page.goto(`${server.origin}/deep-hedger/`);
       await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null, { timeout: 180_000 });
       assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready", await page.locator("#bootstrap-log").textContent());
-      // A frame to composite at every refresh. Firefox on a still page left dh-fit waiting for a
-      // readback, or dh-gui for its first frame, one run in five (tasks/20261117-090000-dh-34).
-      await page.evaluate(() => {
-        const dot = document.body.appendChild(document.createElement("div"));
-        dot.style.cssText = "position:fixed;left:0;top:0;width:2px;height:2px;background:#000;z-index:99999";
-        let frame = 0;
-        const tick = () => { dot.style.opacity = frame++ % 2 ? "0.9" : "1"; requestAnimationFrame(tick); };
-        tick();
-      });
       await page.waitForFunction(() => __dolly.transport.graphicsActive());
       // Pixels of one colour in the frame, there or gone: the market's bars, the model's bid line.
       const coloured = ([r, g, b], there = true) => waitForDisplay(page, ([r, g, b, there]) => {
@@ -108,12 +99,9 @@ try {
       await click(246, 57);
       await click(400, 150);
       await delay(200_000);
-      // Stop, then Quit: dh-gui ends by itself and the shell is in front. Ctrl+C would end
-      // it too, but in Firefox the test then stopped one run in three: dh-gui ran on, or
-      // the shell's next command did not return (tasks/20261117-090000-dh-34).
-      await click(1040, 18);
-      await delay(3000);
-      await click(1085, 18);
+      // Ctrl+C, the fit running: dh-gui and its dh-fit end, and the shell is in front.
+      await page.keyboard.press("Control+C");
+      await page.waitForFunction(() => !__dolly.transport.graphicsActive(), null, { timeout: 30_000 });
       await page.evaluate(([source, flags]) => __dolly.waitForInteractiveTerminal(new RegExp(source, flags), "terminal prompt", 0), [shellPrompt.source, shellPrompt.flags]);
       const run = async command => {
         assert.equal(await page.evaluate(command => __dolly.submit(`clear; ${command}`), command), 0,
