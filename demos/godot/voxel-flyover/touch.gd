@@ -18,12 +18,12 @@ var touches := 0 # counted, for the game's report
 
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func unit() -> float:
-	return minf(size.x, size.y)
+	return maxf(minf(size.x, size.y), 1.0)
 
 
 ## Where the stick rests while no thumb holds it.

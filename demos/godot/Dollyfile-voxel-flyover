@@ -27,7 +27,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.6/dist/static/godot/voxel-flyover.tar afb034a68d49e6c06cf95a9e8a4b9ff86454a2568c5a9cbcfaaf5fab632a1dcc /tmp/voxel-flyover.tar
+SOURCE /v0.1.6/dist/static/godot/voxel-flyover.tar 86402f103193837d0cb12025584018a07bd855a23f57baa74052ac4702fa2592 /tmp/voxel-flyover.tar
 SLOP CWD / tar -xf /tmp/voxel-flyover.tar
 SLOP mkdir -p /usr/share/voxel-flyover
 SLOP cp -r /usr/src/voxel-flyover /usr/share/voxel-flyover/project
@@ -48,7 +48,10 @@ FILE /usr/share/man/cat1/voxel-flyover.1
     takes the board: arrows or WASD steer, climb and dive, T lets the hours
     run, Escape lets go of the board, Q quits. A click also gives the game
     the pointer, and the mouse then turns the view; the wheel, or Z and X,
-    zoom. A board that keeps climbing is faster the higher it is: it leaves
+    zoom. On a touchscreen a touch takes the board: a stick under the left
+    thumb steers, climbs and dives, a finger elsewhere turns the view, two
+    fingers zoom, and the ring at the top right gives the board back. A
+    board that keeps climbing is faster the higher it is: it leaves
     the clouds under it, the sky goes dark and the stars come out, and from
     some hundred thousand units up the planet is seen whole, with its day
     and night sides, its clouds, its seas' glint, its towns' lights and the
