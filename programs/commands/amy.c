@@ -48,7 +48,7 @@ static void usage(FILE *stream) {
   fputs("usage: amy list              the site's packages: NAME, installed, description\n"
         "       amy info NAME         its description and INSTALL row\n"
         "       amy install NAME...   install packages; says what each added\n"
-        "       amy files NAME        the files installed NAME holds outside /etc/dolly: SIZE PATH\n"
+        "       amy files NAME        installed package NAME's files outside /etc/dolly: SIZE PATH\n"
         "       amy installed         the installed rows: NAME PATH SHA256\n"
         "       amy server            the image directory packages come from\n"
         "       amy server URL        take them from URL for this session; remove\n"

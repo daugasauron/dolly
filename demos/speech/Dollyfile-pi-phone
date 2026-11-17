@@ -29,7 +29,7 @@ INSTALL /v0.1.7/Dollyfile-curl 693306760fc3c4b365f5ce1d2ca439c9c667b2b17d4fd5e70
 # download and upload, which Pi's prompt teaches (transfer).
 INSTALL /v0.1.7/Dollyfile-transfer 36dfb52420cd1a91da0061291507faff97f88ab3313de5092ff03cfad10ad214
 INSTALL /v0.1.7/demos/pi/Dollyfile-pi-dolly 00833c158f2ebb9b3565148a1f39443d863976720950e7092e6c4fdd3dc5a975
-INSTALL /v0.1.7/Dollyfile-amy 6bad076c9dff002ad93065c90d6b1a290fb27b498ae93011703296bbd74237bc
+INSTALL /v0.1.7/Dollyfile-amy 03ca170c4efb455703857c121f142b4e662f4b52e750cc665d4bb9357e6b197e
 REQUIRES TOOL foreground
 REQUIRES TOOL pi
 INSTALL /v0.1.7/demos/speech/Dollyfile-voice f90a0f5fa394ce4be2f8a4b4a1e9076a13a9a478d815b4d68969744c801b4749
