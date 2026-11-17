@@ -54,6 +54,8 @@ python's `test_signal` with `test_interprocess_signal` passes in the round's pyt
 On the rebuilt seed, python (rebuilt on it) passes CPython's `test_interprocess_signal` in 2.5 s
 in Chromium and Firefox, where 0.1.7's waited until regrtest's two-minute timeout
 (`work/audit-1116-evidence/core/fix-seed/python-signal-chromium.log`, `-firefox.log`; the test files
-from the staged CPython source). `process-browser` and `dso-browser` pass with the four signals in
+from the staged CPython source). The whole `test_signal` runs 57 tests in 11.5 s with the same 12
+failures and errors as the Python fix's rebuilt python, which ran 56 without it (the `sigwait`
+family, `ITIMER_PROF` and `ITIMER_VIRTUAL`, the wakeup socket: `python-test-signal-chromium.log`). `process-browser` and `dso-browser` pass with the four signals in
 both browsers (`process-browser-3.log`, `-4.log`; `dso-browser-3.log` with the harness's 30 s boot
 timeout raised to 120 s by `slow-boot.mjs`: under a load of 36 the page composes its image in 40 s).
