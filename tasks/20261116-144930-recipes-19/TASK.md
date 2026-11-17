@@ -49,4 +49,5 @@ Merged into `integrate/0.1.8` (02b7ba436, `fix/amy`). Confirmed on `ws/recipes` 
 built from it (`npm run build:runtime`, runtime `8917011b…`, image inputs `87c27243…` unchanged):
 `test/amy-browser.mjs`'s "amy" session, which installs python and cc at once beside `amy list`
 and asserts every status, passed in Chromium (23.6 s) and Firefox (26.3 s), with "amy another
-directory", "amy cc", "amy refusal" and "USE" (`work/audit-1116-evidence/recipes/ws-recipes/logs/a-amy.log`).
+directory", "amy cc", "amy refusal" and "USE" (`work/audit-1116-evidence/recipes/ws-recipes/logs/a-amy.log`). Rebuilds: no image (the kernel;
+the image inputs are unchanged).

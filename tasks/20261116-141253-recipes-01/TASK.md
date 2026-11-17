@@ -55,4 +55,5 @@ amy-programs.json's three raylib programs, the keys and the two fingers) passed 
 Firefox (14.7 s and 19.1 s with the x11-window session beside it). Evidence:
 `work/audit-1116-evidence/recipes/ws-recipes/logs/a-programs.log`; the scratch copy of the test
 that runs named sessions is `ws-recipes/scratch-test.sh`. The 0.1.8 round rebuilds raylib once more
-(cc's change) and runs the whole test.
+(cc's change) and runs the whole test. The fix rebuilds raylib, gamedev-sdk, slopyard-build,
+slopyard-game and slopyard.

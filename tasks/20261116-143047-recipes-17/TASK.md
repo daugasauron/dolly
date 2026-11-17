@@ -65,4 +65,5 @@ an HTTP rule for the page's index (`work/audit-1116-evidence/recipes/ws-recipes/
 (`a-amy.log`, `a-nena.log`), and so did `demos/x11/test/x11-browser.mjs`, whose xterm runs `amy
 install tmux` (`a-x11.log`), and `demos/python/test/python-browser.mjs`'s "python on default"
 (`amy install python`, then pip, in Chromium 420.9 s and Firefox 379.5 s, `a-python.log`). The
-other demos' tests run with their images in the 0.1.8 round.
+other demos' tests run with their images in the 0.1.8 round. Rebuilds: dolly-docs and what
+installs it (the documents), no other image (the tests).

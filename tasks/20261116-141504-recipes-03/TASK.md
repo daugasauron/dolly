@@ -19,7 +19,7 @@ named sessions (`work/audit-1116-evidence/recipes/ws-recipes/scratch-test.sh`, `
 
 Left for the 0.1.8 round: the whole test passes once every package is built at its pin (this
 tree rebuilds only what its workstream changed: python's change alone reaches 83 images, the
-Rust, LLVM and Godot chains among them), and its time in each browser is recorded here then.
+Rust, LLVM and Godot chains among them), and its time in each browser is recorded here then. Rebuilds: none (a test).
 
 ## Found
 

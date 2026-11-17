@@ -56,4 +56,5 @@ Merged into `integrate/0.1.8` (02b7ba436). Confirmed on `ws/recipes` (`work/reci
 (243,688 bytes, `build1.log`), then `test/amy-browser.mjs`'s "amy tools" with only its tar session
 (tar alone in a fresh `default`; `-cf`, `-xf`, links, then `-czf`/`-tzf`, `-cjf`/`-tjf`,
 `-cJf`/`-tJf`, and `man tar`) passed in Chromium (2.2 s) and Firefox (3.9 s). Evidence:
-`work/audit-1116-evidence/recipes/ws-recipes/logs/a-tools.log`.
+`work/audit-1116-evidence/recipes/ws-recipes/logs/a-tools.log`. The fix rebuilds tar and
+what installs or uses it: glib, gtk-build, mesa-build and the Godot and Ghostty images.
