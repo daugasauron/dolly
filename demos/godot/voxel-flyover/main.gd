@@ -234,6 +234,13 @@ func option(name: String, otherwise: float) -> float:
 
 
 func _ready() -> void:
+	# A screen held upright (a phone's): the game fills it, in its shape, with no more pixels than
+	# 1080 by 1920 and no taller than a surface of gpu@0 may be. A screen that lies on its side keeps
+	# the game's 1920 by 1080, which the page fits into it.
+	var page := DisplayServer.screen_get_size()
+	if page.x > 0 and float(page.y) / page.x > 1.1:
+		var fit := minf(1.0, minf(sqrt(1080.0 * 1920.0 / float(page.x * page.y)), 2304.0 / page.y))
+		get_window().size = Vector2i(maxi(int(page.x * fit) / 2 * 2, 2), maxi(int(page.y * fit) / 2 * 2, 2))
 	autopilot_seconds = option("--autopilot", 0.0)
 	day = option("--day", day * 24.0) / 24.0
 	year = option("--season", year)
