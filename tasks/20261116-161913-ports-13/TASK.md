@@ -6,8 +6,9 @@
 
 ## State (2026-11-17)
 
-Done on `ws/ports`: the test, its `needs` entry and the table row are gone; the LLVM README's
-"Reproducing it" points to the compiler round's fixed point in `docs/sources.md`.
+Done on `ws/ports` (`ead02d08c`): the test, its `needs` entry and the table row are gone; the
+LLVM README's "Reproducing it" points to the compiler round's fixed point in `docs/sources.md`.
+Images the change rebuilds: `dolly-docs` (`docs/browser-stack.md`), built in this tree.
 
 ## What
 

@@ -11,9 +11,9 @@ REQUIRES HOST threads@0
 # dist/cli.js in its own process; npm's bin, dist/bundle/cli.js, would need
 # Node's require of ES modules and runs the undici it bundles.
 FROM /v0.1.7/Dollyfile-system 53019922324696a18a573eededf9b475fe22e783d58f35585fe5c73943b926ae
-INSTALL /v0.1.7/demos/javascript/Dollyfile-janis-install 5f560d22360109ea233a749362cad2c2d218375f04790f2aa5426559437c7c89
-INSTALL /v0.1.7/demos/rust/Dollyfile-ripgrep ec48db7475ebc89af3f99d918833d2668ca9183e02635420745f92216f309196
-INSTALL /v0.1.7/demos/rust/Dollyfile-fd e7355001fd0689e8fb699a33672b30f925bb1fafb11e01065138a8ac4925025d
+INSTALL /v0.1.7/demos/javascript/Dollyfile-janis-install 2a0a1fb09d8924d34685c99cecb1dfd8b7f641aaf3ed4d8c9b8ff290fb008dac
+INSTALL /v0.1.7/demos/rust/Dollyfile-ripgrep 0029d70c2680a50937858ed8a453d4e7a81e590bda1a2960bff61db9054735f1
+INSTALL /v0.1.7/demos/rust/Dollyfile-fd f0a5b0e04bf58ada8631525d4c1f1ba13ee021c54306171c5c541c44c6d65801
 REQUIRES HEADER quickjs-runner
 REQUIRES LIB    dolly-js
 REQUIRES LIB    quickjs

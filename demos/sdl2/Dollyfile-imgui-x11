@@ -7,7 +7,7 @@ REQUIRES HOST sockets@0
 # sources, configured where X's libraries are, with upstream's X11 video
 # driver in place of Dolly's, so it draws on the server DISPLAY names. ImGui
 # and the example are the imgui package's sources, unchanged.
-FROM /v0.1.7/demos/x11/Dollyfile-x11-build 0e058acfa14e3aa3f876b90ee94a4d0a9a4a1da866e51cc7f5f432ce891ff6e0
+FROM /v0.1.7/demos/x11/Dollyfile-x11-build d22366f5083113470af5d132f24d81b3e28b9104bf91d570d5bddaac44a8967c
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES TOOL c++
@@ -18,7 +18,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.7/dist/static/sdl2/source.tar fcd2ae74c5a7324eacd403d8cd4d719092268df8b470e3e552df5aebf54f3ce0 /tmp/sdl2/source.tar
+SOURCE /v0.1.7/dist/static/sdl2/source.tar 016b2aa2d0b4b1b3fef1b4c4654d8462456b82d6f87e39feea4c87ed340656bb /tmp/sdl2/source.tar
 SLOP tar -xf /tmp/sdl2/source.tar -C /
 # As the sdl2 package configures it, with X's libraries. They are static, so
 # CMake's link probes name what libX11 links (pkg-config --static --libs x11).

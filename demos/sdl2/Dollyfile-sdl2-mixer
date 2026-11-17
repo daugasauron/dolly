@@ -14,7 +14,7 @@ REQUIRES HOST touch@0
 # sdl2 package's audio@0 driver: libSDL2_mixer.a with its header, pkg-config
 # file and CMake package, for programs the cc package builds with SDL2.
 FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 99ba4b0dfea5dfd2099047bbbd136adbff138ac5c2316c7f57f4fa485f50968f
-INSTALL /v0.1.7/demos/sdl2/Dollyfile-sdl2 3eb6c82723eb26957a9a9b6ab8dc196609762ebda2b32b33152d4d30d77fac78
+INSTALL /v0.1.7/demos/sdl2/Dollyfile-sdl2 832288efb693b46dc4bdb039016c977d69cfc9fd3e812fd3061b13789680dd87
 REQUIRES HEADER libc
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2
