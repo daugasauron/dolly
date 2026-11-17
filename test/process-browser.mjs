@@ -7,7 +7,7 @@ import { tarArchive } from "./fixtures/tar.mjs";
 import { DOLLY_ERRNO } from "../page/process-constants.mjs";
 
 const scratch = "/tmp/dolly-process-test";
-const fixtures = Object.fromEntries(["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-dispositions.c", "process-interrupt.c", "process-exec.c"]
+const fixtures = Object.fromEntries(["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-dispositions.c", "process-interrupt.c", "process-exec.c", "process-serial-threads.c"]
   .map(name => [name, `test/fixtures/${name}`]));
 for (const name of await readdir(new URL("../build", import.meta.url))) {
   if (/^(?:process|dso)-.+\.wasm$/.test(name)) fixtures[name] = `build/${name}`;
