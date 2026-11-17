@@ -24,6 +24,7 @@ const limit = 4;
 const together = ["python", "rts", "pi", "closed-source-agent", "codex", "javascript", "cmake", "tmux", "emacs", "neovim", "sdl2"];
 const both = "a GPU window on a hardware adapter, in Chrome and the installed Firefox";
 const display = new Map([
+  ["deep-hedger/test/deep-hedger-browser.mjs", both],
   ["godot/test/godot-airtime-browser.mjs", both],
   ["godot/test/godot-flyover-browser.mjs", both],
   ["godot/test/godot-gpu-browser.mjs", both],

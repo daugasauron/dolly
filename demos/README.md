@@ -8,6 +8,7 @@ README. Demos may use each other; the core never uses a demo.
 - [closed-source-agent](closed-source-agent/README.md): Claude Code, downloaded from npm into the session after a notice.
 - [cmake](cmake/README.md): CMake and libuv, a base for C/C++ ports.
 - [codex](codex/README.md): the Codex CLI built from Rust source inside Dolly.
+- [deep-hedger](deep-hedger/README.md): an option-pricing model fitted to a live option chain in Mojo kernels on WebGPU, behind an ImGui program; its theory.
 - [emacs](emacs/README.md): GNU Emacs for the terminal, as a package and an application.
 - [ffmpeg](ffmpeg/README.md): FFmpeg, `ffmpeg` and `ffprobe` with its libraries, built inside Dolly by its own configure, as a package.
 - [fingers](fingers/README.md): a figure that fingers on a touchscreen move and zoom, through SDL2's finger events.

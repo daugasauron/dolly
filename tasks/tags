@@ -46,6 +46,7 @@ corpus, Measurements over a set of real upstream programs
 decisions, Choices only the owner makes
 demo, A demo under demos/
 demos, Older spelling of demo
+dh, The deep hedger demo (demos/deep-hedger) and its theory
 deployment, Publishing a site
 design, A decision about shape to make before code
 dev, The checkout server and the developer's iteration tools
