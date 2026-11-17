@@ -38,3 +38,12 @@ is mostly to \"be able to hedge quickly enough\" [...] In an illiquid name, it's
 to get out, so the hedger needs more spread." So a spread that is mostly cost in AAPL is what
 the owner expects. On the hedger: it replicates, the trading cost being inside the miss it
 makes small; the Expected Shortfall and its two confidences are not the owner's (asked again).
+
+## The owner, 2026-11-17 evening, third answer
+
+The hedger's aim, settled: "How much does it cost me to replicate it? The \"replication
+PL\"/\"hedge PL\" is the sum of all trades and their payoffs including transaction costs. So
+yes, it should minimize the difference between the payoff to hedge and the \"replication PL\"."
+No Expected Shortfall, no confidence. Ticks: "Keep vague for now, I just dont want weird errors
+because tick sizeo nthe wings." A sketch of the model that follows is with the owner; no code
+changes before the owner agrees to it.

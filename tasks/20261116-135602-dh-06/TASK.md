@@ -49,3 +49,10 @@ the stock's price with its spread and every option's quote are known, "induced b
 yesterday *somehow*", and the hedger may buy protection at those quotes: "Hedging that with
 stock only would cause very large losses in a large one day move." The aim is "to replicate the
 original payoff with as small \"variance\" as possible", costs of stock and options inside.
+
+## The owner, 2026-11-17 evening, third answer
+
+On a day's quotes: "It needs a model. If tomorrows bid/ask for the position you're trying to
+exit is wider than the cost of delta hedging then you wouldn't exit." So a day's quote is not
+"hold a day, then exit at tomorrow's quotes" but the cost of the cheapest way to carry the
+position on from that day, exit being one way among others.
