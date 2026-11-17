@@ -2,7 +2,7 @@
 // project and exports the project's pack, which godot runs. Then Dodge the
 // Creeps, which the editor exported when its package was built, shows its title
 // on the page and starts on Enter: its score counts. Last the editor opens its
-// own window on the page and changes its view at a click.
+// own window on the page, changes its view at a click and opens a script at a double click.
 // Usage: [DOLLY_BROWSER=firefox] node demos/godot/test/godot-editor-browser.mjs
 import assert from "node:assert/strict";
 import { browsers } from "../../browsers.mjs";
@@ -84,6 +84,15 @@ for (const browser of browsers) {
         if (attempt === 12) throw error;
       }
     }
+    // A double click on main.gd in the FileSystem dock, two clicks 90 ms apart as a hand's, opens
+    // it in the script editor, whose page is dark grey there. The editor draws a frame a second
+    // here: where one comes between the presses, they are timed by when they came.
+    const script = await framePoint(page, 64, 505);
+    for (const pause of [90, 0]) {
+      await page.mouse.click(...script);
+      await new Promise(resolve => setTimeout(resolve, pause));
+    }
+    await waitForDisplay(page, () => [...displaySnapshot.getContext("2d").getImageData(700, 450, 1, 1).data].slice(0, 3).join() === "26,26,26");
     // The editor's Ctrl+C is Copy (it clears ISIG while it has the page); Ctrl+Q quits it. One
     // pressed at once after the click is not taken, so it repeats.
     while (await page.evaluate(() => __dolly.transport.graphicsActive())) {
