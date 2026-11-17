@@ -9,6 +9,13 @@ From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/rou
 
 ## State (2026-11-17)
 
+Reconciled on 2026-11-17 evening: `libpython3.14.a` is back in `python` (`/usr/lib`, exported as
+`LIB python`), since Blender (`demos/blender/Dollyfile-blender-deps`, merged the same day) embeds
+Python and links it; without it `blender-deps` failed (`unable to find library -lpython3.14`).
+The libffi copy stays gone. Whether the embedding library belongs in a package of its own is the
+packages workstream's question (`ws/packages`).
+
+
 Fixed on `ws/recipes` (f66240630): the copy and the export are gone; the `make ... libpython3.14.a`
 target stays, since `python` links it. Built in `work/recipes`: python's snapshot is 36,777,256
 bytes, 13,058,917 fewer than 0.1.7's 49,836,173; x11-build's is 13.0 MB smaller, python-data's

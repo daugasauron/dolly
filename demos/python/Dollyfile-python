@@ -232,6 +232,10 @@ SLOP cp \
 SLOP test \
   -f \
   /usr/lib/python3.14/encodings/__init__.py
+# The library a program that embeds Python links (Blender: demos/blender).
+SLOP cp \
+  /usr/src/python/libpython3.14.a \
+  /usr/lib/libpython3.14.a
 SLOP mv \
   /usr/src/python/python \
   /usr/bin/python
@@ -268,6 +272,7 @@ EXPORTS TOOL   python
 EXPORTS TOOL   python3
 EXPORTS ENV    PYTHONUTF8 1
 EXPORTS HEADER python     /usr/include/python3.14
+EXPORTS LIB    python     /usr/lib/libpython3.14.a
 
 SLOP python \
   --version

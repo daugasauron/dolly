@@ -30,7 +30,7 @@ INSTALL /demos/tools/Dollyfile-xz d469de338c35f239e62a272216458e722dfdd7eb2909ed
 INSTALL /demos/tools/Dollyfile-bzip2 76653f54f6f089826b7ef5ca6e86cae5286f7b441e3c5ef91d0894f819ea8b7b
 INSTALL /demos/tools/Dollyfile-sqlite 926ac562e54fc44fab836444bf00e6ce3792915c3bcfea5d31f81b4eae682dd6
 INSTALL /demos/tools/Dollyfile-binaryen 62d42b20ce549007859d3d4c69dd57b1f33a097c9e59a7cb9d39cc44afe3742e
-INSTALL /demos/python/Dollyfile-python b04978c4f69f45ff84f5de1644fe962a532e0b952363910045043e5027572a2a
+INSTALL /demos/python/Dollyfile-python 964cd2681453dbb4da3f00eb1feadf7d873b33764e83b668111de230df6f6639
 # What the python package links and does not bring: libpython's modules need them.
 INSTALL /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6e458431e
 INSTALL /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0

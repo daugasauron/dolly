@@ -13,7 +13,7 @@ REQUIRES HOST gpu@0
 # installs it.
 FROM /Dollyfile-system-tools 7b1306fddb4975e68b655f6d0bd6a478f6f02ba877ce033af921969099844d2d
 USE /demos/sdl2/Dollyfile-imgui bf4acf381a30c91ea4e9fdf0deffef783a58ba0ced73051e95c7b1e9a2787a5a
-USE /demos/mojo/Dollyfile-mojo 9d40c2a166ecf2d6c0027b1025846649dc722cc05d09f763da76e927bac52a5d
+USE /demos/mojo/Dollyfile-mojo 3ae9c3f06d7931246986175ae8c5b76bbd0f48f960e5560bc3779b306f623d51
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES HEADER sdl2
@@ -44,5 +44,5 @@ FILE /usr/share/man/cat1/dh-gui.1
     dh-fit needs gpu@0; curl fetches the chain through http@0.
 COPY /demos/sdl2/Dollyfile-sdl2 1809d16636eb124e08cc9188a7709890dfeb22657ae4ce989987d185b99b5193 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 COPY /demos/sdl2/Dollyfile-imgui bf4acf381a30c91ea4e9fdf0deffef783a58ba0ced73051e95c7b1e9a2787a5a /usr/share/licenses/imgui /usr/share/licenses/imgui
-COPY /demos/mojo/Dollyfile-mojo 9d40c2a166ecf2d6c0027b1025846649dc722cc05d09f763da76e927bac52a5d /usr/share/licenses/mojo /usr/share/licenses/mojo
+COPY /demos/mojo/Dollyfile-mojo 3ae9c3f06d7931246986175ae8c5b76bbd0f48f960e5560bc3779b306f623d51 /usr/share/licenses/mojo /usr/share/licenses/mojo
 SLOP rm -rf /tmp/deep-hedger
