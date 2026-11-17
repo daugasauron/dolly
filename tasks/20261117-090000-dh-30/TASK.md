@@ -1,6 +1,6 @@
 # Deep hedger, to confirm: two confidences, and the tight quotes decide the quotes'
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: dh,owner
 
@@ -71,3 +71,10 @@ job, getting out is never cheaper than carrying on and the loop has no tight ans
 owner's "why isn't the spread shrinking?", braut, 2026-07-23). It closes with one thing from
 outside the dealers: who takes the other side, and how soon. Asked: whether that is customer
 flow, and whether each contract's traded volume in the feed may measure it.
+
+## Closed 2026-11-18
+
+Superseded by the owner's conversation, recorded above: no Expected Shortfall and no
+confidence are left in `dh-fit.mojo`. The hedger makes each book's deviation small; a quote is
+the mean replication cost less or plus a charge that today's spreads imply
+(`demos/deep-hedger/THEORY.md`, section 4; tasks dh-36 and dh-37).

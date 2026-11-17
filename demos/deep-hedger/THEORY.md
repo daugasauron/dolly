@@ -182,29 +182,51 @@ closures, each with one number that the market's spreads imply:
 
 Each is well posed and has one answer: `m`, `U_h` and the days' deviations are
 made by the law and the hedger, backward from the payoff, and the closure adds
-one number. They differ in the shape they give the spreads across strikes and
+its number. They differ in the shape they give the spreads across strikes and
 expiries, which the market's quotes can tell apart: the right closure is the
-one under which one number serves the whole chain. Until one does, the number
-is read off each contract by itself, as an implied volatility is read off a
-price: **the implied days to get out** of a contract is the `h` at which
-`sqrt(U_0 - U_h)` plus the hedge's cost equals half its market spread. In that
-unit a spread in the money and one at the money are comparable, and no formula
-of prices stands between them (the owner: "a space that is more symmetric but
-not parametric").
+one under which few numbers serve the whole chain.
 
-**Calibration.** The generator's loss is, over today's contracts, the distance
-of the two middles (the short book's and the long book's, which the hedge's
-costs hold apart) outside the market's band, zero inside (decision 16), in
-units of that quote's own width, squared up to one width and linear beyond.
-The hedger's loss is the sum of the books' deviations; it has no quote in it
-(decisions 7, 15). The spreads do not yet move the law: the closure's number is
-found after each report from the law's and the hedger's risks. A quote a tick
-wide is not taken at its word: a contract's market spread counts as at least
-three ticks when days are implied from it ("I just dont want weird errors
-because tick sizeo nthe wings").
+**What AAPL's chain said** (the README has the numbers). No closure serves
+the chain with one number for the name: the market's spreads differ between
+expiries by more than any risk does, the monthly expiries tight, the weekly
+ones two to three times wider, two odd-dated ones ten times. So the number is an
+expiry's: each listed expiry has its own liquidity, and the market implies it.
+The model reads no volume; the order its numbers put the expiries in is the
+order of their open interest in the feed (the monthlies 0.7 to 1.3 million
+contracts, the weeklies 30 to 100 thousand, the odd-dated two thousand).
+And out of the money the market's spreads are flatter across strikes than
+any risk, which falls away in the wings: every contract pays a floor of about
+a tick besides (the owner on ticks: "the smallest possible tick having
+gigantic consequences for the wings"). With a floor for the name and a number
+for each expiry, closures 1 and 3 leave the model's spreads within a factor
+of 1.3 of the market's for the middle half of the out-of-the-money contracts,
+and cannot be told apart; closure 2 does worse, a few days' risk being more
+peaked at the money than the market's spreads are. In the money the market's
+spreads are ten to thirty times wider than any closure's: those quotes are not made by
+this risk.
+
+Besides the closure's numbers there is the reading that needs none: **the
+implied days to get out** of a contract, the `h` at which
+`sqrt(U_0 - U_h)` plus the floor and the hedge's cost equals half its market
+spread, as an implied volatility is read off a price. In that unit a spread
+in the money and one at the money are comparable, and no formula of prices
+stands between them (the owner: "a space that is more symmetric but not
+parametric").
+
+**Calibration.** The model's ask is the short book's middle plus the charge
+of the nearest closure, its bid the long book's middle less it. The
+generator's loss is, over today's contracts, the distance of that bid and that
+ask outside the market's band, zero inside (decision 16), in units of that
+quote's own width, squared up to one width and linear beyond. The hedger's
+loss is the sum of the books' deviations; it has no quote in it (decisions 7,
+15). The closure's numbers are found at each report from the law's and the
+hedger's risks and the market's spreads, and held until the next: the law
+feels the spreads through the charge, not through a gradient of it. A quote a
+tick wide is not taken at its word: a contract's market spread counts as at
+least three ticks.
 
 **The generator's gradient needs no derivative of the hedger** where the loss
-is the hedger's own; here the loss is the middles' and the hedger makes
+is the hedger's own; here the loss is the quotes' and the hedger makes
 deviations small, so holding positions fixed is an approximation: the
 positions move a middle only through the hedge's costs. It is measured
 (the README).
@@ -222,7 +244,8 @@ prices every contract, so the levels are consistent in strike and expiry, and
 | the kernels' weights, one set an interval between expiries | the market's implied law of a day's shock | fitted to today's bids and asks |
 | `keep`, `swing`, `lean` | how long volatility lasts, what a large day and what a fall do to it | fitted to today's bids and asks |
 | `c` | what a stock trade costs | the stock's own market |
-| the closure's number: `k`, or `h` in days | what a day's risk costs, or how long a holder is in before he is out | implied by today's spreads |
+| the floor, in ticks | the least any contract of the name costs to deal in | implied by today's spreads |
+| an expiry's number: `k`, or `h` in days | what a day's risk costs in that expiry, or how long its holder is in before he is out | implied by today's spreads |
 | the clock and the lag | one decision a day, filled the next | the trader's situation |
 
 The hedger's network is not among them: it is the solver, judged by the risk

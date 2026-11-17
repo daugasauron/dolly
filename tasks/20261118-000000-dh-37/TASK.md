@@ -1,0 +1,38 @@
+# Deep hedger, for the owner: who holds, and for how long
+
+- STATUS: OPEN
+- PRIORITY: 145
+- TAGS: dh,owner
+
+What the night of 2026-11-17 could not settle (`demos/deep-hedger/THEORY.md`, section 4; task
+dh-36). The owner: "everything is \"other dealers giving prices\" and the thing that anchors
+everything in reality is that the spread should be similar to the spread of todays quotes".
+
+## State 2026-11-18
+
+Three closures were measured on AAPL's chain, each with a floor of about a tick for the name
+and one number for each expiry:
+
+1. a chain of dealers, each holding a day: the spread is the price of a day's deviation, summed
+   to expiry;
+2. a holder who is out after some days at the middle: the spread is one deviation of those days;
+3. a holder to expiry: the spread is a price of the whole residual's deviation.
+
+The first and the third fit the out-of-the-money spreads equally (within a factor of 1.3 for the
+middle half) and cannot be told apart on this chain; the second fits worse. None explains the
+in-the-money spreads, ten to thirty times wider.
+
+For the owner:
+
+- Is "each expiry has its own liquidity, read off its spreads" what you mean by the time to get
+  out being implied by the market? It takes one number an expiry, eight on this chain, not one
+  for the name.
+- The first and the third closure differ in what a dealer is: one who passes the book on each
+  day at the next dealer's quote, or one who holds it. The chain cannot say; which is the
+  market you have in mind?
+- The floor: every contract's spread holds about a tick that no risk explains. Is that the
+  tick, as you said of the wings, or a cost of dealing you would name otherwise?
+
+What would tell the first from the third without the owner: a name whose expiries differ more
+in length than AAPL's eight (task dh-20), since a sum of days and a whole residual grow
+differently with the days to expiry.

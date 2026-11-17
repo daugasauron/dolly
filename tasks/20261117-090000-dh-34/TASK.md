@@ -52,3 +52,13 @@ got for it, after Stop, not by Ctrl+C. With both, Firefox passed the two runs ma
 
 Done when the reproduction returns every time in Firefox on a still page, Ctrl+C ends `dh-gui`
 with a fit running and the shell answers after it, and the test has dropped the frame.
+
+## State 2026-11-18
+
+Quit did not end it: in the night's first run Firefox passed the fit's assertions after Stop and
+Quit and then a pipeline in the shell (`cat` of a file, `grep` of the fit's output through
+`tail` and `cut`) did not return for 14 minutes (`build/dh-evidence/batch8-test.log` of 22:12).
+With the three earlier stalls that is four, each at a command that reads the fit's output of
+some megabytes through pipes, none in Chrome. The test now reads that output with one `awk`
+a question; with that Firefox passed the one run made (23:27). Not looked at: pipes between
+processes in Firefox, with and without the frame.

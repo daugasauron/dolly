@@ -16,10 +16,18 @@ Open `/deep-hedger/`. **Load quotes** fetches AAPL's chain; **Fit** starts
 until stopped, on fresh paths every iteration. **Quit** leaves the shell.
 
 - **Volatility** and **Price**: for each expiry its calls and its puts. A
-  market quote is a bar from bid to ask; the model's bid and ask are lines.
-  The volatility is Black's at the forward the quotes imply; the model has
-  none. Under the pointer, the nearest contract's numbers; a click shows the
-  plot's expiry alone, another all again.
+  market quote is a bar from bid to ask; the model's bid and ask are lines:
+  what replicating the contract costs on average, less or plus the charge of
+  the Spreads tab's nearest closure. The volatility is Black's at the forward
+  the quotes imply; the model has none. Under the pointer, the nearest
+  contract's numbers; a click shows the plot's expiry alone, another all
+  again.
+- **Spreads**: what the market's spreads imply (THEORY.md, section 4). Above,
+  for each expiry, half the market's spread of every contract and the
+  model's under each of the three closures, each with the floor every
+  contract pays and its one number for the expiry. Below, the days of the
+  hedged book's risk each market spread pays for: the unit in which a spread
+  in the money and one at the money are comparable.
 - **Law**: the density of a day's shock in each interval between expiries;
   paths, 28 as they come and the batch's ten lowest and ten highest; those
   paths' scale by day; what the volatility state does; and the batch's days
@@ -34,23 +42,22 @@ until stopped, on fresh paths every iteration. **Quit** leaves the shell.
   the market's ask, and hedging to expiry came to: the mean says whether the
   trade is worth doing on average, the worst twentieth what that risks.
 - **Quotes**: every contract's bid and ask, the market's and the model's, in
-  currency; and for a trade at the market's price, hedged, its mean result
-  over the paths, a gain in colour, and the mean of its worst twentieth
-  (THEORY.md, section 4).
+  currency; the days its spread pays for; and for a trade at the market's
+  price, hedged, its mean result over the paths, a gain in colour, and the
+  mean of its worst twentieth.
 - **Fit**: by expiry, the forward the quotes imply and the model's, how many
   model bids and asks are inside the market's band, the market's mean spread
   and the model's, how much of the model's is hedging cost, the risk the
-  hedger leaves as a share of not hedging; and by iteration the loss and the
-  share in band.
+  hedger leaves as a share of not hedging, the days its spreads pay for and
+  its number under the nearest closure; and by iteration the loss and the
+  share of the middles in band.
 
 The line under the buttons is the fit's state: the iteration, the share of
 the model's bids and asks inside the market's bands, the loss and whether it
-still falls, and the confidence the fit has reached.
+still falls, and the closure the spreads are nearest to.
 
 **stock cost** is what a stock trade pays, in basis points of its value: it is
-typed, the feed having no quote of the stock. **hedger's confidence** is the
-hedger's risk preference: it hedges to make the mean of all but its best that
-share of outcomes small. **paths** is the batch. Changing
+typed, the feed having no quote of the stock. **paths** is the batch. Changing
 one takes effect at the next **Fit**, which starts again, with another seed.
 
 ## Data
@@ -74,18 +81,22 @@ does not price, can be worth more than half its band (THEORY.md, conflict 6).
 
 `dh-fit` keeps the parameters on the host with their Adam moments: the
 generator's kernel weights (49 an interval) and its volatility state's three
-numbers, the hedger's network (7 inputs, 16 and 16 units, one position: 417
-numbers) and the quotes' confidence. A fit starts from a normal law at each expiry's
-own at-the-money volatility, a random hedger and a confidence of 0.12, never
-from stored ones. Everything else of an iteration is these kernels:
+numbers, and the hedger's network (7 inputs, 16 and 16 units, one position:
+417 numbers). A fit starts from a normal law at each expiry's own
+at-the-money volatility and a random hedger, never from stored ones.
+Everything else of an iteration is these kernels:
 
 | Kernel | A thread is | It makes |
 | --- | --- | --- |
 | `simulate` | a path | each day's shock, the day's law at a hashed uniform number, times the path's scale; the scale's next state; the day's mean move at that scale; paths in antithetic pairs |
-| `roll` | a path and an eighth of the books | each book hedged day by day to its expiry: its residual and its costs |
-| `quote` | a contract | the Expected Shortfall of its two books' residuals, at the quotes' confidence and at the hedger's: the model's bid and ask, the generator's loss, the confidence's loss, the hedger's funding |
+| `roll` | a path and an eighth of the books | each book hedged day by day to its expiry: its residual, its costs, and what the hedge had gained before each of ten check days |
+| `quote` | a contract | the mean and the deviation of its two books' residuals: the two middles, the generator's loss, the hedger's |
 | `adjoint` | as `roll` | backward through every day's position and the position it was decided from: the hedger's gradient; the loss's derivative by the path's levels and by each day's mean move |
 | `sum_gradient`, `return_adjoint`, `law_gradient` | a parameter, a path, a kernel weight | a path's backward pass through its days and its state; the gradients, summed in a fixed order |
+| `carry` | a book and a check day, at each report | the variance the book's cost-to-go from that day still has, given the day's stock and volatility state |
+
+From `carry`'s numbers the host reads, at each report, what the market's
+spreads imply under each closure.
 
 The backward pass is written by hand, as the forward is; nothing is
 differentiated automatically. `dh-fit` also runs alone, on a chain as `dh-gui`
@@ -101,96 +112,81 @@ dh-fit time /tmp/dh/chain.txt 1024       # seconds of an iteration's parts
 
 On an RTX 5070 in Chrome 156 (Vulkan), AAPL's chain of 2026-11-13 as loaded on
 2026-11-17 (the last session's closing quotes: 208 contracts, 8 expiries from
-3 to 45 business days), 1,024 paths, stock cost 0.25 bp, the hedger's
-confidence 0.5.
+3 to 45 business days), 1,024 paths, stock cost 0.25 bp, a tick of a cent.
 
-- **The ledger and the gradients** (`dh-fit check CHAIN 256 300`). For a hedger
-  that holds one constant position, the kernels' bids and asks and the host's
-  own Expected Shortfall of the kernels' paths agree to six digits; every
-  gradient agrees with its central difference: the hedger's and the
-  generator's logits to 1.5%, the state's three numbers to 5%, the
-  confidence's to 0.1%. After 300 iterations of fitting, where holding
-  positions fixed is an approximation (THEORY.md, section 4), the generator's
-  gradient and the difference agree to a sixth at the logits and the state's
-  numbers sampled, but for one logit where both are near zero.
-- **Speed.** An iteration is 0.38 s: the forward kernels 0.08 s, `adjoint`
+- **The ledger and the gradients** (`dh-fit check CHAIN 256 100`). For a hedger
+  that holds one constant position, the kernels' middles and the host's own
+  mean over the kernels' paths agree to four digits; the hedger's gradient
+  agrees with its central difference to 0.3%, the generator's logits to 0.2%,
+  the state's three numbers to 1%. After 100 iterations of fitting, where
+  holding positions fixed is an approximation (THEORY.md, section 4), the
+  generator's gradient and the difference agree to a sixth at the logits and
+  the state's numbers sampled, but for one logit where both are small.
+- **Speed.** An iteration is 0.37 s: the forward kernels 0.06 s, `adjoint`
   0.27 s, the sums 0.03 s. With `dh-gui` drawing beside it, two iterations a
-  second, in Firefox 159 as in Chrome. With 4,096 paths an iteration is
-  1.15 s.
-- **The fit**, from a normal law and a random hedger, 900 iterations in 337 s
-  (`dh-fit CHAIN 1024 1 900`): 54% of the model's bids and asks are inside the
-  market's bands at iteration 180, 68% at 360, 77% at 900, the loss between
-  1.2 and 1.8 band widths squared from iteration 360. The hedger leaves 37%
-  of the risk of not hedging. The law's forward at each expiry is within 0.3%
-  of the one its quotes imply, which no constraint holds there. Left to run,
-  to 2,400 iterations (891 s): from iteration 1,000 the loss stays between 0.9
-  and 1.6 with 73% to 79% in band, and the state where it was (0.91, 0.21,
-  -0.12).
-- **The days it finds.** A day's return has a deviation of 1.0% to 1.6% in
-  the eight intervals, a skewness of -0.7 to +0.5 and an excess kurtosis of 1
-  to 8, and a day's size goes with the day before's at 0.23 to 0.37 (two
-  seeds). The state keeps 0.90 of itself a day; a shock of two units down
-  raises the next day's scale by two thirds, two up by 3% (swing 0.23, lean
-  -0.12). Fitted with independent days, as this demo first was, the same chain
-  needed days of an excess kurtosis of 22 to 70: "almost all returns are close
-  to 0 and then there are soem sudden jumps [...] it's not a realistic path
-  law" (the owner, of `braut`, 2026-07-25).
-- **The confidence the quotes imply is under 0.002**: 0.0016 at iteration
-  900, 0.0012 at 2,400. The model's price is then next to the plain mean, and its
-  mean spread 0.08 (currency), of which hedge cost 0.02, against the market's
-  1.29. The tight quotes decide it: at the money, where a daily stock hedge
-  leaves the most risk, AAPL's bands are cents wide; the market's mean is
-  made by in-the-money closing quotes dollars wide, where that hedge leaves
-  the least. One price of risk does not give this chain's spreads their
-  shape.
-- **One confidence for the hedger and the quotes did not work.** Hedging at
-  the quotes' confidence, as it fell the hedger stopped hedging: it left 48%
-  of the risk where it now leaves 37%, 95% of it on a call 4% out of the
-  money, and held a quarter of a share against a call worth three cents. So
-  the hedger has its own (THEORY.md, section 4).
+  second.
+- **The fit**, from a normal law and a random hedger, 900 iterations
+  (`dh-fit CHAIN 1024 1 900`). The middles, what replication costs on average:
+  79% of the long books' and 82% of the short books' are inside the market's
+  bands. The model's bids and asks, the nearest closure's charge on them: 63%
+  to 67% inside from iteration 100 on (bids 54% to 62%, asks 65% to 76%), the
+  loss between 0.9 and 1.4 band widths squared. The hedger leaves 35% of the
+  risk of not hedging. The law's forward at each expiry is within 0.2% of the
+  one its quotes imply.
+- **What the spreads imply** (THEORY.md, section 4; the Spreads tab). Under
+  the chain of dealers, over a floor of a tick or so, the price of a day's
+  deviation is by expiry 0.0077, 0.0017, 0.035, 0.0044, 0.0050, 0.0032, 0.026
+  and 0.0026: the three monthly expiries (5, 25 and 45 days) 0.002 to 0.003,
+  the three weekly ones 0.004 to 0.008, and Nov 25 and Dec 31, which are
+  neither, 0.03. Held to expiry, over the same floor, the price of the whole
+  residual's deviation is 0.011, 0.005, 0.098, 0.013, 0.016, 0.010, 0.077 and
+  0.011. Either leaves the model's half spreads within a factor of 1.3 of the
+  market's for the middle half of the out-of-the-money contracts (the miss
+  0.45 to 0.53 in log units over the reports); out after some days, 0.8. One
+  number for the name under any of them: 1.2 to 1.4.
+- **The days a spread pays for**, at one deviation over the floor: at the
+  money a hundredth of a day or less in every expiry; in the wings of the
+  20-day expiry a day; in the money a sixth of a day. In the money the
+  market's half spreads are 0.85 to 1.90 (currency) where the closures give
+  0.05 to 0.09.
 - **Two seeds.** Another seed gives another first hedger and other paths.
-  After 900 iterations each (`dh-fit CHAIN 1024 2 900`): 76.7% and 76.4% in
-  band, the quotes' confidence 0.00158 and 0.00157, the state 0.900, 0.228,
-  -0.123 and 0.914, 0.228, -0.112, 37% of the risk left in both; the two
-  runs' bids differ by 0.00005 of the forward on average, a fifth of the
-  model's own mean spread. The loss is 1.35 and 0.91: it moves that much from
-  report to report. The forwards differ by up to 0.4%, at the last expiry
-  (1.0026 and 0.9986): inside the bands the loss does not hold them.
-- **A second implementation agrees.** A PyTorch reference of the model on
-  the CPU (not in the repository), the same chain, 512 paths, 900 iterations:
-  the state 0.91, 0.16, -0.11 against the kernels' 0.90, 0.23, -0.12; the
-  quotes' confidence 0.003 against 0.002; 69% in band against 77%; 36% of the
-  risk left against 37%; a day's deviation 1.1% to 1.6%, an excess kurtosis of
-  1 to 8 and a day's size with the day before's at 0.29, as the kernels' days
-  have them. Its swing, negative at first in both, turned positive at
-  iteration 500; the kernels' with 256 paths by iteration 200.
-- **The hedger against the delta.** On a PyTorch reference of the model on
-  the CPU (not in the repository), a lognormal 25% chain, 256 paths, 600
-  iterations: the hedger leaves 0.47, 0.34, 0.25 and 0.18 of the unhedged
-  deviation at 5, 10, 21 and 42 days, and so does the Black-Scholes delta at
-  25%, decided a day before as the hedger's positions are. What is left is
-  the day's lag: a book's first day is not hedged at all (decision 9). The
-  first version's hedger was behind the delta at the longest expiry (0.35
-  against 0.27).
-- **Without the forward in the ledger the fit did not settle** (the first
-  version's reference, on a driftless 25% chain): the hedger held stock for
-  the law's drift, the forwards stayed 0.6% off and its books carried more
-  risk than unhedged ones. With it: forwards 1.0000.
+  After 900 iterations each: the same 65% of the charged quotes in band (bids
+  54%, asks 76%), 79% and 82% of the middles, 35% of the risk left, the state
+  0.902, 0.210, -0.116 and 0.902, 0.215, -0.120; the expiries' prices of a
+  day's deviation within 15% of each other but for the 5-day expiry's (0.0017
+  and 0.0025); the forwards within 0.35% of each other, at the last expiry.
+- **A second implementation and the open interest agree.** A PyTorch
+  reference of the model on the CPU (not in the repository; 256 paths, 400
+  iterations, no floor) puts the expiries in the same order at the same
+  sizes: its price of the whole residual's deviation is 0.019, 0.009, 0.106,
+  0.019, 0.020, 0.014, 0.088 and 0.015. That order is the order of the
+  expiries' open interest in the feed, which the model does not read: 36,
+  739, 2, 99, 32, 805, 1.5 and 1,342 thousand contracts.
+- **The days it finds** are as before the night's change: a deviation of 1.0%
+  to 1.6% in the eight intervals, an excess kurtosis of 1 to 6, a day's size
+  with the day before's at 0.21 to 0.34; the state 0.90, 0.21, -0.12.
+- **The hedger against the delta**, measured on the version of the afternoon,
+  on a PyTorch reference of it, a lognormal 25% chain: the hedger and the
+  Black-Scholes delta at 25%, decided a day before, both left 0.47, 0.34, 0.25
+  and 0.18 of the unhedged deviation at 5, 10, 21 and 42 days. What is left is
+  the day's lag: a book's first day is not hedged at all (decision 9).
 
 The test ([`test/`](test)) drives the image as a user does, the service's
 answer being a lognormal chain of its own: Load quotes, Fit, Stop, Fit again,
-a row of the Quotes tab clicked, 200 s of fitting, Stop, Quit, then
-`dh-fit check` in the shell. It passes in Chrome 156 and in Firefox 159: 640
-and 680 iterations in the 200 s, the loss from 11.97 to 0.21 and 0.22, the
+a row of the Quotes tab clicked, 200 s of fitting, Stop, Quit, then the fit's
+numbers and `dh-fit check` in the shell. It passes in Chrome 156 and in
+Firefox 159 with the same numbers: 660 iterations in the 200 s, the loss from
+2.07 to 0.17, the
 clicked row's contract the one the fit's reports hedge from then on, 27% of
 the unhedged risk left, forward and daily deviation the chain's, every
-gradient at its difference. Two things in it are for Firefox, which stopped
-the test otherwise (`tasks/20261117-090000-dh-34`): the page composites a
-frame at every refresh, a still page having left one `dh-fit` in five waiting
-for a readback; and `dh-gui` is left by Quit, not by Ctrl+C. Software adapters
-cannot run the test: headless Chrome's SwiftShader takes 25 s for what the GPU
-does in 0.05 s, and its GPU process ends creating `adjoint`'s pipeline. So it
-needs a GPU window: `DISPLAY=:N node demos/deep-hedger/test/deep-hedger-browser.mjs`.
+gradient at its difference. Three things in the test are for Firefox
+(`tasks/20261117-090000-dh-34`): the page composites a frame at every refresh,
+a still page having left one `dh-fit` in five waiting for a readback;
+`dh-gui` is left by Quit, not by Ctrl+C; and the fit's output is read by one
+process a question, without pipes. Software adapters cannot run the test:
+headless Chrome's SwiftShader takes 25 s for what the GPU does in 0.05 s, and
+its GPU process ends creating `adjoint`'s pipeline. So it needs a GPU window:
+`DISPLAY=:N node demos/deep-hedger/test/deep-hedger-browser.mjs`.
 
 ## Key files
 
