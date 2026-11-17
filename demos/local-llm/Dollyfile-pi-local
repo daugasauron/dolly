@@ -14,24 +14,24 @@ REQUIRES HOST nena@0
 REQUIRES HOST gpu@0
 
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix 7be8c3d712e716af25b88175f372bbcd2bd97ca7f67e831ad9e1f01c2272e639
+INSTALL /Dollyfile-posix 9008ffb50676d40e958f79c3715edf475ee3024148f6be6e9a42f1a9cf2e6d69
 INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
 # The tools Pi's dolly skill teaches: cc and make with the host modules' client
 # libraries, Git, curl.
-INSTALL /Dollyfile-cc b4cc426f9a03d714a2472b6b11bda4b0d0227dbe1c132c87b591661e3ac9aeb8
+INSTALL /Dollyfile-cc 3c50048026aec1c0c21ac6c0b74d93f53b5c0a3fa83b5c9930d86924a3b59eaa
 INSTALL /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
 INSTALL /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
 INSTALL /Dollyfile-libdolly-download c4fcb208423787a23dba384fa56a9e7a94680d3fbe8a107e3e59b2237ab6dc16
 INSTALL /Dollyfile-libdolly-upload 8ac6d3294c36592ef7147a9d0fddfe1558ab9edfae12e51b857aeea90527d7d9
 INSTALL /Dollyfile-libdolly-threads dc22418aec61aa289a4b7c746891cc161b447fb14b6075696c4c04ddb9d6aecf
-INSTALL /Dollyfile-git b1110c700518519b5cc15e98ced5e96c62c50b799a8bace69b2580fb69c9fca6
+INSTALL /Dollyfile-git beec0dcd0aadae135004bdad2dc5ca42ae35cbf06eb67475d0c57e9185bd4f76
 INSTALL /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6e458431e
 INSTALL /Dollyfile-amy 35ac2edd961bc6a74f29b2d8f46b60f4ff27be82d3e0244eb66ae78c67debd04
 # nena enables the host modules a package needs beyond these.
 INSTALL /Dollyfile-nena 67a37d644a04e3eddd12fe2e5d335dcf473b1b549337f0a9ce2f445f00b91ad8
 # Pi with its provider of the models it runs in the tab: pi-dolly, dolly-llama
 # and Qwen3.5-2B.
-INSTALL /demos/local-llm/Dollyfile-pi-llm 4d0709847f58a05f14ff402a90d82e2b6c1fc2c483ba32669b7897d9061adb35
+INSTALL /demos/local-llm/Dollyfile-pi-llm bcfbc267d33f00a9570bfb2bc7bf478e1e31a6a3ee79896aa12aa9106e27f73a
 
 FILE /etc/dolly/init.slop
     if test -f "$HOME/.dollyrc"; then

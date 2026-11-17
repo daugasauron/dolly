@@ -11,13 +11,13 @@ REQUIRES HOST threads@0
 
 # Seven Kingdoms as rts-build compiled it, and its arena: rts-arena runs matches
 # between agents, rts-viewer shows one.
-FROM /demos/pi/Dollyfile-pi-runtime 36981fbeeda70f6175bf4f7a7be0f1b9ec0cedcf6fc7918689cf0a62104bd32e
-USE /demos/sdl2/Dollyfile-sdl2 d71374d82452f6987ca07798fc16a46088dbf0fd076f45d48defd844d0d2020f
-COPY /demos/rts/Dollyfile-rts-build 6382c99f51d99e23b01e1f82809d824af0bf7d0727436fb090123a5600895ce0 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
-COPY /demos/rts/Dollyfile-rts-build 6382c99f51d99e23b01e1f82809d824af0bf7d0727436fb090123a5600895ce0 /usr/share/7kaa /usr/share/7kaa
-COPY /demos/rts/Dollyfile-rts-build 6382c99f51d99e23b01e1f82809d824af0bf7d0727436fb090123a5600895ce0 /usr/src/7kaa /usr/src/7kaa
-COPY /demos/rts/Dollyfile-rts-build 6382c99f51d99e23b01e1f82809d824af0bf7d0727436fb090123a5600895ce0 /usr/src/dolly/rts /usr/src/dolly/rts
-COPY /demos/rts/Dollyfile-rts-build 6382c99f51d99e23b01e1f82809d824af0bf7d0727436fb090123a5600895ce0 /usr/share/licenses/7kaa /usr/share/licenses/7kaa
+FROM /demos/pi/Dollyfile-pi-runtime 1ef0a091dd5a442fd4fdd6be4de6b8de0f944f73f7a726ad9a7fe4984233018e
+USE /demos/sdl2/Dollyfile-sdl2 1d2619a584cef68fec1a6a5d29ea5230e1e830fa6d39df5cf080d04a50c86d9e
+COPY /demos/rts/Dollyfile-rts-build 6375075e44590ee6996abb8b87cda7e426b2d8f6f56942ce64a479527efca4c8 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
+COPY /demos/rts/Dollyfile-rts-build 6375075e44590ee6996abb8b87cda7e426b2d8f6f56942ce64a479527efca4c8 /usr/share/7kaa /usr/share/7kaa
+COPY /demos/rts/Dollyfile-rts-build 6375075e44590ee6996abb8b87cda7e426b2d8f6f56942ce64a479527efca4c8 /usr/src/7kaa /usr/src/7kaa
+COPY /demos/rts/Dollyfile-rts-build 6375075e44590ee6996abb8b87cda7e426b2d8f6f56942ce64a479527efca4c8 /usr/src/dolly/rts /usr/src/dolly/rts
+COPY /demos/rts/Dollyfile-rts-build 6375075e44590ee6996abb8b87cda7e426b2d8f6f56942ce64a479527efca4c8 /usr/share/licenses/7kaa /usr/share/licenses/7kaa
 EXPORTS TOOL seven-kingdoms
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner

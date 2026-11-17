@@ -7,8 +7,8 @@ REQUIRES HOST runtime@0
 # its own and reads no terminal database. Its ! commands and language servers
 # start by fork, which fails here, and it says so. It is Git's editor, so it
 # is built where Git is, without the tools Git comes with: ex is vi -e.
-FROM /Dollyfile-system-build d1bb50136de0dadf12e3e2af2266c5102e9ab15769e9f607807c44d46323f3a1
-USE /Dollyfile-gzip fe37ea911f935be9f5dc2fcf29fdddba385759e05220a033ebaea81a810a16b5
+FROM /Dollyfile-system-build 0c72e09eba84571d4f8634cf6e7507eb1be1b9b8aa1fae61f6b0ec884b26b6fb
+USE /Dollyfile-gzip cef69a22c3b9f73889f4c819fcfaee2fb4487474ea4efa364117b8796465d1a4
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cat

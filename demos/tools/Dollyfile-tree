@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # tree from the files of upstream's release archive, unchanged, by the rules of its
 # Makefile; the paths it keeps for Linux alone are not taken.
-FROM /demos/tools/Dollyfile-tools-build a2c16674acb2a8119dd914e62e79322b95a6c9ba6528936c44e22216a4055a8e
+FROM /demos/tools/Dollyfile-tools-build 8917c05b4096463c5f61dfcfaab66c715f2cd1a0e4572226507bb838719864ca
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc

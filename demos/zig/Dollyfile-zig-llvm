@@ -8,9 +8,9 @@ REQUIRES HOST threads@0
 # upstream's CMake build links zig2, with Zig's C++ glue (zigcpp) and LLVM,
 # Clang and LLD 22, which the build uses and installers do not get.
 FROM /demos/zig/Dollyfile-zig-llvm-build acdfb466b806f8d16b6aecc738bd319650a1468809860586a29f56cef0284879
-USE /demos/llvm/Dollyfile-llvm22 a4d9cad14cd9c91e346a2817d7d77edbb90463cb332c94bb05cd09108b9f507a
+USE /demos/llvm/Dollyfile-llvm22 f855243e955da233361230c2da45b90dd7932b96164aa4f5a6f99ab30fa8a1c5
 # Zig links a program for this target with cc (zig-0.17.0-dolly-llvm.patch).
-INSTALL /Dollyfile-cc b4cc426f9a03d714a2472b6b11bda4b0d0227dbe1c132c87b591661e3ac9aeb8
+INSTALL /Dollyfile-cc 3c50048026aec1c0c21ac6c0b74d93f53b5c0a3fa83b5c9930d86924a3b59eaa
 REQUIRES TOOL   c++
 REQUIRES TOOL   ar
 

@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # drivers, the C and C++ headers and libraries and the host clients, with the
 # make package.
 FROM /Dollyfile-system-build 0c72e09eba84571d4f8634cf6e7507eb1be1b9b8aa1fae61f6b0ec884b26b6fb
-INSTALL /Dollyfile-make 9e724f32b1d81a63eb17fc9abcb8aeb70bcd9190a86e7b48c206fac82fd78e5e
+INSTALL /Dollyfile-make 51df2ffdf4a717b48244209c92fed92ead402930627d9e9cf9aaead72700b8ac
 
 EXPORTS FILE   compiler      /usr/libexec/dolly/process-bin/compiler
 EXPORTS FOLDER process-sdk   /usr/lib/dolly/process
