@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN llvm-tablegen
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -9,9 +9,9 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
 # Build-only: LLVM 24 configured by CMake inside Dolly, its TableGen tools and outputs.
-FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 99ba4b0dfea5dfd2099047bbbd136adbff138ac5c2316c7f57f4fa485f50968f
+FROM /demos/cmake/Dollyfile-cmake-build 80318c713e588e7871dd624ebf404a7580518af49692c8b5a27d909fe22cd8f3
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL /v0.1.7/demos/python/Dollyfile-python c97238b02344b36aad552b36fd2f73d450811ecaf7f5464374e82e8af15b80d7
+INSTALL /demos/python/Dollyfile-python 8833885bddfe56551862fba3d762153089994aa977f0d3c91110cebe4393bcc7
 # Configure the pinned LLVM 24 tree as llvm-build configures it for the seed's
 # compiler, then build and run its TableGen tools.
 REQUIRES TOOL cmake
@@ -28,12 +28,12 @@ REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
+SOURCE /dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
 SLOP time slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
 # LLVM runs config.guess even when LLVM_HOST_TRIPLE is given; it knows no Dolly host.
 # Its one platform list without a portable branch (is_local) gains Dolly.
-SOURCE /v0.1.7/dist/static/llvm/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
+SOURCE /dist/static/llvm/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/llvm-project -i /tmp/llvm-host-triple.patch
 
 # C probes and sources get Clang's default gnu17 as in the seed; Dolly's cc
@@ -65,7 +65,7 @@ SLOP time cmake -S /tmp/llvm-project/llvm -B /tmp/llvm-build \
   -DLLVM_BUILD_LLVM_DYLIB=OFF \
   -DLLVM_LINK_LLVM_DYLIB=OFF
 
-# Each job is three processes (Slop, c++, compiler); -j8 exceeds the 32-process cap.
+# Each job is three processes (Slop, c++, compiler); four jobs, as many as nproc reports.
 SLOP CWD /tmp/llvm-build time make -j4 llvm-min-tblgen llvm-tblgen clang-tblgen
 # The TableGen targets the seed compiler's libraries depend on.
 SLOP CWD /tmp/llvm-build time make -j4 clang-tablegen-targets intrinsics_gen omp_gen acc_gen vt_gen \

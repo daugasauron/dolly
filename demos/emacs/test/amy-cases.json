@@ -1,0 +1,14 @@
+{
+  "image": "default",
+  "directory": "/tmp/amy-emacs",
+  "steps": [
+    {
+      "fresh": true,
+      "why": "Each package of this demo in a default session of its own: it installs alone and is used.",
+      "script": "! command -v emacs",
+      "status": 0
+    },
+    { "script": "amy install emacs", "status": 0 },
+    { "script": "test \"$(emacs --batch --eval '(princ (* 6 7))')\" = 42", "status": 0 }
+  ]
+}

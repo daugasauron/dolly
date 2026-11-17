@@ -5,9 +5,9 @@
 // --bare and the API key typed at the launcher's prompt, and a file-tool turn
 // completes in its REPL against a scripted Messages endpoint.
 // Usage: node demos/closed-source-agent/test/closed-source-agent-browser.mjs
-// (DOLLY_BROWSER=firefox runs it in Firefox).
 import assert from "node:assert/strict";
 import { createReadStream } from "node:fs";
+import { browsers } from "../../browsers.mjs";
 import { delay, demoTest, recoveryPrompt, redirectFetch } from "../../browser.mjs";
 import { claudeCodeTarball, registry, tarballPath } from "./fixtures/tarball.mjs";
 
@@ -69,7 +69,7 @@ async function handle(request, response, path, headers) {
   return true;
 }
 
-await demoTest("closed-source-agent", { image: "closed-source-agent", timeout: 600_000, browser: process.env.DOLLY_BROWSER ?? "chromium",
+for (const browser of browsers) await demoTest("closed-source-agent", { image: "closed-source-agent", timeout: 600_000, browser,
   server: { handle } }, async ({ server, open }) => {
   const policy = { maxRequests: 64, rules: [
     { origin: registry, path: tarballPath, methods: ["GET"], maxResponseBytes: 32 << 20 },

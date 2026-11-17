@@ -11,16 +11,13 @@ if has_image gtk-build; then
   while read -r pin archive; do
     copy_static "$(bash scripts/fetch-pinned-archive.sh "${pin}")" "gtk/${archive}"
   done <<'ARCHIVES'
-freetype freetype-2.14.3.tar.xz
 fribidi fribidi-1.0.17.tar.xz
 harfbuzz harfbuzz-14.6.0.tar.xz
 expat expat-2.8.5.tar.xz
 gperf gperf-3.1.tar.gz
 fontconfig fontconfig-2.18.3.tar.xz
-libpng libpng-1.6.59.tar.xz
 libjpeg_turbo libjpeg-turbo-3.2.0.tar.gz
 libtiff tiff-4.7.2.tar.xz
-pixman pixman-0.46.4.tar.gz
 cairo cairo-1.18.6.tar.xz
 graphene graphene-1.10.8.tar.xz
 libepoxy libepoxy-1.5.10.tar.xz

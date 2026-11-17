@@ -38,9 +38,8 @@ function entryProblem(root) {
   return null;
 }
 
-// A catalog recipe names the site's files by this version's paths: another
-// version's files are not here, and a URL of the public site would tie the
-// recipe to one host.
+// A catalog recipe names the site's files by site paths: a URL of the public
+// site would tie the recipe to one host.
 function referenceProblem(location) {
   try {
     if (sitePath(location) !== null || new URL(location).origin !== PUBLIC_ORIGIN) return null;

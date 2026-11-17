@@ -6,8 +6,8 @@ import { shellQuote } from "../browser.mjs";
 const scratch = "/workspace/dollyfile-parser-test";
 const outputs = "/usr/share/dollyfile-parser-test";
 // Recipes the in-sandbox executor runs against the live filesystem, with the
-// rows the page would give it; sources come from the test server's origin,
-// which serves `recipes` by path.
+// rows and SOURCE files the page would give it (/etc/dolly/sources/SHA256), put
+// there from the test server's origin, which serves `recipes` by path.
 export function dollyfileCases(origin) {
   const recipes = new Map();
   const cases = [
@@ -62,7 +62,8 @@ SLOP rm ${outputs}/deleted`,
       error: "add REQUIRES HOST http@0" },
   ];
   for (const item of cases) {
-    const source = `DOLLY 7\nAPPLICATION parser-test\nEXPORTS TOOL slop\n${item.rows}\nENTRY ${item.entry ?? '/bin/slop ""'}\n`;
+    const source = `DOLLY 8\nAPPLICATION parser-test\nEXPORTS TOOL slop\n${item.rows}\nENTRY ${item.entry ?? '/bin/slop ""'}\n`;
+    item.sources = inspectDollyfile(source).sources;
     recipes.set(`/fixture/parser-${item.name}.Dollyfile`, source);
     recipes.set(`/fixture/parser-${item.name}.rows`, recipeRows(inspectDollyfile(source), digest(source)));
   }
@@ -70,7 +71,7 @@ SLOP rm ${outputs}/deleted`,
   recipes.set("/fixture/parser-after.txt", "after");
   cases.push({ name: "nul", error: "could not load recipe", check: `test ! -e ${outputs}/nul` });
   recipes.set("/fixture/parser-nul.Dollyfile",
-    `DOLLY 7\nAPPLICATION parser-test\nSLOP printf changed > ${outputs}/nul\n# comment\0ignored\nENTRY /bin/slop\n`);
+    `DOLLY 8\nAPPLICATION parser-test\nSLOP printf changed > ${outputs}/nul\n# comment\0ignored\nENTRY /bin/slop\n`);
   return { recipes, run: submit => runDollyfileCases(submit, origin, cases) };
 }
 
@@ -85,6 +86,7 @@ async function runDollyfileCases(submit, origin, cases) {
     for (const item of cases) {
       await run(`curl -fsS ${origin}/fixture/parser-${item.name}.Dollyfile -o ${scratch}/Dollyfile`);
       if (item.name !== "nul") await run(`curl -fsS ${origin}/fixture/parser-${item.name}.rows -o /etc/dolly/recipe.rows`);
+      for (const { location, sha256 } of item.sources ?? []) await run(`mkdir -p /etc/dolly/sources && curl -fsS ${location} -o /etc/dolly/sources/${sha256}`);
       const status = await submit(`${scratch}/dollyfile FILE:${scratch}/Dollyfile 2> ${scratch}/error`);
       if ((status === 0) !== !item.error) await submit(`cat ${scratch}/error`);
       assert.equal(status === 0, !item.error, `Dollyfile ${item.name}: status ${status}`);
@@ -92,6 +94,6 @@ async function runDollyfileCases(submit, origin, cases) {
       if (item.check) await run(item.check);
     }
   } finally {
-    await submit(`cd /workspace; rm -rf ${scratch} ${outputs}`);
+    await submit(`cd /workspace; rm -rf ${scratch} ${outputs} /etc/dolly/sources`);
   }
 }

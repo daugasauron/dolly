@@ -11,7 +11,6 @@ if has_image dollyfile-studio; then
     host/abi.mjs /usr/share/dollyfile-studio/host/abi.mjs \
     host/runtime/abi.mjs /usr/share/dollyfile-studio/host/runtime/abi.mjs \
     page/static-asset.mjs /usr/share/dollyfile-studio/page/static-asset.mjs \
-    page/version.mjs /usr/share/dollyfile-studio/page/version.mjs \
     page/snapshot-records.mjs /usr/share/dollyfile-studio/page/snapshot-records.mjs \
     demos/studio/dollyfile-lint /usr/bin/dollyfile-lint \
     demos/studio/dollyfile-build /usr/bin/dollyfile-build \

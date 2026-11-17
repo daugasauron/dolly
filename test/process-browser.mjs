@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { readdir } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
-import { browserTest, runSteps, shellQuote } from "./browser.mjs";
+import { browserTest, runSteps, shellQuote, workbench } from "./browser.mjs";
 import processCases from "./cases/process.json" with { type: "json" };
 import { tarArchive } from "./fixtures/tar.mjs";
 import { DOLLY_ERRNO } from "../page/process-constants.mjs";
 
 const scratch = "/tmp/dolly-process-test";
-const fixtures = Object.fromEntries(["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-dispositions.c", "process-interrupt.c", "process-exec.c"]
+const fixtures = Object.fromEntries(["process-tree.c", "process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-dispositions.c", "process-interrupt.c", "process-exec.c", "process-serial-threads.c"]
   .map(name => [name, `test/fixtures/${name}`]));
 for (const name of await readdir(new URL("../build", import.meta.url))) {
   if (/^(?:process|dso)-.+\.wasm$/.test(name)) fixtures[name] = `build/${name}`;
@@ -66,8 +66,8 @@ const prompt = /dolly:[^\n]*\$\s*$/;
 const settle = () => new Promise(resolve => setTimeout(resolve, 200));
 
 // Lifecycle, descriptors and signals, with programs compiled in the image.
-await browserTest("process", { image: "system", server: { fixtures, handle } }, async ({ server, open }) => {
-  const { page, submit, text, waitForText } = await open({
+await browserTest("process", { image: "system", server: { fixtures, handle }, timeout: 300_000 }, async ({ server, open }) => {
+  const { page, submit, text, waitForText } = await open({ ...await workbench(),
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   const run = async command => assert.equal(await submit(command), 0, command);
   // An orphan ends in its own time.
@@ -103,7 +103,7 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
 
   // Lifecycle, descriptors, locks, signals and exec (test/cases/process.json),
   // which compiles the programs below too.
-  await runSteps(submit, server.origin, processCases);
+  await runSteps(submit, processCases);
   // The page's Workers while the shell waits for a line: the runtime's, one per
   // process, and one per large executable compiled, here the compiler's.
   await settle();

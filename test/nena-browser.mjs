@@ -16,7 +16,7 @@ const encoder = new TextEncoder();
 const u32 = value => { const bytes = new Uint8Array(4); new DataView(bytes.buffer).setUint32(0, value, true); return bytes; };
 const text = value => [u32(encoder.encode(value).length), encoder.encode(value)];
 const listener = { url: siteReference("Dollyfile-listener"),
-  source: "DOLLY 7\nPACKAGE listener\nREQUIRES HOST runtime@0\nREQUIRES HOST microphone@0\nFILE /usr/share/listener\n    needs the microphone\n" };
+  source: "DOLLY 8\nPACKAGE listener\nREQUIRES HOST runtime@0\nREQUIRES HOST microphone@0\nFILE /usr/share/listener\n    needs the microphone\n" };
 listener.sha256 = createHash("sha256").update(listener.source).digest("hex");
 const receipt = Buffer.concat([encoder.encode("DOLLYART"), u32(5), u32(1),
   ...["PACKAGE", "listener", listener.url, listener.sha256, listener.source].flatMap(text),
@@ -114,6 +114,8 @@ await browserTest("nena", { image: "default", timeout: 300_000, server: { fixtur
   }
   await run("man nena > /dev/null && ! nena frobnicate 2> /dev/null");
 
+  // curl's package needs http@0, which default does not declare: amy has nena enable it.
+  await run("amy install curl > /dev/null && nena | grep -q '^http@0  *enabled '");
   await run("amy install cc > /dev/null && amy install libdolly-audio > /dev/null && amy install libdolly-microphone > /dev/null && amy install libdolly-nena > /dev/null");
   for (const [name, [, flags]] of Object.entries(programs)) {
     await run(`curl -fsS ${server.origin}/fixture/${name}.c -o /tmp/${name}.c && cc ${flags} /tmp/${name}.c -o $HOME/${name}`);
@@ -193,8 +195,12 @@ await browserTest("nena", { image: "default", timeout: 300_000, server: { fixtur
   await page.setInputFiles("#file-upload[open] input[type=file]", { name: "sent.txt", mimeType: "text/plain", buffer: Buffer.from("sent late\n") });
   assert.equal(await sending, 0);
   await run("test \"$(cat /tmp/sent)\" = 'sent late'");
+  // http@0 takes the page's policy as it was at load: off, a program's request
+  // fails at once; on again, it reaches the page as before.
+  await run(`nena disable http && ! curl -fsS ${server.origin}/fixture/sound.c -o /dev/null`);
+  await run(`nena enable http && curl -fsS ${server.origin}/fixture/sound.c -o /dev/null`);
   // A fixed module is neither enabled nor disabled, and a name the page lacks is refused.
-  for (const command of ["disable runtime", "disable http", "disable display", "disable input", "disable snapshot", "enable build", "enable nosuch"]) {
+  for (const command of ["disable runtime", "disable display", "disable input", "disable snapshot", "enable build", "enable nosuch"]) {
     assert.equal(await submit(`nena ${command} 2> /tmp/fixed`), 1, command);
     await run("test -s /tmp/fixed");
   }

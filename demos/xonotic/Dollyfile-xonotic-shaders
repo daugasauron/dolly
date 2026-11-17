@@ -1,12 +1,12 @@
-DOLLY 7
+DOLLY 8
 PACKAGE xonotic-shaders
 REQUIRES HOST runtime@0
 
 # The shader permutations of the effects presets as WGSL, which the client's
 # gpu@0 path (dpgpurast.c) reads: dpshaders.c rewrites DarkPlaces' GLSL as
 # naga's GLSL front end reads it, and naga translates it.
-FROM /v0.1.7/Dollyfile-system-tools 6699b9ce9339fe8ee70c02972b8a4b10242adb71dd63c3a5ac5da48f8d1828ed
-USE /v0.1.7/demos/rust/Dollyfile-naga 07f2145c4315f73daf97fd482531c2175a5a2465120a5fb705784e7cf15d3628
+FROM /Dollyfile-system-tools 41d78b18183d4c4d3786fa7131c53810a1b0090f845b8298a56f0ae87a02db9e
+USE /demos/rust/Dollyfile-naga af8d72b7a0483eaaefe44c060f809be4258be384531519aa90d477723fa5fe33
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL make
@@ -16,7 +16,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL tar
 REQUIRES TOOL gzip
 
-SOURCE /v0.1.7/dist/static/xonotic/source.tar.gz d7ebe696610cbf8c235c3b4bdb6b062efa9c2cc85beb0a952117aa529f71e534 /tmp/xonotic/source.tar.gz
+SOURCE /dist/static/xonotic/source.tar.gz e28e0ed820bc0e92adb4b726372443e83072be4b28177dbd5edb8159e27f4c2a /tmp/xonotic/source.tar.gz
 SLOP gzip -dc /tmp/xonotic/source.tar.gz | tar -xf - -C /
 SLOP make -f /usr/src/dolly/xonotic/Makefile shaders
 FOLDER /usr/share/xonotic/shaders

@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN gtk-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -9,23 +9,26 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
 # GTK 4 and the libraries under it, each from its upstream release by its own
-# build: Meson for FreeType, FriBidi, HarfBuzz, fontconfig, pixman, cairo,
-# graphene, libepoxy, gdk-pixbuf, pango and GTK (its X11 backend alone),
-# CMake for expat, libpng, libjpeg-turbo and libtiff, and this recipe's
+# build, over the libpng, FreeType and pixman packages: Meson for FriBidi,
+# HarfBuzz, fontconfig, cairo, graphene, libepoxy, gdk-pixbuf, pango and GTK
+# (its X11 backend alone), CMake for expat, libjpeg-turbo and libtiff, and this recipe's
 # Makefile and script for gperf (fontconfig's build runs it) and the five X
 # extension libraries GTK's X11 backend links. Static libraries in /usr/lib,
 # as a GTK program links them; GLib's pkg-config file has cc cast-emulate
 # every GObject program, those these builds run among them.
-FROM /v0.1.7/demos/x11/Dollyfile-x11-build 0e058acfa14e3aa3f876b90ee94a4d0a9a4a1da866e51cc7f5f432ce891ff6e0
-INSTALL /v0.1.7/demos/tools/Dollyfile-meson 6e2e2709c309b18805f645414cbb0af0159700d66bdb1cb81b66e128bb2ab38b
-INSTALL /v0.1.7/demos/zero-ad/Dollyfile-pkgconf fdb291181297a70fc73950b9122322458fa73450d2f713b931eeefe0f46f6f02
-INSTALL /v0.1.7/demos/tools/Dollyfile-xz d07bf61b88901661d5f75bc5000003f0df152c88dad282c46e57bd55f3a5adbb
-INSTALL /v0.1.7/demos/tools/Dollyfile-tar f96d977a15d4cef99fe590fd09afdf6f19f4dd7d3a91589df5690e0c33b37a54
-INSTALL /v0.1.7/demos/tools/Dollyfile-binaryen e9018a3b0f85a39af18aac559e63a2fa0b376dac189a97fa930c1f5c56e29fef
-INSTALL /v0.1.7/demos/python/Dollyfile-libffi 249d61ea3501e8bc465e6457194353bb773fef2bc59731ef3b22fc7e1781b8c4
-INSTALL /v0.1.7/demos/gtk/Dollyfile-pcre2 c37187fa08409cb1d8be6d1c6e129868435718ae83619a768132b56dd81606e8
-INSTALL /v0.1.7/demos/gtk/Dollyfile-glib b4902b5315acdaba6f90387556f885f59f16d422c17b0809c669433196cbb806
-INSTALL /v0.1.7/Dollyfile-zlib 8de0bd7abb3a8237405fbbe378e6565c995a24694e5a3b55ef24873c5786bdb5
+FROM /demos/x11/Dollyfile-x11-build 6cf1e19c36ee93d27b3859fb174f7cf780c2c156d2c635bcf23cf727fb3fc594
+INSTALL /demos/tools/Dollyfile-meson 80402187a690b9a520c33b8dde367411c7988d2abd1d6a054d652eb94544d9d3
+INSTALL /demos/tools/Dollyfile-pkgconf dddc95966d216baca55fbdac572c88d0b2247438ffdaa0ac7fcfc80dab51be8a
+INSTALL /demos/tools/Dollyfile-libpng e366774feb4f3c2d01536c2b954f7f18399301df90111fbf75f3b86e6b5a5b2b
+INSTALL /demos/tools/Dollyfile-freetype 973f0d6a05a1d73ff00458e76afd65f39600acd9c9703e166bd55cfa5260fd27
+INSTALL /demos/x11/Dollyfile-pixman 0d89408e7f66e2172f7c10f1cca932bd41647aa387f42ebd8bc9f3a65568a6d4
+INSTALL /demos/tools/Dollyfile-xz 096ffdfc8b9a37b1bc6cab494bce2aac391f3b598e402be8a28936986a7dfa2a
+INSTALL /demos/tools/Dollyfile-tar 50e3561d32998e872881805e9899428e4d76cb449b24d53018ea4ef0fe9e74be
+INSTALL /demos/tools/Dollyfile-binaryen 18aec5d267008348dfb6b7d9dbf61a559d72c62cde0f56bb2871eca15045e4db
+INSTALL /demos/python/Dollyfile-libffi e450805d87a5057a4262bb573a698f6946360a97774c657a6dfea82c5211730a
+INSTALL /demos/gtk/Dollyfile-pcre2 ea118240535bb08e092a37691fa36a1c08ac1ad581ff23422f1426690cd4f927
+INSTALL /demos/gtk/Dollyfile-glib 633701f90288146aae151daa0a079981a07e807c434e1aecc6a55aa205f0b2e9
+INSTALL /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
 
 REQUIRES HEADER glib
 REQUIRES HEADER zlib
@@ -50,43 +53,37 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   wasm-opt
 REQUIRES TOOL   xz
 
-SOURCE /v0.1.7/dist/static/gtk/freetype-2.14.3.tar.xz 36bc4f1cc413335368ee656c42afca65c5a3987e8768cc28cf11ba775e785a5f /tmp/gtk/freetype.tar.xz
-SOURCE /v0.1.7/dist/static/gtk/fribidi-1.0.17.tar.xz 6949dcde27d41cebad1fd741fcafc36d55a1020d2d872d4a6eb3914caabbada2 /tmp/gtk/fribidi.tar.xz
-SOURCE /v0.1.7/dist/static/gtk/harfbuzz-14.6.0.tar.xz d07a007327277708a2a73ae437887cdbaf282937f6d03ca5467723e9099af586 /tmp/gtk/harfbuzz.tar.xz
-SOURCE /v0.1.7/dist/static/gtk/expat-2.8.5.tar.xz 1e727b8933ec51a77a9a9d9afcf8e688bce45d907c13e36ab7393fe36e703182 /tmp/gtk/expat.tar.xz
-SOURCE /v0.1.7/dist/static/gtk/gperf-3.1.tar.gz 588546b945bba4b70b6a3a616e80b4ab466e3f33024a352fc2198112cdbb3ae2 /tmp/gtk/gperf.tar.gz
-SOURCE /v0.1.7/dist/static/gtk/fontconfig-2.18.3.tar.xz 4f7b554a38cdf78c033f666c8871f3749e14a094f65a07f630c91ed0b43d35e3 /tmp/gtk/fontconfig.tar.xz
-SOURCE /v0.1.7/dist/static/gtk/fontconfig-dolly.patch af0db174251c4d6b1be7800c7c802dac3f52ec1e01e542596f39d392204eb100 /tmp/gtk/fontconfig-dolly.patch
-SOURCE /v0.1.7/dist/static/gtk/libpng-1.6.59.tar.xz d80dd2a38a37f803cb9b6ac7b14bd6e74ddc3b654780a8380bdf93523fdb4389 /tmp/gtk/libpng.tar.xz
-SOURCE /v0.1.7/dist/static/gtk/libjpeg-turbo-3.2.0.tar.gz 6f30092cef9fb839779646608f4ee14ae3cbac989c47fa05e841b0841f09878e /tmp/gtk/libjpeg-turbo.tar.gz
-SOURCE /v0.1.7/dist/static/gtk/tiff-4.7.2.tar.xz 4996f0c4f93094719b1ca5c6279b20e588773ba8a247533e486416fb662ddb88 /tmp/gtk/tiff.tar.xz
-SOURCE /v0.1.7/dist/static/gtk/pixman-0.46.4.tar.gz d09c44ebc3bd5bee7021c79f922fe8fb2fb57f7320f55e97ff9914d2346a591c /tmp/gtk/pixman.tar.gz
-SOURCE /v0.1.7/dist/static/gtk/cairo-1.18.6.tar.xz 1c767308174337a74694da0f3ec069c271452163a1ef4540964c50c301f157d4 /tmp/gtk/cairo.tar.xz
-SOURCE /v0.1.7/dist/static/gtk/graphene-1.10.8.tar.xz a37bb0e78a419dcbeaa9c7027bcff52f5ec2367c25ec859da31dfde2928f279a /tmp/gtk/graphene.tar.xz
-SOURCE /v0.1.7/dist/static/gtk/libepoxy-1.5.10.tar.xz 072cda4b59dd098bba8c2363a6247299db1fa89411dc221c8b81b8ee8192e623 /tmp/gtk/libepoxy.tar.xz
-SOURCE /v0.1.7/dist/static/gtk/gdk-pixbuf-2.44.8.tar.xz 919f529512961a12e81cd4b4b466a48c3933469e7f9a310c6513cd4fb252ba3c /tmp/gtk/gdk-pixbuf.tar.xz
-SOURCE /v0.1.7/dist/static/gtk/pango-1.58.2.tar.xz 342385b6ca3b7c73455d7c80a13b7dbe4489e00bc3bd4c5bd6ed4dce421e374a /tmp/gtk/pango.tar.xz
-SOURCE /v0.1.7/dist/static/gtk/gtk-4.24.1.tar.xz e98abe720e16129c8c0f50761dee0a2e9ae2478055e31018f6cf977fcf6513e9 /tmp/gtk/gtk.tar.xz
-SOURCE /v0.1.7/dist/static/gtk/gtk-dolly.patch 7fbb4f8428b26569454e2958144447a294c29c15545362c69c178e7baec1d71b /tmp/gtk/gtk-dolly.patch
-SOURCE /v0.1.7/dist/static/gtk/libXrandr-1.5.5.tar.xz 72b922c2e765434e9e9f0960148070bd4504b288263e2868a4ccce1b7cf2767a /tmp/gtk/libXrandr.tar.xz
-SOURCE /v0.1.7/dist/static/gtk/libXcursor-1.2.3.tar.xz fde9402dd4cfe79da71e2d96bb980afc5e6ff4f8a7d74c159e1966afb2b2c2c0 /tmp/gtk/libXcursor.tar.xz
-SOURCE /v0.1.7/dist/static/gtk/libXdamage-1.1.7.tar.xz 127067f521d3ee467b97bcb145aeba1078e2454d448e8748eb984d5b397bde24 /tmp/gtk/libXdamage.tar.xz
-SOURCE /v0.1.7/dist/static/gtk/libXcomposite-0.4.7.tar.xz 8bdf310967f484503fa51714cf97bff0723d9b673e0eecbf92b3f97c060c8ccb /tmp/gtk/libXcomposite.tar.xz
-SOURCE /v0.1.7/dist/static/gtk/libXinerama-1.1.6.tar.xz d00fc1599c303dc5cbc122b8068bdc7405d6fcb19060f4597fc51bd3a8be51d7 /tmp/gtk/libXinerama.tar.xz
+SOURCE /dist/static/gtk/fribidi-1.0.17.tar.xz 6949dcde27d41cebad1fd741fcafc36d55a1020d2d872d4a6eb3914caabbada2 /tmp/gtk/fribidi.tar.xz
+SOURCE /dist/static/gtk/harfbuzz-14.6.0.tar.xz d07a007327277708a2a73ae437887cdbaf282937f6d03ca5467723e9099af586 /tmp/gtk/harfbuzz.tar.xz
+SOURCE /dist/static/gtk/expat-2.8.5.tar.xz 1e727b8933ec51a77a9a9d9afcf8e688bce45d907c13e36ab7393fe36e703182 /tmp/gtk/expat.tar.xz
+SOURCE /dist/static/gtk/gperf-3.1.tar.gz 588546b945bba4b70b6a3a616e80b4ab466e3f33024a352fc2198112cdbb3ae2 /tmp/gtk/gperf.tar.gz
+SOURCE /dist/static/gtk/fontconfig-2.18.3.tar.xz 4f7b554a38cdf78c033f666c8871f3749e14a094f65a07f630c91ed0b43d35e3 /tmp/gtk/fontconfig.tar.xz
+SOURCE /dist/static/gtk/fontconfig-dolly.patch af0db174251c4d6b1be7800c7c802dac3f52ec1e01e542596f39d392204eb100 /tmp/gtk/fontconfig-dolly.patch
+SOURCE /dist/static/gtk/libjpeg-turbo-3.2.0.tar.gz 6f30092cef9fb839779646608f4ee14ae3cbac989c47fa05e841b0841f09878e /tmp/gtk/libjpeg-turbo.tar.gz
+SOURCE /dist/static/gtk/tiff-4.7.2.tar.xz 4996f0c4f93094719b1ca5c6279b20e588773ba8a247533e486416fb662ddb88 /tmp/gtk/tiff.tar.xz
+SOURCE /dist/static/gtk/cairo-1.18.6.tar.xz 1c767308174337a74694da0f3ec069c271452163a1ef4540964c50c301f157d4 /tmp/gtk/cairo.tar.xz
+SOURCE /dist/static/gtk/graphene-1.10.8.tar.xz a37bb0e78a419dcbeaa9c7027bcff52f5ec2367c25ec859da31dfde2928f279a /tmp/gtk/graphene.tar.xz
+SOURCE /dist/static/gtk/libepoxy-1.5.10.tar.xz 072cda4b59dd098bba8c2363a6247299db1fa89411dc221c8b81b8ee8192e623 /tmp/gtk/libepoxy.tar.xz
+SOURCE /dist/static/gtk/gdk-pixbuf-2.44.8.tar.xz 919f529512961a12e81cd4b4b466a48c3933469e7f9a310c6513cd4fb252ba3c /tmp/gtk/gdk-pixbuf.tar.xz
+SOURCE /dist/static/gtk/pango-1.58.2.tar.xz 342385b6ca3b7c73455d7c80a13b7dbe4489e00bc3bd4c5bd6ed4dce421e374a /tmp/gtk/pango.tar.xz
+SOURCE /dist/static/gtk/gtk-4.24.1.tar.xz e98abe720e16129c8c0f50761dee0a2e9ae2478055e31018f6cf977fcf6513e9 /tmp/gtk/gtk.tar.xz
+SOURCE /dist/static/gtk/gtk-dolly.patch 7fbb4f8428b26569454e2958144447a294c29c15545362c69c178e7baec1d71b /tmp/gtk/gtk-dolly.patch
+SOURCE /dist/static/gtk/libXrandr-1.5.5.tar.xz 72b922c2e765434e9e9f0960148070bd4504b288263e2868a4ccce1b7cf2767a /tmp/gtk/libXrandr.tar.xz
+SOURCE /dist/static/gtk/libXcursor-1.2.3.tar.xz fde9402dd4cfe79da71e2d96bb980afc5e6ff4f8a7d74c159e1966afb2b2c2c0 /tmp/gtk/libXcursor.tar.xz
+SOURCE /dist/static/gtk/libXdamage-1.1.7.tar.xz 127067f521d3ee467b97bcb145aeba1078e2454d448e8748eb984d5b397bde24 /tmp/gtk/libXdamage.tar.xz
+SOURCE /dist/static/gtk/libXcomposite-0.4.7.tar.xz 8bdf310967f484503fa51714cf97bff0723d9b673e0eecbf92b3f97c060c8ccb /tmp/gtk/libXcomposite.tar.xz
+SOURCE /dist/static/gtk/libXinerama-1.1.6.tar.xz d00fc1599c303dc5cbc122b8068bdc7405d6fcb19060f4597fc51bd3a8be51d7 /tmp/gtk/libXinerama.tar.xz
 # Khronos's EGL and KHR headers, as Mesa's release carries them: libepoxy's
 # EGL dispatch includes them, and GTK's X11 backend has EGL code.
-SOURCE /v0.1.7/dist/static/gtk/khronos-headers.tar 0873dc0d3a69057385df77ef9a1433cbc91f00acfb56de2509362af2e46397b8 /tmp/gtk/khronos-headers.tar
+SOURCE /dist/static/gtk/khronos-headers.tar 0873dc0d3a69057385df77ef9a1433cbc91f00acfb56de2509362af2e46397b8 /tmp/gtk/khronos-headers.tar
 SLOP CWD /tmp/gtk for archive in *.tar.xz; do xz -dc $archive | tar -xf -; done
 SLOP CWD /tmp/gtk for archive in *.tar.gz; do gzip -dc $archive | tar -xf -; done
 SLOP tar -xf /tmp/gtk/khronos-headers.tar -C /
 SLOP patch -p1 -d /tmp/gtk/fontconfig-2.18.3 -i /tmp/gtk/fontconfig-dolly.patch
 SLOP patch -p1 -d /tmp/gtk/gtk-4.24.1 -i /tmp/gtk/gtk-dolly.patch
 
-# The fonts and their shaping: FreeType, FriBidi (whose table generators hold
+# The fonts and their shaping, over the FreeType package: FriBidi (whose table generators hold
 # more static data than cc's 16 MiB of initial memory), HarfBuzz and expat.
-SLOP CWD /tmp/gtk meson setup build-freetype freetype-2.14.3 --wrap-mode=nodownload --prefix=/usr --libdir=lib --buildtype=release -Ddefault_library=static \
-  -Dharfbuzz=disabled -Dpng=disabled -Dbrotli=disabled -Dbzip2=disabled -Dzlib=enabled
-SLOP meson compile -C /tmp/gtk/build-freetype && meson install --no-rebuild -C /tmp/gtk/build-freetype
 SLOP CWD /tmp/gtk meson setup build-fribidi fribidi-1.0.17 --wrap-mode=nodownload --prefix=/usr --libdir=lib --buildtype=release -Ddefault_library=static -Ddocs=false -Dtests=false -Dbin=false \
   -Dc_link_args=-Wl,--initial-memory=67108864
 SLOP meson compile -C /tmp/gtk/build-fribidi && meson install --no-rebuild -C /tmp/gtk/build-fribidi
@@ -124,21 +121,14 @@ SLOP CWD /tmp/gtk meson setup build-fontconfig fontconfig-2.18.3 --wrap-mode=nod
   -Dtools=disabled -Dcache-build=disabled -Dnls=disabled -Dxml-backend=expat
 SLOP meson compile -C /tmp/gtk/build-fontconfig && meson install --no-rebuild -C /tmp/gtk/build-fontconfig
 
-# The images GTK loads, and its drawing: pixman without the SIMD of other
-# machines, cairo over Xlib (MIT-SHM is asked of the server and Dolly's has
-# none), graphene and libepoxy.
-SLOP cmake -S /tmp/gtk/libpng-1.6.59 -B /tmp/gtk/build-png -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_SHARED_LIBS=OFF -DPNG_SHARED=OFF -DPNG_TESTS=OFF -DPNG_TOOLS=OFF
-SLOP cmake --build /tmp/gtk/build-png -j4 && cmake --install /tmp/gtk/build-png
+# The images GTK loads, and its drawing over the pixman package: cairo over
+# Xlib (MIT-SHM is asked of the server and Dolly's has none), graphene and
+# libepoxy.
 SLOP cmake -S /tmp/gtk/libjpeg-turbo-3.2.0 -B /tmp/gtk/build-jpeg -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_SHARED_LIBS=OFF -DENABLE_SHARED=OFF -DWITH_SIMD=OFF -DWITH_TURBOJPEG=OFF
 SLOP cmake --build /tmp/gtk/build-jpeg -j4 && cmake --install /tmp/gtk/build-jpeg
 SLOP cmake -S /tmp/gtk/tiff-4.7.2 -B /tmp/gtk/build-tiff -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_SHARED_LIBS=OFF -Dtiff-tools=OFF -Dtiff-tests=OFF \
   -Dtiff-contrib=OFF -Dtiff-docs=OFF -Djbig=OFF -Dlerc=OFF -Dlzma=OFF -Dzstd=OFF -Dwebp=OFF -Dlibdeflate=OFF
 SLOP cmake --build /tmp/gtk/build-tiff -j4 && cmake --install /tmp/gtk/build-tiff
-SLOP CWD /tmp/gtk meson setup build-pixman pixman-0.46.4 --wrap-mode=nodownload --prefix=/usr --libdir=lib --buildtype=release -Ddefault_library=static -Dloongson-mmi=disabled -Dmmx=disabled \
-  -Dsse2=disabled -Dssse3=disabled -Dvmx=disabled -Darm-simd=disabled -Dneon=disabled -Da64-neon=disabled \
-  -Dmips-dspr2=disabled -Drvv=disabled -Dgnu-inline-asm=disabled -Dopenmp=disabled -Dtimers=false \
-  -Dgtk=disabled -Dlibpng=disabled -Dtests=disabled -Ddemos=disabled
-SLOP meson compile -C /tmp/gtk/build-pixman && meson install --no-rebuild -C /tmp/gtk/build-pixman
 SLOP CWD /tmp/gtk meson setup build-cairo cairo-1.18.6 --wrap-mode=nodownload --prefix=/usr --libdir=lib --buildtype=release -Ddefault_library=static -Ddwrite=disabled -Dfontconfig=enabled \
   -Dfreetype=enabled -Dpng=enabled -Dquartz=disabled -Dtee=disabled -Dxcb=disabled -Dxlib=enabled \
   -Dzlib=enabled -Dtests=disabled -Dlzo=disabled -Dglib=enabled -Dspectre=disabled -Dsymbol-lookup=disabled
@@ -199,9 +189,9 @@ FILE /tmp/gtk/check.c
     int main(void) { return gtk_get_major_version() == 4 ? 0 : 1; }
 SLOP cc -O1 -pthread /tmp/gtk/check.c -o /tmp/gtk/check $(pkg-config --cflags --libs gtk4) && /tmp/gtk/check
 
-SLOP CWD /tmp/gtk for source in freetype-2.14.3:LICENSE.TXT fribidi-1.0.17:COPYING harfbuzz-14.6.0:COPYING \
-  expat-2.8.5:COPYING fontconfig-2.18.3:COPYING libpng-1.6.59:LICENSE libjpeg-turbo-3.2.0:LICENSE.md \
-  tiff-4.7.2:LICENSE.md pixman-0.46.4:COPYING cairo-1.18.6:COPYING-MPL-1.1 graphene-1.10.8:LICENSE.txt \
+SLOP CWD /tmp/gtk for source in fribidi-1.0.17:COPYING harfbuzz-14.6.0:COPYING \
+  expat-2.8.5:COPYING fontconfig-2.18.3:COPYING libjpeg-turbo-3.2.0:LICENSE.md \
+  tiff-4.7.2:LICENSE.md cairo-1.18.6:COPYING-MPL-1.1 graphene-1.10.8:LICENSE.txt \
   libepoxy-1.5.10:COPYING gdk-pixbuf-2.44.8:COPYING pango-1.58.2:COPYING gtk-4.24.1:COPYING; do \
   name=${source%%-[0-9]*}; mkdir -p /usr/share/licenses/$name && cp ${source%%:*}/${source#*:} /usr/share/licenses/$name/; done
 FOLDER /usr/lib/pkgconfig

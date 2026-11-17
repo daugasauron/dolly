@@ -38,6 +38,8 @@
 //   result and the package; built again with HTTP_PROXY set, the build reaches the
 //   index through that proxy.
 // Usage: node test/npm-browser.mjs [chromium|firefox ...]
+// With DOLLY_NPM_PACKS naming a directory of this version's tarballs (the release checklist's,
+// which it publishes), it tests those in place of packing the checkout's.
 import assert from "node:assert/strict";
 import { execFile, execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -45,21 +47,25 @@ import { createSocket } from "node:dgram";
 import { createServer } from "node:http";
 import { connect, createServer as createTcpServer } from "node:net";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { chromium, firefox } from "playwright-core";
 import { isolationHeaders, mimeTypes } from "../scripts/serve.mjs";
+import { DOLLY_VERSION as checkoutVersion } from "../page/version.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const names = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const work = await mkdtemp(join(tmpdir(), "dolly-npm-"));
-const checkoutVersion = JSON.parse(await readFile(resolve(projectDir, "package.json"), "utf8")).version;
 const packs = join(work, "packs");
 if (!process.env.DOLLY_NPM_OFFLINE) {
   try {
-    execFileSync("node", [resolve(projectDir, "scripts/package-npm.mjs"), packs], { stdio: "ignore" });
+    const tested = process.env.DOLLY_NPM_PACKS;
+    if (tested) {
+      await mkdir(packs);
+      for (const name of (await readdir(tested)).filter(name => name.endsWith(".tgz"))) await copyFile(resolve(tested, name), join(packs, name));
+    } else execFileSync("node", [resolve(projectDir, "scripts/package-npm.mjs"), packs], { stdio: "ignore" });
     // An older version of every package, for the update.
     execFileSync("node", [resolve(projectDir, "scripts/package-npm.mjs"), packs, `${checkoutVersion}-rc.0`], { stdio: "ignore" });
     // dolly-build starts its browser with playwright-core, which the registry holds too.
@@ -297,10 +303,11 @@ try {
   await writeFile(join(app, "devices.html"), extended);
   await writeFile(join(app, "lacking.html"), page.replace(options,
     'document.querySelector("#dolly"), { images, image, modules: modules.filter(url => !url.includes("/dolly-host-upload/")) }'));
-  await mkdir(join(app, "allowed"));
-  await writeFile(join(app, "allowed/note.txt"), "fetched through the policy\n");
-  await mkdir(join(app, "refused"));
-  await writeFile(join(app, "refused/note.txt"), "a program never sees this\n");
+  // Two image directories' indexes, of one row each.
+  for (const [directory, words] of [["allowed", "fetched through the policy"], ["refused", "a program never sees this"]]) {
+    await mkdir(join(app, directory));
+    await writeFile(join(app, directory, "amy-index.txt"), `note /v${checkoutVersion}/Dollyfile-note ${"0".repeat(64)} ${words}\n`);
+  }
 
   // python-data's project: the install line and the FROM row of the package's README,
   // its page, and a site of the project's own image, built on it below, whose page is
@@ -340,7 +347,7 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
   await mkdir(join(dataApp, "public"), { recursive: true });
   await npm(dataApp, "npm init --yes");
   await npm(dataApp, `${/```sh\n([\s\S]*?)```/.exec(dataReadme)[1].trim()} @daugasauron/dolly-build`);
-  await writeFile(join(dataApp, "Dollyfile-my-data"), ["DOLLY 7", "APPLICATION my-data",
+  await writeFile(join(dataApp, "Dollyfile-my-data"), ["DOLLY 8", "APPLICATION my-data",
     ...declared("python-data").map(host => `REQUIRES HOST ${host}`), /^FROM .*$/m.exec(dataReadme)[0],
     "FILE /home/dolly/mean.py", "    import numpy, pandas", "    print('MEAN', pandas.Series(numpy.arange(10)).mean())",
     "SLOP python /home/dolly/mean.py > /home/dolly/mean.txt", "FILE /home/dolly/mean.txt",
@@ -419,7 +426,7 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
       // An explicit check of the capability set: what default declares, no more.
       assert.deepEqual((await tab.evaluate(() => window.dolly.hostModules)).sort(), declared("default"));
       // amy reads the image directory's index of what the image holds.
-      assert.equal(await submit("amy list | grep -q '^curl  *installed '"), 0);
+      assert.equal(await submit("amy list | grep -q '^ps  *installed '"), 0);
 
       const devices = await newPage(), run = await booted(devices, `${origin(isolated)}/devices.html`);
       for (const module of ["gpu@0", "microphone@0", "pty@0"]) {
@@ -430,8 +437,11 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
       assert.ok((await devices.evaluate(() => window.dolly.hostModules)).includes("gpu@0"));
       assert.equal(await run("nena disable gpu"), 0);
       assert.equal(await run("grep -qx 'Answer in French.' ~/.pi/agent/AGENTS.md && grep -qx hi /etc/bytes"), 0);
-      assert.equal(await run(`curl -fsS ${origin(isolated)}/allowed/note.txt > /tmp/note && grep -q 'through the policy' /tmp/note`), 0);
-      assert.notEqual(await run(`curl -fsS ${origin(isolated)}/refused/note.txt > /dev/null`), 0);
+      // What leaves the page for the guest passes the embedding's policy: amy reads
+      // another directory's index only where a rule admits it.
+      assert.equal(await run(`amy server ${origin(isolated)}/allowed/ && amy list | grep -q 'through the policy'`), 0);
+      assert.equal(await run(`amy server ${origin(isolated)}/refused/ && ! amy list 2> /tmp/refused && ` +
+        "grep -q 'policy does not admit' /tmp/refused && rm /etc/dolly/packages-server"), 0);
 
       const lacking = await newPage();
       await lacking.goto(`${origin(isolated)}/lacking.html`);

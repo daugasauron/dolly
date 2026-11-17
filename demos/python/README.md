@@ -43,7 +43,7 @@ with what it needs (`python` among them), and `amy install matplotlib` into a
 session:
 
 ```text
-INSTALL /vX.Y.Z/demos/python/Dollyfile-matplotlib SHA256
+INSTALL /demos/python/Dollyfile-matplotlib SHA256
 ```
 
 | Package | Its roots, at their versions | It installs |

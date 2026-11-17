@@ -3,10 +3,10 @@
 // read back by ffprobe, the lossless ones decoded to the source's exact
 // samples, the lossy video compared with its source, a frame written as PNG,
 // and a C program linked with the libraries.
-// Usage: node demos/ffmpeg/test/ffmpeg-browser.mjs [chromium|firefox ...]
+// Usage: [DOLLY_BROWSER=firefox] node demos/ffmpeg/test/ffmpeg-browser.mjs
+import { browsers } from "../../browsers.mjs";
 import { demoTest, writeCommand } from "../../browser.mjs";
 
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const video = "-f lavfi -i testsrc2=size=320x240:rate=25:duration=2";
 const tone = "-f lavfi -i sine=frequency=440:sample_rate=44100:duration=2";
 const quiet = "ffmpeg -hide_banner -loglevel error -y";

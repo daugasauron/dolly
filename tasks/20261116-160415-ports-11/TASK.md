@@ -4,11 +4,11 @@
 - PRIORITY: 180
 - TAGS: audit,ports,firefox,rust,wine,tests,0.1.8
 
-## State (2026-11-17, `fix/module-wait`)
+## State (2026-11-17)
 
-The rust failure is fixed on branch `fix/module-wait` (`work/fix-module-wait`, commits
-`6148eb92d` and `f7c035612`, page JavaScript only), to merge; checked against `work/round1113`'s
-dist by per-file links. Evidence and drivers: `work/audit-1116-evidence/ports/fix-module-wait/`
+The rust failure is fixed on branch `fix/module-wait` (commits `6148eb92d` and `f7c035612`,
+page JavaScript only), merged into `integrate/0.1.8` (`affb461e2`); checked against
+`work/round1113`'s dist by per-file links. Evidence and drivers: `work/audit-1116-evidence/ports/fix-module-wait/`
 (`INDEX.txt`). Two causes, both measured in Firefox 155 with the supervisor and process Worker
 traced:
 
@@ -36,8 +36,47 @@ demo test passed in Firefox three times in a row (303, 310, 281 s) and in Chromi
 amy test's `amy cargo alone` and `test/process-browser.mjs` passed in both browsers; `npm run
 test:source` passed.
 
-Left (this task, not touched): the eleven tests that run in Chromium whatever is asked and the
-demos suite in both browsers, and wine's `site` session in Firefox (both in Smallest fix).
+The rest is done on `ws/ports` (`ead02d08c`). `demos/browsers.mjs` gives a demo test the
+browser `DOLLY_BROWSER` names; imported without it, it runs the test again in each browser, a
+process for each, so that module state of one run (a fixture's request log, as Pi's frontend
+test keeps) cannot reach the other: a test run alone, or by the demos suite, runs in both. Every
+demo test whose browser was Chromium by default or by an argument takes its browsers from it
+(45 files: the eleven, the parts of four, `x11` and `ghostty-gtk`, whose default was Chromium, and
+the tests that took an argument), as do 0 A.D.'s tests that need no GPU (OpenAL, SpiderMonkey,
+ENet, the engine, multiplayer without a window). Where Firefox cannot run a part, the test says so
+on its Firefox line: `pi-phone` (Playwright emulates no phone in Firefox), ClassiCube (its
+fixtures drive Chrome's DevTools input), 0 A.D.'s shader check (Chrome's SwiftShader adapter),
+its visual multiplayer modes (Chrome's GPU window), Mojo without a display (Firefox has WebGPU in
+a window only). `sdl2-browser.mjs` drives Firefox through Playwright's keyboard (a repeated
+down is a repeat) and the page's key events for text off its layout, where Chrome takes
+DevTools key events; its probe prints what it was typed. Wine's `site` session waits until
+NetSurf's title names the licences page before it presses Back, and the home page again after
+it, instead of 2.5 and 2 s. The page's dark pixels do not tell the two pages apart, and the
+address does not tell a loaded page: NetSurf shows the licences address while it still fetches
+the page, its Back button disabled, and a Back pressed then leaves the licences page (measured,
+`ff-3`: the address's right end stayed at x 154 against the home page's 73).
+
+Runs on `ws/ports` (logs in `work/audit-1116-evidence/ports/fix-ports/`, `both-*`, `ff-*`,
+`cc-*`), each test once per browser by `demos/browsers.mjs`, at a load of 35 to 42 on 16 cores
+(round 1117 ran the same tests 3 to 6 times faster): in Chromium and Firefox, `sdl2`,
+`janis-install`, Pi's ask-user, frontend, `pi` and session tests, the studio, `imgui`,
+`sdl2 audio`, `ocaml` and its fixpoint, `emacs` and its package, `pi-local`'s start screen,
+`javascript`, `vendor-crates`, `rts` and its layout and input; ClassiCube in Chromium, its
+Firefox line saying why it is skipped; `xonotic` in Chromium (its Firefox run was refused when
+`rust-sdk`'s pin changed under it, `tasks/20261116-140352-ports-02`). On round 1113's images
+(the release's recipes, catalog and snapshots in place, `released-mode.sh`), in Firefox:
+`cmake`, `codex`, `neovim`, `tmux` (its three parts), `python-data` with `openblas` and `numpy`,
+`ghostty-gtk`, 0 A.D.'s OpenAL, SpiderMonkey, ENet, engine and headless multiplayer checks, the
+speech packages (with `pi-phone`'s line saying why it skips), ClassiCube's skip line (`rel-ff`,
+`rel-ff2`, `rel-ff3`), and `wine` (`rel-ff3`; on this branch's `wine` in Chromium, `both-17`).
+Its GIMP session, which no Firefox run had reached, compares the stroke drawn with the stroke
+saved within a pixel: in Firefox the stroke as drawn keeps one pixel of the tool's mark (4002
+against 4001, measured, `rel-ff2`).
+
+The round confirms the rest: the demos suite (`npm run test:demos`) on its images, every test
+with a Firefox line or the need that keeps it out; among them `xonotic` in Firefox and
+`pi-phone` in Chromium, which this tree could not run on its own builds. Images the change
+rebuilds: none (tests).
 
 ## What
 

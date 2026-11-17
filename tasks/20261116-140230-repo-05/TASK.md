@@ -1,14 +1,12 @@
 # release-checklist.sh drops the npm test's log and prints 25 errors in a passing run
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 60
 - TAGS: audit,repo,release,tests,0.1.8
 
-## State (2026-11-16)
+## State (2026-11-17)
 
-Filed by the repo audit; nothing done. The checklist's npm test packs its own tarballs instead of
-testing those it publishes, and the release runs that test four times. Both are
-`tasks/20261116-140603-buildtime-04`, measured there. What is left here is the checklist's output.
+Closed: see the closing section.
 
 ## Found
 
@@ -30,3 +28,21 @@ testing those it publishes, and the release runs that test four times. Both are
 ## Done when
 
 A passing checklist prints no error line. A failing npm step names its log.
+
+## Closed (2026-11-17)
+
+Fixed on `ws/release` (`df6a9389a`):
+
+- Step 3 tests the tarballs it packs to publish: `DOLLY_NPM_PACKS=build/npm-vX.Y.Z node
+  test/npm-browser.mjs` (the test copies those in place of packing the checkout's, then runs
+  itself offline as before), its output in `build/npm-vX.Y.Z.log`, which the stop names. It is
+  the release's one run of the test beside the browser suite's (`tasks/20261116-140603-buildtime-04`).
+- Step 2 reads the 16 KiB after a PEM header with one `dd` read (`iflag=skip_bytes bs=16384
+  count=1`), which the pipe holds whole before awk can stop reading it: no broken pipe.
+
+Evidence (the branch's tree, `build/ws/`): step 2's loop over 0.1.7's 230 snapshots (`scan.sh`)
+read 25 PEM blocks, each listed in `config/public-test-keys.txt`, and printed no error line (58 s);
+each block's digest by `dd` equals the old `tail | head` one (`dolly-go-system.snapshot`, three
+blocks). The npm step on 0.1.7's published tarballs (`DOLLY_NPM_PACKS=work/round1113/build/npm-v0.1.7`, read
+only, in a worktree at `b09b1e243`): "npm packages: chromium passed in 877.0s", "firefox passed in
+832.8s", "requests beyond the machine: none" (`build/ws/logs/npm-packs-v017.log`, at load 48).

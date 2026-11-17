@@ -21,7 +21,8 @@ bytecode run by `ocamlrun`: a program `ocamlc` links starts with
 
 [`prepare-ocaml.sh`](prepare-ocaml.sh) configures the release outside Dolly,
 in the pinned Emscripten container (a bootstrap exception), as zsh's is:
-`--disable-native-compiler` and no shared libraries. Where Dolly and
+`--disable-native-compiler`, and `--disable-shared`: upstream's configure
+makes shared libraries only for the systems it lists. Where Dolly and
 Emscripten's libc differ, the script states the result. Dolly compiles the
 runtime, and the release's `boot/ocamlc` builds the standard library, the
 compiler and the tools ([`Dollyfile-ocaml`](Dollyfile-ocaml)). Then
@@ -41,9 +42,6 @@ of the compiler is built on the host.
   runtime, as without shared libraries anywhere, and the bytecode follows
   it. A WebAssembly module ends at its last section, so the bytecode is
   appended as a custom section.
-- `Unix.create_process` spawns with `posix_spawn`, whose close action Dolly
-  does not take: the child keeps the descriptor it was given, beside its
-  copy as standard input or output.
 - `Unix.gethostbyaddr` raises `Not_found`: Dolly's libc has no
   `gethostbyaddr`.
 

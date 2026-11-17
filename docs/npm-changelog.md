@@ -6,6 +6,14 @@ the problems a user of them met and their fixes. [Dolly from npm](npm.md) is
 the guide, and [Upgrading](npm-upgrading.md) moves a project from one version
 to the next. The packages of one project are all of one version.
 
+## 0.1.8
+
+- The recipe language is `DOLLY 8`: a site path is `/PATH`, without the
+  version (`FROM /Dollyfile-system SHA256`). A recipe no longer changes with
+  every release, and a package that did not change keeps its pin and its
+  bytes from one version to the next. [Upgrading](npm-upgrading.md) has the
+  two edits a `DOLLY 7` recipe needs.
+
 ## 0.1.7
 
 - 0.1.6 did not install from npm. npm refuses a new package name with the word

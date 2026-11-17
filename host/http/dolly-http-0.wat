@@ -12,7 +12,7 @@
   ;; The browser validates ALL spans against these byte limits before decoding
   ;; or copying. Metadata is UTF-8, excludes NUL, and need not be
   ;; NUL-terminated. No unbounded string scans. The URL is absolute http(s),
-  ;; or a site path /vX.Y.Z/FILE of the release the page serves, which the
+  ;; or a site path /FILE of the release the page serves, which the
   ;; browser resolves against that site's root; nothing is resolved against
   ;; the page's own location.
   (global (export "DOLLY_HTTP_SLOT_COUNT") i32 (i32.const 16))

@@ -1,0 +1,54 @@
+{
+  "image": "default",
+  "directory": "/tmp/amy-javascript",
+  "steps": [
+    {
+      "fresh": true,
+      "why": "The engine as a library: a C program evaluates an expression with it.",
+      "script": "amy install quickjs",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <quickjs.h>' 'int main(void) { JSRuntime *runtime = JS_NewRuntime(); JSContext *context = JS_NewContext(runtime); int answer = 0; JS_ToInt32(context, &answer, JS_Eval(context, \"6 * 7\", 5, \"amy\", JS_EVAL_TYPE_GLOBAL)); JS_FreeContext(context); JS_FreeRuntime(runtime); return answer != 42; }' > /tmp/amy-quickjs.c && cc -O0 /tmp/amy-quickjs.c -lquickjs -o /tmp/amy-quickjs && /tmp/amy-quickjs", "status": 0 },
+    {
+      "fresh": true,
+      "why": "Janis as a library: a C program that is one script, linked on the engine that janis installs.",
+      "script": "amy install janis",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "echo 'import { readFileSync } from \"node:fs\"; process.exitCode = readFileSync(process.argv[2], \"utf8\").length;' > /tmp/amy-embed.mjs && printf '%s\\n' '#include <dolly/quickjs-runner.h>' 'int main(int argc, char **argv) { return dolly_quickjs_run(argc, argv, \"/tmp/amy-embed.mjs\"); }' > /tmp/amy-embed.c && cc -O0 /tmp/amy-embed.c -ldolly-js -lquickjs -o /tmp/amy-embed && printf 12345 > /tmp/amy-embed.txt; /tmp/amy-embed /tmp/amy-embed.txt; test $? = 5", "status": 0 },
+    {
+      "fresh": true,
+      "why": "tsc is Janis started on the compiler: the package installs janis, and janis the engine it is built on. tsc compiles and janis runs.",
+      "script": "! command -v tsc",
+      "status": 0
+    },
+    { "script": "amy install typescript", "status": 0 },
+    { "script": "cd /tmp && echo 'export const answer: number = 6 * 7; console.log(answer);' > amy-answer.ts && tsc --target ES2023 --module ES2022 amy-answer.ts && test \"$(janis amy-answer.js)\" = 42 && amy list | grep -q '^janis  *installed ' && amy list | grep -q '^quickjs  *installed ' && man tsc > /dev/null", "status": 0 },
+    {
+      "fresh": true,
+      "why": "The engine's own command: it evaluates, and holds no module of Node's.",
+      "script": "! command -v qjs",
+      "status": 0
+    },
+    { "script": "amy install quickjs", "status": 0 },
+    { "script": "test \"$(qjs -e 'console.log(6 * 7)')\" = 42 && ! qjs -e 'import \"node:fs\"' 2> /dev/null && man qjs > /dev/null", "status": 0 },
+    {
+      "fresh": true,
+      "why": "A Node-style script reads a file. Janis starts its children with sh, which posix holds.",
+      "script": "! command -v janis",
+      "status": 0
+    },
+    { "script": "amy install janis", "status": 0 },
+    { "script": "echo read > /tmp/amy-janis.txt && test \"$(janis -e 'console.log(require(\"node:fs\").readFileSync(\"/tmp/amy-janis.txt\", \"utf8\").trim().toUpperCase())')\" = READ && test \"$(janis -e 'console.log(require(\"node:child_process\").execSync(\"echo spawned\").toString().trim())')\" = spawned && man janis > /dev/null && ! command -v tsc", "status": 0 },
+    {
+      "fresh": true,
+      "why": "janis-install brings the commands it starts, janis, gzip and sbase's; without the registry it refuses a git spec by name.",
+      "script": "! command -v janis-install",
+      "status": 0
+    },
+    { "script": "amy install janis-install", "status": 0 },
+    { "script": "man janis-install > /dev/null && command -v sha512sum > /dev/null && ! janis-install user/repo 2> /dev/null", "status": 0 }
+  ]
+}

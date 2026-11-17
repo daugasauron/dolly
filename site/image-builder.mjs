@@ -2,15 +2,16 @@ import { hostRegistry } from "../host/modules.mjs";
 import { hostRequirement } from "../host/requirements.mjs";
 import { imageBase, imageDefinition } from "../page/images.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
+import { serveNetworkFetches } from "../page/network.mjs";
 
 // Disposable Wasm userspace on the runtime the image declares, with the build
-// host's modules, configured as the caller's host says (host.builder): the
-// caller's browser policy and no display, file picker, local service or ENTRY.
+// host's modules and NETWORK, the caller's page network for builds
+// (page/network.mjs, builder()): no display, file picker, local service or ENTRY.
 // MODULES are the URLs of the module.json of each host module the page has.
 // Used for dependencies and Studio builds. ARTIFACTS are the build's inputs,
 // each one's bytes a Blob the Worker reads; it resolves to the built artifact,
 // verified and in the image cache.
-export async function buildImage(image, artifacts, configuration, report, { modules, customSource, signal } = {}) {
+export async function buildImage(image, artifacts, network, report, { modules, customSource, signal } = {}) {
   signal?.throwIfAborted();
   const declared = image === "custom" ? inspectDollyfile(customSource).hostRequirements
     : imageDefinition(image).hostRequirements;
@@ -25,7 +26,7 @@ export async function buildImage(image, artifacts, configuration, report, { modu
   for (const { name, build } of manifests) if (build) needed.add(name);
   const registry = await hostRegistry(manifests.filter(({ name }) => needed.has(name)).map(({ url }) => url));
   const host = await registry.createHost("browser", registry.buildHostFor(declared),
-    { send: message => worker.postMessage(message), configuration });
+    { send: message => worker.postMessage(message), resources: { network } });
   let abort, result;
   const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
   try {
@@ -33,6 +34,7 @@ export async function buildImage(image, artifacts, configuration, report, { modu
     worker = new Worker(new URL("./build-worker.mjs", import.meta.url), {
       type: "module", name: `dolly-build-${image}`,
     });
+    serveNetworkFetches(network, worker);
     result = await new Promise((resolve, reject) => {
       abort = () => reject(signal.reason);
       signal?.addEventListener("abort", abort, { once: true });

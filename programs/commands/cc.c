@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include <dolly/toolchain.h>
+#include "toolchain.h"
 
 int main(int argc, char **argv) {
   // `cc -v` and `cc --version` alone print Clang's banner, as Clang does (-v to

@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE sdl2-image
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -15,8 +15,8 @@ REQUIRES HOST touch@0
 # IMG_SaveJPG write. SDL2IMAGE_VENDORED: nothing vendored is built with these
 # options, and the CMake package then does not look for a libjpeg and libpng
 # the library does not link.
-FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 99ba4b0dfea5dfd2099047bbbd136adbff138ac5c2316c7f57f4fa485f50968f
-INSTALL /v0.1.7/demos/sdl2/Dollyfile-sdl2 3eb6c82723eb26957a9a9b6ab8dc196609762ebda2b32b33152d4d30d77fac78
+FROM /demos/cmake/Dollyfile-cmake-build 80318c713e588e7871dd624ebf404a7580518af49692c8b5a27d909fe22cd8f3
+INSTALL /demos/sdl2/Dollyfile-sdl2 d71374d82452f6987ca07798fc16a46088dbf0fd076f45d48defd844d0d2020f
 REQUIRES HEADER libc
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2
@@ -26,7 +26,7 @@ REQUIRES TOOL make
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.7/dist/static/sdl2-image/source.tar 38a61add1bc1554cac86cf72214081e1ad079fc546b180a79b7f000dec032117 /tmp/sdl2-image/source.tar
+SOURCE /dist/static/sdl2-image/source.tar 38a61add1bc1554cac86cf72214081e1ad079fc546b180a79b7f000dec032117 /tmp/sdl2-image/source.tar
 SLOP tar -xf /tmp/sdl2-image/source.tar -C /
 SLOP cmake -S /tmp/sdl2-image/source -B /tmp/sdl2-image/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \

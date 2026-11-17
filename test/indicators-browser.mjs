@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { browserTest } from "./browser.mjs";
+import { browserTest, workbench } from "./browser.mjs";
 
 // The page's indicators show when the page is ready, hide ten seconds later
 // (on the page's clock, which the test advances) and follow Ctrl+Shift+F,
@@ -8,9 +8,8 @@ import { browserTest } from "./browser.mjs";
 // offer and a failed save hold them shown until answered.
 const server = { fixtures: { "corner-control.c": "test/fixtures/corner-control.c" } };
 await browserTest("indicators", { image: "system", server }, async ({ server, open }) => {
-  const { page, submit, text } = await open({
-    policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
-    setup: page => page.clock.install() });
+  const { page, submit, text } = await open({ ...await workbench([], [], { setup: page => page.clock.install() }),
+    policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   const save = page.locator("#session-open"), downloads = page.locator("#downloads");
   assert.equal(await save.isVisible(), true, "the Save button is not shown on load");
   await page.clock.fastForward(5000);

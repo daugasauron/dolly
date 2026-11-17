@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN blender-deps
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -21,16 +21,16 @@ REQUIRES HOST threads@0
 #   {fmt} 12 (the package is 7); it takes libjpeg's boolean as an integer,
 #   which it is in libjpeg-turbo.
 # - binaryen is for Blender's link (Dollyfile-blender).
-FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 99ba4b0dfea5dfd2099047bbbd136adbff138ac5c2316c7f57f4fa485f50968f
-INSTALL /v0.1.7/Dollyfile-zlib 8de0bd7abb3a8237405fbbe378e6565c995a24694e5a3b55ef24873c5786bdb5
-INSTALL /v0.1.7/Dollyfile-gzip fe37ea911f935be9f5dc2fcf29fdddba385759e05220a033ebaea81a810a16b5
-INSTALL /v0.1.7/demos/zero-ad/Dollyfile-libpng 1832831a62d75eedcd633b1879910e0556deb2c271857ca8a64e25b540f0e0bc
-INSTALL /v0.1.7/demos/tools/Dollyfile-zstd 6bbf4ce45483d7c4789ef7c74aeb39082401418abb3304c9089b0ef80186ae54
-INSTALL /v0.1.7/demos/tools/Dollyfile-xz d07bf61b88901661d5f75bc5000003f0df152c88dad282c46e57bd55f3a5adbb
-INSTALL /v0.1.7/demos/tools/Dollyfile-bzip2 4c4c113645923d9d2d872ace619529a96c5f168d094a47afa7a1f792993dfb14
-INSTALL /v0.1.7/demos/tools/Dollyfile-sqlite 5b8b1bb1caebf8119a4c2c11bc897db30dcde77936ee7a31d4f1634df20f9e35
-INSTALL /v0.1.7/demos/tools/Dollyfile-binaryen e9018a3b0f85a39af18aac559e63a2fa0b376dac189a97fa930c1f5c56e29fef
-INSTALL /v0.1.7/demos/python/Dollyfile-python c97238b02344b36aad552b36fd2f73d450811ecaf7f5464374e82e8af15b80d7
+FROM /demos/cmake/Dollyfile-cmake-build 80318c713e588e7871dd624ebf404a7580518af49692c8b5a27d909fe22cd8f3
+INSTALL /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
+INSTALL /Dollyfile-gzip cef69a22c3b9f73889f4c819fcfaee2fb4487474ea4efa364117b8796465d1a4
+INSTALL /demos/tools/Dollyfile-libpng e366774feb4f3c2d01536c2b954f7f18399301df90111fbf75f3b86e6b5a5b2b
+INSTALL /demos/tools/Dollyfile-zstd 61db5f6286bfd76d12631da5259b319f11f6a77f1441644bc23274cd736f26ef
+INSTALL /demos/tools/Dollyfile-xz 096ffdfc8b9a37b1bc6cab494bce2aac391f3b598e402be8a28936986a7dfa2a
+INSTALL /demos/tools/Dollyfile-bzip2 9ba0544ea6eb6e96c7f58f8fade57c3ea969e4996a1f0d0fc8b09af8dd7f723a
+INSTALL /demos/tools/Dollyfile-sqlite d79438270b1af3866a2fc671d43f461a0cae2a436b7f1763554f4493a1bae2ed
+INSTALL /demos/tools/Dollyfile-binaryen 18aec5d267008348dfb6b7d9dbf61a559d72c62cde0f56bb2871eca15045e4db
+INSTALL /demos/python/Dollyfile-python 8833885bddfe56551862fba3d762153089994aa977f0d3c91110cebe4393bcc7
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL patch
@@ -43,7 +43,7 @@ REQUIRES LIB lzma
 REQUIRES LIB bz2
 REQUIRES LIB sqlite3
 
-SOURCE /v0.1.7/dist/static/blender/deps.tar.gz 752e0c2621af8ecdd9e4bb1a89081df195bb583336ae39a9fdebed44e252d327 /tmp/blender-deps.tar.gz
+SOURCE /dist/static/blender/deps.tar.gz 752e0c2621af8ecdd9e4bb1a89081df195bb583336ae39a9fdebed44e252d327 /tmp/blender-deps.tar.gz
 SLOP gzip -dc /tmp/blender-deps.tar.gz | tar -xf - -C /
 SLOP rm /tmp/blender-deps.tar.gz
 SLOP cc -O2 /tmp/blender-deps/ccfilter.c -o /usr/bin/ccfilter
@@ -129,7 +129,7 @@ SLOP CWD /tmp/blender-deps/libepoxy cp include/epoxy/gl.h include/epoxy/common.h
 # What a program that links libpython3.14.a needs beside it: CPython builds
 # its HACL archives and its own expat there and installs neither. Its Makefile
 # makes them in the prepared tree the python package was built from.
-SOURCE /v0.1.7/dist/static/python/cpython.tar.gz 14c1e5ba898d41d32ff11e912179671fdb80cd42334dbab7f2a01e05a65a71bf /tmp/cpython.tar.gz
+SOURCE /dist/static/python/cpython.tar.gz 14c1e5ba898d41d32ff11e912179671fdb80cd42334dbab7f2a01e05a65a71bf /tmp/cpython.tar.gz
 SLOP gzip -dc /tmp/cpython.tar.gz | tar -xf - -C /
 SLOP rm /tmp/cpython.tar.gz
 SLOP CWD /usr/src/python time make -j4 Modules/expat/libexpat.a Modules/_hacl/libHacl_Hash_MD5.a \
@@ -145,6 +145,8 @@ FOLDER /usr/include
 FOLDER /usr/lib
 FOLDER /usr/share/OpenColorIO
 FOLDER /usr/share/eigen3
+# Each library's licence files, which the archive puts there for the blender package.
+FOLDER /usr/share/licenses/blender
 # OpenImageIO's CMake package checks that each of its tools is there.
 EXPORTS TOOL oiiotool
 EXPORTS TOOL iconvert

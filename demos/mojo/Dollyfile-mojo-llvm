@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN mojo-llvm
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -11,9 +11,9 @@ REQUIRES HOST threads@0
 # Build-only: the LLVM, MLIR and Clang Basic libraries the Mojo compiler
 # links, at the revision Mojo pins, and Zstandard, compiled inside Dolly by
 # its own cc and c++.
-FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 99ba4b0dfea5dfd2099047bbbd136adbff138ac5c2316c7f57f4fa485f50968f
+FROM /demos/cmake/Dollyfile-cmake-build 80318c713e588e7871dd624ebf404a7580518af49692c8b5a27d909fe22cd8f3
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL /v0.1.7/demos/python/Dollyfile-python c97238b02344b36aad552b36fd2f73d450811ecaf7f5464374e82e8af15b80d7
+INSTALL /demos/python/Dollyfile-python 8833885bddfe56551862fba3d762153089994aa977f0d3c91110cebe4393bcc7
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python
@@ -29,23 +29,20 @@ REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/mojo/mojo-llvm.tar.gz bb20b5265be3bcb4387eb866060e3fa6ba5a07fb132fad481793b6db0699ac75 /tmp/mojo-llvm.tar.gz
+SOURCE /dist/static/mojo/mojo-llvm.tar.gz bb20b5265be3bcb4387eb866060e3fa6ba5a07fb132fad481793b6db0699ac75 /tmp/mojo-llvm.tar.gz
 SLOP time slop -c 'gzip -dc /tmp/mojo-llvm.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/mojo-llvm.tar.gz
 # As demos/llvm: config.guess runs and knows no Dolly host.
-SOURCE /v0.1.7/dist/static/mojo/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
+SOURCE /dist/static/mojo/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/mojo-llvm -i /tmp/llvm-host-triple.patch
-# As demos/rust: Dolly has no /proc/self/exe; a program finds itself from argv[0].
-SOURCE /v0.1.7/dist/static/mojo/llvm-main-executable.patch a9fb350ef60401eeea39f75895ffc2bc89747ac4338a6daa0c3350491d0d025a /tmp/llvm-main-executable.patch
-SLOP patch -p1 -d /tmp/mojo-llvm -i /tmp/llvm-main-executable.patch
 # Mojo's own patch to LLVM's code generator (bazel/public-patches/llvm_source.bzl);
 # its others change LLDB and the Bazel overlay, which are not built.
-SOURCE /v0.1.7/dist/static/mojo/llvm-machinefunction-sti-ref-to-ptr.patch 6226c7dca544ff5ea5cf384bafecdfb49a4ef8f43d88c3996d310f25a42d6a53 /tmp/llvm-sti.patch
+SOURCE /dist/static/mojo/llvm-machinefunction-sti-ref-to-ptr.patch 6226c7dca544ff5ea5cf384bafecdfb49a4ef8f43d88c3996d310f25a42d6a53 /tmp/llvm-sti.patch
 SLOP patch -p1 -d /tmp/mojo-llvm -i /tmp/llvm-sti.patch
 
 # Zstandard, with which LLVM's Support compresses: Mojo's precompiled
 # packages are compressed.
-SOURCE /v0.1.7/dist/static/mojo/zstd.tar 9a873f533780038d91f831cc4d24d6360bc745f2a2c1c6eaf62a2699c16cb133 /tmp/zstd.tar
+SOURCE /dist/static/mojo/zstd.tar 9a873f533780038d91f831cc4d24d6360bc745f2a2c1c6eaf62a2699c16cb133 /tmp/zstd.tar
 SLOP tar -xf /tmp/zstd.tar -C /
 FILE /tmp/zstd/Makefile
     .RECIPEPREFIX := >
@@ -91,8 +88,8 @@ FILE /tmp/mojo-llvm/Dolly.cmake
 SLOP time cmake -C /tmp/mojo-llvm/Dolly.cmake -S /tmp/mojo-llvm/llvm -B /tmp/mojo-llvm/build
 
 # The roots of what Mojo's BUILD.bazel files name of @llvm-project, MLIR's
-# first; Make builds the TableGen tools and the libraries below them. Four jobs
-# fit the 32-process cap; -k reports every failing unit, not only the first.
+# first; Make builds the TableGen tools and the libraries below them. Four jobs,
+# as many as nproc reports; -k reports every failing unit, not only the first.
 SLOP CWD /tmp/mojo-llvm/build time make -k -j4 MLIRCAPIIR MLIRCAPITransforms MLIRLspServerSupportLib \
   MLIRIndexToLLVM MLIRReconcileUnrealizedCasts MLIRBuiltinToLLVMIRTranslation MLIRLLVMToLLVMIRTranslation \
   MLIRNVVMToLLVMIRTranslation MLIRROCDLToLLVMIRTranslation clangBasic LLVMOrcDebugging LLVMMCJIT \
@@ -105,7 +102,7 @@ SLOP CWD /tmp/mojo-llvm cp -R llvm/include/llvm llvm/include/llvm-c mlir/include
 SLOP CWD /tmp/mojo-llvm/build slop -c 'for tree in include tools/mlir/include tools/clang/include; do for f in $(cd $tree && find . -name CMakeFiles -prune -o -type f \( -name "*.inc" -o -name "*.def" -o -name "*.h" \) -print); do mkdir -p "/opt/mojo-llvm/include/${f%/*}"; cp "$tree/$f" "/opt/mojo-llvm/include/$f"; done; done'
 SLOP cp /tmp/mojo-llvm/llvm/LICENSE.TXT /opt/mojo-llvm/LICENSE.TXT
 SLOP cp /tmp/zstd/LICENSE /opt/mojo-llvm/LICENSE.zstd
-SLOP rm -rf /tmp/mojo-llvm /tmp/zstd /tmp/zstd.tar /tmp/llvm-host-triple.patch /tmp/llvm-main-executable.patch /tmp/llvm-sti.patch
+SLOP rm -rf /tmp/mojo-llvm /tmp/zstd /tmp/zstd.tar /tmp/llvm-host-triple.patch /tmp/llvm-sti.patch
 
 FOLDER /opt/mojo-llvm
 SLOP /opt/mojo-llvm/bin/mlir-tblgen --version

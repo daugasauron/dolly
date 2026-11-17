@@ -357,7 +357,7 @@ test("dist registers every image of the catalog", async () => {
 test("each catalog recipe's rows are published by its digest", async () => {
   const { images } = await json("dolly-images.json");
   for (const { dollyfile, sha256 } of images) {
-    assert.ok((await readFile(artifact(`rows/${sha256}.rows`), "utf8")).startsWith(`DOLLY 7 ${sha256}\0`), dollyfile);
+    assert.ok((await readFile(artifact(`rows/${sha256}.rows`), "utf8")).startsWith(`DOLLY 8 ${sha256}\0`), dollyfile);
   }
 });
 

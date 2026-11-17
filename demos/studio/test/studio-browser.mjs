@@ -3,10 +3,11 @@
 // and inline lint, and in-session dollyfile-build with its result tab.
 // Usage: node demos/studio/test/studio-browser.mjs
 import assert from "node:assert/strict";
+import { browsers } from "../../browsers.mjs";
 import { delay, demoTest, recoveryPrompt, shellQuote, writeCommand } from "../../browser.mjs";
 import { siteReference } from "../../../page/static-asset.mjs";
 
-await demoTest("studio", { image: "dollyfile-studio", timeout: 900_000,
+for (const browser of browsers) await demoTest("studio", { browser, image: "dollyfile-studio", timeout: 900_000,
   server: { fixtures: { "studio-nvim.lua": "demos/studio/test/fixtures/studio-nvim.lua" } } }, async ({ server, open }) => {
   const terminal = await open({ prompt: /Dollyfile Studio.*dolly-hello/,
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
@@ -19,7 +20,7 @@ await demoTest("studio", { image: "dollyfile-studio", timeout: 900_000,
   await run("printf 'DOLLY 2\\n' | dollyfile-lint --stdin Draft", 1);
   // Errors name the literal file, even with replacement patterns or Unicode.
   for (const label of ["Dollyfile-$&", "Dollyfile-$$", "Dollyfile-$'", "Dollyfile-$`", "Dollyfile-東京"]) {
-    await run(`message=$(printf 'DOLLY 7\\n' | dollyfile-lint --stdin ${shellQuote(label)} 2>&1); test "$?" = 1 && test "$message" = ${shellQuote(`${label}:1: missing APPLICATION, TOOLCHAIN or PACKAGE`)}`);
+    await run(`message=$(printf 'DOLLY 8\\n' | dollyfile-lint --stdin ${shellQuote(label)} 2>&1); test "$?" = 1 && test "$message" = ${shellQuote(`${label}:1: missing APPLICATION, TOOLCHAIN or PACKAGE`)}`);
   }
   await run("test -f /home/dolly/.pi/agent/skills/dollyfiles/SKILL.md");
   // Recipes name site paths; the page serves its own copies, pinned by hash.
@@ -28,13 +29,13 @@ await demoTest("studio", { image: "dollyfile-studio", timeout: 900_000,
   await run(`curl -fsS ${server.origin}/fixture/studio-nvim.lua -o /tmp/studio-nvim.lua && timeout 60 nvim --headless -n -i NONE -S /tmp/studio-nvim.lua`);
   await run("rm -f /tmp/studio-nvim.lua /tmp/Dollyfile-studio-lint && clear");
   const editor = start("nvim /workspace/Dollyfile");
-  await waitText(/DOLLY 7/);
+  await waitText(/DOLLY 8/);
   // An edit shows its lint error without saving; correcting it clears the error.
   await page.keyboard.type("gg$a0");
   await page.keyboard.press("Escape");
-  await waitText(/! .*DOLLY 7/);
+  await waitText(/! .*DOLLY 8/);
   await page.keyboard.type("$x");
-  for (const deadline = Date.now() + 30_000; /! .*DOLLY 7/.test(await text()); await delay(100)) {
+  for (const deadline = Date.now() + 30_000; /! .*DOLLY 8/.test(await text()); await delay(100)) {
     assert.ok(Date.now() < deadline, "correcting the recipe did not clear its error");
   }
   await page.keyboard.type(":");
@@ -45,7 +46,7 @@ await demoTest("studio", { image: "dollyfile-studio", timeout: 900_000,
   // Open image opens the result, which has neither parent files nor build services.
   const { default: catalog } = await import("../../../dist/dolly-images.json", { with: { type: "json" } });
   const system = catalog.images.find(definition => definition.image === "system");
-  const recipe = `DOLLY 7
+  const recipe = `DOLLY 8
 APPLICATION build-proof
 ${system.hostRequirements.map(module => `REQUIRES HOST ${module}\n`).join("")}FROM ${siteReference("Dollyfile-system")} ${system.sha256}
 FILE /tmp/proof/hello.c

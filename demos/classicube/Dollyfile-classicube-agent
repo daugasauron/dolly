@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE classicube-agent
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -7,10 +7,11 @@ REQUIRES HOST audio@0
 REQUIRES HOST touch@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
+REQUIRES HOST threads@0
 
 # The agent of ClassiCube's world, its viewer and the world packer, with their sources.
-FROM /v0.1.7/demos/pi/Dollyfile-pi-runtime 25810669641167a30b592046a55a80494b802f971b575de02870e24ba40cbd46
-USE /v0.1.7/demos/sdl2/Dollyfile-sdl2 3eb6c82723eb26957a9a9b6ab8dc196609762ebda2b32b33152d4d30d77fac78
+FROM /demos/pi/Dollyfile-pi-runtime 7c69de81666668ae8d88c0e993f63b7b92c24a05be1cb13c8c4f1b5693e95541
+USE /demos/sdl2/Dollyfile-sdl2 d71374d82452f6987ca07798fc16a46088dbf0fd076f45d48defd844d0d2020f
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner
 REQUIRES HEADER sdl2
@@ -24,13 +25,13 @@ REQUIRES TOOL c++
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/classicube/agent.tar a575c5c5354cb8210464a4577204ed3169a31838ad981acac4cba3adaa30e60e /tmp/classicube-agent/source.tar
-SOURCE /v0.1.7/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/classicube-agent/stb_truetype.h
+SOURCE /dist/static/classicube/agent.tar a575c5c5354cb8210464a4577204ed3169a31838ad981acac4cba3adaa30e60e /tmp/classicube-agent/source.tar
+SOURCE /dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/classicube-agent/stb_truetype.h
 SLOP tar -xf /tmp/classicube-agent/source.tar -C /
 SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/classicube-agent \
   /usr/src/dolly/classicube/agent/viewer.cpp -o /usr/bin/classicube-viewer -lSDL2 -lm
 SLOP cc -O2 /usr/src/dolly/classicube/agent/pack.c -o /usr/bin/classicube-pack -lz
-SLOP cc -std=gnu11 -I/usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE \
+SLOP cc -std=gnu11 -I/usr/include/dolly -D_GNU_SOURCE \
   -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char \
   /usr/src/dolly/classicube/agent/launch.c -ldolly-js -lquickjs -o /usr/bin/classicube-agent
 

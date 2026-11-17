@@ -1,10 +1,10 @@
 // amy installs the packages an image directory publishes into the running session.
 // The server is the directory /etc/dolly/packages-server names (amy server URL),
 // else the one the page loads its images from, which packages@0 names. Its index
-// is its public amy-index.txt, "NAME PATH SHA256 DESCRIPTION" per package. From
-// the page's own directory packages@0 hands over the index and each verified
-// package snapshot over its own channel (dolly-packages-0.wat); another server
-// is read over HTTP, under the page's policy. An install is the Dollyfile row
+// is its public amy-index.txt, "NAME PATH SHA256 DESCRIPTION" per package.
+// packages@0 hands over the index and each verified package snapshot over its
+// own channel (dolly-packages-0.wat); of another server than the page's, each
+// file only where the page's HTTP policy admits it. An install is the Dollyfile row
 // INSTALL PATH SHA256, executed against the live filesystem by /bin/dollyfile
 // and recorded in /etc/dolly/installed. A package's
 // snapshot records the INSTALL rows of its own recipe: those come first. In an
@@ -13,7 +13,6 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include <errno.h>
-#include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,11 +21,9 @@
 #include <unistd.h>
 
 #include <dolly/host-abi.h>
-#include <dolly/http.h>
 #include <dolly/packages.h>
 #include <dolly/runtime.h>
 
-static const char service[] = "https://packages.dolly.invalid/v1/packages/";
 static const char server_path[] = "/etc/dolly/packages-server";
 static const char installed_path[] = "/etc/dolly/installed";
 // The engine's receipt of an image, which names its host modules, and the
@@ -37,9 +34,6 @@ static const char artifacts_dir[] = "/etc/dolly/artifacts";
 static const char files_dir[] = "/etc/dolly/files";
 enum { MAX_INDEX_BYTES = 64 * 1024, MAX_RECEIPT_BYTES = 16 * 1024 * 1024, MAX_SERVER_BYTES = 2048 };
 static char server[MAX_SERVER_BYTES + 1];
-// The server is the page's own image directory, which packages@0 serves over
-// its own channel; another is read over HTTP, under the page's policy.
-static int own_server;
 
 typedef struct { char *name, *recipe, *sha256, *description; } Package;
 typedef struct { Package *items; size_t count; char *text; } Packages;
@@ -48,7 +42,7 @@ static void usage(FILE *stream) {
   fputs("usage: amy list              the site's packages: NAME, installed, description\n"
         "       amy info NAME         its description and INSTALL row\n"
         "       amy install NAME...   install packages; says what each added\n"
-        "       amy files NAME        the files NAME installs outside /etc/dolly: SIZE PATH\n"
+        "       amy files NAME        installed package NAME's files outside /etc/dolly: SIZE PATH\n"
         "       amy installed         the installed rows: NAME PATH SHA256\n"
         "       amy server            the image directory packages come from\n"
         "       amy server URL        take them from URL for this session; remove\n"
@@ -67,34 +61,6 @@ static size_t append_text(const void *bytes, size_t length, void *context) {
   return length;
 }
 
-static size_t write_descriptor(const void *bytes, size_t length, void *context) {
-  const unsigned char *cursor = bytes;
-  for (size_t remaining = length; remaining != 0;) {
-    const ssize_t written = write(*(int *)context, cursor, remaining);
-    if (written <= 0) return 0;
-    cursor += (size_t)written;
-    remaining -= (size_t)written;
-  }
-  return length;
-}
-
-// Returns 0, a negative errno, or the HTTP status of a refusal, whose body
-// `write` receives only without DOLLY_HTTP_FAIL_STATUS.
-static int fetch(const char *url, unsigned flags, dolly_http_write_callback write, void *context) {
-  dolly_http_response response = {0};
-  dolly_http_request request = {.method = "GET", .url = url, .headers = "",
-                                .flags = flags, .write = write, .write_context = context};
-  const int status = dolly_http_perform(&request, &response);
-  const int code = (int)response.status;
-  dolly_http_response_dispose(&response);
-  return status != 0 ? status : code >= 200 && code < 300 ? 0 : code > 0 ? code : -EIO;
-}
-
-static void report(const char *subject, int status) {
-  if (status < 0) fprintf(stderr, "amy: %s: %s\n", subject, dolly_http_error_message(-status));
-  else fprintf(stderr, "amy: %s: HTTP %d\n", subject, status);
-}
-
 static char *read_file(const char *path, size_t *size);
 
 // What packages@0 hands over (KIND, from DIRECTORY at PIN) into PATH, which
@@ -102,7 +68,10 @@ static char *read_file(const char *path, size_t *size);
 static int channel(uint32_t kind, const char *directory, const char *pin, const char *path, const char *subject) {
   const int status = dolly_packages_fetch(kind, directory, pin, path);
   if (status == -ENOSYS) fputs("amy: the package service is unavailable: the image must declare REQUIRES HOST packages@0\n", stderr);
-  else if (status == -ENOENT) fprintf(stderr, "amy: %s publishes no package with that recipe pin\n", directory);
+  else if (status == -EACCES) fprintf(stderr, "amy: %s: this page's HTTP policy does not admit it\n", subject);
+  else if (status == -ENOENT && pin != NULL) fprintf(stderr, "amy: %s publishes no package with that recipe pin\n", directory);
+  else if (status == -EDQUOT) fprintf(stderr, "amy: %s: this page has handed over all the package snapshots a page load "
+                                      "gives: save the session (Ctrl+Shift+S) and reload the page to install more\n", subject);
   else if (status != 0) fprintf(stderr, "amy: %s: %s\n", subject, strerror(-status));
   return status;
 }
@@ -154,7 +123,6 @@ static int find_server(void) {
   if (status == 0 && !valid_server(answer.text)) status = -EIO;
   if (status == 0) strcpy(server, answer.text);
   free(answer.text);
-  own_server = status == 0;
   return status;
 }
 
@@ -253,28 +221,18 @@ static uint64_t little_endian(const unsigned char *bytes, size_t width) {
   return value;
 }
 
-typedef struct { unsigned long long files, bytes; char commands[1024]; int environment; } Summary;
+typedef struct { unsigned long long files, bytes; char commands[1024]; } Summary;
 
-// Writes the files a snapshot installs outside /etc/dolly, Dolly's own record
-// of an image, as "SIZE PATH" lines, and counts them and the commands in them.
-static int list_files(const char *snapshot, FILE *list, Summary *summary) {
-  FILE *stream = fopen(snapshot, "rb");
-  unsigned char header[16];
-  char path[4096];
-  int valid = stream != NULL && fread(header, 1, sizeof(header), stream) == sizeof(header) &&
-      memcmp(header, "DOLLYSNP", 8) == 0;
-  for (uint64_t records = valid ? little_endian(header + 12, 4) : 0; valid && records != 0; --records) {
-    valid = fread(header, 1, sizeof(header), stream) == sizeof(header);
-    const uint64_t kind = little_endian(header, 4), length = little_endian(header + 4, 4);
-    const uint64_t size = little_endian(header + 8, 8);
-    valid = valid && length < sizeof(path) && fread(path, 1, length, stream) == length &&
-        fseeko(stream, (off_t)size, SEEK_CUR) == 0;
-    if (!valid) break;
-    path[length] = '\0';
-    // An environment record without names is its 16-byte header (programs/dollyfile.c).
-    if (strcmp(path, "/etc/dolly/environment") == 0) summary->environment = size > 16;
-    if (kind == 1 /* a directory */ || strncmp(path, "/etc/dolly/", 11) == 0) continue;
-    fprintf(list, "%llu %s\n", (unsigned long long)size, path);
+static void files_path(char *path, size_t size, const char *name) { snprintf(path, size, "%s/%s", files_dir, name); }
+
+// Counts the files and bytes of the record the engine wrote when it installed
+// NAME, "SIZE PATH" lines, and the commands among them.
+static int summarize(const char *name, Summary *summary) {
+  char record[sizeof(files_dir) + 128], path[4096];
+  files_path(record, sizeof(record), name);
+  FILE *stream = fopen(record, "r");
+  unsigned long long size;
+  while (stream != NULL && fscanf(stream, "%llu %4095[^\n]\n", &size, path) == 2) {
     summary->files++;
     summary->bytes += size;
     const char *command = strncmp(path, "/bin/", 5) == 0 ? path + 5 : strncmp(path, "/usr/bin/", 9) == 0 ? path + 9 : NULL;
@@ -283,8 +241,10 @@ static int list_files(const char *snapshot, FILE *list, Summary *summary) {
       snprintf(summary->commands + used, sizeof(summary->commands) - used, " %s", command);
     }
   }
+  const int whole = stream != NULL && feof(stream);
   if (stream != NULL) fclose(stream);
-  return valid && fflush(list) == 0 ? 0 : -1;
+  if (!whole) fprintf(stderr, "amy: %s: cannot read %s\n", name, record);
+  return whole ? 0 : -1;
 }
 
 // One file of a snapshot, read whole and NUL-terminated into `*bytes`, which
@@ -408,56 +368,25 @@ static int enable_needed(const char *name, const char *snapshot) {
   return status;
 }
 
-// Fetches a package's verified snapshot to `path`; the caller removes it.
-// packages@0 takes the package's pin and the server, as one path segment; a
-// refusal's body is its reason.
+// Fetches a package's verified snapshot, by its pin in the server's catalog,
+// to `path`; the caller removes it.
 static int fetch_snapshot(const Package *package, const char *path) {
-  char url[sizeof(service) + 64 + 6 + 3 * MAX_SERVER_BYTES];
-  size_t used = (size_t)snprintf(url, sizeof(url), "%s%s/from/", service, package->sha256);
-  for (const unsigned char *at = (const unsigned char *)server; *at != '\0'; ++at) {
-    const int plain = (*at >= 'a' && *at <= 'z') || (*at >= 'A' && *at <= 'Z') || (*at >= '0' && *at <= '9') ||
-        *at == '-' || *at == '.' || *at == '_' || *at == '~';
-    used += (size_t)snprintf(url + used, sizeof(url) - used, plain ? "%c" : "%%%02X", *at);
-  }
-  if (own_server) {
-    if ((mkdir(artifacts_dir, 0755) != 0 && errno != EEXIST) || (unlink(path) != 0 && errno != ENOENT)) {
-      fprintf(stderr, "amy: %s: %s\n", path, strerror(errno));
-      return -1;
-    }
-    fprintf(stderr, "amy: fetching %s from %s\n", package->name, server);
-    return channel(DOLLY_PACKAGES_KIND_SNAPSHOT, server, package->sha256, path, package->name);
-  }
-  int descriptor = mkdir(artifacts_dir, 0755) != 0 && errno != EEXIST ? -1
-      : open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-  if (descriptor < 0) {
+  if ((mkdir(artifacts_dir, 0755) != 0 && errno != EEXIST) || (unlink(path) != 0 && errno != ENOENT)) {
     fprintf(stderr, "amy: %s: %s\n", path, strerror(errno));
     return -1;
   }
   fprintf(stderr, "amy: fetching %s from %s\n", package->name, server);
-  int status = fetch(url, 0, write_descriptor, &descriptor);
-  if (close(descriptor) != 0 && status == 0) status = -EIO;
-  size_t size = 0;
-  char *reason = status > 0 ? read_file(path, &size) : NULL;
-  if (status == -EACCES) {
-    fputs("amy: the package service is unavailable: the image must declare REQUIRES HOST packages@0\n", stderr);
-  } else if (reason != NULL && size != 0 && size < 1024) {
-    fprintf(stderr, "amy: %s: %s", package->name, reason);
-  } else if (status != 0) report(package->name, status);
-  free(reason);
-  return status;
+  return channel(DOLLY_PACKAGES_KIND_SNAPSHOT, server, package->sha256, path, package->name);
 }
 
-static void files_path(char *path, size_t size, const char *name) { snprintf(path, size, "%s/%s", files_dir, name); }
-
-// Lists a package's files into its record when `keep`, else to stdout.
-static int snapshot_files(const Package *package, const char *snapshot, int keep, Summary *summary) {
-  char record[sizeof(files_dir) + 128];
-  files_path(record, sizeof(record), package->name);
-  FILE *list = !keep ? stdout : mkdir(files_dir, 0755) != 0 && errno != EEXIST ? NULL : fopen(record, "w");
-  int status = list == NULL ? -1 : list_files(snapshot, list, summary);
-  if (keep && list != NULL && fclose(list) != 0) status = -1;
-  if (status != 0) fprintf(stderr, "amy: %s: cannot list its files\n", package->name);
-  return status;
+// Whether the package in `snapshot` exports variables: its environment record
+// holds names, past its 16-byte header (programs/dollyfile.c).
+static int sets_environment(const char *snapshot) {
+  char *environment = NULL;
+  size_t size = 0;
+  const int read = snapshot_file(snapshot, "/etc/dolly/environment", MAX_RECEIPT_BYTES, &environment, &size);
+  free(environment);
+  return read == 0 && size > 16;
 }
 
 // Runs the row INSTALL RECIPE SHA256 against the session. The engine's log is
@@ -474,15 +403,16 @@ static int engine_install(const Package *package) {
 // Installs the row INSTALL RECIPE SHA256. The engine decides first whether
 // the package may be installed here; it ends with 3 when a row the package
 // records is not installed yet: those are installed, each as an install of
-// its own, and the engine is asked again. Its files are listed first: the
-// engine moves them out of the snapshot.
+// its own, and the engine is asked again. The engine records the files it
+// installed; it moves them out of the snapshot, so what the snapshot says of
+// the environment is read first.
 static int install_row(const char *name, const char *recipe, const char *sha256) {
   const Package package = {.name = (char *)name, .recipe = (char *)recipe, .sha256 = (char *)sha256};
   char path[sizeof(artifacts_dir) + 80];
   snprintf(path, sizeof(path), "%s/%s.snapshot", artifacts_dir, sha256);
   Summary summary = {0};
   int status = fetch_snapshot(&package, path);
-  if (status == 0) status = snapshot_files(&package, path, 1, &summary);
+  const int environment = status == 0 && sets_environment(path);
   if (status == 0) status = enable_needed(name, path);
   if (status == 0 && (status = engine_install(&package)) == 3) {
     Packages needs = {0};
@@ -498,15 +428,13 @@ static int install_row(const char *name, const char *recipe, const char *sha256)
   unlink(path);
   rmdir(artifacts_dir);
   if (status != 0) {
-    char record[sizeof(files_dir) + 128];
-    files_path(record, sizeof(record), name);
-    unlink(record);
     fprintf(stderr, "amy: %s: not installed\n", name);
     return -1;
   }
+  if (summarize(name, &summary) != 0) return -1;
   printf("amy: %s installed: %llu files, %llu bytes%s%s; amy files %s lists them\n%s",
          name, summary.files, summary.bytes, summary.commands[0] != '\0' ? ", commands:" : "", summary.commands, name,
-         summary.environment ? "amy: the environment variables it sets apply when the session is next loaded; the rest works now\n" : "");
+         environment ? "amy: the environment variables it sets apply when the session is next loaded; the rest works now\n" : "");
   return 0;
 }
 
@@ -520,29 +448,19 @@ static int install(const Packages *index, const char *name) {
   return install_row(name, package->recipe, package->sha256);
 }
 
-// The record an install left; needs no index.
+// The record the engine left when it installed NAME, here or in the image's
+// build; needs no index.
 static int print_record(const char *name) {
   char path[sizeof(files_dir) + 128];
   files_path(path, sizeof(path), name);
   FILE *record = strchr(name, '/') == NULL ? fopen(path, "r") : NULL;
-  if (record == NULL) return -1;
+  if (record == NULL) {
+    fprintf(stderr, "amy: %s is not installed: amy files lists the files of an installed package\n", name);
+    return -1;
+  }
   for (int byte; (byte = fgetc(record)) != EOF;) putchar(byte);
   fclose(record);
   return 0;
-}
-
-// The files of a package no install recorded, from the release's snapshot.
-static int files(const Packages *index, const char *name) {
-  const Package *package = find_name(index, name);
-  if (package == NULL) return -1;
-  char path[sizeof(artifacts_dir) + 80];
-  snprintf(path, sizeof(path), "%s/%s.snapshot", artifacts_dir, package->sha256);
-  Summary summary = {0};
-  int status = fetch_snapshot(package, path);
-  if (status == 0) status = snapshot_files(package, path, 0, &summary);
-  unlink(path);
-  rmdir(artifacts_dir);
-  return status;
 }
 
 int main(int argc, char **argv) {
@@ -563,6 +481,7 @@ int main(int argc, char **argv) {
   }
   if (serving && argc == 3) return set_server(argv[2]) == 0 ? 0 : 1;
   if (serving) return find_server() == 0 && printf("%s\n", server) > 0 ? 0 : 1;
+  if (naming) return print_record(argv[2]) == 0 ? 0 : 1;
   Packages index = {0}, installed = {0};
   int status = read_installed(&installed);
   if (status == 0 && recorded) {
@@ -571,16 +490,10 @@ int main(int argc, char **argv) {
       printf("%s %s %s\n", package->name, package->recipe, package->sha256);
     }
   }
-  const int local = recorded || (naming && status == 0 && print_record(argv[2]) == 0);
   char index_url[MAX_SERVER_BYTES + 16];
-  if (status == 0 && !local && (status = find_server()) == 0) {
+  if (status == 0 && !recorded && (status = find_server()) == 0) {
     snprintf(index_url, sizeof(index_url), "%samy-index.txt", server);
-    if (own_server) status = channel_text(DOLLY_PACKAGES_KIND_INDEX, server, &index, index_url);
-    else {
-      status = fetch(index_url, DOLLY_HTTP_FAIL_STATUS, append_text, &index);
-      if (status == -EACCES) fprintf(stderr, "amy: %s: this page's HTTP policy does not admit the package index\n", index_url);
-      else if (status != 0) report(index_url, status);
-    }
+    status = channel_text(DOLLY_PACKAGES_KIND_INDEX, server, &index, index_url);
     if (status == 0) status = parse_rows(&index, index_url);
   }
   if (status == 0 && listing) {
@@ -596,7 +509,6 @@ int main(int argc, char **argv) {
     printf("%s: %s\nINSTALL %s %s\n%s\n", package->name, package->description, package->recipe, package->sha256,
            find_row(&installed, package->recipe, package->sha256) ? "installed" : "not installed");
   }
-  if (status == 0 && naming && !local) status = files(&index, argv[2]);
   for (int argument = 2; status == 0 && installing && argument < argc; ++argument) {
     status = install(&index, argv[argument]);
   }

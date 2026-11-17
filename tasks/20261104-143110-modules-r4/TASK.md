@@ -7,6 +7,50 @@
 From the module audit (`tasks/20261104-135806-module-audit`, R4, section 4 item 1). A seed change:
 worth doing when the seed is next rebuilt for another reason, not alone.
 
+## State (2026-11-17, ws/modules)
+
+Done on `ws/modules`; the catalog build is the 0.1.8 round's (the seed changed).
+- The engine (`programs/dollyfile.c`) links no HTTP client and fetches nothing: a site-path
+  locator's text is `/etc/dolly/recipe.Dollyfile`, which the build Worker writes from the
+  recipe it checked against its pin, and a `SOURCE` row's file is
+  `/etc/dolly/sources/SHA256`, a build input the Worker hands it (`site/build-worker.mjs`);
+  the engine checks the digest as before and fails at the row
+  (`LOCATOR:LINE: SOURCE failed`) when it differs or when no file came.
+- The Worker reads a site path's file from the image directory by the size the catalog gives
+  it (`staticSources`, parts reassembled and checked), and an external URL's through the page:
+  `network-fetch` (`page/network.mjs` `fetch`, answered by `serveNetworkFetches` on the
+  route's page and in `site/image-builder.mjs`), admitted, counted and shown by the page's
+  HTTP policy, without credentials, within the rule's size and time, through an embedding's
+  relay where one is set (dolly-build).
+- The broker's "trusted bootstrap sources" exception is gone (`page/http-policy.mjs`,
+  `broker.mjs`'s reassembly of their parts, `bootstrapSources`): nothing of the site passes
+  the broker for a build, and a program's request for a site file is judged like any URL.
+  `test/boundary-browser.mjs` checks a build's `SOURCE` of a file the directory stores in
+  parts instead: both parts read and checked, a program reaching none, a corrupt part failing
+  the build at its row.
+- `system-build`, `dollyfile`, `amy`, `zig-build`, `zig-llvm-build`, `go-sdk` and
+  `ghostty-build` declare no `http@0`. `buildHost` keeps `http@0` for the steps (owner,
+  2026-11-12: a step may fetch, `SLOP pip install`).
+
+Verified in this tree: the runtime and the core's 42 images rebuilt on the changed seed, every
+`SOURCE` row of them read from the build inputs (`system-build`'s 40, `system-tools`'
+119), and `system-build`, `dollyfile`, `amy`, `zig-build` and `ghostty-build` sealed
+without `http@0` (the seal refuses a retained executable stamped with an undeclared module).
+`test/default-browser.mjs` "composed with sources", new, passes in Chromium and Firefox: a
+custom recipe's `SOURCE` of the test server's URL is handed over and checked; under a policy
+without a rule for it the build fails at that row, the page's refusal in its log; and a site
+path's `SOURCE` with a wrong pin fails naming the row (`...:5: SOURCE failed`).
+`test/fixtures/dollyfile-cases.mjs` (`image-browser.mjs`), which runs the engine in a
+session, puts its `SOURCE` files where the page would. With the trusted sources gone (the
+core's 43 images rebuilt again, image inputs `f3edb8bb…`), `test/boundary-browser.mjs` passes
+in both browsers: a build's `SOURCE` of a file stored in two parts reads both, checks the
+pin, and fails at its row when a part is corrupt, while a program's `curl` of the file, of a
+part, or of another version's path is refused before Fetch (no part is requested again); so do
+`http-refusals-browser.mjs`, `network-browser.mjs`, `host-compute-browser.mjs` and
+`image-browser.mjs` (logs `work/modules/build/modules-tests/c/`, `d/`, `e/`). Left for the
+0.1.8 round, which rebuilds every image (the seed changed): the catalog builds,
+`zig-llvm-build` and `go-sdk` among it.
+
 ## State (2026-11-12)
 
 Narrowed. Owner (2026-11-11): "it should be possible to do SLOP pip install x y z in a Dollyfile to

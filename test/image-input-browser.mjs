@@ -14,7 +14,7 @@ import systemMetadata from "../dist/dolly-system-system-snapshot.json" with { ty
 // ps, a package nothing else the build reads is built from.
 const [system, ps] = ["system", "ps"].map(name => catalog.images.find(({ image }) => image === name));
 const large = await largePublishedInput("ps");
-const recipe = `DOLLY 7
+const recipe = `DOLLY 8
 APPLICATION large-input
 ${system.hostRequirements.map(module => `REQUIRES HOST ${module}\n`).join("")}FROM ${siteReference(system.dollyfile)} ${system.sha256}
 COPY ${siteReference(ps.dollyfile)} ${ps.sha256} ${LARGE_INPUT_PATH} ${LARGE_INPUT_PATH}

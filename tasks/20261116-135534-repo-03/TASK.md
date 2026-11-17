@@ -1,6 +1,6 @@
 # A retired version's pages still answer 200 on both domains
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 230
 - TAGS: audit,repo,deployment,bug,0.1.8
 
@@ -52,3 +52,10 @@ again.
 
 Every page of v0.1.0 to v0.1.4 answers 404 on both domains, measured. The live check of a release
 fails while a retired version's page answers 200.
+
+## Closed (2026-11-17): the owner's decision
+
+The owner (2026-11-17, on the audit's questions): the retired v0.1.4 pages that the custom
+domains' cache still answers "Doesn't matter". Nothing is changed: no cache rule is read or
+purged, and `published-version.mjs boot` checks no retired version, a check that would fail each
+release's live step while the cached pages last.

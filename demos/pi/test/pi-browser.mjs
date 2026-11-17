@@ -1,9 +1,9 @@
 // Pi in the pi-agent image: package and model commands, rg and fd, its tools over
 // Slop, the OpenRouter and Codex logins, session resume, and the TUI against a
 // scripted streaming provider. Usage: node demos/pi/test/pi-browser.mjs
-// (DOLLY_BROWSER=firefox runs it in Firefox).
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { browsers } from "../../browsers.mjs";
 import { delay, demoTest, recoveryPrompt, shellQuote } from "../../browser.mjs";
 import { runFd, runRipgrep } from "../../rust/test/fixtures/rust-tools.mjs";
 
@@ -66,7 +66,7 @@ async function provider(request, response, path, headers) {
   return true;
 }
 
-await demoTest("pi", { image: "pi-agent", timeout: 900_000, browser: process.env.DOLLY_BROWSER ?? "chromium", server: { handle: provider, fixtures: {
+for (const browser of browsers) await demoTest("pi", { image: "pi-agent", timeout: 900_000, browser, server: { handle: provider, fixtures: {
   "pi-tools.mjs": "demos/pi/test/fixtures/pi-tools.mjs",
   "pi-sessions.mjs": "demos/pi/test/fixtures/pi-sessions.mjs",
   "utf8-writer.c": "demos/javascript/test/fixtures/utf8-writer.c",

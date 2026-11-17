@@ -77,18 +77,13 @@ and is printed once (`dpgpurast: no WGSL for shader mode M permutation P`).
 - [`prepare-xonotic.sh`](prepare-xonotic.sh) takes the release's source zip
   (identical to the tags `xonotic-v0.8.6` of DarkPlaces, gmqcc and
   xonotic-data.pk3dir's `qcsrc`) and applies
-  [`darkplaces-dolly.patch`](darkplaces-dolly.patch), six hunks under
-  `__dolly__`: the dedicated server listens on the in-process loopback, sleeps
-  and polls the console without `select`, loads no dynamic libraries (zlib is
-  linked; JPEG, PNG, curl, ODE and d0_blind_id report themselves
-  unavailable), keeps its session lock an ordinary file and reads large
-  plain files in a loop. Those two hunks are from before the kernel had file
-  locks and returned a whole `read`; it has both now, and they go with the
-  patch's next change.
-  Everything else is unchanged upstream; the engine sees `__dolly__`, never
-  `__linux__`.
-- Without `dlopen`, the libraries the engine would load at run time are
-  linked as upstream's Android build links them: IJG libjpeg 9f
+  [`darkplaces-dolly.patch`](darkplaces-dolly.patch), one hunk under
+  `__dolly__`: the dedicated server listens on the in-process loopback.
+  Everything else is unchanged upstream, `select`, the session lock and file
+  reads among it; the engine sees `__dolly__`, never `__linux__`.
+- The engine is not linked as a host of shared objects, so its `dlopen`
+  fails, and the libraries it would load at run time are linked as
+  upstream's Android build links them: IJG libjpeg 9f
   (`LINK_TO_LIBJPEG`), FreeType with its libpng (`DP_FREETYPE_STATIC`) and
   Vorbis with its Ogg (`LINK_TO_LIBVORBIS`), installed from their packages. PNG
   textures, curl, ODE and d0_blind_id stay unavailable.
@@ -169,5 +164,4 @@ the WGSL shaders by naga, and the data archives are the release's.
 build of the same engine (gcc, SDL2 2.0.20) used for measurement only; it is
 never a build input. Measurements are in the task.
 
-Test: `npm run test:demos -- xonotic` ([`test/`](test/)); `DOLLY_BROWSER=firefox`
-runs it in Firefox.
+Test: `npm run test:demos -- xonotic` ([`test/`](test/)), in Chromium and Firefox.

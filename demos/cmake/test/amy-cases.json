@@ -1,0 +1,22 @@
+{
+  "image": "default",
+  "directory": "/tmp/amy-cmake",
+  "steps": [
+    {
+      "fresh": true,
+      "why": "Each package of this demo in a default session of its own: it installs alone and is used.",
+      "script": "amy install cmake",
+      "status": 0
+    },
+    { "script": "mkdir /tmp/amy-cmake && cd /tmp/amy-cmake && printf 'int main(void) { return 0; }\\n' > main.c && printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(probe C)' 'add_executable(probe main.c)' > CMakeLists.txt && cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/probe", "status": 0 },
+    {
+      "why": "CMake finds the packages of SDL2 and SDL_image installed beside it.",
+      "script": "amy install sdl2-image",
+      "status": 0
+    },
+    { "script": "mkdir /tmp/amy-image && cd /tmp/amy-image && printf '%s\\n' '#include <SDL_image.h>' 'int main(void) { SDL_Surface *made = SDL_CreateRGBSurfaceWithFormat(0, 8, 8, 32, SDL_PIXELFORMAT_RGBA32); SDL_FillRect(made, NULL, SDL_MapRGBA(made->format, 200, 100, 50, 255)); if (IMG_SavePNG(made, \"made.png\") != 0) return 2; SDL_Surface *read = SDL_ConvertSurfaceFormat(IMG_Load(\"made.png\"), SDL_PIXELFORMAT_RGBA32, 0); return read == NULL || read->w != 8 || ((Uint8 *)read->pixels)[0] != 200 || ((Uint8 *)read->pixels)[2] != 50; }' > image.c && printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(image C)' 'find_package(SDL2 REQUIRED)' 'find_package(SDL2_image REQUIRED)' 'add_executable(image image.c)' 'target_link_libraries(image PRIVATE SDL2_image::SDL2_image-static SDL2::SDL2-static)' > CMakeLists.txt && cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/image", "status": 0 },
+    { "fresh": true, "script": "amy install libuv", "status": 0 },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <uv.h>' 'static int fired;' 'static void fire(uv_timer_t *timer) { fired = 1; uv_close((uv_handle_t *)timer, 0); }' 'int main(void) { uv_loop_t loop; uv_timer_t timer; uv_loop_init(&loop); uv_timer_init(&loop, &timer); uv_timer_start(&timer, fire, 1, 0); uv_run(&loop, UV_RUN_DEFAULT); return uv_loop_close(&loop) != 0 || !fired; }' > /tmp/amy-uv.c && cc -O0 /tmp/amy-uv.c -luv -o /tmp/amy-uv && /tmp/amy-uv", "status": 0 }
+  ]
+}

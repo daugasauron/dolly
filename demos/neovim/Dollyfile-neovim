@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 APPLICATION neovim
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -6,10 +6,10 @@ REQUIRES HOST input@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST dso@0
 
-INSTALL /v0.1.7/Dollyfile-core 0400b7c98241821542518a568100a4d8abf5e6642e2dbbc3b09f3512dfc75ba0
-INSTALL /v0.1.7/Dollyfile-posix 1253bee9688e620f912bff5694ce133044a38d20392218a152f9da4d3a290e63
-INSTALL /v0.1.7/Dollyfile-display a6680af8ee3a48c935c74f701bdd3b31b15ea2aa9e7d98cd8776d9509c81fbd2
-INSTALL /v0.1.7/demos/neovim/Dollyfile-nvim e747f5c1a2de4e6441adcb928d5838eacf442704dfef07ea330c80194774ba3d
+INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
+INSTALL /Dollyfile-posix 7be8c3d712e716af25b88175f372bbcd2bd97ca7f67e831ad9e1f01c2272e639
+INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
+INSTALL /demos/neovim/Dollyfile-nvim 3ec5b2c114cbbe8fea8950aa4dd12004014c1551ff916eec2d2f0d8a2fb15225
 
 FILE /home/dolly/.config/nvim/init.lua
     vim.opt.shell = "/bin/slop"

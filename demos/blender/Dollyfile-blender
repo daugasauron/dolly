@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE blender
 REQUIRES HOST runtime@0
 REQUIRES HOST dso@0
@@ -23,8 +23,8 @@ REQUIRES HOST threads@0
 # - Brotli for FreeType, which Blender puts on the link line only with its
 #   precompiled libraries.
 # - ccfilter for compiles and the link: see its source.
-FROM /v0.1.7/demos/blender/Dollyfile-blender-deps 2b7ff5eaaa2742dc73d5c6e0ffd7b72e7bc4f14f2d9530297ea4ebecb2d37f62
-INSTALL /v0.1.7/demos/python/Dollyfile-python c97238b02344b36aad552b36fd2f73d450811ecaf7f5464374e82e8af15b80d7
+FROM /demos/blender/Dollyfile-blender-deps 4e5045b918665b3931ecc7889f267772645119bb8f59cc81c8ff0b7ec2ef5394
+INSTALL /demos/python/Dollyfile-python 8833885bddfe56551862fba3d762153089994aa977f0d3c91110cebe4393bcc7
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL patch
@@ -32,7 +32,7 @@ REQUIRES TOOL python3
 REQUIRES TOOL wasm-opt
 REQUIRES TOOL ccfilter
 
-SOURCE /v0.1.7/dist/static/blender/blender.tar.gz 03f4920b7ce1d4dc0a537b9cd96c18bcff1093525678cee5d55d0c447e21b26f /tmp/blender.tar.gz
+SOURCE /dist/static/blender/blender.tar.gz 03f4920b7ce1d4dc0a537b9cd96c18bcff1093525678cee5d55d0c447e21b26f /tmp/blender.tar.gz
 SLOP gzip -dc /tmp/blender.tar.gz | tar -xf - -C /
 SLOP rm /tmp/blender.tar.gz
 SLOP CWD /tmp/blender/source patch -p1 -i /tmp/blender/blender-dolly.patch
@@ -71,5 +71,15 @@ SLOP test -s /tmp/blender/render.png
 EXPORTS TOOL blender
 FOLDER /usr/share/blender
 FOLDER /usr/share/doc/blender
+# The licences of what is linked into the program: Blender's (its own notices
+# are in /usr/share/doc/blender/license), the build stage's libraries', which
+# that stage keeps here, and those of zlib, libpng and Zstandard. libpython's
+# are the python package's.
+SLOP mkdir -p /usr/share/licenses/blender/zlib /usr/share/licenses/blender/libpng /usr/share/licenses/blender/zstd
+SLOP cp /tmp/blender/source/COPYING /usr/share/licenses/blender/COPYING
+SLOP cp /usr/share/licenses/zlib/LICENSE /usr/share/licenses/blender/zlib/LICENSE
+SLOP cp /usr/share/licenses/libpng/LICENSE /usr/share/licenses/blender/libpng/LICENSE
+SLOP cp /usr/share/licenses/zstd/LICENSE /usr/share/licenses/blender/zstd/LICENSE
+FOLDER /usr/share/licenses/blender
 SLOP blender --help > /usr/share/man/cat1/blender.1
 FILE /usr/share/man/cat1/blender.1

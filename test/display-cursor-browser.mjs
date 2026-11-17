@@ -2,13 +2,13 @@
 // number; the page shows each and takes nothing else for one. Its frame, gray
 // 0x60 in all four bytes, shows opaque: the fourth byte is not shown.
 import assert from "node:assert/strict";
-import { browserTest, shownColor } from "./browser.mjs";
+import { browserTest, shownColor, workbench } from "./browser.mjs";
 
 const cursors = ["text", "default", "crosshair", "pointer", "none", "ns-resize", "ew-resize", "nwse-resize",
   "nesw-resize", "move", "wait", "progress", "not-allowed", "help"];
 const server = { fixtures: { "display-cursor.c": "test/fixtures/display-cursor.c" } };
 await browserTest("display cursors", { image: "system", server }, async ({ server, open }) => {
-  const { page, submit, text } = await open({
+  const { page, submit, text } = await open({ ...await workbench(),
     policy: { maxRequests: 2, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   assert.equal(await submit(`curl -fsS ${server.origin}/fixture/display-cursor.c -o /tmp/cursor.c && cc /tmp/cursor.c -o /tmp/cursor`), 0, await text());
   const showing = submit("/tmp/cursor");

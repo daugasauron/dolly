@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE go
 REQUIRES HOST runtime@0
 # go downloads modules with net/http, which records http@0.
@@ -10,7 +10,7 @@ REQUIRES HOST http@0
 # toolenv), and installs it over the seed's. The build fails unless every
 # command is, byte for byte, the seed's. The commands start it by its own
 # path, from which it finds its GOROOT.
-FROM /v0.1.7/demos/go/Dollyfile-go-sdk 8855f573d118db847be08b9ff3d0818d8a1be25ac373944ed59902dd6166f536
+FROM /demos/go/Dollyfile-go-sdk 356f2cc3ce95769d55f64a0dacc0c155c3f102704f2a274abe0dcb6879876d66
 REQUIRES TOOL go
 SLOP mkdir -p /tmp/seed
 SLOP cp -R /usr/lib/go/pkg/tool/dolly_wasm64 /tmp/seed/tool

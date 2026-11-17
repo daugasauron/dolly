@@ -4,9 +4,52 @@
 - PRIORITY: 250
 - TAGS: audit,repo,release,tests,0.1.8
 
-## State (2026-11-16)
+## State (2026-11-17): fixed on `ws/release`; 0.1.8's round confirms it
 
-Filed by the repo audit; nothing done.
+`scripts/round.sh` is the round (`ee2bb0a9a`, `e92e65771`); docs/deployment.md's step 1 names it,
+and the release checklist's step 1 stops unless `round.sh verdict` passes on HEAD (`df6a9389a`).
+
+- Its stages are `day-round.sh`'s: `seed` (runtime, Rust and Go seeds, the runtime again, source
+  staging and both pin passes), `images` (the catalog and its pins, again until they hold, three
+  passes at most), `compiler` (`pin-seed-compiler.mjs`: a fixed point is an unchanged
+  `DOLLY_SEED_COMPILER_SHA256`; a URL moved to the new version is committed), `lint`, `suites`
+  (source, artifacts, `test/browser-tests.mjs chromium firefox`, `demos/run-browser-tests.mjs` with
+  no list) and `gpu`. `round.sh FIRST LAST` runs a part. A stage commits the pins it changed, and
+  stops, naming them, on any other change.
+- The verdict is the stages' exit statuses: a stage that passes writes the commits it started and
+  ended on to `build/round/STAGE.passed`, and `round.sh verdict` passes when the six chain to HEAD
+  with the tree clean. No log is grepped and no failure excepted. Each stage's minutes are printed.
+- The GPU stage runs both runners' `--display=$DOLLY_GPU_DISPLAY --lock=$DOLLY_GPU_LOCK`
+  (`fe88a4b3a`): the core's two hardware tests once per browser, and the 12 demo tests of the
+  runner's `display` map (the four Godot display tests, both PhotoCraft tests, local-llm, Mojo,
+  slopyard, Xonotic, 0ad-graphics, 0ad-menu), one at a time, each under flock(1). The suite skips
+  them, each printed with its need, and runs every other demo test, zero-ad's headless ones
+  among them. local-llm exits 77 without a display where it exited 0; 0ad-menu runs Chrome by
+  default, as Firefox draws no WebGPU canvas on Xvfb (`2f2da604b`). Each file's exit status
+  follows its output (`6c205ebd4`), so the log names every test it ran.
+- What stays in `work/` is a call with the machine's lines:
+  `systemd-run --user --unit dolly-round-018 -p MemoryMax=36G -p MemorySwapMax=0
+  --setenv=PATH="$PATH" --setenv=HOME="$HOME" --setenv=DOLLY_GPU_DISPLAY=:148
+  --setenv=DOLLY_GPU_LOCK=/home/daug/dev/dolly/work/.slots/gpu.lock --working-directory=TREE
+  bash scripts/round.sh` (and `DOLLY_IMAGE_JOBS` if the builder's own choice is not wanted).
+
+Checked in the branch's tree (scripts and logs under `build/ws/`): `round.sh lint lint` passed
+and wrote its record; `round.sh verdict` refused a missing stage and a chain a commit broke, and
+passed a whole chain (stand-in records); `commit_pins` committed pin changes and refused one beyond
+them (`commit-pins-test.sh`). The demos runner over stand-ins of all 59 demo tests' names
+(`fake-demos.sh`) started 45 without `DISPLAY` (the caller's `:1` removed) and skipped 14 with
+their needs, and in `--display` ran the 12 with `DISPLAY=:148` under the lock. On 0.1.7's images
+(a worktree at `b09b1e243` with this branch's test files, `build/ws/v017`): the GPU stage's two
+commands, `test/browser-tests.mjs --display=:148 --lock=…` (gpu-render and gpu-explicit in Chrome and
+Firefox, the two that the load ran out of time passing alone: `tasks/20261116-140017-repo-04`) and
+`demos/run-browser-tests.mjs --display=:148 --lock=… zero-ad` (0ad-graphics and 0ad-menu in Chrome,
+"2 passed", 12 min); the suite on zero-ad, never run by a round, "6 passed, 3 skipped" with their
+needs (0ad-enet, -engine, -multiplayer, -openal, -shaders, -spidermonkey); the suite's Xonotic,
+the software path alone, in 100.8 s where its whole run took 513.7 s; and the npm test on 0.1.7's
+published tarballs, the checklist's step 3, in both browsers.
+
+What only the round can confirm: `scripts/round.sh` run unchanged from `seed` to `gpu` on 0.1.8,
+every stage passing, `round.sh verdict` on its last commit, its log naming every `*-browser.mjs`.
 
 ## Found
 

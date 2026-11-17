@@ -7,11 +7,10 @@
 // and the installed Firefox use the GPU as well.
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
-import { chromium, firefox } from "playwright-core";
+import { chromium } from "playwright-core";
 import { startBrowserServer } from "../../../../test/browser-server.mjs";
 import { shellPrompt } from "../../../browser.mjs";
-import { routeAttributes } from "../../../../test/browser.mjs";
+import { launchInstalledFirefox, routeAttributes } from "../../../../test/browser.mjs";
 
 const root = new URL("../../../../", import.meta.url);
 const gpu = "-lmojo-gpu -ldolly-gpu", programs = { hello: "", library: "", tasks: "", saxpy: gpu, kernels: gpu, mandelbrot: gpu, output: gpu, shared: gpu,
@@ -21,15 +20,12 @@ if (!Object.values(objects).every(path => existsSync(new URL(path, root)))) {
   console.log("mojo-target: skipped: needs the objects of demos/mojo/target/cross-compile.sh");
   process.exit(77);
 }
-// The installed Firefox is a snap with a private /tmp: its profile must live under $HOME.
-process.env.TMPDIR = new URL("build/mojo-target/tmp/", root).pathname;
-await mkdir(process.env.TMPDIR, { recursive: true });
 const launches = { "headless chromium": () => chromium.launch({ channel: "chrome", headless: true,
   args: ["--no-sandbox", "--disable-gpu", "--enable-unsafe-webgpu"] }) };
 if (process.env.DISPLAY) {
   launches.chromium = () => chromium.launch({ channel: "chrome", headless: false,
     args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan"] });
-  launches.firefox = () => firefox.launch({ channel: "moz-firefox", headless: false, firefoxUserPrefs: { "dom.webgpu.enabled": true } });
+  launches.firefox = () => launchInstalledFirefox();
 }
 
 const server = await startBrowserServer(root.pathname, "mojo-gpu", { fixtures: objects });

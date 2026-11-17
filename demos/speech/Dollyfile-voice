@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE voice
 REQUIRES HOST runtime@0
 REQUIRES HOST microphone@0
@@ -8,18 +8,18 @@ REQUIRES HOST threads@0
 
 # voice, linked against the transcribe package, with the model it reads:
 # buttons and speech in the place of a keyboard, for a terminal program.
-FROM /v0.1.7/Dollyfile-system 53019922324696a18a573eededf9b475fe22e783d58f35585fe5c73943b926ae
-INSTALL /v0.1.7/demos/speech/Dollyfile-parakeet 1bcbe5b3eae68e75d231fcc5a4e9758f24ecb78e9eee2b6c84e74a7dd46f7a92
-USE /v0.1.7/demos/speech/Dollyfile-transcribe b9d000359dd728b726de399a8db4b4e4ad176cf6d6bce02e39ab6c85a70e82cb
-USE /v0.1.7/Dollyfile-libdolly-microphone 3e665d45b2828a9e5d5d34ed9929f84d270b71d2e52bc26aed427ee744fb3039
-USE /v0.1.7/Dollyfile-libdolly-touch 882f7e0ec09bfc107a545e9b16378a042806bdbff8cd07548de659083d22e8ef
-USE /v0.1.7/Dollyfile-libdolly-pty 67d1c150da08266c5297e377f4cab8dda24306e701ac3f58d2347f90778a4c07
+FROM /Dollyfile-system b82c3aef9d0d06f4f3811e07ced4de30a423d8039112483e9eb1dcc5358ba98b
+INSTALL /demos/speech/Dollyfile-parakeet d72034d79192813851cca73e6521be053f72a10295d0a1906184e2fadcc8ba26
+USE /demos/speech/Dollyfile-transcribe d388b3b53b82d087afff46ce5b836c5e5ee08385835d59bd2ec8c10eaf29504a
+USE /Dollyfile-libdolly-microphone 8b9a6f70d275976642e44e78fadd229c7db56057f29e37475ff7332fda7a51e3
+USE /Dollyfile-libdolly-touch e575ebfcfdeb0bd32c82b34d59b0a25b627a1189a5a5ebdcc930073fe86594f0
+USE /Dollyfile-libdolly-pty 2dc46dfff7c7fee8075069868c7bbc87077a3eb712bb1865f34264ac0315dbd9
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL tar
 REQUIRES HEADER transcribe
 REQUIRES LIB transcribe
-SOURCE /v0.1.7/dist/static/speech/programs.tar 8055dd388ad56c7462112366154bd22838a8593e76bbd275e26a598f8d9e3dcb /tmp/speech/programs.tar
+SOURCE /dist/static/speech/programs.tar 8055dd388ad56c7462112366154bd22838a8593e76bbd275e26a598f8d9e3dcb /tmp/speech/programs.tar
 SLOP tar -xf /tmp/speech/programs.tar -C /
 SLOP cc -pthread -msimd128 -O2 -Wall -Werror -c /tmp/speech/voice.c -o /tmp/speech/voice.o
 SLOP c++ -pthread -msimd128 -O2 /tmp/speech/voice.o /usr/lib/transcribe/libtranscribe.a \

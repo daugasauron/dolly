@@ -10,7 +10,7 @@ flowchart LR
   prog["Process: libcurl, Janis, Python"] -- "HTTP_BODY_WRITE, HTTP_START, HTTP_POLL, HTTP_CANCEL" --> kernel["Kernel slot pool<br/>16 x 64 KiB"]
   kernel -- "env.dolly_http_dispatch spans" --> worker["runtime Worker<br/>HttpMailbox: copies, writes slots"]
   worker -- "request and cancellation messages" --> broker["page: broker.mjs"]
-  broker -- "authorize" --> policy["policy.mjs"]
+  broker -- "authorize" --> policy["the page's policy: page/http-policy.mjs"]
   broker -- "reserved *.dolly.invalid" --> local["local-services.mjs"]
   broker -- "other allowed URLs" --> fetch(("Fetch"))
   broker -- "URL, headers, body chunks, failures" --> worker
@@ -31,12 +31,12 @@ flowchart LR
   library reports as a failed connection. Metadata is literal UTF-8
   without NUL.
 - A URL is absolute `http:` or `https:`, or a site path:
-  `/vX.Y.Z/amy-index.txt` names a file of the site serving this release when
-  X.Y.Z is that site's version, resolved against the site's root (also under
-  a path prefix, never above it). The policy judges the resulting URL like
-  any other; a path of another version, or without one, is `EINVAL`.
-- Reserved `*.dolly.invalid` origins never reach Fetch: an enabled `build@0` or
-  `packages@0` admits its own requests there
+  `/amy-index.txt` names a file of the site serving this release, resolved
+  against the site's root (also under a path prefix, never above it). The
+  policy judges the resulting URL like any other; a path above the root, or
+  any path where the page names no site, is `EINVAL`.
+- Reserved `*.dolly.invalid` origins never reach Fetch: an enabled `build@0`
+  admits its own requests there
   ([`local-services.mjs`](../host/http/local-services.mjs)); any other fails
   with `EACCES`.
 - A private host acknowledgement admits one request at a time; transfers then run
@@ -88,25 +88,25 @@ const policy = {
 };
 ```
 
-- The site's own files have no rule of their own. Without a policy object
-  the default admits them. `amy` needs none for the page's own image
-  directory: its `amy-index.txt` and package snapshots come from `packages@0`,
-  not from here. Another directory `amy server` names is read under a rule.
+- The policy is the page's ([`network.mjs`](../page/network.mjs)), not
+  `http@0`'s: the files `packages@0` reads of a directory `amy server` names
+  are judged and counted by it too, and an image without `http@0` installs
+  packages all the same. `amy` needs no rule for the page's own image
+  directory, which `packages@0` reads as the page's own.
 - A request under a rule carries an ordinary request's headers (`accept`,
   `accept-language`, `content-encoding`, `content-language`, `content-type`, `range`, the
   conditional ones, `cache-control`, `pragma`) and those its rule lists in
   `credentialHeaders`; every other header is removed, a token under a name no
   list knows included. The broker never stores, injects or rewrites
   credentials; they are ordinary sandbox state.
-- Explicit rules and bootstrap sources reject redirects: Fetch hides intermediate
+- Explicit rules reject redirects: Fetch hides intermediate
   destinations. `DOLLY_HTTP_FOLLOW_REDIRECTS` works only under the default policy,
   where cross-origin redirects strip `Authorization` as Fetch does, not as native
   curl does; other explicit headers and 307/308 bodies reach the next destination.
-- Bootstrap sources (the recipes and `SOURCE` files a release publishes) are
-  exact credential-free GETs of their site paths with pinned byte bounds,
-  fetched from the copy the page's own release holds. Under an explicit
-  policy the N sources share a budget of 4×N requests, separate from
-  `maxRequests`.
+- A build's recipes and `SOURCE` files do not pass the broker: the build
+  Worker reads the image directory's own and the engine checks each pin
+  ([Dollyfile](dollyfile.md)). A site path a program asks for is a URL like any
+  other, which the policy admits or refuses.
 - Fetch always uses `credentials: "omit"` and no referrer. The broker drops
   browser-owned headers such as `User-Agent` and `Accept-Encoding`: engines
   disagree on whether to ignore them or preflight them (Firefox preflights a
@@ -114,7 +114,7 @@ const policy = {
 
 - Each request the policy refuses (`EACCES`, or `EDQUOT` past the quota) is a
   `console.warn` line of the page, and a notice at the top left of boot()'s element
-  that stays until its × closes it ([`refusals.mjs`](../host/http/refusals.mjs)):
+  that stays until its × closes it ([`http-refusals.mjs`](../page/http-refusals.mjs)):
   refusals of one method and URL are one notice with a count, the five newest show
   with a line for the rest and **Close all**, and a URL is shown without its query.
 
@@ -191,12 +191,12 @@ const relays = [{
   cookies, certificates, disabling TLS verification and connect timeouts return
   `CURLE_NOT_BUILT_IN` rather than being silently remembered; unknown options
   return `CURLE_UNKNOWN_OPTION`. A site path goes to the broker as it is
-  (`curl /vX.Y.Z/Dollyfile-system` reads the recipe other recipes name); one
+  (`curl /Dollyfile-system` reads the recipe other recipes name); one
   the broker refuses fails with `CURLE_BAD_FUNCTION_ARGUMENT`, any other
   URL without `http(s)://` with `CURLE_UNSUPPORTED_PROTOCOL` and a disallowed
   redirect with `CURLE_COULDNT_CONNECT`.
-- Git: upstream `git` and `git-remote-http(s)` link that libcurl
-  ([`Dollyfile-git`](../Dollyfile-git)): clone, fetch and push over HTTP, from
+- Git: upstream `git-remote-http(s)` link that libcurl, in the `git-http` package
+  ([`Dollyfile-git-http`](../Dollyfile-git-http)) beside `git`: clone, fetch and push over HTTP, from
   hosts that send CORS headers or through a relay (see [CORS and relays](#cors-and-relays)).
   `github.com` sends none on its Git endpoints, so cloning from it fails with
   the `EIO` message unless the embedding maps it to a relay. There is no

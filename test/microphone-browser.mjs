@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { browserTest, composed } from "./browser.mjs";
+import { browserTest, workbench } from "./browser.mjs";
 
 // One second of a 440 Hz sine, 48 kHz mono 16-bit: Chrome's fake device loops it.
 const tone = new URL("../build/fixtures/microphone-tone.wav", import.meta.url).pathname;
@@ -28,7 +28,7 @@ async function compiled(open, server) {
   const errors = [];
   const session = await open({
     policy: { maxRequests: 3, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
-    ...await composed(["microphone"], ["libdolly-microphone"], { base: "system",
+    ...await workbench(["microphone"], ["libdolly-microphone"], {
       setup: page => page.on("pageerror", error => errors.push(error.message)) }) });
   const run = async command => assert.equal(await session.submit(command), 0, await session.text());
   await run(`curl -fsS ${server.origin}/fixture/microphone.c -o /tmp/microphone.c`);

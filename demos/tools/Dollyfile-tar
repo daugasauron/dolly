@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE tar
 REQUIRES HOST runtime@0
 
@@ -8,10 +8,10 @@ REQUIRES HOST runtime@0
 # comes first on PATH. Its -z, -j and -J start gzip, bzip2 or xz from PATH,
 # by posix_spawn instead of fork (sbase-tar-spawn.patch), and tar waits for it:
 # the three come with it.
-FROM /v0.1.7/demos/tools/Dollyfile-tools-build 10f0bb40fc327b66565fb4439808c0fd06fe344684885eef70e1fccb4472af58
-INSTALL /v0.1.7/Dollyfile-gzip fe37ea911f935be9f5dc2fcf29fdddba385759e05220a033ebaea81a810a16b5
-INSTALL /v0.1.7/demos/tools/Dollyfile-bzip2 4c4c113645923d9d2d872ace619529a96c5f168d094a47afa7a1f792993dfb14
-INSTALL /v0.1.7/demos/tools/Dollyfile-xz d07bf61b88901661d5f75bc5000003f0df152c88dad282c46e57bd55f3a5adbb
+FROM /demos/tools/Dollyfile-tools-build a2c16674acb2a8119dd914e62e79322b95a6c9ba6528936c44e22216a4055a8e
+INSTALL /Dollyfile-gzip cef69a22c3b9f73889f4c819fcfaee2fb4487474ea4efa364117b8796465d1a4
+INSTALL /demos/tools/Dollyfile-bzip2 9ba0544ea6eb6e96c7f58f8fade57c3ea969e4996a1f0d0fc8b09af8dd7f723a
+INSTALL /demos/tools/Dollyfile-xz 096ffdfc8b9a37b1bc6cab494bce2aac391f3b598e402be8a28936986a7dfa2a
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -26,8 +26,8 @@ REQUIRES TOOL   readlink
 REQUIRES TOOL   test
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.7/dist/static/default/sbase.tar 23daa7bd6d5169ba5ad4a9801fe039ba28b103e3dbb74583fccb48f3333253eb /tmp/sbase.tar
-SOURCE /v0.1.7/dist/static/tools/sbase-tar-spawn.patch 3c7c19e521a33229eb18435f81af7f47160a03c97f61e3e6c508b41648487463 /tmp/sbase-tar-spawn.patch
+SOURCE /dist/static/default/sbase.tar 23daa7bd6d5169ba5ad4a9801fe039ba28b103e3dbb74583fccb48f3333253eb /tmp/sbase.tar
+SOURCE /dist/static/tools/sbase-tar-spawn.patch 3c7c19e521a33229eb18435f81af7f47160a03c97f61e3e6c508b41648487463 /tmp/sbase-tar-spawn.patch
 SLOP tar -xf /tmp/sbase.tar -C /
 SLOP patch -p1 -d /tmp/sbase -i /tmp/sbase-tar-spawn.patch
 

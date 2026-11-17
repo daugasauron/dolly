@@ -5085,7 +5085,7 @@ pub const __int_least8_t = i8;
 pub const __uint_least8_t = u8;
 pub const __int8_t_defined = "";
 pub const __stdint_join3 = @compileError("unable to translate C expr: unexpected token '##'");
-// /home/daug/dev/dolly/work/sdl2/build/zig017-evidence/hostzig/lib/include/stdint.h:291:9
+// /tmp/zig-0.17.0/lib/include/stdint.h:291:9
 pub const __intptr_t_defined = "";
 pub const _INTPTR_T = "";
 pub const _UINTPTR_T = "";
@@ -5170,15 +5170,15 @@ pub const INT_FAST8_MIN = __INT_LEAST8_MIN;
 pub const INT_FAST8_MAX = __INT_LEAST8_MAX;
 pub const UINT_FAST8_MAX = __UINT_LEAST8_MAX;
 pub const __INTN_MIN = @compileError("unable to translate macro: undefined identifier `INT`");
-// /home/daug/dev/dolly/work/sdl2/build/zig017-evidence/hostzig/lib/include/stdint.h:764:10
+// /tmp/zig-0.17.0/lib/include/stdint.h:764:10
 pub const __INTN_MAX = @compileError("unable to translate macro: undefined identifier `INT`");
-// /home/daug/dev/dolly/work/sdl2/build/zig017-evidence/hostzig/lib/include/stdint.h:765:10
+// /tmp/zig-0.17.0/lib/include/stdint.h:765:10
 pub const __UINTN_MAX = @compileError("unable to translate macro: undefined identifier `UINT`");
-// /home/daug/dev/dolly/work/sdl2/build/zig017-evidence/hostzig/lib/include/stdint.h:766:9
+// /tmp/zig-0.17.0/lib/include/stdint.h:766:9
 pub const __INTN_C = @compileError("unable to translate macro: undefined identifier `INT`");
-// /home/daug/dev/dolly/work/sdl2/build/zig017-evidence/hostzig/lib/include/stdint.h:767:10
+// /tmp/zig-0.17.0/lib/include/stdint.h:767:10
 pub const __UINTN_C = @compileError("unable to translate macro: undefined identifier `UINT`");
-// /home/daug/dev/dolly/work/sdl2/build/zig017-evidence/hostzig/lib/include/stdint.h:768:9
+// /tmp/zig-0.17.0/lib/include/stdint.h:768:9
 pub const INTPTR_MIN = -__INTPTR_MAX__ - @as(c_int, 1);
 pub const INTPTR_MAX = __INTPTR_MAX__;
 pub const UINTPTR_MAX = __UINTPTR_MAX__;

@@ -4,11 +4,49 @@
 - PRIORITY: 140
 - TAGS: audit,ports,lean,rust,ocaml,dso,0.1.8
 
-## State (2026-11-16 night audit)
+## State (2026-11-17)
 
-The core's side measured in a session; no port rebuilt. Each is an image chain rebuild
-(Lean 75.8 min, Rust's toolchain 63 min and what follows it, in round 1117), rustc's needs its
-LLVM built with threads too. OCaml's is a correction of its stated reason only (below).
+On `ws/ports`:
+
+- Lean: `lean-dolly.mk` links `lean`, `lake` and `leanc` with `-rdynamic`, as upstream's CMake
+  links its programs (`CMAKE_DYN_EXE_LINKER_FLAGS`), with what upstream's shared libraries hold
+  whole (`libInit_shared`: Init, Std and the runtime; `libLake_shared`: Lake), which is what the
+  table named before; a program Lake links is not `-rdynamic`; `lean-symbols.c`, its rules and the
+  `lean_dolly_symbol` hunk are gone, the interpreter's `dlsym(RTLD_DEFAULT, ...)` is upstream's,
+  and `lean-stage0` and `lean` declare `dso@0`, which a `-rdynamic` program needs. The README's
+  plugin limit says they would load through `dso@0`, which the lean test does not try.
+  Building `lean-stage0` so in this tree measured one more limit: its link failed on
+  `sched_get_priority_min` and `_max` (`build-2a.log`), which libuv's `uv_thread_setpriority`
+  asks and `-rdynamic` keeps, since it exports libuv's API; Dolly's libc defined them (ENOSYS)
+  for one-thread programs alone (`process/libc-adapter.c`, under `#ifndef
+  __EMSCRIPTEN_PTHREADS__`). They are defined for threaded programs too now, a seed change the
+  compiler round builds (`npm run build:runtime` in this tree puts them in
+  `build/process-threads/libdolly-process.a`, where they were not). Replayed in a session of round 1113's `system` with `stack-wrap` and
+  `libuv` (`lean-replay.mjs`), `Dollyfile-lean-stage0`'s rows from this branch's `port.tar`, with
+  the same two functions compiled beside the link, build the first lean (make 621 to 788 s), a
+  212.6 MiB program that prints `Lean (version 4.35.0, wasm64-unknown-dolly, "Release")`; with
+  the release's `Init` library in place it runs a program by the interpreter, whose calls into
+  `Init` (`List.range`, `Nat.toDigits`, `String.join`, `IO.Process.output`) it finds among the
+  exports, and prints `285 0149 beef`, then `spawned 0` from the child it spawned
+  (`lean-replay.log`, Chromium, 746 s). The round confirms `lean-stage0`, `lean-std`,
+  `lean-meta` and `lean` on the seed with the libc change, and the lean test.
+- rustc stays serial, now said as a choice (AGENTS.md: "Prefer simple serial semantics over
+  multiprocessing or performance machinery"): `rust-linker.c`'s comment and the Rust README no
+  longer say that `cc` cannot link a threaded host. Making it threaded is a rewrite of
+  `toolchain/rust.patch` (its frontend thread, codegen coordinator and LLVM's thread check), an
+  LLVM with threads in the seed and in `rust-llvm`, and a seed rebuild before any image, none of
+  which a tree short of the round can try; Cargo already runs `rustc` processes in parallel.
+- OCaml: `prepare-ocaml.sh` and the README give upstream's reason for `--disable-shared` (its
+  configure makes shared libraries only for the systems it lists; measured in the pinned
+  archive's `configure.ac`, which without it sets `supports_shared_libraries=true` with
+  `mkdll=shared-libs-not-available`). `ocaml` builds in this tree and its test passes in
+  Chromium and Firefox (`both-7`).
+- Wine's `gmoduleconf.h`, README and `wine_dlopen` message (`port/libwine.c`) and GTK's README
+  no longer name the lifted limit: what Wine opens is what is linked into its one program.
+
+Images the change rebuilds: the four Lean images, `ocaml` (the script's comment is in its
+staging key), `wine-build` and `wine` (`gmoduleconf.h`), and the Rust chain from the package
+that compiles `rust-linker.c`.
 
 ## What
 

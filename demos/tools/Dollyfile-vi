@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE vi
 REQUIRES HOST runtime@0
 
@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # unchanged, by the rules of its Makefile. It draws with escape sequences of
 # its own and reads no terminal database. Its ! commands and language servers
 # start by fork, which fails here, and it says so.
-FROM /v0.1.7/Dollyfile-system-tools 6699b9ce9339fe8ee70c02972b8a4b10242adb71dd63c3a5ac5da48f8d1828ed
+FROM /Dollyfile-system-tools 41d78b18183d4c4d3786fa7131c53810a1b0090f845b8298a56f0ae87a02db9e
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
@@ -21,7 +21,7 @@ REQUIRES TOOL   sed
 REQUIRES TOOL   tar
 REQUIRES TOOL   test
 
-SOURCE /v0.1.7/dist/static/tools/neatvi-20.tar.gz e1d9a89d770aa5bb60da472be1a526eb1d99be9267c4d6067fc625f10efc8fe5 /tmp/neatvi.tar.gz
+SOURCE /dist/static/tools/neatvi-20.tar.gz e1d9a89d770aa5bb60da472be1a526eb1d99be9267c4d6067fc625f10efc8fe5 /tmp/neatvi.tar.gz
 SLOP gzip -dc /tmp/neatvi.tar.gz | tar -xf - -C /tmp && mv /tmp/neatvi-20 /tmp/neatvi
 
 FILE /tmp/vi.mk

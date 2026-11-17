@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE sdl2-ttf
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -9,9 +9,9 @@ REQUIRES HOST touch@0
 # SDL_ttf from upstream's release archive, unchanged, built by its CMake
 # project on the FreeType package: libSDL2_ttf.a with its header, pkg-config
 # file and CMake package, for programs the cc package builds with SDL2.
-FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 99ba4b0dfea5dfd2099047bbbd136adbff138ac5c2316c7f57f4fa485f50968f
-INSTALL /v0.1.7/demos/sdl2/Dollyfile-sdl2 3eb6c82723eb26957a9a9b6ab8dc196609762ebda2b32b33152d4d30d77fac78
-INSTALL /v0.1.7/demos/zero-ad/Dollyfile-freetype 6d98c4677fba11244ce7c2d936ed5a8ab9822091d7c732b7f9bf23fd118908eb
+FROM /demos/cmake/Dollyfile-cmake-build 80318c713e588e7871dd624ebf404a7580518af49692c8b5a27d909fe22cd8f3
+INSTALL /demos/sdl2/Dollyfile-sdl2 d71374d82452f6987ca07798fc16a46088dbf0fd076f45d48defd844d0d2020f
+INSTALL /demos/tools/Dollyfile-freetype 973f0d6a05a1d73ff00458e76afd65f39600acd9c9703e166bd55cfa5260fd27
 REQUIRES HEADER libc
 REQUIRES HEADER sdl2
 REQUIRES HEADER freetype2
@@ -23,7 +23,7 @@ REQUIRES TOOL make
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.7/dist/static/sdl2-ttf/source.tar fabf62d25952254ad037106549e3ae0f74c941cd2ca586e9f185caf501641a71 /tmp/sdl2-ttf/source.tar
+SOURCE /dist/static/sdl2-ttf/source.tar fabf62d25952254ad037106549e3ae0f74c941cd2ca586e9f185caf501641a71 /tmp/sdl2-ttf/source.tar
 SLOP tar -xf /tmp/sdl2-ttf/source.tar -C /
 SLOP cmake -S /tmp/sdl2-ttf/source -B /tmp/sdl2-ttf/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \

@@ -2,8 +2,9 @@
 // runs the same check on the checkout): each image's /bin, /etc and /usr must be
 // exactly its sealed manifest. A build in the page checks that for any base
 // that can build (whatever its ENTRY or display): an image that retains the
-// engine and the compiler. Images with a display also boot their prebuilt
-// route without the compiler seed.
+// engine and the compiler. Images with a display, gpu@0 among them on the
+// headless Chrome's adapter, also boot their prebuilt route without the
+// compiler seed. An image neither checks is refused.
 import assert from "node:assert/strict";
 import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
@@ -36,7 +37,7 @@ export async function acceptImage(browser, server, image) {
   const artifact = `/etc/dolly/artifacts/${definition.sha256}.snapshot`;
   // A build-only toolchain over the image, declaring exactly the image's host modules.
   const hosts = definition.hostRequirements.map(requirement => `REQUIRES HOST ${requirement}\n`).join("");
-  const recipe = `DOLLY 7\nTOOLCHAIN inventory\n${hosts}FROM ${siteReference(definition.dollyfile)} ${definition.sha256}\n` +
+  const recipe = `DOLLY 8\nTOOLCHAIN inventory\n${hosts}FROM ${siteReference(definition.dollyfile)} ${definition.sha256}\n` +
     `FILE /tmp/inventory.c\n${inventory.trimEnd().split("\n").map(line => `    ${line}`).join("\n")}\n` +
     "SLOP cc -O1 /tmp/inventory.c -o /tmp/inventory\nSLOP help > /tmp/help\n" +
     `SLOP if /tmp/inventory /tmp/help ${"0".repeat(64)} ${artifact}; then exit 1; fi\n` +
@@ -50,8 +51,9 @@ export async function acceptImage(browser, server, image) {
     assert.equal(seedRequested(server.requests), false, `${image}: building on a published image fetched the compiler seed`);
   }
   await page.close();
-  const { hostRequirements } = definition;
-  if (!hostRequirements.includes("display@0") || hostRequirements.includes("gpu@0")) return;
+  const display = definition.hostRequirements.includes("display@0");
+  if (!base && !display) throw new Error(`${image}: acceptance has no check of it: no compiler to build on, no display to boot`);
+  if (!display) return;
   server.requests.clear();
   // The default ENTRY reaches its shell without network requests.
   const route = await browser.newPage(), missing = [], violations = [];
@@ -63,7 +65,8 @@ export async function acceptImage(browser, server, image) {
     `${image}: ${await route.locator("#bootstrap-log").textContent()}`);
   if (image === "default") await route.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
   assert.equal(seedRequested(server.requests), false, `${image}: prebuilt boot fetched the compiler seed`);
-  if (image === "default") assert.equal(await route.evaluate(() => __dolly.httpRequestCount), 0);
+  // A page without http@0 has no request to count.
+  if (image === "default") assert.equal(await route.evaluate(() => __dolly.httpRequestCount ?? 0), 0);
   assert.deepEqual(missing, [], `${image}: the route asked for files the site lacks`);
   assert.deepEqual(violations, [], `${image}: the route broke the site's Content-Security-Policy`);
   await route.close();

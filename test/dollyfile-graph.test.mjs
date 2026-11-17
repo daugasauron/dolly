@@ -10,7 +10,6 @@ import { renderDollyfilePage } from "../scripts/render-dollyfile-view.mjs";
 import { updateRecipePins } from "../scripts/update-recipe-pins.mjs";
 import { lintDollyfiles } from "../scripts/lint-dollyfiles.mjs";
 import { recipeFiles } from "../scripts/recipe-files.mjs";
-import { DOLLY_VERSION } from "../page/version.mjs";
 import { PUBLIC_ORIGIN, siteReference } from "../page/static-asset.mjs";
 
 const project = resolve(import.meta.dirname, "..");
@@ -20,25 +19,21 @@ test("every catalog recipe graph lints", () => lintDollyfiles(project));
 test("lint names the runtime line a recipe lacks", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-lint-runtime-"));
   try {
-    await writeFile(resolve(directory, "Dollyfile"), "DOLLY 7\nAPPLICATION default\nREQUIRES HOST display@0\nENTRY /bin/slop\n");
+    await writeFile(resolve(directory, "Dollyfile"), "DOLLY 8\nAPPLICATION default\nREQUIRES HOST display@0\nENTRY /bin/slop\n");
     await assert.rejects(lintDollyfiles(directory), /add REQUIRES HOST runtime@0/);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test("lint refuses a recipe that names another version, the public site by URL or a path without a version", async () => {
+test("lint refuses a recipe that names the public site by URL", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-lint-reference-"));
   try {
     const hosts = "REQUIRES HOST runtime@0\nREQUIRES HOST display@0\n", pin = "0".repeat(64);
     const lint = async row => {
-      await writeFile(resolve(directory, "Dollyfile"), `DOLLY 7\nAPPLICATION default\n${hosts}${row}\nENTRY /bin/slop\n`);
+      await writeFile(resolve(directory, "Dollyfile"), `DOLLY 8\nAPPLICATION default\n${hosts}${row}\nENTRY /bin/slop\n`);
       return lintDollyfiles(directory);
     };
-    const other = "/v987.0.21", both = new RegExp(`Dollyfile:5: ${other}/.*${DOLLY_VERSION.replaceAll(".", "\\.")}`);
-    await assert.rejects(lint(`SOURCE ${other}/dist/static/a.tar ${pin} /tmp/a.tar`), both);
-    await assert.rejects(lint(`FROM ${other}/Dollyfile-base ${pin}`), both);
     await assert.rejects(lint(`SOURCE ${PUBLIC_ORIGIN}/dist/static/a.tar ${pin} /tmp/a.tar`),
       new RegExp(`Dollyfile:5: .* write ${siteReference("dist/static/a.tar")}$`));
-    await assert.rejects(lint(`SOURCE /dist/static/a.tar ${pin} /tmp/a.tar`), /Dollyfile:5: invalid SOURCE/);
     await assert.rejects(lint(`FROM ${PUBLIC_ORIGIN}${siteReference("Dollyfile-base")} ${pin}`), /Dollyfile:5: invalid FROM/);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
@@ -47,12 +42,12 @@ test("lint refuses an ENTRY program that no recipe of the image declares", async
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-lint-entry-"));
   try {
     const hosts = "REQUIRES HOST runtime@0\nREQUIRES HOST display@0\n";
-    const core = "DOLLY 7\nPACKAGE core\nREQUIRES HOST runtime@0\nEXPORTS TOOL slop\nEXPORTS TOOL foreground\n";
+    const core = "DOLLY 8\nPACKAGE core\nREQUIRES HOST runtime@0\nEXPORTS TOOL slop\nEXPORTS TOOL foreground\n";
     const install = `INSTALL ${siteReference("Dollyfile-core")} ${digest(core)}\n`;
-    const base = `DOLLY 7\nTOOLCHAIN base\n${hosts}${install}FILE /etc/dolly/init.slop\n    true\nFOLDER /usr/share/base\n`;
+    const base = `DOLLY 8\nTOOLCHAIN base\n${hosts}${install}FILE /etc/dolly/init.slop\n    true\nFOLDER /usr/share/base\n`;
     const from = `FROM ${siteReference("Dollyfile-base")} ${digest(base)}\n`;
     // A package keeps nothing of the base it is built in.
-    const pkg = `DOLLY 7\nPACKAGE pkg\n${hosts}${from}EXPORTS TOOL rg\n`;
+    const pkg = `DOLLY 8\nPACKAGE pkg\n${hosts}${from}EXPORTS TOOL rg\n`;
     for (const [name, text] of [["-core", core], ["-base", base], ["-pkg", pkg]]) {
       await writeFile(resolve(directory, `Dollyfile${name}`), text);
     }
@@ -61,7 +56,7 @@ test("lint refuses an ENTRY program that no recipe of the image declares", async
     await writeFile(resolve(directory, "README.md"), ["default", "core", "base", "pkg"].map(name => `- \`${name}\`: a fixture\n`).join(""));
     // A toolchain people open: an application has no FROM.
     const lint = async (rows, role = "TOOLCHAIN") => {
-      await writeFile(resolve(directory, "Dollyfile"), `DOLLY 7\n${role} default\n${hosts}${rows}`);
+      await writeFile(resolve(directory, "Dollyfile"), `DOLLY 8\n${role} default\n${hosts}${rows}`);
       return lintDollyfiles(directory);
     };
     await assert.rejects(lint(`${from}ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop\n`, "APPLICATION"), /APPLICATION has no FROM/);
@@ -97,34 +92,33 @@ test("lint refuses an ENTRY program that no recipe of the image declares", async
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test("pin updates write this version and the digests into operands only, not matching paths or comments", async () => {
+test("pin updates write the digests into operands only, not matching paths or comments", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-pin-operands-"));
   try {
     const old = "0".repeat(64), payload = "new source bytes\n";
-    const base = "DOLLY 7\nTOOLCHAIN base\nENTRY /bin/slop\n";
-    const child = "DOLLY 7\nPACKAGE child\nSLOP true\n";
+    const base = "DOLLY 8\nTOOLCHAIN base\nENTRY /bin/slop\n";
+    const child = "DOLLY 8\nPACKAGE child\nSLOP true\n";
     await mkdir(resolve(directory, "dist/static"), { recursive: true });
     await writeFile(resolve(directory, "dist/static", old), payload);
     await writeFile(resolve(directory, "Dollyfile-base"), base);
     await writeFile(resolve(directory, "Dollyfile-child"), child);
-    // SITE is the version prefix of the references; the rest names it as text.
-    const before = "/v987.0.21/", recipe = (site, sourcePin, basePin, childPin) => `DOLLY 7
+    const recipe = (sourcePin, basePin, childPin) => `DOLLY 8
 APPLICATION default
-FROM ${site}Dollyfile-base '${basePin}' # ${before}Dollyfile-base ${old}
-SOURCE ${site}dist/static/${old} \\ # ${old}
+FROM /Dollyfile-base '${basePin}' # /Dollyfile-base ${old}
+SOURCE /dist/static/${old} \\ # ${old}
   "${sourcePin}" \\
-  /tmp${before}${old} # ${old}
-SOURCE https://example.invalid${before}source ${old} /tmp/upstream
-COPY ${site}Dollyfile-base ${basePin} /usr/share/${old} /usr/share/${old}
-INSTALL ${site}Dollyfile-child \\ # ${old}
+  /tmp/${old} # ${old}
+SOURCE https://example.invalid/source ${old} /tmp/upstream
+COPY /Dollyfile-base ${basePin} /usr/share/${old} /usr/share/${old}
+INSTALL /Dollyfile-child \\ # ${old}
   ${childPin}
 FILE /usr/share/note
-    FROM ${before}Dollyfile-base ${old}
+    FROM /Dollyfile-base ${old}
 ENTRY /bin/slop
 `;
-    await writeFile(resolve(directory, "Dollyfile"), recipe(before, old, old, old));
+    await writeFile(resolve(directory, "Dollyfile"), recipe(old, old, old));
     await updateRecipePins(directory, "all");
-    const expected = recipe(siteReference(""), digest(payload), digest(base), digest(child));
+    const expected = recipe(digest(payload), digest(base), digest(child));
     assert.equal(await readFile(resolve(directory, "Dollyfile"), "utf8"), expected);
     await updateRecipePins(directory, "all");
     assert.equal(await readFile(resolve(directory, "Dollyfile"), "utf8"), expected, "second update is byte-identical");
@@ -139,10 +133,11 @@ test("images separate reusable toolchains and packages from applications", async
   const core = {
     "system-build": [], zlib: ["system-build"], curl: ["system-build"], gzip: ["system-build", "zlib"],
     "zig-build": ["system-build"], "ghostty-build": ["zig-build", "libdolly-display", "libdolly-input"], display: ["ghostty-build"],
-    git: ["system-build", "zlib", "curl"], "system-tools": ["system-build", "zlib", "gzip", "curl", "git", "display"],
-    system: ["system-tools", "transfer", "session-recover", "core", "cc", "make", "posix", "ninja",
-      "libdolly-display", "libdolly-input", "libdolly-download", "libdolly-upload", "libdolly-threads"],
-    default: ["core", "posix", "display", "curl", "dollyfile", "amy", "nena", "transfer", "ps"],
+    git: ["system-build", "zlib"], "git-http": ["system-build", "zlib", "curl"],
+    "system-tools": ["system-build", "zlib", "gzip", "git", "display"],
+    system: ["system-tools", "session-recover", "core", "cc", "make", "posix", "ninja",
+      "libdolly-display", "libdolly-input", "libdolly-threads"],
+    default: ["core", "posix", "display", "dollyfile", "amy", "nena", "transfer", "ps"],
   };
   const files = await recipeFiles(project);
   const definitions = await discoverImageDefinitions(project);
@@ -158,7 +153,7 @@ test("images separate reusable toolchains and packages from applications", async
     assert.equal(graph.exporters.has("TOOL:zig"), ["zig-build", "ghostty-build", "zig", "zig-llvm"].includes(definition.image));
     // A package carries its builder's chain as provenance, nothing of its files.
     if (!graph.root.hostRequirements.includes("display@0") && definition.parsed.role !== "package") {
-      assert.equal(graph.exporters.has("ENV:DISPLAY"), false, definition.image);
+      assert.equal(graph.exporters.has("ENV:DOLLY_DISPLAY_LIBRARY"), false, definition.image);
       assert.equal(records.some(record => record.name === "ghostty-build"), false, definition.image);
     }
     assert.equal(records.at(-1).name, definition.image);
@@ -172,27 +167,24 @@ test("images separate reusable toolchains and packages from applications", async
   }
   assert.deepEqual((await selectImageDefinitions(definitions, "all")).map(item => item.image),
     definitions.map(item => item.image));
-  // The site publishes the packages default's start-up text and Pi's guidance
-  // suggest (pi-agent is published there).
-  const suggestions = async (...files) => (await Promise.all(files.map(file => readFile(resolve(project, file), "utf8"))))
-    .flatMap(text => [...text.matchAll(/amy install ((?:[a-z0-9.+-]+ ?)+)/g)].flatMap(([, names]) => names.trim().split(" ")));
-  const suggested = await suggestions("Dollyfile");
-  const guided = await suggestions("demos/pi/SYSTEM.md", "demos/pi/skills/dolly/SKILL.md");
+  // The site publishes the packages default's start-up text suggests.
+  const suggested = [...(await readFile(resolve(project, "Dollyfile"), "utf8")).matchAll(/amy install ((?:[a-z0-9.+-]+ ?)+)/g)]
+    .flatMap(([, names]) => names.trim().split(" "));
   const published = await selectImageDefinitions(definitions,
     (await readFile(resolve(project, "config/domain-pages-images.txt"), "utf8")).trim().split("\n").join(","));
-  assert.deepEqual([...suggested, ...guided].filter(name => !published.some(item => item.image === name)), []);
+  assert.deepEqual(suggested.filter(name => !published.some(item => item.image === name)), []);
 });
 
 test("demo recipes are published at their checkout paths and names stay unique", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-demo-recipes-"));
   try {
     await mkdir(resolve(directory, "demos/example"), { recursive: true });
-    const extra = "DOLLY 7\nPACKAGE extra\nEXPORTS ENV EXTRA 1\n";
-    const base = "DOLLY 7\nAPPLICATION default\nENTRY /bin/slop\n";
+    const extra = "DOLLY 8\nPACKAGE extra\nEXPORTS ENV EXTRA 1\n";
+    const base = "DOLLY 8\nAPPLICATION default\nENTRY /bin/slop\n";
     await writeFile(resolve(directory, "Dollyfile"), base);
     await writeFile(resolve(directory, "demos/example/Dollyfile-extra"), extra);
     await writeFile(resolve(directory, "demos/example/Dollyfile-example"),
-      `DOLLY 7\nAPPLICATION example\nFROM ${siteReference("Dollyfile")} ${digest(base)}\nINSTALL ${siteReference("demos/example/Dollyfile-extra")} ${digest(extra)}\nENTRY /bin/slop\n`);
+      `DOLLY 8\nAPPLICATION example\nFROM ${siteReference("Dollyfile")} ${digest(base)}\nINSTALL ${siteReference("demos/example/Dollyfile-extra")} ${digest(extra)}\nENTRY /bin/slop\n`);
     assert.deepEqual((await discoverImageDefinitions(directory)).map(({ filename }) => filename),
       ["Dollyfile", "demos/example/Dollyfile-example", "demos/example/Dollyfile-extra"]);
     const graph = await loadDollyfileGraph(directory, "demos/example/Dollyfile-example");
@@ -207,27 +199,27 @@ test("demo recipes are published at their checkout paths and names stay unique",
 test("roles decide what FROM, INSTALL, USE and COPY import; host requirements are never inherited", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-roles-"));
   try {
-    const base = "DOLLY 7\nTOOLCHAIN base\nREQUIRES HOST display@0\nEXPORTS ENV DISPLAY /usr/lib/libdisplay.so\nEXPORTS TOOL cc\nENTRY /bin/slop\n";
-    const pkg = `DOLLY 7\nPACKAGE pkg\nREQUIRES HOST threads@0\nFROM ${siteReference("Dollyfile-base")} ${digest(base)}\nEXPORTS TOOL rg\nEXPORTS ENV RG 1\n`;
+    const base = "DOLLY 8\nTOOLCHAIN base\nREQUIRES HOST display@0\nEXPORTS ENV DOLLY_DISPLAY_LIBRARY /usr/lib/libdisplay.so\nEXPORTS TOOL cc\nENTRY /bin/slop\n";
+    const pkg = `DOLLY 8\nPACKAGE pkg\nREQUIRES HOST threads@0\nFROM ${siteReference("Dollyfile-base")} ${digest(base)}\nEXPORTS TOOL rg\nEXPORTS ENV RG 1\n`;
     // addon's own declaration precedes the install and still wins.
-    const addon = `DOLLY 7\nPACKAGE addon\nREQUIRES HOST threads@0\nEXPORTS TOOL rg\nINSTALL ${siteReference("Dollyfile-pkg")} ${digest(pkg)}\n`;
+    const addon = `DOLLY 8\nPACKAGE addon\nREQUIRES HOST threads@0\nEXPORTS TOOL rg\nINSTALL ${siteReference("Dollyfile-pkg")} ${digest(pkg)}\n`;
     // user builds with addon and pkg and names neither; its threads@0 are the build's.
-    const user = `DOLLY 7\nPACKAGE user\nUSE ${siteReference("Dollyfile-addon")} ${digest(addon)}\nREQUIRES TOOL rg\nEXPORTS TOOL own\n`;
+    const user = `DOLLY 8\nPACKAGE user\nUSE ${siteReference("Dollyfile-addon")} ${digest(addon)}\nREQUIRES TOOL rg\nEXPORTS TOOL own\n`;
     const files = {
       "Dollyfile-base": base, "Dollyfile-pkg": pkg, "Dollyfile-addon": addon, "Dollyfile-user": user,
-      "Dollyfile-on-user": `DOLLY 7\nAPPLICATION on-user\nINSTALL ${siteReference("Dollyfile-user")} ${digest(user)}\nENTRY /bin/slop\n`,
-      "Dollyfile": `DOLLY 7\nAPPLICATION default\nREQUIRES HOST display@0\nREQUIRES HOST threads@0\nFROM ${siteReference("Dollyfile-base")} ${digest(base)}\nINSTALL ${siteReference("Dollyfile-addon")} ${digest(addon)}\nENTRY /bin/slop\n`,
-      "Dollyfile-copier": `DOLLY 7\nTOOLCHAIN copier\nCOPY ${siteReference("Dollyfile-pkg")} ${digest(pkg)} /usr/bin/rg /usr/bin/rg\n`,
-      "Dollyfile-on-pkg": `DOLLY 7\nAPPLICATION on-pkg\nFROM ${siteReference("Dollyfile-pkg")} ${digest(pkg)}\nENTRY /bin/slop\n`,
-      "Dollyfile-installs-base": `DOLLY 7\nAPPLICATION installs-base\nINSTALL ${siteReference("Dollyfile-base")} ${digest(base)}\nENTRY /bin/slop\n`,
-      "Dollyfile-undeclared": `DOLLY 7\nAPPLICATION undeclared\nREQUIRES HOST display@0\nFROM ${siteReference("Dollyfile-base")} ${digest(base)}\nINSTALL ${siteReference("Dollyfile-pkg")} ${digest(pkg)}\nENTRY /bin/slop\n`,
-      "Dollyfile-silent": `DOLLY 7\nAPPLICATION silent\nFROM ${siteReference("Dollyfile-base")} ${digest(base)}\nENTRY /bin/slop\n`,
+      "Dollyfile-on-user": `DOLLY 8\nAPPLICATION on-user\nINSTALL ${siteReference("Dollyfile-user")} ${digest(user)}\nENTRY /bin/slop\n`,
+      "Dollyfile": `DOLLY 8\nAPPLICATION default\nREQUIRES HOST display@0\nREQUIRES HOST threads@0\nFROM ${siteReference("Dollyfile-base")} ${digest(base)}\nINSTALL ${siteReference("Dollyfile-addon")} ${digest(addon)}\nENTRY /bin/slop\n`,
+      "Dollyfile-copier": `DOLLY 8\nTOOLCHAIN copier\nCOPY ${siteReference("Dollyfile-pkg")} ${digest(pkg)} /usr/bin/rg /usr/bin/rg\n`,
+      "Dollyfile-on-pkg": `DOLLY 8\nAPPLICATION on-pkg\nFROM ${siteReference("Dollyfile-pkg")} ${digest(pkg)}\nENTRY /bin/slop\n`,
+      "Dollyfile-installs-base": `DOLLY 8\nAPPLICATION installs-base\nINSTALL ${siteReference("Dollyfile-base")} ${digest(base)}\nENTRY /bin/slop\n`,
+      "Dollyfile-undeclared": `DOLLY 8\nAPPLICATION undeclared\nREQUIRES HOST display@0\nFROM ${siteReference("Dollyfile-base")} ${digest(base)}\nINSTALL ${siteReference("Dollyfile-pkg")} ${digest(pkg)}\nENTRY /bin/slop\n`,
+      "Dollyfile-silent": `DOLLY 8\nAPPLICATION silent\nFROM ${siteReference("Dollyfile-base")} ${digest(base)}\nENTRY /bin/slop\n`,
     };
     for (const [path, text] of Object.entries(files)) await writeFile(resolve(directory, path), text);
     const packageGraph = await loadDollyfileGraph(directory, "Dollyfile-pkg");
     assert.deepEqual([...packageGraph.exporters.keys()], ["TOOL:rg", "ENV:RG"], "a package keeps nothing of its base");
     const graph = await loadDollyfileGraph(directory);
-    assert.deepEqual([...graph.exporters.keys()].sort(), ["ENV:DISPLAY", "ENV:RG", "TOOL:cc", "TOOL:rg"]);
+    assert.deepEqual([...graph.exporters.keys()].sort(), ["ENV:DOLLY_DISPLAY_LIBRARY", "ENV:RG", "TOOL:cc", "TOOL:rg"]);
     assert.equal(graph.exporters.get("TOOL:rg").module.name, "addon");
     assert.deepEqual(graph.root.hostRequirements, ["display@0", "threads@0"]);
     // A build of default reads pkg too: addon names it and does not hold it.

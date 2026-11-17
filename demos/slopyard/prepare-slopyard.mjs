@@ -12,7 +12,7 @@ const hash=bytes=>createHash("sha256").update(bytes).digest("hex");
 const pin=async path=>`${siteReference(path)} ${hash(await readFile(resolve(root,path)))}`;
 // The Lua archive pin is refreshed by update-recipe-pins --sources.
 const luaPin=(/lua-5\.5\.1\.tar\.gz ([0-9a-f]{64})/.exec(await readFile(resolve(root,"demos/slopyard/Dollyfile-slopyard-build"),"utf8").catch(()=>""))??[,"0".repeat(64)])[1];
-await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard-build"),`DOLLY 7
+await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard-build"),`DOLLY 8
 TOOLCHAIN slopyard-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -82,7 +82,7 @@ EXPORTS FOLDER slopyard-source /usr/src/dolly/slopyard
 
 ENTRY /bin/foreground -i /bin/slop
 `);
-await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard-game"),`DOLLY 7
+await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard-game"),`DOLLY 8
 PACKAGE slopyard-game
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -105,7 +105,7 @@ FILE /usr/share/man/cat1/slopyard.1
     coastal scrapyard where two teams deliver cargo.
     slopyard --check runs the game's own checks.
 `);
-await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),`DOLLY 7
+await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),`DOLLY 8
 APPLICATION slopyard
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0

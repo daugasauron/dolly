@@ -1,6 +1,6 @@
 # The showcase's videos are 88% of the repository's history, and each recording made again stays in it
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 70
 - TAGS: audit,repo,recording,0.1.8
 
@@ -41,3 +41,8 @@ One of these two, the owner's:
 ## Done when
 
 The owner has chosen. With the second, a re-recorded video adds no bytes to git.
+
+## Closed (2026-11-17): the owner's decision
+
+The owner (2026-11-17): the showcase's videos in git history are "Not ideal but fine for now". The
+videos stay in git as they are; nothing is changed.

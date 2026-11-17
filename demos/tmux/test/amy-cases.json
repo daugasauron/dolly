@@ -1,0 +1,22 @@
+{
+  "image": "default",
+  "directory": "/tmp/amy-tmux",
+  "steps": [
+    {
+      "fresh": true,
+      "why": "A timer writes into a pipe whose other end the same loop watches.",
+      "script": "amy install libevent",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <event2/event.h>' '#include <unistd.h>' 'static void heard(evutil_socket_t end, short what, void *seen) { char byte; *(int *)seen += read(end, &byte, 1) == 1 && byte == *\"p\"; }' 'static void fire(evutil_socket_t none, short what, void *end) { write(*(int *)end, \"p\", 1); }' 'int main(void) { int ends[2], seen = 0; struct timeval soon = { 0, 1000 }; struct event_base *base = event_base_new(); if (base == NULL || pipe(ends) != 0) return 2; event_base_once(base, ends[0], EV_READ, heard, &seen, NULL); event_base_once(base, -1, EV_TIMEOUT, fire, &ends[1], &soon); return event_base_dispatch(base) < 0 || seen != 1; }' > /tmp/amy-event.c && cc -O0 /tmp/amy-event.c -levent_core -o /tmp/amy-event && /tmp/amy-event", "status": 0 },
+    {
+      "fresh": true,
+      "why": "The description of the display's terminal, and a cursor address written from it. The stack is dirtied first: the address is formatted from the numbers given, not from what lay there.",
+      "script": "amy install libterminfo",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <term.h>' '#include <string.h>' 'static void dirty(void) { volatile char stack[16384]; memset((char *)stack, 255, sizeof(stack)); }' 'int main(void) { int error; if (setupterm(\"xterm-256color\", 1, &error) != OK) return 2; dirty(); return tigetnum(\"colors\") != 256 || strcmp(tiparm(tigetstr(\"cup\"), 4, 9), \"\\033[5;10H\") != 0; }' > /tmp/amy-term.c && cc -O0 /tmp/amy-term.c -lterminfo -o /tmp/amy-term && /tmp/amy-term", "status": 0 }
+  ]
+}

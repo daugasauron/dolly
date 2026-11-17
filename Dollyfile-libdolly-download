@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE libdolly-download
 REQUIRES HOST runtime@0
 
@@ -6,15 +6,15 @@ REQUIRES HOST runtime@0
 # programs the cc package builds: cc links every client archive in
 # /usr/lib/dolly/process, and a program records download@0 only when it calls
 # the client.
-FROM /v0.1.7/Dollyfile-system-build d1bb50136de0dadf12e3e2af2266c5102e9ab15769e9f607807c44d46323f3a1
+FROM /Dollyfile-system-build 0c72e09eba84571d4f8634cf6e7507eb1be1b9b8aa1fae61f6b0ec884b26b6fb
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/host/download/download.h 666bca4fba5da7bf1e998c6486f56dce24cdbc82f1126f9be59067eb03b03bfa /usr/include/dolly/download.h
-SOURCE /v0.1.7/host/download/download-abi.h 6252f84477c990f9df2ffc5905c0717a94c9f4e557fccccbbf593ac02198dbc2 /usr/include/dolly/download-abi.h
-SOURCE /v0.1.7/host/download/client.c 420b5ae0b6d2108a5e991cdf156f8b9781f1260cf5a748f38336066a7343a16e /tmp/libdolly-download/client.c
+SOURCE /host/download/download.h 666bca4fba5da7bf1e998c6486f56dce24cdbc82f1126f9be59067eb03b03bfa /usr/include/dolly/download.h
+SOURCE /host/download/download-abi.h 6252f84477c990f9df2ffc5905c0717a94c9f4e557fccccbbf593ac02198dbc2 /usr/include/dolly/download-abi.h
+SOURCE /host/download/client.c 420b5ae0b6d2108a5e991cdf156f8b9781f1260cf5a748f38336066a7343a16e /tmp/libdolly-download/client.c
 SLOP cc -O1 -c /tmp/libdolly-download/client.c -o /tmp/libdolly-download/client.o
 SLOP ar rcs /usr/lib/dolly/process/libdolly-download.a /tmp/libdolly-download/client.o
 

@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE xorg-server
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -14,17 +14,17 @@ REQUIRES HOST sockets@0
 # bitmap fonts) and libmd's SHA-1 are built by the Makefile below for the
 # server alone: libXfont2 with the server's own protocol types, and of libmd
 # only the hash the server takes.
-FROM /v0.1.7/demos/x11/Dollyfile-x11-build 0e058acfa14e3aa3f876b90ee94a4d0a9a4a1da866e51cc7f5f432ce891ff6e0
-USE /v0.1.7/demos/tools/Dollyfile-meson 6e2e2709c309b18805f645414cbb0af0159700d66bdb1cb81b66e128bb2ab38b
-USE /v0.1.7/demos/zero-ad/Dollyfile-pkgconf fdb291181297a70fc73950b9122322458fa73450d2f713b931eeefe0f46f6f02
-USE /v0.1.7/demos/sdl2/Dollyfile-sdl2 3eb6c82723eb26957a9a9b6ab8dc196609762ebda2b32b33152d4d30d77fac78
-USE /v0.1.7/demos/x11/Dollyfile-pixman 14cd9076a30242cbd36b4bc43f102c737a1b1c53b3cde826c70c9e02b24acab3
-USE /v0.1.7/demos/x11/Dollyfile-libxkbfile 006913bab87cba1ede5c6bbae66a3964d697d56ae1b33197e9ff3e49c2e91dca
-USE /v0.1.7/Dollyfile-zlib 8de0bd7abb3a8237405fbbe378e6565c995a24694e5a3b55ef24873c5786bdb5
-USE /v0.1.7/demos/tools/Dollyfile-xz d07bf61b88901661d5f75bc5000003f0df152c88dad282c46e57bd55f3a5adbb
-USE /v0.1.7/demos/tools/Dollyfile-yacc 32b94f77d2e844d124649229a8da1aceca5800704a97df8581cea8bb1fcffca1
-INSTALL /v0.1.7/demos/x11/Dollyfile-xkbcomp cedaa44f2d8a33335547df2c03be460f460fc306ea7600b770a7addb1166b916
-INSTALL /v0.1.7/demos/x11/Dollyfile-xkeyboard-config 660a4960064dd9ea8c7caa4e397bf90c3373d2a52506f841e3913b4d0311e5a3
+FROM /demos/x11/Dollyfile-x11-build 6cf1e19c36ee93d27b3859fb174f7cf780c2c156d2c635bcf23cf727fb3fc594
+USE /demos/tools/Dollyfile-meson 80402187a690b9a520c33b8dde367411c7988d2abd1d6a054d652eb94544d9d3
+USE /demos/tools/Dollyfile-pkgconf dddc95966d216baca55fbdac572c88d0b2247438ffdaa0ac7fcfc80dab51be8a
+USE /demos/sdl2/Dollyfile-sdl2 d71374d82452f6987ca07798fc16a46088dbf0fd076f45d48defd844d0d2020f
+USE /demos/x11/Dollyfile-pixman 0d89408e7f66e2172f7c10f1cca932bd41647aa387f42ebd8bc9f3a65568a6d4
+USE /demos/x11/Dollyfile-libxkbfile c1513621fef3f43133217f3bc7ce23e72ac3562ca0b549574ea86d7046d493c9
+USE /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
+USE /demos/tools/Dollyfile-xz 096ffdfc8b9a37b1bc6cab494bce2aac391f3b598e402be8a28936986a7dfa2a
+USE /demos/tools/Dollyfile-yacc eef08ec9cebd80d735b2404665cd73c288f3b5fbe846c7c8e29c9c61cab4b46c
+INSTALL /demos/x11/Dollyfile-xkbcomp bd303776fa8fbfe7fae356c5d81d5b51302943d7415285331c6c3b6eda08a2a9
+INSTALL /demos/x11/Dollyfile-xkeyboard-config 044946b8e4f67bd0856dd08993b515fdbb466baeccd6defbb44e0a9f15b06a98
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2
 REQUIRES LIB z
@@ -35,10 +35,10 @@ REQUIRES TOOL patch
 REQUIRES TOOL pkg-config
 REQUIRES TOOL xz
 
-SOURCE /v0.1.7/dist/static/x11/libmd-1.3.0.tar.xz fc0f1eb6b6766470326f2c014693809190e67dba84274a6fbae9d4912d066706 /tmp/xorg/libmd.tar.xz
-SOURCE /v0.1.7/dist/static/x11/libXfont2-2.0.9.tar.gz 8564b4df365bc5a6cb0c15900dc688f6e8f47b00a8571c6708c916dfb85066ba /tmp/xorg/libXfont2.tar.gz
-SOURCE /v0.1.7/dist/static/x11/xorg-server-21.1.25.tar.gz fdb5ec9b4ab7371745b182b68c7054ed72fc4d13e185fc369cfc45e0c3a174e7 /tmp/xorg/xorg-server.tar.gz
-SOURCE /v0.1.7/dist/static/x11/xsdl.tar 716a2caef59413b92415a0f2f6c141071e07782f709a814862adb8b745646ce0 /tmp/xorg/xsdl.tar
+SOURCE /dist/static/x11/libmd-1.3.0.tar.xz fc0f1eb6b6766470326f2c014693809190e67dba84274a6fbae9d4912d066706 /tmp/xorg/libmd.tar.xz
+SOURCE /dist/static/x11/libXfont2-2.0.9.tar.gz 8564b4df365bc5a6cb0c15900dc688f6e8f47b00a8571c6708c916dfb85066ba /tmp/xorg/libXfont2.tar.gz
+SOURCE /dist/static/x11/xorg-server-21.1.25.tar.gz fdb5ec9b4ab7371745b182b68c7054ed72fc4d13e185fc369cfc45e0c3a174e7 /tmp/xorg/xorg-server.tar.gz
+SOURCE /dist/static/x11/xsdl.tar 716a2caef59413b92415a0f2f6c141071e07782f709a814862adb8b745646ce0 /tmp/xorg/xsdl.tar
 SLOP CWD /tmp/xorg for archive in *.tar.gz; do gzip -dc "$archive" | tar -xf -; done
 SLOP CWD /tmp/xorg for archive in *.tar.xz; do xz -dc "$archive" | tar -xf -; done
 SLOP tar -xf /tmp/xorg/xsdl.tar -C /

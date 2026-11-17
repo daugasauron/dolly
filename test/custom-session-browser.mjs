@@ -4,16 +4,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { browserTest, routeAttributes } from "./browser.mjs";
 import { siteReference } from "../page/static-asset.mjs";
+import catalog from "../dist/dolly-images.json" with { type: "json" };
 
 const scratch = await mkdtemp(join(tmpdir(), "dolly-custom-session-"));
 const status = page => page.evaluate(() => document.documentElement.dataset.dollyStatus);
+// A rebuild builds its image first: measured at 42 s on a loaded machine.
 async function boot(page) {
-  await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
+  await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null,
+    { timeout: 180_000 });
   assert.equal(await status(page), "ready", await page.locator("#bootstrap-log").textContent());
   await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "session shell"));
 }
 async function rejected(page) {
-  await page.waitForFunction(() => document.documentElement.dataset.dollyStatus === "failed");
+  await page.waitForFunction(() => document.documentElement.dataset.dollyStatus === "failed", null, { timeout: 180_000 });
 }
 const submit = (page, command) => page.evaluate(text => __dolly.submit(text), command);
 async function check(page, commands) {
@@ -37,7 +40,10 @@ async function customImageSessions(context, server, fixtures) {
   // The page's default recipe names its base and restates the base's host
   // modules (system retains the engine and the transfer tools).
   const original = await page.locator("#source").inputValue();
-  const base = original.slice(0, original.indexOf("\nFILE ")).replace("APPLICATION custom", "APPLICATION custom-session");
+  // The session fetches with curl (below), which the base does not hold.
+  const curl = catalog.images.find(({ image }) => image === "curl");
+  const base = original.slice(0, original.indexOf("\nFILE ")).replace("APPLICATION custom", "APPLICATION custom-session\nREQUIRES HOST http@0") +
+    `INSTALL ${siteReference(curl.dollyfile)} ${curl.sha256}\n`;
   assert.ok(base.includes(`\nFROM ${siteReference("Dollyfile-system")} `), base);
   const source = `${base}FILE /tmp/session-hello.c
     #include <stdio.h>
@@ -65,19 +71,16 @@ ENTRY /bin/foreground -i /bin/slop
   await writeFile(oversized, "x".repeat(128 * 1024 + 1));
   await page.locator("#dollyfile-upload").setInputFiles(oversized);
   assert.equal(await page.locator("#source").inputValue(), "DOLLY 2");
-  // A recipe that names another version's files is refused before anything
-  // is built, naming that version and the page's own.
-  const elsewhere = "/v987.0.21/";
-  for (const foreign of [source.replace(siteReference(""), elsewhere),
-    source.replace("ENTRY ", `SOURCE ${elsewhere}dist/static/default/slop.c ${"0".repeat(64)} /tmp/slop.c\nENTRY `)]) {
-    await page.locator("#source").fill(foreign);
-    await page.locator("form button[type=submit]").click();
-    await page.waitForURL("**/custom/rebuild/");
-    await rejected(page);
-    const refusal = await page.locator("#bootstrap-log").textContent();
-    assert.ok(refusal.includes(elsewhere) && refusal.includes(siteReference("")), refusal);
-    await page.goto(server.origin + "/custom/");
-  }
+  // A recipe that names a recipe this release does not publish is refused
+  // before anything is built, naming it.
+  const unpublished = "/v0.1.7/Dollyfile-system";
+  await page.locator("#source").fill(source.replace(/^FROM \S+/m, `FROM ${unpublished}`));
+  await page.locator("form button[type=submit]").click();
+  await page.waitForURL("**/custom/rebuild/");
+  await rejected(page);
+  const refusal = await page.locator("#bootstrap-log").textContent();
+  assert.ok(refusal.includes(unpublished), refusal);
+  await page.goto(server.origin + "/custom/");
   await page.locator("#source").fill(source);
   await page.locator("form button[type=submit]").click();
   await page.waitForURL("**/custom/rebuild/");

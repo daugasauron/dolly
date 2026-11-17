@@ -223,9 +223,9 @@ int dolly_terminal_present_pending(void) {
 }
 
 int dolly_display_prepare(void) {
-  const char *driver_path = getenv("DISPLAY");
+  const char *driver_path = getenv("DOLLY_DISPLAY_LIBRARY");
   if (driver_path == NULL || driver_path[0] != '/') {
-    fputs("dolly: DISPLAY must name an absolute shared-library path\n", stderr);
+    fputs("dolly: DOLLY_DISPLAY_LIBRARY must name an absolute shared-library path\n", stderr);
     return 1;
   }
 

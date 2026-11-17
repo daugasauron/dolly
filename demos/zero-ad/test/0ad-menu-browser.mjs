@@ -6,7 +6,8 @@ import {acceptDownload} from '../../browser.mjs';
 import {hasGameHud} from './fixtures/0ad-hud.mjs';
 
 const root=new URL('../../../',import.meta.url).pathname;
-const browserName=process.argv[2]??'firefox',url=process.argv[3];
+// Chrome by default, as the GPU stage runs it on Xvfb: Firefox needs a display with hardware GL (README).
+const browserName=process.argv[2]??'chromium',url=process.argv[3];
 assert.ok(['chromium','firefox'].includes(browserName),'usage: node demos/zero-ad/test/0ad-menu-browser.mjs [chromium|firefox] [page URL]');
 const output=root+'/.cache/0ad/browser';
 await mkdir(output,{recursive:true});

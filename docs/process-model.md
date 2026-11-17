@@ -93,8 +93,8 @@ sequenceDiagram
   `dolly_thread_start`) and a Worker that fails while running exit with status
   126 after one line on the process's own descriptor 2 that names the cause
   ([`process-supervisor.mjs`](../page/process-supervisor.mjs)); unrelated
-  processes are unaffected. `cc` refuses to link a thread client without
-  `-pthread`, so what it links the loader runs.
+  processes are unaffected. Only `cc -pthread` links the thread client, and it
+  exports the thread entry, so what it links the loader runs.
 - A malformed call returns an errno and the process keeps running: `EFAULT` for
   a packet outside its memory, `E2BIG` over 1 MiB, `ENOSYS` for an unknown
   operation, `EINVAL` for a wrong layout
@@ -430,10 +430,10 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
 
 ## Signals
 
-- Supported: `SIGHUP`, `SIGINT`, `SIGQUIT`, `SIGABRT`, `SIGKILL`, `SIGPIPE`,
-  `SIGALRM`, `SIGTERM`, `SIGCHLD`, `SIGWINCH`; others are rejected, and only
-  the kernel sends another process `SIGCHLD` (`kill` with it fails with
-  `ENOTSUP`).
+- Supported: `SIGHUP`, `SIGINT`, `SIGQUIT`, `SIGABRT`, `SIGKILL`, `SIGUSR1`,
+  `SIGUSR2`, `SIGPIPE`, `SIGALRM`, `SIGTERM`, `SIGCHLD`, `SIGWINCH`; others
+  are rejected, and only the kernel sends another process `SIGCHLD` (`kill`
+  with it fails with `ENOTSUP`).
 - Handlers run in Wasm at syscall boundaries ([`signal.c`](../process/signal.c))
   with masks, `SA_RESTART`, `SA_RESETHAND`, `SA_NODEFER` and `SA_SIGINFO`.
   Alternate stacks, `sigwait`, asynchronous preemption and `SA_NOCLDWAIT` are
@@ -498,6 +498,11 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   `pthread_create` with `EAGAIN`. Handlers run on the
   main thread, also while it waits in `pthread_join`. A host of libraries
   loads them in every thread (below); no cancellation or directed signals.
+- Without `-pthread` a program is one thread
+  ([`pthread-stubs.c`](../process/pthread-stubs.c)): `pthread_create` and
+  `pthread_cancel` fail with `ENOTSUP`, a lock it holds is busy, and waiting
+  for it is `EDEADLK` or, with a deadline, `ETIMEDOUT` there; a condition's
+  timed wait lasts until its deadline; a barrier of more than one fails with `EAGAIN`.
 - `dso@0` ([`host/dso/dolly-dso-0.wat`](../host/dso/dolly-dso-0.wat),
   [`host/dso/process.mjs`](../host/dso/process.mjs)): process-local DSOs and
   FFI, served in the Worker of an executable that records the module
@@ -557,8 +562,11 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   with `ENOSYS`. Sockets and other state a module keeps in the kernel stay
   with their processes; a threaded program ends with status 126 when
   `threads@0` is disabled under it.
-- Not switched: `runtime@0`, `http@0`, `build@0`, `display@0`, `input@0` and
-  `snapshot@0`; `nena` says why for each.
+- Not switched: `runtime@0`, `build@0`, `display@0`, `input@0` and
+  `snapshot@0`; `nena` says why for each. Nor is a module disabled that an
+  enabled one needs (`http@0` under `build@0`). `http@0` switched on takes the
+  page's HTTP policy as it was at load; switched off, each transfer in flight
+  ends with `ECANCELED` (`amy install curl` enables it in `default`).
 - `nena disable nena` gives the privilege up until the page is reloaded: the
   session then is as an image without `nena@0`, and its refusals read so.
 - The modules a session enabled are listed in `/etc/dolly/enabled`, one

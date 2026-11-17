@@ -113,7 +113,8 @@ To force an adapter for a test: Chrome takes
 for the lavapipe software adapter), with PCI IDs from `lspci -nn`. Playwright
 drives the installed Firefox with `channel: "moz-firefox"`; its bundled Firefox
 build returns no adapter under Xvfb. A snap's Firefox has a /tmp of its own, so
-Playwright's profile must be elsewhere: set `TMPDIR` to a directory under `$HOME`.
+the tests' launcher (`launchInstalledFirefox` in
+[`browser.mjs`](../test/browser.mjs)) makes Playwright's profile under `build/`.
 Under Xvfb, Firefox shows no WebGPU canvas, on the main thread or a worker's, neither
 on the X display nor in Playwright's screenshots: tests there read frames back
 (`CAPTURE_FRAME`, or a program's own readback) instead of looking at the page.

@@ -1,21 +1,18 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN system-build
 REQUIRES HOST runtime@0
-REQUIRES HOST http@0
 
 # This is the first step. It has no requirements: its exact compiler commands
 # and C headers are the externally supplied bootstrap seed. How those headers
 # eventually map to the lower-level machine contract is deliberately open.
-SOURCE /v0.1.7/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415 /usr/include/dolly/toolchain.h
-SOURCE /v0.1.7/include/dolly/runtime.h   d57f5242814e516035781cc4fb23c6c5d6c8c6b1b89eafc7447f566fe0b7ad21 /usr/include/dolly/runtime.h
-SOURCE /v0.1.7/include/dolly/process.h   2946bdef52557f5fae8b5741ccd7904745b42a960c27d829f81026a637529ce0 /usr/include/dolly/process.h
-SOURCE /v0.1.7/include/dolly/host.h 9737f9b15bd65f5732e16bd942fe593132c7c886c3076dfda89a529a23fee08a /usr/include/dolly/host.h
-SOURCE /v0.1.7/include/dolly/host-abi.h 3f2d26426bb088d61a0cc18b6c464697e98c83d8d34ffaf1d063768e619eb766 /usr/include/dolly/host-abi.h
+SOURCE /include/dolly/runtime.h   d57f5242814e516035781cc4fb23c6c5d6c8c6b1b89eafc7447f566fe0b7ad21 /usr/include/dolly/runtime.h
+SOURCE /include/dolly/process.h   48ee65d4ed5513e197d8cc6e9e7b2265fc510084931d3620290ccbc7075dfba6 /usr/include/dolly/process.h
+SOURCE /include/dolly/host.h 9737f9b15bd65f5732e16bd942fe593132c7c886c3076dfda89a529a23fee08a /usr/include/dolly/host.h
+SOURCE /include/dolly/host-abi.h 3f2d26426bb088d61a0cc18b6c464697e98c83d8d34ffaf1d063768e619eb766 /usr/include/dolly/host-abi.h
 
 # /usr/include also holds the headers of the modules whose clients the seed
 # holds (host/README.md); every other module's are in its package.
 EXPORTS HEADER libc      /usr/include
-EXPORTS HEADER toolchain /usr/include/dolly/toolchain.h
 EXPORTS HEADER runtime   /usr/include/dolly/runtime.h
 EXPORTS HEADER process   /usr/include/dolly/process.h
 EXPORTS HEADER host /usr/include/dolly/host.h
@@ -30,21 +27,23 @@ EXPORTS FILE   compiler          /usr/libexec/dolly/process-bin/compiler
 EXPORTS FILE   kernel-plugin-abi /usr/lib/dolly/dolly-kernel-plugin-0.wasm
 
 # Every program links the process libc: Emscripten's musl.
-SOURCE /v0.1.7/dist/static/default/licenses/musl b870108ec5e7790e9f9919064f1b9421d62d5f9b0e6c230c6adf7ea2da62e97b /usr/share/licenses/musl/COPYRIGHT
-SOURCE /v0.1.7/dist/static/default/licenses/emscripten 620a78084fc7ca97c0b5dea9abf891f3ffcadfdbf305276f099c9c4e12fc1d86 /usr/share/licenses/emscripten/LICENSE
+SOURCE /dist/static/default/licenses/musl b870108ec5e7790e9f9919064f1b9421d62d5f9b0e6c230c6adf7ea2da62e97b /usr/share/licenses/musl/COPYRIGHT
+SOURCE /dist/static/default/licenses/emscripten 620a78084fc7ca97c0b5dea9abf891f3ffcadfdbf305276f099c9c4e12fc1d86 /usr/share/licenses/emscripten/LICENSE
 FILE /usr/share/licenses/musl/COPYRIGHT
 FILE /usr/share/licenses/emscripten/LICENSE
 
 # cc, c++, ld and ar forward to the seed compiler. Only that compiler exists at
 # this point, so RUN starts it for them; every later recipe step uses SLOP.
-SOURCE /v0.1.7/dist/static/default/commands/cc.c a282fe564c0387114321839e30a5f66e5ae964d014f206baa7d742f9698d1026 /tmp/process-tools/cc.c
-SOURCE /v0.1.7/dist/static/default/commands/cxx.c 0fd83199b0d1063bf5e81b8e762f7105b013e83eb1c2953967e51db34dd94524 /tmp/process-tools/cxx.c
-SOURCE /v0.1.7/dist/static/default/commands/ld.c d12309353aeb2a80e3766e87c3e9936ac9fb434114e36287a1acbf3339bf104b /tmp/process-tools/ld.c
-SOURCE /v0.1.7/dist/static/default/commands/ar.c f3007ddb171959a587b62d840253144198749acd8dbe0212b2cbd73a55dd83bd /tmp/process-tools/ar.c
-RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/process-tools/cc.c -o /bin/cc
-RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/process-tools/cxx.c -o /bin/c++
-RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/process-tools/ld.c -o /bin/ld
-RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/process-tools/ar.c -o /bin/ar
+SOURCE /dist/static/default/commands/cc.c 3009db3c344eebe44c1f3cdba7adf1c6c90a6268dc42c02e5030cd0311fbe819 /tmp/process-tools/cc.c
+SOURCE /dist/static/default/commands/cxx.c e590097529a894fe768f046188bb3e949377ae8b4fecc41093dd3adac5ca820a /tmp/process-tools/cxx.c
+SOURCE /dist/static/default/commands/ld.c 3bf4f5ed66fefbcb1a40bf98bc175e1e10775e7f99c756507d97ee8d95cfee5c /tmp/process-tools/ld.c
+SOURCE /dist/static/default/commands/ar.c b8d9b3d57607f48f7c817e4828c35e9aa5cf9e5a92334876fd6081bfea6dcb98 /tmp/process-tools/ar.c
+SOURCE /dist/static/default/commands/toolchain.h e3e12fa1eabbf433c25bc3db0ef71256667f21669a93ee2dcb0ac20ce18f6fa5 /tmp/process-tools/toolchain.h
+SOURCE /dist/static/default/commands/toolchain.c 0339818db3f343c2258b9fd64c4182c3c36b4b40692cfe8f8def4cbc2e4910b6 /tmp/process-tools/toolchain.c
+RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/process-tools/cc.c /tmp/process-tools/toolchain.c -o /bin/cc
+RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/process-tools/cxx.c /tmp/process-tools/toolchain.c -o /bin/c++
+RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/process-tools/ld.c /tmp/process-tools/toolchain.c -o /bin/ld
+RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/process-tools/ar.c /tmp/process-tools/toolchain.c -o /bin/ar
 
 EXPORTS ENV CC    cc
 EXPORTS ENV AR    ar
@@ -64,11 +63,11 @@ EXPORTS TOOL dollyfile
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 
-SOURCE /v0.1.7/dist/static/default/slop.c eef57190c2bc7fb36829dced03b93d9db2c4e08fb667f97daf80676bb5570658 /tmp/slop/slop.c
+SOURCE /dist/static/default/slop.c 64729b60961f13bc719c710a61118cc2d66029661d5a513245ae66892013c050 /tmp/slop/slop.c
 # Slop runs the code of the system's test, [, echo and printf itself.
-SOURCE /v0.1.7/dist/static/default/commands/test.c f8c6d9618f2f78a85eb8c177df0bb565e9f611f849cbc05401a4a888ce98c5f9 /tmp/slop/commands/test.c
-SOURCE /v0.1.7/dist/static/default/commands/echo.c 41f0735133bdae9226bf41909009e6db7fc298a0c9a9e1ee16934c09ad244335 /tmp/slop/commands/echo.c
-SOURCE /v0.1.7/dist/static/default/commands/printf.c 67ec89acb4cd3a1f5657e8ec8d54d58f1d796f6e2eb461545e34a884cce962dc /tmp/slop/commands/printf.c
+SOURCE /dist/static/default/commands/test.c f8c6d9618f2f78a85eb8c177df0bb565e9f611f849cbc05401a4a888ce98c5f9 /tmp/slop/commands/test.c
+SOURCE /dist/static/default/commands/echo.c 41f0735133bdae9226bf41909009e6db7fc298a0c9a9e1ee16934c09ad244335 /tmp/slop/commands/echo.c
+SOURCE /dist/static/default/commands/printf.c 67ec89acb4cd3a1f5657e8ec8d54d58f1d796f6e2eb461545e34a884cce962dc /tmp/slop/commands/printf.c
 RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 -DDOLLY_SHELL_UTILITY /tmp/slop/slop.c \
   /tmp/slop/commands/test.c /tmp/slop/commands/echo.c /tmp/slop/commands/printf.c -o /bin/slop
 
@@ -78,25 +77,25 @@ REQUIRES TOOL   cc
 
 # Dolly's own small commands, from programs/commands. Each TOOL export names the
 # compiled result.
-SOURCE /v0.1.7/dist/static/default/commands/path.h 48c3a1e853aa273106234c8cdbbcae7d54c2f68f477373e0712d5e4748a9b788 /tmp/core-tools/path.h
-SOURCE /v0.1.7/dist/static/default/commands/mkdir.c 0713179c0b44c92e30d2fd22c87a930ca23f5417b1b3392b3997547648617ad6 /tmp/core-tools/mkdir.c
-SOURCE /v0.1.7/dist/static/default/commands/rm.c 2adb95ed560a55f22b91eda217fdbfc4108bd14ebe71b143ef706869d88a1997 /tmp/core-tools/rm.c
-SOURCE /v0.1.7/dist/static/default/commands/foreground.c e926c3c87764e44064744fc1d3cba008c46666ed7a06d351824ce67792bcdd76 /tmp/core-tools/foreground.c
-SOURCE /v0.1.7/dist/static/default/commands/help.c 5051d2894cf4733b35ee0a128bbccbc428ffd232314465123360b0fba866c70d /tmp/core-tools/help.c
-SOURCE /v0.1.7/dist/static/default/commands/man.c cd13cdece7706188e083a1754187cb19b7627e9cb8d2b294ba21cd2f88ff39d8 /tmp/core-tools/man.c
-SOURCE /v0.1.7/dist/static/default/commands/pwd.c 61b2840bfba274f511c3777f5b800bcdfff1947bef13b771c5d9a98eb5d03d3d /tmp/core-tools/pwd.c
-SOURCE /v0.1.7/dist/static/default/commands/cat.c 43eabd1e83f6c56cd5b5a7d8e5f9621e214c35e9407dea6bbce34120cb9da723 /tmp/core-tools/cat.c
-SOURCE /v0.1.7/dist/static/default/commands/echo.c 41f0735133bdae9226bf41909009e6db7fc298a0c9a9e1ee16934c09ad244335 /tmp/core-tools/echo.c
-SOURCE /v0.1.7/dist/static/default/commands/printf.c 67ec89acb4cd3a1f5657e8ec8d54d58f1d796f6e2eb461545e34a884cce962dc /tmp/core-tools/printf.c
-SOURCE /v0.1.7/dist/static/default/commands/touch.c 1eb3737abe39d9efe0c66d9e84a7bf6445fa2c07c12b46ad107cd799f2f0747c /tmp/core-tools/touch.c
-SOURCE /v0.1.7/dist/static/default/commands/clear.c f2e6915b3fe34393087ec7d04e61d090c0d62e551b86b36e8c3ff6bfff72598d /tmp/core-tools/clear.c
-SOURCE /v0.1.7/dist/static/default/commands/ls.c 7b1f4a0cdfb7e568b9a8e4ab9b9d784d52d034103915e11b1a25472bbe86d225 /tmp/core-tools/ls.c
-SOURCE /v0.1.7/dist/static/default/commands/stat.c 716e40d4db491a766b738e21c780d4f386641be93daccc4481b4d71b603110c2 /tmp/core-tools/stat.c
-SOURCE /v0.1.7/dist/static/default/commands/file.c 3fd871ab9da0233ab738683f3ae45ab8cac3b37df3be92359575448137b4ec37 /tmp/core-tools/file.c
-SOURCE /v0.1.7/dist/static/default/commands/test.c f8c6d9618f2f78a85eb8c177df0bb565e9f611f849cbc05401a4a888ce98c5f9 /tmp/core-tools/test.c
-SOURCE /v0.1.7/dist/static/default/commands/mv.c 9c14fbc337cd41f6d7733fb3a36346d845e14223e6207d427a74123a00ea6504 /tmp/core-tools/mv.c
-SOURCE /v0.1.7/dist/static/default/commands/cp.c 97eaeb0da4d284fa222de163bb99b86086398c4c76cdb6a77d0a06c699e7d2e9 /tmp/core-tools/cp.c
-SOURCE /v0.1.7/dist/static/default/commands/sleep.c 7723af4c2a4feb4a3393482fe3e58beaba36b2b0d83fcc67787b339a87e031e6 /tmp/core-tools/sleep.c
+SOURCE /dist/static/default/commands/path.h 48c3a1e853aa273106234c8cdbbcae7d54c2f68f477373e0712d5e4748a9b788 /tmp/core-tools/path.h
+SOURCE /dist/static/default/commands/mkdir.c 0713179c0b44c92e30d2fd22c87a930ca23f5417b1b3392b3997547648617ad6 /tmp/core-tools/mkdir.c
+SOURCE /dist/static/default/commands/rm.c 2adb95ed560a55f22b91eda217fdbfc4108bd14ebe71b143ef706869d88a1997 /tmp/core-tools/rm.c
+SOURCE /dist/static/default/commands/foreground.c e926c3c87764e44064744fc1d3cba008c46666ed7a06d351824ce67792bcdd76 /tmp/core-tools/foreground.c
+SOURCE /dist/static/default/commands/help.c 5051d2894cf4733b35ee0a128bbccbc428ffd232314465123360b0fba866c70d /tmp/core-tools/help.c
+SOURCE /dist/static/default/commands/man.c cd13cdece7706188e083a1754187cb19b7627e9cb8d2b294ba21cd2f88ff39d8 /tmp/core-tools/man.c
+SOURCE /dist/static/default/commands/pwd.c 61b2840bfba274f511c3777f5b800bcdfff1947bef13b771c5d9a98eb5d03d3d /tmp/core-tools/pwd.c
+SOURCE /dist/static/default/commands/cat.c 43eabd1e83f6c56cd5b5a7d8e5f9621e214c35e9407dea6bbce34120cb9da723 /tmp/core-tools/cat.c
+SOURCE /dist/static/default/commands/echo.c 41f0735133bdae9226bf41909009e6db7fc298a0c9a9e1ee16934c09ad244335 /tmp/core-tools/echo.c
+SOURCE /dist/static/default/commands/printf.c 67ec89acb4cd3a1f5657e8ec8d54d58f1d796f6e2eb461545e34a884cce962dc /tmp/core-tools/printf.c
+SOURCE /dist/static/default/commands/touch.c 1eb3737abe39d9efe0c66d9e84a7bf6445fa2c07c12b46ad107cd799f2f0747c /tmp/core-tools/touch.c
+SOURCE /dist/static/default/commands/clear.c f2e6915b3fe34393087ec7d04e61d090c0d62e551b86b36e8c3ff6bfff72598d /tmp/core-tools/clear.c
+SOURCE /dist/static/default/commands/ls.c 7b1f4a0cdfb7e568b9a8e4ab9b9d784d52d034103915e11b1a25472bbe86d225 /tmp/core-tools/ls.c
+SOURCE /dist/static/default/commands/stat.c 716e40d4db491a766b738e21c780d4f386641be93daccc4481b4d71b603110c2 /tmp/core-tools/stat.c
+SOURCE /dist/static/default/commands/file.c 3fd871ab9da0233ab738683f3ae45ab8cac3b37df3be92359575448137b4ec37 /tmp/core-tools/file.c
+SOURCE /dist/static/default/commands/test.c f8c6d9618f2f78a85eb8c177df0bb565e9f611f849cbc05401a4a888ce98c5f9 /tmp/core-tools/test.c
+SOURCE /dist/static/default/commands/mv.c 9c14fbc337cd41f6d7733fb3a36346d845e14223e6207d427a74123a00ea6504 /tmp/core-tools/mv.c
+SOURCE /dist/static/default/commands/cp.c 97eaeb0da4d284fa222de163bb99b86086398c4c76cdb6a77d0a06c699e7d2e9 /tmp/core-tools/cp.c
+SOURCE /dist/static/default/commands/sleep.c 7723af4c2a4feb4a3393482fe3e58beaba36b2b0d83fcc67787b339a87e031e6 /tmp/core-tools/sleep.c
 SLOP cc \
   -O2 \
   /tmp/core-tools/foreground.c \
@@ -247,7 +246,7 @@ SLOP rm \
 REQUIRES TOOL   rm
 
 # Dolly's deliberately small ustar extractor.
-SOURCE /v0.1.7/dist/static/default/commands/tar.c 9e01d3df0905b893afe02232c713d5feafbead706392f7fc62967bdffad1779f /tmp/bootstrap/tar.c
+SOURCE /dist/static/default/commands/tar.c 9e01d3df0905b893afe02232c713d5feafbead706392f7fc62967bdffad1779f /tmp/bootstrap/tar.c
 SLOP cc \
   /tmp/bootstrap/tar.c \
   -o /bin/tar
@@ -262,7 +261,7 @@ SLOP rm \
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.7/dist/static/default/make-4.4.1.tar                     5dce03b47a90e26891e789b3361481c65765e12bd8dc79ec0cf949336ef94616 /tmp/make-4.4.1.tar
+SOURCE /dist/static/default/make-4.4.1.tar                     243b31e6a2d662ae9713910b8b2e326aecf7edfb9d16c5f736292055de8d3f37 /tmp/make-4.4.1.tar
 SLOP tar \
   -xf /tmp/make-4.4.1.tar \
   -C /
@@ -306,10 +305,10 @@ REQUIRES TOOL   cc
 REQUIRES TOOL   ar
 REQUIRES TOOL   make
 
-SOURCE /v0.1.7/dist/static/default/libcxx-headers.tar 5e558f6f862d4a3fb22cc3c5b62c5e2652bf699f176fa349eeecb85d1a946735 /tmp/cpp/libcxx-headers.tar
-SOURCE /v0.1.7/dist/static/default/libcxx.tar         2dff834a9e5e907476841437518cfdd568563e922e7a22f3261da114e1b1a1e8 /tmp/cpp/libcxx.tar
-SOURCE /v0.1.7/dist/static/default/licenses/libcxx    539dd7aed86e8a4f12cbdd0e6c50c189c7d74847e4fecc64ce2c6ee3a01da38b /usr/share/licenses/libcxx/LICENSE
-SOURCE /v0.1.7/dist/static/default/licenses/libcxxabi e2b35be49f7284a45b7baca8fc7b3ab7440e7902392b2528a457816b5bb2a15c /usr/share/licenses/libcxxabi/LICENSE
+SOURCE /dist/static/default/libcxx-headers.tar 5e558f6f862d4a3fb22cc3c5b62c5e2652bf699f176fa349eeecb85d1a946735 /tmp/cpp/libcxx-headers.tar
+SOURCE /dist/static/default/libcxx.tar         2dff834a9e5e907476841437518cfdd568563e922e7a22f3261da114e1b1a1e8 /tmp/cpp/libcxx.tar
+SOURCE /dist/static/default/licenses/libcxx    539dd7aed86e8a4f12cbdd0e6c50c189c7d74847e4fecc64ce2c6ee3a01da38b /usr/share/licenses/libcxx/LICENSE
+SOURCE /dist/static/default/licenses/libcxxabi e2b35be49f7284a45b7baca8fc7b3ab7440e7902392b2528a457816b5bb2a15c /usr/share/licenses/libcxxabi/LICENSE
 
 SLOP tar \
   -xf /tmp/cpp/libcxx-headers.tar \

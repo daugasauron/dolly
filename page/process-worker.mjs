@@ -1,4 +1,5 @@
 import { DOLLY_ERRNO } from "./process-constants.mjs";
+import { controlBytes, controlWord } from "./process-control.mjs";
 
 import {
   DOLLY_PROCESS_CLOCK_MONOTONIC, DOLLY_PROCESS_CLOCK_REALTIME, DOLLY_PROCESS_CLOCK_TIME,
@@ -35,8 +36,8 @@ const configuration = await new Promise((resolve, reject) => {
     resolve(event.data);
   });
 });
-// The operations that start and end a thread, the threads module's
-// (runtime.mjs setThreadProvider), for a threaded program.
+// The operations that start and end a thread and the export a thread starts
+// at, the threads module's (runtime.mjs setThreadProvider), for a threaded program.
 const threadOperations = configuration.threaded ? configuration.threadOperations : {};
 
 if (!(configuration.module instanceof WebAssembly.Module || configuration.module instanceof MessagePort) ||
@@ -44,14 +45,14 @@ if (!(configuration.module instanceof WebAssembly.Module || configuration.module
     !(configuration.kernelMemory instanceof WebAssembly.Memory) ||
     !(configuration.control instanceof SharedArrayBuffer) ||
     !Array.isArray(configuration.local) ||
-    configuration.control.byteLength !== 32 ||
+    configuration.control.byteLength !== controlBytes ||
     !Number.isFinite(configuration.clockOrigin) ||
     !Number.isSafeInteger(configuration.mailbox) || configuration.mailbox <= 0 ||
     typeof configuration.memory?.initial !== "bigint" || typeof configuration.memory?.maximum !== "bigint" ||
     (configuration.port !== undefined && !(configuration.port instanceof MessagePort)) ||
     !Number.isInteger(configuration.pid) || configuration.pid <= 0 ||
     (configuration.threaded && !(Number.isInteger(configuration.threadOperations?.spawn) &&
-      Number.isInteger(configuration.threadOperations?.exit)))) {
+      Number.isInteger(configuration.threadOperations?.exit) && typeof configuration.threadEntry === "string"))) {
   throw new Error("Dolly process received an invalid configuration");
 }
 
@@ -109,9 +110,9 @@ function reportThreadFinished() {
 // that spawned the thread.
 async function processMemory() {
   if (configuration.port) {
-    // A thread's start word (control word 5): the supervisor sets 2 when it ends
+    // A thread's start word: the supervisor sets 2 when it ends
     // the thread before the program runs here, and this Worker ends.
-    const ended = Atomics.waitAsync(control, 5, 0);
+    const ended = Atomics.waitAsync(control, controlWord.start, 0);
     const { memory, received } = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error("the process memory was not provided")), 10_000);
       configuration.port.onmessage = ({ data }) => { clearTimeout(timeout); resolve(data ?? {}); };
@@ -161,8 +162,8 @@ function packetRange(addressValue, sizeValue) {
 }
 
 function decodeResult() {
-  const low = BigInt(Atomics.load(control, 2) >>> 0);
-  const high = BigInt(Atomics.load(control, 3) >>> 0);
+  const low = BigInt(Atomics.load(control, controlWord.resultLow) >>> 0);
+  const high = BigInt(Atomics.load(control, controlWord.resultHigh) >>> 0);
   return BigInt.asIntN(64, low | (high << 32n));
 }
 
@@ -174,17 +175,17 @@ function clockResponse(clock, response, now) {
   return BigInt(clockResponseSize);
 }
 
-// The request goes into the mailbox under control word 4, which the
+// The request goes into the mailbox under the copy word, which the
 // supervisor seals (2) before it frees the mailbox of a Worker it ends: a
 // Worker ended mid-copy cannot write into memory the kernel has reused. A
 // sealed Worker is being terminated: false, and the call ends its thread.
 function copyRequest(request) {
-  if (Atomics.compareExchange(control, 4, 0, 1) !== 0) return false;
+  if (Atomics.compareExchange(control, controlWord.copy, 0, 1) !== 0) return false;
   try {
     gate.exports.request(BigInt(request.address), mailbox, BigInt(request.size));
   } finally {
-    Atomics.store(control, 4, 0);
-    Atomics.notify(control, 4);
+    Atomics.store(control, controlWord.copy, 0);
+    Atomics.notify(control, controlWord.copy);
   }
   return true;
 }
@@ -247,8 +248,8 @@ function call(operation, requestAddressValue, requestSizeValue,
   }
   const result = awaitHost(() => {
     // Positive 31-bit sequences wrap from 2^31 - 1 back to one.
-    const sequence = Atomics.load(control, 0) % 0x7fffffff + 1;
-    Atomics.store(control, 0, sequence);
+    const sequence = Atomics.load(control, controlWord.call) % 0x7fffffff + 1;
+    Atomics.store(control, controlWord.call, sequence);
     if (!copyRequest(request)) return deferredResult;
     self.postMessage({
       type: "syscall",
@@ -263,12 +264,12 @@ function call(operation, requestAddressValue, requestSizeValue,
       port: channel?.port1,
     }, channel ? [channel.port1] : []);
     for (;;) {
-      const observed = Atomics.load(control, 1);
+      const observed = Atomics.load(control, controlWord.answered);
       if (observed === sequence) break;
       // Wait for exactly the value we observed. If the supervisor responds
       // between the load and this call, Atomics.wait returns "not-equal"
       // instead of sleeping after the notification has already happened.
-      Atomics.wait(control, 1, observed);
+      Atomics.wait(control, controlWord.answered, observed);
     }
     return decodeResult();
   });
@@ -298,7 +299,7 @@ function call(operation, requestAddressValue, requestSizeValue,
 try {
   memory = await processMemory();
   // The start word is 1 from here, unless the supervisor has just set 2.
-  if (configuration.port && Atomics.compareExchange(control, 5, 0, 1) !== 0) throw UNSTARTED;
+  if (configuration.port && Atomics.compareExchange(control, controlWord.start, 0, 1) !== 0) throw UNSTARTED;
   // The trusted copier between this memory and the mailbox, and the program's
   // call import (abi/dolly-process-gate-0.wat).
   gate = new WebAssembly.Instance(configuration.gateModule, {
@@ -324,7 +325,7 @@ try {
   // Through JSPI where that stack is the larger one (page/process-supervisor.mjs).
   const enter = configuration.promisingEntry ? WebAssembly.promising : entry => entry;
   if (configuration.argument !== undefined) {
-    threadResult = await enter(instance.exports.dolly_thread_start)(configuration.tid, configuration.argument);
+    threadResult = await enter(instance.exports[configuration.threadEntry])(configuration.tid, configuration.argument);
     reportThreadFinished();
   } else {
     await enter(instance.exports._start)();

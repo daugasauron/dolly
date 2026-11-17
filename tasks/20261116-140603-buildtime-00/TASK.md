@@ -1,6 +1,6 @@
 # Where 0.1.7's 13 h 31 min went, and what cuts a release most
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 280
 - TAGS: audit,build,release,0.1.8
 
@@ -9,9 +9,9 @@ The build-time audit of 2026-11-16 (`work/audit-1116`, released tree `work/round
 is image rebuilds." Evidence and the scripts that produced it:
 `work/audit-1116-evidence/buildtime/`. Each lever is its own task; this one is the map.
 
-## State (2026-11-16)
+## State (2026-11-17)
 
-Measured; nothing changed. Close when the tasks below are closed or decided.
+Closed: see the closing section.
 
 ## Where the time went
 
@@ -110,3 +110,24 @@ chains are 69%), `tasks/20261116-140017-repo-01` (the round lives in `work/`),
 
 The levers above are closed or decided, and a release's log shows the time of each step against
 this table.
+
+## Closed (2026-11-17)
+
+Each lever is done or owned by its task:
+
+1. A version bump rebuilds every image: `tasks/20261116-140453-buildtime-01`, `ws/versionless`
+   (DOLLY 8, `95ba9c87e`: no version in a recipe's paths).
+2. Builds at a time by measured memory: `tasks/20261116-140603-buildtime-02`, `ws/speed`.
+3. Seed changes in one round: the owner's direction (batch before a rebuild); `scripts/round.sh`
+   is one round, its `compiler` stage the fixed point.
+4. Packaging: `tasks/20261116-140603-buildtime-03`, `ws/speed`.
+5. The npm test four times and Xonotic's twice: fixed on `ws/release`,
+   `tasks/20261116-140603-buildtime-04` (its State says what the round confirms).
+6. The second live check: the showcase's deployment fetches only the files the archived one
+   lacks (`published-version.mjs verify SITE OUT vX.Y.Z ARCHIVE`, `tasks/20261116-140230-repo-06`);
+   the first check stays bound by the link, measured.
+
+The rest was measured and decided not worth changing (the list above), and the two found on the
+way are `tasks/20261116-142713-buildtime-07` (closed) and `tasks/20261116-140603-buildtime-05`
+(`ws/speed`). A release's logs show each step's time against this table: `scripts/round.sh`
+prints each stage's minutes, `scripts/release-checklist.sh` the minutes at each step.

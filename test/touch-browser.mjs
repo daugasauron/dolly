@@ -39,7 +39,7 @@ await browserTest("touch", { image: "system", server: { fixtures }, timeout: 300
   const session = await opened(open, server, { hasTouch: true });
   const { page, submit, text, waitForText, waitForSelection, run, errors } = session;
   // The program and its refusals are test/cases/touch.json.
-  await runSteps(submit, server.origin, touchCases);
+  await runSteps(submit, touchCases);
 
   // The holder's buttons are the page's, below the canvas: a press is read as
   // that button's, and its buttons go with the lease.

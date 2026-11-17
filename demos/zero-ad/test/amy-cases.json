@@ -1,0 +1,47 @@
+{
+  "image": "default",
+  "directory": "/tmp/amy-zero-ad",
+  "steps": [
+    {
+      "fresh": true,
+      "why": "pkg-config knows a library once its package is there, and gives cc its flags.",
+      "script": "amy install pkgconf",
+      "status": 0
+    },
+    { "script": "man pkgconf > /dev/null && ! pkg-config --exists libpng", "status": 0 },
+    {
+      "fresh": true,
+      "why": "As upstream installs it, -lpng links too.",
+      "script": "amy install libpng",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '#include <png.h>\\nint main(void) { return png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL) == NULL; }\\n' > /tmp/amy-png.c && cc $(pkg-config --cflags libpng) /tmp/amy-png.c $(pkg-config --static --libs libpng) -o /tmp/amy-png && /tmp/amy-png && cc /tmp/amy-png.c -lpng -lz -o /tmp/amy-png && /tmp/amy-png", "status": 0 },
+    {
+      "fresh": true,
+      "why": "FreeType reads the terminal's font.",
+      "script": "amy install freetype",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <ft2build.h>' '#include FT_FREETYPE_H' 'int main(void) { FT_Library library; FT_Face face; if (FT_Init_FreeType(&library) || FT_New_Face(library, \"/usr/share/fonts/IosevkaTerm-SemiBold.ttf\", 0, &face)) return 1; return face->num_glyphs < 100; }' > /tmp/amy-freetype.c && cc $(pkg-config --cflags freetype2) /tmp/amy-freetype.c $(pkg-config --static --libs freetype2) -o /tmp/amy-freetype && /tmp/amy-freetype", "status": 0 },
+    {
+      "fresh": true,
+      "why": "Swedish collation puts ö after z: ICU finds its data in /usr/share/icu/68.2.",
+      "script": "amy install icu",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <unicode/ucol.h>' 'int main() { UErrorCode status = U_ZERO_ERROR; UCollator *swedish = ucol_open(\"sv\", &status); int failed = U_FAILURE(status) || ucol_strcollUTF8(swedish, \"z\", 1, \"\\xc3\\xb6\", 2, &status) != UCOL_LESS; ucol_close(swedish); return failed; }' > /tmp/amy-icu.cpp && c++ -O0 -DU_STATIC_IMPLEMENTATION /tmp/amy-icu.cpp -licui18n -licuuc -licudata -o /tmp/amy-icu && /tmp/amy-icu", "status": 0 },
+    {
+      "fresh": true,
+      "why": "A square wave played from a buffer is in the samples the loopback device renders.",
+      "script": "amy install openal",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#define AL_ALEXT_PROTOTYPES' '#include <AL/al.h>' '#include <AL/alc.h>' '#include <AL/alext.h>' 'int main() { ALCdevice *device = alcLoopbackOpenDeviceSOFT(0); int format[] = { ALC_FORMAT_CHANNELS_SOFT, ALC_MONO_SOFT, ALC_FORMAT_TYPE_SOFT, ALC_SHORT_SOFT, ALC_FREQUENCY, 48000, 0 }; alcMakeContextCurrent(alcCreateContext(device, format)); short wave[4800], heard[4800]; int loud = 0; ALuint buffer, source; for (int at = 0; at < 4800; at++) wave[at] = at % 100 < 50 ? 12000 : -12000; alGenBuffers(1, &buffer); alGenSources(1, &source); alBufferData(buffer, AL_FORMAT_MONO16, wave, sizeof wave, 48000); alSourcei(source, AL_BUFFER, buffer); alSourcePlay(source); alcRenderSamplesSOFT(device, heard, 4800); for (int at = 0; at < 4800; at++) loud += heard[at] > 1000 || heard[at] < -1000; return loud < 2400 || alGetError() != AL_NO_ERROR; }' > /tmp/amy-openal.cpp && c++ -O0 /tmp/amy-openal.cpp -lopenal -o /tmp/amy-openal && /tmp/amy-openal", "status": 0 }
+  ]
+}

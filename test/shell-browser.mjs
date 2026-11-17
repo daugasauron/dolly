@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { browserTest, runSteps } from "./browser.mjs";
+import { browserTest, runSteps, workbench } from "./browser.mjs";
 import shell from "./cases/shell.json" with { type: "json" };
 
 // Everyday shell and tool behavior with the toolchain's tools, typed input included.
@@ -30,13 +30,13 @@ async function handle(request, response, path, headers) {
 
 await browserTest("shell", { image: "system", server: { fixtures: shell.fixtures, handle } }, async ({ server, open }) => {
   recorded.curl = []; // each browser's run, one after the other on one server
-  const { page, submit, result } = await open({ policy: { maxRequests: 256,
+  const { page, submit, result } = await open({ ...await workbench([], ["git-http"]), policy: { maxRequests: 256,
     // A hardened rule names the headers beyond an ordinary request's that leave: curl's and git's below.
     rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"], credentialHeaders: ["x-dolly-cli", "git-protocol"] }] } });
   // Input mailbox: ESC [A with empty history, then help with a deleted typo.
   assert.equal(await result(() => page.evaluate(() => __dolly.input("\x1b[Ahelx\x7fp\r"))), 0);
   // Everyday commands (test/cases/shell.json), then those that reach the test server.
-  await runSteps(submit, server.origin, shell);
+  await runSteps(submit, shell);
   const cases = [
     [`curl -fsSL ${server.origin}/fixture/http.txt -o fetched.txt && grep -q FETCHED-THROUGH-BROWSER fetched.txt`],
     // A cluster may end with a letter that takes a value, as agents write curl -fsSLo FILE.

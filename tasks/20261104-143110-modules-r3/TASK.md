@@ -4,6 +4,49 @@
 - PRIORITY: 150
 - TAGS: host-modules,audit,images
 
+## State (2026-11-17, ws/modules)
+
+Done on `ws/modules`; the catalog build is the 0.1.8 round's.
+- `system-tools` installs no `curl` and declares no `http@0`; Git's HTTP helpers left the
+  `git` package (built `NO_CURL`, upstream's option for a Git without libcurl) for a
+  `git-http` package (`Dollyfile-git-http`:
+  Git's objects built again and linked with libcurl over http@0, `git-remote-http` and
+  `git-remote-https`), which a session that clones over HTTPS installs beside `git`.
+- `system` installs no `transfer` (nor the download and upload headers) and declares
+  runtime, display, input, snapshot and threads (Git).
+- What took curl from the base takes it itself: `python` and `cmake` `USE` it, `wine-build`
+  and `zero-ad-deps` `INSTALL` it. The toolchains that declared `http@0` for the base alone
+  drop it: `classicube-build`, `lean-stage0`, `rts-build`, `gamedev-sdk`, `xonotic-build`
+  (with modules-r4's engine and modules-r5's amy, also `system-build`, `zig-build`,
+  `zig-llvm-build`, `go-sdk`, `ghostty-build`, `tmux-panes` and `x11-desktop`).
+- The core suites that used system's curl and file exchange open `system` with them composed
+  (`workbench()` in `test/browser.mjs`: transfer, curl and the headers of their clients, with
+  their modules); a case file's fixtures, and the few files `amy refusal`, `USE` and `display`
+  read, are written by the shell (`put()`, printf's octal escapes), with no network.
+- Moving them found that amy could not install into an image built from an uploaded recipe
+  (`dollyfile: execution failed: Bad message (-9)`: the engine read its own receipt's
+  `FILE:/etc/dolly/upload.Dollyfile` root as a bad site path); fixed in `programs/dollyfile.c`,
+  `test/amy-browser.mjs` "amy in an uploaded recipe's image".
+
+Rebuilds: `git` and every image above `system-tools` (in the catalog nearly all: the seed
+changed too, so the 0.1.8 round rebuilds every image). Verified on `ws/modules` with the
+runtime and the core's 43 images rebuilt (`git-http` new): `npm run test:source` (474 tests) and
+`lint:dollyfiles` pass, and the core browser suites pass in Chromium and Firefox (logs
+`work/modules/build/modules-tests/c/`, `d/`, and `e/`: all 56 files, after modules-modular's
+drop test), among them `network-browser.mjs` (Git
+clones, fetches shallow and pushes over HTTP and through a relay with `git-http` installed
+beside `git`), `shell-browser.mjs`, `man-browser.mjs` (`amy install git`, its page and
+`--help`), `amy-browser.mjs` (`amy install curl` into `default`), `boundary-browser.mjs`,
+`core-browser.mjs` and `process-browser.mjs` on `workbench()`, and `image-browser.mjs`,
+`custom-session-browser.mjs`, `fs-growth-browser.mjs` and `session-large-file-browser.mjs`.
+The GPU suites, which compose gpu@0 onto `workbench()`, pass on a private Xvfb display under
+the shared GPU lock: `gpu-explicit-browser.mjs` and `gpu-render-browser.mjs` in Chrome and
+Firefox (logs `work/modules/build/modules-tests/gpu/`).
+Left for the 0.1.8 round: the catalog builds (each demo toolchain that lost the base's curl
+builds: `python` and `cmake` USE it, `wine-build` and `zero-ad-deps` INSTALL it; a grep finds
+no other recipe on `system` or `system-tools` that runs `curl`, `download`, `upload` or `git
+clone`), and the demo suites that ran them on a toolchain built on `system`.
+
 ## State (2026-11-16, the audit)
 
 One part is done: `html` left `system` and `default` on 2026-11-11 (`65a4ad70f`, "default and system

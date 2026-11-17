@@ -13,6 +13,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, u
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { browsers } from "../../browsers.mjs";
 import { delay, demoTest } from "../../browser.mjs";
 
 const root = new URL("../../..", import.meta.url).pathname;
@@ -32,7 +33,7 @@ const until = async (check, what) => {
 const listing = directory => readdirSync(directory, { recursive: true }).sort();
 
 try {
-  for (const browser of ["chromium", "firefox"]) {
+  for (const browser of browsers) {
     await demoTest("rclone", { image: "default", browser, timeout: 600_000 }, async ({ server, open }) => {
       const folder = mkdtempSync(join(scratch, "share-"));
       for (const name of ["a", "b", "c"]) writeFileSync(join(folder, `${name}.txt`), `${name} from the host\n`);

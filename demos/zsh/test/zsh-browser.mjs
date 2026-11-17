@@ -3,10 +3,9 @@
 // shell's parameters and functions (README.md); at the terminal its editor
 // takes a line and Tab completes a path, by zsh's own completion and by its
 // completion system.
-// Usage: node demos/zsh/test/zsh-browser.mjs [chromium|firefox ...]
+// Usage: [DOLLY_BROWSER=firefox] node demos/zsh/test/zsh-browser.mjs
+import { browsers } from "../../browsers.mjs";
 import { demoTest, shellPrompt } from "../../browser.mjs";
-
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 
 for (const browser of browsers) {
   await demoTest("zsh", { image: "default", timeout: 300_000, browser }, async ({ open }) => {

@@ -1,5 +1,6 @@
 // The compiler built inside Dolly, as the llvm-cc image installs it: cc, c++
 // and ar build programs that run. Usage: node demos/llvm/test/llvm-browser.mjs
+import { browsers } from "../../browsers.mjs";
 import { demoTest, displayProbe, writeCommand } from "../../browser.mjs";
 
 const cxx = `#include <iostream>
@@ -14,7 +15,7 @@ int main() {
   catch (const std::exception &error) { std::cout << "CXX-OK " << total << " " << error.what() << "\\n"; }
 }
 `;
-for (const browser of ["chromium", "firefox"]) {
+for (const browser of browsers) {
   await demoTest("llvm-cc", { image: "llvm-cc", browser, timeout: 600_000 }, async ({ open }) => {
     const { run } = await open(await displayProbe("llvm-cc"));
     await run("mkdir /tmp/llvm-test && cd /tmp/llvm-test");
@@ -48,7 +49,7 @@ int main() {
   module.print(llvm::outs(), nullptr);
 }
 `;
-for (const browser of ["chromium", "firefox"]) {
+for (const browser of browsers) {
   await demoTest("llvm package", { image: "default", browser, timeout: 900_000 }, async ({ server, open }) => {
     const { run } = await open({ policy: { rules: [{ origin: server.origin, path: "/amy-index.txt", methods: ["GET"] }] } });
     await run("amy install llvm && mkdir /tmp/llvm-test && cd /tmp/llvm-test");
@@ -86,9 +87,9 @@ const pin = name => {
 };
 // llvm-cc with the terminal display, the runtime package and threads.
 const hosts = [...new Set([...catalog.images.find(({ image }) => image === "llvm-cc").hostRequirements, "threads@0"])].sort();
-const recipe = ["DOLLY 7", "APPLICATION llvm-runtimes-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin("llvm-cc")}`,
+const recipe = ["DOLLY 8", "APPLICATION llvm-runtimes-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin("llvm-cc")}`,
   ...["/usr/lib/libdisplay.so", "/usr/share/fonts/IosevkaTerm-SemiBold.ttf"].map(path => `COPY ${pin("ghostty-build")} ${path} ${path}`),
-  `INSTALL ${pin("llvm-runtimes")}`, "EXPORTS LIB display /usr/lib/libdisplay.so", "EXPORTS ENV DISPLAY /usr/lib/libdisplay.so",
+  `INSTALL ${pin("llvm-runtimes")}`, "EXPORTS LIB display /usr/lib/libdisplay.so", "EXPORTS ENV DOLLY_DISPLAY_LIBRARY /usr/lib/libdisplay.so",
   "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
 const built = "-L/usr/lib/llvm-runtimes";
 const shipped = "'/usr/lib/(libclang_rt|dolly/process/.*lib(c\\+\\+|c\\+\\+abi|unwind|clang_rt\\.builtins)-)'";
@@ -106,7 +107,7 @@ const tablegen = new URL("../Dollyfile-llvm-tablegen", import.meta.url);
 const configure = inspectDollyfile(await readFile(tablegen, "utf8"), tablegen.href).rows
   .find(row => row.directive === "SLOP" && row.args.startsWith("time cmake ")).args;
 
-for (const browser of ["chromium", "firefox"]) {
+for (const browser of browsers) {
   await demoTest("llvm-runtimes", { image: "llvm-cc", timeout: 2_400_000, browser, server: { fixtures: {
     "runtime.cpp": "demos/llvm/test/fixtures/runtime.cpp", "threads.cpp": "test/fixtures/threads-cpp.cpp" } } }, async ({ server, open }) => {
     const { run } = await open({ path: "/custom/rebuild/",

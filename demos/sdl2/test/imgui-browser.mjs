@@ -2,9 +2,10 @@
 // ImGui's windows over its clear colour and ends at Ctrl+C.
 // Usage: node demos/sdl2/test/imgui-browser.mjs
 import assert from "node:assert/strict";
+import { browsers } from "../../browsers.mjs";
 import { demoTest, installProbe, waitForDisplay } from "../../browser.mjs";
 
-for (const browser of ["chromium", "firefox"]) {
+for (const browser of browsers) {
   await demoTest("imgui", { image: "imgui", browser, timeout: 600_000 }, async ({ open }) => {
     const { page, start } = await open(await installProbe("imgui"));
     const demo = start("imgui-demo");

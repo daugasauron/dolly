@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE zstd
 REQUIRES HOST runtime@0
 
@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # (a -pthread program would need threads@0) and without the gzip, xz and lz4
 # formats, which their own packages read. unzstd and zstdcat are zstd under
 # the names it looks for.
-FROM /v0.1.7/demos/tools/Dollyfile-tools-build 10f0bb40fc327b66565fb4439808c0fd06fe344684885eef70e1fccb4472af58
+FROM /demos/tools/Dollyfile-tools-build a2c16674acb2a8119dd914e62e79322b95a6c9ba6528936c44e22216a4055a8e
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -19,7 +19,7 @@ REQUIRES TOOL   make
 REQUIRES TOOL   tar
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.7/dist/static/tools/zstd.tar 16bb1c795593c0a6d4016e17b240b071cdb726d6b09e6922b36413aa7b93bbc3 /tmp/zstd.tar
+SOURCE /dist/static/tools/zstd.tar 16bb1c795593c0a6d4016e17b240b071cdb726d6b09e6922b36413aa7b93bbc3 /tmp/zstd.tar
 SLOP tar -xf /tmp/zstd.tar -C /
 
 FILE /tmp/zstd.mk

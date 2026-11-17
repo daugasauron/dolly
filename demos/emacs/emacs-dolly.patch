@@ -16,7 +16,7 @@
  
    openbsd | dragonfly) LIBS_TERMCAP="-lncurses" ;;
  
-+  ## Dolly has no terminfo library; use Emacs's termcap, as MS-DOS does.
++  ## Emacs calls tparm variadic and libterminfo's is not: use its termcap, as MS-DOS does.
 +  dolly) TERMINFO=no ;;
 +
    ## hpux: Make sure we get select from libc rather than from libcurses
@@ -57,7 +57,7 @@
  
    openbsd | dragonfly) LIBS_TERMCAP="-lncurses" ;;
  
-+  ## Dolly has no terminfo library; use Emacs's termcap, as MS-DOS does.
++  ## Emacs calls tparm variadic and libterminfo's is not: use its termcap, as MS-DOS does.
 +  dolly) TERMINFO=no ;;
 +
    ## hpux: Make sure we get select from libc rather than from libcurses
@@ -82,7 +82,20 @@
  
 --- a/lisp/loadup.el
 +++ b/lisp/loadup.el
-@@ -632,6 +632,7 @@
+@@ -608,6 +608,12 @@
+           ;; compiler infrastructure may not be usable yet.
+           (setq native-comp-enable-subr-trampolines t))
+         (message "Dumping under the name %s" output)
++        ;; Dolly: what the dump would keep of its own run is left out: the
++        ;; time its collections took (not counted while nil, and startup
++        ;; resets it) and when each buffer was last displayed.
++        (setq gc-elapsed nil)
++        (dolist (buffer (buffer-list))
++          (with-current-buffer buffer (setq buffer-display-time nil)))
+         (condition-case ()
+             (delete-file output)
+           (file-error nil))
+@@ -632,6 +638,7 @@
          ;; Recompute NAME now, so that it isn't set when we dump.
          (if (not (or (eq system-type 'ms-dos)
                       (eq system-type 'haiku) ;; BFS doesn't support hard links
@@ -141,20 +154,3 @@
  }
  
  static void syms_of_keyboard_for_pdumper (void);
---- a/src/process.c
-+++ b/src/process.c
-@@ -7739,7 +7739,13 @@
-       int status;
- 
-       if (p->alive
--	  && child_status_changed (p->pid, &status, WUNTRACED | WCONTINUED))
-+	  && child_status_changed (p->pid, &status,
-+#ifdef __dolly__ /* No job control: Dolly's children never stop.  */
-+				   0
-+#else
-+				   WUNTRACED | WCONTINUED
-+#endif
-+				   ))
- 	{
- 	  /* Change the status of the process that was found.  */
- 	  changed = true;

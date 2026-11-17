@@ -2,8 +2,9 @@
 // fixture registry the test origin serves in the registry's place: ranges,
 // nesting, integrity, optional and platform packages, scripts that are not
 // run, launchers, --prefix, --registry and --integrity, and what it refuses.
-// Usage: node demos/javascript/test/janis-install-browser.mjs (DOLLY_BROWSER=firefox runs it in Firefox).
+// Usage: [DOLLY_BROWSER=firefox] node demos/javascript/test/janis-install-browser.mjs
 import assert from "node:assert/strict";
+import { browsers } from "../../browsers.mjs";
 import { demoTest, redirectFetch } from "../../browser.mjs";
 import { integrities, npmRegistry, registry } from "./fixtures/npm-registry.mjs";
 
@@ -11,7 +12,7 @@ const fixture = npmRegistry("/npm");
 const tarballs = () => fixture.requests.filter(({ path }) => path.endsWith(".tgz")).map(({ path }) => path);
 const modules = "/usr/lib/node_modules";
 
-await demoTest("janis-install", { image: "default", timeout: 300_000, browser: process.env.DOLLY_BROWSER ?? "chromium",
+for (const browser of browsers) await demoTest("janis-install", { image: "default", timeout: 300_000, browser,
   server: { handle: fixture.handle } }, async ({ server, open }) => {
   const policy = { maxRequests: 256, rules: [{ origin: server.origin, path: "/amy-index.txt", methods: ["GET"] },
     { origin: registry, pathPrefix: "/", methods: ["GET"] }] };

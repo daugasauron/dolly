@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 APPLICATION data-pi
 REQUIRES HOST display@0
 REQUIRES HOST download@0
@@ -14,10 +14,10 @@ REQUIRES HOST threads@0
 # The Pi coding agent, and Python with NumPy, pandas and Matplotlib: images and
 # packages installed from npm, each pinned by its recipe's SHA-256. dolly-build
 # init wrote these rows; dolly-build checks that node_modules holds these pins.
-FROM /v0.1.5/demos/pi/Dollyfile-pi-minimal 05f74394560d0df8a00c0a4194c725734393327983a9e0c4dfbfc0431c6758b8
-INSTALL /v0.1.5/demos/python/Dollyfile-numpy a7c3f451dd2143316c4f22735d6159d4387a627391188378f6578b863d02c87a
-INSTALL /v0.1.5/demos/python/Dollyfile-pandas 6e4475edd755a0c856f5be824192bb6ee3f52d6df5a18d000db8531c96dfc4e6
-INSTALL /v0.1.5/demos/python/Dollyfile-matplotlib 80120c64b0a3aac9862767dde1a70e3f1ae42b874dca758f8c721ec24f2de7a9
+FROM /demos/pi/Dollyfile-pi-minimal 05f74394560d0df8a00c0a4194c725734393327983a9e0c4dfbfc0431c6758b8
+INSTALL /demos/python/Dollyfile-numpy a7c3f451dd2143316c4f22735d6159d4387a627391188378f6578b863d02c87a
+INSTALL /demos/python/Dollyfile-pandas 6e4475edd755a0c856f5be824192bb6ee3f52d6df5a18d000db8531c96dfc4e6
+INSTALL /demos/python/Dollyfile-matplotlib 80120c64b0a3aac9862767dde1a70e3f1ae42b874dca758f8c721ec24f2de7a9
 
 # Pi reads its instructions and skills from /home/dolly/.pi/agent/ (Pi's
 # docs/skills.md). A FILE row writes its body, each line indented four spaces.

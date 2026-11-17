@@ -1,17 +1,18 @@
-DOLLY 7
+DOLLY 8
 PACKAGE janis-install
 REQUIRES HOST runtime@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
+REQUIRES HOST threads@0
 
 # janis-install NAME[@VERSION] installs a package from the npm registry and
 # the packages it depends on into /usr/lib/node_modules, with a /usr/bin
 # launcher for each command it names. It is one Janis script linked with the
 # runner, as tsc is, and checks and decompresses tarballs with sha512sum and gzip.
-FROM /v0.1.7/Dollyfile-system-tools 6699b9ce9339fe8ee70c02972b8a4b10242adb71dd63c3a5ac5da48f8d1828ed
-INSTALL /v0.1.7/demos/javascript/Dollyfile-janis 427f184ffb58d8b64d094c2ba0ad403d4a5cbb29cde20365cca9c231f7296b1f
-INSTALL /v0.1.7/Dollyfile-gzip fe37ea911f935be9f5dc2fcf29fdddba385759e05220a033ebaea81a810a16b5
-INSTALL /v0.1.7/demos/tools/Dollyfile-sbase a6fbfede1d09af42fd0ebc4569a27207c8d61c49878102fe5969ee24dd4545c4
+FROM /Dollyfile-system-tools 41d78b18183d4c4d3786fa7131c53810a1b0090f845b8298a56f0ae87a02db9e
+INSTALL /demos/javascript/Dollyfile-janis c1a388558985f8fb9a73f052e153428f220b3db633f40741998bcf219745d50c
+INSTALL /Dollyfile-gzip cef69a22c3b9f73889f4c819fcfaee2fb4487474ea4efa364117b8796465d1a4
+INSTALL /demos/tools/Dollyfile-sbase 7084fca4802063720599aa301c5243e9c17244cb536d3336bf32206dc9b176a4
 
 REQUIRES HEADER libc
 REQUIRES HEADER quickjs-runner
@@ -22,8 +23,8 @@ REQUIRES TOOL   gzip
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   sha512sum
 
-SOURCE /v0.1.7/dist/static/default/runtimes/janis-install.mjs bd49ed1516ea935601a6ab9b4fc0d03e386524a39a7ee13e5bddc66d2e6c0722 /usr/lib/janis-install/janis-install.mjs
-SOURCE /v0.1.7/dist/static/default/commands/janis-install.c   3a9eeafa19aea3b722e725072b5296d63511a1e0a4859b057e1b6cb03befedb6 /tmp/janis-install/janis-install.c
+SOURCE /dist/static/default/runtimes/janis-install.mjs bd49ed1516ea935601a6ab9b4fc0d03e386524a39a7ee13e5bddc66d2e6c0722 /usr/lib/janis-install/janis-install.mjs
+SOURCE /dist/static/default/commands/janis-install.c   3a9eeafa19aea3b722e725072b5296d63511a1e0a4859b057e1b6cb03befedb6 /tmp/janis-install/janis-install.c
 SLOP cc -I /usr/include/dolly /tmp/janis-install/janis-install.c -ldolly-js -lquickjs -o /usr/bin/janis-install
 
 SLOP janis-install --help > /usr/share/man/cat1/janis-install.1

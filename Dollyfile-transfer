@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE transfer
 REQUIRES HOST runtime@0
 REQUIRES HOST download@0
@@ -6,9 +6,9 @@ REQUIRES HOST upload@0
 
 # The page's file exchange: download offers a file of the session to the
 # browser, upload takes one the user chooses.
-FROM /v0.1.7/Dollyfile-system-build d1bb50136de0dadf12e3e2af2266c5102e9ab15769e9f607807c44d46323f3a1
-USE /v0.1.7/Dollyfile-libdolly-download bf7303fc0e340e9d2049ae295205598ee876e0af0cbfe160583c055f2f588439
-USE /v0.1.7/Dollyfile-libdolly-upload 14f4545e2fb3a6c4440e435088caffb7261ee640d6650424b3547a94114deb66
+FROM /Dollyfile-system-build 0c72e09eba84571d4f8634cf6e7507eb1be1b9b8aa1fae61f6b0ec884b26b6fb
+USE /Dollyfile-libdolly-download c4fcb208423787a23dba384fa56a9e7a94680d3fbe8a107e3e59b2237ab6dc16
+USE /Dollyfile-libdolly-upload 8ac6d3294c36592ef7147a9d0fddfe1558ab9edfae12e51b857aeea90527d7d9
 REQUIRES HEADER libc
 REQUIRES HEADER download
 REQUIRES HEADER upload

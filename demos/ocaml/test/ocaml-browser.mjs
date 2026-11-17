@@ -3,10 +3,10 @@
 // program with unix and str, which runs as a command and spawns another
 // through a pipe, a program that runs a domain and a thread, and one whose
 // processor time advances.
-// Usage: node demos/ocaml/test/ocaml-browser.mjs [chromium|firefox ...]
+// Usage: [DOLLY_BROWSER=firefox] node demos/ocaml/test/ocaml-browser.mjs
+import { browsers } from "../../browsers.mjs";
 import { demoTest, shellPrompt, writeCommand } from "../../browser.mjs";
 
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const words = `let () =
   let input, output = Unix.pipe () in
   let pid = Unix.create_process "echo" [| "echo"; "one two  three" |] Unix.stdin output Unix.stderr in

@@ -4,9 +4,39 @@
 - PRIORITY: 200
 - TAGS: audit,repo,release,deployment,0.1.8
 
-## State (2026-11-16)
+## State (2026-11-17): fixed on `ws/release`; 0.1.8's release confirms it
 
-Filed by the repo audit; nothing done. The choice between the two directions below is the owner's.
+The rule stays and is in the repository (the second of the two directions: the owner wants the
+recordings made on the deployed site, `tasks/20261115-021459-videos-live`), `df6a9389a`:
+
+- A version's first deployment has no showcase and no link to it: the release packages
+  `package-pages.sh RELEASES` (no `slopshare.dev`), whose `index.html` keeps the `site-links`
+  marker, and the checklist refuses a release with `agents/` there. Nothing is trimmed by hand.
+- After the recordings are committed to `sites/slopshare.dev/agents/`: `package-pages.sh RELEASES
+  slopshare.dev`, then `release-checklist.sh --showcase RELEASES ARCHIVE`, which checks that the
+  commits since the tag change only `sites/slopshare.dev/agents/` and `tasks/`, the token scan, the
+  seal, and assembles the deployment. `export-cloudflare-pages.mjs` takes a release of a version
+  the archive holds only when its files outside `agents/`, `index.html` and `release/` are the
+  archived ones byte for byte, `deployment.headers` and every part included, and it adds files
+  under `agents/` alone, which the archived version had none of (`refuseChange`, unit-tested in
+  `test/cloudflare-pages.test.mjs`). Then the deployment boots locally, and the printed steps
+  deploy it, boot both domains, and `published-version.mjs verify SITE OUT vX.Y.Z ARCHIVE`
+  fetches only the files the archived deployment's list lacks (for v0.1.7's showcase, the 89 of
+  `agents/` and 4 of `release/`, instead of all 5,269), archive it in place of the first, push `main`, and edit the GitHub notes
+  to the new list's digest.
+- `docs/deployment.md` says the tag names the first deployment's commit and the version's
+  `release/source.commit` the showcase's. The inline Python of `work/release-0.1.7*.sh` and the
+  unmerged exporter are not needed.
+
+Checked: `refuseChange` on v0.1.7's real lists (`work/round1113/build/pages-v0.1.7-core` against
+`work/locks/published/v0.1.7`, 5,180 and 5,269 rows) accepts the showcase's addition and refuses
+the same list a second time; `node --test test/cloudflare-pages.test.mjs` passes (6). A whole
+export of a showcase was not run: it writes 19 GB of parts.
+
+v0.1.6's link to `./agents/` stays, by the owner's decision on its removal ("Doesn't matter",
+`tasks/20261115-115901-drop-v016`): it answers 404 while v0.1.6 is online. What only 0.1.8's
+release confirms: its two deployments made by these commands alone, and its menu's link
+answering 200 from the second on.
 
 ## Found
 

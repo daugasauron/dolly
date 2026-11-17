@@ -1,0 +1,14 @@
+{
+  "image": "default",
+  "directory": "/tmp/amy-x11",
+  "steps": [
+    {
+      "fresh": true,
+      "why": "A window on the X server DISPLAY names, the library linked over Xlib: Dolly's own DISPLAY names none, and opening says so.",
+      "script": "amy install x11-window",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <x11-window.h>' '#include <errno.h>' 'int main(void) { return x11_window_open(\"amy\", 64, 48) != NULL || errno != ENOENT; }' > /tmp/amy-x11.c && cc -O0 /tmp/amy-x11.c -lx11-window -lX11 -lxcb -lXau -ldolly-sockets -o /tmp/amy-x11 && /tmp/amy-x11", "status": 0 }
+  ]
+}

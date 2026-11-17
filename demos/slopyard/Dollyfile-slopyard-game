@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE slopyard-game
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 
 # Slopyard as slopyard-build compiled it, with the sources it reads when it
 # runs: the game the slopyard application opens.
-FROM /v0.1.7/demos/slopyard/Dollyfile-slopyard-build d11d6eee6879fc7b202a8f177aa1b3d922e9e610e010cafc94bb316b1251e3bd
+FROM /demos/slopyard/Dollyfile-slopyard-build ac3a8f35cf97e0b5d52cd1022bce18bf0dbf93405542c2b3abb21a7f33843912
 EXPORTS TOOL slopyard
 EXPORTS FOLDER slopyard-source /usr/src/dolly/slopyard
 FILE /usr/share/licenses/lua5.5/readme.html

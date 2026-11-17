@@ -3,13 +3,14 @@
 // finger moves it. Chromium's own touch events (CDP) and touch PointerEvents
 // dispatched in Firefox. Usage: node demos/fingers/test/fingers-browser.mjs
 import assert from "node:assert/strict";
+import { browsers } from "../../browsers.mjs";
 import { demoTest, snapshotDisplay, waitForDisplay } from "../../browser.mjs";
 
 const background = [18, 18, 26];
 // The markers' colours for ids 1 and 2, as fingers.c draws them.
 const marker = { 1: [120, 230, 120], 2: [250, 120, 200] };
 
-for (const browser of ["chromium", "firefox"]) {
+for (const browser of browsers) {
   await demoTest("fingers", { image: "fingers", browser }, async ({ open }) => {
     const { page, text, prompt } = await open({ prompt: null, device: { hasTouch: true } });
     // The frame is the terminal's text area, once fingers has drawn it: the

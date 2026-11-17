@@ -6,16 +6,17 @@ if [[ $# != 1 ]]; then
   echo 'usage: fetch-pinned-checkout.sh NAME' >&2
   exit 64
 fi
-case "$1" in
-  quickjs) cache_name=quickjs-ng ;;
-  emscripten) cache_name=emscripten-source ;;
-  sbase|awk|curl|git|zlib|samurai|ghostty|raylib|box3d|cpython|wamr|modular|mojo-llvm) cache_name="$1" ;;
-  *) echo "dolly: unknown pinned Git source: $1" >&2; exit 64 ;;
-esac
+# A Git source is pinned by DOLLY_NAME_URL and DOLLY_NAME_COMMIT; DOLLY_NAME_CHECKOUT names
+# its cache directory when that is not NAME, and DOLLY_NAME_SPARSE lists the only trees fetched.
 prefix="DOLLY_${1^^}"
 prefix="${prefix//-/_}"
-url_key="${prefix}_URL"
-commit_key="${prefix}_COMMIT"
+url_key="${prefix}_URL" commit_key="${prefix}_COMMIT" checkout_key="${prefix}_CHECKOUT" sparse_key="${prefix}_SPARSE"
+if [[ ! "$1" =~ ^[a-z][a-z0-9_-]*$ || -z "${!commit_key:-}" ]]; then
+  echo "dolly: unknown pinned Git source: $1" >&2
+  exit 64
+fi
+cache_name="${!checkout_key:-$1}"
+read -r -a sparse <<< "${!sparse_key:-}"
 commit="${!commit_key}"
 [[ "${commit}" =~ ^[a-f0-9]{40}$ ]]
 source_dir="${project_dir}/.cache/${cache_name}-${commit}"
@@ -29,19 +30,7 @@ if [[ ! -d "${source_dir}/.git" ]]; then
   trap 'rm -rf -- "${temporary}"' EXIT
   git init --quiet "${temporary}"
   git -C "${temporary}" remote add origin "${!url_key}"
-  if [[ "$1" == emscripten ]]; then
-    git -C "${temporary}" sparse-checkout init --cone
-    git -C "${temporary}" sparse-checkout set \
-      system/lib/libcxx system/lib/libcxxabi system/lib/libunwind system/lib/llvm-libc
-  fi
-  # Only the trees a recipe stages: Modular's max/ has another licence, and
-  # neither repository is wanted whole.
   filter=()
-  case "$1" in
-    modular) sparse=(Mojo AsyncRT Support Cache Config Init bazel Licenses) ;;
-    mojo-llvm) sparse=(llvm mlir clang cmake third-party libc) ;;
-    *) sparse=() ;;
-  esac
   if ((${#sparse[@]})); then
     git -C "${temporary}" sparse-checkout init --cone
     git -C "${temporary}" sparse-checkout set "${sparse[@]}"

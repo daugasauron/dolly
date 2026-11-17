@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE llama
 REQUIRES HOST runtime@0
 REQUIRES HOST gpu@0
@@ -6,8 +6,8 @@ REQUIRES HOST gpu@0
 # dolly-llama, linked on the llama-cpp package: llama.cpp with its WebGPU
 # backend, serving the model it is given over stdin and stdout. A model package
 # brings the GGUF.
-FROM /v0.1.7/Dollyfile-system-tools 6699b9ce9339fe8ee70c02972b8a4b10242adb71dd63c3a5ac5da48f8d1828ed
-USE /v0.1.7/demos/local-llm/Dollyfile-llama-cpp 58daed0e84d8ba3df3f68cd8e803a4cc91547929c8c5659886403c290c7de5cd
+FROM /Dollyfile-system-tools 41d78b18183d4c4d3786fa7131c53810a1b0090f845b8298a56f0ae87a02db9e
+USE /demos/local-llm/Dollyfile-llama-cpp 86d7cb4de5fac2f24302978fc1afb5c4cae91e26e04ab88eca98b79c1d9d9fac
 REQUIRES HEADER llama
 REQUIRES LIB llama
 REQUIRES LIB llama-common
@@ -23,7 +23,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.7/dist/static/llama/engine.tar 320eac803d1b96305f6422c9d2257e60ea539e27aec0c7ce670721d77c705ed1 /tmp/llm-engine.tar
+SOURCE /dist/static/llama/engine.tar 320eac803d1b96305f6422c9d2257e60ea539e27aec0c7ce670721d77c705ed1 /tmp/llm-engine.tar
 SLOP tar -xf /tmp/llm-engine.tar -C /
 SLOP c++ -std=c++20 -O1 -I/usr/include/dolly-llm /tmp/dolly-llama/main.cpp \
   -L/usr/lib/dolly-llm -lllama-common -lllama -lggml -lggml-webgpu -ldolly-webgpu -lggml-cpu -lggml-base -ldolly-gpu -lm -o /usr/bin/dolly-llama

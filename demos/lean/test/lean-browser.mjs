@@ -3,10 +3,10 @@
 // which it names; lean runs a program, accepts theorems proved by
 // rfl, decide, simp and omega and rejects a false one; lake makes a package
 // and builds it, cc compiles the C Lean emits, and the program runs.
-// Usage: node demos/lean/test/lean-browser.mjs [chromium|firefox ...]
+// Usage: [DOLLY_BROWSER=firefox] node demos/lean/test/lean-browser.mjs
+import { browsers } from "../../browsers.mjs";
 import { demoTest, writeCommand } from "../../browser.mjs";
 
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const program = `def main : IO Unit := do
   let squares := (List.range 10).map (· ^ 2)
   IO.println s!"{squares.foldl (· + ·) 0} {String.join (squares.take 4 |>.map toString)}"`;

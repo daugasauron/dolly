@@ -2,13 +2,13 @@
 // packages and the host modules Dollyfile-ocaml declares (nena enables them, as
 // a person would), its rows run again up to its make bootstrap, which fails
 // unless the compiler that boot/ocamlc built reproduces itself.
-// Usage: node demos/ocaml/test/fixpoint-browser.mjs [chromium|firefox ...]
+// Usage: [DOLLY_BROWSER=firefox] node demos/ocaml/test/fixpoint-browser.mjs
 import { readFile } from "node:fs/promises";
+import { browsers } from "../../browsers.mjs";
 import { demoTest } from "../../browser.mjs";
 import { inspectDollyfile } from "../../../site/dollyfile-view.mjs";
 import { sitePath } from "../../../page/static-asset.mjs";
 
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const recipe = new URL("../Dollyfile-ocaml", import.meta.url);
 const { rows, hostRequirements } = inspectDollyfile(await readFile(recipe, "utf8"), recipe.href);
 const modules = hostRequirements.filter(module => module !== "runtime@0").map(module => module.replace(/@0$/, ""));

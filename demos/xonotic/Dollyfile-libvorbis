@@ -1,12 +1,12 @@
-DOLLY 7
+DOLLY 8
 PACKAGE libvorbis
 REQUIRES HOST runtime@0
 
 # libvorbis from upstream's release archive, unchanged, built by its CMake
 # project on the libogg package: the Vorbis decoder, encoder and vorbisfile,
 # for programs the cc package builds.
-FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 99ba4b0dfea5dfd2099047bbbd136adbff138ac5c2316c7f57f4fa485f50968f
-INSTALL /v0.1.7/demos/xonotic/Dollyfile-libogg bbe17d14f98ccdf96e6be3502fd446cc18ae16f43068b340ab15954098795ac1
+FROM /demos/cmake/Dollyfile-cmake-build 80318c713e588e7871dd624ebf404a7580518af49692c8b5a27d909fe22cd8f3
+INSTALL /demos/xonotic/Dollyfile-libogg a3e8a6c22016f4dc2bdf900e74b062d7cbc99cca5d7ece587d196ba45eba0a51
 REQUIRES HEADER libc
 REQUIRES HEADER ogg
 REQUIRES LIB ogg
@@ -16,7 +16,7 @@ REQUIRES TOOL make
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.7/dist/static/libvorbis/source.tar.gz 63c09d65f5bdeb84bedda099ccbd93f999f560229174b3f49d9b4aea07f2e1dd /tmp/libvorbis.tar.gz
+SOURCE /dist/static/libvorbis/source.tar.gz 63c09d65f5bdeb84bedda099ccbd93f999f560229174b3f49d9b4aea07f2e1dd /tmp/libvorbis.tar.gz
 SLOP gzip -dc /tmp/libvorbis.tar.gz | tar -xf - -C /
 SLOP cmake -S /tmp/libvorbis -B /tmp/libvorbis-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \

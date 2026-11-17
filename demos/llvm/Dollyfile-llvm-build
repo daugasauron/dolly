@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN llvm-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 # Build-only: the libraries of Clang, LLD and the WebAssembly backend that the
 # seed compiler links, compiled inside Dolly by its own c++, then the rest of
 # LLVM in the same tree for the llvm package.
-FROM /v0.1.7/demos/llvm/Dollyfile-llvm-tablegen 2dd999021e466c5e6183a0915619f06471478ebeb2139930c4fe5045425499c7
+FROM /demos/llvm/Dollyfile-llvm-tablegen a5bd73f808a20ab9ce24289b770d4ad7443980160f994819e4ec92caa156343f
 REQUIRES TOOL llvm-tblgen
 REQUIRES TOOL clang-tblgen
 REQUIRES TOOL cmake
@@ -29,10 +29,10 @@ REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
+SOURCE /dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
 SLOP time slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
-SOURCE /v0.1.7/dist/static/llvm/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
+SOURCE /dist/static/llvm/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/llvm-project -i /tmp/llvm-host-triple.patch
 
 # Configured as llvm-tablegen is, and further:
@@ -69,8 +69,8 @@ FILE /usr/lib/llvm-build/Dolly.cmake
     set(LLVM_LINK_LLVM_DYLIB OFF CACHE BOOL "")
 SLOP time cmake -C /usr/lib/llvm-build/Dolly.cmake -S /tmp/llvm-project/llvm -B /tmp/llvm-build
 
-# The seed compiler's libraries. Four jobs fit the 32-process
-# cap; -k reports every failing unit of an hour's build, not only the first.
+# The seed compiler's libraries. Four jobs, as many as nproc reports;
+# -k reports every failing unit of an hour's build, not only the first.
 SLOP CWD /tmp/llvm-build time make -k -j4 clangFrontendTool clangCodeGen clang-resource-headers lldWasm LLVMWebAssemblyCodeGen
 # The archives, Clang's resource directory, and the configured and generated
 # headers a program including LLVM, Clang or LLD needs, by build-tree path.

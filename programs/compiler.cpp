@@ -42,8 +42,7 @@
 #include <llvm/Support/VirtualFileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 
-#include <dolly/host-abi.h>
-#include <dolly/toolchain.h>
+#include "commands/toolchain.h"
 
 #include "dolly-kernel-plugin-abi-digest.h"
 #include "dolly-process-abi-digest.h"
@@ -178,8 +177,7 @@ std::string dependency_target(const DriverOptions &options, const std::string &s
 }
 
 // Concurrent compilers share /tmp, so scratch files are named by a hash of the
-// absolute output path. wasm-ld records the staged file's name in the name
-// section, so a job must also get the same names in every build.
+// absolute output path.
 std::string temporary_path(const std::string &output, size_t index,
                            const char *suffix) {
   llvm::SmallString<256> absolute(output);
@@ -190,6 +188,24 @@ std::string temporary_path(const std::string &output, size_t index,
                 index, suffix);
   return path;
 }
+
+// wasm-ld names a module after the file it writes (the name section), so a link
+// is staged under the output's own name, alone in a scratch directory: the same
+// name wherever the output goes (pip builds in a random directory). The
+// directory goes, with what is left in it, when the link is done.
+struct StagedLink {
+  std::string directory, file;
+  StagedLink(std::string scratch, const std::string &output)
+      : directory(std::move(scratch)),
+        file(directory + "/" + llvm::sys::path::filename(output).str()) {
+    std::remove(file.c_str());
+    llvm::sys::fs::create_directory(directory);
+  }
+  ~StagedLink() {
+    std::remove(file.c_str());
+    llvm::sys::fs::remove(directory);
+  }
+};
 
 void print_help(const char *program, int driver_mode) {
   if (driver_mode == DOLLY_TOOLCHAIN_LD) {
@@ -850,7 +866,7 @@ std::vector<std::string> host_client_libraries() {
   return libraries;
 }
 
-// The symbols a file of the process sysroot lists, one a line
+// The symbols (or names) a file of the process sysroot lists, one a line
 // (scripts/prepare-process-sysroot.sh); a file that lists none is an error.
 bool read_symbols(const std::string &path, std::vector<std::string> &symbols) {
   auto buffer = llvm::MemoryBuffer::getFile(path, false, false);
@@ -879,7 +895,12 @@ bool link_process_executable(const std::string &output,
                              bool needs_cxx_runtime,
                              bool export_dynamic,
                              bool strip_debug, bool pthread) {
-  const std::string sysroot = std::string(kProcessSysroot) + (pthread ? "/threads" : "");
+  // -pthread links the part of the process sysroot a module's seed gives it
+  // (its manifest's ccSysroot), which pthread.sysroot names.
+  std::string sysroot = kProcessSysroot;
+  std::vector<std::string> part;
+  if (pthread && !read_symbols(sysroot + "/pthread.sysroot", part)) return false;
+  if (pthread) sysroot += "/" + part.front();
   std::vector<std::string> arguments = {
       "wasm-ld",
       "-o", output,
@@ -1378,28 +1399,6 @@ bool validate_process_executable(const std::string &path) {
     return false;
   }
 
-  // The loader starts every thread of a program that links the threads client
-  // at dolly_thread_start, so refuse here what it would refuse to run.
-  bool thread_client = false, thread_entry = false;
-  for (const llvm::object::SectionRef &section : executable.object->sections()) {
-    const llvm::object::WasmSection &wasm =
-        executable.object->getWasmSection(section);
-    if (wasm.Type != llvm::wasm::WASM_SEC_CUSTOM || wasm.Name != "dolly.host") continue;
-    for (size_t offset = 0; offset + DOLLY_HOST_RECORD_BYTES <= wasm.Content.size();
-         offset += DOLLY_HOST_RECORD_BYTES) {
-      if (std::strncmp(reinterpret_cast<const char *>(wasm.Content.data() + offset),
-                       "threads", DOLLY_HOST_NAME_BYTES) == 0) thread_client = true;
-    }
-  }
-  for (const llvm::wasm::WasmExport &entry : executable.object->exports()) {
-    if (entry.Name == "dolly_thread_start") thread_entry = true;
-  }
-  if (thread_client && !thread_entry) {
-    std::fputs("dolly-cc: this program uses <dolly/threads.h> without a thread entry: build "
-               "with -pthread, or export dolly_thread_start from your own runtime\n", stderr);
-    return false;
-  }
-
   const llvm::wasm::WasmExport *start = nullptr;
   for (const llvm::wasm::WasmExport &entry : executable.object->exports()) {
     if (entry.Name != "_start") continue;
@@ -1728,9 +1727,8 @@ int compile_and_link(const DriverOptions &options, int default_language) {
     link_inputs.push_back("/usr/lib/libclang_rt.builtins.a");
   }
 
-  const std::string linked =
-      temporary_path(output, options.inputs.size() + 1, ".wasm");
-  std::remove(linked.c_str());
+  const StagedLink staged(temporary_path(output, options.inputs.size() + 1, ""), output);
+  const std::string &linked = staged.file;
   const bool linked_ok = options.kernel_plugin
       ? link_side_module(linked, link_inputs, options.linker_options,
                          needs_cxx_runtime,
@@ -1747,13 +1745,11 @@ int compile_and_link(const DriverOptions &options, int default_language) {
   if (!linked_ok) {
     std::fprintf(stderr, "dolly-cc: link failed: %s\n", output.c_str());
     cleanup(temporary_objects);
-    std::remove(linked.c_str());
     return 1;
   }
   cleanup(temporary_objects);
   if (options.cast_emulation && !options.kernel_plugin && !options.shared_library &&
       !emulate_casts(linked)) {
-    std::remove(linked.c_str());
     return 1;
   }
   const bool valid = options.kernel_plugin
@@ -1765,9 +1761,7 @@ int compile_and_link(const DriverOptions &options, int default_language) {
       ? stamp_kernel_plugin(linked)
       : (options.shared_library ? stamp_process_shared_object(linked)
                                 : stamp_process_executable(linked)));
-  const bool published = stamped && publish_file(linked, output);
-  std::remove(linked.c_str());
-  return published ? 0 : 1;
+  return stamped && publish_file(linked, output) ? 0 : 1;
 }
 
 int run_archive(int argc, const char *const *argv) {

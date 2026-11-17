@@ -4,13 +4,14 @@
 // its frames read back from gpu@0; the window takes the pointer (a menu opens) and keys (Ctrl+I
 // inverts the picture), moves with its title bar and closes at twm's Delete. The server ends, and
 // the terminal's shell reads what it printed.
-// Usage: node demos/photocraft/test/photocraft-x11-browser.mjs [chromium|firefox ...]
+// Usage: [DOLLY_BROWSER=firefox] node demos/photocraft/test/photocraft-x11-browser.mjs
 import assert from "node:assert/strict";
-import { chromium, firefox } from "playwright-core";
+import { chromium } from "playwright-core";
+import { launchInstalledFirefox } from "../../../test/browser.mjs";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
+import { browsers } from "../../browsers.mjs";
 import { snapshotDisplay, waitForDisplay } from "../../browser.mjs";
 
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 // Types text as a person does on a US keyboard: X maps keys, not characters.
 const shifted = { ">": "Period", "$": "Digit4", "(": "Digit9", ")": "Digit0", "&": "Digit7", "|": "Backslash", "_": "Minus", "?": "Slash" };
@@ -53,7 +54,7 @@ for (const name of browsers) {
   assert.ok(["chromium", "firefox"].includes(name));
   const server = await startBrowserServer(new URL("../../..", import.meta.url).pathname, "x11-desktop");
   const browser = name === "firefox"
-    ? await firefox.launch({ channel: "moz-firefox", headless: false, firefoxUserPrefs: { "dom.webgpu.enabled": true } })
+    ? await launchInstalledFirefox()
     : await chromium.launch({ channel: "chrome", headless: false,
       args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan,VulkanFromANGLE"] });
   const deadline = setTimeout(() => void browser.close(), 1_200_000);

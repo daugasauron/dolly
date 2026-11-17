@@ -5,6 +5,25 @@ what it changes under it, and the commands that move it. [Dolly from
 npm](npm.md) is the guide to the packages and [the changelog](npm-changelog.md)
 lists every change. The packages of one project are all of one version.
 
+## From 0.1.7 to 0.1.8
+
+The recipe language is `DOLLY 8`: a site path no longer starts with the
+version, so `FROM /v0.1.7/Dollyfile-system SHA256` is `FROM /Dollyfile-system
+SHA256`, and a recipe's rows stay as they are across versions that do not
+change the package they name. A `DOLLY 7` recipe is refused, naming its first
+line. In a project `dolly-build init` made (here `my-pi`):
+
+```sh
+npm install --save-exact @daugasauron/dolly-build@0.1.8
+sed -i -e '1s/^DOLLY 7$/DOLLY 8/' -e 's|^SOURCE /v0\.1\.7/|SOURCE /|' Dollyfile-my-pi
+npx dolly-build add my-pi
+npx dolly-build Dollyfile-my-pi my-pi
+```
+
+`add` writes every `FROM` and `INSTALL` row at its new path and pin; the
+`sed` moves the first line and any `SOURCE` row that names a file of the
+site.
+
 ## From 0.1.5 to 0.1.7
 
 ### The upgrade in short

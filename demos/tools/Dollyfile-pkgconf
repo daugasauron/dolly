@@ -1,0 +1,45 @@
+DOLLY 8
+PACKAGE pkgconf
+REQUIRES HOST runtime@0
+
+# pkgconf from upstream's release archive, unchanged, and pkg-config, its other
+# name: it reads the .pc files that libraries install into /usr/lib/pkgconfig.
+# Upstream builds it with Meson; config.h holds the values its configure step
+# finds here.
+FROM /Dollyfile-system-tools 41d78b18183d4c4d3786fa7131c53810a1b0090f845b8298a56f0ae87a02db9e
+REQUIRES HEADER libc
+REQUIRES TOOL cc
+REQUIRES TOOL ln
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /dist/static/pkgconf/source.tar a7c0d52c654cfc78fd44135cae21b9cf6464c1758bde76cf4270a5cd3e0e4e66 /tmp/pkgconf.tar
+SLOP tar -xf /tmp/pkgconf.tar -C /
+FILE /tmp/pkgconf/libpkgconf/config.h
+    #define HAVE_STRLCAT 1
+    #define HAVE_STRLCPY 1
+    #define HAVE_STRNDUP 1
+    #define HAVE_REALLOCARRAY 1
+    #define HAVE_DECL_STRLCAT 1
+    #define HAVE_DECL_STRLCPY 1
+    #define HAVE_DECL_STRNDUP 1
+    #define HAVE_DECL_REALLOCARRAY 1
+    #define HAVE_DECL_PLEDGE 0
+    #define HAVE_DECL_UNVEIL 0
+    #define PACKAGE_NAME "pkgconf"
+    #define PACKAGE_VERSION "2.5.1"
+    #define PACKAGE_BUGREPORT "https://todo.sr.ht/~kaniini/pkgconf"
+    #define PKG_DEFAULT_PATH "/usr/lib/pkgconfig:/usr/share/pkgconfig"
+    #define SYSTEM_INCLUDEDIR "/usr/include"
+    #define SYSTEM_LIBDIR "/usr/lib"
+    #define PERSONALITY_PATH "/usr/lib/pkgconfig/personality.d:/usr/share/pkgconfig/personality.d"
+SLOP CWD /tmp/pkgconf cc -O2 -std=gnu99 -D_BSD_SOURCE -D_DEFAULT_SOURCE -DPKGCONFIG_IS_STATIC -I. \
+  libpkgconf/*.c cli/main.c cli/getopt_long.c cli/renderer-msvc.c -o /usr/bin/pkgconf
+SLOP ln -s pkgconf /usr/bin/pkg-config
+
+EXPORTS TOOL pkgconf
+EXPORTS TOOL pkg-config
+SLOP pkgconf --help > /usr/share/man/cat1/pkgconf.1
+FILE /usr/share/man/cat1/pkgconf.1
+FILE /usr/share/licenses/pkgconf/COPYING
+SLOP rm -rf /tmp/pkgconf /tmp/pkgconf.tar

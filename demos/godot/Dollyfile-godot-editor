@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE godot-editor
 REQUIRES HOST runtime@0
 REQUIRES HOST audio@0
@@ -17,17 +17,17 @@ REQUIRES HOST clipboard@0
 # knows WebAssembly only as Emscripten (3D physics is Godot's own), and the
 # JSON-RPC module, whose one user is the GDScript language server: it listens
 # on TCP, which Dolly does not have.
-FROM /v0.1.7/demos/ghostty-gtk/Dollyfile-mesa-build a302d1f1bd5eaf4deaa2390e509e33ffc5c7f1fc9b53db47afac0f361d783e1c
-USE /v0.1.7/demos/tools/Dollyfile-scons dba0542258dcf6384aa0e457af3a410d754caa6782f89d66a40c5f66e9cc14d0
-USE /v0.1.7/Dollyfile-mandoc fdcd60b702db22d8823eb0b1ad8afaba884e97d493760d1c91bc87894a9febb9
-USE /v0.1.7/Dollyfile-libdolly-gpu b13690913448e04e3795994af89d032f7a1537ce13b54c0c73f696ee4375c6d0
-USE /v0.1.7/Dollyfile-libdolly-sockets c6b3e098f7bd988e69bdfdda8306af2e6c565b0e7abcdb9bda5dba2a48a2bfa9
-USE /v0.1.7/demos/godot/Dollyfile-spirv-wgsl d4444e5aa047cadf9fa290618d6060af586174a228790bd8fa9542a479f42c36
-USE /v0.1.7/Dollyfile-libdolly-audio 5b508cabd2df8a3106a8788b1ff75da3ae63d8acc002fa5b8c1120722520deac
-USE /v0.1.7/Dollyfile-libdolly-clipboard 2e385abeefaaf674a33ac178323df84ea08ec231f8a59e7fb95ba0d175e12b3b
-USE /v0.1.7/demos/x11/Dollyfile-x11-window 1bb040a31974a724e6bec150063dfdccedc1b8b7e5e44b421a1b1b20c1ac5949
-USE /v0.1.7/Dollyfile-libdolly-display dca7d4755a50b8dbaa6abc4fd5b8fa34cccbb6400a4fd167d90e9a0f1bcee9ad
-USE /v0.1.7/Dollyfile-libdolly-input 80f7d6d7b775fa542711f6d0205280a3d3f4c5a68eb0f3223f81fc2fe64df08e
+FROM /demos/ghostty-gtk/Dollyfile-mesa-build e91ae1abcc0e4f094afd4bbe6cfb8e024455f89a00355fb092c0538854930196
+USE /demos/tools/Dollyfile-scons 480c159ed71fcbe0e726552f055e75a0bef99218fc2112a6a5d64325a79575d6
+USE /Dollyfile-mandoc 677a830e04c6e093ffbc26a7a42aaa3a915ec954a5450c10f730d7ae4d55bf46
+USE /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
+USE /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
+USE /demos/godot/Dollyfile-spirv-wgsl 4366a98182f0504521b9ebc011cdd8ebd325c178b359624163e9e07a54180841
+USE /Dollyfile-libdolly-audio a4064796256e039400d5ea30faae6dfeccb9c09d62a8b6dd09daebc16fbf1f7f
+USE /Dollyfile-libdolly-clipboard 99746a8bd9b9eb136098753ccc526ac94a14540e6d26082ae8748eb6e3fa08a6
+USE /demos/x11/Dollyfile-x11-window 6b38ffddd1920f3a88f6f5be82c09e8c4debc5a46b7bd3acd43e8efe19f86a31
+USE /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
+USE /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
 
 REQUIRES TOOL cp
 REQUIRES TOOL grep
@@ -40,12 +40,14 @@ REQUIRES TOOL tar
 REQUIRES TOOL test
 REQUIRES TOOL text-page
 
-SOURCE /v0.1.7/dist/static/godot/source.tar.gz 1c8f59cd511f3343cb327b76994fc4d3290b19924e512e8f6dd4f476bc53147d /tmp/godot-source.tar.gz
+SOURCE /dist/static/godot/source.tar.gz 1c8f59cd511f3343cb327b76994fc4d3290b19924e512e8f6dd4f476bc53147d /tmp/godot-source.tar.gz
 SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
 # Godot's modern renderers take only the drivers main.cpp names; glslang builds beside them;
 # Forward+ starts SDFGI only on a device with image atomics, which its voxelization takes.
 SLOP CWD /usr/src/godot patch -p1 -i platform/dolly/godot-dolly.patch
-SLOP CWD /usr/src/godot scons -j4 platform=dolly target=editor module_basis_universal_enabled=no \
+# The editor's documentation is stamped with Python's hash() of it (editor/editor_builders.py),
+# which Python seeds at random in each process unless PYTHONHASHSEED fixes it.
+SLOP CWD /usr/src/godot PYTHONHASHSEED=0 scons -j4 platform=dolly target=editor module_basis_universal_enabled=no \
   module_jolt_physics_enabled=no module_jsonrpc_enabled=no
 SLOP cp /usr/src/godot/bin/godot.dolly.editor.wasm64 /usr/bin/godot-editor
 SLOP mkdir -p /usr/share/licenses/godot-editor
