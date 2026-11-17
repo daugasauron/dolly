@@ -3,7 +3,7 @@ PACKAGE ripgrep
 REQUIRES HOST runtime@0
 REQUIRES HOST threads@0
 
-FROM /demos/rust/Dollyfile-rust-build c34fe21f8fbf107379d3053a616226b41428d449d055a7ed6b4174f2c3775ce8
+FROM /demos/rust/Dollyfile-rust-build ef51664e279d5f43bb4cfc2a399d877323f589f26d221702360a5d4eba836b65
 REQUIRES TOOL cargo
 REQUIRES TOOL gzip
 REQUIRES TOOL tar

@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # gpu@0 path (dpgpurast.c) reads: dpshaders.c rewrites DarkPlaces' GLSL as
 # naga's GLSL front end reads it, and naga translates it.
 FROM /Dollyfile-system-tools 41d78b18183d4c4d3786fa7131c53810a1b0090f845b8298a56f0ae87a02db9e
-USE /demos/rust/Dollyfile-naga af8d72b7a0483eaaefe44c060f809be4258be384531519aa90d477723fa5fe33
+USE /demos/rust/Dollyfile-naga e9237aee54ac3af01b1e6e0e852dde5370d3134c5f52fe430d1a4651319c0dd0
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL make

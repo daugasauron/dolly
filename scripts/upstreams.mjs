@@ -10,8 +10,9 @@ import { siteReference, sitePath } from "../page/static-asset.mjs";
 // "/" matches a tree. "pins" are source-pins.sh keys (DOLLY_GIT_URL and
 // DOLLY_GIT_COMMIT are GIT), which also name the seed's and host-built inputs.
 // "seed" upstreams are compiled into the runtime every page loads; "prebuilt"
-// ones reach recipes as files built outside Dolly, not as source; an "npm" row
-// stands for the packages its published node_modules tree ships.
+// ones reach recipes as built files (from outside Dolly, or a previous round's
+// seed), not as source; an "npm" row stands for the packages its published
+// node_modules tree ships.
 // The core's file, then each demo's (demos/DEMO/NAME), in the order they are read.
 async function coreAndDemoFiles(projectDir, core, name) {
   const demos = (await readdir(resolve(projectDir, "demos"), { withFileTypes: true }))

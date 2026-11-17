@@ -19,7 +19,7 @@ INSTALL /demos/tools/Dollyfile-freetype 973f0d6a05a1d73ff00458e76afd65f39600acd9
 INSTALL /demos/xonotic/Dollyfile-gmqcc 3d4995c341272da45814157deb41dab522582ada3cb673d887287d54eed4eeb7
 # The gpu@0 client the render path draws with, and its shaders.
 INSTALL /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
-INSTALL /demos/xonotic/Dollyfile-xonotic-shaders 7301c04b76d6b59042008ccf2dc7d060ddee072877ad03a49cfb94894e8f7782
+INSTALL /demos/xonotic/Dollyfile-xonotic-shaders d07a3f5bcda4baa9f32169c75fa8f831f05aa40f5ef7d8413c46b97b4010b76b
 REQUIRES HEADER cpp
 REQUIRES HEADER gpu
 REQUIRES HEADER sdl2
