@@ -15,6 +15,12 @@ On `ws/ports`:
   `lean_dolly_symbol` hunk are gone, the interpreter's `dlsym(RTLD_DEFAULT, ...)` is upstream's,
   and `lean-stage0` and `lean` declare `dso@0`, which a `-rdynamic` program needs. The README's
   plugin limit says they would load through `dso@0`, which the lean test does not try.
+  Building `lean-stage0` so in this tree measured one more limit: its link failed on
+  `sched_get_priority_min` and `_max` (`build-2a.log`), which libuv's `uv_thread_setpriority`
+  asks and `-rdynamic` keeps, since it exports libuv's API; Dolly's libc defined them (ENOSYS)
+  for one-thread programs alone (`process/libc-adapter.c`, under `#ifndef
+  __EMSCRIPTEN_PTHREADS__`). They are defined for threaded programs too now, a seed change the
+  compiler round builds.
 - rustc stays serial, now said as a choice (AGENTS.md: "Prefer simple serial semantics over
   multiprocessing or performance machinery"): `rust-linker.c`'s comment and the Rust README no
   longer say that `cc` cannot link a threaded host. Making it threaded is a rewrite of
