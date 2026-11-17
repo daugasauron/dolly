@@ -548,15 +548,6 @@ float from_above(vec3 place, float wide, vec3 up_seen, vec3 to_eye_seen, inout v
 		float veil = 1.0 - exp(-air_mass * 0.13);
 		albedo = mix(albedo, vec3(0.3, 0.5, 0.95), veil);
 		emission *= 1.0 - 0.6 * veil;
-		// The aurora, which the sky's shader shows from the ground, is seen from out of the air as
-		// a ring of curtains round each pole, on the night side: green, violet at its outer edge.
-		vec3 planet = planet_at(place.xz);
-		float from_pole = abs(planet.y) / RADIUS;
-		float oval = exp(-(from_pole - 0.94) * (from_pole - 0.94) / 0.0009);
-		if (oval > 0.01) {
-			float curtains = smoothstep(0.42, 0.75, noise3(planet / 26000.0 + vec3(clock * 0.05, 9.0, 4.0)) * 0.6 + noise3(planet / 7000.0 + vec3(3.0, clock * 0.11, 8.0)) * 0.4);
-			emission += mix(vec3(0.5, 0.15, 0.8), vec3(0.08, 1.0, 0.4), smoothstep(0.925, 0.945, from_pole)) * oval * curtains * night_at(place.xz) * out_of_air * 1.6;
-		}
 		roughness = mix(roughness, 1.0, veil);
 		specular *= 1.0 - veil;
 		level = max(level, veil);
