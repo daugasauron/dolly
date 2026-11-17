@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE scons
 REQUIRES HOST runtime@0
 REQUIRES HOST dso@0
@@ -8,9 +8,9 @@ REQUIRES HOST threads@0
 
 # SCons from the wheel PyPI publishes, installed by pip; Python runs it. Its base
 # holds the C compiler it starts. The host modules are Python's.
-FROM /v0.1.7/Dollyfile-system 2d67ac36e99bb2f94c8be298fddae065f6e3868464df819d2bd0cd8c6c27386a
-INSTALL /v0.1.7/demos/python/Dollyfile-python f6fb19c629a1b5fc683ab519aa99070752b03d60ae0a627095367f5b3fc7d323
-USE /v0.1.7/Dollyfile-mandoc eb61c4cb749698401d5697675af4381e1404732012bcff25f67a9455e31e4439
+FROM /Dollyfile-system 2d67ac36e99bb2f94c8be298fddae065f6e3868464df819d2bd0cd8c6c27386a
+INSTALL /demos/python/Dollyfile-python f6fb19c629a1b5fc683ab519aa99070752b03d60ae0a627095367f5b3fc7d323
+USE /Dollyfile-mandoc eb61c4cb749698401d5697675af4381e1404732012bcff25f67a9455e31e4439
 
 REQUIRES TOOL cc
 REQUIRES TOOL cp
@@ -18,12 +18,12 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL pip
 REQUIRES TOOL text-page
 
-SOURCE /v0.1.7/dist/static/tools/scons-4.10.1-py3-none-any.whl bd9d1c52f908d874eba92a8c0c0a8dcf2ed9f3b88ab956d0fce1da479c4e7126 /tmp/scons-4.10.1-py3-none-any.whl
+SOURCE /dist/static/tools/scons-4.10.1-py3-none-any.whl bd9d1c52f908d874eba92a8c0c0a8dcf2ed9f3b88ab956d0fce1da479c4e7126 /tmp/scons-4.10.1-py3-none-any.whl
 SLOP pip install --no-compile --no-index --no-deps /tmp/scons-4.10.1-py3-none-any.whl
 SLOP mkdir -p /usr/share/licenses/scons
 SLOP cp /usr/lib/python3.14/site-packages/scons-4.10.1.dist-info/licenses/LICENSE /usr/share/licenses/scons/LICENSE
 # The page from SCons' source archive: the wheel has none.
-SOURCE /v0.1.7/dist/static/tools/scons.1 b6c0c5c9997d8dc70af5bf623df08a4d9091065ae6b4046cd17019d965c07cac /tmp/scons.1
+SOURCE /dist/static/tools/scons.1 b6c0c5c9997d8dc70af5bf623df08a4d9091065ae6b4046cd17019d965c07cac /tmp/scons.1
 SLOP text-page /tmp/scons.1
 
 # SCons takes a program on PATH for a compiler only if its execute bit is set:

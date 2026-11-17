@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN slopyard-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -13,9 +13,9 @@ REQUIRES HOST threads@0
 
 # Where Slopyard is compiled: its Lua 5.5, its Box3D build, the game and its
 # sources. slopyard-game keeps the game; the game's tests compile here.
-FROM /v0.1.7/demos/slopyard/Dollyfile-gamedev-sdk 154474e4e613c39e17c3c0b41e4505fc948deddba7538ded25e9996882f0bd2f
-INSTALL /v0.1.7/Dollyfile-libdolly-gpu 4e813773a5508ba4b1b1b591956e89f5bcd0da31807398da0f850249056e9e11
-INSTALL /v0.1.7/demos/javascript/Dollyfile-janis 081908024f1fc58da280c9cf5198ac006ca855021ea378ead968619f031380a4
+FROM /demos/slopyard/Dollyfile-gamedev-sdk 154474e4e613c39e17c3c0b41e4505fc948deddba7538ded25e9996882f0bd2f
+INSTALL /Dollyfile-libdolly-gpu 4e813773a5508ba4b1b1b591956e89f5bcd0da31807398da0f850249056e9e11
+INSTALL /demos/javascript/Dollyfile-janis 081908024f1fc58da280c9cf5198ac006ca855021ea378ead968619f031380a4
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make
@@ -26,7 +26,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES HEADER libc
 
-SOURCE /v0.1.7/dist/static/slopyard/lua-5.5.1.tar.gz 1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373dce /tmp/lua55/source.tar.gz
+SOURCE /dist/static/slopyard/lua-5.5.1.tar.gz 1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373dce /tmp/lua55/source.tar.gz
 SLOP gzip -dc /tmp/lua55/source.tar.gz > /tmp/lua55/source.tar
 SLOP tar -xf /tmp/lua55/source.tar -C /tmp/lua55
 FILE /tmp/lua55/Makefile
@@ -56,7 +56,7 @@ REQUIRES HEADER gpu
 REQUIRES HEADER quickjs
 REQUIRES HEADER quickjs-runner
 
-SOURCE /v0.1.7/dist/static/slopyard/source.tar 2df9107d64587a5f208778c52cf03167348b2e4950d658af0b69860cf07a8e09 /tmp/slopyard.tar
+SOURCE /dist/static/slopyard/source.tar 2df9107d64587a5f208778c52cf03167348b2e4950d658af0b69860cf07a8e09 /tmp/slopyard.tar
 SLOP tar -xf /tmp/slopyard.tar -C / && rm /tmp/slopyard.tar
 SLOP make -f /usr/src/dolly/slopyard/box3d.mk
 SLOP cc -std=c17 -O2 -pthread -I/usr/include/lua5.5 /usr/src/dolly/slopyard/main.c /usr/src/dolly/slopyard/data.c /usr/src/dolly/slopyard/pi.c /usr/src/dolly/slopyard/character.c /usr/src/dolly/slopyard/render.c /usr/src/dolly/slopyard/world.c /usr/src/dolly/slopyard/terrain.c /usr/src/dolly/slopyard/magnet.c -ldolly-gpu -llua5.5 -ldolly-js -lquickjs -ldolly-raylib -lraylib -lslopyard-box3d -lm -o /usr/bin/slopyard

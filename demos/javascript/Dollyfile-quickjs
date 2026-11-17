@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE quickjs
 REQUIRES HOST runtime@0
 REQUIRES HOST threads@0
@@ -11,8 +11,8 @@ REQUIRES HOST threads@0
 # threads, is compiled with it and linked through Binaryen's cast emulation:
 # upstream starts a Worker's thread through a pointer of another type
 # (js_thread_create in cutils.h). os.exec fails because nothing here forks.
-FROM /v0.1.7/Dollyfile-system-tools aaba65844164b3e9202070a757a83a6aef15710ca14631e433c72cbc1198751b
-USE /v0.1.7/demos/tools/Dollyfile-binaryen 8fc93d3c8bd4b3963dff713d40621d8be654d6dba614c13f938d325e9fec8b9b
+FROM /Dollyfile-system-tools aaba65844164b3e9202070a757a83a6aef15710ca14631e433c72cbc1198751b
+USE /demos/tools/Dollyfile-binaryen 8fc93d3c8bd4b3963dff713d40621d8be654d6dba614c13f938d325e9fec8b9b
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -23,7 +23,7 @@ REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
 REQUIRES TOOL   wasm-opt
 
-SOURCE /v0.1.7/dist/static/default/quickjs.tar 9fd1cf2a32d292362acf460b48b2332e1e4a8dd49e603b62ad9ba87bc1205af8 /tmp/quickjs.tar
+SOURCE /dist/static/default/quickjs.tar 9fd1cf2a32d292362acf460b48b2332e1e4a8dd49e603b62ad9ba87bc1205af8 /tmp/quickjs.tar
 SLOP tar -xf /tmp/quickjs.tar -C /
 
 FILE /tmp/quickjs.mk

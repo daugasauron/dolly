@@ -1,13 +1,13 @@
-DOLLY 7
+DOLLY 8
 PACKAGE xclock
 REQUIRES HOST runtime@0
 REQUIRES HOST sockets@0
 
 # xclock from X.Org's release archive, unchanged: the Athena clock, drawn
 # with the core protocol (no Xft), and its resource files.
-FROM /v0.1.7/demos/x11/Dollyfile-x11-build 59dabee9fa678f4694f5d79a478b4c0dfb542fe00533e31067c7bc6606b48c5b
+FROM /demos/x11/Dollyfile-x11-build 59dabee9fa678f4694f5d79a478b4c0dfb542fe00533e31067c7bc6606b48c5b
 
-SOURCE /v0.1.7/dist/static/x11/xclock-1.2.1.tar.gz b44845fae9857861a144a1be7418a8f18e745e05a7697804682d247027168460 /tmp/xclock.tar.gz
+SOURCE /dist/static/x11/xclock-1.2.1.tar.gz b44845fae9857861a144a1be7418a8f18e745e05a7697804682d247027168460 /tmp/xclock.tar.gz
 SLOP CWD /tmp gzip -dc xclock.tar.gz | tar -xf -
 SLOP CWD /tmp/xclock-1.2.1 cc -O2 -D_CONST_X_STRING -DHAVE_STRLCPY -DHAVE_GETPID -DHAVE_NL_LANGINFO \
   -DHAVE_ICONV -DICONV_CONST= -DUSE_XAW -DPACKAGE_STRING='"xclock 1.2.1"' xclock.c Clock.c -o /usr/bin/xclock \

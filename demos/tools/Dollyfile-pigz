@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE pigz
 REQUIRES HOST runtime@0
 
@@ -6,8 +6,8 @@ REQUIRES HOST runtime@0
 # by the rules of its Makefile, with the Zopfli it vendors and on one thread
 # (its NOTHREAD: a -pthread program would need threads@0). unpigz is pigz
 # under the name it looks for.
-FROM /v0.1.7/demos/tools/Dollyfile-tools-build fcf061770fb3a301cae1cf5fc616a0716bd30fc7645e588c45e33ae4d456e44a
-USE /v0.1.7/Dollyfile-zlib d779a4d993c59ce6642dafa229e0d67aee809cca9da230be94ec3f40432819ab
+FROM /demos/tools/Dollyfile-tools-build fcf061770fb3a301cae1cf5fc616a0716bd30fc7645e588c45e33ae4d456e44a
+USE /Dollyfile-zlib d779a4d993c59ce6642dafa229e0d67aee809cca9da230be94ec3f40432819ab
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib
@@ -22,7 +22,7 @@ REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.7/dist/static/tools/pigz-2.8.tar.gz eb872b4f0e1f0ebe59c9f7bd8c506c4204893ba6a8492de31df416f0d5170fd0 /tmp/pigz.tar.gz
+SOURCE /dist/static/tools/pigz-2.8.tar.gz eb872b4f0e1f0ebe59c9f7bd8c506c4204893ba6a8492de31df416f0d5170fd0 /tmp/pigz.tar.gz
 SLOP gzip -dc /tmp/pigz.tar.gz | tar -xf - -C /tmp
 
 FILE /tmp/pigz.mk

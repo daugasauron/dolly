@@ -141,7 +141,7 @@ test("one deployment serves every published version under its path and nothing e
     }
   }
 
-  // A reference a recipe writes, /vX.Y.Z/PATH, is a file of that version: the
+  // A reference a recipe writes is a file of that version: the
   // recipe and the source it pins come back as that version's bytes.
   for (const version of ["v0.1.0", "v0.2.0", "v0.10.0"]) {
     for (const [path, bytes] of [["Dollyfile-system", recipe(version)], ["dist/static/system/main.c", source(version)]]) {

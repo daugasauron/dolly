@@ -1,10 +1,10 @@
-DOLLY 7
+DOLLY 8
 PACKAGE sbase
 REQUIRES HOST runtime@0
 
 # The sbase commands that posix leaves out and people type, unchanged, built
 # by sbase's own Makefile from the archive system-tools builds its from.
-FROM /v0.1.7/demos/tools/Dollyfile-tools-build fcf061770fb3a301cae1cf5fc616a0716bd30fc7645e588c45e33ae4d456e44a
+FROM /demos/tools/Dollyfile-tools-build fcf061770fb3a301cae1cf5fc616a0716bd30fc7645e588c45e33ae4d456e44a
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -16,7 +16,7 @@ REQUIRES TOOL   test
 REQUIRES TOOL   wc
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.7/dist/static/default/sbase.tar 23daa7bd6d5169ba5ad4a9801fe039ba28b103e3dbb74583fccb48f3333253eb /tmp/sbase.tar
+SOURCE /dist/static/default/sbase.tar 23daa7bd6d5169ba5ad4a9801fe039ba28b103e3dbb74583fccb48f3333253eb /tmp/sbase.tar
 SLOP tar -xf /tmp/sbase.tar -C /
 
 FILE /tmp/sbase/dolly.mk

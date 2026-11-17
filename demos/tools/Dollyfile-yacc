@@ -1,11 +1,11 @@
-DOLLY 7
+DOLLY 8
 PACKAGE yacc
 REQUIRES HOST runtime@0
 
 # Berkeley Yacc from upstream's release archive, unchanged. Slop does not run
 # its configure, so config.h says what it would find here. byacc is the name
 # it goes by beside another yacc.
-FROM /v0.1.7/demos/tools/Dollyfile-tools-build fcf061770fb3a301cae1cf5fc616a0716bd30fc7645e588c45e33ae4d456e44a
+FROM /demos/tools/Dollyfile-tools-build fcf061770fb3a301cae1cf5fc616a0716bd30fc7645e588c45e33ae4d456e44a
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
@@ -19,7 +19,7 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.7/dist/static/tools/byacc-20260126.tgz b618c5fb44c2f5f048843db90f7d1b24f78f47b07913c8c7ba8c942d3eb24b00 /tmp/byacc.tgz
+SOURCE /dist/static/tools/byacc-20260126.tgz b618c5fb44c2f5f048843db90f7d1b24f78f47b07913c8c7ba8c942d3eb24b00 /tmp/byacc.tgz
 SLOP gzip -dc /tmp/byacc.tgz | tar -xf - -C /tmp
 
 FILE /tmp/byacc-20260126/config.h

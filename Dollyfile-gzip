@@ -1,9 +1,9 @@
-DOLLY 7
+DOLLY 8
 PACKAGE gzip
 REQUIRES HOST runtime@0
 
-FROM /v0.1.7/Dollyfile-system-build 6a2634c44769a8a0fd465e027edeb56a20a726b316a74f97b7bbf6bdf42e2c52
-USE /v0.1.7/Dollyfile-zlib d779a4d993c59ce6642dafa229e0d67aee809cca9da230be94ec3f40432819ab
+FROM /Dollyfile-system-build 6a2634c44769a8a0fd465e027edeb56a20a726b316a74f97b7bbf6bdf42e2c52
+USE /Dollyfile-zlib d779a4d993c59ce6642dafa229e0d67aee809cca9da230be94ec3f40432819ab
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib
@@ -11,7 +11,7 @@ REQUIRES LIB z
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/default/commands/gzip.c 265a07fe3b66241718ed0f97fb9d72bee27da29109a55e1640f5f1d5be29a626 /tmp/gzip.c
+SOURCE /dist/static/default/commands/gzip.c 265a07fe3b66241718ed0f97fb9d72bee27da29109a55e1640f5f1d5be29a626 /tmp/gzip.c
 SLOP cc /tmp/gzip.c -lz -o /bin/gzip
 SLOP rm /tmp/gzip.c
 EXPORTS TOOL gzip

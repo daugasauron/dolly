@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE spidermonkey
 REQUIRES HOST runtime@0
 
@@ -7,12 +7,12 @@ REQUIRES HOST runtime@0
 # CPython, Cargo, cbindgen and c++, from 0 A.D.'s pinned tarball and patches.
 # The tools serve the build and are not installed with it; a program links
 # -ljs_static -ljsrust -lz.
-FROM /v0.1.7/Dollyfile-system-tools aaba65844164b3e9202070a757a83a6aef15710ca14631e433c72cbc1198751b
-INSTALL /v0.1.7/Dollyfile-zlib d779a4d993c59ce6642dafa229e0d67aee809cca9da230be94ec3f40432819ab
-USE /v0.1.7/demos/python/Dollyfile-python f6fb19c629a1b5fc683ab519aa99070752b03d60ae0a627095367f5b3fc7d323
-USE /v0.1.7/demos/rust/Dollyfile-cargo 44f34c1282e999ea7fd93602f786a8ae4be0c5c86c98d7885e17079f9da92e18
-USE /v0.1.7/demos/rust/Dollyfile-cbindgen 3f625093aa8df3761932a055b22816ed000edeec6f10a18b68206450bf4a5b33
-USE /v0.1.7/demos/tools/Dollyfile-pkgconf 6d63e50c0e52d6d3b705d3a33a62be9a3378491250f30380fdf27df3e1628fb8
+FROM /Dollyfile-system-tools aaba65844164b3e9202070a757a83a6aef15710ca14631e433c72cbc1198751b
+INSTALL /Dollyfile-zlib d779a4d993c59ce6642dafa229e0d67aee809cca9da230be94ec3f40432819ab
+USE /demos/python/Dollyfile-python f6fb19c629a1b5fc683ab519aa99070752b03d60ae0a627095367f5b3fc7d323
+USE /demos/rust/Dollyfile-cargo 44f34c1282e999ea7fd93602f786a8ae4be0c5c86c98d7885e17079f9da92e18
+USE /demos/rust/Dollyfile-cbindgen 3f625093aa8df3761932a055b22816ed000edeec6f10a18b68206450bf4a5b33
+USE /demos/tools/Dollyfile-pkgconf 6d63e50c0e52d6d3b705d3a33a62be9a3378491250f30380fdf27df3e1628fb8
 REQUIRES HEADER zlib
 REQUIRES LIB z
 REQUIRES TOOL cc
@@ -33,7 +33,7 @@ REQUIRES TOOL sh
 REQUIRES TOOL rm
 
 # The pinned tree without its test suites, 0 A.D.'s patches and Dolly's.
-SOURCE /v0.1.7/dist/static/spidermonkey/source.tar.gz a0e7bd4549c698ba1c84c437e4191345afde2e24746eb7ac41e7d799f1ba8808 /tmp/mozjs.tar.gz
+SOURCE /dist/static/spidermonkey/source.tar.gz a0e7bd4549c698ba1c84c437e4191345afde2e24746eb7ac41e7d799f1ba8808 /tmp/mozjs.tar.gz
 SLOP gzip -dc /tmp/mozjs.tar.gz | tar -xf - -C /
 SLOP CWD /tmp/mozjs/mozjs-128.13.0 sh ../patches/patch.sh
 SLOP patch -p1 -d /tmp/mozjs/mozjs-128.13.0 -i /tmp/mozjs/spidermonkey.patch

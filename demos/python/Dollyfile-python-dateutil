@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE python-dateutil
 REQUIRES HOST runtime@0
 REQUIRES HOST dso@0
@@ -8,6 +8,6 @@ REQUIRES HOST threads@0
 
 # python-dateutil and the IANA time zones it reads (tzdata): their roots of
 # python-data-build (README.md).
-INSTALL /v0.1.7/demos/python/Dollyfile-python f6fb19c629a1b5fc683ab519aa99070752b03d60ae0a627095367f5b3fc7d323
-COPY /v0.1.7/demos/python/Dollyfile-python-data-build 2b38dd0a42f52592e074d19e16cf3c7bc783f0e66fcc633b8256a110ed05ad86 /opt/python-data/python-dateutil /
-COPY /v0.1.7/demos/python/Dollyfile-python-data-build 2b38dd0a42f52592e074d19e16cf3c7bc783f0e66fcc633b8256a110ed05ad86 /opt/python-data/tzdata /
+INSTALL /demos/python/Dollyfile-python f6fb19c629a1b5fc683ab519aa99070752b03d60ae0a627095367f5b3fc7d323
+COPY /demos/python/Dollyfile-python-data-build 2b38dd0a42f52592e074d19e16cf3c7bc783f0e66fcc633b8256a110ed05ad86 /opt/python-data/python-dateutil /
+COPY /demos/python/Dollyfile-python-data-build 2b38dd0a42f52592e074d19e16cf3c7bc783f0e66fcc633b8256a110ed05ad86 /opt/python-data/tzdata /

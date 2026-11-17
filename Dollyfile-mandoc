@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE mandoc
 REQUIRES HOST runtime@0
 
@@ -8,8 +8,8 @@ REQUIRES HOST runtime@0
 # man, apropos and makewhatis the same program can be are not installed: man
 # is the core's, and prints a page of text. A package that ships upstream's
 # pages uses this one to format them with text-page when it is built.
-FROM /v0.1.7/Dollyfile-system-tools aaba65844164b3e9202070a757a83a6aef15710ca14631e433c72cbc1198751b
-USE /v0.1.7/Dollyfile-zlib d779a4d993c59ce6642dafa229e0d67aee809cca9da230be94ec3f40432819ab
+FROM /Dollyfile-system-tools aaba65844164b3e9202070a757a83a6aef15710ca14631e433c72cbc1198751b
+USE /Dollyfile-zlib d779a4d993c59ce6642dafa229e0d67aee809cca9da230be94ec3f40432819ab
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib
@@ -26,7 +26,7 @@ REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 REQUIRES TOOL   test
 
-SOURCE /v0.1.7/dist/static/default/mandoc-1.14.6.tar.gz 8bf0d570f01e70a6e124884088870cbed7537f36328d512909eb10cd53179d9c /tmp/mandoc.tar.gz
+SOURCE /dist/static/default/mandoc-1.14.6.tar.gz 8bf0d570f01e70a6e124884088870cbed7537f36328d512909eb10cd53179d9c /tmp/mandoc.tar.gz
 SLOP gzip -dc /tmp/mandoc.tar.gz | tar -xf - -C /tmp
 
 # Not found here: fts, getprogname, recallocarray, strtonum, ohash, BSD's

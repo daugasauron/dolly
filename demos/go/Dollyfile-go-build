@@ -1,9 +1,9 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN go-build
 REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 
 # The base of Go builds: the seed's toolchain with the go package, which holds
 # Go's own build, installed over it.
-FROM /v0.1.7/demos/go/Dollyfile-go-sdk 2dccc4dbe8fad5c3a946d047c7e82cc676ac64b7a74c7fedfe81c9860b44dc82
-INSTALL /v0.1.7/demos/go/Dollyfile-go a929197fcc4078a283a8478596623df0f8713eca0f5c370ad4cf1492c4154cc8
+FROM /demos/go/Dollyfile-go-sdk 2dccc4dbe8fad5c3a946d047c7e82cc676ac64b7a74c7fedfe81c9860b44dc82
+INSTALL /demos/go/Dollyfile-go a929197fcc4078a283a8478596623df0f8713eca0f5c370ad4cf1492c4154cc8

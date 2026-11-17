@@ -496,9 +496,8 @@ test("a site path names a file of this version's site, under its root, and the p
   assert.deepEqual(fetched, [`${site}amy-index.txt`]);
   // The program gets the bytes and the path it asked for, not the site's URL.
   assert.deepEqual([records[0], records.at(-2)].map(record => new TextDecoder().decode(record.bytes)), [index, "index"]);
-  // Not another version's site or a path without one, not above the site's
-  // root, not another host, not what the policy leaves out.
-  const refused = ["/v987.0.21/amy-index.txt", "/amy-index.txt", siteReference("../amy-index.txt"),
+  // Not above the site's root, not another host, not what the policy leaves out.
+  const refused = [siteReference("../amy-index.txt"),
     siteReference("\\\\other.example/amy-index.txt"), "//other.example/x", "amy-index.txt"];
   for (const [sequence, url] of refused.entries()) {
     await bounded(f.request({ url }, sequence + 2));

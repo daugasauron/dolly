@@ -62,7 +62,7 @@ SLOP rm ${outputs}/deleted`,
       error: "add REQUIRES HOST http@0" },
   ];
   for (const item of cases) {
-    const source = `DOLLY 7\nAPPLICATION parser-test\nEXPORTS TOOL slop\n${item.rows}\nENTRY ${item.entry ?? '/bin/slop ""'}\n`;
+    const source = `DOLLY 8\nAPPLICATION parser-test\nEXPORTS TOOL slop\n${item.rows}\nENTRY ${item.entry ?? '/bin/slop ""'}\n`;
     item.sources = inspectDollyfile(source).sources;
     recipes.set(`/fixture/parser-${item.name}.Dollyfile`, source);
     recipes.set(`/fixture/parser-${item.name}.rows`, recipeRows(inspectDollyfile(source), digest(source)));
@@ -71,7 +71,7 @@ SLOP rm ${outputs}/deleted`,
   recipes.set("/fixture/parser-after.txt", "after");
   cases.push({ name: "nul", error: "could not load recipe", check: `test ! -e ${outputs}/nul` });
   recipes.set("/fixture/parser-nul.Dollyfile",
-    `DOLLY 7\nAPPLICATION parser-test\nSLOP printf changed > ${outputs}/nul\n# comment\0ignored\nENTRY /bin/slop\n`);
+    `DOLLY 8\nAPPLICATION parser-test\nSLOP printf changed > ${outputs}/nul\n# comment\0ignored\nENTRY /bin/slop\n`);
   return { recipes, run: submit => runDollyfileCases(submit, origin, cases) };
 }
 

@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE libdolly-display
 REQUIRES HOST runtime@0
 
@@ -6,15 +6,15 @@ REQUIRES HOST runtime@0
 # program's frames), for programs the cc package builds: cc links every client
 # archive in /usr/lib/dolly/process, and a program records display@0 only when
 # it calls the client.
-FROM /v0.1.7/Dollyfile-system-build 6a2634c44769a8a0fd465e027edeb56a20a726b316a74f97b7bbf6bdf42e2c52
+FROM /Dollyfile-system-build 6a2634c44769a8a0fd465e027edeb56a20a726b316a74f97b7bbf6bdf42e2c52
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/host/display/display.h c0e5a32282990529476ed705c82f39ce64bfd0dbcbcdfdccd3a8e8b6e84670a4 /usr/include/dolly/display.h
-SOURCE /v0.1.7/host/display/display-abi.h 94367a8498b31c51f4d930410fd68d36bbc3965f98c5e7e86f74a64d3760eed7 /usr/include/dolly/display-abi.h
-SOURCE /v0.1.7/host/display/client.c 8ebb4b6346302ee24fc6fd60c97a3e5ba8039b5bbd6764b60641087564387d02 /tmp/libdolly-display/client.c
+SOURCE /host/display/display.h c0e5a32282990529476ed705c82f39ce64bfd0dbcbcdfdccd3a8e8b6e84670a4 /usr/include/dolly/display.h
+SOURCE /host/display/display-abi.h 94367a8498b31c51f4d930410fd68d36bbc3965f98c5e7e86f74a64d3760eed7 /usr/include/dolly/display-abi.h
+SOURCE /host/display/client.c 8ebb4b6346302ee24fc6fd60c97a3e5ba8039b5bbd6764b60641087564387d02 /tmp/libdolly-display/client.c
 SLOP cc -O1 -c /tmp/libdolly-display/client.c -o /tmp/libdolly-display/client.o
 SLOP ar rcs /usr/lib/dolly/process/libdolly-display.a /tmp/libdolly-display/client.o
 

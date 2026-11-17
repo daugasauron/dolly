@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN rust-tools
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -11,9 +11,9 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.7/Dollyfile-system 2d67ac36e99bb2f94c8be298fddae065f6e3868464df819d2bd0cd8c6c27386a
-INSTALL /v0.1.7/Dollyfile-libdolly-sockets 8d55612921acaaf8594889fafe23b16d624444b4d58ece014c6dc0b504d27c28
-INSTALL /v0.1.7/demos/rust/Dollyfile-rust 3413770547d56bd7db06ed1453bcca0598a53f3e73c69de133be4afdd6b9eef5
-INSTALL /v0.1.7/demos/rust/Dollyfile-cargo 44f34c1282e999ea7fd93602f786a8ae4be0c5c86c98d7885e17079f9da92e18
+FROM /Dollyfile-system 2d67ac36e99bb2f94c8be298fddae065f6e3868464df819d2bd0cd8c6c27386a
+INSTALL /Dollyfile-libdolly-sockets 8d55612921acaaf8594889fafe23b16d624444b4d58ece014c6dc0b504d27c28
+INSTALL /demos/rust/Dollyfile-rust 3413770547d56bd7db06ed1453bcca0598a53f3e73c69de133be4afdd6b9eef5
+INSTALL /demos/rust/Dollyfile-cargo 44f34c1282e999ea7fd93602f786a8ae4be0c5c86c98d7885e17079f9da92e18
 
 ENTRY /bin/foreground -i /bin/slop

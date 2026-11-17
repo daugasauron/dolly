@@ -71,19 +71,16 @@ ENTRY /bin/foreground -i /bin/slop
   await writeFile(oversized, "x".repeat(128 * 1024 + 1));
   await page.locator("#dollyfile-upload").setInputFiles(oversized);
   assert.equal(await page.locator("#source").inputValue(), "DOLLY 2");
-  // A recipe that names another version's files is refused before anything
-  // is built, naming that version and the page's own.
-  const elsewhere = "/v987.0.21/";
-  for (const foreign of [source.replace(siteReference(""), elsewhere),
-    source.replace("ENTRY ", `SOURCE ${elsewhere}dist/static/default/slop.c ${"0".repeat(64)} /tmp/slop.c\nENTRY `)]) {
-    await page.locator("#source").fill(foreign);
-    await page.locator("form button[type=submit]").click();
-    await page.waitForURL("**/custom/rebuild/");
-    await rejected(page);
-    const refusal = await page.locator("#bootstrap-log").textContent();
-    assert.ok(refusal.includes(elsewhere) && refusal.includes(siteReference("")), refusal);
-    await page.goto(server.origin + "/custom/");
-  }
+  // A recipe that names a recipe this release does not publish is refused
+  // before anything is built, naming it.
+  const unpublished = "/v0.1.7/Dollyfile-system";
+  await page.locator("#source").fill(source.replace(/^FROM \S+/m, `FROM ${unpublished}`));
+  await page.locator("form button[type=submit]").click();
+  await page.waitForURL("**/custom/rebuild/");
+  await rejected(page);
+  const refusal = await page.locator("#bootstrap-log").textContent();
+  assert.ok(refusal.includes(unpublished), refusal);
+  await page.goto(server.origin + "/custom/");
   await page.locator("#source").fill(source);
   await page.locator("form button[type=submit]").click();
   await page.waitForURL("**/custom/rebuild/");

@@ -25,8 +25,8 @@ let hideSystemMetadata = false;
 let parserRecipes = new Map();
 // A recipe the engine built from this checkout runs, and its rows.
 const engineRecipes = new Map();
-for (const [name, source] of [["entry-missing", "DOLLY 7\nAPPLICATION entry-missing\nENTRY /bin/slop\n"],
-  ["order", "DOLLY 7\nPACKAGE order\nEXPORTS FOLDER order /usr/share/order\n"]]) {
+for (const [name, source] of [["entry-missing", "DOLLY 8\nAPPLICATION entry-missing\nENTRY /bin/slop\n"],
+  ["order", "DOLLY 8\nPACKAGE order\nEXPORTS FOLDER order /usr/share/order\n"]]) {
   engineRecipes.set(`/fixture/${name}.Dollyfile`, source);
   engineRecipes.set(`/fixture/${name}.rows`, recipeRows(inspectDollyfile(source), createHash("sha256").update(source).digest("hex")));
 }
@@ -41,7 +41,7 @@ function handle(request, response, path, headers) {
 // A derived image built in the tab from a published base: the base's snapshot
 // gone once FROM has read it, shell, exports, deletions, and an ENTRY argument
 // that must keep its U+FEFF.
-const iterationRecipe = (base, marker) => `DOLLY 7
+const iterationRecipe = (base, marker) => `DOLLY 8
 APPLICATION iteration
 ${base.hostRequirements.map(module => `REQUIRES HOST ${module}\n`).join("")}FROM ${siteReference(base.dollyfile)} ${base.sha256}
 SLOP test -z "$(ls /etc/dolly/artifacts)"
@@ -174,7 +174,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
       const staleHit = await loadImageArtifactDescriptor(child.sha256, [{ recipeSha256: system.sha256, sha256: changed.sha256 }]);
       let requested, failure;
       try {
-        await prepareImageArtifacts("custom", `DOLLY 7\nAPPLICATION grandchild\nFROM ${siteReference(child.dollyfile)} ${child.sha256}\nENTRY /bin/slop\n`,
+        await prepareImageArtifacts("custom", `DOLLY 8\nAPPLICATION grandchild\nFROM ${siteReference(child.dollyfile)} ${child.sha256}\nENTRY /bin/slop\n`,
           async image => { requested = image; throw new Error("EXPECTED_REBUILD"); }, () => {});
       } catch (error) { failure = error.message; }
       return { changedBytes: changed.sha256 !== original.sha256, staleHit: !!staleHit, requested, failure };
@@ -198,7 +198,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
     const { DOLLY_SESSION_FORMAT_VERSION, saveStoredSession, loadStoredSession } = await import("/host/snapshot/session-store.mjs");
     const { default: metadata } = await import("/dist/dolly-system-system-snapshot.json", { with: { type: "json" } });
     const make = async (name, value) => {
-      const source = new TextEncoder().encode(`DOLLY 7\nAPPLICATION ${name}\nENTRY /bin/slop\n`);
+      const source = new TextEncoder().encode(`DOLLY 8\nAPPLICATION ${name}\nENTRY /bin/slop\n`);
       return describeImageArtifact(new Blob([encodeSnapshotRecords(new Map([
         ["/etc/dolly/Dollyfile", { kind: 2, data: source }],
         ["/etc/dolly/artifact", { kind: 2, data: new TextEncoder().encode(value) }],
@@ -240,7 +240,7 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
         throw new Error("corrupt base write failed");
       }
       const [artifact] = await prepareImageArtifacts("custom",
-        `DOLLY 7\nAPPLICATION cache-consumer\nFROM ${siteReference(system.dollyfile)} ${system.sha256}\nENTRY /bin/slop\n`,
+        `DOLLY 8\nAPPLICATION cache-consumer\nFROM ${siteReference(system.dollyfile)} ${system.sha256}\nENTRY /bin/slop\n`,
         async () => { throw new Error("corruption must recover the exact published bytes, not rebuild"); }, () => {});
       recovered = artifact.sha256 === base.sha256 && artifact.bytes.size === base.bytes.size;
     } finally { await saveImageArtifact(base, `/${system.dollyfile}`); }

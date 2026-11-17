@@ -157,9 +157,9 @@ export class NetworkTransport {
 
   get active() { return this.slots.some(slot => slot !== null); }
 
-  // A URL is absolute, or a site path: /vVERSION/FILE is a file of the site
-  // serving this release, never above its root and of no other version. The
-  // policy then judges it like any other URL.
+  // A URL is absolute, or a site path: /FILE is a file of the site serving
+  // this release, never above its root. The policy then judges it like any
+  // other URL.
   target(url) {
     const absolute = URL.parse(url);
     if (absolute || !url.startsWith("/")) return absolute;

@@ -1,18 +1,18 @@
-DOLLY 7
+DOLLY 8
 PACKAGE pi-llm
 REQUIRES HOST runtime@0
 REQUIRES HOST gpu@0
 
 # Pi's provider for the models dolly-llama runs in the tab on gpu@0, with the
 # bundled Qwen3.5-2B, which Pi's settings choose: /local installs and switches models.
-FROM /v0.1.7/Dollyfile-system-build 6a2634c44769a8a0fd465e027edeb56a20a726b316a74f97b7bbf6bdf42e2c52
-INSTALL /v0.1.7/demos/local-llm/Dollyfile-llama c2770bd4bfe4b73c099c368521c13388640eb55814dd327d61d0716c72d49293
-INSTALL /v0.1.7/demos/local-llm/Dollyfile-qwen3.5-2b 0485c2281d00660e6bbd697af13faadd2d57e89d974a4ff08ade52c8d4236626
+FROM /Dollyfile-system-build 6a2634c44769a8a0fd465e027edeb56a20a726b316a74f97b7bbf6bdf42e2c52
+INSTALL /demos/local-llm/Dollyfile-llama c2770bd4bfe4b73c099c368521c13388640eb55814dd327d61d0716c72d49293
+INSTALL /demos/local-llm/Dollyfile-qwen3.5-2b 0485c2281d00660e6bbd697af13faadd2d57e89d974a4ff08ade52c8d4236626
 
 REQUIRES TOOL tar
 REQUIRES TOOL dolly-llama
 
-SOURCE /v0.1.7/dist/static/llama/provider.tar 68b75b1b327c2c3000ef964e4a1f00ec7fb4536abae00baa7622d6734aaecce2 /tmp/llm-provider.tar
+SOURCE /dist/static/llama/provider.tar 68b75b1b327c2c3000ef964e4a1f00ec7fb4536abae00baa7622d6734aaecce2 /tmp/llm-provider.tar
 SLOP tar -xf /tmp/llm-provider.tar -C /
 
 FILE /home/dolly/.pi/agent/settings.json

@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN classicube-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -7,8 +7,8 @@ REQUIRES HOST audio@0
 REQUIRES HOST touch@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.7/Dollyfile-system-tools aaba65844164b3e9202070a757a83a6aef15710ca14631e433c72cbc1198751b
-INSTALL /v0.1.7/demos/sdl2/Dollyfile-sdl2 334b3d8eb3107a8fb5a0b02c2f59aec6f6c54672e61ec60a2c1a5312d3e55da3
+FROM /Dollyfile-system-tools aaba65844164b3e9202070a757a83a6aef15710ca14631e433c72cbc1198751b
+INSTALL /demos/sdl2/Dollyfile-sdl2 334b3d8eb3107a8fb5a0b02c2f59aec6f6c54672e61ec60a2c1a5312d3e55da3
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2
 REQUIRES TOOL cc
@@ -18,7 +18,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL gzip
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/classicube/source.tar.gz f22ef0de1963ba2698e74524479f2d1b7835e33f8d97b570dd020efa658b070e /tmp/classicube/source.tar.gz
+SOURCE /dist/static/classicube/source.tar.gz f22ef0de1963ba2698e74524479f2d1b7835e33f8d97b570dd020efa658b070e /tmp/classicube/source.tar.gz
 SLOP gzip -dc /tmp/classicube/source.tar.gz | tar -xf - -C /
 SLOP make -f /usr/src/dolly/classicube/Makefile
 

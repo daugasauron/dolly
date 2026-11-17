@@ -149,7 +149,7 @@ export async function displayProbe(image, more = [], packages = []) {
   // Host requirements are never inherited: restate the base's, plus the terminal's.
   const hosts = [...new Set([...catalog.images.find(definition => definition.image === image).hostRequirements,
     "display@0", "input@0", ...more])].sort();
-  const recipe = ["DOLLY 7", "APPLICATION display-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin(image)}`,
+  const recipe = ["DOLLY 8", "APPLICATION display-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin(image)}`,
     ...packages.map(name => `INSTALL ${pin(name)}`),
     ...["/usr/lib/libdisplay.so", "/usr/share/fonts/IosevkaTerm-SemiBold.ttf"]
       .map(path => `COPY ${pin("ghostty-build")} ${path} ${path}`),
@@ -170,7 +170,7 @@ export async function installProbe(...packages) {
   // system's modules and those the packages need: nothing is inherited.
   const hosts = [...new Set(["system", ...packages].flatMap(name =>
     catalog.images.find(definition => definition.image === name).hostRequirements))].sort();
-  const recipe = ["DOLLY 7", "APPLICATION install-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin("system")}`,
+  const recipe = ["DOLLY 8", "APPLICATION install-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin("system")}`,
     ...packages.map(name => `INSTALL ${pin(name)}`), "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
   return { path: "/custom/rebuild/",
     setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) };

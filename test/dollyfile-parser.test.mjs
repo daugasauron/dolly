@@ -60,41 +60,41 @@ test("the JavaScript graph accepts the recipes the language allows, and the engi
 
 test("the engine refuses rows that are not of the recipe it was given", async () => {
   await withParser(async (scratch, run) => {
-    const recipe = "DOLLY 7\nAPPLICATION default\nENTRY /bin/slop\n";
+    const recipe = "DOLLY 8\nAPPLICATION default\nENTRY /bin/slop\n";
     const directory = resolve(scratch, "stale");
     await mkdir(directory, { recursive: true });
     await writeFile(resolve(directory, "Dollyfile"), recipe);
     await writeFile(resolve(directory, "Dollyfile.rows"), recipeRows(inspectDollyfile(recipe), "0".repeat(64)));
     assert.equal(run("check", directory).status, 1);
     await writeFile(resolve(directory, "Dollyfile.rows"),
-      `DOLLY 7 ${createHash("sha256").update(recipe).digest("hex")}\0` + "2 3\0APPLICATION\0default\0");
+      `DOLLY 8 ${createHash("sha256").update(recipe).digest("hex")}\0` + "2 3\0APPLICATION\0default\0");
     assert.equal(run("check", directory).status, 1, "a row holds as many fields as it says");
   });
 });
 
 test("words and values decode as the language says", async () => {
   await withParser(async (scratch, run) => {
-    const prefix = "DOLLY 7\nPACKAGE probe\n";
+    const prefix = "DOLLY 8\nPACKAGE probe\n";
     for (const [raw, expected] of [['cc "" "a b" c\\ d', ["cc", "", "a b", "c d"]],
       ["'cc' 'a\\b' \"東京\"", ["cc", "a\\b", "東京"]], ["cc input name.c", ["cc", "input", "name.c"]],
       ['"a\\$b" "a\\xb" "a\\\\b" "a\\"b"', ["a$b", "a\\xb", "a\\b", 'a"b']],
       ["a\\#b 'a#b' \"#\"", ["a#b", "a#b", "#"]]]) {
       assert.deepEqual(inspectDollyfile(prefix + "SLOP " + raw + "\n").slops[0].command, expected, raw);
     }
-    for (const [reference, expected] of [["/v1.2.3/Dollyfile", true], ["/v0.0.0/a/Dollyfile-pi-local", true],
-      ["/v10.20.30/Dollyfile-pi", true], [`/v1.2.3/Dollyfile-${"a".repeat(32)}`, true],
-      [`/v1.2.3/Dollyfile-${"a".repeat(33)}`, false], ["/v1.2.3/Dollyfile-", false], ["/v1.2.3/Dollyfile-/bad", false],
-      ["/v1.2.3/Dollyfile?x=1", false], ["/v1.2.3/Dollyfile#x", false], ["/v1.2.3//Dollyfile", false],
-      ["/v1.2.3/", false], ["/v1.2.3", false], ["/v1.2/Dollyfile", false], ["/v1.2.3.4/Dollyfile", false],
-      ["/v1.2.x/Dollyfile", false], ["/v.2.3/Dollyfile", false], ["/1.2.3/Dollyfile", false], ["/Dollyfile", false],
-      ["v1.2.3/Dollyfile", false], ["https://example.com/v1.2.3/Dollyfile", false], ["http://127.0.0.1:8080/Dollyfile-pi", false]]) {
+    for (const [reference, expected] of [["/Dollyfile", true], ["/demos/a/Dollyfile-pi-local", true],
+      ["/v1.2.3/Dollyfile-pi", true], [`/Dollyfile-${"a".repeat(32)}`, true],
+      [`/Dollyfile-${"a".repeat(33)}`, false], ["/Dollyfile-", false], ["/Dollyfile-/bad", false],
+      ["/Dollyfile?x=1", false], ["/Dollyfile#x", false], ["//Dollyfile", false], ["/a//Dollyfile", false],
+      ["/a/../Dollyfile", false], ["/a/", false], ["/a", false], ["/", false], ["", false],
+      ["Dollyfile", false], ["a/Dollyfile", false], ["https://example.com/Dollyfile", false],
+      ["http://127.0.0.1:8080/Dollyfile-pi", false]]) {
       let accepted = true;
-      try { inspectDollyfile(`DOLLY 7\nAPPLICATION check\nFROM ${reference} ${"0".repeat(64)}\nENTRY /bin/slop\n`); }
+      try { inspectDollyfile(`DOLLY 8\nAPPLICATION check\nFROM ${reference} ${"0".repeat(64)}\nENTRY /bin/slop\n`); }
       catch { accepted = false; }
       assert.equal(accepted, expected, reference);
       assert.equal(run("image-reference", reference).status === 0, expected, reference);
     }
-    const image = rows => `DOLLY 7\nAPPLICATION default\n${rows}ENTRY /bin/slop\n`;
+    const image = rows => `DOLLY 8\nAPPLICATION default\n${rows}ENTRY /bin/slop\n`;
     const values = async (files) => (await checkCase(scratch, run, files)).native.stdout;
     assert.match(await values({ "/Dollyfile": image('EXPORTS ENV DOLLY_TEST_VALUE "APPEND literal"\n') }),
       /ENV-VALUE:APPEND literal\n/);
@@ -116,7 +116,7 @@ test("the engine keeps paths, kinds, commands and recipe names exact", async () 
     const directory = resolve(scratch, "space dir");
     await mkdir(directory);
     for (const command of ['"cc" "a b.c"', "cc 'a b.c' ; cc second.c"]) {
-      const [, cwd, text] = inspectDollyfile(`DOLLY 7\nPACKAGE probe\nSLOP CWD "${directory}" ${command}\n`).rows[2].fields;
+      const [, cwd, text] = inspectDollyfile(`DOLLY 8\nPACKAGE probe\nSLOP CWD "${directory}" ${command}\n`).rows[2].fields;
       const result = spawnSync(resolve(scratch, "parser"), ["slop", cwd, text],
         { encoding: "utf8", input: "caller input must not reach recipe commands" });
       assert.equal(result.status, 0, result.stderr);
@@ -131,7 +131,7 @@ test("the engine keeps paths, kinds, commands and recipe names exact", async () 
       assert.equal(run("kind", type, resolve(scratch, "link")).status === 0, type !== "FOLDER", type);
     }
     assert.equal(run("recipe-names", "custom", "FILE:/etc/dolly/upload.Dollyfile").status, 0);
-    assert.equal(run("recipe-names", "base", "/v1.2.3/Dollyfile-base").status, 0,
+    assert.equal(run("recipe-names", "base", "/Dollyfile-base").status, 0,
       "the same recipe is recorded once");
     assert.equal(run("recipe-names", "base", "FILE:/etc/dolly/upload.Dollyfile").status, 1,
       "a custom image cannot take its base's retained recipe name");

@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE mojo
 REQUIRES HOST runtime@0
 
@@ -6,10 +6,10 @@ REQUIRES HOST runtime@0
 # builds with Bazel, the standard library and the package gpu it precompiles,
 # and what a program links against: mojo build NAME.mojo makes a Dolly
 # executable.
-FROM /v0.1.7/demos/mojo/Dollyfile-mojo-llvm bd1e0a4b6f08e90630169667e6140cac4d9c7958b419815b186635bbdf472695
+FROM /demos/mojo/Dollyfile-mojo-llvm bd1e0a4b6f08e90630169667e6140cac4d9c7958b419815b186635bbdf472695
 # mojo build links what it compiles with the C toolchain.
-INSTALL /v0.1.7/Dollyfile-libdolly-gpu 4e813773a5508ba4b1b1b591956e89f5bcd0da31807398da0f850249056e9e11
-INSTALL /v0.1.7/Dollyfile-cc f6cd62ca34e68d858276aa1cc3a8b12f5c6121aa2aec4c8a93edffdb0c33ad78
+INSTALL /Dollyfile-libdolly-gpu 4e813773a5508ba4b1b1b591956e89f5bcd0da31807398da0f850249056e9e11
+INSTALL /Dollyfile-cc f6cd62ca34e68d858276aa1cc3a8b12f5c6121aa2aec4c8a93edffdb0c33ad78
 REQUIRES HEADER gpu
 REQUIRES LIB    dolly-gpu
 REQUIRES TOOL cmake
@@ -28,7 +28,7 @@ REQUIRES TOOL rm
 REQUIRES TOOL sha256sum
 REQUIRES TOOL cut
 
-SOURCE /v0.1.7/dist/static/mojo/mojo.tar.gz 85c382a809ee195c5d153de052aef38618ef1466d9f54a603a2e486445fda9fd /tmp/mojo.tar.gz
+SOURCE /dist/static/mojo/mojo.tar.gz 85c382a809ee195c5d153de052aef38618ef1466d9f54a603a2e486445fda9fd /tmp/mojo.tar.gz
 SLOP slop -c 'gzip -dc /tmp/mojo.tar.gz | tar -xf - -C /'
 # Where the sources name Linux, macOS and Windows, and Dolly is none of them.
 SLOP patch -p1 -d /tmp/mojo/modular -i /tmp/mojo/mojo-dolly.patch

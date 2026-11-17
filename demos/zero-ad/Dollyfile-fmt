@@ -1,10 +1,10 @@
-DOLLY 7
+DOLLY 8
 PACKAGE fmt
 REQUIRES HOST runtime@0
 
 # {fmt} from upstream's release archive, unchanged, built by its CMake project,
 # for programs the cc package builds.
-FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build b245b8437206207ec0ea6a7f59da2e3d3bce75c9e45d4535adfce32b3e3215ea
+FROM /demos/cmake/Dollyfile-cmake-build b245b8437206207ec0ea6a7f59da2e3d3bce75c9e45d4535adfce32b3e3215ea
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES TOOL cmake
@@ -13,7 +13,7 @@ REQUIRES TOOL make
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.7/dist/static/fmt/source.tar.gz 66a92e97c25eb9542032e3d4b3bac3021b573a3bdd1dde3aa31c138afd709ed1 /tmp/fmt.tar.gz
+SOURCE /dist/static/fmt/source.tar.gz 66a92e97c25eb9542032e3d4b3bac3021b573a3bdd1dde3aa31c138afd709ed1 /tmp/fmt.tar.gz
 SLOP gzip -dc /tmp/fmt.tar.gz | tar -xf - -C /
 SLOP cmake -S /tmp/fmt -B /tmp/fmt-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \

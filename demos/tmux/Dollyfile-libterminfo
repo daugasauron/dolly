@@ -1,11 +1,11 @@
-DOLLY 7
+DOLLY 8
 PACKAGE libterminfo
 REQUIRES HOST runtime@0
 
 # NetBSD's terminfo library from the netbsd-curses release, two lines fixed, for
 # programs the cc package builds (-lterminfo): <term.h> and <termcap.h> over
 # the terminal descriptions the library holds.
-FROM /v0.1.7/Dollyfile-system-tools aaba65844164b3e9202070a757a83a6aef15710ca14631e433c72cbc1198751b
+FROM /Dollyfile-system-tools aaba65844164b3e9202070a757a83a6aef15710ca14631e433c72cbc1198751b
 
 REQUIRES HEADER libc
 REQUIRES TOOL ar
@@ -19,7 +19,7 @@ REQUIRES TOOL sed
 REQUIRES TOOL sh
 REQUIRES TOOL tar
 
-SOURCE /v0.1.7/dist/static/tmux/terminfo.tar 02f16349f246ae130a95a41ef88a78aabf7d5374d6e962ce0520dd216274edbe /tmp/terminfo.tar
+SOURCE /dist/static/tmux/terminfo.tar 02f16349f246ae130a95a41ef88a78aabf7d5374d6e962ce0520dd216274edbe /tmp/terminfo.tar
 SLOP tar -xf /tmp/terminfo.tar -C /
 
 # tparm formats each number with %ld and hands it over as an int: undefined,

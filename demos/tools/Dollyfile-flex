@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE flex
 REQUIRES HOST runtime@0
 
@@ -8,8 +8,8 @@ REQUIRES HOST runtime@0
 # run its configure, so config.h says what it would find here. Its own
 # grammar is compiled by yacc, and a scanner seldom goes without a grammar,
 # so the yacc package comes with it.
-FROM /v0.1.7/demos/tools/Dollyfile-tools-build fcf061770fb3a301cae1cf5fc616a0716bd30fc7645e588c45e33ae4d456e44a
-INSTALL /v0.1.7/demos/tools/Dollyfile-yacc 33d579a26eca4fe5a6aee33667c0012d53c5d600edd1777add3f843715b5e967
+FROM /demos/tools/Dollyfile-tools-build fcf061770fb3a301cae1cf5fc616a0716bd30fc7645e588c45e33ae4d456e44a
+INSTALL /demos/tools/Dollyfile-yacc 33d579a26eca4fe5a6aee33667c0012d53c5d600edd1777add3f843715b5e967
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -26,7 +26,7 @@ REQUIRES TOOL   test
 REQUIRES TOOL   yacc
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.7/dist/static/tools/reflex-20260131.tgz ab51a65f33623bb9a3877fc5991ca7960b2421ed112d94c733d85597991748bd /tmp/reflex.tgz
+SOURCE /dist/static/tools/reflex-20260131.tgz ab51a65f33623bb9a3877fc5991ca7960b2421ed112d94c733d85597991748bd /tmp/reflex.tgz
 SLOP gzip -dc /tmp/reflex.tgz | tar -xf - -C /tmp
 
 FILE /tmp/reflex-20260131/config.h

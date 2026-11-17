@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE xkbcomp
 REQUIRES HOST runtime@0
 # It reaches the X server through libX11, over a socket.
@@ -7,17 +7,17 @@ REQUIRES HOST sockets@0
 # xkbcomp, X.Org's XKB keymap compiler, which the X server runs for its
 # keymap: from its release archive, built by its Meson project against the
 # libxkbfile package, which it links statically.
-FROM /v0.1.7/demos/x11/Dollyfile-x11-build 59dabee9fa678f4694f5d79a478b4c0dfb542fe00533e31067c7bc6606b48c5b
-USE /v0.1.7/demos/tools/Dollyfile-meson 7bff1d97f2291f32401c69de7d0069ab829c7ed38541a8bc1104e3cdbd2b52fd
-USE /v0.1.7/demos/tools/Dollyfile-pkgconf 6d63e50c0e52d6d3b705d3a33a62be9a3378491250f30380fdf27df3e1628fb8
-USE /v0.1.7/demos/x11/Dollyfile-libxkbfile 8959893e2ec841f57660c6c10f48220723ad4a3c090b80ab261bfad62eae5b91
-USE /v0.1.7/demos/tools/Dollyfile-yacc 33d579a26eca4fe5a6aee33667c0012d53c5d600edd1777add3f843715b5e967
+FROM /demos/x11/Dollyfile-x11-build 59dabee9fa678f4694f5d79a478b4c0dfb542fe00533e31067c7bc6606b48c5b
+USE /demos/tools/Dollyfile-meson 7bff1d97f2291f32401c69de7d0069ab829c7ed38541a8bc1104e3cdbd2b52fd
+USE /demos/tools/Dollyfile-pkgconf 6d63e50c0e52d6d3b705d3a33a62be9a3378491250f30380fdf27df3e1628fb8
+USE /demos/x11/Dollyfile-libxkbfile 8959893e2ec841f57660c6c10f48220723ad4a3c090b80ab261bfad62eae5b91
+USE /demos/tools/Dollyfile-yacc 33d579a26eca4fe5a6aee33667c0012d53c5d600edd1777add3f843715b5e967
 REQUIRES TOOL meson
 REQUIRES TOOL byacc
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
 
-SOURCE /v0.1.7/dist/static/x11/xkbcomp-1.5.0.tar.gz d070694dd8d94714aa1da3e3590b75084a4b183da3980866aedd68835954b97c /tmp/xkbcomp.tar.gz
+SOURCE /dist/static/x11/xkbcomp-1.5.0.tar.gz d070694dd8d94714aa1da3e3590b75084a4b183da3980866aedd68835954b97c /tmp/xkbcomp.tar.gz
 SLOP gzip -dc /tmp/xkbcomp.tar.gz | tar -xf - -C /tmp
 SLOP meson setup /tmp/build/xkbcomp /tmp/xkbcomp-1.5.0 --prefix=/usr --libdir=lib --buildtype=release
 SLOP meson compile -C /tmp/build/xkbcomp && meson install --no-rebuild -C /tmp/build/xkbcomp

@@ -177,7 +177,7 @@ export async function composed(hosts, packages, { base, files = {}, rows = [], e
   const definition = name => catalog.images.find(definition => definition.image === name);
   const pin = name => `${siteReference(definition(name).dollyfile)} ${definition(name).sha256}`;
   const modules = new Set([...base ? definition(base).hostRequirements : [], ...hosts.map(host => `${host}@0`)]);
-  const recipe = ["DOLLY 7", "APPLICATION composed", ...[...modules].map(module => `REQUIRES HOST ${module}`),
+  const recipe = ["DOLLY 8", "APPLICATION composed", ...[...modules].map(module => `REQUIRES HOST ${module}`),
     ...base ? [`FROM ${pin(base)}`] : [], ...packages.map(name => `INSTALL ${pin(name)}`),
     ...Object.entries(files).map(([path, text]) => `FILE ${path}\n${text.trim().split("\n").map(line => `    ${line}`).join("\n")}`),
     ...rows, `ENTRY ${entry}`, ""].join("\n");

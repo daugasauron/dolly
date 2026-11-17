@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN rust-sdk
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -7,10 +7,10 @@ REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.7/Dollyfile-system-build 6a2634c44769a8a0fd465e027edeb56a20a726b316a74f97b7bbf6bdf42e2c52
-INSTALL /v0.1.7/Dollyfile-zlib d779a4d993c59ce6642dafa229e0d67aee809cca9da230be94ec3f40432819ab
-INSTALL /v0.1.7/Dollyfile-gzip d4142af193d737a2924b64903ce92441275f0077b1a9b7c79047d64b68b6e83b
-INSTALL /v0.1.7/Dollyfile-curl 85873ade0fd6c6934b40955ea55641367d48a1fb4407f1b0fe94e88b6558f7a4
+FROM /Dollyfile-system-build 6a2634c44769a8a0fd465e027edeb56a20a726b316a74f97b7bbf6bdf42e2c52
+INSTALL /Dollyfile-zlib d779a4d993c59ce6642dafa229e0d67aee809cca9da230be94ec3f40432819ab
+INSTALL /Dollyfile-gzip d4142af193d737a2924b64903ce92441275f0077b1a9b7c79047d64b68b6e83b
+INSTALL /Dollyfile-curl 85873ade0fd6c6934b40955ea55641367d48a1fb4407f1b0fe94e88b6558f7a4
 REQUIRES LIB z
 REQUIRES LIB curl
 REQUIRES TOOL cc
@@ -23,15 +23,15 @@ REQUIRES TOOL mkdir
 
 # The external seed: rustc and its standard library, linked, and Cargo as one
 # object. The linker adapter is compiled inside Dolly.
-SOURCE /v0.1.7/dist/static/rust/rust-sdk.tar.gz d0a8930cd6a049f86da9a1fa8270b3d1ea191d59de43866238d9ed335b3668a1 /tmp/rust-sdk.tar.gz
+SOURCE /dist/static/rust/rust-sdk.tar.gz d0a8930cd6a049f86da9a1fa8270b3d1ea191d59de43866238d9ed335b3668a1 /tmp/rust-sdk.tar.gz
 SLOP mkdir -p /opt
 SLOP gzip -dc /tmp/rust-sdk.tar.gz | tar -xf - -C /opt
-SOURCE /v0.1.7/dist/static/rust/rustc.sh 03589f0b44268b0bb22c1d5db37aa58cd882a8d2dae81902a23ab2385c3dde6e /opt/rust-sdk/bin/rustc
-SOURCE /v0.1.7/dist/static/rust/rust-linker.c 826c7535c5d3e412447ea2d6b81e51106001c0f48c15b44d93cd81973d514664 /tmp/rust-linker.c
+SOURCE /dist/static/rust/rustc.sh 03589f0b44268b0bb22c1d5db37aa58cd882a8d2dae81902a23ab2385c3dde6e /opt/rust-sdk/bin/rustc
+SOURCE /dist/static/rust/rust-linker.c 826c7535c5d3e412447ea2d6b81e51106001c0f48c15b44d93cd81973d514664 /tmp/rust-linker.c
 SLOP cc -O1 /tmp/rust-linker.c -o /opt/rust-sdk/bin/dolly-rust-link
 # What the adapter adds to a program that loads Rust libraries: the dl* names
 # Rust binds.
-SOURCE /v0.1.7/dist/static/rust/dlopen.c cd3f75610360f299acd6ff507900ec2ad0273222465fde4184d59da4b188cc6b /tmp/rust-host/dlopen.c
+SOURCE /dist/static/rust/dlopen.c cd3f75610360f299acd6ff507900ec2ad0273222465fde4184d59da4b188cc6b /tmp/rust-host/dlopen.c
 SLOP CWD /tmp/rust-host cc -O2 -fPIC -c dlopen.c
 SLOP CWD /tmp/rust-host ar rcs /opt/rust-sdk/lib/dolly-rust-host.a dlopen.o
 # Cargo's libc, libcurl and zlib are this image's.
@@ -55,6 +55,6 @@ EXPORTS FOLDER rust-sdk /opt/rust-sdk
 EXPORTS FOLDER rust-licenses /usr/share/licenses/rust
 SLOP rustc --version --verbose
 SLOP cargo --version
-INSTALL /v0.1.7/Dollyfile-display 8f206fd7c1ccb3b0a4f96dc679b970f4bb7000e92b39ae1d2800a2df0236cca3
+INSTALL /Dollyfile-display 8f206fd7c1ccb3b0a4f96dc679b970f4bb7000e92b39ae1d2800a2df0236cca3
 
 ENTRY /bin/foreground -i /bin/slop

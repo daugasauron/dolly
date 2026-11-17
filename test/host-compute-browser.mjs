@@ -61,7 +61,7 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       const hosts = rows.match(/^(?:REQUIRES HOST [^\n]*\n)*/)[0];
       const installs = packages.map(image => catalog.images.find(d => d.image === image))
         .map(d => `INSTALL ${siteReference(d.dollyfile)} ${d.sha256}\n`).join("");
-      const recipe = `DOLLY 7\nAPPLICATION ${name}\n${hosts}FROM ${siteReference(base.dollyfile)} ${base.sha256}\n${installs}${rows.slice(hosts.length)}`;
+      const recipe = `DOLLY 8\nAPPLICATION ${name}\n${hosts}FROM ${siteReference(base.dollyfile)} ${base.sha256}\n${installs}${rows.slice(hosts.length)}`;
       const report = () => {};
       const artifacts = await prepareImageArtifacts("custom", recipe, (name, inputs) => buildImage(name, inputs, builders, report, { modules }), report);
       const artifact = await buildImage("custom", artifacts, builders, report, { modules, customSource: recipe });

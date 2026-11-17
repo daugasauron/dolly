@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE classicube-agent
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -10,8 +10,8 @@ REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
 # The agent of ClassiCube's world, its viewer and the world packer, with their sources.
-FROM /v0.1.7/demos/pi/Dollyfile-pi-runtime 97a9cc7d8c6fe6dff5fbba0b5030d6ddbc30bf2b8db22362229ee4e73da98e99
-USE /v0.1.7/demos/sdl2/Dollyfile-sdl2 334b3d8eb3107a8fb5a0b02c2f59aec6f6c54672e61ec60a2c1a5312d3e55da3
+FROM /demos/pi/Dollyfile-pi-runtime 97a9cc7d8c6fe6dff5fbba0b5030d6ddbc30bf2b8db22362229ee4e73da98e99
+USE /demos/sdl2/Dollyfile-sdl2 334b3d8eb3107a8fb5a0b02c2f59aec6f6c54672e61ec60a2c1a5312d3e55da3
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner
 REQUIRES HEADER sdl2
@@ -25,8 +25,8 @@ REQUIRES TOOL c++
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/classicube/agent.tar a575c5c5354cb8210464a4577204ed3169a31838ad981acac4cba3adaa30e60e /tmp/classicube-agent/source.tar
-SOURCE /v0.1.7/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/classicube-agent/stb_truetype.h
+SOURCE /dist/static/classicube/agent.tar a575c5c5354cb8210464a4577204ed3169a31838ad981acac4cba3adaa30e60e /tmp/classicube-agent/source.tar
+SOURCE /dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/classicube-agent/stb_truetype.h
 SLOP tar -xf /tmp/classicube-agent/source.tar -C /
 SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/classicube-agent \
   /usr/src/dolly/classicube/agent/viewer.cpp -o /usr/bin/classicube-viewer -lSDL2 -lm

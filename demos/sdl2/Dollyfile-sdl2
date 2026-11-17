@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE sdl2
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -6,11 +6,11 @@ REQUIRES HOST input@0
 REQUIRES HOST audio@0
 REQUIRES HOST touch@0
 
-FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build b245b8437206207ec0ea6a7f59da2e3d3bce75c9e45d4535adfce32b3e3215ea
-INSTALL /v0.1.7/Dollyfile-libdolly-audio 2a44c37063171cb39fbac6233e04262d982d4adf79e2e4c61f2bd3aa941e4364
-INSTALL /v0.1.7/Dollyfile-libdolly-touch e1a284678dbd0b9a0fc01d85a4f270c20d58d1ffa1eec731d61711405a9467ae
-INSTALL /v0.1.7/Dollyfile-libdolly-display 02db6fdde801b0723917d5fa418d696aac136ed9406428aecb9cc189f114c378
-INSTALL /v0.1.7/Dollyfile-libdolly-input c28684b773072861a32216556dc3beb39f8980f865dedcaa5777dd1e105a26ee
+FROM /demos/cmake/Dollyfile-cmake-build b245b8437206207ec0ea6a7f59da2e3d3bce75c9e45d4535adfce32b3e3215ea
+INSTALL /Dollyfile-libdolly-audio 2a44c37063171cb39fbac6233e04262d982d4adf79e2e4c61f2bd3aa941e4364
+INSTALL /Dollyfile-libdolly-touch e1a284678dbd0b9a0fc01d85a4f270c20d58d1ffa1eec731d61711405a9467ae
+INSTALL /Dollyfile-libdolly-display 02db6fdde801b0723917d5fa418d696aac136ed9406428aecb9cc189f114c378
+INSTALL /Dollyfile-libdolly-input c28684b773072861a32216556dc3beb39f8980f865dedcaa5777dd1e105a26ee
 REQUIRES HEADER libc
 REQUIRES HEADER audio
 REQUIRES HEADER display
@@ -22,7 +22,7 @@ REQUIRES TOOL make
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/sdl2/source.tar 016b2aa2d0b4b1b3fef1b4c4654d8462456b82d6f87e39feea4c87ed340656bb /tmp/sdl2/source.tar
+SOURCE /dist/static/sdl2/source.tar 016b2aa2d0b4b1b3fef1b4c4654d8462456b82d6f87e39feea4c87ed340656bb /tmp/sdl2/source.tar
 SLOP tar -xf /tmp/sdl2/source.tar -C /
 SLOP cmake -S /tmp/sdl2/source -B /tmp/sdl2/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \

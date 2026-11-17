@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN llvm22-tablegen
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -10,9 +10,9 @@ REQUIRES HOST threads@0
 
 # Build-only: LLVM 22 with every default target, the version Zig 0.17 links,
 # configured by CMake inside Dolly, and its TableGen tools.
-FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build b245b8437206207ec0ea6a7f59da2e3d3bce75c9e45d4535adfce32b3e3215ea
+FROM /demos/cmake/Dollyfile-cmake-build b245b8437206207ec0ea6a7f59da2e3d3bce75c9e45d4535adfce32b3e3215ea
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL /v0.1.7/demos/python/Dollyfile-python f6fb19c629a1b5fc683ab519aa99070752b03d60ae0a627095367f5b3fc7d323
+INSTALL /demos/python/Dollyfile-python f6fb19c629a1b5fc683ab519aa99070752b03d60ae0a627095367f5b3fc7d323
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python
@@ -25,11 +25,11 @@ REQUIRES TOOL time
 REQUIRES TOOL cp
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/llvm22/llvm-project.tar.gz d2b6b682f06a79130bd7a2de9a88f45a80a81abb44b37bad57f018c0d2c8f9ed /tmp/llvm-project.tar.gz
+SOURCE /dist/static/llvm22/llvm-project.tar.gz d2b6b682f06a79130bd7a2de9a88f45a80a81abb44b37bad57f018c0d2c8f9ed /tmp/llvm-project.tar.gz
 SLOP time slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
 # LLVM runs config.guess even when LLVM_HOST_TRIPLE is given; it knows no Dolly host.
-SOURCE /v0.1.7/dist/static/llvm22/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
+SOURCE /dist/static/llvm22/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/llvm-project -i /tmp/llvm-host-triple.patch
 
 # As the seed's LLVM is configured (llvm-tablegen), with every target Zig

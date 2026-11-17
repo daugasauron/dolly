@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN pi-runtime
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -10,7 +10,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.7/Dollyfile-system 2d67ac36e99bb2f94c8be298fddae065f6e3868464df819d2bd0cd8c6c27386a
-INSTALL /v0.1.7/demos/pi/Dollyfile-pi-dolly 41af8333c51e7e76d0d8ecdaca293e3bac6cb36bdc42510767641a954b1050e5
+FROM /Dollyfile-system 2d67ac36e99bb2f94c8be298fddae065f6e3868464df819d2bd0cd8c6c27386a
+INSTALL /demos/pi/Dollyfile-pi-dolly 41af8333c51e7e76d0d8ecdaca293e3bac6cb36bdc42510767641a954b1050e5
 
 ENTRY /bin/foreground -i /bin/slop

@@ -75,7 +75,7 @@ const llm = await listen(provider);
 // reads the user's token and the model's key without showing them.
 const base = catalog.images.find(({ image }) => image === "pi-runtime");
 const file = (path, text) => [`FILE ${path}`, ...text.trim().split("\n").map(line => `    ${line}`)];
-const recipe = ["DOLLY 7", "APPLICATION orders-agent", ...base.hostRequirements.map(module => `REQUIRES HOST ${module}`),
+const recipe = ["DOLLY 8", "APPLICATION orders-agent", ...base.hostRequirements.map(module => `REQUIRES HOST ${module}`),
   `FROM ${siteReference(base.dollyfile)} ${base.sha256}`,
   ...file("/home/dolly/.pi/agent/SYSTEM.md", `
 You are the order desk assistant of a small shop. Staff ask you about orders

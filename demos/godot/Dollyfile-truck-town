@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE truck-town
 REQUIRES HOST runtime@0
 REQUIRES HOST audio@0
@@ -14,10 +14,10 @@ REQUIRES HOST clipboard@0
 # or night, drawn by Godot's Forward+ renderer on gpu@0. Godot's editor imports
 # its assets and exports its pack here, and truck-town plays the pack with
 # godot, which installs with it. Its physics is Godot's own (Jolt's is not built).
-FROM /v0.1.7/Dollyfile-system 2d67ac36e99bb2f94c8be298fddae065f6e3868464df819d2bd0cd8c6c27386a
-INSTALL /v0.1.7/demos/godot/Dollyfile-godot 7d4f7f8dc125a693211015f66e248cf717d1f1c77bd68218c1ed396716e3b794
-USE /v0.1.7/demos/godot/Dollyfile-godot-editor 74dd84b3c49033531a8dbd6f5831ac9ec863e381bf940984198e162591532179
-USE /v0.1.7/demos/tools/Dollyfile-unzip afad826991bd77ea380f6290373bc16ecd8f8fbfb7a48dcd65a6b99d539dae25
+FROM /Dollyfile-system 2d67ac36e99bb2f94c8be298fddae065f6e3868464df819d2bd0cd8c6c27386a
+INSTALL /demos/godot/Dollyfile-godot 7d4f7f8dc125a693211015f66e248cf717d1f1c77bd68218c1ed396716e3b794
+USE /demos/godot/Dollyfile-godot-editor 74dd84b3c49033531a8dbd6f5831ac9ec863e381bf940984198e162591532179
+USE /demos/tools/Dollyfile-unzip afad826991bd77ea380f6290373bc16ecd8f8fbfb7a48dcd65a6b99d539dae25
 
 REQUIRES TOOL cp
 REQUIRES TOOL godot-editor
@@ -25,7 +25,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL unzip
 
-SOURCE /v0.1.7/dist/static/godot/3d_truck_town.zip 66f95937d190b3b551b3394d6d612c10c710a44f961f3ade058bf1fc545b374b /tmp/truck.zip
+SOURCE /dist/static/godot/3d_truck_town.zip 66f95937d190b3b551b3394d6d612c10c710a44f961f3ade058bf1fc545b374b /tmp/truck.zip
 SLOP CWD /tmp unzip -q /tmp/truck.zip
 # The editor exports a pack for a preset; the demo's own release sets none.
 FILE /tmp/truck_town/export_presets.cfg

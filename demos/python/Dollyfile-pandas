@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE pandas
 REQUIRES HOST runtime@0
 REQUIRES HOST dso@0
@@ -9,11 +9,11 @@ REQUIRES HOST threads@0
 # pandas and what it reads and writes besides CSV: HTML through Jinja's
 # templates, Excel with openpyxl, Markdown with tabulate. Their roots of
 # python-data-build (README.md).
-INSTALL /v0.1.7/demos/python/Dollyfile-numpy 7942e9a3ef57c86055ce7bd9f6ea43cba32596065d4476229f5a5ca429a2a194
-INSTALL /v0.1.7/demos/python/Dollyfile-python-dateutil 655a6e804088361ae0e03b03dcb93f409efad8d83f8e02ab60cab8bd3e6be93b
-COPY /v0.1.7/demos/python/Dollyfile-python-data-build 2b38dd0a42f52592e074d19e16cf3c7bc783f0e66fcc633b8256a110ed05ad86 /opt/python-data/pandas /
-COPY /v0.1.7/demos/python/Dollyfile-python-data-build 2b38dd0a42f52592e074d19e16cf3c7bc783f0e66fcc633b8256a110ed05ad86 /opt/python-data/markupsafe /
-COPY /v0.1.7/demos/python/Dollyfile-python-data-build 2b38dd0a42f52592e074d19e16cf3c7bc783f0e66fcc633b8256a110ed05ad86 /opt/python-data/jinja2 /
-COPY /v0.1.7/demos/python/Dollyfile-python-data-build 2b38dd0a42f52592e074d19e16cf3c7bc783f0e66fcc633b8256a110ed05ad86 /opt/python-data/et-xmlfile /
-COPY /v0.1.7/demos/python/Dollyfile-python-data-build 2b38dd0a42f52592e074d19e16cf3c7bc783f0e66fcc633b8256a110ed05ad86 /opt/python-data/openpyxl /
-COPY /v0.1.7/demos/python/Dollyfile-python-data-build 2b38dd0a42f52592e074d19e16cf3c7bc783f0e66fcc633b8256a110ed05ad86 /opt/python-data/tabulate /
+INSTALL /demos/python/Dollyfile-numpy 7942e9a3ef57c86055ce7bd9f6ea43cba32596065d4476229f5a5ca429a2a194
+INSTALL /demos/python/Dollyfile-python-dateutil 655a6e804088361ae0e03b03dcb93f409efad8d83f8e02ab60cab8bd3e6be93b
+COPY /demos/python/Dollyfile-python-data-build 2b38dd0a42f52592e074d19e16cf3c7bc783f0e66fcc633b8256a110ed05ad86 /opt/python-data/pandas /
+COPY /demos/python/Dollyfile-python-data-build 2b38dd0a42f52592e074d19e16cf3c7bc783f0e66fcc633b8256a110ed05ad86 /opt/python-data/markupsafe /
+COPY /demos/python/Dollyfile-python-data-build 2b38dd0a42f52592e074d19e16cf3c7bc783f0e66fcc633b8256a110ed05ad86 /opt/python-data/jinja2 /
+COPY /demos/python/Dollyfile-python-data-build 2b38dd0a42f52592e074d19e16cf3c7bc783f0e66fcc633b8256a110ed05ad86 /opt/python-data/et-xmlfile /
+COPY /demos/python/Dollyfile-python-data-build 2b38dd0a42f52592e074d19e16cf3c7bc783f0e66fcc633b8256a110ed05ad86 /opt/python-data/openpyxl /
+COPY /demos/python/Dollyfile-python-data-build 2b38dd0a42f52592e074d19e16cf3c7bc783f0e66fcc633b8256a110ed05ad86 /opt/python-data/tabulate /

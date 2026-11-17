@@ -1,12 +1,12 @@
-DOLLY 7
+DOLLY 8
 PACKAGE zig
 REQUIRES HOST runtime@0
 
 # Zig as zig-build bootstraps it, with its standard library. This zig has only
 # the C backend (-ofmt=c) and no `zig build` or `zig cc`: cc compiles what it
 # emits, so the package brings the compiler.
-FROM /v0.1.7/Dollyfile-zig-build 68293cbe20e86c082cd7928f432c9043a4dd31841f0aed01d4f5839bf2180e5f
-INSTALL /v0.1.7/Dollyfile-cc f6cd62ca34e68d858276aa1cc3a8b12f5c6121aa2aec4c8a93edffdb0c33ad78
+FROM /Dollyfile-zig-build 68293cbe20e86c082cd7928f432c9043a4dd31841f0aed01d4f5839bf2180e5f
+INSTALL /Dollyfile-cc f6cd62ca34e68d858276aa1cc3a8b12f5c6121aa2aec4c8a93edffdb0c33ad78
 
 EXPORTS TOOL   zig
 EXPORTS FOLDER zig-lib     /usr/lib/zig

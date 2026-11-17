@@ -67,7 +67,7 @@ const llm = `http://127.0.0.1:${provider.address().port}`;
 
 const base = catalog.images.find(({ image }) => image === "pi-runtime");
 const file = (path, text) => [`FILE ${path}`, ...text.trim().split("\n").map(line => `    ${line}`)];
-const recipe = ["DOLLY 7", "APPLICATION trip-agent", ...base.hostRequirements.map(module => `REQUIRES HOST ${module}`),
+const recipe = ["DOLLY 8", "APPLICATION trip-agent", ...base.hostRequirements.map(module => `REQUIRES HOST ${module}`),
   `FROM ${siteReference(base.dollyfile)} ${base.sha256}`,
   ...file("/home/dolly/.pi/agent/models.json", JSON.stringify({ providers: { scripted: { baseUrl: `${llm}/v1`,
     api: "openai-completions", apiKey: "scripted", models: [{ id: "scripted", name: "Scripted", reasoning: false, input: ["text"],

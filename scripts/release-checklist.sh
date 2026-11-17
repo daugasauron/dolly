@@ -134,6 +134,7 @@ cat <<COMMANDS
    node scripts/published-version.mjs boot https://daugasauron.com ${versions}
    node scripts/published-version.mjs verify ${site} ${deployment} ${version}
 8  mv ${deployment}/${version} ${archive}/ && rm -rf ${deployment}
+   then move page/version.mjs to the next version
    ${version}'s list, for the release notes: $(sha256sum "${deployment}/${version}/deployment.sha256" | cut -d' ' -f1)
    Then its showcase, recorded on ${site}/${version}/ and committed to sites/slopshare.dev/agents/,
    before the version moves on:

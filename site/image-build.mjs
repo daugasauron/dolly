@@ -8,16 +8,13 @@ import { siteReference, sitePath } from "../page/static-asset.mjs";
 
 // A custom recipe builds from this release's published recipes and sources.
 async function customRecipeGraph(customSource, signal) {
-  const graph = await loadRecipeGraph(async reference => {
+  return loadRecipeGraph(async reference => {
     if (reference === "Dollyfile") return new TextEncoder().encode(customSource);
     const response = await fetch(new URL(sitePath(reference).slice(1), imageBase),
       { credentials: "same-origin", redirect: "error", signal });
     if (!response.ok) throw new Error(`${reference}: HTTP ${response.status}; this release does not publish that recipe`);
     return response.arrayBuffer();
   }, "Dollyfile");
-  // The broker would refuse another version's path without saying why.
-  for (const { location } of graph.root.sources) sitePath(location);
-  return graph;
 }
 
 // Only explicit image references schedule builds. Modules still execute in

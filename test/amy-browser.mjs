@@ -33,7 +33,7 @@ const encoder = new TextEncoder();
 const u32 = value => { const bytes = new Uint8Array(4); new DataView(bytes.buffer).setUint32(0, value, true); return bytes; };
 const text = value => [u32(encoder.encode(value).length), encoder.encode(value)];
 const connects = { url: siteReference("Dollyfile-connects"),
-  source: "DOLLY 7\nPACKAGE connects\nREQUIRES HOST runtime@0\nREQUIRES HOST sockets@0\nFILE /usr/share/connects\n    needs sockets\n" };
+  source: "DOLLY 8\nPACKAGE connects\nREQUIRES HOST runtime@0\nREQUIRES HOST sockets@0\nFILE /usr/share/connects\n    needs sockets\n" };
 connects.sha256 = sha256(connects.source);
 const receipt = [encoder.encode("DOLLYART"), u32(5), u32(1),
   ...["PACKAGE", "connects", connects.url, connects.sha256, connects.source].flatMap(text),
@@ -54,7 +54,7 @@ const fixtures = { "connects.snapshot": join(scratch, "connects.snapshot") };
 async function sealed(name, body, needed = [], hosts = [], environment = {}) {
   const url = siteReference(`Dollyfile-${name}`), rows = needed.map(({ url, sha256 }) => `INSTALL ${url} ${sha256}\n`).join("");
   const variables = Object.entries(environment);
-  const source = `DOLLY 7\nPACKAGE ${name}\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}${rows}FILE /usr/share/${name}\n    ${body}\n` +
+  const source = `DOLLY 8\nPACKAGE ${name}\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}${rows}FILE /usr/share/${name}\n    ${body}\n` +
     variables.map(([variable, value]) => `EXPORTS ENV ${variable} ${value}\n`).join("");
   const pin = sha256(source), chain = [...needed, { name, url, sha256: pin, source }];
   const receipt = [encoder.encode("DOLLYART"), u32(5), u32(chain.length),
@@ -339,7 +339,7 @@ await browserTest("USE", { image: "system" }, async ({ open }) => {
     await run("cp record /etc/dolly/installed");
     for (const { sha256 } of [library, shared, newer, ...rows.some(item => item.includes(older.sha256)) ? [older] : []])
       await put(system.submit, `/etc/dolly/artifacts/${sha256}.snapshot`, await readFile(fixtures[`${sha256}.snapshot`]));
-    const source = ["DOLLY 7", "PACKAGE uses", "REQUIRES HOST runtime@0", ...rows].map(line => `${line}\n`).join("");
+    const source = ["DOLLY 8", "PACKAGE uses", "REQUIRES HOST runtime@0", ...rows].map(line => `${line}\n`).join("");
     await put(system.submit, "/tmp/use/Dollyfile-uses", encoder.encode(source));
     await put(system.submit, "/etc/dolly/recipe.rows", encoder.encode(recipeRows(inspectDollyfile(source), sha256(source))));
     assert.equal(await system.submit("./dollyfile FILE:/tmp/use/Dollyfile-uses > log 2>&1") !== 0, fails, await system.text());

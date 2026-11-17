@@ -16,7 +16,7 @@ const encoder = new TextEncoder();
 const u32 = value => { const bytes = new Uint8Array(4); new DataView(bytes.buffer).setUint32(0, value, true); return bytes; };
 const text = value => [u32(encoder.encode(value).length), encoder.encode(value)];
 const listener = { url: siteReference("Dollyfile-listener"),
-  source: "DOLLY 7\nPACKAGE listener\nREQUIRES HOST runtime@0\nREQUIRES HOST microphone@0\nFILE /usr/share/listener\n    needs the microphone\n" };
+  source: "DOLLY 8\nPACKAGE listener\nREQUIRES HOST runtime@0\nREQUIRES HOST microphone@0\nFILE /usr/share/listener\n    needs the microphone\n" };
 listener.sha256 = createHash("sha256").update(listener.source).digest("hex");
 const receipt = Buffer.concat([encoder.encode("DOLLYART"), u32(5), u32(1),
   ...["PACKAGE", "listener", listener.url, listener.sha256, listener.source].flatMap(text),

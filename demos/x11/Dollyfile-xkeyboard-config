@@ -1,19 +1,19 @@
-DOLLY 7
+DOLLY 8
 PACKAGE xkeyboard-config
 REQUIRES HOST runtime@0
 
 # xkeyboard-config's keyboard descriptions, which xkbcomp reads for the X
 # server, and the evdev rules its Meson build writes with this generator (the
 # .lst files it adds need Perl).
-FROM /v0.1.7/demos/x11/Dollyfile-x11-build 59dabee9fa678f4694f5d79a478b4c0dfb542fe00533e31067c7bc6606b48c5b
+FROM /demos/x11/Dollyfile-x11-build 59dabee9fa678f4694f5d79a478b4c0dfb542fe00533e31067c7bc6606b48c5b
 # The tar package reads the pax headers of X.Org's archives.
-USE /v0.1.7/demos/tools/Dollyfile-tar b08b85c33d91b02b04851a0154d00aaa6604f8a911b2f5610a68ff8a12f0c36c
-USE /v0.1.7/demos/tools/Dollyfile-xz 3503cbb1d88128c406716c2025a3bb31bcf0544958994b9dd7eff00ef29ac11a
+USE /demos/tools/Dollyfile-tar b08b85c33d91b02b04851a0154d00aaa6604f8a911b2f5610a68ff8a12f0c36c
+USE /demos/tools/Dollyfile-xz 3503cbb1d88128c406716c2025a3bb31bcf0544958994b9dd7eff00ef29ac11a
 REQUIRES TOOL python3
 REQUIRES TOOL xz
 REQUIRES TOOL tar
 
-SOURCE /v0.1.7/dist/static/x11/xkeyboard-config-2.48.tar.xz b77041324f0109f77161ee43743fe04baa485866af8460d31e476ad3f7648fd5 /tmp/xkeyboard-config.tar.xz
+SOURCE /dist/static/x11/xkeyboard-config-2.48.tar.xz b77041324f0109f77161ee43743fe04baa485866af8460d31e476ad3f7648fd5 /tmp/xkeyboard-config.tar.xz
 SLOP xz -dc /tmp/xkeyboard-config.tar.xz | tar -xf - -C /tmp
 SLOP mkdir -p /usr/share/X11/xkb/rules
 SLOP CWD /tmp/xkeyboard-config-2.48 cp -r compat geometry keycodes symbols types /usr/share/X11/xkb/

@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 APPLICATION default
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -13,13 +13,13 @@ REQUIRES HOST upload@0
 # page's file exchange.
 # It holds no compiler; amy installs what a session needs, and has nena
 # enable the host modules a package needs beyond these (nena@0).
-INSTALL /v0.1.7/Dollyfile-core 477b1e16bf88948c46bc4b68cd39d9610ffe5119e131c45223f89a61421520fa
-INSTALL /v0.1.7/Dollyfile-posix 6a2f9206752a09e80d5e1a4d2d2be08ab2174816a108c7fcaf0045f337e50172
-INSTALL /v0.1.7/Dollyfile-display 8f206fd7c1ccb3b0a4f96dc679b970f4bb7000e92b39ae1d2800a2df0236cca3
-INSTALL /v0.1.7/Dollyfile-amy b08a1704e8b8ed49b4d1154063a8e8072fc8bea027947996b3c0c50fcf6d778e
-INSTALL /v0.1.7/Dollyfile-nena 9c77d21f8c5938ad823dd2e7ba6c6a0dd19302e5b1cc344b28cdb0c2e6864ae6
-INSTALL /v0.1.7/Dollyfile-transfer 68b05f10efc48df241e0ec6c137025ef7a28d180f8a3c8806371a423a8ee37c6
-INSTALL /v0.1.7/Dollyfile-ps 39cdf2bfaa3fb52f3c161672634f9600381754e6f006971896d6f79b6b345b77
+INSTALL /Dollyfile-core 477b1e16bf88948c46bc4b68cd39d9610ffe5119e131c45223f89a61421520fa
+INSTALL /Dollyfile-posix 6a2f9206752a09e80d5e1a4d2d2be08ab2174816a108c7fcaf0045f337e50172
+INSTALL /Dollyfile-display 8f206fd7c1ccb3b0a4f96dc679b970f4bb7000e92b39ae1d2800a2df0236cca3
+INSTALL /Dollyfile-amy b08a1704e8b8ed49b4d1154063a8e8072fc8bea027947996b3c0c50fcf6d778e
+INSTALL /Dollyfile-nena 9c77d21f8c5938ad823dd2e7ba6c6a0dd19302e5b1cc344b28cdb0c2e6864ae6
+INSTALL /Dollyfile-transfer 68b05f10efc48df241e0ec6c137025ef7a28d180f8a3c8806371a423a8ee37c6
+INSTALL /Dollyfile-ps ca50cc0e628e9a4adacf91febd5e26b9ee2825a4e9ab33b9ee41d313b29a291f
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL echo

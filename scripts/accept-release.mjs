@@ -37,7 +37,7 @@ export async function acceptImage(browser, server, image) {
   const artifact = `/etc/dolly/artifacts/${definition.sha256}.snapshot`;
   // A build-only toolchain over the image, declaring exactly the image's host modules.
   const hosts = definition.hostRequirements.map(requirement => `REQUIRES HOST ${requirement}\n`).join("");
-  const recipe = `DOLLY 7\nTOOLCHAIN inventory\n${hosts}FROM ${siteReference(definition.dollyfile)} ${definition.sha256}\n` +
+  const recipe = `DOLLY 8\nTOOLCHAIN inventory\n${hosts}FROM ${siteReference(definition.dollyfile)} ${definition.sha256}\n` +
     `FILE /tmp/inventory.c\n${inventory.trimEnd().split("\n").map(line => `    ${line}`).join("\n")}\n` +
     "SLOP cc -O1 /tmp/inventory.c -o /tmp/inventory\nSLOP help > /tmp/help\n" +
     `SLOP if /tmp/inventory /tmp/help ${"0".repeat(64)} ${artifact}; then exit 1; fi\n` +

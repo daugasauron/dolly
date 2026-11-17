@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE libdolly-pty
 REQUIRES HOST runtime@0
 
@@ -6,15 +6,15 @@ REQUIRES HOST runtime@0
 # package builds: cc links it when a program asks with -ldolly-pty, since it
 # defines libc's openpty; so it is in /usr/lib, not among the clients cc links
 # unasked (/usr/lib/dolly/process).
-FROM /v0.1.7/Dollyfile-system-build 6a2634c44769a8a0fd465e027edeb56a20a726b316a74f97b7bbf6bdf42e2c52
+FROM /Dollyfile-system-build 6a2634c44769a8a0fd465e027edeb56a20a726b316a74f97b7bbf6bdf42e2c52
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/host/pty/pty.h 19659149489e27ccec526807bfebe90f1423440acaaa314bfacd711f6a70472d /usr/include/dolly/pty.h
-SOURCE /v0.1.7/host/pty/pty-abi.h e048f616d6b5bbc44caee1eeaba55f6bef7e2ffebfbabe58e3ac53322d7651d1 /usr/include/dolly/pty-abi.h
-SOURCE /v0.1.7/host/pty/client.c 3d657d3dad30591919a51c1c1004d4ffa965bb1ae7b8bef2366d502eac634070 /tmp/libdolly-pty/client.c
+SOURCE /host/pty/pty.h 19659149489e27ccec526807bfebe90f1423440acaaa314bfacd711f6a70472d /usr/include/dolly/pty.h
+SOURCE /host/pty/pty-abi.h e048f616d6b5bbc44caee1eeaba55f6bef7e2ffebfbabe58e3ac53322d7651d1 /usr/include/dolly/pty-abi.h
+SOURCE /host/pty/client.c 3d657d3dad30591919a51c1c1004d4ffa965bb1ae7b8bef2366d502eac634070 /tmp/libdolly-pty/client.c
 SLOP cc -O1 -c /tmp/libdolly-pty/client.c -o /tmp/libdolly-pty/client.o
 SLOP ar rcs /usr/lib/libdolly-pty.a /tmp/libdolly-pty/client.o
 

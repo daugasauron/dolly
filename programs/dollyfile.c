@@ -295,17 +295,11 @@ static int normalized_path(const char *path) {
   return 1;
 }
 
-// A site path names a file one release of the site publishes: /vX.Y.Z/PATH,
-// without a query. The broker resolves it; the engine only reads its form.
+// A site path names a file the site publishes by its path from the site's
+// root, /PATH, without a query. The broker resolves it; the engine only reads
+// its form.
 static int site_path(const char *value) {
-  if (value[0] != '/' || value[1] != 'v') return 0;
-  const char *cursor = value + 2;
-  for (int part = 0; part < 3; ++part) {
-    if (*cursor < '0' || *cursor > '9') return 0;
-    while (*cursor >= '0' && *cursor <= '9') ++cursor;
-    if (*cursor++ != (part < 2 ? '.' : '/')) return 0;
-  }
-  return *cursor != '\0' && strpbrk(value, "?#\\ \t\r\n\v\f") == NULL && normalized_path(value);
+  return value[0] == '/' && value[1] != '\0' && strpbrk(value, "?#\\ \t\r\n\v\f") == NULL && normalized_path(value);
 }
 
 // SOURCE takes a site path or an absolute http(s) URL without a fragment.
@@ -500,7 +494,7 @@ done:
 
 // The page compiles a recipe into rows (recipeRows in site/dollyfile-view.mjs,
 // the language's one parser) and writes them here: the engine reads fields,
-// not recipe text. Every field ends with NUL: "DOLLY 7 SHA256" of the recipe
+// not recipe text. Every field ends with NUL: "DOLLY 8 SHA256" of the recipe
 // text, then for each row "LINE COUNT" and that many fields, the directive
 // first. A FILE row's last field is its body; RUN and SLOP rows start with
 // their directory, and SLOP's command is the text Slop reads.
@@ -524,7 +518,7 @@ static int read_rows(const char *path, const char digest[65], Buffer *bytes, Fie
     fields->items[index] = (char *)bytes->data + offset;
     offset += strlen(fields->items[index]) + 1;
   }
-  return strncmp(fields->items[0], "DOLLY 7 ", 8) == 0 && strcmp(fields->items[0] + 8, digest) == 0 ? 0 : -EBADMSG;
+  return strncmp(fields->items[0], "DOLLY 8 ", 8) == 0 && strcmp(fields->items[0] + 8, digest) == 0 ? 0 : -EBADMSG;
 }
 
 static int fields_hold(const Fields *fields, const char *value) {
@@ -2183,8 +2177,8 @@ static void dispose_engine(Engine *engine) {
 }
 
 static void usage(FILE *stream) {
-  fputs("usage: dollyfile /vVERSION/RECIPE|FILE:/path\n"
-        "       dollyfile install /vVERSION/RECIPE SHA256\n", stream);
+  fputs("usage: dollyfile /RECIPE|FILE:/path\n"
+        "       dollyfile install /RECIPE SHA256\n", stream);
 }
 
 int main(int argc, char **argv) {

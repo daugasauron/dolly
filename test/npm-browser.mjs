@@ -53,11 +53,11 @@ import { extname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { chromium, firefox } from "playwright-core";
 import { isolationHeaders, mimeTypes } from "../scripts/serve.mjs";
+import { DOLLY_VERSION as checkoutVersion } from "../page/version.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const names = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const work = await mkdtemp(join(tmpdir(), "dolly-npm-"));
-const checkoutVersion = JSON.parse(await readFile(resolve(projectDir, "package.json"), "utf8")).version;
 const packs = join(work, "packs");
 if (!process.env.DOLLY_NPM_OFFLINE) {
   try {
@@ -347,7 +347,7 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
   await mkdir(join(dataApp, "public"), { recursive: true });
   await npm(dataApp, "npm init --yes");
   await npm(dataApp, `${/```sh\n([\s\S]*?)```/.exec(dataReadme)[1].trim()} @daugasauron/dolly-build`);
-  await writeFile(join(dataApp, "Dollyfile-my-data"), ["DOLLY 7", "APPLICATION my-data",
+  await writeFile(join(dataApp, "Dollyfile-my-data"), ["DOLLY 8", "APPLICATION my-data",
     ...declared("python-data").map(host => `REQUIRES HOST ${host}`), /^FROM .*$/m.exec(dataReadme)[0],
     "FILE /home/dolly/mean.py", "    import numpy, pandas", "    print('MEAN', pandas.Series(numpy.arange(10)).mean())",
     "SLOP python /home/dolly/mean.py > /home/dolly/mean.txt", "FILE /home/dolly/mean.txt",

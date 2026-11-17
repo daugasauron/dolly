@@ -48,7 +48,7 @@ for (const browser of browsers) {
   };
   // Host requirements are never inherited: the probe restates default's.
   const hosts = catalog.images.find(definition => definition.image === "default").hostRequirements;
-  const recipe = ["DOLLY 7", "APPLICATION emacs-probe", ...hosts.map(host => `REQUIRES HOST ${host}`),
+  const recipe = ["DOLLY 8", "APPLICATION emacs-probe", ...hosts.map(host => `REQUIRES HOST ${host}`),
     `FROM ${pin("default")}`, `INSTALL ${pin("emacs")}`,
     "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
   await demoTest("emacs package", { image: "default", timeout: 600_000, browser }, async ({ open }) => {

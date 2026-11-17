@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 APPLICATION closed-source-agent
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -11,14 +11,14 @@ REQUIRES HOST threads@0
 
 # Runs Claude Code, which the launcher downloads from the npm registry into
 # the session after the notice: the image holds nothing of it.
-INSTALL /v0.1.7/Dollyfile-core 477b1e16bf88948c46bc4b68cd39d9610ffe5119e131c45223f89a61421520fa
-INSTALL /v0.1.7/Dollyfile-posix 6a2f9206752a09e80d5e1a4d2d2be08ab2174816a108c7fcaf0045f337e50172
-INSTALL /v0.1.7/Dollyfile-display 8f206fd7c1ccb3b0a4f96dc679b970f4bb7000e92b39ae1d2800a2df0236cca3
-INSTALL /v0.1.7/Dollyfile-amy b08a1704e8b8ed49b4d1154063a8e8072fc8bea027947996b3c0c50fcf6d778e
-INSTALL /v0.1.7/demos/javascript/Dollyfile-janis-install 886b8352079339b8cc8180f4dbf0b02c115fd506fb1b9e596c8eebbff5d1c613
-INSTALL /v0.1.7/demos/closed-source-agent/Dollyfile-secretenv b4c3831557742178880a1e2b0dbf844fa6a972ac6ed4698045426dbf3e495502
-INSTALL /v0.1.7/demos/closed-source-agent/Dollyfile-anykey e3a2fad54b1127e7bc8d965243add4183bdd9de9c93d9719ce3e4fedc2ec4a54
-INSTALL /v0.1.7/demos/rust/Dollyfile-ripgrep 720ac74549c588c53ece8478f50307093682339e2ccb3dbae06f75e3d6fe009e
+INSTALL /Dollyfile-core 477b1e16bf88948c46bc4b68cd39d9610ffe5119e131c45223f89a61421520fa
+INSTALL /Dollyfile-posix 6a2f9206752a09e80d5e1a4d2d2be08ab2174816a108c7fcaf0045f337e50172
+INSTALL /Dollyfile-display 8f206fd7c1ccb3b0a4f96dc679b970f4bb7000e92b39ae1d2800a2df0236cca3
+INSTALL /Dollyfile-amy b08a1704e8b8ed49b4d1154063a8e8072fc8bea027947996b3c0c50fcf6d778e
+INSTALL /demos/javascript/Dollyfile-janis-install 886b8352079339b8cc8180f4dbf0b02c115fd506fb1b9e596c8eebbff5d1c613
+INSTALL /demos/closed-source-agent/Dollyfile-secretenv b4c3831557742178880a1e2b0dbf844fa6a972ac6ed4698045426dbf3e495502
+INSTALL /demos/closed-source-agent/Dollyfile-anykey e3a2fad54b1127e7bc8d965243add4183bdd9de9c93d9719ce3e4fedc2ec4a54
+INSTALL /demos/rust/Dollyfile-ripgrep 720ac74549c588c53ece8478f50307093682339e2ccb3dbae06f75e3d6fe009e
 REQUIRES TOOL foreground
 REQUIRES TOOL janis
 REQUIRES TOOL janis-install

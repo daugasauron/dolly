@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE raylib
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -12,10 +12,10 @@ REQUIRES HOST touch@0
 # GetTime reads the monotonic clock. <dolly/raylib.h> serves a program that holds the display
 # itself. For programs the cc package builds; <dolly/raylib.h> includes the
 # display and input headers, whose packages come with it.
-FROM /v0.1.7/Dollyfile-system 2d67ac36e99bb2f94c8be298fddae065f6e3868464df819d2bd0cd8c6c27386a
-INSTALL /v0.1.7/Dollyfile-libdolly-touch e1a284678dbd0b9a0fc01d85a4f270c20d58d1ffa1eec731d61711405a9467ae
-INSTALL /v0.1.7/Dollyfile-libdolly-display 02db6fdde801b0723917d5fa418d696aac136ed9406428aecb9cc189f114c378
-INSTALL /v0.1.7/Dollyfile-libdolly-input c28684b773072861a32216556dc3beb39f8980f865dedcaa5777dd1e105a26ee
+FROM /Dollyfile-system 2d67ac36e99bb2f94c8be298fddae065f6e3868464df819d2bd0cd8c6c27386a
+INSTALL /Dollyfile-libdolly-touch e1a284678dbd0b9a0fc01d85a4f270c20d58d1ffa1eec731d61711405a9467ae
+INSTALL /Dollyfile-libdolly-display 02db6fdde801b0723917d5fa418d696aac136ed9406428aecb9cc189f114c378
+INSTALL /Dollyfile-libdolly-input c28684b773072861a32216556dc3beb39f8980f865dedcaa5777dd1e105a26ee
 REQUIRES HEADER libc
 REQUIRES HEADER display
 REQUIRES HEADER input
@@ -27,7 +27,7 @@ REQUIRES TOOL   mkdir
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.7/dist/static/gamedev/raylib.tar b16dd083b9205e14f8b79a1d91c934b579c9a92bcb4e3af0e374f3e71dcf82d3 /tmp/raylib.tar
+SOURCE /dist/static/gamedev/raylib.tar b16dd083b9205e14f8b79a1d91c934b579c9a92bcb4e3af0e374f3e71dcf82d3 /tmp/raylib.tar
 FILE /usr/src/dolly/raylib/raylib.mk
     CC := cc
     AR := ar

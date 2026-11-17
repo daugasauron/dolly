@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN rts-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -7,8 +7,8 @@ REQUIRES HOST audio@0
 REQUIRES HOST touch@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.7/Dollyfile-system-tools aaba65844164b3e9202070a757a83a6aef15710ca14631e433c72cbc1198751b
-INSTALL /v0.1.7/demos/sdl2/Dollyfile-sdl2 334b3d8eb3107a8fb5a0b02c2f59aec6f6c54672e61ec60a2c1a5312d3e55da3
+FROM /Dollyfile-system-tools aaba65844164b3e9202070a757a83a6aef15710ca14631e433c72cbc1198751b
+INSTALL /demos/sdl2/Dollyfile-sdl2 334b3d8eb3107a8fb5a0b02c2f59aec6f6c54672e61ec60a2c1a5312d3e55da3
 REQUIRES HEADER cpp
 REQUIRES HEADER sdl2
 REQUIRES HEADER zlib
@@ -22,7 +22,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL gzip
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/rts/seven-kingdoms.tar.gz eb19925305546e538792de1868da309719d2df2f95be23eb9aec247d36461b27 /tmp/seven-kingdoms/source.tar.gz
+SOURCE /dist/static/rts/seven-kingdoms.tar.gz eb19925305546e538792de1868da309719d2df2f95be23eb9aec247d36461b27 /tmp/seven-kingdoms/source.tar.gz
 SLOP gzip -dc /tmp/seven-kingdoms/source.tar.gz | tar -xf - -C /
 SLOP make -f /usr/src/dolly/rts/Makefile
 

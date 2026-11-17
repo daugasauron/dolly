@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE zero-ad-data
 REQUIRES HOST runtime@0
 
@@ -6,10 +6,10 @@ REQUIRES HOST runtime@0
 # Wildfire Games' archive with Dolly's Python, XZ and Naga: the Petra AI patch,
 # the SPIR-V shaders translated to WGSL, the content in archives below the
 # site's 25 MiB file limit, and the scripts and maps of a game without graphics.
-FROM /v0.1.7/Dollyfile-system-tools aaba65844164b3e9202070a757a83a6aef15710ca14631e433c72cbc1198751b
-USE /v0.1.7/demos/python/Dollyfile-python f6fb19c629a1b5fc683ab519aa99070752b03d60ae0a627095367f5b3fc7d323
-USE /v0.1.7/demos/tools/Dollyfile-xz 3503cbb1d88128c406716c2025a3bb31bcf0544958994b9dd7eff00ef29ac11a
-USE /v0.1.7/demos/rust/Dollyfile-naga e0361151f7834b30d5b32d68959a416ed57ed151250b35a98de4c2248f011662
+FROM /Dollyfile-system-tools aaba65844164b3e9202070a757a83a6aef15710ca14631e433c72cbc1198751b
+USE /demos/python/Dollyfile-python f6fb19c629a1b5fc683ab519aa99070752b03d60ae0a627095367f5b3fc7d323
+USE /demos/tools/Dollyfile-xz 3503cbb1d88128c406716c2025a3bb31bcf0544958994b9dd7eff00ef29ac11a
+USE /demos/rust/Dollyfile-naga e0361151f7834b30d5b32d68959a416ed57ed151250b35a98de4c2248f011662
 REQUIRES TOOL python3
 REQUIRES TOOL xz
 REQUIRES TOOL naga
@@ -22,13 +22,13 @@ REQUIRES TOOL rm
 
 # The release archive in two halves, as one SOURCE holds at most 1 GiB:
 # joined, they are the archive whose digest config/source-pins.sh pins.
-SOURCE /v0.1.7/dist/static/zero-ad-data/0ad-unix-data.tar.xz.1 114469c71f00fe27827d5b8ca96211a6b0ab115507c13a07efc022a3a9f2d9de /tmp/0ad/data.tar.xz.1
-SOURCE /v0.1.7/dist/static/zero-ad-data/0ad-unix-data.tar.xz.2 e52b10890c95af42fcad151821d53e403d8a2766d498b60c2cdda6323078a7ec /tmp/0ad/data.tar.xz.2
+SOURCE /dist/static/zero-ad-data/0ad-unix-data.tar.xz.1 114469c71f00fe27827d5b8ca96211a6b0ab115507c13a07efc022a3a9f2d9de /tmp/0ad/data.tar.xz.1
+SOURCE /dist/static/zero-ad-data/0ad-unix-data.tar.xz.2 e52b10890c95af42fcad151821d53e403d8a2766d498b60c2cdda6323078a7ec /tmp/0ad/data.tar.xz.2
 SLOP cat /tmp/0ad/data.tar.xz.1 /tmp/0ad/data.tar.xz.2 | sha256sum | grep -qx 'e844b30ae2102c47e0a4fff2f0e0ef05ba0cebb1890aa72276fa12457c39526f  <stdin>'
 
 # The scripts beside this recipe in toolchain/, ICU 68.2's data file, and the
 # engine's translations and the licences from 0 A.D.'s source release.
-SOURCE /v0.1.7/dist/static/zero-ad-data/tools.tar 7210229c262bf9dc91aae9cb9779e58dc93591de793a2051eeb7a5982eec6910 /tmp/0ad-tools.tar
+SOURCE /dist/static/zero-ad-data/tools.tar 7210229c262bf9dc91aae9cb9779e58dc93591de793a2051eeb7a5982eec6910 /tmp/0ad-tools.tar
 SLOP tar -xf /tmp/0ad-tools.tar -C /
 # Python reads the release as it is unpacked and keeps its 3.6 GB of archives
 # in its own memory; each half goes once read.

@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN rust-llvm
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -10,9 +10,9 @@ REQUIRES HOST threads@0
 
 # Build-only: the LLVM 22 libraries rustc links, at the revision Rust pins,
 # compiled inside Dolly by its own c++.
-FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build b245b8437206207ec0ea6a7f59da2e3d3bce75c9e45d4535adfce32b3e3215ea
+FROM /demos/cmake/Dollyfile-cmake-build b245b8437206207ec0ea6a7f59da2e3d3bce75c9e45d4535adfce32b3e3215ea
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL /v0.1.7/demos/python/Dollyfile-python f6fb19c629a1b5fc683ab519aa99070752b03d60ae0a627095367f5b3fc7d323
+INSTALL /demos/python/Dollyfile-python f6fb19c629a1b5fc683ab519aa99070752b03d60ae0a627095367f5b3fc7d323
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python
@@ -26,11 +26,11 @@ REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/rust/rust-llvm.tar.gz 29562231e68f3722be93686f9729b76866dfbf0b0c0846e450cbe548687ade5d /tmp/rust-llvm.tar.gz
+SOURCE /dist/static/rust/rust-llvm.tar.gz 29562231e68f3722be93686f9729b76866dfbf0b0c0846e450cbe548687ade5d /tmp/rust-llvm.tar.gz
 SLOP time slop -c 'gzip -dc /tmp/rust-llvm.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/rust-llvm.tar.gz
 # As demos/llvm: config.guess runs and knows no Dolly host.
-SOURCE /v0.1.7/dist/static/rust/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
+SOURCE /dist/static/rust/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/rust-llvm -i /tmp/llvm-host-triple.patch
 
 # As demos/llvm configures LLVM 24, and position-independent: rustc is linked

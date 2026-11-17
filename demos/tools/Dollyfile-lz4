@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE lz4
 REQUIRES HOST runtime@0
 
@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # with the files and flags of upstream's Makefiles for one thread (a -pthread
 # program would need threads@0). unlz4 and lz4cat are lz4 under the names it
 # looks for. The library is BSD-licensed and the program GPL-2.0-or-later.
-FROM /v0.1.7/demos/tools/Dollyfile-tools-build fcf061770fb3a301cae1cf5fc616a0716bd30fc7645e588c45e33ae4d456e44a
+FROM /demos/tools/Dollyfile-tools-build fcf061770fb3a301cae1cf5fc616a0716bd30fc7645e588c45e33ae4d456e44a
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -21,7 +21,7 @@ REQUIRES TOOL   mv
 REQUIRES TOOL   tar
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.7/dist/static/tools/lz4-1.10.0.tar.gz 537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b /tmp/lz4.tar.gz
+SOURCE /dist/static/tools/lz4-1.10.0.tar.gz 537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b /tmp/lz4.tar.gz
 SLOP gzip -dc /tmp/lz4.tar.gz | tar -xf - -C /tmp && mv /tmp/lz4-1.10.0 /tmp/lz4
 
 FILE /tmp/lz4.mk

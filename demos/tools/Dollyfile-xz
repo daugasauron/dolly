@@ -1,10 +1,10 @@
-DOLLY 7
+DOLLY 8
 PACKAGE xz
 REQUIRES HOST runtime@0
 
 # XZ Utils from upstream's release archive, unchanged: the xz program and
 # liblzma. unxz and xzcat are xz under the names it looks for.
-FROM /v0.1.7/demos/tools/Dollyfile-tools-build fcf061770fb3a301cae1cf5fc616a0716bd30fc7645e588c45e33ae4d456e44a
+FROM /demos/tools/Dollyfile-tools-build fcf061770fb3a301cae1cf5fc616a0716bd30fc7645e588c45e33ae4d456e44a
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -18,7 +18,7 @@ REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.7/dist/static/tools/xz-5.8.4.tar.gz 0014c7886930454fe8bd4228665b51af55eeae560ea135c9c4cd33f55b2591d9 /tmp/xz.tar.gz
+SOURCE /dist/static/tools/xz-5.8.4.tar.gz 0014c7886930454fe8bd4228665b51af55eeae560ea135c9c4cd33f55b2591d9 /tmp/xz.tar.gz
 SLOP gzip -dc /tmp/xz.tar.gz | tar -xf - -C /tmp
 
 # Slop does not run upstream's configure, so this says what it would find

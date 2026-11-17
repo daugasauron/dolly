@@ -227,10 +227,10 @@ Authority column here, and the two go together.
   by default or on the public sites.
 - Loopback and LAN hosts are ordinary destinations: responses need CORS, but the
   request itself still reaches them.
-- A request URL that is a site path (`/vX.Y.Z/amy-index.txt`, the page's own
-  version) is resolved against the root of the site serving the release,
-  never above it, and then judged by the policy like any absolute URL
-  ([`broker.mjs`](../host/http/broker.mjs)); another version's path is refused. It
+- A request URL that is a site path (`/amy-index.txt`) is resolved against
+  the root of the site serving the release, never above it, and then judged
+  by the policy like any absolute URL
+  ([`broker.mjs`](../host/http/broker.mjs)). It
   grants nothing: the default policy already admits the page's own origin, an
   explicit policy admits the file only by a rule for it, and the request
   carries no cookies. The program is told the path it asked for, not where

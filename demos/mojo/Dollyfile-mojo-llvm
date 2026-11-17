@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN mojo-llvm
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -11,9 +11,9 @@ REQUIRES HOST threads@0
 # Build-only: the LLVM, MLIR and Clang Basic libraries the Mojo compiler
 # links, at the revision Mojo pins, and Zstandard, compiled inside Dolly by
 # its own cc and c++.
-FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build b245b8437206207ec0ea6a7f59da2e3d3bce75c9e45d4535adfce32b3e3215ea
+FROM /demos/cmake/Dollyfile-cmake-build b245b8437206207ec0ea6a7f59da2e3d3bce75c9e45d4535adfce32b3e3215ea
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL /v0.1.7/demos/python/Dollyfile-python f6fb19c629a1b5fc683ab519aa99070752b03d60ae0a627095367f5b3fc7d323
+INSTALL /demos/python/Dollyfile-python f6fb19c629a1b5fc683ab519aa99070752b03d60ae0a627095367f5b3fc7d323
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python
@@ -29,20 +29,20 @@ REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/mojo/mojo-llvm.tar.gz bb20b5265be3bcb4387eb866060e3fa6ba5a07fb132fad481793b6db0699ac75 /tmp/mojo-llvm.tar.gz
+SOURCE /dist/static/mojo/mojo-llvm.tar.gz bb20b5265be3bcb4387eb866060e3fa6ba5a07fb132fad481793b6db0699ac75 /tmp/mojo-llvm.tar.gz
 SLOP time slop -c 'gzip -dc /tmp/mojo-llvm.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/mojo-llvm.tar.gz
 # As demos/llvm: config.guess runs and knows no Dolly host.
-SOURCE /v0.1.7/dist/static/mojo/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
+SOURCE /dist/static/mojo/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/mojo-llvm -i /tmp/llvm-host-triple.patch
 # Mojo's own patch to LLVM's code generator (bazel/public-patches/llvm_source.bzl);
 # its others change LLDB and the Bazel overlay, which are not built.
-SOURCE /v0.1.7/dist/static/mojo/llvm-machinefunction-sti-ref-to-ptr.patch 6226c7dca544ff5ea5cf384bafecdfb49a4ef8f43d88c3996d310f25a42d6a53 /tmp/llvm-sti.patch
+SOURCE /dist/static/mojo/llvm-machinefunction-sti-ref-to-ptr.patch 6226c7dca544ff5ea5cf384bafecdfb49a4ef8f43d88c3996d310f25a42d6a53 /tmp/llvm-sti.patch
 SLOP patch -p1 -d /tmp/mojo-llvm -i /tmp/llvm-sti.patch
 
 # Zstandard, with which LLVM's Support compresses: Mojo's precompiled
 # packages are compressed.
-SOURCE /v0.1.7/dist/static/mojo/zstd.tar 9a873f533780038d91f831cc4d24d6360bc745f2a2c1c6eaf62a2699c16cb133 /tmp/zstd.tar
+SOURCE /dist/static/mojo/zstd.tar 9a873f533780038d91f831cc4d24d6360bc745f2a2c1c6eaf62a2699c16cb133 /tmp/zstd.tar
 SLOP tar -xf /tmp/zstd.tar -C /
 FILE /tmp/zstd/Makefile
     .RECIPEPREFIX := >

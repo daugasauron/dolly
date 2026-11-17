@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
   } else if (strcmp(argv[1], "recipe-names") == 0 && argc == 4) {
     // Retained recipe paths derive from kind and name, so two locators cannot share them.
     const char *digest = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-    result = append_recipe(&engine, "TOOLCHAIN", "base", "/v1.2.3/Dollyfile-base", digest, "base");
+    result = append_recipe(&engine, "TOOLCHAIN", "base", "/Dollyfile-base", digest, "base");
     if (result == 0) result = append_recipe(&engine, "APPLICATION", argv[2], argv[3], digest, "root");
   } else if (strcmp(argv[1], "entry") == 0) {
     // Arguments before "--" are the retained paths, those after it the ENTRY words.

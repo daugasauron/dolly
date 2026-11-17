@@ -1,10 +1,10 @@
-DOLLY 7
+DOLLY 8
 PACKAGE dollyfile
 REQUIRES HOST runtime@0
 
 # The recipe engine alone. An image that installs it can be built FROM: the
 # build runs the base's own /bin/dollyfile (docs/dollyfile.md).
-FROM /v0.1.7/Dollyfile-system-build 6a2634c44769a8a0fd465e027edeb56a20a726b316a74f97b7bbf6bdf42e2c52
+FROM /Dollyfile-system-build 6a2634c44769a8a0fd465e027edeb56a20a726b316a74f97b7bbf6bdf42e2c52
 
 EXPORTS TOOL dollyfile
 FILE /usr/share/man/cat1/dollyfile.1

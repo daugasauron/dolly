@@ -9,7 +9,7 @@ import catalog from "../dist/dolly-images.json" with { type: "json" };
 // image that declares no threads@0, built by the page.
 const unthreaded = ["core", "posix", "display", "curl"].map(name => catalog.images.find(({ image }) => image === name));
 const unthreadedImage = { path: "/custom/rebuild/", setup: async page => {
-  await page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), ["DOLLY 7", "APPLICATION unthreaded",
+  await page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), ["DOLLY 8", "APPLICATION unthreaded",
     ...new Set(["runtime@0", "display@0", "input@0", ...unthreaded.flatMap(({ hostRequirements }) => hostRequirements)]
       .map(module => `REQUIRES HOST ${module}`)),
     ...unthreaded.map(({ dollyfile, sha256 }) => `INSTALL ${siteReference(dollyfile)} ${sha256}`),

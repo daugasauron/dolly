@@ -1,6 +1,5 @@
 {
   "name": "dolly",
-  "version": "0.1.7",
   "license": "MIT",
   "private": true,
   "type": "module",

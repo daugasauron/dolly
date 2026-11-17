@@ -1,15 +1,15 @@
-DOLLY 7
+DOLLY 8
 PACKAGE libdolly-threads
 REQUIRES HOST runtime@0
 
 # The threads@0 module's header, for a program that calls the thread interface
 # itself. Its client is in the threaded libc that cc -pthread links, which the
 # seed holds (host/threads/seed.sh), as libc's pthreads over it are.
-FROM /v0.1.7/Dollyfile-system-build 6a2634c44769a8a0fd465e027edeb56a20a726b316a74f97b7bbf6bdf42e2c52
+FROM /Dollyfile-system-build 6a2634c44769a8a0fd465e027edeb56a20a726b316a74f97b7bbf6bdf42e2c52
 REQUIRES HEADER libc
 
-SOURCE /v0.1.7/host/threads/threads.h ec223fbc34ff65f173f4b15e338cb25bf34d8bf01b699418f4598d7fc4626394 /usr/include/dolly/threads.h
-SOURCE /v0.1.7/host/threads/threads-abi.h cda45054bc2ec6b021302cc1c840c3d3c18871e735998e9710a743aba4128173 /usr/include/dolly/threads-abi.h
+SOURCE /host/threads/threads.h ec223fbc34ff65f173f4b15e338cb25bf34d8bf01b699418f4598d7fc4626394 /usr/include/dolly/threads.h
+SOURCE /host/threads/threads-abi.h cda45054bc2ec6b021302cc1c840c3d3c18871e735998e9710a743aba4128173 /usr/include/dolly/threads-abi.h
 
 EXPORTS HEADER threads     /usr/include/dolly/threads.h
 EXPORTS HEADER threads-abi /usr/include/dolly/threads-abi.h

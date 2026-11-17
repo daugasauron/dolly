@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE libdolly-sockets
 REQUIRES HOST runtime@0
 
@@ -6,15 +6,15 @@ REQUIRES HOST runtime@0
 # for programs the cc package builds: cc links it when a program asks with
 # -ldolly-sockets, since it defines libc's socket functions; so it is in
 # /usr/lib, not among the clients cc links unasked (/usr/lib/dolly/process).
-FROM /v0.1.7/Dollyfile-system-build 6a2634c44769a8a0fd465e027edeb56a20a726b316a74f97b7bbf6bdf42e2c52
+FROM /Dollyfile-system-build 6a2634c44769a8a0fd465e027edeb56a20a726b316a74f97b7bbf6bdf42e2c52
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/host/sockets/sockets.h 8abea9ccf861677d4dec5a222d048a6be691e8c7f6596d604dd601d44cb65eb3 /usr/include/dolly/sockets.h
-SOURCE /v0.1.7/host/sockets/sockets-abi.h d707a200164602165663283a79c2cd43d3932a330dac2dbeddd1e0ef87d7b158 /usr/include/dolly/sockets-abi.h
-SOURCE /v0.1.7/host/sockets/client.c e29d44bec8bab6f155446084096c2b79a34d5e61308e49a3a4587b5806b3f7aa /tmp/libdolly-sockets/client.c
+SOURCE /host/sockets/sockets.h 8abea9ccf861677d4dec5a222d048a6be691e8c7f6596d604dd601d44cb65eb3 /usr/include/dolly/sockets.h
+SOURCE /host/sockets/sockets-abi.h d707a200164602165663283a79c2cd43d3932a330dac2dbeddd1e0ef87d7b158 /usr/include/dolly/sockets-abi.h
+SOURCE /host/sockets/client.c e29d44bec8bab6f155446084096c2b79a34d5e61308e49a3a4587b5806b3f7aa /tmp/libdolly-sockets/client.c
 SLOP cc -O1 -c /tmp/libdolly-sockets/client.c -o /tmp/libdolly-sockets/client.o
 SLOP ar rcs /usr/lib/libdolly-sockets.a /tmp/libdolly-sockets/client.o
 

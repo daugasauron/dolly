@@ -180,7 +180,7 @@ async function bootVersions(site, names, browsers) {
         assert.deepEqual(requested.filter(path => !path.startsWith(version.pathname)), [], `${name} requested paths outside itself`);
         // A missing asset is an error, never a page served as the asset.
         assert.equal(await page.evaluate(async () => (await fetch(new URL("missing.mjs", document.baseURI))).status), 404);
-        // A reference a recipe writes, /vX.Y.Z/PATH, is that file here: each recipe
+        // A reference a recipe writes is a file of its version: each recipe
         // and source of at most 1 MiB the version publishes returns its pinned bytes.
         const sources = await page.evaluate(catalogStaticSources, version.href);
         assert.deepEqual(await page.evaluate(async ([root, sources]) => {
