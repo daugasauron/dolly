@@ -115,9 +115,12 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   const description = words.join(" ").replaceAll("'", "'\\''");
   await run(`test "$(amy info curl)" = "$(printf '%s\\n' 'curl: ${description}' 'INSTALL ${curlUrl} ${curlPin}' installed)"`);
   await run(`amy list | grep -q '^curl  *installed  *${description}$'`);
-  // The files of a package the image installed come from the release's snapshot, sizes included.
+  // The files of a package the image installed are the record its build left, sizes included.
   await run("amy files curl > /tmp/curl-files && grep -q ' /usr/bin/curl$' /tmp/curl-files && ! grep -q ' /etc/dolly/' /tmp/curl-files");
   await run("while read size path; do test \"$(stat -c %s \"$path\")\" = \"$size\" || exit 1; done < /tmp/curl-files");
+  // A package not installed has no record, and nothing is fetched for it.
+  const absent = packages.find(name => !preinstalled.includes(name));
+  await run(`! amy files ${absent} 2> /tmp/amy-error && grep -q ${absent} /tmp/amy-error && test ! -e /etc/dolly/artifacts`);
   await run("test \"$(amy install curl)\" = 'amy: curl is already installed'");
   await run("! amy install nosuch-package 2> /tmp/amy-error && grep -q nosuch-package /tmp/amy-error");
   await run("! amy 2> /dev/null && ! amy frobnicate 2> /dev/null");
@@ -165,6 +168,7 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   await run(`mkdir -p /etc/dolly/artifacts && curl -fsS ${server.origin}/fixture/connects.snapshot -o ${artifact}`);
   await run(`nena enable sockets && dollyfile install ${connects.url} ${connects.sha256} && test ! -e ${artifact}`);
   await run(`test "$(cat /usr/share/connects)" = 'needs sockets' && grep -qx '${row}' /etc/dolly/installed`);
+  await run("test \"$(amy files connects)\" = '14 /usr/share/connects'");
   await run(`test "$(amy installed | tail -n 1)" = "connects ${connects.url} ${connects.sha256}"`);
   // A package names the packages its recipe installs and holds none of their
   // files: the engine installs those rows first, each from its own snapshot.
@@ -380,18 +384,31 @@ await browserTest("amy cc", { image: "default", timeout: 300_000 }, async ({ ope
     "! amy files zig | grep -q ' /bin/cc$' && amy files cc | grep -q ' /bin/cc$'");
 });
 
+// Past the snapshots a page load gives, amy says that a reload gives more:
+// the page's quota is 2 here.
+const transport = await readFile(new URL("../host/packages/transport.mjs", import.meta.url), "utf8");
+assert.equal(transport.split("maxSnapshots = 1024").length, 2, "one quota in transport.mjs");
+const sourceOverrides = new Map([["/host/packages/transport.mjs", transport.replace("maxSnapshots = 1024", "maxSnapshots = 2")]]);
+await browserTest("amy quota", { image: "default", server: { sourceOverrides } }, async ({ open }) => {
+  const session = await open();
+  assert.equal(await session.submit("amy install gzip && amy install bc"), 0, await session.text());
+  assert.notEqual(await session.submit("amy install xxd 2> /tmp/refused"), 0);
+  assert.equal(await session.submit("grep -q 'xxd: .*reload' /tmp/refused && ! command -v xxd"), 0, await session.text());
+});
+
 // An image that does not declare a package's host module refuses it, naming
-// the module, before any file changes; without packages@0 there is no service.
+// the module and an image that can enable it, before any file changes;
+// without packages@0 there is no service.
 await browserTest("amy refusal", { image: "system", server: { fixtures } }, async ({ server, open }) => {
   const policy = { maxRequests: 256, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
   const system = await open({ policy });
   const refuse = async command => assert.equal(await system.submit(command), 0, `${command}\n${await system.text()}`);
   await refuse(`mkdir -p /etc/dolly/artifacts && curl -fsS ${server.origin}/fixture/connects.snapshot -o ${artifact}`);
   assert.equal(await system.submit(`dollyfile install ${connects.url} ${connects.sha256} 2> /tmp/refused`), 2);
-  await refuse("grep -q 'Dollyfile-connects needs sockets@0: add REQUIRES HOST sockets@0' /tmp/refused");
+  await refuse("grep -q 'Dollyfile-connects needs sockets@0.* default$' /tmp/refused");
   await refuse(`curl -fsS ${server.origin}/fixture/${listens.sha256}.snapshot -o /etc/dolly/artifacts/${listens.sha256}.snapshot`);
   assert.equal(await system.submit(`dollyfile install ${listens.url} ${listens.sha256} 2> /tmp/refused`), 2);
-  await refuse("grep -q 'Dollyfile-listens needs microphone@0 and gpu@0: add REQUIRES HOST microphone@0 and REQUIRES HOST gpu@0$' /tmp/refused");
+  await refuse("grep -q 'Dollyfile-listens needs microphone@0 and gpu@0.* default$' /tmp/refused");
   await refuse("test ! -e /usr/share/connects && ! grep -q connects /etc/dolly/installed");
   assert.notEqual(await system.submit(`curl -fsS https://packages.dolly.invalid/v1/packages/${indexed("zlib")[2]} -o /dev/null`), 0);
 });

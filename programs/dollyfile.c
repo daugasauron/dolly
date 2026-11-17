@@ -89,6 +89,9 @@ typedef struct {
   size_t host_requirement_count;
   size_t host_requirement_capacity;
   char *selected_image;
+  // `dollyfile install`: a session, which takes a package's modules from its
+  // image and, with nena@0, from what it enabled since.
+  int live;
   // A live install in a session with nena@0: the session's record of the
   // modules it enabled since, one name@version a line; NULL in every other run.
   char *enabled;
@@ -1028,6 +1031,9 @@ static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
   }
   if (result == 0 && *missing != '\0') {
     if (engine->enabled != NULL) fprintf(stderr, "dollyfile: %s needs %s: nena enable%s\n", locator, missing, enable);
+    else if (engine->live) fprintf(stderr, "dollyfile: %s needs %s, which this image does not declare and, "
+                                   "without nena@0, cannot enable: install it in an image with nena@0, such as default\n",
+                                   locator, missing);
     else fprintf(stderr, "dollyfile: %s needs %s: add %s\n", locator, missing, declare);
     result = 2;
   }
@@ -1248,6 +1254,29 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
                          const char *destination, Scope *visible, Scope *exports, const Scope *own,
                          const Fields *later);
 
+// The files and links an INSTALL row restored outside /etc/dolly, one
+// "SIZE PATH" line each, in /etc/dolly/files/NAME, which the image keeps and
+// `amy files NAME` prints.
+static int record_files(Engine *engine, const char *locator, const Artifact *artifact,
+                        const dolly_fs_record *restored, const uint32_t *indices, size_t count) {
+  Buffer list = {.limit = MAX_SOURCE_BYTES};
+  int result = 0;
+  for (size_t index = 0; result == 0 && index < count; ++index) {
+    const char *path = restored[index].path;
+    if (restored[index].kind == DOLLY_FS_DIRECTORY || strncmp(path, "/etc/dolly/", 11) == 0) continue;
+    char size[24];
+    const size_t length = (size_t)snprintf(size, sizeof(size), "%llu ",
+                                           (unsigned long long)artifact->records[indices[index]].size);
+    if (append_buffer(size, length, &list) != length || append_buffer(path, strlen(path), &list) != strlen(path) ||
+        append_buffer("\n", 1, &list) != 1) result = -EFBIG;
+  }
+  char path[64];
+  snprintf(path, sizeof(path), "/etc/dolly/files/%s", image_file_name(recipe_file_name(locator)));
+  if (result == 0) result = write_inline_file(path, list.data, list.length);
+  free(list.data);
+  return result != 0 ? result : append_string(&engine->keep, &engine->keep_count, &engine->keep_capacity, path);
+}
+
 // A package's record names the packages its recipe installed, dependencies
 // first. Installs the rows this filesystem's record lacks, for `locator`. A
 // row whose snapshot is not here ends with ROW_FIRST before anything changed:
@@ -1374,6 +1403,7 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   }
   for (size_t index = 0; result == 0 && keep && index < count; ++index)
     result = append_string(&engine->keep, &engine->keep_count, &engine->keep_capacity, selected[index].path);
+  if (result == 0 && keep && mode == IMPORT_INSTALL) result = record_files(engine, locator, artifact, selected, indices, count);
   // A package recipe starts its own record; INSTALL adds the package's rows, then its row.
   if (result == 0 && mode == IMPORT_FROM && package_recipe && unlink(installed_path) != 0 && errno != ENOENT) result = -errno;
   const dolly_fs_record *rows = result == 0 && mode == IMPORT_INSTALL ? artifact_file(artifact, installed_path) : NULL;
@@ -2107,6 +2137,7 @@ static int read_environment_file(Engine *engine) {
 // the row; nothing is sealed.
 static int install_live(Engine *engine, const char *locator, const char *expected) {
   Scope exports = {0}, visible = {0}, own = {0};
+  engine->live = 1;
   // The image's own receipt names its recipes and host modules.
   Buffer receipt = {.limit = MAX_SOURCE_BYTES};
   int result = read_file_buffer("/etc/dolly/artifact", &receipt);

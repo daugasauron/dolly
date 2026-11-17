@@ -7,9 +7,18 @@
 From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`).
 
-## State (2026-11-16)
+## State (2026-11-17)
 
-Measured in Chrome on `work/round1113/dist/`. Nothing changed yet; low: it is slow, not wrong.
+Changed on `ws/seed` (the engine is in the seed: every image rebuilds; amy with it), the Do's
+second way: `amy files` of a package not installed is dropped. The engine writes the record: an
+`INSTALL` row the filesystem keeps, a build's or a session's, lists the package's files in
+`/etc/dolly/files/NAME` (`programs/dollyfile.c`, `record_files`), so a package an image's build
+installed has its list too, and `amy files NAME` only prints that record; without one it says the
+package is not installed and fetches nothing. `amy install` takes its summary from the record
+(`summarize`); its own snapshot listing (`list_files`, `files()`) is gone. `amy info` does not
+say a package's size: the index is written from the recipes (`scripts/generate-routes.mjs`), and a
+package's size exists only once it is built; `amy install` says the files and bytes it added.
+Checked on the rebuilt seed: see Done when.
 
 ## Found
 

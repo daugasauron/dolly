@@ -7,11 +7,14 @@
 From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`).
 
-## State (2026-11-16)
+## State (2026-11-17)
 
-Counted from the catalog and read from the engine; not run in those three images (their ENTRY
-starts tmux, Pi or the agent's key prompt, which the audit's driver does not reach). Nothing
-changed yet.
+Changed on `ws/seed` (the engine is in the seed: every image rebuilds). In a live install the
+engine knows it is a session (`Engine.live`, `install_live`); without `nena@0` the refusal is
+`dollyfile: LOCATOR needs M, which this image does not declare and, without nena@0, cannot
+enable: install it in an image with nena@0, such as default`; a build still says
+`add REQUIRES HOST M`, and a session with `nena@0` `nena enable M`. `amy-browser`'s refusal case
+checks that it names the module and `default`. Checked on the rebuilt seed: see Done when.
 
 ## Found
 
