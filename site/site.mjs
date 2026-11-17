@@ -34,12 +34,12 @@ async function imageBuilder() {
     await Promise.all([import("./image-builder.mjs"), import("./image-build.mjs"), import("./image-artifact.mjs"),
       import("./dollyfile-view.mjs"), import("./custom-image.mjs")]);
   const modules = hostManifests.map(({ url }) => url);
-  async function build(source, configuration, report, signal) {
+  async function build(source, network, report, signal) {
     const artifacts = await prepareImageArtifacts("custom", source,
-      (image, artifacts) => buildImage(image, artifacts, configuration, report, { modules, signal }),
+      (image, artifacts) => buildImage(image, artifacts, network, report, { modules, signal }),
       text => report(text + "\n"), signal);
     signal.throwIfAborted();
-    const artifact = await buildImage("custom", artifacts, configuration, report, { modules, signal, customSource: source });
+    const artifact = await buildImage("custom", artifacts, network, report, { modules, signal, customSource: source });
     signal.throwIfAborted();
     const descriptor = await loadImageArtifactDescriptor(artifact.recipeSha256, artifact.inputs);
     if (!descriptor || descriptor.sha256 !== artifact.sha256) {
@@ -90,17 +90,17 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
       configuration: selected?.configuration,
       inherited: rebuild ? undefined : custom,
       worker: rebuild || image === "custom" ? new URL("./build-worker.mjs", import.meta.url) : undefined,
-      async start(host, report) {
+      async start(host, report, network) {
         // The site's builds have every module it builds, whatever the page enables.
         const site = hostManifests.map(({ url }) => url);
         // Only a rebuild builds: an image without ENTRY never runs (above).
         const [{ buildImage }, { prepareImageArtifacts }] = rebuild
           ? await Promise.all([import("./image-builder.mjs"), import("./image-build.mjs")]) : [{}, {}];
-        const build = (name, inputs) => buildImage(name, inputs, host.builder, report, { modules: site });
+        const build = (name, inputs) => buildImage(name, inputs, network.builder(), report, { modules: site });
         const artifacts = rebuild ? await prepareImageArtifacts(image, source, build, text => report(`${text}\n`)) : [];
         if (!runnable) {
           // An image without ENTRY has no program to run: keep the complete log and report the result.
-          const built = await buildImage(image, artifacts, host.builder, report, { modules: site, customSource: source });
+          const built = await buildImage(image, artifacts, network.builder(), report, { modules: site, customSource: source });
           report(`\nBUILT ${source === undefined ? image : recipe.image} · ${(built.byteLength / 1024 / 1024).toFixed(1)} MiB · sha256 ${built.sha256}\n`);
           return null;
         }
@@ -116,11 +116,11 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
         if (message.type === "image-built") rebuilt = message.artifact;
       },
       // A save of a custom image carries its recipe and what the tab inherited.
-      async running(host) {
+      async running(host, network) {
         const page = { get builtImage() { return rebuilt; } };
         if (image !== "custom") return { page };
         const { buildId, recipeSha256, sha256: digest, byteLength, inputs } = customArtifact ?? rebuilt ?? custom.artifact;
-        return { page, context: { custom: { source, artifact: { buildId, recipeSha256, sha256: digest, byteLength, inputs }, ...host.inherited } } };
+        return { page, context: { custom: { source, artifact: { buildId, recipeSha256, sha256: digest, byteLength, inputs }, ...network.inherited() } } };
       },
     };
   });

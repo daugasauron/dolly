@@ -1,7 +1,6 @@
 DOLLY 7
 TOOLCHAIN zig-llvm-build
 REQUIRES HOST runtime@0
-REQUIRES HOST http@0
 
 # Build-only: Zig 0.17 compiled to C as upstream's CMake build makes zig2 for
 # LLVM, zig1 (upstream's zig1.wasm, run by WAMR as in zig-build) with

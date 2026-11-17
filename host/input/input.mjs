@@ -299,6 +299,9 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
     if (motionScheduled) requestAnimationFrame(motionFrame);
   }
   const client = {
+    // What pushPointer's action is: the page's handle selects the screen with these.
+    pointerActions: { press: A.DOLLY_POINTER_ACTION_PRESS, drag: A.DOLLY_POINTER_ACTION_DRAG,
+      release: A.DOLLY_POINTER_ACTION_RELEASE },
     pushKey: event => tell({ type: "input-key", ...keyRecord(event) }),
     pushSyntheticKey: (key, code, modifiers = 0, action = A.DOLLY_KEY_ACTION_PRESS, flags = 0) =>
       tell({ type: "input-key", key, code, modifiers, action, flags }),

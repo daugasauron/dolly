@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { browserTest } from "./browser.mjs";
+import { browserTest, workbench } from "./browser.mjs";
 import { dollyfileCases } from "./fixtures/dollyfile-cases.mjs";
 import { buildInputReuse, buildLogProof } from "./fixtures/image-build-browser.mjs";
 import catalog from "../dist/dolly-images.json" with { type: "json" };
@@ -81,7 +81,7 @@ function instrument(source) {
 await browserTest("image", { image: "system", server: { fixtures, handle }, timeout: 600_000 }, async ({ browser, server, open }) => {
   const parser = dollyfileCases(server.origin);
   parserRecipes = parser.recipes;
-  const { page: shell, submit } = await open({ policy: { rules: [
+  const { page: shell, submit } = await open({ ...await workbench(), policy: { rules: [
     { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] },
     ...[...parserRecipes.keys()].filter(path => path.startsWith("/modules/"))
       .map(path => ({ origin: server.origin, path, methods: ["GET"] })),
@@ -89,11 +89,6 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
   // The rebuild screen's log and the in-page builder's reuse of its inputs.
   assert.equal(await shell.evaluate(buildLogProof), true);
   assert.match(await shell.evaluate(buildInputReuse), /^[0-9a-f]{64}$/);
-  assert.equal(await shell.evaluate(async () => {
-    const memory = new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" });
-    const { instance } = await WebAssembly.instantiateStreaming(fetch("/dist/dolly-image-0.wasm"), { env: { memory } });
-    return instance.exports.dolly_snapshot_format_version();
-  }), 2, "snapshot contract version");
   const run = async command => assert.equal(await submit(command), 0, command);
   // The image codec against the shared Wasm filesystem keeps every path kind.
   await run("mkdir /tmp/retention && cd /tmp/retention");

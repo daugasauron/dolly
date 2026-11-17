@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { browserTest, snapshotDisplay, waitForDisplay } from "./browser.mjs";
+import { browserTest, snapshotDisplay, waitForDisplay, workbench } from "./browser.mjs";
 
 // The in-Wasm Ghostty terminal: keyboard, clipboard, selection, scrollback,
 // zoom, fullscreen, rendering, termios and the display and input leases.
@@ -7,7 +7,7 @@ const server = { fixtures: { "terminal-ui.c": "test/fixtures/terminal-ui.c" } };
 await browserTest("terminal", { image: "system", server }, async ({ name, server, open }) => {
   const { page, submit, text, result, waitForText, waitForSelection } = await open({ policy: {
     rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
-    setup: page => name === "chromium" && page.context().grantPermissions(["clipboard-read", "clipboard-write"]) });
+    ...await workbench([], [], { setup: page => name === "chromium" && page.context().grantPermissions(["clipboard-read", "clipboard-write"]) }) });
   const keyboard = page.locator("#keyboard");
   const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
   // Reading the visible text selects it; a click on the first cell clears that.

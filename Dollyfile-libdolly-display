@@ -12,8 +12,8 @@ REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/host/display/display.h 0288b4510090e22243582c37a8f701bd460a31f4bb64db1aff85d8fa058b82ce /usr/include/dolly/display.h
-SOURCE /v0.1.7/host/display/display-abi.h 0429ac498ead0219e509426e5df6293fca6007494b4e54f5f48f43193ddae2f2 /usr/include/dolly/display-abi.h
+SOURCE /v0.1.7/host/display/display.h c0e5a32282990529476ed705c82f39ce64bfd0dbcbcdfdccd3a8e8b6e84670a4 /usr/include/dolly/display.h
+SOURCE /v0.1.7/host/display/display-abi.h 94367a8498b31c51f4d930410fd68d36bbc3965f98c5e7e86f74a64d3760eed7 /usr/include/dolly/display-abi.h
 SOURCE /v0.1.7/host/display/client.c 8ebb4b6346302ee24fc6fd60c97a3e5ba8039b5bbd6764b60641087564387d02 /tmp/libdolly-display/client.c
 SLOP cc -O1 -c /tmp/libdolly-display/client.c -o /tmp/libdolly-display/client.o
 SLOP ar rcs /usr/lib/dolly/process/libdolly-display.a /tmp/libdolly-display/client.o

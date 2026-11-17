@@ -1,0 +1,13 @@
+{
+  "image": "default",
+  "directory": "/tmp/amy-codex",
+  "steps": [
+    {
+      "fresh": true,
+      "why": "codex installs ripgrep and fd: their rows come with it.",
+      "script": "amy install codex",
+      "status": 0
+    },
+    { "script": "codex --version | grep -q '^codex-cli ' && fd --version > /dev/null && amy list | grep -q '^ripgrep  *installed '", "status": 0 }
+  ]
+}

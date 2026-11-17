@@ -13,7 +13,7 @@ import { DOLLY_SESSION_FORMAT_VERSION, loadStoredSession, sessionCompatible,
 // files into a fresh system image instead.
 export async function boot(route) {
   if (!route.loadSession) return undefined;
-  if (route.mode !== "snapshot") throw new Error("invalid Dolly route configuration");
+  if (route.mode === "rebuild") throw new Error("invalid Dolly route configuration");
   const query = new URL(location.href).searchParams;
   const name = route.session ?? query.get("name"), recovering = route.session === undefined && query.get("recover") === "1";
   // The site lists its saves; a page of one's own has no such page.

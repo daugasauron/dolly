@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DollyHttpPolicy, isDollyCredentialHeader, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
+import { DollyHttpPolicy, isDollyCredentialHeader, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../page/http-policy.mjs";
 import { DOLLY_ERRNO } from "../page/process-constants.mjs";
 
 test("response quotas are optional and finite inherited quotas cannot be widened", () => {
@@ -120,42 +120,6 @@ test("exact HTTP policy paths cannot be widened by a matching prefix", () => {
   );
 });
 
-test("bootstrap sources are exact read-only broker capabilities", () => {
-  // The site at /app/ names the file /static/tool.tar.
-  const policy = new DollyHttpPolicy(
-    { maxRequests: 8, rules: [] },
-    [{ path: "/static/tool.tar", byteLength: 1234 }],
-    "https://dolly.example/app/",
-  );
-  const headers = new Headers({ authorization: "Bearer sandbox-secret" });
-  const rule = policy.authorize(
-    new URL("https://dolly.example/app/static/tool.tar"),
-    "GET",
-    headers,
-    0,
-  );
-  assert.equal(rule.bootstrap, true);
-  assert.equal(rule.maxResponseBytes, 1234);
-  assert.equal(headers.has("authorization"), false);
-  assert.equal(policy.requests, 0, "trusted build inputs do not spend agent quota");
-  for (const target of [
-    "https://dolly.example/app/static/tool.tar?copy=1",
-    "https://dolly.example/app/static/tool.tar/child",
-    "https://dolly.example/static/tool.tar",
-  ]) {
-    assert.throws(
-      () => policy.authorize(new URL(target), "GET", new Headers(), 0),
-      { errno: DOLLY_ERRNO.EACCES },
-    );
-  }
-  assert.throws(
-    () => policy.authorize(
-      new URL("https://dolly.example/app/static/tool.tar"), "POST", new Headers(), 0,
-    ),
-    { errno: DOLLY_ERRNO.EACCES },
-  );
-});
-
 test("path prefixes match whole segments and reject encoded separators", () => {
   const policy = new DollyHttpPolicy({ maxRequests: 100, rules: [{ origin: "https://models.example", pathPrefix: "/v1", methods: ["GET"] }] });
   const allowed = path => {
@@ -168,19 +132,10 @@ test("path prefixes match whole segments and reject encoded separators", () => {
 });
 
 test("the default policy admits every HTTP(S) destination, the page origin included", () => {
-  const policy = new DollyHttpPolicy(undefined, [], "https://dolly.example/app/");
+  const policy = new DollyHttpPolicy();
   for (const target of ["https://dolly.example/app/any/file", "https://other.example/", "http://127.0.0.1:8080/"]) {
     assert.equal(policy.authorize(new URL(target), "GET", new Headers(), 0).followRedirects, true, target);
   }
-});
-
-test("bootstrap sources have a bounded hardened quota separate from agent requests", () => {
-  const policy = new DollyHttpPolicy({ maxRequests: 1, rules: [] },
-    [{ path: "/static/tool.tar", byteLength: 1234 }], "https://dolly.example/app/");
-  const fetchSource = () => policy.authorize(new URL("https://dolly.example/app/static/tool.tar"), "GET", new Headers(), 0);
-  for (let index = 0; index < 4; index++) fetchSource();
-  assert.throws(fetchSource, { errno: DOLLY_ERRNO.EDQUOT });
-  assert.equal(policy.requests, 0);
 });
 
 test("a relay is transport for a destination the policy admits, with no credentials of its own", () => {
@@ -188,7 +143,7 @@ test("a relay is transport for a destination the policy admits, with no credenti
   const policy = new DollyHttpPolicy({ rules: [
     { origin: "https://forge.example", pathPrefix: "/team", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },
     { origin: "https://other.example" },
-  ] }, [], "https://page.example/", relays);
+  ] }, relays);
   const headers = new Headers({ authorization: "Bearer sandbox-key" });
   const rule = policy.authorize(new URL("https://forge.example/team/repo/info/refs?service=git-upload-pack"), "GET", headers, 0);
   assert.equal(rule.relay, "https://page.example/relay/forge.example/team/repo/info/refs?service=git-upload-pack");
@@ -198,14 +153,13 @@ test("a relay is transport for a destination the policy admits, with no credenti
   assert.throws(() => policy.authorize(new URL("https://forge.example/elsewhere"), "GET", new Headers(), 0), { errno: DOLLY_ERRNO.EACCES });
   assert.equal(policy.authorize(new URL("https://other.example/"), "GET", new Headers(), 0).relay, undefined);
 
-  const trusted = new DollyHttpPolicy(undefined, [], "https://page.example/",
-    [{ ...relays[0], credentialHeaders: ["authorization"] }]);
+  const trusted = new DollyHttpPolicy(undefined, [{ ...relays[0], credentialHeaders: ["authorization"] }]);
   const kept = new Headers({ authorization: "Bearer sandbox-key", cookie: "ambient=no" });
   assert.ok(trusted.authorize(new URL("https://forge.example:443/x"), "POST", kept, 0).relay.endsWith("/relay/forge.example/x"));
   assert.equal(kept.get("authorization"), "Bearer sandbox-key");
   assert.equal(kept.has("cookie"), false);
   // An inherited policy narrows what is admitted and keeps this page's relay.
-  const narrowed = restrictDollyHttpPolicy(policy, [{ rules: [{ origin: "https://forge.example", pathPrefix: "/team/repo" }] }], [], "https://page.example/");
+  const narrowed = restrictDollyHttpPolicy(policy, [{ rules: [{ origin: "https://forge.example", pathPrefix: "/team/repo" }] }]);
   assert.ok(narrowed.authorize(new URL("https://forge.example/team/repo/x"), "GET", new Headers(), 0).relay);
   assert.throws(() => narrowed.authorize(new URL("https://forge.example/team/other"), "GET", new Headers(), 0), { errno: DOLLY_ERRNO.EACCES });
 
@@ -215,7 +169,7 @@ test("a relay is transport for a destination the policy admits, with no credenti
     { origin: "https://forge.example", through: "https://page.example/relay/?next=" },
     { origin: "https://forge.example", through: "file:///relay/" },
     { origin: "https://forge.example", through: "https://page.example/relay/", credentialHeaders: ["x-custom"] }]) {
-    assert.throws(() => new DollyHttpPolicy(undefined, [], "https://page.example/", [invalid]), TypeError);
+    assert.throws(() => new DollyHttpPolicy(undefined, [invalid]), TypeError);
   }
 });
 

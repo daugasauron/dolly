@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ImageBuildService, BUILD_ORIGIN, BUILD_LIMITS } from "../host/build/service.mjs";
-import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
+import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../page/http-policy.mjs";
 import { localServicesTransport } from "../host/http/local-services.mjs";
 import { checkedCustomArtifact } from "../site/custom-image.mjs";
 import { inspectDollyfile } from "../site/dollyfile-view.mjs";
@@ -30,7 +30,7 @@ test("opened results intersect parent and embedding HTTP authority, limits and c
   const intersected = restrictDollyHttpPolicy(stricterPage, policies);
   const headers = new Headers({ authorization: "sandbox-secret" });
   assert.deepEqual(intersected.authorize(target, "POST", headers, 1), {
-    maxRequestBytes: 50, maxResponseBytes: 10, timeoutMilliseconds: 50, followRedirects: false, bootstrap: false,
+    maxRequestBytes: 50, maxResponseBytes: 10, timeoutMilliseconds: 50, followRedirects: false,
   });
   assert.equal(headers.has("authorization"), false);
   for (const invalid of [null, [], {}, Array(17).fill(null)]) assert.throws(() => restrictDollyHttpPolicy(parent, invalid));

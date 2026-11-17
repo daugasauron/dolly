@@ -3,7 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { browserTest } from "./browser.mjs";
+import { browserTest, workbench } from "./browser.mjs";
 import { UPLOAD_CANCEL_QUIET_MILLISECONDS } from "../host/upload/transport.mjs";
 
 // `upload` copies one user-chosen file into Dolly; it never overwrites, and
@@ -19,7 +19,7 @@ await writeFile(empty, "");
 await writeFile(largePath, large);
 try {
   await browserTest("upload", { image: "system", server: { fixtures: { "upload-race.c": "test/fixtures/upload-race.c" } } }, async ({ server, open }) => {
-    const { page, submit, waitForText } = await open({ policy: {
+    const { page, submit, waitForText } = await open({ ...await workbench(), policy: {
       rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
     const picker = page.locator("#file-upload[open]");
     // Resolves once the picker is open, to the command's pending status.

@@ -12,7 +12,7 @@ const policy = origin => ({ rules: [{ origin, pathPrefix: "/fixture/", methods: 
 await browserTest("sockets", { image: "system", server: { fixtures: socketCases.fixtures } }, async ({ server, open }) => {
   const { page, submit } = await open({ policy: policy(server.origin),
     ...await composed(socketCases.hosts, socketCases.packages, { base: socketCases.image }) });
-  await runSteps(submit, server.origin, socketCases);
+  await runSteps(submit, socketCases);
 
   // The module adds no kernel import: http@0's dispatch stays the one network edge.
   assert.deepEqual(await page.evaluate(async () => WebAssembly.Module.imports(
@@ -29,7 +29,7 @@ await browserTest("sockets", { image: "system", server: { fixtures: socketCases.
 await browserTest("sockets not declared", { image: "system", server: { fixtures: undeclaredCases.fixtures } }, async ({ server, open }) => {
   const { submit } = await open({ policy: policy(server.origin),
     ...await composed([], undeclaredCases.packages, { base: undeclaredCases.image }) });
-  await runSteps(submit, server.origin, undeclaredCases);
+  await runSteps(submit, undeclaredCases);
 
   const pin = name => { const { dollyfile, sha256 } = catalog.images.find(({ image }) => image === name); return `${siteReference(dollyfile)} ${sha256}`; };
   const { hostRequirements } = catalog.images.find(({ image }) => image === "system");

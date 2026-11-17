@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { browserTest } from "./browser.mjs";
+import { browserTest, putFixture } from "./browser.mjs";
 
 // The presenter and the input ring: an idle terminal requests no animation
 // frames (the presenter's, in the runtime Worker) and output wakes it; a burst of typed keys costs a frame a tick, not
@@ -8,10 +8,8 @@ import { browserTest } from "./browser.mjs";
 // ring has no room for is counted, shown and marked in the ring where it was
 // lost; when a foreground program ends the terminal keeps its pointer records,
 // and the keys typed while that program's Worker retires reach the shell.
-const server = { fixtures: { "terminal-ui.c": "test/fixtures/terminal-ui.c" } };
-await browserTest("display", { image: "system", server }, async ({ server, open }) => {
-  const { page, submit, text, waitForText, waitForSelection } = await open({
-    policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
+await browserTest("display", { image: "system" }, async ({ open }) => {
+  const { page, submit, text, waitForText, waitForSelection } = await open();
   const dataset = () => page.evaluate(() => ({ ...document.documentElement.dataset }));
   const runtime = page.workers().find(worker => worker.url().endsWith("/dist/dolly-runtime-worker.mjs"));
   await runtime.evaluate(() => {
@@ -44,7 +42,8 @@ await browserTest("display", { image: "system", server }, async ({ server, open 
   assert.ok(burst.frames <= burst.ticks + 5, `${burst.frames} frames for the echo of 100 keys in ${Math.ceil(burst.ticks)} ticks`);
 
   const probe = "/tmp/display-ui";
-  assert.equal(await submit(`curl -fsS ${server.origin}/fixture/terminal-ui.c -o ${probe}.c && cc ${probe}.c -o ${probe}`), 0);
+  await putFixture(submit, `${probe}.c`, "test/fixtures/terminal-ui.c");
+  assert.equal(await submit(`cc ${probe}.c -o ${probe}`), 0);
   // The probe holds the input lease for three seconds without reading, then
   // reports the key and motion records it finds, the distance they add up to,
   // after how many keys the page marked a loss and how many records it said

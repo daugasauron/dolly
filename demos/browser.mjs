@@ -153,7 +153,7 @@ export async function displayProbe(image, more = [], packages = []) {
     ...packages.map(name => `INSTALL ${pin(name)}`),
     ...["/usr/lib/libdisplay.so", "/usr/share/fonts/IosevkaTerm-SemiBold.ttf"]
       .map(path => `COPY ${pin("ghostty-build")} ${path} ${path}`),
-    "EXPORTS LIB display /usr/lib/libdisplay.so", "EXPORTS ENV DISPLAY /usr/lib/libdisplay.so",
+    "EXPORTS LIB display /usr/lib/libdisplay.so", "EXPORTS ENV DOLLY_DISPLAY_LIBRARY /usr/lib/libdisplay.so",
     "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
   return { path: "/custom/rebuild/",
     setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) };

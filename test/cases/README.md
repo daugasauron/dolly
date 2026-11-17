@@ -18,7 +18,8 @@ test's JavaScript.
 - The others (`shell.json`, `toolchain.json`, `process.json`, `cpp.json`,
   `cpp-dso.json`, `pty.json`, `man.json`, `default.json`, `cc-package.json`,
   `zig-package.json`, `sockets.json`, `sockets-undeclared.json`, `fs-growth.json`, `host-modules.json`, `touch.json`, `pager.json`,
-  `amy-programs.json`, `amy-tools.json`): steps in order in one `directory`, made where it is absent, which first gets `files`
+  `amy-programs.json`, `amy-tools.json`, and each demo's `demos/DEMO/test/amy-cases.json`,
+  its packages'): steps in order in one `directory`, made where it is absent, which first gets `files`
   (their text) and `fixtures` (each named by its path in this repository). Each step's `script` runs as
   `/bin/slop -c SCRIPT` there and exits with `status`, or with any nonzero
   status where `fails` is true. Steps share files, not shell state; `terminal`

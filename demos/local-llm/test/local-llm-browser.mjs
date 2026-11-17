@@ -30,7 +30,8 @@ for(const browser of browsers) await demoTest('pi-local start screen',{image:'pi
 if(!process.env.DISPLAY){console.log('local-llm: skipped: the model steps need a GPU window on DISPLAY');process.exit(77);}
 
 const root=new URL('../../../',import.meta.url).pathname;
-// The model pi-local bundles, and the one the user installs next (DOLLY_LLM_SECOND names another package).
+// The model pi-local bundles, and the one the user installs next (DOLLY_LLM_SECOND names another
+// package of the demo's models: qwen3.5-4b or lfm2.5, run on demand).
 const model='qwen3.5-2b',weights=`/usr/share/dolly/llm/${model}.gguf`,second=process.env.DOLLY_LLM_SECOND??'minicpm5-2b';
 
 for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local').split(',')) {

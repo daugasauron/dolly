@@ -4,7 +4,7 @@
 // browser reports no violation of the policy.
 // Usage: node test/csp-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
-import { browserTest, composed } from "./browser.mjs";
+import { browserTest, workbench } from "./browser.mjs";
 
 const policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; " +
   "img-src 'self' blob:; object-src 'none'; base-uri 'none'";
@@ -12,7 +12,7 @@ const policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; 
 await browserTest("csp", { image: "system", timeout: 300_000, server: { responseHeaders: { "content-security-policy": policy } } },
   async ({ open }) => {
     const violations = [];
-    const image = await composed(["html"], ["html"], { base: "system" });
+    const image = await workbench(["html"], ["html"]);
     const { page, submit } = await open({ ...image, async setup(page) {
       // Workers report theirs to the console alone.
       page.on("console", message => { if (/Content.Security.Policy/i.test(message.text())) violations.push(message.text()); });

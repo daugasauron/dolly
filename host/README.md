@@ -41,6 +41,7 @@ a page of the site names those its route uses ([`site.mjs`](../site/site.mjs)).
 | `fixtures` | A Node script the build runs, given the toolchain container's command, once the contracts are assembled: it builds the module's contract fixtures into `build/` for its tests and checks them (dso@0's hosts and libraries); optional |
 | `requested` | `true` on a module whose client defines names of libc's (`sockets`, `pty`): `cc` links it only when a program asks (`-ldolly-NAME`), so its package installs it in `/usr/lib`, not among the clients `cc` links unasked (`/usr/lib/dolly/process`); absent otherwise |
 | `ccExports` | What `cc` exports from a program built with an option: `{"rdynamic": [...]}` (dso@0's allocator, which selects its client), `{"pthread": [...]}` (threads@0's entry); the process sysroot holds each list as `OPTION.exports`; optional |
+| `ccSysroot` | The option whose links take the module's `seed` part in place of the sysroot's own libraries (`"pthread"`: threads@0's threaded libc); the process sysroot names the part in `OPTION.sysroot`; optional |
 | `files` | The module's other files: the JavaScript its `host` and `processWorker` import, the headers its C includes that programs do not (input's `ring.h`) and the sources its `seed` builds (threads@0's client and libc pthreads); optional |
 
 The core (the kernel, the supervisor, the Workers, `boot()` and the registry)
@@ -61,9 +62,10 @@ each a field of its manifest or a member of its provider:
 - **Its own kernel exports** (`contracts`): what its provider calls.
 - **Its provider** (`host`): the registry's hooks below, and two roles the
   runtime offers: the thread provider (`threads`: which programs are threaded,
-  their Workers and the kernel's bookkeeping) and code served inside process
-  Workers (`processWorker`: `dso`, `stack`). A module that starts programs on
-  streams of its own passes `start` to the supervisor's `spawn` (`console`).
+  the export a thread starts at, their Workers and the kernel's bookkeeping)
+  and code served inside process Workers (`processWorker`: `dso`, `stack`). A
+  module that starts programs on streams of its own passes `start` to the
+  supervisor's `spawn` (`console`).
 - **Programs** (`process`, `headers`, `client`, `tools`): the ABI executables
   compile against and record, and the C built over it; `seed`, its part of
   the process sysroot (threads@0's threaded libc, `host/threads/pthreads.c`).
@@ -72,9 +74,13 @@ A provider's `browser()` receives the page's shared resources (`mount`,
 `canvas`, `keyboard`, `applicationBase` (the image directory), `site` (the
 root of the site's routes, when the embedding has one), `imageBuilder` (on
 the site's routes, what build@0 builds with: it resolves to `inspect(source)`,
-a Dollyfile's parse, `build(source, configuration, report, signal)`, which
+a Dollyfile's parse, `build(source, network, report, signal)` (`network`: the page network's `builder()`), which
 builds its custom image and resolves to the image's descriptor in the image
-cache, and `open(record)`, which opens a completed one in a tab), `showStatus`, `fatal`
+cache, and `open(record)`, which opens a completed one in a tab), `network` (the
+page's HTTP policy, which judges and counts what leaves the page for the guest:
+`admit(url)` for a GET a module makes for it, `fetch(url, limit)` for a
+build's `SOURCE` file, `refused`, `inherited()` and `builder()`,
+[`network.mjs`](../page/network.mjs)), `showStatus`, `fatal`
 and `indicators` (`hold(holder, held)` and `show()`, the page's corner
 indicators)), and `claimsKey(event)` and `surfaceSize()`, what the other
 modules' `claimsKey` and `surfaceSize` (below) say; its `worker()` receives
@@ -117,9 +123,7 @@ notice once the image has ended), `dispose` and `disabled` (below); and whose op
 the registry assembles:
 `configuration` (what the page side gives its Worker side's `configuration`,
 with `transfers`, the objects it transfers, such as the display's canvas),
-`page` (members of `window.__dolly`, by descriptor), `builder` (the module's
-configuration for a child build host, `host.builder`) and `inherited` (what an
-opened result tab or restored session inherits, `host.inherited`). A module may
+and `page` (members of `window.__dolly`, by descriptor). A module may
 also export `boot(route)`: at most one selects what a route boots, returning the
 image, a bootstrap label, the custom image record it restores and its own
 configuration, as the snapshot module does for `/session/`.
@@ -142,12 +146,11 @@ package, `Dollyfile-libdolly-NAME` named as the manifest's `package`, which
 against them installs (a package `USE`s) it, as `ghostty-build` does display's
 and input's (stack's is `stack-wrap`, html's `html`, which holds its command
 too). The seed holds the headers and clients of the two modules without one:
-http@0's, with which the recipe engine downloads before any recipe runs, and
-dso@0's, whose loader the seed compiler exports for `cc -rdynamic`; threads@0's
+http@0's, which libcurl (`http/libcurl.c`, the `curl` package) and the programs
+linking it compile against without installing a package, and dso@0's, whose loader the seed compiler exports for `cc -rdynamic`; threads@0's
 client is in its part, the threaded libc `cc -pthread` links. A module without imports may instead own a
 reserved origin of the HTTP broker ([`http/local-services.mjs`](http/local-services.mjs)),
-as `build` does, and `packages` for a directory other than the page's: its service admits
-each request itself.
+as `build` does: its service admits each request itself.
 
 ## Modules switched at run time
 
@@ -163,7 +166,8 @@ module is switched off and the runtime goes on, and takes back what the
 module gave the runtime or a dependency (a registered service, the thread
 provider). An import asks at each call whether its module is enabled. A
 module that cannot keep to this (it consumes page state once, or what it
-starts cannot start twice) says why in `fixed`.
+starts cannot start twice) says why in `fixed`. A module that an enabled one
+depends on is not disabled (http@0 while build@0 is on the page).
 
 ## Modules served in the process Worker
 

@@ -202,8 +202,8 @@ typedef struct {
   uint32_t colors[16];
 } dolly_display_palette;
 
-// A display driver is a resident shared library, not an executable. DISPLAY
-// names the selected library. It is loaded once and remains in the shared Wasm
+// A display driver is a resident shared library, not an executable.
+// DOLLY_DISPLAY_LIBRARY names the selected library. It is loaded once and remains in the shared Wasm
 // address space for the lifetime of the runtime; it finds its own font.
 typedef struct {
   uint32_t abi_version;

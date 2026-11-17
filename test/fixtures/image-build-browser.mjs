@@ -1,5 +1,5 @@
 export async function buildLogProof() {
-  const {buildLog} = await import(new URL("../page/build-log.mjs", document.baseURI));
+  const {buildLog} = await import(new URL("/page/build-log.mjs", location.href));
   const element = document.createElement("pre"), log = buildLog(element);
   log.append("\x1b[1;3");
   log.append("2mbuilding 日本語\x1b[0m\r");
@@ -39,17 +39,16 @@ export async function buildLogProof() {
 // intact and the built image is the same each time; its Blob holds what its
 // identity says.
 export async function buildInputReuse() {
-  const base = new URL("../", document.baseURI);
-  const [registry, policy, transport, builder, graph, artifactStore, { siteReference }, { hostModuleUrls: modules }] = await Promise.all([
-    "page/images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
+  const base = new URL("/", location.href);
+  const [registry, { pageNetwork }, builder, graph, artifactStore, { siteReference }, { hostModuleUrls: modules }] = await Promise.all([
+    "page/images.mjs", "page/network.mjs",
     "site/image-builder.mjs", "site/image-build.mjs", "site/image-artifact.mjs", "page/static-asset.mjs", "host/manifests.mjs",
   ].map(path => import(new URL(path, base).href)));
   await registry.loadImages(base);
   const definition = registry.DOLLY_IMAGES.find(image => image.image === "system-build");
   const source = `DOLLY 7\nAPPLICATION buffer-proof\nREQUIRES HOST runtime@0\nREQUIRES HOST display@0\nREQUIRES HOST input@0\nREQUIRES HOST download@0\nREQUIRES HOST http@0\nREQUIRES HOST snapshot@0\nREQUIRES HOST upload@0\nFROM ${siteReference(definition.dollyfile)} ${definition.sha256}\nENTRY /bin/slop\n`;
-  const network = { ...transport.localServicesTransport(new policy.DollyHttpPolicy(undefined, registry.bootstrapSources(), base)),
-    site: base.href };
-  const build = (image, inputs, customSource) => builder.buildImage(image, inputs, { http: { network } }, () => {}, { modules, customSource });
+  const network = pageNetwork({ applicationBase: base });
+  const build = (image, inputs, customSource) => builder.buildImage(image, inputs, network, () => {}, { modules, customSource });
   const inputs = await graph.prepareImageArtifacts("custom", source, build, () => {});
   const digestOf = async artifact => (await artifactStore.describeImageArtifact(artifact.bytes, artifact.recipeSha256)).sha256;
   let digest;
@@ -80,15 +79,14 @@ export async function buildInputReuse() {
 // one's input sizes, the built image's size and digest, whether its Blob
 // holds what its identity says, and how many packs the page fetched for it.
 export async function buildTwice(recipe) {
-  const base = new URL("../", document.baseURI);
-  const [registry, policy, transport, builder, graph, artifactStore, { hostModuleUrls: modules }] = await Promise.all([
-    "page/images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
+  const base = new URL("/", location.href);
+  const [registry, { pageNetwork }, builder, graph, artifactStore, { hostModuleUrls: modules }] = await Promise.all([
+    "page/images.mjs", "page/network.mjs",
     "site/image-builder.mjs", "site/image-build.mjs", "site/image-artifact.mjs", "host/manifests.mjs",
   ].map(path => import(new URL(path, base).href)));
   await registry.loadImages(base);
-  const network = { ...transport.localServicesTransport(new policy.DollyHttpPolicy(undefined, registry.bootstrapSources(), base)),
-    site: base.href };
-  const build = (image, inputs, customSource) => builder.buildImage(image, inputs, { http: { network } }, () => {}, { modules, customSource });
+  const network = pageNetwork({ applicationBase: base });
+  const build = (image, inputs, customSource) => builder.buildImage(image, inputs, network, () => {}, { modules, customSource });
   performance.setResourceTimingBufferSize(4000);
   const packs = () => performance.getEntriesByType("resource").filter(entry => entry.name.includes("/dist/packs/")).length;
   const builds = [];

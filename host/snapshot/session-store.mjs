@@ -24,9 +24,8 @@ export function sessionImageIdentity(definitions, selectedImage) {
   return `${definition.image}:${definition.sha256}`;
 }
 
-// The policies are what http@0 hands a tab opened from another. An image
-// without a network edge inherits none; http@0 itself refuses a tab whose
-// inheritance lacks them (host/http/http.mjs).
+// The policies are what the page's network hands a tab opened from another;
+// it refuses a tab whose inheritance lacks them (page/network.mjs).
 export function customSessionIdentity(custom) {
   const artifact = custom?.artifact, policies = custom?.policies;
   if (!artifact || typeof artifact.buildId !== "string" || !artifact.buildId.length || artifact.buildId.length > 128 ||

@@ -2,14 +2,19 @@ import { parseWasmInterface, sameWasmType } from "../../page/wasm-interface.mjs"
 import { DOLLY_THREAD_EXIT, DOLLY_THREAD_SPAWN } from "./abi.mjs";
 export { DOLLY_THREADS_ABI_DIGEST as digest } from "./abi.mjs";
 
+// The Workers threads may hold: trusted limits of this host, independent of the
+// kernel's table (64 a process) or guest claims; the manifest's `gives` says them.
+// Retired threads retain their join result in Wasm, not a Worker or host slot.
+const workerLimit = 64, processWorkerLimit = 32;
+// The export every thread but a process's first starts at.
+const entry = "dolly_thread_start";
+
 // The supervisor runs a process on several Workers through this provider
 // (runtime.mjs setThreadProvider): which executables are threaded, the
-// operations that start and end a thread, the kernel's thread bookkeeping
-// (dolly-threads-supervisor-0.wat) and the Workers themselves.
+// operations that start and end a thread and its entry, the kernel's thread
+// bookkeeping (dolly-threads-supervisor-0.wat) and the Workers themselves.
 export function worker({ get, runtimeBase }) {
   let kernel, schema;
-  // Trusted resource limits, independent of kernel bookkeeping or guest claims.
-  // Retired threads retain their join result in Wasm, not a Worker or host slot.
   const workers = new Map();
   const provider = {
     async start(context) {
@@ -23,13 +28,14 @@ export function worker({ get, runtimeBase }) {
     // threaded; its requirement's digest is checked with the others.
     threaded(parsed, requirements) {
       if (!requirements.has("threads@0")) return false;
-      const expected = schema.exports.find(entry => entry.name === "dolly_thread_start");
-      const actual = parsed.exports.find(entry => entry.name === expected.name);
+      const expected = schema.exports.find(({ name }) => name === entry);
+      const actual = parsed.exports.find(({ name }) => name === entry);
       if (!actual || !sameWasmType(actual.type, expected.type))
-        throw new TypeError("a program using threads@0 must export dolly_thread_start(i32, i64) -> i64; build C and C++ with -pthread");
+        throw new TypeError(`a program using threads@0 must export ${entry}(i32, i64) -> i64; build C and C++ with -pthread`);
       return true;
     },
     operations: { spawn: DOLLY_THREAD_SPAWN, exit: DOLLY_THREAD_EXIT },
+    entry,
     attach: pid => kernel.dolly_threads_attach(pid),
     // Through the generic call path, as the supervisor calls dispatch: Firefox
     // can enter a direct Wasm call twice.
@@ -37,7 +43,7 @@ export function worker({ get, runtimeBase }) {
     unstarted: (pid, tid) => kernel.dolly_threads_unstarted(pid, tid),
     retired: (pid, tid, result) => kernel.dolly_threads_retired(pid, tid, result),
     available(pid) {
-      return workers.size < 64 && [...workers.values()].filter(owner => owner === pid).length < 32;
+      return workers.size < workerLimit && [...workers.values()].filter(owner => owner === pid).length < processWorkerLimit;
     },
     create(pid, url, name) {
       if (!provider.available(pid)) return null;

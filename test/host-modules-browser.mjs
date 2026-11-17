@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { browserTest, composed, runSteps } from "./browser.mjs";
+import { browserTest, composed, runSteps, workbench } from "./browser.mjs";
 import { parseWasmInterface } from "../page/wasm-interface.mjs";
 import { executableHostRequirements } from "../host/requirements.mjs";
 import hostCases from "./cases/host-modules.json" with { type: "json" };
@@ -19,14 +19,15 @@ function handle(request, response, path, headers) {
 await browserTest("host modules", { image: "system", server: { sourceOverrides, handle, fixtures: hostCases.fixtures },
   timeout: 300_000 }, async ({ server, open }) => {
   const loaderFetches = () => server.requests.get("/dist/dolly-process-dso.mjs") ?? 0;
-  const loaderFetchesBefore = loaderFetches();
-  const { page, submit, text } = await open({
+  const { page, submit, text } = await open({ ...await workbench(),
     policy: { maxRequests: 200, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
   });
+  // Counted once the route's build, whose steps may load it, is done.
+  const loaderFetchesBefore = loaderFetches();
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
-  await runSteps(submit, server.origin, hostCases);
+  await runSteps(submit, hostCases);
   async function source(code) {
     sourceOverrides.set("/fixture/process-check.c", code);
     await run(`curl -fsS ${server.origin}/fixture/process-check.c -o /tmp/probe.c`);
@@ -70,20 +71,24 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides, 
   // Planted in this image, saved and loaded, it changes nothing: the page
   // reads it only where the image declares nena@0.
   const modules = () => page.evaluate(() => [...__dolly.hostModules].sort());
+  const reopen = async name => {
+    assert.equal(await page.evaluate(name => __dolly.saveSession(name), name), name);
+    await page.goto(`${server.origin}/session/?name=${name}`);
+    await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
+    await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "session shell"));
+  };
+  await reopen("unplanted");
   const declared = await modules();
   await run("printf 'audio@0\\ngpu@0\\n' > /etc/dolly/enabled");
-  assert.equal(await page.evaluate(() => __dolly.saveSession("planted")), "planted");
-  await page.goto(`${server.origin}/session/?name=planted`);
-  await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
-  await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "session shell"));
+  await reopen("planted");
   assert.deepEqual(await modules(), declared);
   await run("test \"$(cat /etc/dolly/enabled | tr '\\n' ' ')\" = 'audio@0 gpu@0 '");
   assert.deepEqual(errors, []);
 
   // An image whose required provider is disabled fails before its large downloads.
   const requests = [];
-  await open({ prompt: null, modules: ["runtime@0", "display@0", "input@0", "download@0", "upload@0", "snapshot@0"],
-    setup: denied => denied.on("request", request => requests.push(new URL(request.url()).pathname)) }).then(() => assert.fail("booted without a required provider"), error => assert.match(error.message, /http@0/));
+  await open({ prompt: null, modules: ["runtime@0", "display@0", "input@0", "snapshot@0"],
+    setup: denied => denied.on("request", request => requests.push(new URL(request.url()).pathname)) }).then(() => assert.fail("booted without a required provider"), error => assert.match(error.message, /threads@0/));
   assert.equal(requests.some(path => /\.snapshot(?:\.gz)?$|\/dolly\.wasm$/.test(path)), false,
     "compatibility must fail before large downloads");
 

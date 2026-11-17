@@ -11,6 +11,7 @@ REQUIRES HOST threads@0
 # packages, and ENet with Dolly's transport built here from the pinned upstream
 # source of build-sources.tsv; pkgconf for its premake scripts.
 FROM /v0.1.7/Dollyfile-system-tools 39e8ab131ead90b0190b992d3a9602854a969b11c0825202303c534cdd4dedb0
+INSTALL /v0.1.7/Dollyfile-curl 849a284cda0928f52ae33d5bbb0a8674877c5e86f62d6f1a7c79b9f9860b4694
 INSTALL /v0.1.7/demos/zero-ad/Dollyfile-openal 5bd6ef5209f3bd5663d764e356fb3eaffc27ced19923792d2b05371374d5512c
 INSTALL /v0.1.7/demos/tools/Dollyfile-pkgconf 9f6c7243ea776e5ea9401d1d22b8d0b46391128f894936ff2ed88c3914d014a8
 INSTALL /v0.1.7/demos/tools/Dollyfile-freetype c18f5c7da05eb3a874cc344589ceeb308d8d1e9973f35f1a2ea4710f9799b519

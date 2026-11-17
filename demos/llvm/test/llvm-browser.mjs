@@ -89,7 +89,7 @@ const pin = name => {
 const hosts = [...new Set([...catalog.images.find(({ image }) => image === "llvm-cc").hostRequirements, "threads@0"])].sort();
 const recipe = ["DOLLY 7", "APPLICATION llvm-runtimes-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin("llvm-cc")}`,
   ...["/usr/lib/libdisplay.so", "/usr/share/fonts/IosevkaTerm-SemiBold.ttf"].map(path => `COPY ${pin("ghostty-build")} ${path} ${path}`),
-  `INSTALL ${pin("llvm-runtimes")}`, "EXPORTS LIB display /usr/lib/libdisplay.so", "EXPORTS ENV DISPLAY /usr/lib/libdisplay.so",
+  `INSTALL ${pin("llvm-runtimes")}`, "EXPORTS LIB display /usr/lib/libdisplay.so", "EXPORTS ENV DOLLY_DISPLAY_LIBRARY /usr/lib/libdisplay.so",
   "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
 const built = "-L/usr/lib/llvm-runtimes";
 const shipped = "'/usr/lib/(libclang_rt|dolly/process/.*lib(c\\+\\+|c\\+\\+abi|unwind|clang_rt\\.builtins)-)'";

@@ -3,7 +3,6 @@ TOOLCHAIN ghostty-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
-REQUIRES HOST http@0
 
 FROM /v0.1.7/Dollyfile-zig-build f0355bfa9c7c0fbfdff391961118e7ce6376a747454bd64df76c022941877830
 INSTALL /v0.1.7/Dollyfile-libdolly-display 41ec47a087c50823a3feeb3dad245c5ed2d469f4c7bdd59b6b241cef1d6e3f15
@@ -181,6 +180,6 @@ SLOP rm \
   /usr/src/uucode
 
 # Opened, the image runs the display library it just built.
-EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
+EXPORTS ENV DOLLY_DISPLAY_LIBRARY /usr/lib/libdisplay.so
 
 ENTRY /bin/foreground -i /bin/slop

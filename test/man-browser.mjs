@@ -6,5 +6,5 @@ import manCases from "./cases/man.json" with { type: "json" };
 
 await browserTest("man and --help", { image: manCases.image, timeout: 300_000 }, async ({ server, open }) => {
   const { submit } = await open();
-  await runSteps(submit, server.origin, manCases);
+  await runSteps(submit, manCases);
 });

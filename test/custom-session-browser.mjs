@@ -4,16 +4,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { browserTest, routeAttributes } from "./browser.mjs";
 import { siteReference } from "../page/static-asset.mjs";
+import catalog from "../dist/dolly-images.json" with { type: "json" };
 
 const scratch = await mkdtemp(join(tmpdir(), "dolly-custom-session-"));
 const status = page => page.evaluate(() => document.documentElement.dataset.dollyStatus);
+// A rebuild builds its image first: measured at 42 s on a loaded machine.
 async function boot(page) {
-  await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
+  await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null,
+    { timeout: 180_000 });
   assert.equal(await status(page), "ready", await page.locator("#bootstrap-log").textContent());
   await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "session shell"));
 }
 async function rejected(page) {
-  await page.waitForFunction(() => document.documentElement.dataset.dollyStatus === "failed");
+  await page.waitForFunction(() => document.documentElement.dataset.dollyStatus === "failed", null, { timeout: 180_000 });
 }
 const submit = (page, command) => page.evaluate(text => __dolly.submit(text), command);
 async function check(page, commands) {
@@ -37,7 +40,10 @@ async function customImageSessions(context, server, fixtures) {
   // The page's default recipe names its base and restates the base's host
   // modules (system retains the engine and the transfer tools).
   const original = await page.locator("#source").inputValue();
-  const base = original.slice(0, original.indexOf("\nFILE ")).replace("APPLICATION custom", "APPLICATION custom-session");
+  // The session fetches with curl (below), which the base does not hold.
+  const curl = catalog.images.find(({ image }) => image === "curl");
+  const base = original.slice(0, original.indexOf("\nFILE ")).replace("APPLICATION custom", "APPLICATION custom-session\nREQUIRES HOST http@0") +
+    `INSTALL ${siteReference(curl.dollyfile)} ${curl.sha256}\n`;
   assert.ok(base.includes(`\nFROM ${siteReference("Dollyfile-system")} `), base);
   const source = `${base}FILE /tmp/session-hello.c
     #include <stdio.h>

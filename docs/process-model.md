@@ -93,8 +93,8 @@ sequenceDiagram
   `dolly_thread_start`) and a Worker that fails while running exit with status
   126 after one line on the process's own descriptor 2 that names the cause
   ([`process-supervisor.mjs`](../page/process-supervisor.mjs)); unrelated
-  processes are unaffected. `cc` refuses to link a thread client without
-  `-pthread`, so what it links the loader runs.
+  processes are unaffected. Only `cc -pthread` links the thread client, and it
+  exports the thread entry, so what it links the loader runs.
 - A malformed call returns an errno and the process keeps running: `EFAULT` for
   a packet outside its memory, `E2BIG` over 1 MiB, `ENOSYS` for an unknown
   operation, `EINVAL` for a wrong layout
@@ -562,8 +562,11 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   with `ENOSYS`. Sockets and other state a module keeps in the kernel stay
   with their processes; a threaded program ends with status 126 when
   `threads@0` is disabled under it.
-- Not switched: `runtime@0`, `http@0`, `build@0`, `display@0`, `input@0` and
-  `snapshot@0`; `nena` says why for each.
+- Not switched: `runtime@0`, `build@0`, `display@0`, `input@0` and
+  `snapshot@0`; `nena` says why for each. Nor is a module disabled that an
+  enabled one needs (`http@0` under `build@0`). `http@0` switched on takes the
+  page's HTTP policy as it was at load; switched off, each transfer in flight
+  ends with `ECANCELED` (`amy install curl` enables it in `default`).
 - `nena disable nena` gives the privilege up until the page is reloaded: the
   session then is as an image without `nena@0`, and its refusals read so.
 - The modules a session enabled are listed in `/etc/dolly/enabled`, one

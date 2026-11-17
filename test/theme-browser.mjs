@@ -3,7 +3,7 @@
 // after a change; unset, they are Dolly's.
 // Usage: node test/theme-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
-import { browserTest, composed, shownColor } from "./browser.mjs";
+import { browserTest, shownColor, workbench } from "./browser.mjs";
 
 const hex = rgb => `#${rgb.map(channel => channel.toString(16).padStart(2, "0")).join("")}`;
 // The 16 colours as cell backgrounds (SGR 40-47, 100-107) in the first row,
@@ -57,7 +57,7 @@ await browserTest("theme", { image: "system", timeout: 300_000 }, async ({ open 
   // Dolly's own page sets none: its colours, the 16 those of the text but for
   // black, yellow and bright yellow, and bright black.
   {
-    const { page, submit } = await open();
+    const { page, submit } = await open(await workbench());
     assert.equal(await submit(blocks), 0);
     const [background, text, accent, dim] = ["#262626", "#e8e3d7", "#f2d45c", "#77736c"];
     assert.deepEqual(await terminalColors(page), { background, text, cursor: accent,
@@ -80,7 +80,7 @@ await browserTest("theme", { image: "system", timeout: 300_000 }, async ({ open 
 
   // An embedding's colours, one of the 16 named as CSS names it; those it leaves
   // follow its background, text and accent.
-  const { page, submit } = await open(await composed(["html"], ["html"], { base: "system",
+  const { page, submit } = await open(await workbench(["html"], ["html"], {
     files: { "/home/dolly/page.html": "<h1>Colours</h1><p>The page's.</p>" },
     setup: page => page.addInitScript(() => document.addEventListener("DOMContentLoaded", () =>
       document.head.append(Object.assign(document.createElement("style"), { textContent: `#terminal {

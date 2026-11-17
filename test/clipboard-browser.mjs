@@ -6,12 +6,12 @@
 // clipboard over and its holder has it back.
 // Usage: node test/clipboard-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
-import { browserTest, composed } from "./browser.mjs";
+import { browserTest, workbench } from "./browser.mjs";
 
 const fixtures = { "clipboard.c": "test/fixtures/clipboard.c" };
 
 await browserTest("clipboard", { image: "system", server: { fixtures }, timeout: 300_000 }, async ({ name, server, open }) => {
-  const image = await composed(["clipboard"], ["libdolly-clipboard"], { base: "system" });
+  const image = await workbench(["clipboard"], ["libdolly-clipboard"]);
   const { page, submit, text, waitForText } = await open({ ...image,
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
     async setup(page) {

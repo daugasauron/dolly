@@ -1,14 +1,21 @@
 # The supervisor and the process Worker address their shared control block by bare word numbers, 23 times in two files
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 60
 - TAGS: audit,core,cleanup,0.1.8
 
 From the core audit of 2026-11-16 (`work/audit-1116`, source of `b09b1e243`).
 
-## State (2026-11-16)
+## Closed (2026-11-17)
 
-Found by reading; nothing changed. Page JavaScript only: no image rebuild.
+`page/process-control.mjs` names the control block once (`controlBytes`, `controlWord.call`,
+`answered`, `resultLow`, `resultHigh`, `copy`, `start`), and both `page/process-supervisor.mjs`
+and `page/process-worker.mjs` use the names: `grep -cE 'control, [0-9]'` prints 0 and 0, and the
+comments that explained a number are gone. threads@0's two limits are named once in
+`host/threads/threads.mjs` (`workerLimit`, `processWorkerLimit`), beside the thread entry it now
+gives the process Worker (modules-modular). Page JavaScript only: no image rebuilds.
+`test/process-browser.mjs`, `threads-browser.mjs` and `ended-worker-browser.mjs` pass in
+Chromium and Firefox on `ws/modules` (logs `work/modules/build/modules-tests/a*/`).
 
 ## Found
 

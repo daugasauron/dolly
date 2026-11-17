@@ -1,5 +1,6 @@
 import { DOLLY_PROCESS_ABI_DIGEST } from "./generated.mjs";
 import { DOLLY_ERRNO } from "./process-constants.mjs";
+import { controlBytes, controlWord } from "./process-control.mjs";
 import { parseWasmInterface } from "./wasm-interface.mjs";
 import { validateProcessInterface } from "./process-abi.mjs";
 import { executableHostRequirements, checkHostAbi } from "../host/requirements.mjs";
@@ -633,10 +634,7 @@ export class DollyProcessSupervisor {
     const worker = threaded ? this.threadHost.create(pid, this.workerUrl, name)
       : new Worker(this.workerUrl, { type: "module", name });
     if (!worker) throw new Error("thread Worker capacity exhausted");
-    // Words: the call sequence, the answered sequence, the result's two
-    // halves, the copy word (page/process-worker.mjs copyRequest) and a
-    // thread's start word (#disposeThread).
-    const control = new SharedArrayBuffer(32);
+    const control = new SharedArrayBuffer(controlBytes);
     thread.mailbox = Number(this.kernel.malloc(BigInt(packetLimit)));
     if (!thread.mailbox) { worker.terminate(); throw new Error("kernel memory for a process mailbox"); }
     if (this.kernel.dolly_process_worker_mailbox(pid, thread.tid, BigInt(thread.mailbox)) !== 0) {
@@ -665,7 +663,7 @@ export class DollyProcessSupervisor {
     thread.moduleChannel = channel;
     channel && module.postMessage({ port: channel.port1 }, [channel.port1]);
     worker.postMessage({ type: "configure", pid, tid: thread.tid, argument, threaded, control,
-      threadOperations: threaded ? this.threadHost.operations : undefined,
+      threadOperations: threaded ? this.threadHost.operations : undefined, threadEntry: threaded ? this.threadHost.entry : undefined,
       module: channel ? channel.port2 : module,
       memory: memoryRequirements, port, mailbox: thread.mailbox, kernelMemory: this.kernelMemory, gateModule: this.gateModule,
       promisingEntry: this.promisingEntry && process.largeStack, stackDepths: this.stackDepths,
@@ -685,10 +683,10 @@ export class DollyProcessSupervisor {
 
   #signal(process, sequence, result) {
     const encoded = BigInt.asUintN(64, result);
-    Atomics.store(process.control, 2, Number(encoded & 0xffffffffn));
-    Atomics.store(process.control, 3, Number((encoded >> 32n) & 0xffffffffn));
-    Atomics.store(process.control, 1, sequence);
-    Atomics.notify(process.control, 1);
+    Atomics.store(process.control, controlWord.resultLow, Number(encoded & 0xffffffffn));
+    Atomics.store(process.control, controlWord.resultHigh, Number((encoded >> 32n) & 0xffffffffn));
+    Atomics.store(process.control, controlWord.answered, sequence);
+    Atomics.notify(process.control, controlWord.answered);
   }
 
   #clearTimers(process) {
@@ -723,8 +721,8 @@ export class DollyProcessSupervisor {
         values.some((value) => !Number.isSafeInteger(value) || value < 0) ||
         message.requestSize > packetLimit || message.responseCapacity > packetLimit ||
         spawnsThread !== (message.port instanceof MessagePort) ||
-        Atomics.load(thread.control, 0) !== message.sequence ||
-        Atomics.load(thread.control, 1) === message.sequence) {
+        Atomics.load(thread.control, controlWord.call) !== message.sequence ||
+        Atomics.load(thread.control, controlWord.answered) === message.sequence) {
       this.#fail(process, new Error(`process ${process.pid} sent an invalid syscall`));
       return;
     }
@@ -943,26 +941,26 @@ export class DollyProcessSupervisor {
       // Chrome keeps a Worker terminated inside Atomics.wait, and its memory,
       // for two seconds. Answered with the deferred result, which no program
       // is handed, a waiting Worker leaves Wasm and closes itself.
-      if (thread.control) this.#signal(thread, Atomics.load(thread.control, 0), deferredResult);
+      if (thread.control) this.#signal(thread, Atomics.load(thread.control, controlWord.call), deferredResult);
       // Chrome keeps what was posted to a Worker terminated before it runs, the
       // memory a thread's Worker is sent among it, until this Worker collects
-      // garbage. One that has not started (control word 5 still 0) is told so
+      // garbage. One that has not started (its start word still 0) is told so
       // and ends itself (page/process-worker.mjs processMemory).
-      const unstarted = thread !== process && Atomics.compareExchange(thread.control, 5, 0, 2) === 0;
-      if (unstarted) Atomics.notify(thread.control, 5);
+      const unstarted = thread !== process && Atomics.compareExchange(thread.control, controlWord.start, 0, 2) === 0;
+      if (unstarted) Atomics.notify(thread.control, controlWord.start);
       // threads@0 disabled since has already terminated its Workers.
       if (process.threaded && this.threadHost) this.threadHost.release(thread.worker, !unstarted);
       else thread.worker.terminate();
     }
-    // The Worker copies a request into its mailbox under control word 4
+    // The Worker copies a request into its mailbox under the copy word
     // (page/process-worker.mjs copyRequest); sealed, it copies no more, and the
     // mailbox goes back to the kernel. Termination has no completion event: a
     // Worker ended inside a copy finishes it first.
     if (thread.mailbox) {
       this.kernel.dolly_process_worker_mailbox(process.pid, thread.tid, 0n);
-      while (Atomics.compareExchange(thread.control, 4, 0, 2) === 1 &&
-             Atomics.wait(thread.control, 4, 1, mailboxSealMilliseconds) !== "timed-out");
-      if (Atomics.load(thread.control, 4) === 2) this.kernel.free(BigInt(thread.mailbox));
+      while (Atomics.compareExchange(thread.control, controlWord.copy, 0, 2) === 1 &&
+             Atomics.wait(thread.control, controlWord.copy, 1, mailboxSealMilliseconds) !== "timed-out");
+      if (Atomics.load(thread.control, controlWord.copy) === 2) this.kernel.free(BigInt(thread.mailbox));
     }
     thread.mailbox = 0;
     thread.worker = null;

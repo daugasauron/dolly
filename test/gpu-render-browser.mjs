@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {chromium} from "playwright-core";
-import {composed,launchInstalledFirefox,routeAttributes} from "./browser.mjs";
+import {launchInstalledFirefox,routeAttributes,workbench} from "./browser.mjs";
 import {gpuAdapterMocks,startBrowserServer} from "./browser-server.mjs";
 
 const browserName=process.argv[2]??"chromium";
@@ -21,11 +21,11 @@ try {
   page.on('pageerror',error=>errors.push(error.message));
   await routeAttributes(page,{policy:{maxRequests:1,rules:[{origin:server.origin,pathPrefix:'/fixture/',methods:['GET']}]}});
   // system with gpu@0: an image that declares the module.
-  const image=await composed(['gpu'],['libdolly-gpu'],{base:'system'});
+  const image=await workbench(['gpu'],['libdolly-gpu']);
   await image.setup(page);
   await page.goto(server.origin+image.path);
   // The page builds the image first: 30 seconds were too few beside a catalog build (2026-11-17).
-  await page.waitForFunction(()=>['ready','failed'].includes(document.documentElement.dataset.dollyStatus),null,{timeout:120000});
+  await page.waitForFunction(()=>['ready','failed'].includes(document.documentElement.dataset.dollyStatus),null,{timeout:180_000});
   assert.equal(await page.evaluate(()=>document.documentElement.dataset.dollyStatus),'ready',
     await page.locator('#bootstrap-log').textContent());
   await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));

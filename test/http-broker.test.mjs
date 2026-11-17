@@ -3,7 +3,7 @@ import { sha256 as digest } from "../scripts/sha256.mjs";
 import test from "node:test";
 import { HttpMailbox, NetworkTransport, DOLLY_HTTP_LIMITS } from "../host/http/broker.mjs";
 import { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_HEADER_SIZE, DOLLY_HTTP_WORD_EOF, DOLLY_HTTP_WORD_ERROR, DOLLY_HTTP_WORD_KIND, DOLLY_HTTP_WORD_LENGTH, DOLLY_HTTP_WORD_SEQUENCE, DOLLY_HTTP_WORD_STATE } from "../host/http/abi.mjs";
-import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
+import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../page/http-policy.mjs";
 import { localServicesTransport } from "../host/http/local-services.mjs";
 import { DOLLY_ERRNO as errno } from "../page/process-constants.mjs";
 import { siteReference } from "../page/static-asset.mjs";
@@ -100,36 +100,14 @@ test("HTTP authorization happens before any fetch", async () => {
   assert.equal(calls, 0, "relative URLs never resolve against the page");
 });
 
-test("multipart delivery is restricted to embedding-selected sources, including inherited policy", async () => {
+test("a program's request is never reassembled from parts: a response is what it is", async () => {
   const parts = [Buffer.from("first"), Buffer.from("second")], bytes = Buffer.concat(parts);
   const manifest = JSON.stringify({ byteLength: bytes.length, sha256: digest(bytes),
     parts: parts.map(part => ({ byteLength: part.length, sha256: digest(part) })) });
-  const sources = [{ path: "/allowed", byteLength: bytes.length }];
-  // The site names the file /allowed, and that file is what is fetched.
-  const site = "https://fixture.example/", copy = `${site}allowed`;
-  const pinned = new DollyHttpPolicy({ rules: [] }, sources, site);
-  for (const policy of [pinned, restrictDollyHttpPolicy(pinned, [null], sources, site)]) {
-    const calls = [];
-    const f = fixture({}, async (url, init) => {
-      calls.push(url.href);
-      assert.equal(init.credentials, "omit");
-      assert.equal(init.redirect, "error");
-      if (calls.length === 1) return new Response(manifest);
-      assert.equal(init.headers, undefined);
-      return new Response(parts[calls.length - 2]);
-    });
-    Object.assign(f.broker, { policy, site });
-    const records = await consume(f, f.request({ url: siteReference("allowed"), headers: "Authorization: Bearer private" }));
-    assert.deepEqual(calls, [copy, copy + ".part-0", copy + ".part-1"]);
-    assert.equal(Buffer.concat(records.filter(record => record.kind === 3).map(record => record.bytes)).toString(), bytes.toString());
-    await bounded(f.request({ url: siteReference("allowed.part-0") }, 2));
-    assert.equal(calls.length, 3);
-    assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.EACCES);
-  }
   let calls = 0;
   const remote = fixture({}, async () => { calls++; return new Response(manifest, { headers: { "x-dolly-parts": "1" } }); });
   const records = await consume(remote, remote.request());
-  assert.equal(calls, 1, "a remote response cannot request additional destinations");
+  assert.equal(calls, 1, "a response cannot request additional destinations");
   assert.equal(Buffer.concat(records.filter(record => record.kind === 3).map(record => record.bytes)).toString(), manifest);
 });
 
@@ -173,10 +151,9 @@ test("redirects require both caller intent and unrestricted destination authorit
   const unrestricted = new DollyHttpPolicy();
   const restricted = new DollyHttpPolicy({ rules: [{ origin: new URL(target).origin }] });
   const inherited = parent => restrictDollyHttpPolicy(new DollyHttpPolicy(), httpPolicyConfigurations(parent));
-  const pinned = new DollyHttpPolicy(undefined, [{ path: "/allowed", byteLength: 100 }], target);
   for (const [policy, flags, redirect] of [
     [unrestricted, 0, "error"], [unrestricted, 2, "follow"], [unrestricted, 3, "follow"],
-    [restricted, 2, "error"], [pinned, 2, "error"],
+    [restricted, 2, "error"],
     [inherited(unrestricted), 2, "follow"], [inherited(restricted), 2, "error"],
     [restrictDollyHttpPolicy(restricted, [null]), 2, "error"],
   ]) {
@@ -537,8 +514,7 @@ test("a site path names a file of this version's site, under its root, and the p
 });
 
 test("a relayed request is fetched from the relay, without redirects, and answers for the URL asked", async () => {
-  const policy = new DollyHttpPolicy(undefined, [], "https://page.example/",
-    [{ origin: new URL(target).origin, through: "https://page.example/relay/" }]);
+  const policy = new DollyHttpPolicy(undefined, [{ origin: new URL(target).origin, through: "https://page.example/relay/" }]);
   let fetched, options;
   const mailbox = new HttpMailbox(new SharedArrayBuffer(64 + DOLLY_HTTP_SLOT_COUNT * (65536 + 64)), 64);
   const broker = new NetworkTransport(mailbox, policy, {

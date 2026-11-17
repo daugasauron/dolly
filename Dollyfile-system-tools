@@ -3,7 +3,6 @@ TOOLCHAIN system-tools
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
-REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
 FROM /v0.1.7/Dollyfile-system-build 4c1ec21f75edd2c2b914ccec10e1fd95df9fdb970776cf1ee8611d063b427760
@@ -112,10 +111,9 @@ FILE /usr/share/licenses/samurai/LICENSE
 SLOP rm \
   -rf \
   /tmp/ninja
-# zlib, gzip and curl for builds, and Git, which Dolly's patch and diff run.
+# zlib and gzip for builds, and Git, which Dolly's patch and diff run.
 INSTALL /v0.1.7/Dollyfile-zlib bae4b5d8c15e761a19d073bd1c495544dfdc899ee19d17e92493f5fcc5a5e838
 INSTALL /v0.1.7/Dollyfile-gzip 5e12b845669dd8633ee69a22b1973553acad81d829e8185051eeb8418c086e71
-INSTALL /v0.1.7/Dollyfile-curl 3afe46912c21fed103a82096aa1b1248bb7fee48205a2fc804c55297d44008a2
 INSTALL /v0.1.7/Dollyfile-git 94fad3734b63fcdf5e473cccf7868618221dc7036e0e563fbe7a7d7977fd777a
 SOURCE /v0.1.7/dist/static/default/awk.tar f28cae177fa60793a70066d10667e8d06775d979f2262be1c48f8eb941090015 /tmp/awk.tar
 SLOP tar \

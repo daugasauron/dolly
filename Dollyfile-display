@@ -31,4 +31,4 @@ FILE /etc/termcap
     	:ue=\E[24m:up=\E[A:us=\E[4m:ve=\E[?12l\E[?25h:vi=\E[?25l:\
     	:vs=\E[?12;25h:
 EXPORTS LIB display /usr/lib/libdisplay.so
-EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
+EXPORTS ENV DOLLY_DISPLAY_LIBRARY /usr/lib/libdisplay.so

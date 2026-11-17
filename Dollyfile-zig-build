@@ -1,7 +1,6 @@
 DOLLY 7
 TOOLCHAIN zig-build
 REQUIRES HOST runtime@0
-REQUIRES HOST http@0
 
 FROM /v0.1.7/Dollyfile-system-build 4c1ec21f75edd2c2b914ccec10e1fd95df9fdb970776cf1ee8611d063b427760
 

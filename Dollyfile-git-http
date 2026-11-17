@@ -1,0 +1,123 @@
+DOLLY 7
+PACKAGE git-http
+REQUIRES HOST runtime@0
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
+
+# Git's HTTP and HTTPS remote helpers, which git clone, fetch and push run for
+# an http:// or https:// remote: the one part of Git that links libcurl, here
+# Dolly's over the page's HTTP broker. A session that clones over HTTPS
+# installs it beside git. Its objects are Git's, built again here.
+FROM /v0.1.7/Dollyfile-system-build df4c563c545dff3f752ddc57dbeb7fa9ddea51a288c11082e10e30f41060e7ed
+USE /v0.1.7/Dollyfile-zlib 7f9d021dfc4c4abb019fd8884d7c2bf7012ac2d59cda65109dc80d133e810cad
+USE /v0.1.7/Dollyfile-curl 849a284cda0928f52ae33d5bbb0a8674877c5e86f62d6f1a7c79b9f9860b4694
+REQUIRES HEADER libc
+REQUIRES HEADER runtime
+REQUIRES HEADER curl
+REQUIRES HEADER zlib
+REQUIRES LIB    curl
+REQUIRES LIB    z
+REQUIRES TOOL   ar
+REQUIRES TOOL   cc
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   rm
+REQUIRES TOOL   tar
+
+SOURCE /v0.1.7/dist/static/default/git.tar 5c190c2a9301f54afab080b85341a8cd683bee1995b2d911e0bdea93f5eb845a /tmp/git.tar
+SLOP tar \
+  -xf /tmp/git.tar \
+  -C /
+
+FILE /tmp/git/Makefile
+    .RECIPEPREFIX := >
+    SOURCES := $(file </usr/src/git/dolly-sources.txt)
+    OBJECTS := $(addprefix /tmp/git/objects/,$(SOURCES:.c=.o))
+    # NO_REGEX takes Git's regex, with GAWK and NO_MBSUPPORT as its Makefile
+    # sets them: the sysroot's regex.h has no REG_STARTEND.
+    # Git ends with status 128 when its pager cannot start, so the default one
+    # is a command for Slop: less when it is installed, cat otherwise.
+    CPPFLAGS := \
+      -O2 \
+      -std=gnu99 \
+      -Wno-ignored-attributes \
+      -D_DEFAULT_SOURCE \
+      -DNO_GETTEXT \
+      -DNO_ICONV \
+      -DNO_EXPAT \
+      -pthread \
+      -DNO_UNIX_SOCKETS \
+      -DNO_OPENSSL \
+      -DNO_PERL \
+      -DNO_PYTHON \
+      -DNO_IPV6 \
+      -DNO_MMAP \
+      -DNO_REGEX \
+      -DGAWK \
+      -DNO_MBSUPPORT \
+      -DNO_STRLCPY \
+      -DSHA1_BLK \
+      -DSHA256_BLK \
+      -DHAVE_ALLOCA_H \
+      -DHAVE_STRINGS_H \
+      -DHAVE_CLOCK_GETTIME \
+      -DHAVE_GETRANDOM \
+      '-DGIT_VERSION_H="version-def.h"' \
+      '-DBINDIR="/usr/bin"' \
+      '-DGIT_EXEC_PATH="/usr/libexec/dolly"' \
+      '-DDEFAULT_GIT_TEMPLATE_DIR="/usr/share/git-core/templates"' \
+      '-DFALLBACK_RUNTIME_PREFIX="/usr"' \
+      '-DGIT_HOST_CPU="wasm64"' \
+      '-DGIT_LOCALE_PATH="/usr/share/locale"' \
+      '-DSHELL_PATH="/bin/slop"' \
+      '-DDEFAULT_PAGER="$$(command -v less || command -v cat)"' \
+      '-DPAGER_ENV="LESS=FRX LV=-c"' \
+      '-DETC_GITCONFIG="/etc/gitconfig"' \
+      '-DETC_GITATTRIBUTES="/etc/gitattributes"' \
+      '-DGIT_HTML_PATH="/usr/share/doc/git/html"' \
+      '-DGIT_MAN_PATH="/usr/share/man"' \
+      '-DGIT_INFO_PATH="/usr/share/info"' \
+      -I /usr/src/git/compat/regex \
+      -I /usr/src/git \
+      -include dolly/runtime.h
+    all: /usr/libexec/dolly/git-remote-http
+    /tmp/git/objects/%.o: /usr/src/git/%.c
+    >mkdir -p $(dir $@)
+    >cc \
+    >  $(CPPFLAGS) \
+    >  -c $< \
+    >  -o $@
+    /usr/lib/libgit.a: $(OBJECTS)
+    >ar rcs $@ $^
+    /usr/libexec/dolly:
+    >mkdir -p $@
+    /usr/libexec/dolly/git-remote-http: /usr/src/git/common-main.c /usr/src/git/remote-curl.c /usr/src/git/http.c /usr/src/git/http-walker.c /usr/lib/libgit.a | /usr/libexec/dolly
+    >cc \
+    >  $(CPPFLAGS) \
+    >  /usr/src/git/common-main.c \
+    >  /usr/src/git/remote-curl.c \
+    >  /usr/src/git/http.c \
+    >  /usr/src/git/http-walker.c \
+    >  -lgit \
+    >  -lcurl \
+    >  -lz \
+    >  -o $@
+SLOP CWD /usr/src/git make \
+  -f /tmp/git/Makefile
+# The HTTPS helper, which upstream links to the HTTP one.
+FILE /usr/libexec/dolly/git-remote-https
+    #!/bin/slop
+    exec /usr/libexec/dolly/git-remote-http "$@"
+FILE /usr/libexec/dolly/git-remote-http
+SLOP mkdir -p /usr/share/licenses/git-http && cp /usr/share/licenses/git/COPYING /usr/share/licenses/git-http/COPYING
+FILE /usr/share/licenses/git-http/COPYING
+# It links libcurl statically and carries its licence.
+FILE /usr/share/licenses/curl/COPYING
+
+SLOP rm \
+  -rf \
+  /tmp/git \
+  /tmp/git.tar \
+  /usr/lib/libgit.a \
+  /usr/src/git \
+  /usr/share/licenses/git

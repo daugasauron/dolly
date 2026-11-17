@@ -3,15 +3,10 @@ TOOLCHAIN system
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
-REQUIRES HOST download@0
-REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
-REQUIRES HOST upload@0
 REQUIRES HOST threads@0
 
 FROM /v0.1.7/Dollyfile-system-tools 39e8ab131ead90b0190b992d3a9602854a969b11c0825202303c534cdd4dedb0
-# The page's file exchange, here and in the images built on this one.
-INSTALL /v0.1.7/Dollyfile-transfer ef39a62d3300571c25951283697418d4cf7599c6fb6c149537b3a2449b88da7b
 INSTALL /v0.1.7/Dollyfile-session-recover da9cf966a696c1c1ca36a740a3a46e8a37e7377581580ef677b161ba6e76b2fa
 # The packages made of what system-build and system-tools built: this image
 # holds their files, and its record says so, as it does for every INSTALL.
@@ -24,8 +19,6 @@ INSTALL /v0.1.7/Dollyfile-ninja b5329fc86a9115c9642c5e8970ffd1a27f997a5cb45736ed
 # programs it builds.
 INSTALL /v0.1.7/Dollyfile-libdolly-display 41ec47a087c50823a3feeb3dad245c5ed2d469f4c7bdd59b6b241cef1d6e3f15
 INSTALL /v0.1.7/Dollyfile-libdolly-input ccff0928ad7b45c8cc9b9efbf53fc500232d89e64ba1dbcd8d6773eb94694631
-INSTALL /v0.1.7/Dollyfile-libdolly-download 6124246718450b3dc26dbe99cf1dbfc4f559702079a9e1810d95936c2e97e912
-INSTALL /v0.1.7/Dollyfile-libdolly-upload a8b22702779bb75af32b2ac45c99aa17bc649cb9bccdc8b44316843741565519
 INSTALL /v0.1.7/Dollyfile-libdolly-threads 3b78c0215ea45324d6ad2a6f13cc1274db68c080a621924730e2e1a8264fe336
 
 ENTRY /bin/foreground -i /bin/slop

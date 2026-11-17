@@ -1,4 +1,6 @@
-import { DOLLY_ERRNO, DOLLY_HTTP_MAX_BODY } from "./abi.mjs";
+// The page's HTTP policy: boot()'s `http` option, which judges every request of
+// the guest's that leaves the page (page/network.mjs).
+import { DOLLY_ERRNO } from "./process-constants.mjs";
 
 export class HttpError extends Error {
   constructor(errno, message) { super(message); this.errno = errno; }
@@ -45,7 +47,8 @@ export function stripDollyBrowserOwnedHeaders(headers) {
 
 const defaultLimits = Object.freeze({
   maxRequests: 256,
-  maxRequestBytes: DOLLY_HTTP_MAX_BODY,
+  // As much as the broker carries (dolly-http-0.wat, MAX_BODY).
+  maxRequestBytes: 64 * 1024 * 1024,
   maxResponseBytes: Infinity,
   timeoutMilliseconds: 600_000,
 });
@@ -127,29 +130,6 @@ function pathWithin(pathname, prefix) {
   return pathname === prefix || pathname.startsWith(prefix.endsWith("/") ? prefix : `${prefix}/`);
 }
 
-// Recipes name a published file by its site path, which the broker resolves
-// to the file's public URL; the embedding fetches the copy its own release
-// holds (applicationBase).
-function normalizeTrustedSource(source, applicationBase) {
-  if (source === null || typeof source !== "object" ||
-      typeof source.path !== "string" || !source.path.startsWith("/") ||
-      !Number.isSafeInteger(source.byteLength) || source.byteLength <= 0) {
-    throw new TypeError("invalid trusted Dolly bootstrap source");
-  }
-  const url = new URL(source.path.slice(1), applicationBase);
-  if (!/^https?:$/.test(url.protocol) || url.search || url.hash) {
-    throw new TypeError("invalid trusted Dolly bootstrap source URL");
-  }
-  return Object.freeze({
-    href: url.href,
-    bootstrap: true,
-    maxRequestBytes: 1,
-    maxResponseBytes: source.byteLength,
-    timeoutMilliseconds: defaultLimits.timeoutMilliseconds,
-    credentialHeaders: new Set(),
-  });
-}
-
 // A relay is the embedding's transport for an origin whose responses the
 // browser will not let a page read (no CORS headers). The policy still judges
 // the real destination; an admitted request is then fetched from
@@ -184,7 +164,7 @@ function relayUrl(relays, target, headers) {
 }
 
 export class DollyHttpPolicy {
-  constructor(configuration, trustedSources = [], applicationBase = globalThis.location?.href, relays = []) {
+  constructor(configuration, relays = []) {
     if (!Array.isArray(relays) || relays.length > 64) throw new TypeError("invalid Dolly HTTP relays");
     this.relays = new Map(relays.map(normalizeRelay));
     this.hardened = configuration !== undefined;
@@ -196,54 +176,31 @@ export class DollyHttpPolicy {
       defaultLimits.maxRequests,
       "maxRequests",
     ) : Infinity;
-    this.trustedSources = new Map(trustedSources.map((source) => {
-      const rule = normalizeTrustedSource(source, applicationBase);
-      return [rule.href, rule];
-    }));
-    // Each exact build input may be fetched a few times per page, not endlessly.
-    this.maxBootstrapRequests = this.hardened ? 4 * this.trustedSources.size : Infinity;
     this.requests = 0;
-    this.bootstrapRequests = 0;
   }
 
   authorize(target, method, headers, requestBytes) {
     const upperMethod = method.toUpperCase();
-    let rule = upperMethod === "GET" && requestBytes === 0 &&
-      target.username === "" && target.password === "" &&
-      target.search === "" && target.hash === ""
-      ? this.trustedSources.get(target.href)
-      : undefined;
-    if (rule) {
-      // The release's recipes and sources are build inputs selected by the
-      // embedding page and fetched from its own copy, not capabilities granted
-      // by an untrusted Dollyfile. They are exact, read-only, credential-free
-      // URLs with byte-for-byte response limits and their own quota, so a
-      // large source graph cannot exhaust agent requests.
-      if (++this.bootstrapRequests > this.maxBootstrapRequests) {
-        throw new HttpError(DOLLY_ERRNO.EDQUOT, "Dolly bootstrap source quota exceeded");
-      }
-      for (const name of credentialHeaderNames) headers.delete(name);
+    let rule;
+    if (++this.requests > this.maxRequests) {
+      throw new HttpError(DOLLY_ERRNO.EDQUOT, "Dolly HTTP request quota exceeded");
+    }
+    if (this.hardened) {
+      rule = this.rules.find((candidate) =>
+        candidate.origin === target.origin &&
+        (candidate.path === null
+          ? pathWithin(target.pathname, candidate.pathPrefix)
+          : target.pathname === candidate.path) &&
+        candidate.methods.has(upperMethod));
+      if (!rule) throw new HttpError(DOLLY_ERRNO.EACCES, "Dolly HTTP policy denied the request");
     } else {
-      if (++this.requests > this.maxRequests) {
-        throw new HttpError(DOLLY_ERRNO.EDQUOT, "Dolly HTTP request quota exceeded");
-      }
-      if (this.hardened) {
-        rule = this.rules.find((candidate) =>
-          candidate.origin === target.origin &&
-          (candidate.path === null
-            ? pathWithin(target.pathname, candidate.pathPrefix)
-            : target.pathname === candidate.path) &&
-          candidate.methods.has(upperMethod));
-        if (!rule) throw new HttpError(DOLLY_ERRNO.EACCES, "Dolly HTTP policy denied the request");
-      } else {
-        rule = {
-          followRedirects: true,
-          credentialHeaders: null,
-          maxRequestBytes: defaultLimits.maxRequestBytes,
-          maxResponseBytes: defaultLimits.maxResponseBytes,
-          timeoutMilliseconds: defaultLimits.timeoutMilliseconds,
-        };
-      }
+      rule = {
+        followRedirects: true,
+        credentialHeaders: null,
+        maxRequestBytes: defaultLimits.maxRequestBytes,
+        maxResponseBytes: defaultLimits.maxResponseBytes,
+        timeoutMilliseconds: defaultLimits.timeoutMilliseconds,
+      };
     }
     if (requestBytes > rule.maxRequestBytes) {
       throw new HttpError(DOLLY_ERRNO.E2BIG, "Dolly HTTP request exceeds its size limit");
@@ -257,7 +214,7 @@ export class DollyHttpPolicy {
         if (!ordinaryHeaderNames.has(name) && !rule.credentialHeaders.has(name)) headers.delete(name);
       }
     }
-    const relay = rule.bootstrap ? undefined : relayUrl(this.relays, target, headers);
+    const relay = relayUrl(this.relays, target, headers);
     return relay ? { ...rule, followRedirects: false, relay } : rule;
   }
 }
@@ -274,13 +231,13 @@ export function httpPolicyConfigurations(policy) {
   })) } : null];
 }
 
-export function restrictDollyHttpPolicy(policy, inherited, trustedSources, applicationBase) {
+export function restrictDollyHttpPolicy(policy, inherited) {
   if (!Array.isArray(inherited) || inherited.length === 0 || inherited.length > 16 ||
       new TextEncoder().encode(JSON.stringify(inherited)).byteLength > 65536) {
     throw new Error("Invalid inherited image HTTP policy");
   }
   const configurations = [...new Set([...httpPolicyConfigurations(policy), ...inherited].map(value => JSON.stringify(value)))].map(value => JSON.parse(value));
-  const policies = configurations.map(configuration => new DollyHttpPolicy(configuration ?? undefined, trustedSources, applicationBase));
+  const policies = configurations.map(configuration => new DollyHttpPolicy(configuration ?? undefined));
   return {
     configurations,
     // Relays are this page's transport, not inherited authority.
@@ -289,10 +246,8 @@ export function restrictDollyHttpPolicy(policy, inherited, trustedSources, appli
       // Every policy must allow it. Sequential header stripping intersects
       // credentials too; neither the parent nor the new embedding can widen it.
       const rules = policies.map(policy => policy.authorize(target, method, headers, bytes));
-      const bootstrap = rules.every(rule => rule.bootstrap === true);
-      const relay = bootstrap ? undefined : relayUrl(policy.relays, target, headers);
+      const relay = relayUrl(policy.relays, target, headers);
       return {
-        bootstrap,
         ...(relay && { relay }),
         followRedirects: !relay && rules.every(rule => rule.followRedirects === true),
         maxRequestBytes: Math.min(...rules.map(rule => rule.maxRequestBytes)),

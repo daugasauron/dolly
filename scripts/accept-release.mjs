@@ -65,7 +65,8 @@ export async function acceptImage(browser, server, image) {
     `${image}: ${await route.locator("#bootstrap-log").textContent()}`);
   if (image === "default") await route.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
   assert.equal(seedRequested(server.requests), false, `${image}: prebuilt boot fetched the compiler seed`);
-  if (image === "default") assert.equal(await route.evaluate(() => __dolly.httpRequestCount), 0);
+  // A page without http@0 has no request to count.
+  if (image === "default") assert.equal(await route.evaluate(() => __dolly.httpRequestCount ?? 0), 0);
   assert.deepEqual(missing, [], `${image}: the route asked for files the site lacks`);
   assert.deepEqual(violations, [], `${image}: the route broke the site's Content-Security-Policy`);
   await route.close();

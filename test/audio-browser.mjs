@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { browserTest, composed } from "./browser.mjs";
+import { browserTest, workbench } from "./browser.mjs";
 
 // Meters each played source per channel through a muted gain.
 function meter() {
@@ -69,7 +69,7 @@ await browserTest("audio", { image: "system", server: { fixtures } }, async ({ b
   const errors = [];
   const { page, submit, text } = await open({
     policy: { maxRequests: 3, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
-    ...await composed(["audio"], ["libdolly-audio"], { base: "system", setup: page => {
+    ...await workbench(["audio"], ["libdolly-audio"], { setup: page => {
       page.on("pageerror", error => errors.push(error.message));
       return Promise.all([page.addInitScript(meter), page.addInitScript(countCaptures)]);
     } }) });

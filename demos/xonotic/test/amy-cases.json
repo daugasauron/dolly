@@ -1,0 +1,17 @@
+{
+  "image": "default",
+  "directory": "/tmp/amy-xonotic",
+  "steps": [
+    {
+      "fresh": true,
+      "why": "An Ogg stream is set up and cleared; Vorbis's encoder takes a stereo 48 kHz setup.",
+      "script": "amy install libogg",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <ogg/ogg.h>' 'int main(void) { ogg_stream_state stream; return ogg_stream_init(&stream, 7) != 0 || ogg_stream_clear(&stream) != 0; }' > /tmp/amy-ogg.c && cc -O0 /tmp/amy-ogg.c -logg -o /tmp/amy-ogg && /tmp/amy-ogg", "status": 0 },
+    { "fresh": true, "script": "amy install libvorbis", "status": 0 },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <vorbis/vorbisenc.h>' '#include <string.h>' 'int main(void) { vorbis_info info; vorbis_info_init(&info); int failed = vorbis_encode_init_vbr(&info, 2, 48000, .4f) != 0 || strncmp(vorbis_version_string(), \"Xiph\", 4) != 0; vorbis_info_clear(&info); return failed; }' > /tmp/amy-vorbis.c && cc -O0 /tmp/amy-vorbis.c -lvorbisenc -lvorbis -logg -lm -o /tmp/amy-vorbis && /tmp/amy-vorbis", "status": 0 }
+  ]
+}

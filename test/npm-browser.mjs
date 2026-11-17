@@ -303,10 +303,11 @@ try {
   await writeFile(join(app, "devices.html"), extended);
   await writeFile(join(app, "lacking.html"), page.replace(options,
     'document.querySelector("#dolly"), { images, image, modules: modules.filter(url => !url.includes("/dolly-host-upload/")) }'));
-  await mkdir(join(app, "allowed"));
-  await writeFile(join(app, "allowed/note.txt"), "fetched through the policy\n");
-  await mkdir(join(app, "refused"));
-  await writeFile(join(app, "refused/note.txt"), "a program never sees this\n");
+  // Two image directories' indexes, of one row each.
+  for (const [directory, words] of [["allowed", "fetched through the policy"], ["refused", "a program never sees this"]]) {
+    await mkdir(join(app, directory));
+    await writeFile(join(app, directory, "amy-index.txt"), `note /v${checkoutVersion}/Dollyfile-note ${"0".repeat(64)} ${words}\n`);
+  }
 
   // python-data's project: the install line and the FROM row of the package's README,
   // its page, and a site of the project's own image, built on it below, whose page is
@@ -425,7 +426,7 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
       // An explicit check of the capability set: what default declares, no more.
       assert.deepEqual((await tab.evaluate(() => window.dolly.hostModules)).sort(), declared("default"));
       // amy reads the image directory's index of what the image holds.
-      assert.equal(await submit("amy list | grep -q '^curl  *installed '"), 0);
+      assert.equal(await submit("amy list | grep -q '^ps  *installed '"), 0);
 
       const devices = await newPage(), run = await booted(devices, `${origin(isolated)}/devices.html`);
       for (const module of ["gpu@0", "microphone@0", "pty@0"]) {
@@ -436,8 +437,11 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
       assert.ok((await devices.evaluate(() => window.dolly.hostModules)).includes("gpu@0"));
       assert.equal(await run("nena disable gpu"), 0);
       assert.equal(await run("grep -qx 'Answer in French.' ~/.pi/agent/AGENTS.md && grep -qx hi /etc/bytes"), 0);
-      assert.equal(await run(`curl -fsS ${origin(isolated)}/allowed/note.txt > /tmp/note && grep -q 'through the policy' /tmp/note`), 0);
-      assert.notEqual(await run(`curl -fsS ${origin(isolated)}/refused/note.txt > /dev/null`), 0);
+      // What leaves the page for the guest passes the embedding's policy: amy reads
+      // another directory's index only where a rule admits it.
+      assert.equal(await run(`amy server ${origin(isolated)}/allowed/ && amy list | grep -q 'through the policy'`), 0);
+      assert.equal(await run(`amy server ${origin(isolated)}/refused/ && ! amy list 2> /tmp/refused && ` +
+        "grep -q 'policy does not admit' /tmp/refused && rm /etc/dolly/packages-server"), 0);
 
       const lacking = await newPage();
       await lacking.goto(`${origin(isolated)}/lacking.html`);
