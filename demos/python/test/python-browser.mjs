@@ -62,7 +62,7 @@ const fixtures = {
   "python-sockets.py": "demos/python/test/fixtures/python-sockets.py",
 };
 for (const browser of browsers) await demoTest("python", { image: "python", browser, timeout: packages ? 7_200_000 : 600_000, server: { fixtures, handle } }, async ({ server, open }) => {
-  const { page, submit, run, start, waitText, input } = await open({ ...await installProbe("python"), policy: { maxRequests: 1024, rules: [
+  const { page, submit, run, start, waitText, input } = await open({ ...await installProbe("curl", "python"), policy: { maxRequests: 1024, rules: [
     { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"] },
     { origin: server.origin.replace("127.0.0.1", "localhost"), path: "/fixture/gzip" },
   ] } });

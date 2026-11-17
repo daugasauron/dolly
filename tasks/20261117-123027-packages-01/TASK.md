@@ -36,6 +36,10 @@ Built in `work/packages`: `python-data-build` over them (312,221,778 bytes, 910 
 
 Tested: the `python-data` session of `demos/python/test/python-data-browser.mjs` passed in Chromium and Firefox on python-data over them: Pillow draws text with FreeType (`ImageFont.load_default(size=20)`), reads Matplotlib's PNG, and every extension module loads, Pillow's JPEG one among them (`work/packages-evidence-1117/runs/test-python-data.log`; its `openblas` session needs the openblas package, which neither this tree nor the round has built).
 
+Built and tested in `work/packages` over the packages and python's embed archives: `blender` (176,888,721 bytes, 3,404 s; its link names `-lbrotlidec -lbrotlicommon` and the embed archives without `-lHacl_HMAC`); `demos/blender/test/blender-browser.mjs` passed in Chromium and Firefox (its Python edits, saves and loads a scene, Cycles renders a PNG that Blender loads back; `work/packages-evidence-1117/runs/test-blender.log`).
+
+Tested: `demos/sdl2/test/amy-browser.mjs` passed in Chromium and Firefox, SDL_ttf over FreeType with Brotli among its sessions (`test-amy-sdl2.log`).
+
 ## Candidate
 
 - Who installs it: everything that installs `freetype` (GTK, SDL_ttf, Xonotic, Wine, python-data,

@@ -27,6 +27,8 @@ Mojo's staged `mojo/mojo.tar.gz` no longer holds {fmt}: its `SOURCE` pin is refr
 
 Built in `work/packages`: `blender-deps` over the packages (460,838,815 bytes, 873 s): OpenColorIO found expat 2.8.5, OpenImageIO {fmt} 12.1.0, TIFF 4.7.2 and JPEG 62 (FindJPEG's `libjpeg.a`, as when the stage built libjpeg-turbo: OpenImageIO takes libjpeg-turbo's CMake config only for its shared `libjpeg-turbo::jpeg`), and the stage's embedded interpreter links and runs.
 
+Built and tested in `work/packages` over the packages and python's embed archives: `blender` (176,888,721 bytes, 3,404 s; its link names `-lbrotlidec -lbrotlicommon` and the embed archives without `-lHacl_HMAC`); `demos/blender/test/blender-browser.mjs` passed in Chromium and Firefox (its Python edits, saves and loads a scene, Cycles renders a PNG that Blender loads back; `work/packages-evidence-1117/runs/test-blender.log`).
+
 ## Candidate
 
 - Who installs it: Blender (OpenImageIO), 0 A.D., Mojo; sessions.

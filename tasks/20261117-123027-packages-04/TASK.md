@@ -26,6 +26,8 @@ Found in `work/packages`: Blender's link over the expat package failed, `duplica
 
 Built in `work/packages`: `python` with the rename (50,245,335 bytes) and `blender-deps` over it: the check now links the expat package beside libpython and `libpyexpat.a` (`XML_ParserCreate` of the one, `import pyexpat` of the other) and runs.
 
+Built and tested in `work/packages` over the packages and python's embed archives: `blender` (176,888,721 bytes, 3,404 s; its link names `-lbrotlidec -lbrotlicommon` and the embed archives without `-lHacl_HMAC`); `demos/blender/test/blender-browser.mjs` passed in Chromium and Firefox (its Python edits, saves and loads a scene, Cycles renders a PNG that Blender loads back; `work/packages-evidence-1117/runs/test-blender.log`).
+
 ## Candidate
 
 - Who installs it: GTK, Blender; sessions.

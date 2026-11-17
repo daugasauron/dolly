@@ -6,7 +6,7 @@ import { demoTest, framePoint, installProbe, waitForDisplay } from "../../browse
 
 for (const browser of browsers) await demoTest("sdl2", { browser, image: "sdl2", timeout: 600_000,
   server: { fixtures: { "sdl2-probe.c": "demos/sdl2/test/fixtures/sdl2-probe.c" } } }, async ({ server, open }) => {
-  const { page, run, start } = await open({ ...await installProbe("sdl2"),
+  const { page, run, start } = await open({ ...await installProbe("curl", "sdl2"),
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   // Keys with layout-specific text and repeats: Chrome's own key events; in Firefox Playwright's
   // keyboard (a repeated down is a repeat), and the page's key events for text off its layout.

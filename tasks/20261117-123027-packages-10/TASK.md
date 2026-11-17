@@ -24,6 +24,10 @@ Found in `work/packages`: Blender's link over the expat package failed, `duplica
 
 Built in `work/packages`: `python` with the rename (50,245,335 bytes) and `blender-deps` over it: the check now links the expat package beside libpython and `libpyexpat.a` (`XML_ParserCreate` of the one, `import pyexpat` of the other) and runs.
 
+Built and tested in `work/packages` over the packages and python's embed archives: `blender` (176,888,721 bytes, 3,404 s; its link names `-lbrotlidec -lbrotlicommon` and the embed archives without `-lHacl_HMAC`); `demos/blender/test/blender-browser.mjs` passed in Chromium and Firefox (its Python edits, saves and loads a scene, Cycles renders a PNG that Blender loads back; `work/packages-evidence-1117/runs/test-blender.log`).
+
+Tested: the `python` session of `demos/python/test/python-browser.mjs` passed in Chromium and Firefox over this python (`test-python.log`), once its probe installs curl: on integrate/0.1.8 the probe is `system` with `python`, which only `USE`s curl, so its first step's `curl ... || exit 1` ended the shell (`sdl2-browser.mjs` the same; both now `installProbe("curl", ...)`, and sdl2's passes in both). Its `python on default` session fails on integrate/0.1.8 too: `default` keeps no `/usr/bin/env`, and NumPy's `numpy/_build_utils/gitversion.py`, which Meson runs, starts `#!/usr/bin/env python3`.
+
 ## Candidate
 
 - Who installs it: Blender's build, any program that embeds CPython; every python install gets
