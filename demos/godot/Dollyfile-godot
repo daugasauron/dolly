@@ -17,17 +17,17 @@ REQUIRES HOST clipboard@0
 # browser grants WebGPU, and its Compatibility renderer on Mesa's OpenGL (EGL
 # and softpipe, linked in from mesa-build) where it does not, with its sound on
 # audio@0. It plays on the page or runs a project with --headless.
-FROM /v0.1.7/demos/ghostty-gtk/Dollyfile-mesa-build a302d1f1bd5eaf4deaa2390e509e33ffc5c7f1fc9b53db47afac0f361d783e1c
-USE /v0.1.7/demos/tools/Dollyfile-scons dba0542258dcf6384aa0e457af3a410d754caa6782f89d66a40c5f66e9cc14d0
-USE /v0.1.7/Dollyfile-mandoc fdcd60b702db22d8823eb0b1ad8afaba884e97d493760d1c91bc87894a9febb9
-USE /v0.1.7/Dollyfile-libdolly-gpu b13690913448e04e3795994af89d032f7a1537ce13b54c0c73f696ee4375c6d0
-USE /v0.1.7/Dollyfile-libdolly-sockets c6b3e098f7bd988e69bdfdda8306af2e6c565b0e7abcdb9bda5dba2a48a2bfa9
-USE /v0.1.7/demos/godot/Dollyfile-spirv-wgsl d4444e5aa047cadf9fa290618d6060af586174a228790bd8fa9542a479f42c36
-USE /v0.1.7/Dollyfile-libdolly-audio 5b508cabd2df8a3106a8788b1ff75da3ae63d8acc002fa5b8c1120722520deac
-USE /v0.1.7/Dollyfile-libdolly-clipboard 2e385abeefaaf674a33ac178323df84ea08ec231f8a59e7fb95ba0d175e12b3b
-USE /v0.1.7/demos/x11/Dollyfile-x11-window 1bb040a31974a724e6bec150063dfdccedc1b8b7e5e44b421a1b1b20c1ac5949
-USE /v0.1.7/Dollyfile-libdolly-display dca7d4755a50b8dbaa6abc4fd5b8fa34cccbb6400a4fd167d90e9a0f1bcee9ad
-USE /v0.1.7/Dollyfile-libdolly-input 80f7d6d7b775fa542711f6d0205280a3d3f4c5a68eb0f3223f81fc2fe64df08e
+FROM /v0.1.7/demos/ghostty-gtk/Dollyfile-mesa-build 74ec6847120b4cbfc2dea5d76f79dddd412db88c4fe5796adc9c56a7296517c5
+USE /v0.1.7/demos/tools/Dollyfile-scons a96fc102789224671d78a428b761a6148ff21a2665c2a0f0ebc4f2440a318e50
+USE /v0.1.7/Dollyfile-mandoc 9695a20e84d685381fc8aa4de68d2792712e3e48472cb859f8285e82e8a7b96a
+USE /v0.1.7/Dollyfile-libdolly-gpu c8ea3033b57d81ecd86602a7de8435b6f5e248452f341a355e8adee134e5af57
+USE /v0.1.7/Dollyfile-libdolly-sockets bb97486a6d960d677349a7d9d3057975f116828c39b1a8192d31f2380a237e9c
+USE /v0.1.7/demos/godot/Dollyfile-spirv-wgsl d811a9e53a0aeb858f8a9e734d0b349e62039527a2b8ce18183846c6017ebdf6
+USE /v0.1.7/Dollyfile-libdolly-audio ebc24231e01e418ae48a0e97f89ce48943b1db03e14a18a3ec55b313d208ef5f
+USE /v0.1.7/Dollyfile-libdolly-clipboard 68a5cf1f83a09351ef4f85c8d6b8d3c10c159b679f6a9733fa23e83396938d64
+USE /v0.1.7/demos/x11/Dollyfile-x11-window 1cd17aa5479908703a794e4e802da2221ee86cf12b504f93d348320eb38566dd
+USE /v0.1.7/Dollyfile-libdolly-display 54d721d6cb0b447f3341408b6e759a90b4b252ebc129499db89ea6f5cdd0e009
+USE /v0.1.7/Dollyfile-libdolly-input ccaac99ff384f08f2f16647b3375dbabc640d52645134d37fe94da003e30d90e
 
 REQUIRES TOOL cp
 REQUIRES TOOL grep

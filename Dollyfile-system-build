@@ -6,16 +6,14 @@ REQUIRES HOST http@0
 # This is the first step. It has no requirements: its exact compiler commands
 # and C headers are the externally supplied bootstrap seed. How those headers
 # eventually map to the lower-level machine contract is deliberately open.
-SOURCE /v0.1.7/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415 /usr/include/dolly/toolchain.h
 SOURCE /v0.1.7/include/dolly/runtime.h   d57f5242814e516035781cc4fb23c6c5d6c8c6b1b89eafc7447f566fe0b7ad21 /usr/include/dolly/runtime.h
-SOURCE /v0.1.7/include/dolly/process.h   2946bdef52557f5fae8b5741ccd7904745b42a960c27d829f81026a637529ce0 /usr/include/dolly/process.h
+SOURCE /v0.1.7/include/dolly/process.h   48ee65d4ed5513e197d8cc6e9e7b2265fc510084931d3620290ccbc7075dfba6 /usr/include/dolly/process.h
 SOURCE /v0.1.7/include/dolly/host.h 9737f9b15bd65f5732e16bd942fe593132c7c886c3076dfda89a529a23fee08a /usr/include/dolly/host.h
 SOURCE /v0.1.7/include/dolly/host-abi.h 3f2d26426bb088d61a0cc18b6c464697e98c83d8d34ffaf1d063768e619eb766 /usr/include/dolly/host-abi.h
 
 # /usr/include also holds the headers of the modules whose clients the seed
 # holds (host/README.md); every other module's are in its package.
 EXPORTS HEADER libc      /usr/include
-EXPORTS HEADER toolchain /usr/include/dolly/toolchain.h
 EXPORTS HEADER runtime   /usr/include/dolly/runtime.h
 EXPORTS HEADER process   /usr/include/dolly/process.h
 EXPORTS HEADER host /usr/include/dolly/host.h
@@ -37,14 +35,16 @@ FILE /usr/share/licenses/emscripten/LICENSE
 
 # cc, c++, ld and ar forward to the seed compiler. Only that compiler exists at
 # this point, so RUN starts it for them; every later recipe step uses SLOP.
-SOURCE /v0.1.7/dist/static/default/commands/cc.c a282fe564c0387114321839e30a5f66e5ae964d014f206baa7d742f9698d1026 /tmp/process-tools/cc.c
-SOURCE /v0.1.7/dist/static/default/commands/cxx.c 0fd83199b0d1063bf5e81b8e762f7105b013e83eb1c2953967e51db34dd94524 /tmp/process-tools/cxx.c
-SOURCE /v0.1.7/dist/static/default/commands/ld.c d12309353aeb2a80e3766e87c3e9936ac9fb434114e36287a1acbf3339bf104b /tmp/process-tools/ld.c
-SOURCE /v0.1.7/dist/static/default/commands/ar.c f3007ddb171959a587b62d840253144198749acd8dbe0212b2cbd73a55dd83bd /tmp/process-tools/ar.c
-RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/process-tools/cc.c -o /bin/cc
-RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/process-tools/cxx.c -o /bin/c++
-RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/process-tools/ld.c -o /bin/ld
-RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/process-tools/ar.c -o /bin/ar
+SOURCE /v0.1.7/dist/static/default/commands/cc.c 3009db3c344eebe44c1f3cdba7adf1c6c90a6268dc42c02e5030cd0311fbe819 /tmp/process-tools/cc.c
+SOURCE /v0.1.7/dist/static/default/commands/cxx.c e590097529a894fe768f046188bb3e949377ae8b4fecc41093dd3adac5ca820a /tmp/process-tools/cxx.c
+SOURCE /v0.1.7/dist/static/default/commands/ld.c 3bf4f5ed66fefbcb1a40bf98bc175e1e10775e7f99c756507d97ee8d95cfee5c /tmp/process-tools/ld.c
+SOURCE /v0.1.7/dist/static/default/commands/ar.c b8d9b3d57607f48f7c817e4828c35e9aa5cf9e5a92334876fd6081bfea6dcb98 /tmp/process-tools/ar.c
+SOURCE /v0.1.7/dist/static/default/commands/toolchain.h e3e12fa1eabbf433c25bc3db0ef71256667f21669a93ee2dcb0ac20ce18f6fa5 /tmp/process-tools/toolchain.h
+SOURCE /v0.1.7/dist/static/default/commands/toolchain.c 0339818db3f343c2258b9fd64c4182c3c36b4b40692cfe8f8def4cbc2e4910b6 /tmp/process-tools/toolchain.c
+RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/process-tools/cc.c /tmp/process-tools/toolchain.c -o /bin/cc
+RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/process-tools/cxx.c /tmp/process-tools/toolchain.c -o /bin/c++
+RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/process-tools/ld.c /tmp/process-tools/toolchain.c -o /bin/ld
+RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/process-tools/ar.c /tmp/process-tools/toolchain.c -o /bin/ar
 
 EXPORTS ENV CC    cc
 EXPORTS ENV AR    ar
@@ -64,7 +64,7 @@ EXPORTS TOOL dollyfile
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 
-SOURCE /v0.1.7/dist/static/default/slop.c eef57190c2bc7fb36829dced03b93d9db2c4e08fb667f97daf80676bb5570658 /tmp/slop/slop.c
+SOURCE /v0.1.7/dist/static/default/slop.c 64729b60961f13bc719c710a61118cc2d66029661d5a513245ae66892013c050 /tmp/slop/slop.c
 # Slop runs the code of the system's test, [, echo and printf itself.
 SOURCE /v0.1.7/dist/static/default/commands/test.c f8c6d9618f2f78a85eb8c177df0bb565e9f611f849cbc05401a4a888ce98c5f9 /tmp/slop/commands/test.c
 SOURCE /v0.1.7/dist/static/default/commands/echo.c 41f0735133bdae9226bf41909009e6db7fc298a0c9a9e1ee16934c09ad244335 /tmp/slop/commands/echo.c
