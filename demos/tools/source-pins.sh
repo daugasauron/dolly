@@ -38,10 +38,6 @@ DOLLY_UNZIP_SHA256=036d96991646d0449ed0aa952e4fbe21b476ce994abc276e49d30e686708b
 DOLLY_BC_VERSION=7.0.3
 DOLLY_BC_URL='https://github.com/gavinhoward/bc/releases/download/7.0.3/bc-7.0.3.tar.gz'
 DOLLY_BC_SHA256=6e59d1154d167f8073a56de58a5476cc6213a7672abdf4197b5cc9599d56cd43
-# Neatvi: the vi package.
-DOLLY_NEATVI_VERSION=20
-DOLLY_NEATVI_URL='https://github.com/aligrudi/neatvi/archive/refs/tags/20.tar.gz'
-DOLLY_NEATVI_SHA256=e1d9a89d770aa5bb60da472be1a526eb1d99be9267c4d6067fc625f10efc8fe5
 # xxd, from Vim's repository at a tag.
 DOLLY_XXD_VERSION=9.2.1178
 DOLLY_XXD_URL='https://raw.githubusercontent.com/vim/vim/v9.2.1178/src/xxd/xxd.c'

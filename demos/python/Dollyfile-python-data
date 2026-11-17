@@ -14,9 +14,9 @@ REQUIRES HOST dso@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
-# default's packages, Python and the packages of the libraries python-data-build
-# compiled: a session imports NumPy, pandas, Matplotlib and seaborn at once,
-# with nothing to build or fetch.
+# default's packages and seaborn, which installs Python and the packages of the
+# libraries python-data-build compiled: a session imports NumPy, pandas,
+# Matplotlib and seaborn at once, with nothing to build or fetch.
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
 INSTALL /Dollyfile-posix 7be8c3d712e716af25b88175f372bbcd2bd97ca7f67e831ad9e1f01c2272e639
 INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
@@ -26,10 +26,6 @@ INSTALL /Dollyfile-nena 67a37d644a04e3eddd12fe2e5d335dcf473b1b549337f0a9ce2f445f
 INSTALL /Dollyfile-transfer 06c7f7e4b4d53f6ef7d342f48293d1e61af6e9a330d4d857b597f26471ce8c07
 INSTALL /Dollyfile-html b32d302501d9e6207d0e55cb0c4f601506006ba72506a16782405c95c3671d9d
 INSTALL /Dollyfile-ps ca50cc0e628e9a4adacf91febd5e26b9ee2825a4e9ab33b9ee41d313b29a291f
-INSTALL /demos/python/Dollyfile-python 8833885bddfe56551862fba3d762153089994aa977f0d3c91110cebe4393bcc7
-INSTALL /demos/python/Dollyfile-numpy d04884bd545fb8b900541bf4de4d0d975ef17b428a69e0b01bb19c1e9f4311bf
-INSTALL /demos/python/Dollyfile-pandas fc8e28a9b333779ed52ffc52ede3577d440abd4d228516cb957c0a1cd3706705
-INSTALL /demos/python/Dollyfile-matplotlib 63506adf7e4969fcfbec4ce8ecca82dcbbdf92fccfbd5985ea8a798a107e58c2
 INSTALL /demos/python/Dollyfile-seaborn bc1b92545f9000e1057a222ed226bc35ca4156dfc0528f86eee6e84a637f4715
 REQUIRES TOOL python
 

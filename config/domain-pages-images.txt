@@ -25,9 +25,12 @@ rts-arena
 rust-tools
 zero-ad
 slopyard
+fingers
 godot-lantern-drift
 godot-airtime
 godot-voxel-flyover
+truck-town
+dodge-the-creeps
 photocraft-photos
 cmake
 sdl2

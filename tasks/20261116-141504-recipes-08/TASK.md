@@ -1,16 +1,15 @@
 # stack-wrap's programs need stack@0, which the package does not declare
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 190
 - TAGS: audit,recipes,amy,0.1.8
 
 From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`): every package `amy` offers installed alone into a fresh `default` session.
 
-## State (2026-11-16)
+## State (2026-11-17)
 
-Reproduced in Chrome and Playwright's Firefox on `work/round1113/dist/` (Firefox: `ff-a.jsonl`, `ff-b.jsonl`). Nothing changed yet: one line, which rebuilds
-stack-wrap and lean-stage0's chain.
+Closed: confirmed on `ws/recipes`, below.
 
 ## Found
 
@@ -42,3 +41,14 @@ Evidence: `work/audit-1116-evidence/recipes/debug3.jsonl` (case `stack-wrap-fold
 
 In a fresh `default` session `amy install stack-wrap` says nena enables `stack@0`, and a program it
 rewrote runs without a `nena` command; `stack-browser` passes.
+
+## Closed (2026-11-17)
+
+`Dollyfile-stack-wrap` declares `REQUIRES HOST stack@0` (f66240630 on `ws/recipes`). Built in
+`work/recipes` (125,310 bytes). In a fresh `default` session, `amy install stack-wrap` said
+"amy: stack-wrap needs stack@0: nena enables it" and `nena` listed `stack@0 enabled`; after `amy
+install cc`, the task's fold program compiled at `-O2`, rewritten by stack-wrap, ran `200000` deep
+with status 0 and no `nena` command, in Chromium and Firefox (case `stack-wrap-alone`,
+`work/audit-1116-evidence/recipes/ws-recipes/logs/cases-*.jsonl`). `node test/stack-browser.mjs
+chromium firefox` passed (22.6 s, 40.1 s; `logs/a-stack.log`). Rebuilds stack-wrap and
+lean-stage0's chain (lean-stage0, lean-std, lean-meta, lean: the round's).

@@ -30,31 +30,13 @@ flowchart LR
 - [`gpu/`](gpu): the Mojo package `gpu`: `gpu.host.DeviceContext`, the
   kernel-side names and `gpu.sync.barrier`. A program imports it with `-I`
   this directory.
-- [`cross-compile.sh`](cross-compile.sh), [`test/`](test): the fixtures as
-  objects, and their run in the `mojo-gpu` image.
+- [`test/fixtures/`](test/fixtures): the programs and kernels that
+  [the `mojo-gpu` image's test](../test/mojo-browser.mjs) compiles and runs.
 
 ## Build and test
 
 In [the `mojo-gpu` image](../README.md) `mojo build program.mojo` does all of
-it, and that image's test compiles these fixtures there. The test here
-needs no compiler in Dolly: it takes its programs as objects from a native
-compiler built from the patched source (45 minutes at six jobs, 10 GB):
-
-```sh
-mkdir -p build/mojo-target && cd build/mojo-target
-git clone --depth 1 --branch mojo/v1.1.0 https://github.com/modular/modular
-cd modular
-patch -p1 < ../../../demos/mojo/target/patches/compiler.patch
-patch -p1 < ../../../demos/mojo/target/patches/stdlib.patch
-printf '%s\n' 'startup --output_user_root='"$PWD"'/../bazel-root' \
-  'build --config=build-mojo --config=disable-mypy --disk_cache= --compilation_mode=opt' \
-  'common --sandbox_base=' > local.bazelrc
-./bazelw build //Mojo/tools/mojo:mojo
-cd ../../..
-demos/mojo/target/cross-compile.sh
-npm run image -- mojo-gpu
-node demos/mojo/target/test/mojo-target-browser.mjs
-```
+it, and that image's test compiles these fixtures there.
 
 ## A program
 
@@ -63,8 +45,7 @@ node demos/mojo/target/test/mojo-target-browser.mjs
   features are then those of every object `cc` makes, and Wasm tail calls,
   which coroutines need and every browser with 64-bit memories has.
   The driver links by running `cc ARCHIVE COMPILER-RT -lm`: in Dolly that is
-  Dolly's `cc` with `libmojo-rt.a` as the CompilerRT; a native compiler has
-  no such `cc`, so it stops at `--emit object`.
+  Dolly's `cc` with `libmojo-rt.a` as the CompilerRT.
 - `CompilationTarget.is_dolly()` is the standard library's name for the
   platform; it is neither `is_linux()` nor `is_macos()`. Files, paths,
   time, `subprocess.run` and `Process.run` work; Dolly has no FIFO, hard

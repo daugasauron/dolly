@@ -3,6 +3,7 @@
  * the command after -e, on its slave. Usage: xterm [xterm option...] [-e
  * command [argument...]]. SPDX-License-Identifier: MIT */
 #include <pty.h>
+#include <signal.h>
 #include <spawn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,13 +14,22 @@
 
 extern char **environ;
 
+/* The program starts with SIGHUP's default, which this one ignores. */
 static pid_t spawn(const char *path, char *argv[], int from, int to, int last) {
   posix_spawn_file_actions_t actions;
   posix_spawn_file_actions_init(&actions);
   for (int descriptor = to; descriptor <= last; descriptor++)
     posix_spawn_file_actions_adddup2(&actions, from, descriptor);
+  posix_spawnattr_t attributes;
+  posix_spawnattr_init(&attributes);
+  sigset_t hangup;
+  sigemptyset(&hangup);
+  sigaddset(&hangup, SIGHUP);
+  posix_spawnattr_setsigdefault(&attributes, &hangup);
+  posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSIGDEF);
   pid_t pid;
-  int error = posix_spawnp(&pid, path, &actions, NULL, argv, environ);
+  int error = posix_spawnp(&pid, path, &actions, &attributes, argv, environ);
+  posix_spawnattr_destroy(&attributes);
   posix_spawn_file_actions_destroy(&actions);
   if (error) {
     fprintf(stderr, "xterm: cannot start %s: %s\n", path, strerror(error));
@@ -28,7 +38,16 @@ static pid_t spawn(const char *path, char *argv[], int from, int to, int last) {
   return pid;
 }
 
+static int exit_status(pid_t pid) {
+  int status;
+  if (waitpid(pid, &status, 0) != pid) return 1;
+  return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+}
+
 int main(int argc, char *argv[]) {
+  /* xterm's end closes the master, which hangs up whoever holds the slave: this program too,
+   * until it has started the program there. */
+  signal(SIGHUP, SIG_IGN);
   int master, slave;
   char name[64];
   if (openpty(&master, &slave, name, NULL, NULL) != 0) {
@@ -56,10 +75,17 @@ int main(int argc, char *argv[]) {
   tcsetattr(slave, TCSANOW, &quiet);
   char window[32] = "";
   size_t length = 0;
-  while (length + 1 < sizeof(window) && read(slave, window + length, 1) == 1 && window[length] != '\n')
+  ssize_t got = 0;
+  while (length + 1 < sizeof(window) && (got = read(slave, window + length, 1)) == 1 && window[length] != '\n')
     length++;
   window[length] = 0;
   tcsetattr(slave, TCSANOW, &modes);
+  /* No id: xterm ended without a window (-version, -help, a bad option, no
+   * display), so its status is this command's and no program starts. */
+  if (got != 1) {
+    close(slave);
+    return exit_status(emulator);
+  }
   char id[48];
   snprintf(id, sizeof(id), "%lu", strtoul(window, NULL, 16));
   setenv("WINDOWID", id, 1);
@@ -69,9 +95,8 @@ int main(int argc, char *argv[]) {
   char **command = options < argc - 1 ? argv + options + 1 : shell;
   pid_t program = spawn(command[0], command, slave, 0, 2);
   close(slave);
-  int status = 1;
-  if (program > 0) waitpid(program, &status, 0);
+  int status = program > 0 ? exit_status(program) : 1;
   /* The master reads EIO once the slave is gone, and xterm exits. */
   waitpid(emulator, NULL, 0);
-  return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+  return status;
 }

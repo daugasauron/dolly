@@ -1,6 +1,7 @@
 DOLLY 8
 PACKAGE stack-wrap
 REQUIRES HOST runtime@0
+REQUIRES HOST stack@0
 
 # stack-wrap, which makes a program continue deep recursion on fresh browser
 # stacks (host/stack, docs/browser-stack.md). A program it has rewritten

@@ -1,6 +1,6 @@
 # Three docs say amy reads its index through the HTTP broker; it comes over packages@0, and a policy needs no rule for it
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS: audit,amy,docs,0.1.8
 
@@ -9,16 +9,7 @@ From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/rou
 
 ## State (2026-11-17)
 
-Done on `cleanup/0.1.8`, except the browser runs. The three documents say the page's own
-directory's index comes from `packages@0` and another directory's goes through the broker, under
-a rule. `amy-browser` drops `indexRule` (its "amy" and "amy refusal" policies; the "amy" one
-keeps `/mirror/`) and `nena-browser` its index rule. Checked without `dist/`: `node --check` of
-both tests, `platform-documents.test.mjs` after re-pinning `dolly-docs`, `lint:dollyfiles`.
-
-Left: `node test/amy-browser.mjs` and `node test/nena-browser.mjs` on a built `dist/` (none in
-this tree). Eleven demos' browser tests (`git grep amy-index.txt demos/`) add the same rule, and
-`pi-browser`'s comment says a page "admits the package index itself"; they are outside this
-task's list and unchecked.
+Closed: confirmed on `ws/recipes`, below.
 
 ## Found
 
@@ -59,3 +50,20 @@ tests' policies (amy-browser's foreign-directory steps keep their `/mirror/` rul
 ## Done when
 
 The docs say one thing, and `amy-browser` and `nena-browser` pass without the index rule.
+
+## Closed (2026-11-17)
+
+The three documents say one thing (merged with `cleanup/0.1.8`, 451a08bfc: `docs/dollyfile.md`,
+Packages and amy; `docs/http.md`; `docs/browser-boundary.md`'s `packages@0` row and paragraph). On
+`ws/recipes` (63e8cba16) the eleven demos' browser tests drop the same rule too, and
+`pi-browser.mjs` the comment that said a page "admits the package index itself".
+
+Browser runs on `ws/recipes`'s images (its kernel and runtime built from the branch), each without
+an HTTP rule for the page's index (`work/audit-1116-evidence/recipes/ws-recipes/logs/`):
+`test/amy-browser.mjs`'s five sessions of `default` and `system` ("amy", "amy another directory",
+"amy cc", "amy refusal", "USE") and `node test/nena-browser.mjs` passed in Chromium and Firefox
+(`a-amy.log`, `a-nena.log`), and so did `demos/x11/test/x11-browser.mjs`, whose xterm runs `amy
+install tmux` (`a-x11.log`), and `demos/python/test/python-browser.mjs`'s "python on default"
+(`amy install python`, then pip, in Chromium 420.9 s and Firefox 379.5 s, `a-python.log`). The
+other demos' tests run with their images in the 0.1.8 round. Rebuilds: dolly-docs and what
+installs it (the documents), no other image (the tests).

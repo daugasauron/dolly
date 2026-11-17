@@ -1,12 +1,12 @@
 # Mojo: the cross-compiled target test and cross-compile.sh never run; mojo-browser.mjs compiles the same programs in Dolly
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: audit,ports,mojo,cleanup,0.1.8
 
-## State (2026-11-16 night audit)
+## State (2026-11-17)
 
-Nothing removed yet. Source-only change, no image rebuild.
+Removed on `ws/recipes` (f66240630), as the smallest fix says. Source only: no image rebuilds.
 
 ## What
 
@@ -41,3 +41,12 @@ staged by `Dollyfile-mojo`).
 
 `git grep -n 'cross-compile.sh\|mojo-target-browser'` finds nothing outside `tasks/`, and
 `npm run test:source` passes.
+
+## Closed (2026-11-17)
+
+`demos/mojo/target/test/mojo-target-browser.mjs`, `demos/mojo/target/cross-compile.sh` and the
+runner's `needs` entry are gone, and `demos/mojo/target/README.md` keeps the key files and says
+the `mojo-gpu` image's test compiles `test/fixtures/` (kept: `demos/mojo/test/mojo-browser.mjs`
+and `demos/mojo/prepare-sources.sh` read them). Evidence on `ws/recipes`: `git grep -n
+'cross-compile.sh\|mojo-target-browser'` outside `tasks/` finds nothing, and `npm run test:source`
+passes (473 of 473).

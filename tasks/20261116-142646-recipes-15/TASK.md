@@ -9,20 +9,17 @@ From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/rou
 
 ## State (2026-11-17)
 
-Fixed in source on `fix/amy` (`work/fix-amy`, commit `70c84705b`), as Do says: `/usr/bin/zig` is a
-`#!/bin/slop` launcher that exports `ZIG_LIB_DIR` and `ZIG_LIBC` where unset and execs
-`/usr/lib/zig-llvm/zig`; `/usr/bin/imgui-x11` exports `SDL_RENDER_DRIVER=software` where unset and
-execs `/usr/lib/imgui-x11/imgui-x11`; the three EXPORTS ENV rows go and the zig-llvm demo's test no
-longer exports ZIG_LIBC. Pins refreshed (x11-desktop and the Ghostty images that install
-imgui-x11 rebuild too).
+Merged into `integrate/0.1.8` (02b7ba436). imgui-x11 rebuilt on `ws/recipes` (`work/recipes`,
+3,412,918 bytes): in a fresh `default` session, `amy install xorg-server imgui-x11`, `Xsdl :1
+-nolock &`, then `DISPLAY=:1 imgui-x11` with no SDL variable in the environment ran until
+`timeout 6` stopped it (status 124), through `/usr/bin/imgui-x11`, the launcher that defaults
+`SDL_RENDER_DRIVER` to `software`, in Chromium and Firefox (case `imgui-x11-alone`,
+`work/audit-1116-evidence/recipes/ws-recipes/logs/cases-*.jsonl`).
 
-By hand on round1113's images, each program moved where the recipe now puts it and the recipe's
-launcher written in its place (`fix-amy/scripts/make-launchers.mjs`), no variable set: `zig
-build-exe` and `zig build` of a program printing 42 build and run; `imgui-x11` on a running `Xsdl :1`
-runs until stopped (the audit's "with" result); Chromium and Firefox (`fix-amy/zig-chromium.jsonl`,
-`launch-chromium.jsonl`, `launch-ff.jsonl`). Waits for the round to rebuild zig-llvm and imgui-x11;
-then `demos/zig/test/zig-llvm-browser.mjs` (which now sets nothing) and the Done-when commands confirm
-it. The other exporting packages were left as they are: their uses passed in the install session.
+Left for the 0.1.8 round: zig-llvm is built on the LLVM chain (llvm22, 75 minutes, a 9 GB slot),
+which this tree does not rebuild; then `demos/zig/test/zig-llvm-browser.mjs` (which sets no
+variable) and the Done-when's `zig build-exe` of a program printing 42 in a fresh session confirm
+it. Rebuilds zig-llvm, imgui-x11, x11-desktop.
 
 ## Found
 

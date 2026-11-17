@@ -50,8 +50,8 @@ int main() {
 }
 `;
 for (const browser of browsers) {
-  await demoTest("llvm package", { image: "default", browser, timeout: 900_000 }, async ({ server, open }) => {
-    const { run } = await open({ policy: { rules: [{ origin: server.origin, path: "/amy-index.txt", methods: ["GET"] }] } });
+  await demoTest("llvm package", { image: "default", browser, timeout: 900_000 }, async ({ open }) => {
+    const { run } = await open({ policy: { rules: [] } });
     await run("amy install llvm && mkdir /tmp/llvm-test && cd /tmp/llvm-test");
     await run("echo 'int twice(int value) { return 2 * value; }' > twice.c && cc -O2 -c twice.c -o twice.o");
     await run("llvm-nm twice.o | grep -q ' T twice$' && llvm-objdump -d twice.o | grep -q '<twice>:' && " +

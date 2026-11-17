@@ -24,7 +24,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /dist/static/godot/airtime.tar f0004329aa3e605f246f3c278f9eb9a57cbc4d2e91ac7fb7e2ab1320a7f88e54 /tmp/airtime.tar
+SOURCE /dist/static/godot/airtime.tar b8e049c9203fc252372900fb4d3859765834e19c98db3184361923df17761cec /tmp/airtime.tar
 SLOP CWD / tar -xf /tmp/airtime.tar
 SLOP mkdir -p /usr/share/airtime-godot
 SLOP cp -r /usr/src/airtime /usr/share/airtime-godot/project
@@ -41,7 +41,8 @@ FILE /usr/share/man/cat1/airtime-godot.1
     Plays Airtime: Foundry in Godot, the strafe trials of bhop with Airtime's own
     movement and course. A click takes the mouse; A and D with the mouse turning
     build speed in the air, Space or the wheel jumps, Escape gives the mouse back,
-    R restarts, F returns to the last checkpoint, 1-4 practise a section, Q quits.
+    R restarts, F returns to the last checkpoint, 1-4 practise a section, Q quits
+    and prints how far the mouse turned the view, degrees right and up.
     Amber pads drop a moment after a landing; cyan decks hold. With --autopilot it
     plays a run by itself for that many seconds and prints how far it got. It
     draws through WebGPU (gpu@0). Its project is /usr/share/airtime-godot/project:

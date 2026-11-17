@@ -32,7 +32,8 @@ seed's own `cc`.
   Emscripten sources, as Emscripten's container builds them, DWARF included.
   The seed ships the container's builtins; `system-build` compiles the other
   three itself. A link takes these instead with `-L/usr/lib/llvm-runtimes`;
-  `test/llvm-browser.mjs` compares both links.
+  `test/llvm-browser.mjs` compares both links. The site does not publish it:
+  it serves this comparison, which a checkout runs.
 
 Key files: [`Dollyfile-llvm-tablegen`](Dollyfile-llvm-tablegen),
 [`prepare-sources.sh`](prepare-sources.sh) (checks out the pinned commit, applies

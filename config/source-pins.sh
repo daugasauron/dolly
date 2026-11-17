@@ -104,6 +104,11 @@ DOLLY_MANDOC_VERSION=1.14.6
 DOLLY_MANDOC_URL='https://mandoc.bsd.lv/snapshots/mandoc-1.14.6.tar.gz'
 DOLLY_MANDOC_SHA256=8bf0d570f01e70a6e124884088870cbed7537f36328d512909eb10cd53179d9c
 
+# Neatvi: the vi package.
+DOLLY_NEATVI_VERSION=20
+DOLLY_NEATVI_URL='https://github.com/aligrudi/neatvi/archive/refs/tags/20.tar.gz'
+DOLLY_NEATVI_SHA256=e1d9a89d770aa5bb60da472be1a526eb1d99be9267c4d6067fc625f10efc8fe5
+
 # Each demo's own pins: demos/DEMO/source-pins.sh.
 for demo_pins in "$(dirname -- "${BASH_SOURCE[0]}")"/../demos/*/source-pins.sh; do
   if [[ -f "${demo_pins}" ]]; then source "${demo_pins}"; fi

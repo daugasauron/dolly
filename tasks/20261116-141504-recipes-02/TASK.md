@@ -1,6 +1,6 @@
 # amy install tar gives a tar whose -z, -j and -J fail: the package does not install gzip, bzip2 or xz
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: audit,recipes,amy,0.1.8
 
@@ -9,14 +9,7 @@ From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/rou
 
 ## State (2026-11-17)
 
-Fixed in source on `fix/amy` (`work/fix-amy`, commit `183b064ef`): `Dollyfile-tar` INSTALLs gzip,
-bzip2 and xz, pins refreshed. glib's build USEs tar, so glib, gtk-build, mesa-build and the Godot and
-Ghostty images rebuild with it. The core tar's hint ("amy install tar gives a tar with -z") is right
-once it is built. By the audit's method on round1113's dist (`amy install tar gzip bzip2 xz` in a
-fresh default session, then `-czf`, `-cjf`, `-cJf` and `-tzf`, `-tjf`, `-tJf`): passes in Chromium and
-Firefox (`work/audit-1116-evidence/recipes/fix-amy/byhand-chromium.jsonl`, `byhand-ff.jsonl`, case
-`tar-fixed`). Waits for the round to rebuild tar; `test/amy-browser.mjs`'s tar session, which installs
-tar alone, then confirms it (it fails on today's image).
+Closed: confirmed on `ws/recipes`, below.
 
 ## Found
 
@@ -56,3 +49,12 @@ Evidence: `work/audit-1116-evidence/recipes/debug3.jsonl` (cases `tar-z`, `core-
 
 In a fresh `default` session `amy install tar` alone, then `tar -czf`, `-cjf` and `-cJf` of a
 directory and `-tzf`, `-tjf`, `-tJf` of the results succeed.
+
+## Closed (2026-11-17)
+
+Merged into `integrate/0.1.8` (02b7ba436). Confirmed on `ws/recipes` (`work/recipes`): tar rebuilt
+(243,688 bytes, `build1.log`), then `test/amy-browser.mjs`'s "amy tools" with only its tar session
+(tar alone in a fresh `default`; `-cf`, `-xf`, links, then `-czf`/`-tzf`, `-cjf`/`-tjf`,
+`-cJf`/`-tJf`, and `man tar`) passed in Chromium (2.2 s) and Firefox (3.9 s). Evidence:
+`work/audit-1116-evidence/recipes/ws-recipes/logs/a-tools.log`. The fix rebuilds tar and
+what installs or uses it: glib, gtk-build, mesa-build and the Godot and Ghostty images.

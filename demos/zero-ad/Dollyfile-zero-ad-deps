@@ -4,6 +4,7 @@ REQUIRES HOST runtime@0
 REQUIRES HOST audio@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
+REQUIRES HOST touch@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
@@ -21,8 +22,7 @@ INSTALL /demos/zero-ad/Dollyfile-libxml2 a9d11af303de8b27b2aedb32862281bedf74b97
 INSTALL /demos/zero-ad/Dollyfile-libsodium 174f1d4b78b1dca4493e8157ea1c1fa5f9456d33edc218f7936ee57ebbdfb072
 INSTALL /demos/zero-ad/Dollyfile-boost-headers 02279f751ea2ba22e8a297259fb7355bdbfb7585f878f3ba50ce2eeb02660e1a
 INSTALL /demos/zero-ad/Dollyfile-icu 439bcf50b3a2d4dcdcb7a96de9c89f3fa661e2b32b5fe55df557b6ce4d5d928c
-COPY /demos/sdl2/Dollyfile-sdl2 d71374d82452f6987ca07798fc16a46088dbf0fd076f45d48defd844d0d2020f /usr/include/SDL2 /usr/include/SDL2
-COPY /demos/sdl2/Dollyfile-sdl2 d71374d82452f6987ca07798fc16a46088dbf0fd076f45d48defd844d0d2020f /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+INSTALL /demos/sdl2/Dollyfile-sdl2 76d0121ed65553d6b0a66bc32377eb3235905b9271d87a50c3c3a875e873b572
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES TOOL cc
@@ -38,7 +38,6 @@ REQUIRES TOOL rm
 SOURCE /dist/static/zero-ad-build/deps.tar.gz 18922d6461ca5e99d0c62930aae4c3f7f65f5c19d20fe98a711e225e9e8c3048 /tmp/zad/deps.tar.gz
 SLOP gzip -dc /tmp/zad/deps.tar.gz | tar -xf - -C /
 # Licences of the libraries the engine links; zero-ad copies them.
-COPY /demos/sdl2/Dollyfile-sdl2 d71374d82452f6987ca07798fc16a46088dbf0fd076f45d48defd844d0d2020f /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 FOLDER /usr/share/licenses
 
 # ENet keeps its protocol; dolly.c replaces the unix.c and win32.c socket backends.
@@ -51,14 +50,8 @@ FILE /tmp/zad/enet/Makefile
 SLOP make -C /tmp/zad/enet -j4
 SLOP cp -R /tmp/zad/enet/include/enet /usr/include/
 
-# pkg-config descriptions of SDL2 (copied without its own), of Dolly's libcurl
-# and of ENet, built without its upstream build system.
-FILE /usr/lib/pkgconfig/sdl2.pc
-    Name: sdl2
-    Description: Simple DirectMedia Layer
-    Version: 2.32.10
-    Cflags: -I/usr/include/SDL2
-    Libs: -lSDL2 -lm
+# pkg-config descriptions of Dolly's libcurl and of ENet, built without its
+# upstream build system.
 FILE /usr/lib/pkgconfig/libcurl.pc
     Name: libcurl
     Description: Dolly's libcurl over the HTTP broker

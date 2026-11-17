@@ -14,8 +14,7 @@ const modules = "/usr/lib/node_modules";
 
 for (const browser of browsers) await demoTest("janis-install", { image: "default", timeout: 300_000, browser,
   server: { handle: fixture.handle } }, async ({ server, open }) => {
-  const policy = { maxRequests: 256, rules: [{ origin: server.origin, path: "/amy-index.txt", methods: ["GET"] },
-    { origin: registry, pathPrefix: "/", methods: ["GET"] }] };
+  const policy = { maxRequests: 256, rules: [{ origin: registry, pathPrefix: "/", methods: ["GET"] }] };
   const { run, submit, text } = await open({ policy, setup: redirectFetch(registry, `${server.origin}/npm`) });
   const fails = async command => assert.notEqual(await submit(command), 0, `${command} succeeded:\n${await text()}`);
   await run("amy install janis-install && man janis-install > /dev/null");

@@ -152,6 +152,9 @@ if has_image less; then
   copy_static "$(bash scripts/fetch-pinned-archive.sh less)" default/less-692.tar.gz
   copy_static "$(bash scripts/fetch-pinned-archive.sh termcap)" default/termcap-1.3.1.tar.gz
 fi
+if has_image vi; then
+  copy_static "$(bash scripts/fetch-pinned-archive.sh neatvi)" default/neatvi-20.tar.gz
+fi
 if has_image curl; then
   node scripts/build-source-tar.mjs "${static_dir}/default/curl-headers.tar" \
     "${curl_dir}/include/curl" /usr/include/curl \

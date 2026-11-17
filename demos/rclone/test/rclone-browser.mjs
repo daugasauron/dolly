@@ -46,8 +46,7 @@ try {
       { stdio: "ignore" });
       try {
         await until(() => fetch(`${url}/`, { method: "OPTIONS" }).then(response => response.ok, () => false), "rclone serves");
-        const policy = { maxRequests: 4096, rules: [{ origin: server.origin, path: "/amy-index.txt" },
-          { origin: `http://127.0.0.1:${port}`, pathPrefix: `/${token}`,
+        const policy = { maxRequests: 4096, rules: [{ origin: `http://127.0.0.1:${port}`, pathPrefix: `/${token}`,
             methods: ["GET", "HEAD", "PUT", "DELETE", "PROPFIND", "MKCOL", "MOVE", "COPY"],
             credentialHeaders: ["depth", "destination", "overwrite", "x-oc-mtime"] }] };
         const { run } = await open({ policy });

@@ -7,9 +7,23 @@
 From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`).
 
-## State (2026-11-16)
+## State (2026-11-17)
 
-Measured and reproduced in Chrome on `work/round1113/dist/`. Nothing changed yet.
+Fixed on `ws/recipes` (f66240630): the copy and the export are gone; the `make ... libpython3.14.a`
+target stays, since `python` links it. Built in `work/recipes`: python's snapshot is 36,777,256
+bytes, 13,058,917 fewer than 0.1.7's 49,836,173; x11-build's is 13.0 MB smaller, python-data's
+283,793,297 bytes against 296,825,121. In a fresh `default` session `amy files python` lists
+1551 files and no `/usr/lib/libpython3.14.a` (case `python-files`, Chromium and Firefox).
+`demos/python/test/python-data-browser.mjs` passed on the rebuilt python-data in Chromium and
+Firefox (64.0 s, 73.8 s, with its openblas and numpy sessions), and `python-browser.mjs` passed
+(its python session in Chromium, "python on default" in both). Evidence in
+`work/audit-1116-evidence/recipes/ws-recipes/logs/` (`build1.log`, `build1b.log`, `a-python.log`,
+`a2-python-data.log`, `cases2-*.jsonl`).
+
+Left for the 0.1.8 round: scons has no browser test of its own; Godot's build is its use
+(`test/amy-browser.mjs`, "elsewhere"), on the Godot chain this tree does not rebuild, so the
+round's Godot build and tests confirm it. Rebuilds python and everything that installs or builds
+with it: meson, scons, x11-build and the X, GTK, Mesa, Godot, LLVM and Rust chains.
 
 ## Found
 

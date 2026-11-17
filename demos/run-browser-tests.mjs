@@ -24,6 +24,7 @@ const limit = 4;
 const together = ["python", "rts", "pi", "closed-source-agent", "codex", "javascript", "cmake", "tmux", "emacs", "neovim", "sdl2"];
 const both = "a GPU window on a hardware adapter, in Chrome and the installed Firefox";
 const display = new Map([
+  ["godot/test/godot-airtime-browser.mjs", both],
   ["godot/test/godot-flyover-browser.mjs", both],
   ["godot/test/godot-gpu-browser.mjs", both],
   ["godot/test/godot-projects-browser.mjs", both],
@@ -40,7 +41,6 @@ const display = new Map([
 // Display tests that also run here, on their software path alone.
 const withoutDisplayToo = ["xonotic/test/xonotic-browser.mjs"];
 const onDemand = new Map([
-  ["mojo/target/test/mojo-target-browser.mjs", "the objects of demos/mojo/target/cross-compile.sh, which a native Mojo compiler writes"],
   ["zero-ad/test/0ad-large-match-browser.mjs", "a GPU window for thirty minutes: it is run on demand"],
 ]);
 

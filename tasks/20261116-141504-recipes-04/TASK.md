@@ -9,31 +9,24 @@ From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/rou
 
 ## State (2026-11-17)
 
-Fixed in source on `fix/amy` (`work/fix-amy`, commit `183b064ef`), pins refreshed:
-- `demos/x11/Dollyfile-x11-libs`, a new package FROM x11-build: X's client libraries as x11-build
-  builds them, Xlib, libxcb and libXau to the Athena widgets (the whole stack, so that each header
-  has its library and a session can build an Xt program too), static, with `/usr/include/X11` and
-  `/usr/include/xcb`, their `.pc` files and xorgproto's, XErrorDB and the licences (462 files,
-  7.2 MB); it REQUIRES HOST sockets@0 and INSTALLs libdolly-sockets, which xcb.pc links.
-  `demos/x11/README.md` describes it.
-- `x11-window` INSTALLs x11-libs and libdolly-input (was USE); `libxkbfile` INSTALLs x11-libs and
-  declares sockets@0, as an INSTALL of it must; `photocraft` USEs x11-libs and drops its six COPY
-  rows. It keeps the three licence FOLDER rows: its binary links those libraries, so it carries their
-  notices (from x11-libs now), as Godot carries mesa's.
+Merged into `integrate/0.1.8` (02b7ba436). Built on `ws/recipes` (`work/recipes`): x11-libs (a new
+image, 7,513,119 bytes), x11-window, libxkbfile, xkbcomp, xorg-server and x11-desktop. Two of the
+three Done-when items pass in Chromium and Firefox:
 
-By the audit's method on round1113's dist, the package's files stood in for by an archive of them
-read from x11-build's snapshot (`fix-amy/scripts/x11-libs-tar.mjs`): in a fresh default session
-`amy install x11-window libdolly-input libdolly-sockets cc` and the archive, then a program calling
-`x11_window_open` links with `-lx11-window -lX11 -lxcb -lXau -ldolly-sockets` and gets ENOENT;
-`amy install libxkbfile libdolly-sockets cc pkgconf` and the archive, then a program including
-`stdio.h`, `X11/XKBlib.h` and `X11/extensions/XKBfile.h` (its users include the first two; the
-audit's probe without them cannot compile) builds with `pkg-config --cflags --static --libs xkbfile`;
-Chromium and Firefox (`fix-amy/byhand-*.jsonl`, cases `x11-window-fixed`, `libxkbfile-fixed`).
+- `amy install x11-window` in a fresh `default`, then cc: `test/amy-browser.mjs`'s x11-window
+  session (a program calling `x11_window_open` links and runs) passed (`logs/a-programs.log`).
+- `amy install libxkbfile cc pkgconf`: a program including `stdio.h`, `X11/XKBlib.h` and
+  `X11/extensions/XKBfile.h` built with `pkg-config --cflags --static --libs xkbfile` and ran;
+  amy installed libdolly-sockets and x11-libs first and had nena enable `sockets@0` (case
+  `libxkbfile-alone`, `logs/cases-*.jsonl`).
+- `demos/x11/test/x11-browser.mjs` passed on the rebuilt x11-desktop in both (`logs/a-x11.log`).
 
-Waits for the round: x11-libs is a new image; x11-window, libxkbfile, xkbcomp, xorg-server,
-photocraft, photocraft-photos, the Godot images and x11-desktop rebuild. Then the x11-window session
-of `test/amy-browser.mjs` confirms the first Done-when item (it fails on today's image), the
-libxkbfile probe above the second, and `amy files photocraft` must list no `libX11.a`.
+Paths under `work/audit-1116-evidence/recipes/ws-recipes/`. Left for the 0.1.8 round: photocraft is
+built on the Rust chain, which this tree does not rebuild; once it is, `amy files photocraft`
+must list no `/usr/lib/libX11.a` (the regenerated overlaps of this tree still show photocraft's
+0.1.7 snapshot holding libX11.a, libxcb.a and libXau.a beside x11-libs,
+`logs/overlaps-1.txt`). Rebuilds x11-libs, x11-window, libxkbfile, xkbcomp, xorg-server,
+photocraft, photocraft-photos, the Godot images and x11-desktop.
 
 ## Found
 

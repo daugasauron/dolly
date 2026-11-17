@@ -26,5 +26,6 @@
 {"name": "curl", "use": "libcurl API headers over Dolly's fetch-backed libcurl", "licence": "curl", "repository": "https://github.com/curl/curl", "pins": ["CURL"], "sources": ["dist/static/default/curl-headers.tar"]},
 {"name": "zlib", "use": "Compression library", "licence": "Zlib", "repository": "https://github.com/madler/zlib", "pins": ["ZLIB"], "sources": ["dist/static/default/zlib.tar"]},
 {"name": "fontTools", "use": "Matplotlib's font subsetting: python-data", "licence": "MIT", "repository": "https://github.com/fonttools/fonttools", "pins": ["FONTTOOLS"], "sources": ["dist/static/python-data/fonttools-*.whl"]},
-{"name": "mandoc", "use": "mandoc, which also formats upstream's manual pages as text when a package that ships them is built", "licence": "ISC AND BSD-2-Clause AND BSD-3-Clause", "repository": "https://mandoc.bsd.lv/", "pins": ["MANDOC"], "sources": ["dist/static/default/mandoc-1.14.6.tar.gz"]}
+{"name": "mandoc", "use": "mandoc, which also formats upstream's manual pages as text when a package that ships them is built", "licence": "ISC AND BSD-2-Clause AND BSD-3-Clause", "repository": "https://mandoc.bsd.lv/", "pins": ["MANDOC"], "sources": ["dist/static/default/mandoc-1.14.6.tar.gz"]},
+{"name": "Neatvi", "use": "vi and ex", "licence": "ISC", "repository": "https://github.com/aligrudi/neatvi", "pins": ["NEATVI"], "sources": ["dist/static/default/neatvi-20.tar.gz"]}
 ]

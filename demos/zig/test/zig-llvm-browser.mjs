@@ -56,8 +56,8 @@ pub fn build(b: *std.Build) void {
 }
 `;
 for (const browser of browsers) {
-  await demoTest("zig-llvm", { image: "default", browser, timeout: 1_800_000 }, async ({ server, open }) => {
-    const { run } = await open({ policy: { rules: [{ origin: server.origin, path: "/amy-index.txt", methods: ["GET"] }] } });
+  await demoTest("zig-llvm", { image: "default", browser, timeout: 1_800_000 }, async ({ open }) => {
+    const { run } = await open({ policy: { rules: [] } });
     await run("amy install zig-llvm");
     await run("test \"$(zig version)\" = 0.17.0 && mkdir /tmp/zig-test && cd /tmp/zig-test");
     await run(writeCommand("hello.zig", hello));

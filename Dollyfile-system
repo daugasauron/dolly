@@ -12,7 +12,6 @@ INSTALL /Dollyfile-session-recover 5198d53e78105afeee50c99adff1e562fecd360304379
 # holds their files, and its record says so, as it does for every INSTALL.
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
 INSTALL /Dollyfile-cc b4cc426f9a03d714a2472b6b11bda4b0d0227dbe1c132c87b591661e3ac9aeb8
-INSTALL /Dollyfile-make c647d885f985973eabb6d6857a0184ccd16ed1c5779355b12babc320abac2b08
 INSTALL /Dollyfile-posix 7be8c3d712e716af25b88175f372bbcd2bd97ca7f67e831ad9e1f01c2272e639
 INSTALL /Dollyfile-ninja 4fb4cef5d8954a99d2e87394893d1f3f61ad7762203e57028a049b2c3bc85dbb
 # The headers and clients of the modules this toolchain declares, for the

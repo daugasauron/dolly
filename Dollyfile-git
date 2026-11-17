@@ -9,6 +9,8 @@ REQUIRES HOST threads@0
 # threads; without threads it would fork them.
 FROM /Dollyfile-system-build 0c72e09eba84571d4f8634cf6e7507eb1be1b9b8aa1fae61f6b0ec884b26b6fb
 USE /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
+# The editor of git commit, rebase -i and tag -a: Git's default, vi.
+INSTALL /v0.1.7/Dollyfile-vi 9324649db574f366a2bbba27afc5d56256d63c97ab6a8a85983d650832f3e109
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES HEADER zlib

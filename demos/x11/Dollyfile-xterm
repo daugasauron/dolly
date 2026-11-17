@@ -21,7 +21,7 @@ REQUIRES TOOL mv
 
 SOURCE /dist/static/x11/xterm-412.tar.gz 26b76917f13b56f5bfa69ac1984ef688c1b22cf7100cd4ad02352ba5899c537d /tmp/xterm.tar.gz
 SLOP gzip -dc /tmp/xterm.tar.gz | tar -xf - -C /tmp && mv /tmp/xterm-snapshots-xterm-412 /tmp/xterm
-SOURCE /dist/static/x11/xterm-pty.c 24aaf9abc75b345d1ab4e89e1afdec3ec0f4fe394d8e4993bb330ba6dd96475a /tmp/xterm-pty.c
+SOURCE /dist/static/x11/xterm-pty.c ba2ba35ad78fe432f0d1dc2db41c96818a6cddd852ecd6f87f88b3658b7e3703 /tmp/xterm-pty.c
 
 # Slop does not run the configure script, so this says what it would find
 # here, with the features left out named. setsid, setpgid and utmp are not

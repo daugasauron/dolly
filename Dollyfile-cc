@@ -3,8 +3,10 @@ PACKAGE cc
 REQUIRES HOST runtime@0
 
 # The C/C++ toolchain as system-build bootstraps it: the compiler and its
-# drivers, the C and C++ headers and libraries, the host clients and Make.
+# drivers, the C and C++ headers and libraries and the host clients, with the
+# make package.
 FROM /Dollyfile-system-build 0c72e09eba84571d4f8634cf6e7507eb1be1b9b8aa1fae61f6b0ec884b26b6fb
+INSTALL /Dollyfile-make 9e724f32b1d81a63eb17fc9abcb8aeb70bcd9190a86e7b48c206fac82fd78e5e
 
 EXPORTS FILE   compiler      /usr/libexec/dolly/process-bin/compiler
 EXPORTS FOLDER process-sdk   /usr/lib/dolly/process
@@ -16,7 +18,6 @@ EXPORTS TOOL cc
 EXPORTS TOOL c++
 EXPORTS TOOL ld
 EXPORTS TOOL ar
-EXPORTS TOOL make
 EXPORTS ENV CC  cc
 EXPORTS ENV CXX c++
 EXPORTS ENV AR  ar
@@ -24,7 +25,5 @@ FILE /usr/share/man/cat1/ar.1
 FILE /usr/share/man/cat1/c++.1
 FILE /usr/share/man/cat1/cc.1
 FILE /usr/share/man/cat1/ld.1
-FILE /usr/share/man/cat1/make.1
-FILE /usr/share/licenses/make/COPYING
 FILE /usr/share/licenses/libcxx/LICENSE
 FILE /usr/share/licenses/libcxxabi/LICENSE
