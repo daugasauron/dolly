@@ -20,7 +20,7 @@ INSTALL /Dollyfile-dollyfile 05eb5138b6e5166673e5d445b74064d530ebd863aab9a937b5f
 INSTALL /Dollyfile-posix 05628fd9859d6aa86359accd20db6cf32c0b1469e573da158734ce7a2caab0bf
 INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
 INSTALL /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6e458431e
-INSTALL /demos/pi/Dollyfile-pi-dolly 7ef6258fa66a89bb6391241479ef866c9d00e6b3ff963e152216a11db55b23ef
+INSTALL /demos/pi/Dollyfile-pi-dolly 1b38b8bd0fc5863bab35a807b6001b7e3830c5cd734d68ce2f11b4c803bbe42a
 REQUIRES TOOL foreground
 REQUIRES TOOL printf
 REQUIRES TOOL pi
