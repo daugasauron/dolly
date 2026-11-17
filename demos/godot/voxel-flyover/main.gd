@@ -487,7 +487,7 @@ func pace(delta: float) -> void:
 		set_level(level + (4 if mean > FRAME_BUDGET * 8.0 else 3 if mean > FRAME_BUDGET * 5.0 else 2 if mean > FRAME_BUDGET * 2.5 else 1))
 	elif mean > FRAME_BUDGET:
 		# Even at the rate the adapter holds: a half, a third or a quarter of the display's.
-		Engine.max_fps = 30 if mean < (27.0 if Engine.max_fps == 30 else 22.0) else 20 if mean < 36.0 else 12
+		Engine.max_fps = 30 if mean < (27.0 if Engine.max_fps == 30 else 24.0) else 20 if mean < 36.0 else 12
 	elif mean < FRAME_BUDGET * 0.35 and level > 0:
 		calm_windows += 1
 		if calm_windows > 120:

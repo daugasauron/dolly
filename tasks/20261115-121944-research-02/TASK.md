@@ -1,6 +1,6 @@
 # Voxel Flyover research 2: Erosion-like heights: domain warp and derivative-damped fbm, then gullies
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 198
 - TAGS: godot,demo,flyover,research,0.1.8
 
@@ -25,10 +25,29 @@ functions; afl_ext's ocean is MIT by its header, to be confirmed on its page and
 
 ## Done when
 
-It is in the game on `feature/flyover-4`, checked by looking (screenshots at near, middle and far
+It is in the game on `feature/flyover-4` (since 2026-11-17 the planet, `feature/planet`, which took the game's place), checked by looking (screenshots at near, middle and far
 zoom) and in a take, with frame times on NVIDIA in Chrome and Firefox and on the AMD GPU no worse
 than before it (60, 59 and 30 a second) and no new pop, flicker or hitch over the fixed flight.
 
-## State (2026-11-16, 03:22)
+## Closed (2026-11-17): not to be done
 
-Not done, by choice: the mountains are a ridged sum whose spurs stand on their crests and whose gullies on their spurs, and the owner likes them as they are ("I do love the mountains and how they look"). A derivative-damped sum would change every height of the world, with the flight's twin in `terrain.gd`: a round of its own if it is wanted.
+The game is the planet now (`tasks/20261116-223911-planet-day`), and its mountains are still the
+ridged sum whose spurs stand on their crests and whose gullies on their spurs, evaluated at the
+point of the sphere (`terrain.gdshaderinc`'s `terrain_on`). A derivative-damped sum or a gully
+filter is not done, by decision:
+
+- The owner likes the mountains as they are ("I do love the mountains and how they look", the
+  night of 2026-11-15/16) and asked for something else of the terrain: "there should be way more
+  flat parts than mountainous in general... the super tall mountains (which are super cool)
+  should be more rare". That is what the planet's make-up is, measured over 80,000 points of the
+  sphere (`build/planet/rivers.mjs`): 57 % of the planet is land, and of the land 71.3 % is plain
+  (under 30 units over the sea), 12.3 % river or lake, 10.1 % hill, 4.9 % mountain and 1.4 % high
+  peaks (over 140), which stand along the planet's belts.
+- What this step was for, mountains that do not look like noise from afar, the planet got another
+  way: ground read coarsely (a far grid's, the whole planet's) is the mean of what is finer than
+  it is read (`fbm3_seen`, `ridge3_seen`), so a far range is its crests and gains its spurs and
+  gullies as it nears, with no sparkle.
+- A change of the height function now changes it in three places that must agree (the shader, the
+  flight's twin `terrain.gd`, and the planet's texture) and every place of the world with it.
+
+If erosion is wanted later it is a stage of the planet's own (`tatr ls :planet`).
