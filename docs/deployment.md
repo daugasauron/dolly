@@ -153,8 +153,8 @@ npm run serve build/domain-releases     # the candidate as it will be deployed
 and boots it, then prints the commands of the others, which work as printed.
 It never tags, pushes, publishes, uploads or deploys.
 
-1. A green round on the commit: [`round.sh`](../scripts/round.sh) (the seeds,
-   every image until its pins hold, the seed's compiler a fixed point, lint,
+1. A green round on the commit: [`round.sh`](../scripts/round.sh) (the runtime,
+   every image until its pins hold, the seeds' compilers a fixed point, lint,
    the source, artifacts and browser suites in both browsers, every demo, and
    the GPU tests on a display with a hardware adapter), whose verdict is its
    stages' exit statuses (`round.sh verdict`); the tree clean; every version
@@ -167,8 +167,10 @@ It never tags, pushes, publishes, uploads or deploys.
    to publish, boot from an empty app (`DOLLY_NPM_PACKS`, `test/npm-browser.mjs`;
    its log beside them).
 4. Tag `vX.Y.Z` on the commit; push `main` and the tag.
-5. GitHub release `vX.Y.Z` with notes and the seed's compiler, pinned to that
-   asset ([sources](sources.md#the-seeds-compiler));
+5. GitHub release `vX.Y.Z` with notes and the seeds it was built with, the C
+   compiler and the Rust and Go demos', each pinned to its asset
+   ([sources](sources.md#the-seeds-compiler)), and the release then holds each
+   one's pinned bytes;
    [`publish-npm.sh`](../scripts/publish-npm.sh) publishes each package of
    step 3 under `@daugasauron` in dependency order, signing in and approving
    in a browser, and checks that the registry holds the tested bytes.

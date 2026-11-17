@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage the sources of rustc, rustdoc, the standard library and LLVM as the seed's build prepared them; compile nothing."""
+"""Stage the sources of rustc, rustdoc, the standard library and LLVM as toolchain/prepare.sh prepared them; compile nothing."""
 from pathlib import Path
 import shutil
 import subprocess
@@ -8,7 +8,7 @@ import sys
 from rust_sources import cargo_config, crate_licences, inputs_key, keep, kept, vendor
 
 project = Path(__file__).resolve().parents[2]
-# demos/rust/toolchain/prepare.sh and build-llvm.sh: pinned, verified, patched;
+# demos/rust/toolchain/prepare.sh: pinned, verified, patched;
 # prepare.inputs keys the tree that prepare.sh unpacks.
 port = project / "build/rustc-port"
 outputs = [project / "build/rust-sources/rustc.tar.gz", project / "build/rust-sources/rust-llvm.tar.gz"]

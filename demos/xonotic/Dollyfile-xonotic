@@ -11,12 +11,12 @@ REQUIRES HOST touch@0
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
 INSTALL /Dollyfile-posix 7be8c3d712e716af25b88175f372bbcd2bd97ca7f67e831ad9e1f01c2272e639
 INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
-COPY /demos/xonotic/Dollyfile-xonotic-build 114d114cb5505b51f422321556e4a173fab6802a234860dd0f2984ba33ab1e42 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
-INSTALL /demos/xonotic/Dollyfile-xonotic-shaders 7301c04b76d6b59042008ccf2dc7d060ddee072877ad03a49cfb94894e8f7782
-COPY /demos/xonotic/Dollyfile-xonotic-build 114d114cb5505b51f422321556e4a173fab6802a234860dd0f2984ba33ab1e42 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY /demos/xonotic/Dollyfile-xonotic-build 0e87cca1c057683f37f3d28e9291ab7c01d7747bc2f185eec7ab9d2b5ae5d8e9 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+INSTALL /demos/xonotic/Dollyfile-xonotic-shaders d07a3f5bcda4baa9f32169c75fa8f831f05aa40f5ef7d8413c46b97b4010b76b
+COPY /demos/xonotic/Dollyfile-xonotic-build 0e87cca1c057683f37f3d28e9291ab7c01d7747bc2f185eec7ab9d2b5ae5d8e9 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
 COPY /demos/sdl2/Dollyfile-sdl2 d71374d82452f6987ca07798fc16a46088dbf0fd076f45d48defd844d0d2020f /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
-COPY /demos/xonotic/Dollyfile-xonotic-build 114d114cb5505b51f422321556e4a173fab6802a234860dd0f2984ba33ab1e42 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
+COPY /demos/xonotic/Dollyfile-xonotic-build 0e87cca1c057683f37f3d28e9291ab7c01d7747bc2f185eec7ab9d2b5ae5d8e9 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
 COPY /demos/tools/Dollyfile-freetype 973f0d6a05a1d73ff00458e76afd65f39600acd9c9703e166bd55cfa5260fd27 /usr/share/licenses/freetype /usr/share/licenses/freetype
 COPY /demos/tools/Dollyfile-libpng e366774feb4f3c2d01536c2b954f7f18399301df90111fbf75f3b86e6b5a5b2b /usr/share/licenses/libpng /usr/share/licenses/libpng
 COPY /demos/xonotic/Dollyfile-libogg a3e8a6c22016f4dc2bdf900e74b062d7cbc99cca5d7ece587d196ba45eba0a51 /usr/share/licenses/libogg /usr/share/licenses/libogg

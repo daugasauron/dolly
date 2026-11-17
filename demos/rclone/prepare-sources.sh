@@ -1,10 +1,12 @@
 # Sourced by scripts/prepare-image-sources.sh.
 # rclone's release and the modules it vendors (upstream's archive of go mod
 # vendor), with the Dolly patch and main, as /tmp/rclone: only the files its
-# build for dolly/wasm64 compiles, which the seed's go lists, and each module's
-# licence files under /usr/share/licenses/rclone.
+# build for dolly/wasm64 compiles, which the go that build-go-toolchain.sh
+# cross-builds lists, and each module's licence files under
+# /usr/share/licenses/rclone.
 if has_image rclone; then (
   shopt -s nullglob nocaseglob
+  bash demos/go/build-go-toolchain.sh
   tree="${staging}/rclone"
   mkdir -p "${tree}/dolly"
   tar -xzf "$(bash scripts/fetch-pinned-archive.sh rclone)" --strip-components=1 -C "${tree}"

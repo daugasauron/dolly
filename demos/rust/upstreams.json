@@ -1,5 +1,5 @@
 [
-{"name": "Rust", "use": "rustc, std and Cargo's seed, built outside Dolly; rust-build builds rustc and std from source in Dolly", "licence": "MIT OR Apache-2.0", "prebuilt": true, "repository": "https://github.com/rust-lang/rust", "sources": ["dist/static/rust/rust-sdk.tar.gz", "dist/static/rust/rustc.tar.gz"]},
+{"name": "Rust", "use": "rustc, std and Cargo's seed, as the previous round's rust-build and cargo built them; rust-build builds rustc, std and Cargo from source in Dolly", "licence": "MIT OR Apache-2.0", "prebuilt": true, "repository": "https://github.com/rust-lang/rust", "pins": ["RUST_SEED"], "sources": ["dist/static/rust/rust-seed.tar.gz", "dist/static/rust/rustc.tar.gz"]},
 {"name": "LLVM (Rust's fork)", "use": "The LLVM that rustc links; rust-llvm builds it in Dolly", "licence": "Apache-2.0 WITH LLVM-exception", "repository": "https://github.com/rust-lang/llvm-project", "sources": ["dist/static/rust/rust-llvm.tar.gz"]},
 {"name": "ripgrep", "use": "rg", "licence": "Unlicense OR MIT", "repository": "https://github.com/BurntSushi/ripgrep", "sources": ["dist/static/rust/ripgrep.tar.gz"]},
 {"name": "fd", "use": "fd", "licence": "MIT OR Apache-2.0", "repository": "https://github.com/sharkdp/fd", "sources": ["dist/static/rust/fd.tar.gz"]},

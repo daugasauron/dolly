@@ -19,7 +19,8 @@ fails when a recipe `SOURCE` or a pin of [`source-pins.sh`](../config/source-pin
   and musl, LLVM's compiler, compiler-rt and headers, the Ghostty kernel plugin,
   and the Iosevka font.
 - **Images**: snapshots of programs compiled in Dolly from pinned sources, plus
-  files built outside Dolly: the Rust and Go seeds, model weights, fonts and game data.
+  the Rust and Go seeds, which Dolly's previous round built, and files built
+  outside Dolly: model weights, fonts and game data.
 - **Sources**: every site-path `SOURCE` of the catalog under `dist/static/`,
   the recipes and headers, at the same release path as the images.
 - **Dolly's code**: MIT ([`LICENSE`](../LICENSE), `package.json`), except 12

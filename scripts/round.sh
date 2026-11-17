@@ -3,9 +3,10 @@
 #   scripts/round.sh [FIRST [LAST]]   the stages from FIRST (default seed) to LAST (default gpu)
 #   scripts/round.sh verdict          whether the round passed on HEAD
 # The stages, in order:
-#   seed      the runtime, the Rust and Go seeds, the recipes' pins
+#   seed      the runtime, the recipes' pins
 #   images    the catalog, built again until its pins hold
-#   compiler  the seed's compiler is the one llvm-cc linked: a fixed point
+#   compiler  the seeds' compilers are those the round built (C's by llvm-cc, Rust's by
+#             rust-build and cargo, Go's by go): a fixed point
 #   lint      the Dollyfiles
 #   suites    source, artifacts, the browser suite in Chrome and Firefox, every demo
 #   gpu       the tests that need a hardware adapter in a window, on the X display
@@ -44,18 +45,17 @@ first="${1:-seed}" last="${2:-gpu}"
 [[ -z "$(git status --porcelain)" ]] || { echo "dolly: the round needs a clean tree" >&2; exit 1; }
 
 log() { echo "== $* $(date +%H:%M)"; }
-# Commits what the pins changed, in the recipes and config/source-pins.sh.
+# Commits what the pins changed, in the recipes and the source-pins.sh files.
 commit_pins() {
   [[ -n "$(git status --porcelain)" ]] || return 0
-  git add -u -- ':(glob)**/Dollyfile*' config/source-pins.sh
+  git add -u -- ':(glob)**/Dollyfile*' ':(glob)**/source-pins.sh'
   [[ -z "$(git status --porcelain | grep -v '^M  ')" ]] || { echo "dolly: the stage changed more than pins:"; git status --porcelain; return 1; }
   git commit -q -m "$1" && log "committed $(git rev-parse --short HEAD): $1"
 }
-seed_compiler() { sed -n 's/^DOLLY_SEED_COMPILER_SHA256=//p' config/source-pins.sh; }
+seeds() { grep -h -E '^DOLLY_(SEED_COMPILER|RUST_SEED|GO_SEED)_SHA256=' config/source-pins.sh demos/*/source-pins.sh; }
 # The stages' steps: each runs to its end and fails on any step that failed.
 stage_seed() {
-  npm run build:runtime && bash demos/rust/build-rust-toolchain.sh && bash demos/go/build-go-toolchain.sh &&
-    npm run build:runtime && bash scripts/prepare-image-sources.sh && node scripts/update-recipe-pins.mjs --sources &&
+  npm run build:runtime && bash scripts/prepare-image-sources.sh && node scripts/update-recipe-pins.mjs --sources &&
     node scripts/update-recipe-pins.mjs && commit_pins "Recipes: pinned for the round"
 }
 stage_images() {
@@ -69,16 +69,17 @@ stage_images() {
 }
 stage_compiler() {
   local before after
-  before="$(seed_compiler)"
-  node demos/llvm/pin-seed-compiler.mjs || return 1
-  after="$(seed_compiler)"
+  before="$(seeds)"
+  node demos/llvm/pin-seed-compiler.mjs && node demos/rust/pin-seed.mjs && node demos/go/pin-seed.mjs || return 1
+  after="$(seeds)"
   if [[ "${after}" != "${before}" ]]; then
-    commit_pins "Seed compiler: ${after:0:8}, as llvm-cc linked it; not yet a fixed point"
-    echo "dolly: the seed's compiler changed from ${before:0:8} to ${after:0:8}: a round on it is next"
+    commit_pins "Seeds: pinned as the round built them; not yet a fixed point"
+    echo "dolly: the seeds changed, a round on them is next:"
+    diff <(echo "${before}") <(echo "${after}")
     return 1
   fi
-  # The same compiler: its URL may name a new version.
-  commit_pins "Seed compiler: the fixed point ${after:0:8}, at this version's release"
+  # The same seeds: their URLs may name a new version.
+  commit_pins "Seeds: the fixed point, at this version's release"
 }
 stage_lint() { npm run -s lint:dollyfiles; }
 stage_suites() {

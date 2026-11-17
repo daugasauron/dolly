@@ -1,40 +1,47 @@
 # Go
 
 Go built inside Dolly: Go's own toolchain (gc, Go 1.27.3), ported as `GOOS=dolly
-GOARCH=wasm64`, rebuilds itself and its standard library here from a seed built
-outside, and builds Go programs that run as Dolly commands.
+GOARCH=wasm64`, rebuilds itself and its standard library here from the previous
+round's build of it, the seed, and builds Go programs that run as Dolly commands.
 
 ## Images
 
-- `go-sdk`: the seed, staged: Go's GOROOT for dolly/wasm64, cross-built outside Dolly.
+- `go-sdk`: Go's GOROOT for dolly/wasm64: its patched source and the seed, the previous round's commands.
 - `go-build`: the seed with the `go` package installed over it; the base of every Go build.
 - `go-tools`: interactive shell: `system` with the `go` and `esbuild` packages.
 - `go`: `go` and `gofmt`, the Go toolchain and standard library compiled again inside Dolly by the seed.
 - `esbuild`: `esbuild`, the JavaScript and TypeScript bundler, built by `go`.
 
-Build the seed once with `./demos/go/build-go-toolchain.sh` (Linux x86_64, curl, patch,
-Node), then `npm run image -- go-tools`.
+`npm run image -- go-tools` fetches the pinned seed from the GitHub release that carries it.
 
 ## The seed
 
-Go 1.27.3 with [`go-1.27.3-dolly.patch`](go-1.27.3-dolly.patch) is a bootstrap
-exception: [`build-go-toolchain.sh`](build-go-toolchain.sh) cross-builds it with
-`make.bash` (`GOOS=dolly GOARCH=wasm64`) on Linux, with upstream's linux/amd64
-release of the same version as `GOROOT_BOOTSTRAP`, both pinned in
-[`source-pins.sh`](../../config/source-pins.sh), and packages the GOROOT: the
-sources, the tools for dolly/wasm64 and its `go` and `gofmt`. Go is written in Go,
-so the first toolchain that runs here is built elsewhere; the seed is that and
-nothing more ([below](#built-inside-dolly)). It names the process contract it
-was built for (`DOLLY_PROCESS_ABI_DIGEST`), so a change of the contract rebuilds it.
+The seed is Go's ten commands for dolly/wasm64 as the `go` package of the
+previous round built them, with what `cmd/dist` generated for them, which Go's
+source lacks: the runtime headers in `pkg/include` and six `z*.go` sources.
+[`pin-seed.mjs`](pin-seed.mjs) archives and pins it in
+[`source-pins.sh`](source-pins.sh) (`DOLLY_GO_SEED_*`), and the GitHub release
+carries ([sources](../../docs/sources.md#the-rust-and-go-seeds)). Beside it,
+`go-sdk` holds the GOROOT's sources: Go 1.27.3 with
+[`go-1.27.3-dolly.patch`](go-1.27.3-dolly.patch), and the identities of the
+process contract and `http@0` that the linker writes into executables
+([`prepare-go-source.sh`](prepare-go-source.sh)), so a patch or contract
+change reaches the build without a new seed. Go is written in Go, so the first
+toolchain came from outside: [`build-go-toolchain.sh`](build-go-toolchain.sh)
+cross-builds the same source with `make.bash` on Linux, with upstream's
+linux/amd64 release of the same version as `GOROOT_BOOTSTRAP`, and writes its
+commands in the seed's layout for a bootstrap from nothing (on 2026-11-17 the
+pinned seed's bytes); rclone's staging lists its files with the `go` it leaves.
 
 ## Built inside Dolly
 
 [`Dollyfile-go`](Dollyfile-go) runs the seed's `go install -a` on the
-seed's sources, with the flags of upstream's release build, over the seed: every
-package of the standard library and of the ten commands upstream ships is
-compiled in Dolly. The build fails unless each command is byte for byte the
-seed's, so the toolchain the `go` package keeps is the seed reproduced from
-source by itself.
+GOROOT's sources, with the flags of upstream's release build, over the seed:
+every package of the standard library and of the ten commands upstream ships
+is compiled in Dolly. Its commands are the next round's seed: a round that pins
+the same bytes is the fixed point, where the toolchain the `go` package keeps
+is the seed reproduced from source by itself. The seed taken from 0.1.7's
+`go` package was, command for command, the cross-built seed it was built by.
 
 ## The port
 

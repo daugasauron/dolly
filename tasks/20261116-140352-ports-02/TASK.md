@@ -144,8 +144,8 @@ something it now has, and each says so in a comment that is no longer true.
    `demos/rust/test/fixtures/rust/tokio/src/main.rs:39-60` runs a multi-thread Tokio runtime on a
    spawned thread, as Codex does, and its `tokio::fs` calls go through the blocking pool; it passed
    in round 1117 (`rust: chromium passed in 95.1s`). Not confirmed by a Codex build without the
-   hunks (40.5 min). A change under `demos/rust/config/patches/` also changes the Rust seed's key
-   (`tasks/20261116-142914-ports-07`).
+   hunks (40.5 min). A change under `demos/rust/config/patches/` rebuilds only images: the Rust
+   seed has no key since `tasks/20261116-142914-ports-07`.
    Not stale: `installation-id.patch` (upstream's `spawn_blocking` with `file.lock()` replaced by
    a read that fails when the file is absent, so `demos/codex/launch.c:61` writes the id first).
    Dolly has `flock` (`flock-probe.log`), but Rust's standard library implements `File::lock` only

@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 # here from their pinned sources. The seed builds the first rustc; that one
 # builds the rustc kept. Every Rust program in the catalog is built by this
 # image's toolchain.
-FROM /demos/rust/Dollyfile-rust-sdk 5c6069ce621b1c73080c6748ec16c893118720685d1e07d698ab2d4bd2f6963c
+FROM /demos/rust/Dollyfile-rust-sdk ddccc3e418082e89e17b424fb0366e047e0e5dad83dcea1e9feb085c14feec1a
 COPY /demos/rust/Dollyfile-rust-llvm 72fd614ad7e3a0ca903e82c00959222f17de6e1c69a1bf747ef9e687b50b9bf9 /opt/rust-llvm /opt/rust-llvm
 # patch, for the compiler's patch below.
 INSTALL /Dollyfile-git b1110c700518519b5cc15e98ced5e96c62c50b799a8bace69b2580fb69c9fca6
@@ -29,7 +29,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL ln
 REQUIRES TOOL rm
 
-# rustc's and std's source as the seed's build prepared it, their locked
+# rustc's and std's source as toolchain/prepare.sh prepared it, their locked
 # crates as Cargo's directory source, and the build's settings in
 # /tmp/rustc/.cargo/config.toml.
 SOURCE /dist/static/rust/rustc.tar.gz 29234737d1587e914e0a03634ed99591d1c8f26a275c7767e42e0867c960bd57 /tmp/rustc.tar.gz
@@ -41,8 +41,8 @@ SLOP rm /tmp/rustc.tar.gz
 SOURCE /dist/static/rust/rustc-sysroot.patch 1446ec39a26318f5caa6ec71f71490225ca26b5b8313074f14ff812f92e6cf7f /tmp/rustc/sysroot.patch
 SLOP patch -p1 -d /tmp/rustc/source -i /tmp/rustc/sysroot.patch
 # The target as Dolly defines it now (panics unwind). The seed's library was
-# built for the seed's definition, which stays the host's until a library for
-# this one replaces it: a crate built for one cannot link the other's.
+# built for the seed's definition, which stays until a library for this one
+# replaces it: a crate built for one cannot link the other's.
 SOURCE /dist/static/rust/wasm64-emscripten-probe.json 90972fb95b4f3f9abdc5a4483d284afc349095f504fa5febf3612c69cd93d053 /tmp/rustc/spec/wasm64-emscripten-probe.json
 
 # One generation: the compiler, built by the rustc in /opt/rust-sdk against the
@@ -55,8 +55,8 @@ FILE /tmp/rustc/compiler.slop
 # The standard library for that target by the rustc in /opt/rust-sdk, left in
 # /tmp/rustc/sdk-target, with libtest for cargo test; its build scripts run on
 # the host. Cargo's build-std reads the source below the sysroot and builds it
-# for a crate. The compiler aborts, as its first generation must with the
-# seed's library; the library unwinds.
+# for a crate. The compiler aborts (unwinding made it 1.5 to 3 times
+# slower); the library unwinds.
 FILE /tmp/rustc/std.slop
     cd /tmp/rustc/sdk
     rm -rf /tmp/rustc/sdk-target
@@ -132,6 +132,9 @@ SLOP ln -s rustc /opt/rust-sdk/bin/rustdoc
 SLOP rm -rf /tmp/rustc/target
 SLOP slop -e /tmp/rustc/std.slop
 SLOP CWD /tmp/rustc/sdk-target/wasm64-emscripten-probe/debug/deps slop -e -c 'for library in *.rlib; do cmp "$library" "/opt/rust-sdk/lib/rustlib/wasm64-emscripten-probe/lib/$library"; done'
+# The libc a crate's [patch.crates-io] takes (vendor-crates) is the library's.
+SLOP rm -rf /opt/rust-sdk/src/libc
+SLOP cp -R /tmp/rustc/libc-186 /opt/rust-sdk/src/libc
 SLOP rm -rf /tmp/rustc /opt/rust-llvm /opt/rust-sdk/lib/rustlib/src
 
 # Cargo, by the kept compiler and library; the seed's Cargo drives its last build.
