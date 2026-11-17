@@ -10,7 +10,21 @@ whole plan: `work/research/blender-2026-11-17.md`. Stage 1 (the headless build) 
 
 ## State (2026-11-17)
 
-Not started; waits for stage 1's program.
+Stage 1 is done and went further than planned: the `blender` package exists
+(`demos/blender/Dollyfile-blender`), `amy install blender` works, and its test runs a script on
+the default scene (operators, a modifier, saving and loading a `.blend`) in both browsers. Left:
+
+- **NumPy inside Blender, the first thing to decide.** Blender is linked through cast emulation
+  because its `METH_NOARGS` methods have one parameter and CPython calls them with two; such a
+  program loads no extension module (`docs/process-model.md`). Either CPython calls a method by
+  the type its flags say (a change to the `python` package's `cfunction_vectorcall_NOARGS` and
+  the getters, which then needs no emulation if nothing else in Blender casts), or NumPy's
+  modules are linked into Blender. Measure first which calls trap without emulation.
+- The add-ons: which load, which need NumPy.
+- The licence rows in `docs/licences.md`, the libraries' notices in `/usr/share/licenses`, and
+  the source archive beside the image.
+- What the package leaves out, by measuring (it is 177 MB).
+- A round with the rest of the catalog: this branch's tree has the 0.1.7 release's images.
 
 ## What
 

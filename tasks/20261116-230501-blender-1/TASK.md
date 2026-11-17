@@ -1,6 +1,6 @@
 # Blender 5.3 in Dolly, stage 1: the headless build
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: blender,port,demo
 
@@ -11,9 +11,10 @@ this work in a separate agent, follow your plan it looks good." Research and the
 
 ## State (2026-11-17)
 
-In work on `ws/blender` (`work/blender`). The libraries are being built in a session (headless
-Chrome on `cmake-build`, driven by `build/blender-dev/`, not committed); recipes follow what the
-session proves.
+Done on `ws/blender` (`work/blender`); the closing section has the result. What follows is the
+day's record: the libraries and Blender were first built in a session (headless Chrome on
+`cmake-build`, driven by `build/blender-dev/`, not committed), and the recipes follow what the
+session proved.
 
 Built in the session from the archives Blender 5.3.0 pins (`versions.cmake`), unchanged, by
 their own CMake projects at four jobs (configure, build):
@@ -125,11 +126,19 @@ Findings:
 - The tree's images are the 0.1.7 release's and 90 of its recipes have changed since; `python`
   was rebuilt here (897 s with its closure's cache hits).
 
-## Left
-
-Blender's build (running in the session) and `blender -b --python-expr`. Then the recipes in `demos/blender/`, the test and the README.
-
 ## Done when
 
 `demos/blender/test/blender-browser.mjs` runs `blender -b --python-expr` printing its version in
 Chromium and Firefox, from images the recipes built.
+
+## Closed (2026-11-17)
+
+Both images build from their recipes on `ws/blender` (`npm run image -- blender`):
+`blender-deps` in 637 s, `blender` in 4,046 s (`make -j4` 3,865 s, kernel memory 1,977 MiB, a
+177 MB package); the recipe itself checks Blender's Python and renders the default scene with
+Cycles. `demos/blender/test/blender-browser.mjs` installs the package into `default` with amy
+and passed in Chromium (16.8 s) and Firefox (20.2 s): the default scene, a mesh with a modifier,
+a `.blend` saved and loaded, and a Cycles render read back. Logs:
+`build/blender-evidence/image-blender.log`, `test.log`. Not done here and wanted: a round with
+the rest of the catalog (this tree's other images are the 0.1.7 release's), the licence rows of
+`docs/licences.md` and the libraries' notices in the package (stage 2).

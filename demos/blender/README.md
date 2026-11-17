@@ -85,11 +85,12 @@ Make at four jobs. What the platform decided:
 - **Epoxy** is required by Blender's build even with no OpenGL backend: its
   dispatch is built from its generator and two sources, without Meson.
 
-Blender's first pass compiled 2,838 units in about 80 minutes at four jobs on
-a machine at load 40, in a Chrome of 3.5 GB; the program is 124 MB, its data
-68 MB.
+In Chrome on a machine busy with other builds (2026-11-17), `blender-deps`
+built in 637 s (OpenImageIO 197 s, OpenColorIO 90 s) and `blender` in 4,046 s,
+of which `make -j4` took 3,865 s for 2,838 units; the kernel held 1,977 MiB at
+the end. The program is 124 MB, its data 68 MB, the package 177 MB.
 
 Test: [`test/blender-browser.mjs`](test/blender-browser.mjs) installs the
 package into `default`, runs a script on the default scene (a mesh added and
 arrayed, a `.blend` saved and loaded) and renders it with Cycles to a PNG
-whose size and pixels it checks.
+whose size and pixels it checks, in Chromium (16.8 s) and Firefox (20.2 s).
