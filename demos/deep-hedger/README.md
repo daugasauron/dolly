@@ -155,6 +155,14 @@ confidence 0.5.
   model's own mean spread. The loss is 1.35 and 0.91: it moves that much from
   report to report. The forwards differ by up to 0.4%, at the last expiry
   (1.0026 and 0.9986): inside the bands the loss does not hold them.
+- **A second implementation agrees.** A PyTorch reference of the model on
+  the CPU (not in the repository), the same chain, 512 paths, 900 iterations:
+  the state 0.91, 0.16, -0.11 against the kernels' 0.90, 0.23, -0.12; the
+  quotes' confidence 0.003 against 0.002; 69% in band against 77%; 36% of the
+  risk left against 37%; a day's deviation 1.1% to 1.6%, an excess kurtosis of
+  1 to 8 and a day's size with the day before's at 0.29, as the kernels' days
+  have them. Its swing, negative at first in both, turned positive at
+  iteration 500; the kernels' with 256 paths by iteration 200.
 - **The hedger against the delta.** On a PyTorch reference of the model on
   the CPU (not in the repository), a lognormal 25% chain, 256 paths, 600
   iterations: the hedger leaves 0.47, 0.34, 0.25 and 0.18 of the unhedged
@@ -171,8 +179,8 @@ confidence 0.5.
 The test ([`test/`](test)) drives the image as a user does, the service's
 answer being a lognormal chain of its own: Load quotes, Fit, Stop, Fit again,
 200 s of fitting, then `dh-fit check` in the shell. It passes in Chrome 156 and
-in Firefox 159: 660 and 680 iterations in the 200 s, the loss from 11.97 to
-0.22 in both, 27% of the unhedged risk left, forward and daily deviation the
+in Firefox 159: 640 and 680 iterations in the 200 s, the loss from 11.97 to
+0.21 and 0.22, 27% of the unhedged risk left, forward and daily deviation the
 chain's, every gradient at its difference. The page composites a frame at
 every refresh while it runs: on a still page Firefox left one `dh-fit` in five
 waiting for a readback (`tasks/20261117-090000-dh-34`). Software adapters

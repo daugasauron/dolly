@@ -105,7 +105,14 @@ try {
       await coloured([64, 156, 255], false);
       await coloured([64, 156, 255]);
       await delay(200_000);
-      await page.keyboard.press("Control+C");
+      // Ctrl+C until dh-gui is gone. Firefox left it running after the first one, one time in
+      // five (tasks/20261117-090000-dh-34).
+      let interrupts = 0;
+      for (; await page.evaluate(() => __dolly.transport.graphicsActive()); interrupts++) {
+        assert.ok(interrupts < 5, `${name}: dh-gui runs on after ${interrupts} Ctrl+C`);
+        await page.keyboard.press("Control+C");
+        await delay(3000);
+      }
       await page.evaluate(([source, flags]) => __dolly.waitForInteractiveTerminal(new RegExp(source, flags), "terminal prompt", 0), [shellPrompt.source, shellPrompt.flags]);
       const run = async command => {
         assert.equal(await page.evaluate(command => __dolly.submit(`clear; ${command}`), command), 0,

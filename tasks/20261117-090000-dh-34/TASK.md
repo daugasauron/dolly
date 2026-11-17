@@ -39,3 +39,9 @@ and display modules' clients wait, and whether a pending request can keep the pa
 The deep hedger's test therefore composites a frame at every refresh in both browsers, with a
 comment naming this task. Done when the reproduction returns every time in Firefox without
 that, and the test has dropped it.
+
+**Ctrl+C.** Also in Firefox only, with `dh-gui` in front and that frame composited: 2 of 16
+times Ctrl+C did not end `dh-gui` (`graphicsActive` still true and the foreground still
+interruptible a minute later; `build/dh-evidence/probe5-ff-first.log`, the test's run of 13:13).
+Not looked at: whether the key reached the page. The test presses it until `dh-gui` is gone,
+five times at most; that too is to be dropped with this task.

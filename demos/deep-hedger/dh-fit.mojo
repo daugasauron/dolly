@@ -785,7 +785,7 @@ def noise(mut state: UInt64) -> Float32:
 
 
 struct Model(Movable):
-    """Both parameter vectors, their buffers, and one iteration on the GPU."""
+    """The parameters, their buffers, and one iteration on the GPU."""
 
     var ctx: DeviceContext
     var paths: Int
@@ -1245,7 +1245,7 @@ def shown_contracts(chain: Chain) -> List[Int]:
 
 
 def fit(mut model: Model, chain: Chain, seed: UInt64, iterations: Int) raises:
-    """Generator and hedger move together, each by its own loss, on fresh
+    """Generator, hedger and confidence move together, each by its own loss, on fresh
     paths every iteration. A report is the mean of the iterations since the
     last one."""
     comptime REPORT = 20
