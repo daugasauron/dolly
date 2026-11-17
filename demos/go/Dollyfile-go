@@ -10,7 +10,7 @@ REQUIRES HOST http@0
 # installs it over the seed's. Its commands are the next seed
 # (demos/go/pin-seed.mjs). The commands start it by its own path, from which
 # it finds its GOROOT.
-FROM /demos/go/Dollyfile-go-sdk c217b58343fecaa0d079fac007e714157396d7ef43967d1897f2f96317fd29f9
+FROM /demos/go/Dollyfile-go-sdk 02a4ba8d4121e4433c188e327a0fb6899e36a3b8acc9211f249829306743c38d
 REQUIRES TOOL go
 # Two compiles at a time, each held near 2 GiB: compiling cmd/compile/internal/ssa
 # can grow a process to 3.9 GiB with the default collector (1.8 GB natively).

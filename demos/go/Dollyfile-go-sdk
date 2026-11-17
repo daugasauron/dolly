@@ -1,6 +1,7 @@
 DOLLY 8
 TOOLCHAIN go-sdk
 REQUIRES HOST runtime@0
+REQUIRES HOST http@0
 
 # Go's GOROOT for dolly/wasm64: the seed, the go package's commands as the
 # previous round built them, and the sources the go package builds again.

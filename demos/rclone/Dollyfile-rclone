@@ -5,7 +5,7 @@ REQUIRES HOST http@0
 
 # rclone, built by go-build's toolchain from its release, the modules it
 # vendors, the Dolly patch and a main with the local and WebDAV backends.
-FROM /demos/go/Dollyfile-go-build 91f4663230acf0e4d08ee6a63711542fbd678ff73526a17efc8a1cd7ccb19e00
+FROM /demos/go/Dollyfile-go-build ed094abf01572b36b9c03c707b73a7f95972df9fff0decad62634a132cc5fe77
 REQUIRES TOOL go
 SOURCE /dist/static/rclone/rclone.tar edc7653d9c63d14a09df8438e751ab4b46e61174f353ccfc252bad16d3737b44 /tmp/rclone.tar
 SLOP tar -xf /tmp/rclone.tar -C /
