@@ -33,6 +33,6 @@ FILE /usr/share/man/cat1/cargo.1
     so a project's crates are vendored: amy install vendor-crates, then
     vendor-crates in the project and cargo build --offline. A crate that uses
     libc needs the SDK's copy, which vendor-crates patches in. A Git dependency
-    is fetched by git (amy install git), from a host that sends CORS headers.
+    is fetched by git (amy install git git-http), from a host that sends CORS headers.
     There is no cargo search, publish or login.
     Upstream's book: https://doc.rust-lang.org/cargo/

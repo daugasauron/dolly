@@ -4,6 +4,7 @@
 import { execFileSync } from "node:child_process";
 import { browsers } from "../../browsers.mjs";
 import { demoTest } from "../../browser.mjs";
+import { composed } from "../../../test/browser.mjs";
 import { createCargoGitRepository, createCargoRegistry, runCargo, runCargoTest } from "./fixtures/cargo.mjs";
 import { rustToolSources, runRustTools } from "./fixtures/rust-tools.mjs";
 import { createTokioFixture } from "./fixtures/tokio.mjs";
@@ -17,7 +18,8 @@ for (const browser of browsers) await demoTest("rust", { image: "rust-tools", ti
       repository.handle(request, response, url);
   } } },
 async ({ server, open }) => {
-  const { submit, waitText } = await open({ policy: { maxRequests: 256, rules: [
+  // rust-tools holds no curl, which fetches the fixtures.
+  const { submit, waitText } = await open({ ...await composed([], ["curl"], { base: "rust-tools" }), policy: { maxRequests: 256, rules: [
     { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] },
     { origin: server.origin, pathPrefix: "/fixture/cargo-git/", methods: ["POST"] },
     ...["/tokio/stream", "/tokio/slow"].map(path => ({ origin: server.origin, path, methods: ["GET"] })),
