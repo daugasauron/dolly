@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {createServer} from "node:http";
-import {chromium} from "playwright-core";
+import {chromium, firefox} from "playwright-core";
+import {browsers} from "../../browsers.mjs";
 import {startBrowserServer} from "../../../test/browser-server.mjs";
 import {routeAttributes} from "../../../test/browser.mjs";
 import {createRelayRoom} from "../toolchain/relay.mjs";
@@ -16,7 +17,7 @@ const relayOrigin = `http://127.0.0.1:${relay.address().port}`;
 let browser, deadline;
 const pages = [];
 try {
-  browser = await chromium.launch({channel: "chrome", headless: true, args: ["--no-sandbox", "--disable-gpu"]});
+  browser = browsers[0] === "firefox" ? await firefox.launch({headless: true}) : await chromium.launch({channel: "chrome", headless: true, args: ["--no-sandbox", "--disable-gpu"]});
   deadline = setTimeout(() => void browser.close(), 90000);
   for (const endpoint of room.endpoints) {
     const page = await browser.newPage(); pages.push(page);

@@ -10,7 +10,6 @@ if has_image rust-llvm; then
   copy_static build/rust-sources/rust-llvm.tar.gz rust/rust-llvm.tar.gz
   copy_static build/rust-sources/rustc.tar.gz rust/rustc.tar.gz
   copy_static demos/llvm/llvm-host-triple.patch rust/llvm-host-triple.patch
-  copy_static demos/rust/config/patches/llvm-main-executable.patch rust/llvm-main-executable.patch
 fi
 stage_rust_project() {
   python3 demos/rust/prepare-rust-sources.py "$1"

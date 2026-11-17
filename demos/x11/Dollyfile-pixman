@@ -10,7 +10,7 @@ FROM /v0.1.7/demos/x11/Dollyfile-x11-build e37ece07494d94499fc34c7d37712e80a3625
 # The tar package reads the pax headers of X.Org's archives.
 USE /v0.1.7/demos/tools/Dollyfile-tar 36cb880de0ae6761a8bfd19ef06339cb2aa039858e1bb329c9a2791ca95e9cea
 USE /v0.1.7/demos/tools/Dollyfile-meson 23f9172cfb8bfb379944f9123ab669e8295476bb16647429bd42860a13b315a9
-USE /v0.1.7/demos/zero-ad/Dollyfile-pkgconf c0c377a2deaeeac10a7523b228d9f67d6c7d100212cb9f6997fa454f3b690c37
+USE /v0.1.7/demos/tools/Dollyfile-pkgconf 89273bd617759f49ac9c7b675e218f37cfe1a8448705a8da7c6cf607c3641645
 REQUIRES TOOL meson
 REQUIRES TOOL gzip
 REQUIRES TOOL tar

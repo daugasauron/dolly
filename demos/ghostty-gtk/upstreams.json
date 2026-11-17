@@ -1,0 +1,7 @@
+[
+{"name": "Mesa", "use": "OpenGL through EGL with softpipe: Ghostty's renderer", "licence": "MIT", "repository": "https://gitlab.freedesktop.org/mesa/mesa", "pins": ["MESA"], "sources": ["dist/static/ghostty-gtk/mesa.tar.gz"]},
+{"name": "libadwaita", "use": "GNOME's widgets: Ghostty's window", "licence": "LGPL-2.1-or-later", "repository": "https://gitlab.gnome.org/GNOME/libadwaita", "pins": ["LIBADWAITA"], "sources": ["dist/static/ghostty-gtk/libadwaita-*.tar.xz"]},
+{"name": "Mako", "use": "Templates in Mesa's build", "licence": "MIT", "repository": "https://github.com/sqlalchemy/mako", "pins": ["MAKO"], "sources": ["dist/static/ghostty-gtk/mako-*.whl"]},
+{"name": "PyYAML", "use": "YAML in Mesa's build", "licence": "MIT", "repository": "https://github.com/yaml/pyyaml", "pins": ["PYYAML"], "sources": ["dist/static/ghostty-gtk/pyyaml-*.tar.gz"]},
+{"name": "Mesa's Khronos headers", "use": "EGL and KHR headers: libepoxy's and GTK's", "licence": "MIT AND Apache-2.0", "repository": "https://gitlab.freedesktop.org/mesa/mesa", "pins": ["MESA"], "sources": ["dist/static/gtk/khronos-headers.tar"]}
+]

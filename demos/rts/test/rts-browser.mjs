@@ -12,6 +12,7 @@ import { readFileSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { browsers } from "../../browsers.mjs";
 import { acceptDownload, delay, demoTest, shellPrompt, shellQuote, snapshotDisplay, writeCommand } from "../../browser.mjs";
 import { rtsProvider } from "./fixtures/rts-provider.mjs";
 
@@ -38,7 +39,7 @@ try {
   // In rts-build: the replay layout the game's headers give, and offscreen
   // player input, which is ordered and never acquires the browser display.
   let layout;
-  if (!live) await demoTest("rts layout and input", { image: "rts-build", timeout: 300_000 }, async ({ open }) => {
+  if (!live) for (const browser of browsers) await demoTest("rts layout and input", { image: "rts-build", browser, timeout: 300_000 }, async ({ open }) => {
     const { page, run, waitText } = await open();
     await run(writeCommand("/tmp/rts-layout.cpp", "#include <OGF_REC.h>\n#include <OREMOTE.h>\n#include <cstdio>\n" +
       'int main() { printf("RTS-LAYOUT %zu %u %u %u %u\\n", sizeof(ConfigGF), MSG_QUEUE_HEADER, MSG_QUEUE_TRAILER, MSG_TOWN_RECRUIT, MSG_COMPARE_CRC); }\n'));
@@ -49,7 +50,7 @@ try {
     await run("mkdir -p /tmp/dolly-sdl2/player && c++ -O0 -I/usr/include/SDL2 -I/usr/src/dolly/rts /usr/src/dolly/rts/input.cpp /tmp/rts-input-probe.cpp -o /tmp/rts-input-probe -lSDL2 -lz -lm && /tmp/rts-input-probe");
     await page.waitForFunction(() => !__dolly.graphicsActive);
   });
-  await demoTest("rts", { image: "rts-arena", timeout: live ? (seconds + 600) * 1000 : 1_800_000,
+  for (const browser of browsers) await demoTest("rts", { image: "rts-arena", browser, timeout: live ? (seconds + 600) * 1000 : 1_800_000,
     server: { handle, port: Number(process.env.DOLLY_BROWSER_PORT ?? 0) } }, async ({ server, open }) => {
     if (live) return liveMatch(await open({ prompt: /Type to search/, policy: { maxRequests: 1024, rules: [
       { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] },

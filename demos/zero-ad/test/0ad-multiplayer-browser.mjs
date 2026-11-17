@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import {createServer} from "node:http";
 import {mkdir, readFile} from "node:fs/promises";
-import {chromium} from "playwright-core";
+import {chromium, firefox} from "playwright-core";
+import {browsers} from "../../browsers.mjs";
 import {startBrowserServer} from "../../../test/browser-server.mjs";
 import {routeAttributes} from "../../../test/browser.mjs";
 import {acceptDownload} from "../../browser.mjs";
@@ -16,6 +17,7 @@ assert.ok(process.argv.length<=4 && ["headless","visual","visual-client"].includ
   "usage: node demos/zero-ad/test/0ad-multiplayer-browser.mjs [headless|visual|visual-client] [hardware|software]");
 const visualIndex=mode==="visual"?0:mode==="visual-client"?1:-1;
 const visual = visualIndex!==-1, image=visual?"zero-ad":"zero-ad-engine";
+if (visual && browsers[0] === "firefox") { console.log("0ad multiplayer: firefox skipped: the visual modes draw on Chrome's GPU window"); process.exit(77); }
 await mkdir(output, {recursive: true});
 // The software backend is Chrome's own SwiftShader adapter, by the launch flags below.
 const server = await startBrowserServer(new URL("../../../", import.meta.url).pathname, image, { fixtures: {
@@ -29,7 +31,8 @@ const relayOrigin = `http://127.0.0.1:${relay.address().port}`, pages = [];
 const replays = [], metadata = [], logs = [];
 let browser, deadline;
 try {
-  browser = await chromium.launch({channel: "chrome", headless: !visual, args: visual ? [
+  // A visual mode draws on Chrome's GPU window; headless, the engine runs in either browser.
+  browser = !visual && browsers[0] === "firefox" ? await firefox.launch({headless: true}) : await chromium.launch({channel: "chrome", headless: !visual, args: visual ? [
     "--no-sandbox", "--mute-audio", "--enable-unsafe-webgpu", "--use-angle=vulkan", ...(backend==="hardware"
       ? ["--ozone-platform=x11", "--enable-features=Vulkan,VulkanFromANGLE"]
       : ["--use-vulkan=swiftshader", "--use-webgpu-adapter=swiftshader", "--enable-features=Vulkan", "--disable-vulkan-surface"])

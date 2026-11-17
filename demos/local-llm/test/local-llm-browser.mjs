@@ -7,6 +7,7 @@ import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {chromium} from 'playwright-core';
 import {launchInstalledFirefox} from '../../../test/browser.mjs';
 import {startBrowserServer} from '../../../test/browser-server.mjs';
+import {browsers} from '../../browsers.mjs';
 import {acceptDownload,demoTest} from '../../browser.mjs';
 
 const output=new URL('../../../build/llm-proof/',import.meta.url);
@@ -16,11 +17,11 @@ const hint=/\/local chooses/;
 
 // Without a GPU, in headless Chrome on its software adapter: pi-local starts with the hint
 // beside dolly-tools' sandbox line, and /local takes the hint away without loading a model.
-await demoTest('pi-local start screen',{image:'pi-local',webgpu:true},async({open})=>{
+for(const browser of browsers) await demoTest('pi-local start screen',{image:'pi-local',browser,webgpu:true},async({open})=>{
   const {page,text,waitText,input}=await open({prompt:null,viewport:{width:1280,height:840}});
   await waitText(/sandbox/);
   await waitText(hint);
-  await page.screenshot({path:new URL('chromium-pi-local-start.png',output).pathname});
+  await page.screenshot({path:new URL(`${browser}-pi-local-start.png`,output).pathname});
   await input('/local\r');await waitText(/Local models/);
   await input('\x1b');await page.waitForTimeout(500);
   assert.doesNotMatch(await text(),hint);

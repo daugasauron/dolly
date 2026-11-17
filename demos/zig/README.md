@@ -18,6 +18,11 @@ for a host that is single-threaded (Zig's default on WebAssembly) and has no
 file watcher, as Dolly is: upstream's maker calls its servers and watcher where
 such a host has none. Zig 0.17 links libc for Emscripten by itself.
 
+Zig builds for `wasm64-emscripten`, where C sees `__dolly__`: an exception kept by
+choice, as for Rust ([Rust](../rust/README.md#limits)). Zig's standard library has no
+Dolly target; the `.emscripten` cases the patches add say what Dolly's libc, musl,
+answers (Linux's `getdents`, for one).
+
 zig2 is built with every command (`dev = .full`): upstream builds the full
 compiler with zig2, and here zig2 is the compiler. A program for Dolly is
 `NAME.wasm`. Zig 0.17 compiles the program behind `zig build`, `init`, `fetch`

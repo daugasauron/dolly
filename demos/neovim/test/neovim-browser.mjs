@@ -2,9 +2,10 @@
 // then a Unicode paste, resize, terminal modes after exit and Ctrl-C as input.
 // Usage: [DOLLY_BROWSER=firefox] node demos/neovim/test/neovim-browser.mjs
 import assert from "node:assert/strict";
+import { browsers } from "../../browsers.mjs";
 import { delay, demoTest, recoveryPrompt, snapshotDisplay } from "../../browser.mjs";
 
-await demoTest("neovim", { image: "neovim", timeout: 600_000, browser: process.env.DOLLY_BROWSER ?? "chromium" }, async ({ open }) => {
+for (const browser of browsers) await demoTest("neovim", { image: "neovim", timeout: 600_000, browser }, async ({ open }) => {
   const { page, run, start, prompt, waitText, input } = await open({ prompt: null });
   const ex = async command => {
     await page.keyboard.type(":");

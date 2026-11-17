@@ -38,4 +38,4 @@ for libffi.
   in `fcstat.c`'s list of systems whose `statfs` it reads, where upstream stops
   with an `#error`; [`gtk-dolly.patch`](gtk-dolly.patch) builds GTK's library
   as the build's default library asks, static here, where upstream always
-  builds it shared (a threaded program loads no library).
+  builds it shared (every package exports static libraries).

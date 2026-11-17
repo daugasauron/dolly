@@ -3,10 +3,11 @@
 // and inline lint, and in-session dollyfile-build with its result tab.
 // Usage: node demos/studio/test/studio-browser.mjs
 import assert from "node:assert/strict";
+import { browsers } from "../../browsers.mjs";
 import { delay, demoTest, recoveryPrompt, shellQuote, writeCommand } from "../../browser.mjs";
 import { siteReference } from "../../../page/static-asset.mjs";
 
-await demoTest("studio", { image: "dollyfile-studio", timeout: 900_000,
+for (const browser of browsers) await demoTest("studio", { browser, image: "dollyfile-studio", timeout: 900_000,
   server: { fixtures: { "studio-nvim.lua": "demos/studio/test/fixtures/studio-nvim.lua" } } }, async ({ server, open }) => {
   const terminal = await open({ prompt: /Dollyfile Studio.*dolly-hello/,
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });

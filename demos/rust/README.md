@@ -68,8 +68,11 @@ compiler against `rust-llvm`'s libraries and keeps the second:
   the seed has not: rustdoc finds its sysroot by its symlinked name
   ([`rustc-sysroot.patch`](config/patches/rustc-sysroot.patch)).
 - `rustc` is linked as a host of procedural-macro libraries (`cc -rdynamic`),
-  so it has no threads; [`rust-linker.c`](rust-linker.c) adds the loader names
-  Rust binds and what std in a loaded library imports.
+  without threads: its frontend and code generation run on one thread
+  ([`toolchain/rust.patch`](toolchain/rust.patch)), a choice for serial
+  semantics, which Cargo's parallel `rustc` processes make up for;
+  [`rust-linker.c`](rust-linker.c) adds the loader names Rust binds and what
+  std in a loaded library imports.
 
 ## Sources for a Cargo build
 
@@ -129,5 +132,12 @@ with the compiler.
   The compiler loads proc macros and needs `dso@0`, which a build host enables
   and an image that keeps `rustc` declares.
 - Target patches live in [`config/patches/`](config/patches/).
+- Rust's target is Emscripten's (`target_os = "emscripten"`,
+  [`wasm64-emscripten-probe.json`](toolchain/wasm64-emscripten-probe.json)), where C sees
+  `__dolly__`: an exception kept by choice. A Dolly target would need a port of std and
+  the `libc` crate, and would leave without a path the crates that have an Emscripten
+  branch (2 of ripgrep's 51 vendored crates, 48 of Codex's 1,218); the patches that name
+  `emscripten` correct those branches for Dolly. Where std lists the systems that lock
+  files, Emscripten is not among them: `File::lock` answers `Unsupported`.
 
 Test: `npm run test:demos -- rust` ([`test/`](test/)).

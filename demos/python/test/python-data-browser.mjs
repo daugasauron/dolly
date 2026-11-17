@@ -7,6 +7,7 @@
 // Usage: node demos/python/test/python-data-browser.mjs
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { browsers } from "../../browsers.mjs";
 import { demoTest, installProbe, shellPrompt, waitForDisplay, writeCommand } from "../../browser.mjs";
 
 const scripts = {
@@ -84,7 +85,7 @@ const runScript = async (run, name) => {
   await run(`python /tmp/check-${name}.py`);
 };
 
-for (const browser of ["chromium", "firefox"]) {
+for (const browser of browsers) {
   await demoTest("python-data", { image: "python-data", browser, timeout: 900_000 }, async ({ open }) => {
     const { page, run, text } = await open();
     for (const name of Object.keys(scripts)) await runScript(run, name);
@@ -93,7 +94,7 @@ for (const browser of ["chromium", "firefox"]) {
 }
 
 const openblasCheck = await readFile(new URL("fixtures/openblas-check.c", import.meta.url), "utf8");
-for (const browser of ["chromium", "firefox"]) {
+for (const browser of browsers) {
   await demoTest("openblas", { image: "system", browser, timeout: 300_000 }, async ({ open }) => {
     const { run, text } = await open(await installProbe("cc", "pkgconf", "openblas"));
     await run(writeCommand("/tmp/openblas-check.c", openblasCheck));
@@ -104,7 +105,7 @@ for (const browser of ["chromium", "firefox"]) {
 }
 
 // The numpy package alone, in default: NumPy and Python, and no other library.
-await demoTest("numpy", { image: "default", timeout: 900_000 }, async ({ open }) => {
+for (const browser of browsers) await demoTest("numpy", { image: "default", browser, timeout: 900_000 }, async ({ open }) => {
   const { run } = await open();
   await run("amy install numpy");
   await runScript(run, "numpy");

@@ -6,11 +6,11 @@
 // renderer on Mesa: the canvas shows it, its tone plays on the right channel
 // only, a key and a click reach its script, and the script reads pixels of the
 // frame it drew.
-// Usage: node demos/godot/test/godot-browser.mjs [chromium|firefox ...]
+// Usage: [DOLLY_BROWSER=firefox] node demos/godot/test/godot-browser.mjs
 import assert from "node:assert/strict";
+import { browsers } from "../../browsers.mjs";
 import { demoTest, framePoint, heardAudio, meterAudio, waitForDisplay, writeCommand } from "../../browser.mjs";
 
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const project = {
   "project.godot": `config_version=5
 [application]

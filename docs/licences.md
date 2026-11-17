@@ -3,14 +3,15 @@
 An engineering audit of what the sites distribute, as of 2026-10-05 (the Wine
 port's LGPL files noted 2026-11-07); not legal advice. **Owner** marks points that need the owner's decision.
 
-[`config/upstreams.json`](../config/upstreams.json) names every upstream the
-catalog builds or bundles. Packaging generates `/licences/` from it
-([`upstreams.mjs`](../scripts/upstreams.mjs)) for the site's catalog: project,
-use, licence, pinned version, what the site serves and which recipes read it;
-upstreams pinned only in demo files (Rust programs, models, 0 A.D. libraries)
-show no version. [`upstreams.test.mjs`](../test/upstreams.test.mjs) fails when
-a recipe `SOURCE` or a [`source-pins.sh`](../config/source-pins.sh) pin has no
-entry.
+[`config/upstreams.json`](../config/upstreams.json), for what the core builds,
+and each demo's `demos/DEMO/upstreams.json`, for what only that demo builds,
+name every upstream the catalog builds or bundles. Packaging generates
+`/licences/` from them ([`upstreams.mjs`](../scripts/upstreams.mjs)) for the
+site's catalog: project, use, licence, pinned version, what the site serves and
+which recipes read it; upstreams pinned in other formats (Rust programs, models,
+0 A.D. libraries) show no version. [`upstreams.test.mjs`](../test/upstreams.test.mjs)
+fails when a recipe `SOURCE` or a pin of [`source-pins.sh`](../config/source-pins.sh)
+(or of a demo's own `source-pins.sh`, which the core's sources) has no entry.
 
 ## What the sites distribute
 

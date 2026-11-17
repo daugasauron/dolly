@@ -182,9 +182,10 @@ about 150 s longer.
   and instance initializer, most signal handlers and every `g_list_foreach
   (list, (GFunc) g_free, NULL)` through a pointer whose type has more
   arguments than the function, which WebAssembly refuses ("function signature
-  mismatch") at the first `g_object_new`. Dolly's `cc` has no pass that
-  emulates such calls, so `icall` (`icall.c`, built with the other tools)
-  rewrites each object file of this module: a `call_indirect` of type T
+  mismatch") at the first `g_object_new`. `cc --dolly-cast-emulation`
+  (Binaryen's `--fpcast-emu`) would make every indirect call of the one
+  `wine` program a thunk call; `icall` (`icall.c`, built with the other tools)
+  rewrites only each object file of this module: a `call_indirect` of type T
   becomes a call of a thunk `__icall_T`, generated for all objects together
   (191 types). The thunk calls the function directly when its type is T;
   otherwise the function is called with its own type, its integer parameters
@@ -429,8 +430,8 @@ was). What this is not:
 ## How it is put together
 
 Dolly gives a program threads and local sockets, but no `fork`, no second
-process it could hand a descriptor to, no `dlopen` in a threaded program,
-no `mmap` at a chosen address and no assembler. So:
+process it could hand a descriptor to, no `mmap` at a chosen address and no
+assembler. So:
 
 - **One process.** Every module is linked statically into `wine`, each with
   the image `winebuild` wrote for it. Wine 4.0's loader already accepts

@@ -3,6 +3,7 @@ PACKAGE janis
 REQUIRES HOST runtime@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
+REQUIRES HOST threads@0
 
 # Janis: Dolly's runner on the QuickJS library, with Node's module rules and
 # a finite node:* surface over Dolly's files, processes and HTTP. The runner
@@ -32,6 +33,7 @@ SLOP ar rcs /usr/lib/libdolly-js.a /tmp/janis/quickjs-main.o
 SLOP cc -I /usr/include/dolly /tmp/janis/janis.c -ldolly-js -lquickjs -o /usr/bin/janis
 
 SLOP test "$(janis -e 'console.log(require("node:fs").readFileSync("/tmp/janis/janis.c", "utf8").includes("dolly_quickjs_run"))')" = true
+SLOP test "$(janis -e 'console.log(typeof Atomics, typeof SharedArrayBuffer)')" = "object function"
 SLOP janis --help > /usr/share/man/cat1/janis.1
 
 EXPORTS TOOL   janis

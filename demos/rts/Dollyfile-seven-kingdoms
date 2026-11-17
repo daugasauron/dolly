@@ -7,16 +7,17 @@ REQUIRES HOST audio@0
 REQUIRES HOST touch@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
+REQUIRES HOST threads@0
 
 # Seven Kingdoms as rts-build compiled it, and its arena: rts-arena runs matches
 # between agents, rts-viewer shows one.
 FROM /v0.1.7/demos/pi/Dollyfile-pi-runtime 2ba2ccd1f625d16706a9942fc1aa4582712fb3517439ee78e8897d91d4d616e8
-USE /v0.1.7/demos/sdl2/Dollyfile-sdl2 3eb6c82723eb26957a9a9b6ab8dc196609762ebda2b32b33152d4d30d77fac78
-COPY /v0.1.7/demos/rts/Dollyfile-rts-build e4bd62798e194997694eaec3be0f84bb32cd30fa708045d5d4f3586e00371a41 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
-COPY /v0.1.7/demos/rts/Dollyfile-rts-build e4bd62798e194997694eaec3be0f84bb32cd30fa708045d5d4f3586e00371a41 /usr/share/7kaa /usr/share/7kaa
-COPY /v0.1.7/demos/rts/Dollyfile-rts-build e4bd62798e194997694eaec3be0f84bb32cd30fa708045d5d4f3586e00371a41 /usr/src/7kaa /usr/src/7kaa
-COPY /v0.1.7/demos/rts/Dollyfile-rts-build e4bd62798e194997694eaec3be0f84bb32cd30fa708045d5d4f3586e00371a41 /usr/src/dolly/rts /usr/src/dolly/rts
-COPY /v0.1.7/demos/rts/Dollyfile-rts-build e4bd62798e194997694eaec3be0f84bb32cd30fa708045d5d4f3586e00371a41 /usr/share/licenses/7kaa /usr/share/licenses/7kaa
+USE /v0.1.7/demos/sdl2/Dollyfile-sdl2 c659bb8b3fdb9b6a73e83d7d43afb09a23f80ff6ed359aafed0908b10af3b6f1
+COPY /v0.1.7/demos/rts/Dollyfile-rts-build c2034fcf3f0a508ac59878b26ec4c57179a4e80e1db8c8a9896fd9046b71871a /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
+COPY /v0.1.7/demos/rts/Dollyfile-rts-build c2034fcf3f0a508ac59878b26ec4c57179a4e80e1db8c8a9896fd9046b71871a /usr/share/7kaa /usr/share/7kaa
+COPY /v0.1.7/demos/rts/Dollyfile-rts-build c2034fcf3f0a508ac59878b26ec4c57179a4e80e1db8c8a9896fd9046b71871a /usr/src/7kaa /usr/src/7kaa
+COPY /v0.1.7/demos/rts/Dollyfile-rts-build c2034fcf3f0a508ac59878b26ec4c57179a4e80e1db8c8a9896fd9046b71871a /usr/src/dolly/rts /usr/src/dolly/rts
+COPY /v0.1.7/demos/rts/Dollyfile-rts-build c2034fcf3f0a508ac59878b26ec4c57179a4e80e1db8c8a9896fd9046b71871a /usr/share/licenses/7kaa /usr/share/licenses/7kaa
 EXPORTS TOOL seven-kingdoms
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner
@@ -40,7 +41,7 @@ SLOP gzip -dc /tmp/rts-arena/demo.tar.gz | tar -xf - -C /usr/share/dolly/rts
 FOLDER /usr/share/dolly/rts
 SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/rts-arena \
   /usr/src/dolly/rts/spectator/viewer.cpp -o /usr/bin/rts-viewer -lSDL2 -lm
-SLOP cc -std=gnu11 -I/usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE \
+SLOP cc -std=gnu11 -I/usr/include/dolly -D_GNU_SOURCE \
   -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char \
   /usr/src/dolly/rts/spectator/launch.c -ldolly-js -lquickjs -o /usr/bin/rts-arena
 

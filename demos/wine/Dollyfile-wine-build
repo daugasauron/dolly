@@ -12,7 +12,7 @@ INSTALL /v0.1.7/Dollyfile-libdolly-sockets bb97486a6d960d677349a7d9d3057975f1168
 INSTALL /v0.1.7/Dollyfile-libdolly-display 54d721d6cb0b447f3341408b6e759a90b4b252ebc129499db89ea6f5cdd0e009
 INSTALL /v0.1.7/Dollyfile-libdolly-input ccaac99ff384f08f2f16647b3375dbabc640d52645134d37fe94da003e30d90e
 # FreeType (with its libpng) for gdi32's fonts, as 0 A.D. built them; libpng's headers for NetSurf.
-INSTALL /v0.1.7/demos/zero-ad/Dollyfile-freetype e66bf89093b265007701ec4cc163b811d4a2235e003c4b73fa2f78d3d7bf4e5f
+INSTALL /v0.1.7/demos/tools/Dollyfile-freetype df3b1d0a400ed233fa23d31d09661dbc3298c636d2103f178fc832db7d890f2d
 REQUIRES HEADER curl
 REQUIRES HEADER zlib
 REQUIRES LIB curl
@@ -28,7 +28,7 @@ REQUIRES TOOL sed
 REQUIRES TOOL sort
 REQUIRES TOOL tar
 
-SOURCE /v0.1.7/dist/static/wine/source.tar.gz 8cf2823672dbbabd795f7af88813e16adbaa634d54fdbe92a1769b4360ead3fa /tmp/wine-source.tar.gz
+SOURCE /v0.1.7/dist/static/wine/source.tar.gz abbd4a32a53573cf97ceff4157a248a02cfbb1d04beda33bf0d77c9dd6f16ff1 /tmp/wine-source.tar.gz
 SLOP gzip -dc /tmp/wine-source.tar.gz | tar -xf - -C /
 # TinyCC's win64 binaries, unmodified: x86-64 code for x86emu, which builds the Start menu's x86-64 sample with them.
 SOURCE /v0.1.7/dist/static/wine/tinycc.tar.gz 20709ea054c77d290a1837699bd8993dfbe84f97b5900002057a50dfd002fe4a /tmp/tinycc.tar.gz

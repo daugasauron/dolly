@@ -3,11 +3,11 @@
 // Creeps, which the editor exported when its package was built, shows its title
 // on the page and starts on Enter: its score counts. Last the editor opens its
 // own window on the page and changes its view at a click.
-// Usage: node demos/godot/test/godot-editor-browser.mjs [chromium|firefox ...]
+// Usage: [DOLLY_BROWSER=firefox] node demos/godot/test/godot-editor-browser.mjs
 import assert from "node:assert/strict";
+import { browsers } from "../../browsers.mjs";
 import { demoTest, framePoint, waitForDisplay, writeCommand } from "../../browser.mjs";
 
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const project = {
   "project.godot": `config_version=5
 [application]

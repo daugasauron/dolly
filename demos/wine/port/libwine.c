@@ -181,7 +181,7 @@ void *wine_dlopen( const char *filename, int flag, char *error, size_t errorsize
 
     for (library = wine_dolly_libraries; *library; library++)
         if (filename && !strcmp( (*library)->name, filename )) return (void *)*library;
-    set_error( error, errorsize, "%s: Dolly loads no shared library into a threaded program", filename ? filename : "(self)" );
+    set_error( error, errorsize, "%s: not linked into the wine program", filename ? filename : "(self)" );
     errno = ENOSYS;
     return NULL;
 }

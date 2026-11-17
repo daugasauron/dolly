@@ -7,9 +7,10 @@
 // and runs a command in its pane, writes a file and ends the server; the
 // terminal's shell then reads them and finds tmux's server. Prints the time to
 // the first window, a drag's frames and ImGui's frames.
-// Usage: node demos/x11/test/x11-browser.mjs [chromium|firefox ...]
+// Usage: [DOLLY_BROWSER=firefox] node demos/x11/test/x11-browser.mjs
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
+import { browsers } from "../../browsers.mjs";
 import { delay, demoTest, framePoint, shellPrompt, snapshotDisplay, waitForDisplay } from "../../browser.mjs";
 
 const evidence = new URL("../../../build/x11-evidence/", import.meta.url).pathname;
@@ -41,7 +42,6 @@ async function type(page, text) {
   }
 }
 
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium"];
 for (const browser of browsers) await demoTest("x11", { image: "x11-desktop", timeout: 600_000, browser }, async ({ server: site, open }) => {
   await mkdir(evidence, { recursive: true });
   const started = performance.now();

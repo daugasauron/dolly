@@ -12,7 +12,7 @@ INSTALL /v0.1.7/Dollyfile-zlib 0b193f144e4b792b8f02c6619a0e8df223fe1a1d02562204f
 USE /v0.1.7/demos/python/Dollyfile-python cc235667a3b73baa51789a0ad614d44771a29a25f93df0a7e7bde13366973319
 USE /v0.1.7/demos/rust/Dollyfile-cargo 8d1ca711a8f74722b442daf60eb595b69c25d145d42e0de777b111dbd31ca801
 USE /v0.1.7/demos/rust/Dollyfile-cbindgen 0ba4da0da77efa542d33b3415c68bf815e4f96cb32f8bbc70e314b1080b6990e
-USE /v0.1.7/demos/zero-ad/Dollyfile-pkgconf c0c377a2deaeeac10a7523b228d9f67d6c7d100212cb9f6997fa454f3b690c37
+USE /v0.1.7/demos/tools/Dollyfile-pkgconf 89273bd617759f49ac9c7b675e218f37cfe1a8448705a8da7c6cf607c3641645
 REQUIRES HEADER zlib
 REQUIRES LIB z
 REQUIRES TOOL cc

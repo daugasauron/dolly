@@ -9,6 +9,7 @@ import { execFileSync } from "node:child_process";
 import { createReadStream } from "node:fs";
 import { basename } from "node:path";
 import { gzipSync } from "node:zlib";
+import { browsers } from "../../browsers.mjs";
 import { delay, demoTest, installProbe } from "../../browser.mjs";
 
 const packages = process.env.DOLLY_PYTHON_PACKAGES === "1";
@@ -60,7 +61,7 @@ const fixtures = {
   "python-shutil.py": "demos/python/test/fixtures/python-shutil.py",
   "python-sockets.py": "demos/python/test/fixtures/python-sockets.py",
 };
-await demoTest("python", { image: "python", timeout: packages ? 7_200_000 : 600_000, server: { fixtures, handle } }, async ({ server, open }) => {
+for (const browser of browsers) await demoTest("python", { image: "python", browser, timeout: packages ? 7_200_000 : 600_000, server: { fixtures, handle } }, async ({ server, open }) => {
   const { page, submit, run, start, waitText, input } = await open({ ...await installProbe("python"), policy: { maxRequests: 1024, rules: [
     { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"] },
     { origin: server.origin.replace("127.0.0.1", "localhost"), path: "/fixture/gzip" },
@@ -135,7 +136,7 @@ await demoTest("python", { image: "python", timeout: packages ? 7_200_000 : 600_
 // nor Ninja. The package brings the compiler; Ninja is NumPy's need, through
 // Meson, and the session installs it: without one, meson-python asks the index
 // for a ninja to build, and pip fails.
-for (const browser of ["chromium", "firefox"]) {
+for (const browser of browsers) {
   await demoTest("python on default", { image: "default", browser, timeout: 1_800_000, server: { handle } }, async ({ server, open }) => {
     const { run } = await open({ policy: { maxRequests: 1024, rules: [
       { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] },

@@ -19,7 +19,7 @@ REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 REQUIRES TOOL   zig
 
-SOURCE /v0.1.7/dist/static/default/ghostty.tar              74835c10f3034c328c097e85cb164071a9f53af21a44688dabf0b06a6f7334cf /tmp/ghostty.tar
+SOURCE /v0.1.7/dist/static/default/ghostty.tar              74e6b2f57be127f98828c7efc088a654779c72e331ad998d803fea43a343e884 /tmp/ghostty.tar
 SOURCE /v0.1.7/dist/static/default/uucode.tar               be9d52ab9c0f49deb5fd8baa54b4b14f490f8e29e200d044e908d7adad54e3d0 /tmp/uucode.tar
 SOURCE /v0.1.7/dist/static/default/ghostty/display.c        6bbea55d7e863e812802ac6e7f2169c95494828f547084ae425733f38405624b /usr/src/dolly/ghostty/display.c
 SOURCE /v0.1.7/dist/static/default/stb_truetype.h           ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/ghostty/stb_truetype.h

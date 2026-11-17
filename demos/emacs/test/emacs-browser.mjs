@@ -1,13 +1,13 @@
 // GNU Emacs in the gnu-emacs image, in Chrome and Firefox: the editor entry,
 // editing and saving a file, M-! running Slop, C-g (the interrupt key Emacs
 // sets) ending a running command, and C-x C-c back to Slop. Then,
-// in Chrome, the emacs package installed into a default-based session.
-// Usage: node demos/emacs/test/emacs-browser.mjs [chromium|firefox ...]
+// the emacs package installed into a default-based session.
+// Usage: [DOLLY_BROWSER=firefox] node demos/emacs/test/emacs-browser.mjs
 import assert from "node:assert/strict";
+import { browsers } from "../../browsers.mjs";
 import { demoTest, recoveryPrompt, shellPrompt } from "../../browser.mjs";
 import { siteReference } from "../../../page/static-asset.mjs";
 
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const file = "/tmp/dolly-emacs-test.txt";
 
 for (const browser of browsers) {
@@ -40,7 +40,7 @@ for (const browser of browsers) {
   });
 }
 
-if (browsers.includes("chromium")) {
+for (const browser of browsers) {
   const { default: catalog } = await import("../../../dist/dolly-images.json", { with: { type: "json" } });
   const pin = name => {
     const { dollyfile, sha256 } = catalog.images.find(definition => definition.image === name);
@@ -51,7 +51,7 @@ if (browsers.includes("chromium")) {
   const recipe = ["DOLLY 7", "APPLICATION emacs-probe", ...hosts.map(host => `REQUIRES HOST ${host}`),
     `FROM ${pin("default")}`, `INSTALL ${pin("emacs")}`,
     "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
-  await demoTest("emacs package", { image: "default", timeout: 600_000 }, async ({ open }) => {
+  await demoTest("emacs package", { image: "default", timeout: 600_000, browser }, async ({ open }) => {
     const { run } = await open({ path: "/custom/rebuild/", prompt: shellPrompt,
       setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) });
     await run("test \"$(emacs --batch --eval '(princ (shell-command-to-string \"printf PACKAGE-$((6 * 7))\"))')\" = PACKAGE-42");

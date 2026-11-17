@@ -2,8 +2,9 @@
 // saved while Pi runs, and the page opened at the save has Pi's conversation file and shows
 // the conversation again with `pi --continue`, having loaded no image. Pi starts in /workspace and
 // sends the model its AGENTS.md there.
-// Usage: node demos/pi/test/pi-session-browser.mjs (DOLLY_BROWSER=firefox runs it in Firefox).
+// Usage: [DOLLY_BROWSER=firefox] node demos/pi/test/pi-session-browser.mjs
 import assert from "node:assert/strict";
+import { browsers } from "../../browsers.mjs";
 import { demoTest, recoveryPrompt, shellQuote } from "../../browser.mjs";
 
 let workspaceContext = false;
@@ -19,7 +20,7 @@ async function provider(request, response, path, headers) {
   return true;
 }
 
-await demoTest("pi session", { image: "pi-agent", timeout: 600_000, browser: process.env.DOLLY_BROWSER ?? "chromium",
+for (const browser of browsers) await demoTest("pi session", { image: "pi-agent", timeout: 600_000, browser,
   server: { handle: provider } }, async ({ server, open }) => {
   const piStarted = /Bash is not installed/;
   const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/pi/", methods: ["POST"], credentialHeaders: ["authorization"] }] };

@@ -16,7 +16,7 @@
  
    openbsd | dragonfly) LIBS_TERMCAP="-lncurses" ;;
  
-+  ## Dolly has no terminfo library; use Emacs's termcap, as MS-DOS does.
++  ## Emacs calls tparm variadic and libterminfo's is not: use its termcap, as MS-DOS does.
 +  dolly) TERMINFO=no ;;
 +
    ## hpux: Make sure we get select from libc rather than from libcurses
@@ -57,7 +57,7 @@
  
    openbsd | dragonfly) LIBS_TERMCAP="-lncurses" ;;
  
-+  ## Dolly has no terminfo library; use Emacs's termcap, as MS-DOS does.
++  ## Emacs calls tparm variadic and libterminfo's is not: use its termcap, as MS-DOS does.
 +  dolly) TERMINFO=no ;;
 +
    ## hpux: Make sure we get select from libc rather than from libcurses
@@ -154,20 +154,3 @@
  }
  
  static void syms_of_keyboard_for_pdumper (void);
---- a/src/process.c
-+++ b/src/process.c
-@@ -7739,7 +7739,13 @@
-       int status;
- 
-       if (p->alive
--	  && child_status_changed (p->pid, &status, WUNTRACED | WCONTINUED))
-+	  && child_status_changed (p->pid, &status,
-+#ifdef __dolly__ /* No job control: Dolly's children never stop.  */
-+				   0
-+#else
-+				   WUNTRACED | WCONTINUED
-+#endif
-+				   ))
- 	{
- 	  /* Change the status of the process that was found.  */
- 	  changed = true;

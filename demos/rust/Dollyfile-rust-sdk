@@ -27,7 +27,7 @@ SOURCE /v0.1.7/dist/static/rust/rust-sdk.tar.gz d0a8930cd6a049f86da9a1fa8270b3d1
 SLOP mkdir -p /opt
 SLOP gzip -dc /tmp/rust-sdk.tar.gz | tar -xf - -C /opt
 SOURCE /v0.1.7/dist/static/rust/rustc.sh 03589f0b44268b0bb22c1d5db37aa58cd882a8d2dae81902a23ab2385c3dde6e /opt/rust-sdk/bin/rustc
-SOURCE /v0.1.7/dist/static/rust/rust-linker.c 63c7b7fd5b4a73e7227b1e00ca5f878d45ee40d89b939886f433acb4264577f3 /tmp/rust-linker.c
+SOURCE /v0.1.7/dist/static/rust/rust-linker.c 826c7535c5d3e412447ea2d6b81e51106001c0f48c15b44d93cd81973d514664 /tmp/rust-linker.c
 SLOP cc -O1 /tmp/rust-linker.c -o /opt/rust-sdk/bin/dolly-rust-link
 # What the adapter adds to a program that loads Rust libraries: the dl* names
 # Rust binds.

@@ -8,6 +8,5 @@ if has_image lean-stage0; then
     "${lean_dir}/stage0" /tmp/lean/stage0 "${lean_dir}/src" /tmp/lean/src "${lean_dir}/LICENSE" /tmp/lean/LICENSE
   node scripts/build-source-tar.mjs "${static_dir}/lean/port.tar" \
     demos/lean/lean-dolly.mk /tmp/lean/dolly/lean-dolly.mk \
-    demos/lean/lean-dolly.patch /tmp/lean/dolly/lean-dolly.patch \
-    demos/lean/lean-symbols.c /tmp/lean/dolly/lean-symbols.c
+    demos/lean/lean-dolly.patch /tmp/lean/dolly/lean-dolly.patch
 fi

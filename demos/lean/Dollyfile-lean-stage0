@@ -2,6 +2,7 @@ DOLLY 7
 TOOLCHAIN lean-stage0
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST input@0
 REQUIRES HOST stack@0
@@ -30,7 +31,7 @@ REQUIRES TOOL stack-wrap
 REQUIRES TOOL tar
 
 SOURCE /v0.1.7/dist/static/lean/lean.tar.gz ef83239912f7c218c5f0e937de704b7da807b9802b05216414b59b9dec42e0da /tmp/lean.tar.gz
-SOURCE /v0.1.7/dist/static/lean/port.tar 1716710f88ccdd478709b75533ef1686ff39e381ad7d66ff65caff992e2dd1a6 /tmp/lean-port.tar
+SOURCE /v0.1.7/dist/static/lean/port.tar b98085e118db528bb5b28bb24b5c2c74e5caff7a582025f05e77492cd2337dae /tmp/lean-port.tar
 SLOP gzip -dc /tmp/lean.tar.gz | tar -xf - -C / && rm /tmp/lean.tar.gz
 SLOP tar -xf /tmp/lean-port.tar -C /
 SLOP CWD /tmp/lean/stage0 patch -p1 < ../dolly/lean-dolly.patch

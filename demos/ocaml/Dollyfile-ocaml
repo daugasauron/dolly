@@ -23,7 +23,7 @@ REQUIRES TOOL   make
 REQUIRES TOOL   tar
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.7/dist/static/ocaml/ocaml.tar.gz beac076436c92b33693c3a2301c9c102749880fe7017df8ce63135e9e6cd21ab /tmp/ocaml.tar.gz
+SOURCE /v0.1.7/dist/static/ocaml/ocaml.tar.gz 81f97e1e7fb6301326b08725247e9db03cac78f9ee9004eb4a9b9c3d4b0491e2 /tmp/ocaml.tar.gz
 SLOP gzip -dc /tmp/ocaml.tar.gz | tar -xf - -C /
 SLOP CWD /tmp/ocaml make -j4 world
 # Upstream's fixpoint: the compiler that boot/ocamlc built compiles itself,

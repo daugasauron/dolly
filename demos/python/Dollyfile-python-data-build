@@ -21,8 +21,8 @@ REQUIRES HOST upload@0
 FROM /v0.1.7/Dollyfile-system cc1c13d1cbc8544e46f9f58974b05690af38e9abb2395e98ad923e242eeac0af
 INSTALL /v0.1.7/demos/python/Dollyfile-python cc235667a3b73baa51789a0ad614d44771a29a25f93df0a7e7bde13366973319
 INSTALL /v0.1.7/demos/tools/Dollyfile-meson 23f9172cfb8bfb379944f9123ab669e8295476bb16647429bd42860a13b315a9
-INSTALL /v0.1.7/demos/zero-ad/Dollyfile-freetype e66bf89093b265007701ec4cc163b811d4a2235e003c4b73fa2f78d3d7bf4e5f
-INSTALL /v0.1.7/demos/zero-ad/Dollyfile-pkgconf c0c377a2deaeeac10a7523b228d9f67d6c7d100212cb9f6997fa454f3b690c37
+INSTALL /v0.1.7/demos/tools/Dollyfile-freetype df3b1d0a400ed233fa23d31d09661dbc3298c636d2103f178fc832db7d890f2d
+INSTALL /v0.1.7/demos/tools/Dollyfile-pkgconf 89273bd617759f49ac9c7b675e218f37cfe1a8448705a8da7c6cf607c3641645
 INSTALL /v0.1.7/demos/xonotic/Dollyfile-libjpeg ef7c8d73d78c0a3e441a1d9fc2d9f0378c4e9104f1ce0756edb33080ed15749d
 REQUIRES HEADER freetype2
 REQUIRES HEADER jpeglib

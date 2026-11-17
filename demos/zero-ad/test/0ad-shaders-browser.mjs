@@ -3,6 +3,10 @@ import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {chromium} from 'playwright-core';
 import {decodeSystemSnapshot} from '../../../scripts/system-snapshot-format.mjs';
+import {browsers} from '../../browsers.mjs';
+
+// Chrome's own software adapter (SwiftShader) validates them; headless Firefox has no adapter.
+if(browsers[0]==='firefox'){console.log("0ad shaders: firefox skipped: it needs Chrome's SwiftShader WebGPU adapter");process.exit(77);}
 
 // The shaders zero-ad-data translated, as its snapshot holds them.
 const translated=/^\/usr\/share\/zero-ad\/shaders\/(mod|public)\/shaders\/wgsl\/([^/]+)$/;

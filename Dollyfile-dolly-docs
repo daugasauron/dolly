@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # this release at their repository paths, so their links to each other work.
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
 SOURCE /v0.1.7/docs/process-model.md 98c067ff55da43b7f99a4c80fe602c7e7803376588f05912be5a5ad237490904 /usr/share/doc/dolly/docs/process-model.md
-SOURCE /v0.1.7/docs/browser-stack.md 147d272f8103eacfd0c1d0faba14a66652fb800808ab95ae9c475aed6ad6022a /usr/share/doc/dolly/docs/browser-stack.md
+SOURCE /v0.1.7/docs/browser-stack.md 175383a5395dc62708fe9e1374ed929f1cf2bd0b7ddd9f53b423de20b6dbe665 /usr/share/doc/dolly/docs/browser-stack.md
 SOURCE /v0.1.7/docs/slop.md 614aa0246b1d1a79710424e8eb15b0709e78dedb06f9f375653d56a85771ae8b /usr/share/doc/dolly/docs/slop.md
 SOURCE /v0.1.7/docs/display.md 086682d5de8cbfa753b6df783d4d09868995273a42e9418443d4013bbe4c5928 /usr/share/doc/dolly/docs/display.md
 SOURCE /v0.1.7/docs/gpu.md 091a9726977303bb48ef50198ab92c753603dc1132454e5a0bdda272b88f03b1 /usr/share/doc/dolly/docs/gpu.md

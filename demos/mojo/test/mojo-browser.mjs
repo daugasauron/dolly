@@ -21,6 +21,7 @@ const sources = Object.fromEntries(await Promise.all([...upstream.map(name => [n
   ...programs.map(name => [name, `demos/mojo/target/test/fixtures/${name}.mojo`])].map(async ([name, path]) => [name, await readFile(new URL(path, root), "utf8")])));
 const launches = { "headless chromium": () => chromium.launch({ channel: "chrome", headless: true,
   args: ["--no-sandbox", "--disable-gpu", "--enable-unsafe-webgpu"] }) };
+if (!process.env.DISPLAY) console.log("mojo: firefox skipped: Firefox has WebGPU only in a window on DISPLAY");
 if (process.env.DISPLAY) {
   launches.chromium = () => chromium.launch({ channel: "chrome", headless: false,
     args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan"] });

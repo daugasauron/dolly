@@ -262,7 +262,7 @@ SLOP rm \
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.7/dist/static/default/make-4.4.1.tar                     5dce03b47a90e26891e789b3361481c65765e12bd8dc79ec0cf949336ef94616 /tmp/make-4.4.1.tar
+SOURCE /v0.1.7/dist/static/default/make-4.4.1.tar                     243b31e6a2d662ae9713910b8b2e326aecf7edfb9d16c5f736292055de8d3f37 /tmp/make-4.4.1.tar
 SLOP tar \
   -xf /tmp/make-4.4.1.tar \
   -C /

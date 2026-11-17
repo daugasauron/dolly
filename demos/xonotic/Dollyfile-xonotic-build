@@ -15,7 +15,7 @@ INSTALL /v0.1.7/demos/sdl2/Dollyfile-sdl2 535dc42166b0782bc61b508e35fed36cc37ce0
 # Vorbis (with its Ogg) for its sounds.
 INSTALL /v0.1.7/demos/xonotic/Dollyfile-libvorbis 8621ec596e758ea4e42bc8b7d80873aaa49492e175d4daa857efc78789f9a6c5
 INSTALL /v0.1.7/demos/xonotic/Dollyfile-libjpeg ef7c8d73d78c0a3e441a1d9fc2d9f0378c4e9104f1ce0756edb33080ed15749d
-INSTALL /v0.1.7/demos/zero-ad/Dollyfile-freetype e66bf89093b265007701ec4cc163b811d4a2235e003c4b73fa2f78d3d7bf4e5f
+INSTALL /v0.1.7/demos/tools/Dollyfile-freetype df3b1d0a400ed233fa23d31d09661dbc3298c636d2103f178fc832db7d890f2d
 # gmqcc, which compiles the game logic.
 INSTALL /v0.1.7/demos/xonotic/Dollyfile-gmqcc a5c4655c13362e097a01006cb46543ce035a5695d3287bec88bd74feb3c69959
 # The gpu@0 client the render path draws with, and its shaders.
@@ -37,7 +37,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL gzip
 REQUIRES TOOL rm
 
-SOURCE /v0.1.7/dist/static/xonotic/source.tar.gz d7ebe696610cbf8c235c3b4bdb6b062efa9c2cc85beb0a952117aa529f71e534 /tmp/xonotic/source.tar.gz
+SOURCE /v0.1.7/dist/static/xonotic/source.tar.gz e28e0ed820bc0e92adb4b726372443e83072be4b28177dbd5edb8159e27f4c2a /tmp/xonotic/source.tar.gz
 SLOP gzip -dc /tmp/xonotic/source.tar.gz | tar -xf - -C /
 # __DATE__ and __TIME__ are the newest file time of Xonotic 0.8.6's source release, for reproducible builds.
 SLOP SOURCE_DATE_EPOCH=1687230584 make -f /usr/src/dolly/xonotic/Makefile

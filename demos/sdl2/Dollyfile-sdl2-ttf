@@ -11,7 +11,7 @@ REQUIRES HOST touch@0
 # file and CMake package, for programs the cc package builds with SDL2.
 FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 590ba196fa2e5b9bb70eaf4dc49189d6030eb4f7fd8e2b505ace5c834e22ce36
 INSTALL /v0.1.7/demos/sdl2/Dollyfile-sdl2 535dc42166b0782bc61b508e35fed36cc37ce04215489ffec5c8091cd53c4596
-INSTALL /v0.1.7/demos/zero-ad/Dollyfile-freetype e66bf89093b265007701ec4cc163b811d4a2235e003c4b73fa2f78d3d7bf4e5f
+INSTALL /v0.1.7/demos/tools/Dollyfile-freetype df3b1d0a400ed233fa23d31d09661dbc3298c636d2103f178fc832db7d890f2d
 REQUIRES HEADER libc
 REQUIRES HEADER sdl2
 REQUIRES HEADER freetype2

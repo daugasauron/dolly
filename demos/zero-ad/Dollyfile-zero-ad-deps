@@ -12,8 +12,8 @@ REQUIRES HOST threads@0
 # source of build-sources.tsv; pkgconf for its premake scripts.
 FROM /v0.1.7/Dollyfile-system-tools 9380fd6bd073b1686808f973290b4654a0889ee96c0df46817a12903968d6ca7
 INSTALL /v0.1.7/demos/zero-ad/Dollyfile-openal 38deba3056074d169efc610231513d25a9243565693d61bb137d70006c2c487e
-INSTALL /v0.1.7/demos/zero-ad/Dollyfile-pkgconf c0c377a2deaeeac10a7523b228d9f67d6c7d100212cb9f6997fa454f3b690c37
-INSTALL /v0.1.7/demos/zero-ad/Dollyfile-freetype e66bf89093b265007701ec4cc163b811d4a2235e003c4b73fa2f78d3d7bf4e5f
+INSTALL /v0.1.7/demos/tools/Dollyfile-pkgconf 89273bd617759f49ac9c7b675e218f37cfe1a8448705a8da7c6cf607c3641645
+INSTALL /v0.1.7/demos/tools/Dollyfile-freetype df3b1d0a400ed233fa23d31d09661dbc3298c636d2103f178fc832db7d890f2d
 INSTALL /v0.1.7/demos/xonotic/Dollyfile-libvorbis 8621ec596e758ea4e42bc8b7d80873aaa49492e175d4daa857efc78789f9a6c5
 INSTALL /v0.1.7/demos/zero-ad/Dollyfile-fmt e56dbbb5d54ac7d5ff99c93dd35b41988dddf443da4c2f0449bcefb938ce78a7
 INSTALL /v0.1.7/demos/zero-ad/Dollyfile-libxml2 3861ffc395eeca6ff7b8a3fc723cda4702bdb0f5a283a759a58d6956b3071ddb

@@ -7,14 +7,14 @@
 // project in the editor, which takes its place; the editor runs the 2D project (F5), whose window
 // takes the page until it quits; Truck Town's menu, its cars turning in 3D
 // viewports, runs 600 frames; Lantern Drift flies a run by itself, through its rings of light.
-// Usage: node demos/godot/test/godot-gpu-browser.mjs [chromium|firefox ...]
+// Usage: [DOLLY_BROWSER=firefox] node demos/godot/test/godot-gpu-browser.mjs
 import assert from "node:assert/strict";
 import { chromium } from "playwright-core";
 import { composed, launchInstalledFirefox } from "../../../test/browser.mjs";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
+import { browsers } from "../../browsers.mjs";
 import { writeCommand } from "../../browser.mjs";
 
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const mobile = '[rendering]\nrenderer/rendering_method="mobile"\n';
 // The 2D scene of godot-browser.mjs, on the Mobile renderer.
 const scene2d = {

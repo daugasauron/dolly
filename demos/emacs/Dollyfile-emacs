@@ -29,10 +29,12 @@ FILE /tmp/emacs-stack.c
     __asm__(".section .custom_section.dolly.process.stack,\"\",@\n.byte 1\n");
 SLOP cat /tmp/emacs-stack.c >> /tmp/emacs/src/emacs.c
 
-# The release's byte-compiled Lisp is used as shipped: bootstrapping it from
-# source interprets the loadup files and overflows a browser Worker's stack.
+# Upstream's bootstrap from the Lisp sources: a dump that loads them, the
+# bytecode compiled by it, then the dump of that bytecode.
 SLOP make -C /tmp/emacs/lib -j4
 SLOP make -C /tmp/emacs/lib-src -j4
+SLOP make -C /tmp/emacs/src bootstrap-emacs bootstrap-emacs.pdmp
+SLOP make -C /tmp/emacs/lisp -j4 compile-main EMACS=../src/bootstrap-emacs
 SLOP make -C /tmp/emacs/src -j4
 
 # Install as upstream's make install lays it out, which needs tar -c, and

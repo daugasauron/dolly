@@ -1,16 +1,16 @@
 # Lean's build inside Dolly, as upstream's CMake does it (src/CMakeLists.txt,
 # src/runtime/CMakeLists.txt, src/stdlib.make.in, src/lean.mk.in) for a
-# platform that links every program statically: lean and lake are linked with
-# a table of the symbols -rdynamic would export (lean-symbols.c), in which the
-# interpreter finds compiled code. STAGE=0 builds the first lean from stage0/:
-# upstream's copy of the C++ and the C its previous compiler emitted. STAGE=1
-# has it compile the LIBRARIES named into /usr/lib/lean, beside those built
-# before: a snapshot holds at most 2 GiB, so the release is built in parts.
+# platform that links every program statically: lean, lake and leanc are
+# linked -rdynamic with the libraries upstream makes shared, and the
+# interpreter finds compiled code among their exports. STAGE=0 builds the
+# first lean from stage0/: upstream's copy of the C++ and the C its previous
+# compiler emitted. STAGE=1 has it compile the LIBRARIES named into
+# /usr/lib/lean, beside those built before: a snapshot holds at most 2 GiB, so
+# the release is built in parts.
 .RECIPEPREFIX := >
 SOURCE ?= /tmp/lean
 STAGE ?= 0
 OUT ?= $(SOURCE)/build/stage$(STAGE)
-TOOLS ?= $(SOURCE)/build/tools
 CPP := $(SOURCE)/$(if $(filter 0,$(STAGE)),stage0/src,src)
 VERSION = $(shell sed -n 's/^set.LEAN_VERSION_$(1) \([0-9]*\) .*/\1/p' $(CPP)/CMakeLists.txt)
 VERSION_STRING := $(call VERSION,MAJOR).$(call VERSION,MINOR).$(call VERSION,PATCH)
@@ -27,6 +27,13 @@ CXXFLAGS := -std=c++20 -O3 -DNDEBUG -DLEAN_MULTI_THREAD -ffp-contract=off -D__CL
 LEANC_FLAGS := -ffp-contract=off -fdata-sections -ffunction-sections -fvisibility=hidden
 LEAN_LINK_FLAGS := -Wl,--gc-sections -lm -pthread -luv
 STATIC_LINK_FLAGS := -lleancpp -lLean -lStd -lInit -lleanrt -lc++
+# lean, lake and leanc are linked as upstream links them against its shared
+# libraries (CMAKE_DYN_EXE_LINKER_FLAGS): -rdynamic, with what libInit_shared
+# holds whole (Init, Std and the runtime) and lake with libLake_shared's
+# (Lake), so that the interpreter finds their compiled code among the exports
+# (dso@0). A program Lake links is not: natively it exports nothing either.
+DYN_LINK_FLAGS := -rdynamic -lleancpp -lLean -Wl,--whole-archive -lStd -lInit -lleanrt -Wl,--no-whole-archive -lc++
+LAKE_LINK_FLAGS := -Wl,--whole-archive -lLake -Wl,--no-whole-archive -lLeanExport
 CFLAGS := -I$(OUT)/include -O3 -DNDEBUG $(LEANC_FLAGS) -DLEAN_EXPORTING -pthread
 
 RUNTIME := debug thread mpz utf8 object apply exception interrupt memory stackinfo compact \
@@ -135,33 +142,19 @@ $(LIBRARIES:%=$(LIB)/lib%.a): $(HEADERS)
 > $(if $(filter 1,$(STAGE)),xargs rm < $(OUT)/$(@F).objects)
 > rm $(OUT)/$(@F).objects
 
-$(TOOLS)/lean-symbols: $(SOURCE)/dolly/lean-symbols.c
-> mkdir -p $(@D)
-> cc -O2 $< -o $@
 LEAN_LIBRARIES := $(addprefix $(LIB)/lib,$(addsuffix .a,leancpp Lean Std Init leanrt))
 LAKE_LIBRARIES := $(addprefix $(LIB)/lib,$(addsuffix .a,Lake LeanExport)) $(LEAN_LIBRARIES)
-$(OUT)/symbols/lean.c: $(TOOLS)/lean-symbols $(LEAN_LIBRARIES)
-# lake's table leaves libLeanExport.a out: LeanExport.o is a program's (its
-# main, which WebAssembly names __main_argc_argv), and the table's references
-# would link it beside LakeMain's. lake links the members it calls; the
-# interpreter runs any other's IR.
-$(OUT)/symbols/lake.c: $(TOOLS)/lean-symbols $(LIB)/libLake.a $(LEAN_LIBRARIES)
-$(OUT)/symbols/lean.c $(OUT)/symbols/lake.c:
-> mkdir -p $(@D)
-> $(TOOLS)/lean-symbols $(filter %.a,$^) > $@
-$(OUT)/symbols/%.o: $(OUT)/symbols/%.c
-> cc -O1 -fno-builtin -c $< -o $@
 # lean and lake recurse deeper than a browser's stack holds (Lean gives these
 # threads 1 GiB), so stack-wrap makes them continue on fresh stacks (stack@0).
-LINK = c++ -o $@$(2) $(filter %.o,$^) -L$(LIB) $(1) $(STATIC_LINK_FLAGS) $(LEAN_LINK_FLAGS)
+LINK = c++ -o $@$(2) $(filter %.o,$^) -L$(LIB) $(1) $(DYN_LINK_FLAGS) $(LEAN_LINK_FLAGS)
 WRAP = stack-wrap $@.unwrapped -o $@ && rm $@.unwrapped
-$(OUT)/bin/lean: $(call cpp,shell/lean util/shell) $(OUT)/symbols/lean.o $(LEAN_LIBRARIES)
+$(OUT)/bin/lean: $(call cpp,shell/lean util/shell) $(LEAN_LIBRARIES)
 > mkdir -p $(@D)
 > $(call LINK,,.unwrapped)
 > $(WRAP)
-$(OUT)/bin/lake: $(TEMP)/LakeMain.o $(OUT)/symbols/lake.o $(LAKE_LIBRARIES)
+$(OUT)/bin/lake: $(TEMP)/LakeMain.o $(LAKE_LIBRARIES)
 > mkdir -p $(@D)
-> $(call LINK,-lLake -lLeanExport,.unwrapped)
+> $(call LINK,$(LAKE_LINK_FLAGS),.unwrapped)
 > $(WRAP)
 $(OUT)/bin/leanc: $(LIB)/libLeanc.a $(LEAN_LIBRARIES)
 > mkdir -p $(@D)

@@ -1,0 +1,3 @@
+[
+{"name": "zsh", "use": "Shell", "licence": "MIT-Modern-Variant AND GPL-2.0-or-later", "repository": "https://www.zsh.org/", "pins": ["ZSH"], "sources": ["dist/static/zsh/zsh.tar.gz"]}
+]

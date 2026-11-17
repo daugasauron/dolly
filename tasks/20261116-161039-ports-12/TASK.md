@@ -4,9 +4,35 @@
 - PRIORITY: 95
 - TAGS: audit,ports,demo,packages,x11,0ad,cleanup,0.1.8
 
-## State (2026-11-16 night audit)
+## State (2026-11-17)
 
-Found by reading the recipes and staging scripts; nothing built or changed.
+Done on `ws/ports`: one recipe and one pin each. `libpng`, `freetype` and `pkgconf` moved to
+`demos/tools/` (every recipe that installs or uses them follows), staged from their own pins
+(`DOLLY_LIBPNG_*` 1.6.59 and `DOLLY_FREETYPE_*` 2.14.3, which were GTK's, and a new
+`DOLLY_PKGCONF_*` 2.5.1, upstream's release archives, in `demos/tools/source-pins.sh`) by
+`demos/tools/prepare-sources.sh` through `fetch-pinned-source.sh` (which now reads any tar
+compression); `build-sources.tsv` no longer lists them, and `demos/zero-ad/prepare-sources.sh`
+runs `prepare-build-sources.sh` only for 0 A.D.'s own images. `gtk-build` installs the
+`libpng`, `freetype` and `pixman` (X11's) packages instead of building its own copies, and stages
+neither their archives nor their licences. The libraries' licence rows are one each, with their
+pins.
+
+Built in this tree from those sources: `libpng`, `freetype` and `pkgconf` (pkgconf's snapshot
+from its release archive, with the same pin as before), and over them `glib`, X11's `pixman`,
+`imgui` (whose test passes in Chromium and Firefox, `both-5`), and `gtk-build` over the three
+packages: every library builds against them, and its check, a GTK program linked by
+`pkg-config --libs gtk4`, runs (snapshot 337,110,496 bytes against the release's 336,768,971);
+`sdl2-ttf`, `wine-build` and `wine` (the wine test passes in Chromium, `both-17`), and
+`xonotic-build` and `xonotic` over `freetype` and `libpng` (the xonotic test passes in Chromium,
+`both-15`). The round confirms X11's three, the Mesa
+chain and 0 A.D.'s, and `python-data-build`.
+
+Images the change rebuilds: `libpng` (1.6.58 becomes GTK's 1.6.59), `freetype` (the release
+archive in place of a Git tree of the same tag) and `pkgconf` (the same pin), and what installs or
+uses them, through the recipe rows that name their new paths: `glib`, X11's `pixman`,
+`libxkbfile`, `xkbcomp` and `xorg-server`, `gtk-build` and the Mesa chain after it (Ghostty's GTK
+app, Godot), `sdl2-ttf`, `python-data-build`, `wine-build`, `xonotic-build`, `xonotic`,
+`spidermonkey` and `zero-ad-deps` (0 A.D.).
 
 ## What
 

@@ -17,8 +17,8 @@ COPY /v0.1.7/demos/xonotic/Dollyfile-xonotic-build b1c73570cbcfe2c6edd6f37c80924
 COPY /v0.1.7/demos/sdl2/Dollyfile-sdl2 535dc42166b0782bc61b508e35fed36cc37ce04215489ffec5c8091cd53c4596 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
 COPY /v0.1.7/demos/xonotic/Dollyfile-xonotic-build b1c73570cbcfe2c6edd6f37c809243f50e8b9671149bec0afdc92d535131c08a /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
-COPY /v0.1.7/demos/zero-ad/Dollyfile-freetype e66bf89093b265007701ec4cc163b811d4a2235e003c4b73fa2f78d3d7bf4e5f /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY /v0.1.7/demos/zero-ad/Dollyfile-libpng 65b329ecde1c1e7bee71271ca5d326ff52fc1df14063b284c320f4e36d42afc0 /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY /v0.1.7/demos/tools/Dollyfile-freetype df3b1d0a400ed233fa23d31d09661dbc3298c636d2103f178fc832db7d890f2d /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /v0.1.7/demos/tools/Dollyfile-libpng d0a8f685eddaab92589bd4c29cb2a0ea3775a6d1dd5bf16c57f4d9402ec34d46 /usr/share/licenses/libpng /usr/share/licenses/libpng
 COPY /v0.1.7/demos/xonotic/Dollyfile-libogg 540fba674b144379689b52a2cf8bd8e22010feb5eeea3aa61d8a1ede2f8cc4a3 /usr/share/licenses/libogg /usr/share/licenses/libogg
 COPY /v0.1.7/demos/xonotic/Dollyfile-libvorbis 8621ec596e758ea4e42bc8b7d80873aaa49492e175d4daa857efc78789f9a6c5 /usr/share/licenses/libvorbis /usr/share/licenses/libvorbis
 # Dolly's notices for this image: the IJG sentence, the fonts' terms and the

@@ -40,7 +40,6 @@ const display = new Map([
 // Display tests that also run here, on their software path alone.
 const withoutDisplayToo = ["xonotic/test/xonotic-browser.mjs"];
 const onDemand = new Map([
-  ["llvm/test/stage2-browser.mjs", "about 50 minutes and 7 GB: it is run on demand"],
   ["mojo/target/test/mojo-target-browser.mjs", "the objects of demos/mojo/target/cross-compile.sh, which a native Mojo compiler writes"],
   ["zero-ad/test/0ad-large-match-browser.mjs", "a GPU window for thirty minutes: it is run on demand"],
 ]);

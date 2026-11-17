@@ -2,6 +2,7 @@
 // terminal display. Usage: node demos/cmake/test/cmake-browser.mjs
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { browsers } from "../../browsers.mjs";
 import { demoTest, displayProbe, writeCommand } from "../../browser.mjs";
 
 const projectDir = new URL("../../..", import.meta.url).pathname;
@@ -24,7 +25,7 @@ install(TARGETS probe RUNTIME DESTINATION bin)
   "main.cpp": '#include <iostream>\nextern "C" int answer(void);\nint main() { std::cout << "CMAKE-OK\\n"; return answer() != 42; }\n',
 };
 
-await demoTest("cmake", { image: "cmake-build", timeout: 600_000,
+for (const browser of browsers) await demoTest("cmake", { browser, image: "cmake-build", timeout: 600_000,
   server: { fixtures: { "libuv-source.tar": "build/fixtures/libuv-source.tar" } } }, async ({ server, open }) => {
   const { page, run, start, waitText } = await open({ ...await displayProbe("cmake-build", ["dso@0", "sockets@0"], ["libdolly-sockets"]),
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });

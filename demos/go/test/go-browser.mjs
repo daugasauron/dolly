@@ -7,6 +7,7 @@
 // replaces the program.
 // Usage: node demos/go/test/go-browser.mjs
 import assert from "node:assert/strict";
+import { browsers } from "../../browsers.mjs";
 import { demoTest, writeCommand } from "../../browser.mjs";
 
 const program = `package main
@@ -92,7 +93,7 @@ func main() {
 	fmt.Println("exec returned:", syscall.Exec("/bin/echo", []string{"echo", "replaced", "by", "exec"}, nil))
 }
 `;
-for (const browser of ["chromium", "firefox"]) {
+for (const browser of browsers) {
   await demoTest("go", { image: "go-tools", browser, timeout: 1_800_000 }, async ({ open }) => {
     const { run, start, page, text, waitText } = await open();
     await run("mkdir -p /tmp/hello && cd /tmp/hello");

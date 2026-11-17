@@ -3,6 +3,7 @@ PACKAGE janis-install
 REQUIRES HOST runtime@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
+REQUIRES HOST threads@0
 
 # janis-install NAME[@VERSION] installs a package from the npm registry and
 # the packages it depends on into /usr/lib/node_modules, with a /usr/bin

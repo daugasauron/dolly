@@ -2,8 +2,8 @@
 
 Everyday command-line programs as packages: `amy install NAME` in a running
 session. Each is built inside Dolly from a pinned upstream release, unchanged:
-by `cc` and a Makefile in the recipe, wabt and Binaryen by their own CMake, Meson from its
-wheel by pip. Slop does not run a configure script, so a recipe states what
+by `cc` and a Makefile in the recipe, wabt, Binaryen, libpng and FreeType by
+their own CMake, Meson from its wheel by pip. Slop does not run a configure script, so a recipe states what
 the script would find here, in the comments beside its flags.
 
 ## Images
@@ -28,6 +28,9 @@ the script would find here, in the comments beside its flags.
 - `binaryen`: Binaryen's `wasm-opt`, for its function-pointer cast emulation (`--fpcast-emu`).
 - `meson`: Meson, with the `python`, `cc` and `ninja` packages it runs on.
 - `scons`: SCons, with the `python` package it runs on; it builds Godot (`demos/godot`).
+- `pkgconf`: pkgconf, also as `pkg-config`, which reads the `.pc` files libraries install.
+- `libpng`: libpng with zlib, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
+- `freetype`: FreeType with libpng and zlib, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
 - `toybox`: toybox's `grep` and `sed`, which have `grep -r` and `sed -i`, in place of the image's.
 - `dte`: dte, a small full-screen editor with the keys of a desktop one.
 - `tools-build`: A build stage: `cmake-build` with the core's `mandoc`, what these packages are built on.
@@ -53,8 +56,9 @@ What the platform decides ([process model](../../docs/process-model.md)):
 - `sqlite3` is built with linenoise and `dc` edits its lines as `bc` does,
   from before the terminal edited a line itself.
 - Dolly's `tar` reads files, directories and pax headers, and refuses links.
-  `jq`'s, `zstd`'s and `bc`'s archives hold links, `wabt`'s is xz, and
-  `toybox`'s headers are generated: their builds read plain tars of the files they need
+  `jq`'s, `zstd`'s and `bc`'s archives hold links, `wabt`'s, `libpng`'s,
+  `freetype`'s and `pkgconf`'s are xz, and `toybox`'s headers are generated:
+  their builds read plain tars of the files they need
   ([`prepare-sources.sh`](prepare-sources.sh)); the rest build from the
   archive as published.
 - `fork` fails: `vi`'s `!` commands and language servers say so.
