@@ -83,6 +83,8 @@ static std::string glsl_patch(const char *stage_define)
 {
   std::stringstream ss;
   ss << "#version 450\n";
+  /* Blender's sources name their files in #line, as shaderc lets them. */
+  ss << "#extension GL_GOOGLE_cpp_style_line_directive : enable\n";
   ss << "#define GPU_ARB_clip_control\n";
   ss << "#define GPU_ARB_derivative_control\n";
   ss << "#define gl_VertexID gl_VertexIndex\n";
@@ -963,7 +965,15 @@ void WGPUShader::compile(Stage stage, MutableSpan<StringRefNull> sources)
   std::string log;
   spirv_[stage] = compile_glsl(glsl_[stage], languages[stage], log);
   if (spirv_[stage].empty()) {
-    CLOG_ERROR(&LOG, "shader \"%s\" did not compile to SPIR-V:\n%s", name, log.c_str());
+    /* The source beside the log, whose lines it numbers. */
+    static const char *stage_names[] = {"vert", "frag", "comp"};
+    const std::string path = std::string("/tmp/") + name + "." + stage_names[stage] + ".glsl";
+    if (FILE *file = fopen(path.c_str(), "w")) {
+      fwrite(glsl_[stage].data(), 1, glsl_[stage].size(), file);
+      fclose(file);
+    }
+    CLOG_ERROR(&LOG, "shader \"%s\" did not compile to SPIR-V (%s):\n%s", name, path.c_str(),
+               log.c_str());
     failed_ = true;
   }
 }
@@ -1197,21 +1207,22 @@ bool WGPUShader::translate(const ShaderCreateInfo & /*info*/)
   return true;
 }
 
+/* A shader WebGPU cannot run is kept without modules, its draws not recorded (reported once, as
+ * it fails): Blender's interface draws on without what needs it, as Godot's port keeps a variant
+ * the device refuses. */
 bool WGPUShader::finalize(const ShaderCreateInfo *info)
 {
-  if (info == nullptr || failed_) {
+  if (info == nullptr) {
     return false;
   }
-  ready_ = translate(*info);
+  ready_ = !failed_ && translate(*info);
   for (std::vector<uint32_t> &spirv : spirv_) {
     spirv.clear();
   }
-  if (ready_) {
-    for (std::string &glsl : glsl_) {
-      glsl.clear();
-    }
+  for (std::string &glsl : glsl_) {
+    glsl.clear();
   }
-  return ready_;
+  return true;
 }
 
 /** \} */

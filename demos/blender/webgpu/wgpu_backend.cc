@@ -201,6 +201,9 @@ bool WGPUDevice::submit()
   if (!gpu_) {
     return false;
   }
+  if (end_passes) {
+    end_passes();
+  }
   bool ok = send_list(objects_);
   objects_.clear();
   if (!commands_.empty()) {
@@ -366,6 +369,11 @@ Context *WGPUBackend::context_alloc(GHOST_IWindow *ghost_window, GHOST_IContext 
       return nullptr;
     }
     capabilities_init();
+    device.end_passes = [] {
+      if (WGPUContext *context = WGPUContext::get()) {
+        context->passes_end();
+      }
+    };
   }
   WGPUContext *context = new WGPUContext(ghost_window, ghost_context, width, height);
   if (ghost_context && width) {

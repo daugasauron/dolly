@@ -84,6 +84,9 @@ class GHOST_SystemDolly : public GHOST_System {
   bool background_;
   uint64_t display_ = 0, input_ = 0, clipboard_ = 0;
   uint32_t screen_width_ = 0, screen_height_ = 0;
+  /** The terminal Blender was started from, and its local modes before ISIG was cleared. */
+  int terminal_ = -1;
+  int64_t terminal_lflag_ = -1;
   /** The clipboard without clipboard@0, or beside a program that holds it. */
   mutable std::string own_clipboard_;
   std::vector<GHOST_WindowDolly *> stack_;

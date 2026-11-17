@@ -55,6 +55,11 @@ void WGPUFrameBuffer::bind(bool enabled_srgb)
 {
   WGPUContext &context = *WGPUContext::get();
   context.active_fb = this;
+  if (enabled_srgb != enabled_srgb_) {
+    /* The attachments' views change: a pass of the framebuffer open with the others ends. */
+    context.passes_end();
+    enabled_srgb_ = enabled_srgb;
+  }
   update_size();
   viewport_reset();
   scissor_reset();
@@ -89,7 +94,7 @@ void WGPUFrameBuffer::formats(uint32_t r_colors[GPU_FB_MAX_COLOR_ATTACHMENT],
   r_color_count = 0;
   for (int i = 0; i < GPU_FB_MAX_COLOR_ATTACHMENT; i++) {
     const WGPUTexture *texture = color_texture(i);
-    r_colors[i] = texture ? texture->gpu_format() : 0;
+    r_colors[i] = texture ? texture->attachment_format(enabled_srgb_) : 0;
     if (texture) {
       r_color_count = uint32_t(i + 1);
     }
@@ -145,7 +150,7 @@ void WGPUFrameBuffer::begin_pass()
     const GPUAttachment &attachment = attachments_[GPU_FB_COLOR_ATTACHMENT0 + int(i)];
     WGPUTexture *texture = color_texture(i);
     if (texture) {
-      views[i] = texture->attachment_view(attachment.mip, attachment.layer);
+      views[i] = texture->attachment_view(attachment.mip, attachment.layer, enabled_srgb_);
       texture->used_in = device.submission();
     }
     else {

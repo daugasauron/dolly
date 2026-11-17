@@ -64,8 +64,10 @@ class WGPUTexture : public Texture {
   uint64_t sampled_view();
   /** The view shaders store into: one mip. */
   uint64_t storage_view();
-  /** A view of one mip and layer to draw into. */
-  uint64_t attachment_view(int mip, int layer);
+  /** A view of one mip and layer to draw into: an sRGB texture's linear one where Blender
+   * binds its framebuffer without sRGB, as the Vulkan backend's unorm view. */
+  uint64_t attachment_view(int mip, int layer, bool srgb = true);
+  uint32_t attachment_format(bool srgb) const;
   bool is_depth() const;
   bool has_stencil() const;
   /** Whether a sampler filters this format: floats and normalized, not integers or depth. */
@@ -96,7 +98,7 @@ class WGPUTexture : public Texture {
     return source_texture_ ? static_cast<WGPUTexture *>(source_texture_) : nullptr;
   }
   uint64_t view(uint32_t dimension, uint32_t aspect, int mip, int mips, int layer, int layers,
-                uint32_t swizzle);
+                uint32_t swizzle, uint32_t format = 0);
   void upload(int mip, int3 offset, int3 extent, int layer, int layers, const uint8_t *data);
 };
 

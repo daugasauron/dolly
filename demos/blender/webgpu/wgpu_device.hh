@@ -167,8 +167,9 @@ class WGPUDevice {
   {
     return used_in == submission_;
   }
-  /** Sends every list and submits the encoder. */
+  /** Sends every list and submits the encoder, its open pass ended first by this. */
   bool submit();
+  void (*end_passes)() = nullptr;
   /** Submits, then waits until the GPU finished. */
   bool wait_idle();
   /** Reads a range of a MAP_READ buffer after the GPU finished writing it. */

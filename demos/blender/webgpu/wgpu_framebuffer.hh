@@ -82,6 +82,8 @@ class WGPUFrameBuffer : public FrameBuffer {
   float clear_depth_value_ = 1.0f;
   uint32_t clear_stencil_value_ = 0;
   bool srgb_ = false;
+  /** Whether Blender bound the framebuffer with sRGB: an sRGB attachment's linear view else. */
+  bool enabled_srgb_ = true;
 
   /** Whether a clear can be the pass's load operation: no scissor inside the attachments. */
   bool clears_whole() const;

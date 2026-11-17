@@ -7,9 +7,22 @@
 Research and the whole plan: `work/research/blender-2026-11-17.md` (the section on the GPU
 module). Stage 1 is [20261116-230501-blender-1](../20261116-230501-blender-1/TASK.md).
 
-## State (2026-11-17)
+## State (2026-11-18)
 
-Not started.
+Changed by the owner (2026-11-18): "Yes go directly to hardware accelerated for blender. Do it in
+the same way as godot, and learn from that." The OpenGL interface on softpipe is not built and
+not measured: this stage's GHOST system is built for stage 5's WebGPU backend instead
+([20261116-230506-blender-5](../20261116-230506-blender-5/TASK.md)), on `port/blender-ui`.
+
+- Written: `demos/blender/ghost/` (`GHOST_SystemDolly`, `GHOST_WindowDolly`,
+  `GHOST_ContextWebGPU`), placed in `intern/ghost/intern` by the source archive and named to
+  CMake by `blender-dolly.patch` (`WITH_GHOST_DOLLY`). One window a time fills the page's
+  surface (`display@0`); keys, text, the pointer, the wheel and focus are `input@0`'s records
+  as GHOST's events (letters by the layout's key, the rest by the key's place); the clipboard is
+  `clipboard@0`'s; CSS cursors for GHOST's standard ones; no pointer warp. The context holds no
+  device: the GPU backend opens gpu@0 and presents on the window's swap.
+- Left: running it (the first build with it is under way in a session), the test, and closing
+  this task with stage 5's first milestone.
 
 ## What
 

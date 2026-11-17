@@ -445,16 +445,26 @@ bool WGPUTexture::init_internal(gpu::Texture *src, bool use_stencil)
   return gpu_format_ != 0;
 }
 
-uint64_t WGPUTexture::view(
-    uint32_t dimension, uint32_t aspect, int mip, int mips, int layer, int layers, uint32_t swizzle)
+uint64_t WGPUTexture::view(uint32_t dimension,
+                           uint32_t aspect,
+                           int mip,
+                           int mips,
+                           int layer,
+                           int layers,
+                           uint32_t swizzle,
+                           uint32_t format)
 {
+  if (format == 0) {
+    format = gpu_format_;
+  }
   uint64_t swizzle_bits = 0;
   for (int i = 0; i < 4; i++) {
     swizzle_bits |= uint64_t((swizzle >> (8 * i)) & 7) << (3 * i);
   }
-  const uint64_t key = uint64_t(dimension) | (uint64_t(aspect) << 4) | (uint64_t(mip) << 8) |
-                       (uint64_t(mips) << 16) | (uint64_t(layer & 0xffff) << 24) |
-                       (uint64_t(layers & 0xfff) << 40) | (swizzle_bits << 52);
+  const uint64_t key = uint64_t(dimension & 7) | (uint64_t(aspect & 3) << 3) |
+                       (uint64_t(mip & 31) << 5) | (uint64_t(mips & 31) << 10) |
+                       (uint64_t(layer & 0x3fff) << 15) | (uint64_t(layers & 0x3fff) << 29) |
+                       (swizzle_bits << 43) | (uint64_t(format & 127) << 55);
   if (const uint64_t *found = views_.lookup_ptr(key)) {
     return *found;
   }
@@ -463,7 +473,7 @@ uint64_t WGPUTexture::view(
   uint64_t handle;
   uint8_t *p = device.create(DOLLY_GPU_CREATE_VIEW, 56, handle);
   wgpu_put64(p, 16, this->handle());
-  wgpu_put32(p, 24, gpu_format_);
+  wgpu_put32(p, 24, format);
   wgpu_put32(p, 28, dimension);
   wgpu_put32(p, 32, aspect);
   wgpu_put32(p, 36, uint32_t(mip));
@@ -527,9 +537,25 @@ uint64_t WGPUTexture::storage_view()
   return view(dimension, 0, mip_min_, 1, view_layer_start_, std::max(layer_count, 1), 0x03020100);
 }
 
-uint64_t WGPUTexture::attachment_view(int mip, int layer)
+uint32_t WGPUTexture::attachment_format(bool srgb) const
 {
-  return view(2, 0, mip, 1, view_layer_start_ + std::max(layer, 0), 1, 0x03020100);
+  return (format_flag_ & GPU_FORMAT_SRGB) && !srgb && view_partner(gpu_format_) ?
+             view_partner(gpu_format_) :
+             gpu_format_;
+}
+
+uint64_t WGPUTexture::attachment_view(int mip, int layer, bool srgb)
+{
+  /* A view's mips and layers count from its own first ones. */
+  const int base_mip = source() ? mip_min_ + mip : mip;
+  return view(2,
+              0,
+              base_mip,
+              1,
+              view_layer_start_ + std::max(layer, 0),
+              1,
+              0x03020100,
+              attachment_format(srgb));
 }
 
 void WGPUTexture::swizzle_set(const char swizzle_mask[4])
