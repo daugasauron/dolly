@@ -12,7 +12,7 @@ REQUIRES HOST threads@0
 # compiled inside Dolly by its own c++.
 FROM /v0.1.7/demos/cmake/Dollyfile-cmake-build 99ba4b0dfea5dfd2099047bbbd136adbff138ac5c2316c7f57f4fa485f50968f
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL /v0.1.7/demos/python/Dollyfile-python c97238b02344b36aad552b36fd2f73d450811ecaf7f5464374e82e8af15b80d7
+INSTALL /v0.1.7/demos/python/Dollyfile-python 6823cbe87d98e515fb492e6617c5901dd0a9753a848d8b0d016cd97f6041bbd0
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python
@@ -32,10 +32,6 @@ SLOP rm /tmp/rust-llvm.tar.gz
 # As demos/llvm: config.guess runs and knows no Dolly host.
 SOURCE /v0.1.7/dist/static/rust/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/rust-llvm -i /tmp/llvm-host-triple.patch
-# llvm-config reports paths beside its own. Dolly has no /proc/self/exe, so it
-# finds itself as OpenBSD's does: from argv[0].
-SOURCE /v0.1.7/dist/static/rust/llvm-main-executable.patch a9fb350ef60401eeea39f75895ffc2bc89747ac4338a6daa0c3350491d0d025a /tmp/llvm-main-executable.patch
-SLOP patch -p1 -d /tmp/rust-llvm -i /tmp/llvm-main-executable.patch
 
 # As demos/llvm configures LLVM 24, and position-independent: rustc is linked
 # as a host of procedural-macro libraries.
@@ -69,9 +65,10 @@ SLOP CWD /tmp/rust-llvm/build slop -c 'cp lib/*.a /opt/rust-llvm/lib'
 SLOP cp -R /tmp/rust-llvm/llvm/include/llvm /tmp/rust-llvm/llvm/include/llvm-c /opt/rust-llvm/include
 SLOP cp -R /tmp/rust-llvm/build/include/llvm /opt/rust-llvm/include
 SLOP cp /tmp/rust-llvm/llvm/LICENSE.TXT /opt/rust-llvm/LICENSE.TXT
-SLOP rm -rf /tmp/rust-llvm /tmp/llvm-host-triple.patch /tmp/llvm-main-executable.patch
+SLOP rm -rf /tmp/rust-llvm /tmp/llvm-host-triple.patch
 
 FOLDER /opt/rust-llvm
 SLOP /opt/rust-llvm/bin/llvm-config --version
+SLOP CWD /tmp test "$(/opt/rust-llvm/bin/llvm-config --prefix)" = /opt/rust-llvm
 
 ENTRY /bin/foreground -i /bin/slop

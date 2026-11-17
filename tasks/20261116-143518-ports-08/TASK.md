@@ -4,12 +4,26 @@
 - PRIORITY: 90
 - TAGS: audit,ports,emacs,python,0.1.8
 
-## State (2026-11-16 night audit)
+## State (2026-11-17)
 
-Measured in sessions on round 1117's dist: Emacs's upstream bootstrap runs to the end, from
-loadup on the `.el` sources to every `.elc` and the final `emacs.pdmp`, which passes the recipe's
-check, and CPython's own freezer runs inside Dolly. No recipe changed. For Emacs the cost is the
-choice left: its image built in 0.8 minutes in round 1117 and would take about 25 to 33.
+Decided and done on `ws/ports`: both are built inside Dolly.
+
+- Emacs: `prepare-emacs.sh` stages the release without its `.elc` files, and
+  `Dollyfile-emacs` runs upstream's bootstrap (`make -C src bootstrap-emacs bootstrap-emacs.pdmp`,
+  `make -C lisp -j4 compile-main EMACS=../src/bootstrap-emacs`, then `make -C src`); the
+  README's stack-overflow limit is gone. Built in this tree: the bootstrap compiled the 1,641
+  files without a stack overflow and every check of the recipe passed (`31.1 dolly`, the
+  installed `subr.el.gz` among them); the build took 3,578 s at a load of 35 to 42, where
+  round 1117's `emacs`, with the shipped bytecode, took 49 s and the other images of this pass
+  took 3.3 to 5.7 times their round's time, so a round's is about 11 to 18 minutes. The
+  snapshot is 146,018,443 bytes against the release's 146,024,489. The emacs demo test passes in
+  Chromium and Firefox, `gnu-emacs` and the package on `default` (`cc-6`, `both-9`; the first
+  Chromium run had started before `gnu-emacs`'s metadata was written).
+- CPython: `prepare-cpython.sh` no longer freezes modules with the host's Python, and its key no
+  longer holds that Python's version; `Dollyfile-python`'s `make` names CPython's own C freezer
+  (`FREEZE_MODULE_BOOTSTRAP`, `FREEZE_MODULE` and their `_DEPS`, `./Programs/_freeze_module`),
+  which it builds and runs. configure still asks the host for a Python 3.14 (a cross build
+  refuses to start without one of its version), which it only names in the Makefile.
 
 ## What
 

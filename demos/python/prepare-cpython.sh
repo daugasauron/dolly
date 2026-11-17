@@ -5,18 +5,18 @@ project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "${project_dir}/config/source-pins.sh"
 source_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" cpython)"
 
+# configure refuses a cross build without a build Python of its own version,
+# which it only names in the Makefile: Dolly's build runs none.
 build_python="$(command -v python3.14 || true)"
 if [[ -z "${build_python}" ]] ||
    [[ "$("${build_python}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')" != "3.14" ]]; then
   echo "dolly: CPython target preparation requires a host Python 3.14" >&2
   exit 1
 fi
-build_python_identity="$("${build_python}" -c 'import sys; print(sys.version.split()[0])')"
 recipe_hash="$({
   printf '%s\n' \
     "cpython=${DOLLY_CPYTHON_COMMIT}" \
-    "emsdk=${DOLLY_EMSDK_IMAGE}" \
-    "build-python=${build_python_identity}"
+    "emsdk=${DOLLY_EMSDK_IMAGE}"
   sha256sum \
     "${BASH_SOURCE[0]}" \
     "${project_dir}/demos/python/cpython-Setup.local" \
@@ -31,8 +31,7 @@ stamp="${output_dir}/.dolly-cpython-source"
 
 if [[ -f "${stamp}" ]] &&
    [[ "$(<"${stamp}")" == "${configuration}" ]] &&
-   [[ -f "${output_dir}/Makefile" ]] &&
-   [[ -f "${output_dir}/Python/frozen_modules/importlib._bootstrap.h" ]]; then
+   [[ -f "${output_dir}/Makefile" ]]; then
   printf '%s\n' "${output_dir}"
   exit 0
 fi
@@ -94,12 +93,6 @@ fi
     --prefix=/usr \
     CFLAGS="-m64 -O2" \
     LDFLAGS="-m64" >/dev/null
-
-# Release tarballs do not carry frozen bytecode headers. CPython's own pinned
-# freezer and the matching 3.14 build interpreter generate them here; the
-# interpreter and every target object are still compiled later inside Dolly.
-"${container[@]}" bash -lc \
-  'make -n python | grep "/Programs/_freeze_module.py" | while IFS= read -r command; do eval "$command"; done'
 
 # Modules/makesetup is a POSIX shell generator, not a target executable. Run
 # the pinned upstream generator while preparing the source bundle; the emitted

@@ -1,6 +1,7 @@
 DOLLY 7
 PACKAGE lean
 REQUIRES HOST runtime@0
+REQUIRES HOST dso@0
 REQUIRES HOST stack@0
 REQUIRES HOST threads@0
 
@@ -9,9 +10,9 @@ REQUIRES HOST threads@0
 # (lean-meta), and here Lake's and LeanExport's, as upstream links them
 # (lean-dolly.mk), with the C++ runtime compiled again from src/. Lake
 # compiles a package's C with cc and links it with libuv.
-FROM /v0.1.7/demos/lean/Dollyfile-lean-stage0 b7ab6275f7b86dad29ee276010665196afad8531d78273e98b5ff93e4179737b
-INSTALL /v0.1.7/demos/lean/Dollyfile-lean-std 0cab198d4815c5c1450eb887501770451d8905c46b30eac9c137233aced0ab83
-INSTALL /v0.1.7/demos/lean/Dollyfile-lean-meta 18117af3f16431af92bcc0179b0b8d96bbeaf1a13135050c0fde66cf45eef16f
+FROM /v0.1.7/demos/lean/Dollyfile-lean-stage0 187cad0cb3d30f39a4854f92e9e06c8c4ef00c2c76e700c0314d55927db48e78
+INSTALL /v0.1.7/demos/lean/Dollyfile-lean-std fb00464cced534749e658e66f91df240115f5c0dc32c3c0739e77437b65566c3
+INSTALL /v0.1.7/demos/lean/Dollyfile-lean-meta 4e8e4ae10c37cbfb30365da92076c98a455d15286a9f441c57f20acf6ba938e9
 INSTALL /v0.1.7/Dollyfile-cc 99770d8693eaf1c5430782512d808e84fb33a172acb3fb0184234068f5bf4384
 INSTALL /v0.1.7/demos/cmake/Dollyfile-libuv 1fc955df1aa923adb2e6137bb1d02a3e8bdbaf69bb7110a111572912c97767d4
 
@@ -34,7 +35,7 @@ REQUIRES TOOL tr
 REQUIRES TOOL xargs
 
 SOURCE /v0.1.7/dist/static/lean/lean.tar.gz ef83239912f7c218c5f0e937de704b7da807b9802b05216414b59b9dec42e0da /tmp/lean.tar.gz
-SOURCE /v0.1.7/dist/static/lean/port.tar 1716710f88ccdd478709b75533ef1686ff39e381ad7d66ff65caff992e2dd1a6 /tmp/lean-port.tar
+SOURCE /v0.1.7/dist/static/lean/port.tar b98085e118db528bb5b28bb24b5c2c74e5caff7a582025f05e77492cd2337dae /tmp/lean-port.tar
 # Stage 1 reads only src/.
 SLOP gzip -dc /tmp/lean.tar.gz | tar -xf - -C / && rm -r /tmp/lean.tar.gz /tmp/lean/stage0
 SLOP tar -xf /tmp/lean-port.tar -C /

@@ -39,8 +39,8 @@ container=(podman run --rm --userns=keep-id -v "${tree}:/tmp/ocaml" -v "${tempor
 # libc spawns with posix_spawnp, which Unix.create_process then uses instead
 # of fork and exec, and has no gethostbyname_r or gethostbyaddr_r. Dolly's
 # threads are linked with -pthread. Dolly has no strip. Bytecode only: there
-# is no native code generator for WebAssembly, and no shared stub libraries,
-# since Dolly's -rdynamic excludes the threads OCaml 5's runtime is built with.
+# is no native code generator for WebAssembly. No shared stub libraries:
+# upstream's configure makes them only for the systems it lists.
 # libtool would measure the host's command-line limit, which follows the stack
 # limit of whatever runs this, and write it into the tree: the value it finds
 # under Linux's default 8 MB stack, so every tree prepares the same archive.

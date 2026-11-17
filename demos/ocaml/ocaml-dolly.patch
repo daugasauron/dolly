@@ -24,20 +24,6 @@
    copy_file ic oc;
    close_in ic;
    close_out oc
---- a/otherlibs/unix/spawn.c
-+++ b/otherlibs/unix/spawn.c
-@@ -61,8 +61,11 @@
-       for (int i = dst + 1; i <= 2; i++) {
-         if (src == Int_val(Field(redirect, i))) goto dontclose;
-       }
-+#ifndef __dolly__
-+      /* Dolly's spawn takes no close action: the child keeps [src] too. */
-       r = posix_spawn_file_actions_addclose(&act, src);
-       if (r != 0) goto error;
-+#endif
-     dontclose:
-       /*skip*/;
-     }
 --- a/runtime/caml/domain.h
 +++ b/runtime/caml/domain.h
 @@ -30,7 +30,9 @@

@@ -58,7 +58,7 @@ EXPORTS ENV PYTHONDONTWRITEBYTECODE 1
 # The target is configured outside the browser, but every target object and
 # executable is compiled here. Dolly-owned adapters remain independent pinned
 # inputs instead of being hidden inside the upstream archive.
-SOURCE /v0.1.7/dist/static/python/cpython.tar.gz 14c1e5ba898d41d32ff11e912179671fdb80cd42334dbab7f2a01e05a65a71bf /tmp/cpython.tar.gz
+SOURCE /v0.1.7/dist/static/python/cpython.tar.gz 4d96d70f2c8762ad6e5b7cca5450b342df94586b45d7ad30e0f46c9319483501 /tmp/cpython.tar.gz
 
 SLOP gzip -dc /tmp/cpython.tar.gz | tar -xf - -C /
 
@@ -167,6 +167,8 @@ SLOP CWD /usr/src/python cc \
   -std=c17 \
   Modules/dolly_socket_stubs.c \
   -o Modules/dolly_socket_stubs.o
+# The frozen modules are made by CPython's C freezer, built here, as a native
+# build makes them: configure's cross build would run the build host's Python.
 SLOP CWD /usr/src/python make \
   -o configure \
   -o config.status \
@@ -212,7 +214,11 @@ SLOP CWD /usr/src/python make \
   LIBC= \
   SHLIBS= \
   MACHDEP_OBJS=Python/dolly_platform.o\ Modules/dolly_socket_stubs.o \
-  DTRACE=
+  DTRACE= \
+  FREEZE_MODULE_BOOTSTRAP=./Programs/_freeze_module \
+  FREEZE_MODULE_BOOTSTRAP_DEPS=Programs/_freeze_module \
+  FREEZE_MODULE=./Programs/_freeze_module \
+  FREEZE_MODULE_DEPS=Programs/_freeze_module
 
 # Install the standard-library contents into their final prefix.  Treat the
 # destination as an installation directory explicitly: it may already exist

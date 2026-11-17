@@ -4,11 +4,34 @@
 - PRIORITY: 140
 - TAGS: audit,ports,lean,rust,ocaml,dso,0.1.8
 
-## State (2026-11-16 night audit)
+## State (2026-11-17)
 
-The core's side measured in a session; no port rebuilt. Each is an image chain rebuild
-(Lean 75.8 min, Rust's toolchain 63 min and what follows it, in round 1117), rustc's needs its
-LLVM built with threads too. OCaml's is a correction of its stated reason only (below).
+On `ws/ports`:
+
+- Lean: `lean-dolly.mk` links `lean`, `lake` and `leanc` with `-rdynamic`, as upstream's CMake
+  links its programs (`CMAKE_DYN_EXE_LINKER_FLAGS`), with what upstream's shared libraries hold
+  whole (`libInit_shared`: Init, Std and the runtime; `libLake_shared`: Lake), which is what the
+  table named before; a program Lake links is not `-rdynamic`; `lean-symbols.c`, its rules and the
+  `lean_dolly_symbol` hunk are gone, the interpreter's `dlsym(RTLD_DEFAULT, ...)` is upstream's,
+  and `lean-stage0` and `lean` declare `dso@0`, which a `-rdynamic` program needs. The README's
+  plugin limit says they would load through `dso@0`, which the lean test does not try.
+- rustc stays serial, now said as a choice (AGENTS.md: "Prefer simple serial semantics over
+  multiprocessing or performance machinery"): `rust-linker.c`'s comment and the Rust README no
+  longer say that `cc` cannot link a threaded host. Making it threaded is a rewrite of
+  `toolchain/rust.patch` (its frontend thread, codegen coordinator and LLVM's thread check), an
+  LLVM with threads in the seed and in `rust-llvm`, and a seed rebuild before any image, none of
+  which a tree short of the round can try; Cargo already runs `rustc` processes in parallel.
+- OCaml: `prepare-ocaml.sh` and the README give upstream's reason for `--disable-shared` (its
+  configure makes shared libraries only for the systems it lists; measured in the pinned
+  archive's `configure.ac`, which without it sets `supports_shared_libraries=true` with
+  `mkdll=shared-libs-not-available`). `ocaml` builds in this tree and its test passes in
+  Chromium and Firefox (`both-7`).
+- Wine's `gmoduleconf.h`, README and `wine_dlopen` message (`port/libwine.c`) and GTK's README
+  no longer name the lifted limit: what Wine opens is what is linked into its one program.
+
+Images the change rebuilds: the four Lean images, `ocaml` (the script's comment is in its
+staging key), `wine-build` and `wine` (`gmoduleconf.h`), and the Rust chain from the package
+that compiles `rust-linker.c`.
 
 ## What
 

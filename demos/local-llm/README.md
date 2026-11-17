@@ -47,7 +47,7 @@ licensed below 10 million US dollars of annual revenue.
 A model package installs `/usr/share/dolly/llm/ID.json` beside its weights; the
 provider lists that directory and names no model. Adding one is
 [`models/ID.json`](models/), a recipe per package and a row in
-[`config/upstreams.json`](../../config/upstreams.json). The description holds
+[`upstreams.json`](upstreams.json). The description holds
 what no upstream file knows:
 
 - `source`: the pinned upstream GGUF and the license file shipped with it.
@@ -87,7 +87,10 @@ which saves memory.
 
 - [`Dollyfile-llama-cpp`](Dollyfile-llama-cpp), [`CMakeLists.txt`](CMakeLists.txt):
   unchanged llama.cpp, its WGSL and the chat and sampling sources of its
-  `common` library, built in Dolly with CMake.
+  `common` library, built in Dolly with CMake. `ggml-webgpu.cpp` is compiled
+  with `__EMSCRIPTEN__=1`, upstream's only switch between a browser's WebGPU
+  and Dawn's (whose toggles and native features `gpu@0` does not give): an
+  exception kept by choice.
 - [`webgpu.cpp`](webgpu.cpp), [`main.cpp`](main.cpp): the WebGPU C adapter for
   the functions this backend uses, and the `dolly-llama` command. Each stdin
   line is the request `llama-server` takes at `/v1/chat/completions`; stdout is

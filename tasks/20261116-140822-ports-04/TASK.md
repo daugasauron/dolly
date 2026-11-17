@@ -1,16 +1,13 @@
 # What each demo costs a full rebuild against what it shows: Ghostty's GTK app with Zig's LLVM is 18.7%, eight chains 69%
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 110
 - TAGS: audit,ports,build,demo,0.1.8
 
-## State (2026-11-16 night audit)
+## State (2026-11-17)
 
-Measured; nothing changed. What a release round rebuilds is the owner's choice of scope, so
-this waits for that choice. The duplicated LLVM 22 is
-`tasks/20261116-140603-buildtime-06`; that a version bump rebuilds every image is the buildtime
-audit's (`tasks/20261116-140453-buildtime-01`): with that fixed, a demo costs this only when its
-inputs or the seed change.
+Decided (below). The duplicated LLVM 22 is `tasks/20261116-140603-buildtime-06`; that a version
+bump rebuilds every image is `tasks/20261116-140453-buildtime-01`.
 
 ## Measurement
 
@@ -76,3 +73,13 @@ moves the recipes other demos install to `demos/tools`.
 ## Done when
 
 The decision for each chain is recorded here, and the release round's catalog list matches it.
+
+## Closed (2026-11-17)
+
+Decided for 0.1.8: every chain stays in the release round's
+catalog (Ghostty's GTK application with Zig's LLVM, Lean, the LLVM package, Mojo, Codex, Godot,
+PhotoCraft, 0 A.D.). The ported programs are the evidence of the interface (AGENTS.md, Goal), and
+what made this task urgent, that a version bump rebuilt them all, is
+`tasks/20261116-140453-buildtime-01`'s: with versionless recipes a chain is rebuilt when its inputs
+or the seed change, as a compiler round requires of every image. No demo is removed, so
+`config/domain-pages-images.txt` and `config/npm-images.txt` are unchanged and match the decision.

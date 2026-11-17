@@ -31,8 +31,14 @@ def apply(directory, patch):
                     "-i", str(patch.resolve())], check=True)
 
 
+# A crate's patch: Codex's own, or the Rust demo's that Cargo's build applies too.
+def crate_patch(name):
+    own = Path(f"demos/codex/config/{name}.patch")
+    return own if own.exists() else Path(f"demos/rust/config/patches/{name}.patch")
+
+
 for name in ["rustls-client", "sqlite-options", "process", "protoc", "clipboard",
-             "hardening", "installation-id", "filesystem-walk", "tui-events", "device-login"]:
+             "hardening", "installation-id", "tui-events"]:
     apply(codex, Path(f"demos/codex/config/{name}.patch"))
 manifest = tomllib.loads((codex / "Cargo.toml").read_text())
 lock_path = codex / "Cargo.lock"
@@ -71,7 +77,7 @@ for directory in (stage / "vendor").iterdir():
         (directory / "src/lib.rs").touch()
 for name, version in [("tokio", "1.52.3"), ("socket2", "0.6.3"), ("mio", "1.2.0"), ("zlib-rs", "0.5.5"), ("zlib-rs", "0.6.3"), ("cc", "1.2.55"),
                       ("ring", "0.17.14"), ("reqwest", "0.12.28"),
-                      ("nix", "0.28.0"), ("nix", "0.30.1"), ("sqlx-sqlite", "0.9.0"), ("serial2", "0.2.33")]:
+                      ("nix", "0.28.0"), ("nix", "0.30.1"), ("serial2", "0.2.33")]:
     directory = stage / "vendor" / f"{name}-{version}"
     if name == "nix":
         # Only errno uses the Linux variant names; values come from Emscripten libc.
@@ -99,12 +105,12 @@ pub mod ioctl;"""))
         #[cfg(target_os = "emscripten")]
         if res != 0 { return Err(Errno::from_raw(res)); }"""))
     elif name == "tokio":
-        apply(directory, Path("demos/rust/config/patches/tokio-target.patch"))
+        apply(directory, Path("demos/codex/config/tokio-target.patch"))
     else:
         subprocess.run(["patch", "--batch", "--forward", "--fuzz=0", "-p1", "-d", str(directory),
-                        "-i", str(Path(f"demos/rust/config/patches/{name}.patch").resolve())], check=True)
+                        "-i", str(crate_patch(name).resolve())], check=True)
     if name == "reqwest":
-        shutil.copyfile("demos/rust/config/patches/reqwest-broker.rs", directory / "src/async_impl/dolly.rs")
+        shutil.copyfile("demos/codex/config/reqwest-broker.rs", directory / "src/async_impl/dolly.rs")
 
 revisions = {p.get("source", "").partition("#")[2] for p in records}
 git = stage / "git"
@@ -120,7 +126,7 @@ for pin in json.loads(Path("demos/codex/config/codex-git.json").read_text()):
     root.rename(git / revision)
     unpack.rmdir()
     if patch := pin.get("patch"):
-        apply(git / revision, Path(f"demos/rust/config/patches/{patch}.patch"))
+        apply(git / revision, Path(f"demos/codex/config/{patch}.patch"))
 
 # Cargo fetches a git dependency even when a patch stands in for it. Each
 # reference to a pinned revision becomes its package's path in that checkout,

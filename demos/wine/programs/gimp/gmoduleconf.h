@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT */
-/* GModule on Dolly: a threaded program has no dlopen, so no implementation is chosen and
+/* GModule in Wine's one program, GIMP linked into it: no implementation is chosen, and
  * g_module_open answers "dynamic modules are not supported by this system". */
 #ifndef __G_MODULE_CONF_H__
 #define __G_MODULE_CONF_H__

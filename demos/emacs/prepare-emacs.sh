@@ -64,10 +64,9 @@ container+=(-v "${tree}:/tmp/emacs" -v "${temporary}/bin:/dolly-bin:ro"
     --with-sound=no --without-file-notification --disable-acl \
     CC=cc AR=ar RANLIB=: MKDIR_P='mkdir -p' INSTALL='install -c' \
     AWK=awk GREP=grep EGREP='grep -E' SED=sed CFLAGS='-O0' >/dev/null
-# Make re-executes itself after remaking an included makefile; Dolly has no
-# exec, so the fragment src/Makefile includes is generated here.
-"${container[@]}" make -s -C src /tmp/emacs/src/lisp.mk >/dev/null
 rm -f "${tree}/config.log" "${tree}/configure.lineno" "${tree}/a.wasm"
+# Dolly compiles the Lisp itself (Dollyfile-emacs): the release's bytecode goes.
+find "${tree}/lisp" -name '*.elc' -delete
 
 mv -T -- "${tree}" "${output}"
 printf '%s\n' "${output}"

@@ -6,8 +6,8 @@
 
 ## State (2026-11-17)
 
-Fixed on branch `fix/python-config` (`4ca1c8a1c`, worktree `work/fix-python`), not merged, no
-image rebuilt. `demos/python/config.site-dolly` now holds Dolly's answers alone: it no longer
+Fixed on branch `fix/python-config` (`4ca1c8a1c`), merged into `integrate/0.1.8` (`11369ad7c`);
+no image rebuilt. `demos/python/config.site-dolly` now holds Dolly's answers alone: it no longer
 sources upstream's Emscripten site file, and `prepare-cpython.sh`'s 37 environment answers and
 four `sed`s on `pyconfig.h` are gone (two of the answers, `rewinddir` and `setrlimit`, configure
 never asks). A line stands where Dolly's process libc answers otherwise than configure's probe of
@@ -82,19 +82,21 @@ ENOTSUP instead of ending the process, and one sent to another process never arr
 
 Left:
 
-- The round's rebuild must confirm: staging gives `cpython.tar.gz` `14c1e5ba…` (configure in
-  the pinned container with this host's Python 3.14 for the frozen modules; another host Python
-  changes the archive, and the pin with it); `python` builds with every check of its recipe; the
+- The round's rebuild must confirm: staging gives the `cpython.tar.gz` the recipe pins (configure
+  in the pinned container, which asks the host's Python 3.14 for its version only); `python`
+  builds with every check of its recipe, its frozen modules made by its own freezer; the
   python demo test (`demos/python/test/python-browser.mjs`) passes in Chromium and Firefox, its
   Ctrl+C on `signal.pause()` now through `sigaction`; `functions.py` passes on the published
   package; and the images that install python as a build tool rebuild and pass their tests:
   the LLVM chain, where `llvm-cc` must give the pinned seed compiler (`c98f9ab6…`) again, then
   Rust (`rust-llvm` and what its `rustc` builds), Mojo, Zig, Meson, SCons and Godot, X11,
   `spirv-wgsl`, SpiderMonkey and 0 A.D., and the Python data packages that pip builds.
-- `demos/zero-ad/toolchain/spidermonkey.patch`'s `subprocess.call` hunk in `build/cargo-linker`
-  is left: dropping it re-stages SpiderMonkey's source archive, and only a SpiderMonkey build
-  proves it; `os.execvp` of `cc` from Python, as that script ends, works (above).
-- The host freezing step of `prepare-cpython.sh` is `tasks/20261116-143518-ports-08`'s, unchanged.
+- On `ws/ports` (2026-11-17), `spidermonkey.patch` no longer replaces `cargo-linker`'s
+  `os.execvp` of the linker with `subprocess.call` (its shebang hunk stays): the round's
+  `spidermonkey` build (0 A.D.'s chain) must link through it. `os.execvp` of `cc` from Python, as
+  that script ends, works (above). The host freezing step went too
+  (`tasks/20261116-143518-ports-08`), so the archive no longer depends on the host Python's patch
+  version, and its digest is no longer `14c1e5ba…`: the round's staging gives the pin.
 
 ## What
 

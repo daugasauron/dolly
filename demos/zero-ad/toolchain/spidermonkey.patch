@@ -235,21 +235,6 @@
  
  # If you want to use a custom linker with Cargo, Cargo requires that you
  # specify it in Cargo.toml or via the matching environment variable.
-@@ -25,6 +25,7 @@
- #   fail if the requested feature is in the C++ runtime only (bug 1747298).
- 
- import os
-+import subprocess
- import sys
- 
- # This is not necessarily run with a virtualenv python, so add
-@@ -62,4 +63,5 @@
-     args.append(arg)
- 
- wrap_ld = split(wrap_ld)
--os.execvp(wrap_ld[0], wrap_ld + args)
-+# Dolly has no exec: run the linker as a child and leave with its status.
-+sys.exit(subprocess.call(wrap_ld + args))
 --- a/js/src/old-configure
 +++ b/js/src/old-configure
 @@ -2066,7 +2066,7 @@

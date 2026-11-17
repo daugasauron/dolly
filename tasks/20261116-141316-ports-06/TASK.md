@@ -1,16 +1,13 @@
 # Rust and Zig programs are built as Emscripten's: 37 Rust patches add target_os = "emscripten" where C programs see __dolly__; ggml-webgpu too
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: audit,ports,rust,zig,design,0.1.8
 
-## State (2026-11-16 night audit)
+## State (2026-11-17)
 
-Counted and read; not tried whether a Dolly name needs fewer patches. Left open on purpose by
-`tasks/20261005-133402-target-identity` ("a Dolly `target_os` is a port of both and not part of
-this decision"; ggml-webgpu "the demo's own choice"); no task has held these since. QuickJS's
-`-DEMSCRIPTEN=1`, the same kind of claim, is measured and has its own task:
-`tasks/20261116-151122-ports-09`.
+Decided: Emscripten's name is kept for the three, each named as an exception in its demo's
+README (closing section). QuickJS's `-DEMSCRIPTEN=1` is gone (`tasks/20261116-151122-ports-09`).
 
 ## What
 
@@ -60,3 +57,17 @@ the vendored sources as staged (`work/round1113/build/rust-sources/ripgrep/vendo
 
 The counts are in this task, and the owner has the choice for each: the Dolly name, or
 Emscripten's kept and named as an exception in its demo's README.
+
+## Closed (2026-11-17)
+
+The counts are the audit's above: 37 patches add 178 lines naming `emscripten` (std, `libc` and
+crates for Rust; 41 lines over five Zig patches); of the staged vendored crates, ripgrep's 51 have
+two with Emscripten branches (`libc`, 31 lines; `getrandom`, 2) and Codex's 1,218 have 48. A Dolly
+`target_os` would need a port of std and of the `libc` crate, and each of those branches a Dolly
+case of its own (not measured: the port is the work this would cost).
+Zig's standard library likewise knows no Dolly OS. ggml-webgpu's `__EMSCRIPTEN__` is upstream's
+only switch between a browser's WebGPU and Dawn's (its Dawn toggles and native features, which
+`gpu@0` does not give), so it selects the right code. Decided: Emscripten's name stays for the
+three, as an exception each demo's README names: `demos/rust/README.md` (Limits, with
+`File::lock` answering `Unsupported`), `demos/zig/README.md`, `demos/local-llm/README.md` (Key
+files). Commit on `ws/ports`.

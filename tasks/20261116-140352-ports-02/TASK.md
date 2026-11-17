@@ -4,20 +4,49 @@
 - PRIORITY: 150
 - TAGS: audit,ports,rust,mojo,zig,xonotic,ocaml,codex,lean,emacs,cleanup,0.1.8
 
-## State (2026-11-16 night audit)
+## State (2026-11-17)
 
-Found by reading the patches against the core and its history. Measured in sessions on round
-1117's dist: the lock, `addclose`, `getloadavg`, LLVM 22's own path discovery, a spawned child's
-ignored signals and Make's re-execution after remaking Emacs's `lisp.mk` work; OCaml's child
-keeps the descriptor and upstream's `spawn.c` closes it; Make built without its pragmas is the
-same program, and without its `load_too_high` hunk it warns as upstream does. One Codex hunk
-first listed here turned out to be needed (`installation-id.patch`, item 6). The LLVM, Zig,
-DarkPlaces, Codex, Lean and Emacs images were not rebuilt without theirs. Each removal rebuilds
-its chain (`rust-llvm` 26.5 min and the Rust chain after it, `mojo-llvm` 38.5 min,
-`zig-llvm-build` 28.9 min, `codex` 40.5 min, Lean's 75.8, `ocaml` 2.8 min, `xonotic-build` 1.2
-min, `emacs` 0.8 min, in round 1117; Make's rebuilds the catalog), so it belongs in a round that
-rebuilds those anyway. One more, SpiderMonkey's "Dolly has no exec" hunk, waits on Python's
-`execv` (`tasks/20261116-140352-ports-01`).
+Every hunk below is gone on `ws/ports`, with what each needed, and three more found on the way
+(DarkPlaces's `select`, read loop and `SUPPORTDLL` hunks; Emacs's wait options). What a build in
+this tree proved, and what only the round can (the heavy chains):
+
+1. LLVM's main executable: `llvm-main-executable.patch`, its rows in `rust-llvm` and `mojo-llvm`,
+   their staging and licence sources are gone; `rust-llvm` checks that `llvm-config --prefix`,
+   run from `/tmp`, prints `/opt/rust-llvm`. Round: `rust-llvm` (that check) and `mojo-llvm`
+   build, and the rust and mojo tests pass.
+2. Zig's `GetExecutablePath` fallback is gone; the patch applies to the prepared tree
+   (`patch --dry-run`). Round: `zig-llvm-build`, and the zig test, whose `zig cc` starts its
+   assembler (`-cc1as`) by the path LLVM finds.
+3. DarkPlaces keeps only its loopback hunk (`netconn.c`: Dolly has no IP sockets).
+4. Make: the 16 `#pragma once` hunks and `load_too_high` are gone. Staged, the prepared tree
+   holds no pragma and no `__dolly__` in `load_too_high`.
+5. OCaml's `addclose` hunk is gone (and the README's bullet that described it): Dolly's spawn
+   takes the close action (`process/runtime-adapter.c`, `FDOP_CLOSE`). `ocaml` builds in this
+   tree, and the ocaml test (`Unix.create_process` over a pipe among it) and its fixpoint
+   (`make bootstrap` in a session) pass in Chromium and Firefox (`both-7`).
+6. Codex: `device-login.patch`, `filesystem-walk.patch` and `sqlx-sqlite.patch` are gone (the
+   blocking pool, the non-blocking log writer and SQLite's worker thread are upstream's).
+   Round: `codex` builds, and the codex test (its sign-in included) passes.
+7. Lean's spawn takes no signal attributes: the child keeps what Lean ignores and blocks, as a
+   forked one does (README). Round: the Lean chain and the lean test.
+8. Emacs: `prepare-emacs.sh` no longer makes `src/lisp.mk` on the host; the release's `.elc`
+   files are not staged and the recipe runs upstream's bootstrap
+   (`tasks/20261116-143518-ports-08`); `process.c`'s hunk that passed no wait options is gone
+   (Dolly's `waitpid` takes `WUNTRACED` and `WCONTINUED`, `process/runtime-adapter.c:320`). The
+   terminal hunks stay, with their real reason in the patch and README: Emacs's `terminfo.c`
+   declares `tparm` variadic, and NetBSD's libterminfo defines it with nine `long`s, which a
+   WebAssembly call cannot match. `emacs` and `gnu-emacs` build in this tree, the recipe's check
+   of an asynchronous child's exit status among it, and the emacs test passes in Chromium and
+   Firefox (`cc-6`, `both-9`).
+
+The SDL2, RTS and Wine READMEs (and `icall.c`) no longer name a limit that is gone: SDL is built
+without threads by choice, and `cc --dolly-cast-emulation` exists, which `icall` is preferred to
+for touching only the GIMP modules' calls.
+
+Images the change rebuilds: every image (Make is in `system-build`); by item, beyond that,
+`rust-llvm`, `mojo-llvm` and what they build (1), `zig-llvm-build` and after (2), `xonotic-build`
+and `xonotic` (3), `ocaml` (5), `codex` (6), the four Lean images (7), `emacs` and `gnu-emacs` (8),
+`wine-build` and `wine` (`icall.c`).
 
 ## What
 

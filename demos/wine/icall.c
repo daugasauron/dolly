@@ -4,7 +4,8 @@
 // GLib, GTK+ and GIMP call a function of one argument through a pointer to a function of two
 // (every class and instance initializer, most signal handlers, g_list_foreach with g_free) and
 // read or drop results the same way. A processor's calling convention lets that pass; WebAssembly
-// checks the exact type at each call_indirect and traps. Dolly's cc has no pass that emulates it.
+// checks the exact type at each call_indirect and traps. cc --dolly-cast-emulation emulates it for
+// every call of a program; icall, for the calls of the objects it is given.
 //
 //   icall OBJECT...           rewrites each object file in place: every call_indirect of a type T
 //                             becomes a call of the function __icall_T, which gets the function
