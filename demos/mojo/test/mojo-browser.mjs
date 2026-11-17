@@ -23,6 +23,7 @@ process.env.TMPDIR = new URL("build/mojo-test/", root).pathname;
 await mkdir(process.env.TMPDIR, { recursive: true });
 const launches = { "headless chromium": () => chromium.launch({ channel: "chrome", headless: true,
   args: ["--no-sandbox", "--disable-gpu", "--enable-unsafe-webgpu"] }) };
+if (!process.env.DISPLAY) console.log("mojo: firefox skipped: Firefox has WebGPU only in a window on DISPLAY");
 if (process.env.DISPLAY) {
   launches.chromium = () => chromium.launch({ channel: "chrome", headless: false,
     args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan"] });

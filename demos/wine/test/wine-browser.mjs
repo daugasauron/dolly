@@ -12,10 +12,11 @@
 // does not wait for.) In a fourth GIMP paints a stroke, saves it as XCF, quits,
 // starts again and opens it. In a fifth the terminal runs cmd's commands and
 // programs, and the source of the x86-64 sample is edited, compiled and run.
-// Usage: node demos/wine/test/wine-browser.mjs [firefox]
+// Usage: [DOLLY_BROWSER=firefox] node demos/wine/test/wine-browser.mjs
 import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
 import { createServer } from "node:http";
+import { browsers } from "../../browsers.mjs";
 import { delay, demoTest, framePoint, shellPrompt, snapshotDisplay, waitForDisplay } from "../../browser.mjs";
 
 const evidence = new URL("../../../build/wine-evidence/", import.meta.url).pathname;
@@ -107,8 +108,8 @@ const elsewhere = createServer(async (request, response) => {
 await new Promise(listening => elsewhere.listen(0, "127.0.0.1", listening));
 const elsewhereOrigin = `http://127.0.0.1:${elsewhere.address().port}`;
 
-await demoTest("wine", { image: "wine", timeout: 600_000, server: { handle: serveNetsurfFixtures },
-  browser: process.argv[2] }, async ({ server, open }) => {
+for (const browser of browsers) await demoTest("wine", { image: "wine", timeout: 600_000, server: { handle: serveNetsurfFixtures },
+  browser }, async ({ server, open }) => {
   await mkdir(evidence, { recursive: true });
   for (const [name, session, options] of [["desktop", run, {}], ["netsurf", netsurf, { policy: { rules: [
     { origin: server.origin, pathPrefix: "/fixture/netsurf/", methods: ["GET"] },
@@ -507,10 +508,13 @@ async function site(page, prompt, start, waitText, server) {
   await startMenu("s");
   await until(async () => (await coloured(page, dark)).count > 200_000, "the site's landing page as the home page");
   await page.screenshot({ path: `${evidence}netsurf-home.png` });
+  // The home page drawn again, before the address is typed: NetSurf sets the field when it is.
+  const home = (await coloured(page, dark)).count;
+  const isHome = async () => Math.abs((await coloured(page, dark)).count - home) < home / 100;
   await click(page, 95, 459);                 // "Licences and sources", the first of the row of links under IMAGES
-  await delay(2500);
+  await until(async () => !await isHome(), "the licences page");
   await click(page, 18, 58);                  // Back
-  await delay(2000);
+  await until(isHome, "the home page after Back");
 
   await click(page, 600, 58);
   await page.keyboard.press("Home");

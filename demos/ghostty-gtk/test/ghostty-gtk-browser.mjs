@@ -3,8 +3,9 @@
 // terminal. The page's keyboard reaches that shell through the X server, GTK
 // and Ghostty's pseudo-terminal: it writes a file, colours cells and ends the
 // server, and the terminal's shell reads the file.
-// Usage: node demos/ghostty-gtk/test/ghostty-gtk-browser.mjs [chromium|firefox ...]
+// Usage: [DOLLY_BROWSER=firefox] node demos/ghostty-gtk/test/ghostty-gtk-browser.mjs
 import { mkdir } from "node:fs/promises";
+import { browsers } from "../../browsers.mjs";
 import { delay, demoTest, framePoint, shellPrompt, snapshotDisplay } from "../../browser.mjs";
 
 const evidence = new URL("../../../build/ghostty-evidence/", import.meta.url).pathname;
@@ -47,7 +48,6 @@ async function type(page, text) {
   }
 }
 
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium"];
 for (const browser of browsers) await demoTest("ghostty-gtk", { image: "x11-desktop", timeout: 900_000, browser }, async ({ server: site, open }) => {
   await mkdir(evidence, { recursive: true });
   const { page, run, prompt } = await open({ prompt: null,

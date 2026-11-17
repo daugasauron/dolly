@@ -5,9 +5,10 @@
 // and replays as a timedemo, and a SIGKILL ends it with the shell intact.
 // Usage: node demos/xonotic/test/xonotic-browser.mjs
 // With DISPLAY, Chrome runs in a window with the GPU's adapter and the client
-// draws on gpu@0; headless, or with DOLLY_BROWSER=firefox, gpu@0 has no adapter
+// draws on gpu@0; headless, or in Firefox, gpu@0 has no adapter
 // and the client falls back to the engine's software rasterizer.
 import assert from "node:assert/strict";
+import { browsers } from "../../browsers.mjs";
 import { delay, demoTest, heardAudio, meterAudio, snapshotDisplay } from "../../browser.mjs";
 
 const archives = ["xonotic-20230620-data.pk3", "xonotic-20230620-maps.pk3"];
@@ -15,8 +16,8 @@ const fonts = ["font-xolonium-20230620.pk3", "font-unifont-20230620.pk3"];
 const fixtures = Object.fromEntries([...archives, ...fonts].map(name => [name, `.cache/xonotic/release/Xonotic/data/${name}`]));
 const basedir = "/home/dolly/xonotic";
 const userdir = "/home/dolly/.xonotic/data";
-const browser = process.env.DOLLY_BROWSER ?? "chromium";
-const gpu = browser === "chromium" && Boolean(process.env.DISPLAY);
+// On gpu@0, in Chrome on DISPLAY, for the browser being run.
+let gpu;
 const client = `cd ${basedir} && xonotic-sdl -xonotic -basedir ${basedir} +vid_soft 1 +vid_soft_threads 1 +vid_fullscreen 0 ` +
   "+vid_width 1024 +vid_height 768";
 
@@ -60,7 +61,8 @@ async function frame(page) {
     measureFrame(displaySnapshot.getContext("2d").getImageData(0, 0, 1024, 768).data) : null);
 }
 
-await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser, webgpu: gpu ? "window" : false,
+for (const browser of browsers) await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser,
+  webgpu: (gpu = browser === "chromium" && Boolean(process.env.DISPLAY)) ? "window" : false,
   server: { fixtures } }, async ({ server, open }) => {
   const { page, run, start, text } = await open({ policy: { rules: [
     { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"], maxResponseBytes: 1024 * 1024 * 1024 }] },

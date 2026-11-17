@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
-import { chromium } from "playwright-core";
+import { chromium, firefox } from "playwright-core";
+import { browsers } from "../../browsers.mjs";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
 import { routeAttributes } from "../../../test/browser.mjs";
 import { acceptDownload } from "../../browser.mjs";
@@ -15,7 +16,7 @@ const server = await startBrowserServer(new URL("../../../", import.meta.url).pa
   } });
 let browser, deadline, page;
 try {
-  browser = await chromium.launch({ channel: "chrome", headless: true,
+  browser = browsers[0] === "firefox" ? await firefox.launch({ headless: true }) : await chromium.launch({ channel: "chrome", headless: true,
     args: ["--no-sandbox", "--disable-gpu", "--enable-unsafe-webgpu"] });
   deadline = setTimeout(() => void browser.close(), 180000);
   page = await browser.newPage();
@@ -172,7 +173,7 @@ try {
   assert.equal(restored[5].result, economy[8].result, "a fresh engine follows the uninterrupted AI continuation");
   console.log(`Economy: house, training, gathering, Petra and fresh-process save/load passed in ${Math.round(performance.now() - economyStarted)} ms`);
   assert.equal(await submit("printf 'shell survived\\n' > /tmp/0ad-result && test -s /tmp/0ad-result"), 0);
-  console.log("0 A.D. browser simulation, replay, control, save/load, pipes and interruption checks passed");
+  console.log(`0 A.D. browser simulation, replay, control, save/load, pipes and interruption checks passed in ${browsers[0]}`);
 } catch (error) {
   if (page && !page.isClosed()) {
     console.error(await page.locator("#bootstrap-log").textContent().catch(() => ""));

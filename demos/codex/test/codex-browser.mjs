@@ -2,6 +2,7 @@
 // exit against a scripted Responses provider, then device login, cancellation,
 // persistence, token refresh and the login CLI against synthetic OAuth.
 // Usage: node demos/codex/test/codex-browser.mjs
+import { browsers } from "../../browsers.mjs";
 import { delay, demoTest, recoveryPrompt } from "../../browser.mjs";
 import { codexLoginFetch, codexLoginRules, createCodexLoginFixture, runCodexLogin } from "./fixtures/codex-login.mjs";
 import { codexProtectedInputDelay, runCodexTui } from "./fixtures/codex-tui.mjs";
@@ -9,7 +10,7 @@ import { demoFixture } from "./fixtures/codex-responses.mjs";
 
 const responses = demoFixture(), login = createCodexLoginFixture();
 const handle = (request, response) => responses.handle(request, response) || login.handle(request, response);
-await demoTest("codex", { image: "codex-agent", timeout: 1_200_000, server: { handle } }, async ({ server, open }) => {
+for (const browser of browsers) await demoTest("codex", { browser, image: "codex-agent", timeout: 1_200_000, server: { handle } }, async ({ server, open }) => {
   // The image enters Codex's sign-in screen; Ctrl-C leaves it for the shell.
   const shell = async options => {
     const terminal = await open({ ...options, prompt: null });

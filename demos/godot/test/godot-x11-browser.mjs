@@ -4,13 +4,13 @@
 // its frames read back from gpu@0 in their own colours, takes keys, and closes at twm's Delete.
 // The editor opens the game's project in another window, which takes the pointer and closes the
 // same way. The server ends, and the terminal's shell reads what they printed.
-// Usage: node demos/godot/test/godot-x11-browser.mjs [chromium|firefox ...]
+// Usage: [DOLLY_BROWSER=firefox] node demos/godot/test/godot-x11-browser.mjs
 import assert from "node:assert/strict";
 import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
+import { browsers } from "../../browsers.mjs";
 import { snapshotDisplay, waitForDisplay } from "../../browser.mjs";
 
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 // Types text as a person does on a US keyboard: X maps keys, not characters.
 const shifted = { ">": "Period", "$": "Digit4", "(": "Digit9", ")": "Digit0", "&": "Digit7", "|": "Backslash", "_": "Minus", "?": "Slash" };

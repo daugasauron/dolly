@@ -5,10 +5,10 @@
 // closes, and asks once more, which the user closes unanswered. It asks for a
 // file, which the user chooses in the browser's picker, and for another, which
 // the user cancels. Usage: node demos/pi/test/ask-user-browser.mjs
-// (DOLLY_BROWSER=firefox runs it in Firefox).
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
+import { browsers } from "../../browsers.mjs";
 import { delay, demoTest } from "../../browser.mjs";
 import { siteReference } from "../../../page/static-asset.mjs";
 import catalog from "../../../dist/dolly-images.json" with { type: "json" };
@@ -78,7 +78,7 @@ pi --offline --no-session --provider scripted --model scripted
 /bin/foreground -i /bin/slop`),
   "ENTRY /bin/foreground -i /bin/slop /etc/agent/start.slop", ""].join("\n");
 
-await demoTest("pi ask-user", { image: "pi-runtime", timeout: 300_000, browser: process.env.DOLLY_BROWSER ?? "chromium" }, async ({ server, open }) => {
+for (const browser of browsers) await demoTest("pi ask-user", { image: "pi-runtime", timeout: 300_000, browser }, async ({ server, open }) => {
   pageOrigin = server.origin;
   const policy = { rules: [{ origin: llm, path: "/v1/chat/completions", methods: ["POST"] }] };
   const { page, input, run, prompt, waitText } = await open({ policy, path: "/custom/rebuild/", prompt: /pi \/ DOLLY/,

@@ -66,11 +66,9 @@ Firefox.
 
 ## Reproducing it
 
-`node demos/llvm/test/stage2-browser.mjs` runs `llvm-build`'s rows again in the
-`llvm-cc` image, so with the compiler built there, and requires every archive,
-the compiler and the TableGen tools to be the first stage's bytes. It takes
-about 50 minutes and 7 GB in Chrome and runs on demand: the catalog builds no
-second stage.
+A compiler round requires `llvm-cc`, built by the pinned seed, to give the
+seed's bytes again ([the seed's compiler](../../docs/sources.md#the-seeds-compiler)): the
+compiler reproduces itself.
 
 ## Limits
 

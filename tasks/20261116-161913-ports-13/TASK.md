@@ -1,12 +1,13 @@
 # LLVM's stage-2 test last ran on 2026-10-25; every release round's fixed point already proves what it checks
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 70
 - TAGS: audit,ports,llvm,cleanup,0.1.8
 
-## State (2026-11-16 night audit)
+## State (2026-11-17)
 
-Found by reading and the rounds' logs; not run tonight (about 50 minutes and 7 GB).
+Done on `ws/ports`: the test, its `needs` entry and the table row are gone; the LLVM README's
+"Reproducing it" points to the compiler round's fixed point in `docs/sources.md`.
 
 ## What
 
@@ -39,3 +40,11 @@ both to the fixed point in `docs/sources.md`.
 ## Done when
 
 `git grep -n stage2-browser` finds nothing outside `tasks/`, and `npm run test:source` passes.
+
+## Closed (2026-11-17)
+
+On `ws/ports`: `git grep -n stage2-browser` finds the name only under `tasks/`, and `npm run
+test:source` passes but for the two checks that need a rebuilt `dist/` (`dolly-abi.json`, and the
+licence inventory while round 1113's recipes stood in for building). The fixed point of each
+compiler round is what shows the compiler rebuilds itself (`docs/sources.md`, "The seed's
+compiler").

@@ -3,9 +3,10 @@
 // left only, in Chromium and Firefox.
 // Usage: node demos/sdl2/test/sdl2-audio-browser.mjs
 import assert from "node:assert/strict";
+import { browsers } from "../../browsers.mjs";
 import { demoTest, heardAudio, installProbe, meterAudio } from "../../browser.mjs";
 
-for (const browser of ["chromium", "firefox"]) {
+for (const browser of browsers) {
   await demoTest("sdl2 audio", { image: "sdl2", browser, timeout: 600_000,
     server: { fixtures: { "sdl2-tone.c": "demos/sdl2/test/fixtures/sdl2-tone.c",
       "sdl2-mixer-tone.c": "demos/sdl2/test/fixtures/sdl2-mixer-tone.c" } } }, async ({ server, open }) => {

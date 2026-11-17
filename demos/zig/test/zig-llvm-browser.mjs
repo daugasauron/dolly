@@ -4,6 +4,7 @@
 // project's build.zig, both with the tools the package compiled. Zig names a
 // WebAssembly program NAME.wasm.
 // Usage: node demos/zig/test/zig-llvm-browser.mjs
+import { browsers } from "../../browsers.mjs";
 import { demoTest, writeCommand } from "../../browser.mjs";
 
 const hello = `const std = @import("std");
@@ -54,7 +55,7 @@ pub fn build(b: *std.Build) void {
     }) }));
 }
 `;
-for (const browser of ["chromium", "firefox"]) {
+for (const browser of browsers) {
   await demoTest("zig-llvm", { image: "default", browser, timeout: 1_800_000 }, async ({ server, open }) => {
     const { run } = await open({ policy: { rules: [{ origin: server.origin, path: "/amy-index.txt", methods: ["GET"] }] } });
     await run("amy install zig-llvm");

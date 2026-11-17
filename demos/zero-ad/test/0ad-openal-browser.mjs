@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { chromium } from "playwright-core";
+import { chromium, firefox } from "playwright-core";
+import { browsers } from "../../browsers.mjs";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
 import { routeAttributes } from "../../../test/browser.mjs";
 import { imageFile } from "./fixtures/image-file.mjs";
@@ -8,7 +9,7 @@ const server = await startBrowserServer(new URL("../../../", import.meta.url).pa
   "default", { fixtures: { "openal.wasm": await imageFile("zero-ad-deps", "/usr/libexec/zero-ad/openal-check", "openal-check.wasm") } });
 let browser, deadline, page;
 try {
-  browser = await chromium.launch({ channel: "chrome", headless: true,
+  browser = browsers[0] === "firefox" ? await firefox.launch({ headless: true }) : await chromium.launch({ channel: "chrome", headless: true,
     args: ["--no-sandbox", "--disable-gpu"] });
   deadline = setTimeout(() => void browser.close(), 120000);
   page = await browser.newPage();
@@ -29,6 +30,7 @@ try {
   }
   assert.equal(await submit("printf 'shell survived\\n' > /tmp/openal-result && test -s /tmp/openal-result"), 0);
   console.log(await page.evaluate(() => __dolly.visibleTerminalText()));
+  console.log(`0ad openal: ${browsers[0]} passed`);
 } catch (error) {
   if (page && !page.isClosed()) {
     console.error(await page.locator("#bootstrap-log").textContent().catch(() => ""));
