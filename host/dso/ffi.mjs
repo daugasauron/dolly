@@ -647,7 +647,7 @@ export function createProcessFfi({
     if ((cif.flags & VARARGS_FLAG) !== 0) parameters.push("i64");
     const result = returnByArgument ? null : resultWasmType(cif.returnType);
 
-    return typedWasmFunction((...arguments_) => {
+    const function_ = typedWasmFunction((...arguments_) => {
       const frame = stack();
       let valueIndex = 0;
       const returnPointer = returnByArgument
@@ -695,16 +695,21 @@ export function createProcessFfi({
       }
 
       frame.publish();
+      const callbackArguments = [cif.pointer, returnPointer, argumentArray, userData];
       try {
-        tableFunction(callbackIndex, "FFI closure callback")(
-          cif.pointer, returnPointer, argumentArray, userData,
-        );
+        const callback = tableFunction(callbackIndex, "FFI closure callback");
+        if (castEmulationParameters) callback(...toCastEmulation(callbackArguments, [], castEmulationParameters));
+        else callback(...callbackArguments);
       } finally {
         frame.restore();
       }
       return returnByArgument
         ? undefined : callbackResult(returnPointer, cif.returnType);
     }, parameters, result);
+    // A cast-emulated program calls it through a thunk, as every entry of its table.
+    return castEmulationParameters
+      ? castThunk(function_, { params: parameters, results: result ? [result] : [] }, castEmulationParameters)
+      : function_;
   }
 
   // The changes to the table, from their packets' values. Each checks its

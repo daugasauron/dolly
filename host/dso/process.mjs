@@ -580,17 +580,14 @@ export function serve(context) {
     })),
   });
   // A program using threads@0 that hosts no libraries calls functions only.
-  // In a cast-emulated program every table entry is a thunk of one signature,
-  // which a closure made here has not.
   const callsOnly = context.threaded && !threadRecords;
-  const closuresRefused = context.processInterface.castEmulationParameters > 0;
   const refusal = (operation, response) => ffi.handles(operation) ? -BigInt(DOLLY_ERRNO.ENOTSUP)
     : writeDsoResponse(response, 0n, DOLLY_ERRNO.ENOTSUP, "not in a program using threads@0 without -rdynamic");
   return {
     handles: operation => (operation >= DOLLY_DSO_OPEN && operation <= DOLLY_DSO_WAIT) || ffi.handles(operation),
     call(operation, request, response) {
       if (operation === DOLLY_DSO_WAIT) return threadRecords ? futexWait(request) : -BigInt(DOLLY_ERRNO.ENOTSUP);
-      if ((callsOnly || closuresRefused && ffi.handles(operation)) && operation !== DOLLY_FFI_CALL) {
+      if (callsOnly && operation !== DOLLY_FFI_CALL) {
         return refusal(operation, response);
       }
       threadRecords?.synchronize();

@@ -542,7 +542,7 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
     places in the table (a `GOT.func` entry, `dlsym`) goes in as a thunk of
     that signature, as Binaryen's convert, or as the program's own thunk where
     it has one, so that a pointer to a function compares equal wherever it was
-    taken. Closures, which would add an entry of another signature, are refused.
+    taken. A closure goes in as the thunk of the function made for it.
   - A program's function exports, but `_start` and Dolly's own (`dolly_*`,
     `__dolly_*`), are entries of a table the process Worker adds to the module
     (`__dolly_exports`), where the loader finds them: Chrome makes an object of

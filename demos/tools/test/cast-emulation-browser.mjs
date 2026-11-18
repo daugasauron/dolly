@@ -1,7 +1,8 @@
 // A program linked with cc's --dolly-cast-emulation (binaryen's wasm-opt) loads
 // a library linked so, and each calls the other's functions through pointers
-// of other types; a library linked without it is refused (dso@0,
-// docs/process-model.md). Usage: node demos/tools/test/cast-emulation-browser.mjs
+// of other types, and a libffi closure the host makes; a library linked without
+// it is refused (dso@0, docs/process-model.md).
+// Usage: node demos/tools/test/cast-emulation-browser.mjs
 import { browsers } from "../../browsers.mjs";
 import { demoTest, writeCommand } from "../../browser.mjs";
 import { composed } from "../../../test/browser.mjs";
@@ -14,8 +15,12 @@ extern int host_twice(int);
 int (*host_function(void))(int) { return host_twice; }
 `;
 const host = `#include <dlfcn.h>
+#include <ffi.h>
 #include <string.h>
 int host_twice(int value) { return 2 * value; }
+static void scale(ffi_cif *cif, void *result, void **arguments, void *factor) {
+  *(ffi_arg *)result = *(int *)arguments[0] * *(int *)factor;
+}
 static int no_arguments(void) { return 42; }
 int main(int argc, char **argv) {
   void *library = dlopen(argv[1], RTLD_NOW);
@@ -29,17 +34,25 @@ int main(int argc, char **argv) {
   if (apply((int (*)(int))no_arguments, 7) != 42 || host_function()(21) != 42) return 4;
   // A pointer to a function is one, wherever it is taken.
   if (host_function() != host_twice || dlsym(RTLD_DEFAULT, "host_twice") != (void *)host_twice) return 6;
+  // A closure is called through the emulation's signature, by the host and by the library.
+  ffi_cif cif;
+  ffi_type *types[] = { &ffi_type_sint };
+  int factor = 2, (*closure_function)(int);
+  ffi_closure *closure = ffi_closure_alloc(sizeof(ffi_closure), (void **)&closure_function);
+  if (!closure || ffi_prep_cif(&cif, FFI_DEFAULT_ABI, 1, &ffi_type_sint, types) != FFI_OK ||
+      ffi_prep_closure_loc(closure, &cif, scale, &factor, closure_function) != FFI_OK) return 7;
+  if (closure_function(21) != 42 || apply(closure_function, 21) != 42) return 8;
   // A library linked without the emulation has table entries of other types.
   return dlopen(argv[2], RTLD_NOW) != NULL || strstr(dlerror(), "--dolly-cast-emulation") == NULL ? 5 : 0;
 }
 `;
 for (const browser of browsers) {
   await demoTest("cast-emulation", { image: "system", browser }, async ({ open }) => {
-    const { run } = await open(await composed(["dso"], ["binaryen"], { base: "system" }));
+    const { run } = await open(await composed(["dso"], ["binaryen", "libffi"], { base: "system" }));
     await run("mkdir /tmp/cast && cd /tmp/cast");
     await run(writeCommand("library.c", library));
     await run(writeCommand("host.c", host));
     await run("cc -O1 -shared --dolly-cast-emulation library.c -o library.so && cc -O1 -shared library.c -o plain.so");
-    await run("cc -O1 -rdynamic --dolly-cast-emulation host.c -o host && ./host /tmp/cast/library.so /tmp/cast/plain.so");
+    await run("cc -O1 -rdynamic --dolly-cast-emulation host.c -o host -lffi && ./host /tmp/cast/library.so /tmp/cast/plain.so");
   });
 }
