@@ -58,7 +58,10 @@ Done when, each in Chrome and Firefox on the GPU, committed in this order:
    3,400 units only). From 5,000 units up the near sea now takes the far sea's look, level,
    without foam, with land.gdshader's colour, ice and gloss: recorded again (`t-moon6`), the jump
    is gone; the frames that remain with a few tiles over the others (2 or 3, in five frames) are in
-   the turn-over's glide and in the corgi's turn off the moon.
+   the turn-over's glide and in the corgi's turn off the moon. In `45ec9a344`'s round the flyover test
+   passed in Chrome (a chain of six to 230,964, two crossings, 84 and 21) and Firefox (221,431, 82
+   and 22, the morning at 58.5 frames a second) and the touch test in Chrome; Firefox's touch test
+   was left for the merge of feature/blender-anim, whose tree is tested next.
 
 ## 3. The moon
 
