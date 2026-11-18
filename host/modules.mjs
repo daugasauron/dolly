@@ -120,7 +120,8 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
   }
   const surfaceSize = () => [...instances.values()].find(instance => instance.surfaceSize)?.surfaceSize;
   // A pointer's position in pixels of the frame shown, which the canvas fits
-  // within its box at the frame's own shape, centred (object-fit: contain).
+  // within its box at the frame's own shape, centred (object-fit: contain): the
+  // display's canvas's box, which a module's canvas over it shares (page/browser.mjs).
   function framePoint({ clientX, clientY }) {
     const bounds = resources.canvas.getBoundingClientRect(), { width, height } = surfaceSize() ?? resources.canvas;
     const scale = Math.min(bounds.width / width, bounds.height / height);

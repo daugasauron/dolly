@@ -381,10 +381,13 @@ Godot's build is SCons over its own platforms, each a directory of
   is `main`.
 - [`display_server_dolly.cpp`](platform/display_server_dolly.cpp) is the
   window: the page's canvas through `display@0`, keys, text, the pointer and
-  the wheel of `input@0` (keys mapped by Godot's web platform's table), the
+  the wheel of `input@0` (keys mapped by Godot's web platform's table; a thread of
+  its own stamps each record with the time it came, by which a second press within
+  400 ms and 5 pixels is a double click, also where a frame takes a second), the
   fingers of `touch@0` as Godot's screen touches and drags (each with the lowest
-  free index from its down to its up; Godot makes the mouse of the first where
-  a project leaves `emulate_mouse_from_touch` on, its default), and an
+  free index from its down to its up, the first's second down within 400 ms and 5
+  pixels a double tap; Godot makes the mouse of the first where a project leaves
+  `emulate_mouse_from_touch` on, its default), and an
   OpenGL 3.3 core context on Mesa's surfaceless EGL platform. Godot draws into
   a pbuffer of the window's size; each frame is read back, turned upright and
   presented, and with vsync Godot then waits for the page's next animation
