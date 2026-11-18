@@ -263,12 +263,12 @@ static func town_kind(p: Vector2, ground: float) -> int:
 ## building_height, city.gdshader's steep lots, and the most a roof of its kind rises), or -INF
 ## where none does.
 static func building_top(corner: Vector2) -> float:
-	var centre := corner + Vector2(LOT, LOT) / 2.0
-	var ground := height(centre)
-	var share := town(centre, ground)
 	var lot := Vector2i((corner / LOT + Vector2(0.5, 0.5)).floor())
 	if posmod(lot.x, 5) == 0 or posmod(lot.y, 6) == 0:
 		return -INF
+	var centre := corner + Vector2(LOT, LOT) / 2.0
+	var ground := height(centre)
+	var share := town(centre, ground)
 	if share < 0.1:
 		# A stilt village's house (terrain.gdshaderinc's stilts_at), with its roof.
 		if ground < SEA - 4.5 or ground > SEA + 1.5 or settled(centre) < 0.6 or cell_hash(int(corner.x) + 13, int(corner.y) + 13) < 0.45:
@@ -382,13 +382,19 @@ static func island(p: Vector2) -> Vector2:
 ## What a flight looks ahead for: the surface, the roof of the building whose lot the place is
 ## in, or the top of the landmark that stands there.
 static func roof(p: Vector2) -> float:
+	return over(p, surface(p))
+
+
+## The highest of a surface of that height at a place, the roof of the building whose lot the
+## place is in, and the top of the landmark that stands there.
+static func over(p: Vector2, under: float) -> float:
 	var lot := Vector2i((p / LOT).floor())
 	if not tops.has(lot):
 		if tops.size() >= 1024:
 			tops_before = tops
 			tops = {}
 		tops[lot] = tops_before[lot] if tops_before.has(lot) else building_top(Vector2(lot) * LOT)
-	var top := maxf(surface(p), tops[lot])
+	var top := maxf(under, tops[lot])
 	var mark := landmark(Vector2i((p / MARK_PLOT).floor()))
 	if not mark.is_empty() and mark[2] != FLOATING and p.distance_to(mark[0]) < mark[5] + 4.0:
 		top = maxf(top, mark[1] + mark[4])

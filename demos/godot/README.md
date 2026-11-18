@@ -34,7 +34,7 @@ Dolly, as it exported Dodge the Creeps for `amy install dodge-the-creeps`
 - `airtime-godot`: Airtime: Foundry in Godot, the strafe trials of bhop on Airtime's own movement and course, drawn by Forward+ on `gpu@0` as a foundry at night over molten metal; `airtime-godot` plays it.
 - `godot-airtime`: Airtime in Godot on the page, which starts at once; Q leaves a shell where `godot-editor -e --path ~/airtime` opens a copy of its project in Godot's editor, the course in its 3D view. The eye beside Hud in the Scene dock hides the game's display, F5 plays the game so, and Ctrl+S saves the scene.
 - `voxel-flyover`: Voxel Flyover, a corgi's flight on a jet surfboard, with a pelican on a bicycle pedalling under it for the jets, over a planet of mountains, forests and sea that can be left: a sphere of 600,000 units which the GPU builds in its shaders, drawn by Forward+ on `gpu@0`, with a curved horizon, and whole from out of its air; `voxel-flyover` plays it.
-- `godot-voxel-flyover`: Voxel Flyover on the page at once: the corgi flies itself until a click or a touch takes the board; the mouse or a finger then steers it, through chains of rings and, kept climbing, off the planet; Q leaves a shell.
+- `godot-voxel-flyover`: Voxel Flyover on the page at once: the corgi flies itself until a click or a touch takes the board; the mouse and the keys, or two thumbs, then fly it as a fighter is flown, through courses of rings and, kept climbing, off the planet; Q leaves a shell.
 
 ## Lantern Drift
 
@@ -112,7 +112,6 @@ faster it goes and the harder it turns, leans and looks into its turns, its ears
 its tongue, a strip of the cape's cloth, trails back from the side of its mouth; the cape is a cloth its vertex stage flutters and swings out of a turn
 ([`cape.gdshader`](voxel-flyover/cape.gdshader)), and each jet leaves a wake, a ribbon the vertex
 stage lays along the places the board has been ([`wake.gdshader`](voxel-flyover/wake.gdshader)).
-The board banks into its turns.
 
 Under the board hangs a bicycle, and on it a pelican pedals for the jets
 ([`pelican.gd`](voxel-flyover/pelican.gd)), also of primitive meshes: a white bird in a cyclist's
@@ -214,29 +213,63 @@ lowlands, cypresses where it is warm and dry, and birches toward the cold. The g
 sounds before the flight: the jets' drone, a note for each ring of a chain, the rain's patter and the
 wash of the sea under a low flight.
 
-The board has one speed, 30 units a second, whatever it does: the mouse turns its heading,
-around and up and down, as it turns the view of a game played on foot, and no key steers or
-gives speed. Only a ring gives more: flown through, it adds 26, which wears off (to 1/e in two
-and a half seconds). The rings stand in chains (`chain_of`,
-[`ring.gdshader`](voxel-flyover/ring.gdshader)): seven plots of 300 units in ten have one, of
-three to six rings. The first hangs low over the ground and what stands on it; each next is 105
-units on and higher, up a way that steepens from 17 to 37 degrees and round a bend that
-tightens, and it is narrower, from 7 units of radius to 5. A chain's first ring is always open.
-The next opens as one is passed, beats faster as it closes, and closes after 2.8 seconds, which
-the boost just covers: a hand that aims at once and well arrives in 2.2 (a test pilot that
-turns 3 radians a second; one that sees each ring 0.6 s late loses most second rings).
-A ring flown through asleep, or missed, does nothing, and a chain let lapse starts again at its
-first ring. Each ring counts once in the score. A ring is a six-sided hoop of glass with three
-motes circling it, in its chain's colour, amber once passed; all of them are instances of one
-mesh, placed and lit by its shader, so they cost the renderer one thing to draw. A chain of six
-tops out 280 units over its first ring, under the height from which the board is faster the
-higher it is: the way off the planet. Low over the sea dolphins come up beside the board, and a
+The board flies as an arcade's fighter does (`handle` in [`main.gd`](voxel-flyover/main.gd)). The
+stick pitches and rolls it, the rudder yaws it, and the throttle sets the thrust: in level flight
+a full throttle holds 50 units a second against the drag, and the corgi's cruise, a third of it
+and a little more, holds 30. The board flies the way its nose points. A climb costs speed and a
+dive gives it, as gravity pulls along its way; its wings' lift holds its way straight while the
+stick is in the middle, so a bank turns it and lets its nose drop a little, and the stick pulled
+in a bank turns it hard. Slower than 22 units a second the lift is less than the board weighs and
+the nose falls, and a board that hangs nose up tips over. The stick turns the board by up to 1.2
+radians a second in pitch, 2.6 in roll and 0.5 in yaw, less under 28 units a second. The
+pelican pedals as fast as the throttle is open, and the flames are as long.
+
+The controls are those of an arcade flight game played with a mouse and keys. The mouse moves
+the stick, up to raise the nose and right to roll right, so the nose follows the hand: 150 pixels
+push it all the way, and it springs back to the middle (to 1/e in 0.3 s). The arrow keys push it
+too; A and D are the rudder; W and S open and close the throttle, by half of it a second; the
+wheel zooms; Escape lets go of the board and gives the pointer back; Q quits. The keys show when
+the board is taken and fade after nine seconds. While the player has the board a small ring
+marks where it is headed, a dot in it shows the stick, and a bar at the lower left the throttle
+([`touch.gd`](voxel-flyover/touch.gd)). The ground is not flown through: the flight looks along
+its turn for the ground and the roofs ahead and raises the nose in time to clear them, a second
+and a half ahead while the corgi flies itself and the last 0.7 s in the player's hands, where it
+is a scrape; so is coming down onto the ground or the sea, where the board is held ten units
+over it. The camera follows the board's axes a moment late, rolled with it, so a roll or a pull
+shows on the board before the world turns, and it is lifted over the roofs around it. The view
+widens and streaks of air show ([`speed.gdshader`](voxel-flyover/speed.gdshader)) as the board
+goes faster than 34 units a second. Low over the sea dolphins come up beside the board, and a
 flock of birds ([`bird.gdshader`](voxel-flyover/bird.gdshader)) falls in behind it when it
-passes; in rain or snow the birds close up and fly low. The ground is not flown through: the
-flight looks along its turn for the ground and the roofs of the next second and a half and
-raises the board's nose in time to clear them, and the camera is lifted over the roofs around
-it. Streaks of air show at a ring's speed ([`speed.gdshader`](voxel-flyover/speed.gdshader));
-the flyer's wash bends the crowns it passes low over.
+passes; in rain or snow the birds close up and fly low. The flyer's wash bends the crowns it
+passes low over.
+
+Rings lie in courses where the flying is good (`course_start`, `course_step`,
+[`ring.gdshader`](voxel-flyover/ring.gdshader)): nine plots of 300 units in ten have one, laid a
+ring a frame as the plots come near, of the kind its place has. Along an avenue of a town the
+rings run between the houses, 60 units apart, every other one a little higher, and the last
+rises over the roofs. A slalom's rings stand 75 units apart, low and to either side of its way:
+along a coast's line, low over the open sea (every third ring higher), along a valley's lowest
+ground between hills or mountains, or over open fields. On open land a course may instead climb,
+85 units from ring to ring, up a way that steepens from 15 to 34 degrees and round a bend that
+tightens, each ring narrower, from 6.5 units of radius to 5. A ring hangs clear of what stands
+under it and beside it, 13 units over the ground at the least. Around the start 361 of 400 plots
+have a course: 135 along a coast, 72 climbs, 71 valleys or fields, 43 streets and 40 over the
+open sea, 2,747 rings.
+
+Every ring counts, flown through from either side, once: a passed ring is a faint amber until its
+course is left behind. Chaining them is the game's skill. A ring passed within 3 seconds of the
+one before goes on the chain (0.1 s less for each ring of the chain, to 2); it counts as many
+points as the chain has rings, so a chain of six is worth 21 where six rings apart are worth 6,
+and it gives the board 8 units a second of speed and 1.5 more for each ring of the chain before
+it. The next ring of the course, the way it is flown, beats, faster as the chain's time runs out.
+The score swells, what the ring added rises from the middle of the screen and fades, the chain
+shows under the score with its time left in an arc around the score's ring, and a note rises
+with it. A scrape ends the chain and costs speed. Speed is what a chain needs and what makes it
+hard: a climb's rings give back what its climb costs, a slalom flown fast needs a hard roll and
+pull at each ring, and a street a steady hand under the roofs. A ring is a six-sided hoop of
+glass with three motes circling it, in its course's colour; all of them are instances of one
+mesh, placed and lit by its shader, so they cost the renderer one thing to draw, and each grows
+out of nothing as the flight comes from 760 units to 640 of it.
 
 The board flies up to 420 units, over the low clouds and under the high layer. At sunrise and
 sunset the sky is in bands (fire at the horizon on the sun's side, rose over it, violet higher,
@@ -316,9 +349,10 @@ it nears. A grid's own detail gives way to the coarser grid's by the distance fr
 ground and is no longer drawn. Far grids draw the sea themselves, level, with its glint.
 
 A board that climbs past 420 units is faster the higher it is (twice as fast every 110 units
-over 420, in every direction): the one place its speed changes without a ring, and by its
-height alone, as the scale of what it flies over changes. With its nose 45 degrees up space is
-under a minute from the ground. The haze thins with height, the sky's shader
+over 420, in every direction): the one place its speed changes by its
+height alone, as the scale of what it flies over changes. With the throttle open and its nose 30
+degrees up, which holds 36 units a second, it is out of the air (50,000 units) a minute after
+it left the ground. The haze thins with height, the sky's shader
 ([`sky.gdshader`](voxel-flyover/sky.gdshader)) takes the air a ray looks through from the
 camera's height (a closed form for an air that thins by 1/e every 7,000 units): the zenith goes
 dark first, the stars come out by day, and from outside the air is a rim around the planet, lit
@@ -342,17 +376,19 @@ whose anchor is near, anywhere on the planet.
 same integer hash, so the board clears the ground the GPU draws and its rings hang clear of it. The flight looks at the ground at some thirty places a frame, nearly all beside those of
 the frame before: it takes the height between the points of a lattice of 4 units, each computed
 once, and a lot's building once (`ground`, `tops`), which is 0.9 ms of script a frame where
-computing each place took 7, and a frame of 35 to 58 ms each time the look ahead came to a new lot. The corgi flies itself until a click takes the board (it makes for the rings too, and now and
-then gets a second one), and until then the camera glides between five views of it, one of them
-the pelican's. The click also gives the game the pointer (the page captures it at a person's
-click alone), and the mouse then steers: the heading turns 0.0025 radians for a pixel of its
-way. The player's camera looks the way the board is headed, from behind and over the flyer, so
-what the board will reach is in the middle of the screen, over the corgi's ears, where a small
-ring marks it ([`touch.gd`](voxel-flyover/touch.gd)). The wheel zooms; Escape gives the pointer
-and the board back. The one number on the screen is the score, the rings passed.
-On a touchscreen nothing needs a key: the first touch takes the board; then a finger's drag
-steers as the mouse does (a drag across the screen's shorter side as 1,080 pixels), two fingers
-moving apart or together zoom, and the ring with a cross at the top right gives the board back.
+computing each place took 7, and a frame of 35 to 58 ms each time the look ahead came to a new lot. The corgi flies itself until a click takes the board, and until then the camera glides between five views of it, one of them
+the pelican's. It aims the board as a hand would (`aim_at`): it pitches and yaws the nose at the
+way it wants, rolls the wings to lay that way over the board's top, or level once it is nearly
+ahead, and opens the throttle for the speed it wants; it makes for the rings and chains them.
+The click also gives the game the pointer (the page captures it at a person's click alone), and
+the mouse then flies the board. The player's camera looks the way the board is headed, from
+behind and over the flyer, so what the board will reach is in the middle of the screen, over the
+corgi's ears. The numbers on the screen are the score's: the points, the chain's rings, and what
+a ring added. On a touchscreen nothing needs a key: the first touch takes the board; then a thumb
+on the left third of the screen slides the throttle along its bar, a thumb on the right is the
+stick, pushed from where it went down (a tenth of the screen's shorter side is all the way) and
+back in the middle when it is lifted, a second finger on the right with it zooms as the two move
+apart or together, and the ring with a cross at the top right gives the board back.
 Their sizes go by the screen's shorter side, and a screen held upright takes its angle of view
 across, so the flyer and the land beside it stay in it. The game draws 1920 by 1080, which the page fits
 into a screen that lies on its side; on a screen held upright it sizes its window to the screen,
