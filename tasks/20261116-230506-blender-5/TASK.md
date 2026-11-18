@@ -34,7 +34,13 @@ solid mode with the camera, light and navigation gizmo. Fixed for it: a view of 
 depth-stencil texture takes the aspect's format; storage usage only for WebGPU's storage formats;
 the surface's pass is its own small submission (a batch continued in a second packet lets the page
 show the canvas between them, which destroys its texture). Left visible: the floor grid draws only
-towards the horizon, without its axes.
+towards the horizon, without its axes. Measured (17:45, Chrome's SwiftShader): a line with one end
+behind the camera draws nothing (a line in front lit 26 pixels; the same line reaching behind the
+camera, either end first, 0; a triangle reaching behind it 650), and the grid's lines run to the
+view's clip end on both sides, so every near one crosses the camera's plane: shortened to 8 m,
+they all draw. The NVIDIA adapter in Chrome shows the same grid. Firefox on the NVIDIA adapter
+draws that line (26 pixels, either end first): Chrome's WebGPU drops a line that crosses the
+camera's plane where Firefox's clips it. Not worked around: the backend sees one vertex at a time.
 
 12:00, the same on the NVIDIA adapter in Chrome (`nvidia blackwell`). Then (SwiftShader): the
 polyline and armature shaders translate (Blender's shader preprocessor spells NaN out as

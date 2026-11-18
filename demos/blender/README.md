@@ -75,8 +75,10 @@ What WebGPU leaves to the backend:
 
 ## Limits
 
-- In the 3D view, the floor grid draws only towards the horizon, without its
-  axes; curves, point clouds, Grease Pencil and Gaussian splats do not draw
+- In Chrome the floor grid draws only towards the horizon, without its axes:
+  Chrome's WebGPU drops a line that crosses the camera's plane, where Firefox's
+  clips it, and the grid's lines reach the view's clip end. Curves, point
+  clouds, Grease Pencil and Gaussian splats do not draw
   (their shaders read a texel buffer, which WebGPU lacks); EEVEE is not tried.
 - Where the browser grants no WebGPU, Blender says it found no GPU backend
   and quits; `blender -b` works everywhere.
