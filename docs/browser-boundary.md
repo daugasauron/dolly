@@ -170,8 +170,8 @@ Authority column here, and the two go together.
   directory the guest names (`amy server URL`) the package Worker
   ([`worker.mjs`](../host/packages/worker.mjs)) reads each file (the index,
   the catalog, every metadata file, pack and pack part) as the broker reads
-  the guest's: only where the page's HTTP policy admits a GET of that URL,
-  counted and shown as the guest's request (`admit`,
+  the guest's: only where the page's HTTP policy, its image's `HTTP` rows
+  included, admits a GET of that URL, counted and shown as the guest's request (`admit`,
   [`network.mjs`](../page/network.mjs)), without credentials, within the
   rule's `maxResponseBytes` and timeout; a refusal ends the request with
   `EACCES`, and none of its packs is kept in the pack store. Only metadata
