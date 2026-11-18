@@ -50,8 +50,9 @@ void fragment() {
 	float here = ripples(p, wide);
 	float calm = 1.0 / (1.0 + length(VERTEX) * 0.01);
 	vec2 slope = vec2(ripples(p + vec2(0.4, 0.0), wide) - here, ripples(p + vec2(0.0, 0.4), wide) - here) * 0.9 * calm;
-	// The swell rolls where the sea is deep, and is seen from farther than the ripples are.
-	float open = smoothstep(2.0, 10.0, depth) * (1.0 - smoothstep(8.0, 30.0, wide));
+	// The swell rolls where the sea is deep, and is seen from farther than the ripples are; from 7,000
+	// units up, where the far grids' level sea takes over from this one (main.gd), it is not seen.
+	float open = smoothstep(2.0, 10.0, depth) * (1.0 - smoothstep(8.0, 30.0, wide)) * (1.0 - smoothstep(4000.0, 7000.0, eye.y));
 	float crest = open > 0.0 ? swell(p) : 0.0;
 	if (open > 0.0) {
 		slope += vec2(swell(p + vec2(1.5, 0.0)) - crest, swell(p + vec2(0.0, 1.5)) - crest) * 0.22 * open;

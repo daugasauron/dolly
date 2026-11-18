@@ -1,13 +1,14 @@
 // Voxel Flyover on gpu@0, on a real adapter, on the private X display DISPLAY names: Chrome on
 // Vulkan, or the installed Firefox (docs/gpu.md). The front page lists godot-voxel-flyover among
-// its applications, and its link starts the game on the page. A click gives the game the pointer
-// and the player the board: the mouse pushed forward raises the board's nose and W opens the
-// throttle, which the Q that leaves the shell prints. There the game flies itself through a
-// morning and reports: its flyer flew through rings along their courses, so the ground the script
-// flies over is the ground the shaders draw on the sphere, its frame has the sky along the top and
-// a scene's worth of colours, and few of its frames took over twice the median, fewer over four
-// times. Started before a course's last ring and headed against the course's way, it passes rings: a
-// ring counts from either side. Then it leaves the planet by itself: it reports a height of over
+// its applications, and its link starts the game on the page. A click gives the game the pointer, L gives it back
+// and a click again gives the player the board, and the mouse then steers: pushed forward, the board noses up to almost
+// straight up, which the Q that leaves the shell prints. There the game flies itself through a
+// morning from before a chain's first cloud and reports: its flyer flew through it, so the ground the
+// script flies over is the ground the shaders draw on the sphere, its frame has the sky along the top
+// and a scene's worth of colours, and few of its frames took over twice the median, fewer over four
+// times. Flying on through the chain as a quick hand would, it chains five clouds or six and is over
+// the air (50,000 units). It flies by itself to the moon, low over its ground, and back to the
+// planet's. Then it leaves the planet by itself: it reports a height of over
 // 150,000 units, a chart whose anchor moved on the way, and a frame with a scene's worth of colours
 // (the planet under it). Chrome shows its frames on the X display by copies
 // (--disable-vulkan-surface): its Vulkan swapchain there shows a full-screen page at half the
@@ -39,25 +40,30 @@ for (const name of browsers) {
     await page.waitForURL(`${server.origin}/godot-voxel-flyover/`);
     await page.waitForFunction(() => window.__dolly?.gpu?.active && __dolly.gpu.stats.frames > 120, null, { polling: 250, timeout: 300_000 });
     assert.equal(await page.evaluate(() => __dolly.gpu.isFallbackAdapter), false);
-    // A person's click captures the pointer; 240 pixels up then push the stick back (the nose rises), and W held
-    // opens the throttle.
-    const box = await page.locator("#display").boundingBox(), x = box.x + box.width / 2, y = box.y + box.height / 2;
-    await page.mouse.click(x, y);
-    await page.waitForFunction(() => document.pointerLockElement?.id === "display", null, { timeout: 10_000 });
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    await page.mouse.move(x, y - 240, { steps: 30 });
-    await page.keyboard.down("w");
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    await page.keyboard.up("w");
+    // A person's click captures the pointer, L gives it back, and a click near the display's foot captures it
+    // again; the mouse pulled from there to its top (Firefox refuses a move out of the page) raises the board's
+    // nose to almost straight up.
+    const box = await page.locator("#display").boundingBox(), x = box.x + box.width / 2;
+    const capture = async y => {
+      await page.mouse.click(x, y);
+      await page.waitForFunction(() => document.pointerLockElement?.id === "display", null, { timeout: 10_000 });
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    };
+    await capture(box.y + box.height / 2);
+    await page.keyboard.press("l");
+    await page.waitForFunction(() => document.pointerLockElement === null, null, { timeout: 10_000 });
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    await capture(box.y + box.height - 10);
+    await page.mouse.move(x, box.y + 10, { steps: 90 });
+    await new Promise(resolve => setTimeout(resolve, 1500));
     await page.keyboard.press("q");
     await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
     const flight = await page.evaluate(() => __dolly.visibleTerminalText());
-    const [, helm, pitch, throttle] = flight.match(/^FLYOVER flown \d+ rings \d+ score \d+ helm (\d) high -?\d+ heading -?\d+ pitch (-?\d+) bank -?\d+ speed \d+ throttle ([\d.]+) zoom [\d.]+ touches \d+$/m) ?? [];
-    // A pixel of the motion the page is given pitches the nose 0.0024 radians, so 240 pixels raise it some 33 degrees
-    // from the few the corgi flew at when the board was taken. Firefox gives the moves (2026-11-18: 216 of the 240) after
-    // a jump that the game leaves (320 and 115 pixels for the first move of 8). The throttle opens by half of all of it a
-    // second, so two seconds open it whole from where the corgi had it (2026-11-18 in Firefox: 0.14).
-    assert.ok(helm === "1" && Number(pitch) >= 8 && Number(pitch) <= 80 && Number(throttle) >= 0.9, `the captured mouse and the keys fly the board: ${flight}`);
+    const [, helm, pitch] = flight.match(/^FLYOVER flown \d+ clouds \d+ score \d+ helm (\d) high -?\d+ heading -?\d+ pitch (-?\d+) speed \d+ zoom [\d.]+ touches \d+$/m) ?? [];
+    // The heading turns 0.0025 radians a pixel of the motion the page is given, so the pull, some 880 pixels at 1600 by
+    // 900, would raise the nose 126 degrees, and it stops at 86. Firefox gives the moves (2026-11-18: 216 of 240) after
+    // a jump that the game leaves (320 and 115 pixels for the first move of 8).
+    assert.ok(helm === "1" && Number(pitch) >= 80 && Number(pitch) <= 86, `the captured mouse steers the board to almost straight up: ${flight}`);
     assert.equal(await page.evaluate(() => document.pointerLockElement), null, "the pointer is the page's again once the game has quit");
     const run = async command => assert.equal(await page.evaluate(text => __dolly.submit(text), command), 0, command);
     const flown = async options => {
@@ -66,30 +72,34 @@ for (const name of browsers) {
       await run("clear; grep '^FLYOVER ' /tmp/flyover.out");
       return page.evaluate(() => __dolly.visibleTerminalText());
     };
-    const passed = report => (report.match(/^FLYOVER seconds .* rings (\d+) against (\d+) score \d+ longest \d+$/m) ?? []).slice(1).map(Number);
-    const report = await flown("--autopilot 30 --day 9");
+    const report = await flown("--autopilot 30 --day 9 --cloud 1");
     assert.match(report, /^FLYOVER adapter WebGPU forward_plus$/m);
-    const [, fps, rings] = report.match(/^FLYOVER seconds [\d.]+ frames \d+ fps ([\d.]+) gpu [\d.]+ cpu [\d.]+ flown \d+ rings (\d+) against \d+ score \d+ longest \d+$/m) ?? [];
+    const [, fps, clouds] = report.match(/^FLYOVER seconds [\d.]+ frames \d+ fps ([\d.]+) gpu [\d.]+ cpu [\d.]+ flown \d+ clouds (\d+) score \d+ longest \d+$/m) ?? [];
     const [, median, late, long] = report.match(/^FLYOVER frame times median ([\d.]+) p95 [\d.]+ p99 [\d.]+ max [\d.]+ over2x (\d+) over4x (\d+)$/m) ?? [];
     const [, sky, colours] = report.match(/^FLYOVER frame \d+x\d+ sky (\d+) colours (\d+)$/m) ?? [];
     // A frame low over the land had 500 colours and more; one that looked down through the haze after a chain that
     // climbed to 300 units had 65 (2026-11-18): over 60, as the tour asks of the planet seen from space.
-    assert.ok(Number(fps) >= 10 && Number(rings) >= 1 && Number(sky) > 100 && Number(colours) > 60, `Voxel Flyover flies and draws: ${report}`);
+    assert.ok(Number(fps) >= 10 && Number(clouds) >= 1 && Number(sky) > 100 && Number(colours) > 60, `Voxel Flyover flies and draws: ${report}`);
     // Of some 1,700 frames, a display's frame apart on a quiet machine: one in six may miss a display's
     // frame on a loaded one, and few stand for four.
     assert.ok(Number(median) > 0 && Number(late) <= 300 && Number(long) <= 30, `Voxel Flyover's frames are even: ${report}`);
-    // A ring counts from either side: the morning flight passes rings along their course's way (the climb by the
-    // start), and a flight started before a course's last ring, headed through it against the course's way,
-    // passes rings against it.
-    const [morning, morningAgainst] = passed(report);
-    const [, back] = passed(await flown("--autopilot 6 --day 9 --ring -1"));
-    assert.ok(morning - morningAgainst >= 1 && back >= 1, `a ring counts from either side: the morning's ${morning} rings, ${morningAgainst} against; headed against, ${back}`);
+    // A chain flown through by a quick hand (the corgi with --chain: most of a turn in an eighth of a second) is over
+    // the air by its fifth or sixth cloud, each boosting twice the last.
+    const chained = await flown("--autopilot 35 --day 9 --cloud 1 --chain 1");
+    const [, longest] = chained.match(/^FLYOVER seconds .* clouds \d+ score \d+ longest (\d+)$/m) ?? [];
+    const [, chainTop] = chained.match(/^FLYOVER highest (\d+) anchors \d+$/m) ?? [];
+    assert.ok(Number(longest) >= 5 && Number(chainTop) > 50_000, `a chain of clouds leaves the air: ${chained}`);
+    // The moon: out toward it, a crossing into its chart, down to fly low over its ground, out again, a crossing
+    // back, and down to the planet's.
+    const voyage = await flown("--autopilot 80 --day 9 --moon 2");
+    const [, crossed, overMoon, overHome] = voyage.match(/^FLYOVER moon crossings (\d+) lowest (\d+) home (\d+)$/m) ?? [];
+    assert.ok(Number(crossed) === 2 && Number(overMoon) < 200 && Number(overHome) < 200, `the moon is flown to and back: ${voyage}`);
     const tour = await flown("--autopilot 100 --day 9 --tour 2 --top 250000");
     const [, highest, anchors] = tour.match(/^FLYOVER highest (\d+) anchors (\d+)$/m) ?? [];
     const [, lit] = tour.match(/^FLYOVER frame \d+x\d+ sky \d+ colours (\d+)$/m) ?? [];
     assert.ok(Number(highest) > 150_000 && Number(anchors) >= 1 && Number(lit) > 60, `Voxel Flyover is left: ${tour}`);
     assert.deepEqual(errors, []);
-    console.log(name, `pitch ${pitch} throttle ${throttle}; rings along ${morning - morningAgainst}, against ${back}`, ...report.match(/^FLYOVER (seconds|frame) .*$/gm), "tour:", ...tour.match(/^FLYOVER (seconds|frame|highest) .*$/gm));
+    console.log(name, `pitch ${pitch}; clouds ${clouds}, chain of ${longest} to ${chainTop}; moon: crossings ${crossed}, over it ${overMoon}, over home ${overHome}`, ...report.match(/^FLYOVER (seconds|frame) .*$/gm), "tour:", ...tour.match(/^FLYOVER (seconds|frame|highest) .*$/gm));
     console.log(`godot-flyover: ${name} passed`);
   } finally {
     clearTimeout(deadline);

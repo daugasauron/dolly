@@ -42,7 +42,11 @@ static func ridge(p: Vector2) -> float:
 	return n * n
 
 
-const RADIUS := 600000.0 # the planet's
+const PLANET_RADIUS := 600000.0
+const MOON_RADIUS := 200000.0
+## The world the flight is near (main.gd's cross_bodies): its radius, and whether it is the moon.
+static var radius := PLANET_RADIUS
+static var on_moon := false
 ## The chart's anchor on the planet: the chart's x, up and z there, in the planet's axes.
 static var anchor := Basis.IDENTITY
 
@@ -51,8 +55,8 @@ static var anchor := Basis.IDENTITY
 ## in the anchor's axes.
 static func chart_dir(p: Vector2) -> Vector3:
 	var far := p.length()
-	var angle := minf(far / RADIUS, 3.138)
-	var scale := sin(angle) / far if far > 1.0 else 1.0 / RADIUS
+	var angle := minf(far / radius, 3.138)
+	var scale := sin(angle) / far if far > 1.0 else 1.0 / radius
 	return Vector3(p.x * scale, cos(angle), p.y * scale)
 
 
@@ -62,7 +66,7 @@ static func chart_frame(p: Vector2) -> Basis:
 	if far < 1.0:
 		return Basis.IDENTITY
 	var out_of := p / far
-	var angle := minf(far / RADIUS, 3.138)
+	var angle := minf(far / radius, 3.138)
 	var outward := Vector3(out_of.x * cos(angle), -sin(angle), out_of.y * cos(angle))
 	var across := Vector3(-out_of.y, 0.0, out_of.x)
 	return Basis(out_of.x * outward - out_of.y * across, Vector3(out_of.x * sin(angle), cos(angle), out_of.y * sin(angle)), out_of.y * outward + out_of.x * across)
@@ -70,14 +74,14 @@ static func chart_frame(p: Vector2) -> Basis:
 
 ## The point of the planet a chart's place is, in the planet's axes.
 static func planet_at(p: Vector2) -> Vector3:
-	return anchor * chart_dir(p) * RADIUS
+	return anchor * chart_dir(p) * radius
 
 
 ## The chart's place of a point of the planet (planet_at's inverse).
 static func chart_of(planet: Vector3) -> Vector2:
 	var dir := (anchor.inverse() * planet).normalized()
 	var side := Vector2(dir.x, dir.z)
-	return side.normalized() * acos(clampf(dir.y, -1.0, 1.0)) * RADIUS if side.length() > 1e-9 else Vector2.ZERO
+	return side.normalized() * acos(clampf(dir.y, -1.0, 1.0)) * radius if side.length() > 1e-9 else Vector2.ZERO
 
 
 ## The spires of an old world near the flight (main.gd's tend_spires): x and z in the chart, the
@@ -98,9 +102,9 @@ static func spires_near(planet: Vector3, reach: float) -> Array[Vector4]:
 			for z in range(-cells, cells + 1):
 				var cell := middle + Vector3i(x, y, z)
 				var centre := (Vector3(cell) + Vector3(0.5, 0.5, 0.5)) * SPIRE_CELL
-				if absf(centre.length() - RADIUS) > SPIRE_CELL or centre.distance_to(planet) > reach + SPIRE_CELL or cell_hash3(cell.x + 7, cell.y + 3, cell.z + 11) > 0.18:
+				if absf(centre.length() - radius) > SPIRE_CELL or centre.distance_to(planet) > reach + SPIRE_CELL or cell_hash3(cell.x + 7, cell.y + 3, cell.z + 11) > 0.18:
 					continue
-				var at := ((Vector3(cell) + Vector3(0.2, 0.2, 0.2) + Vector3(cell_hash3(cell.x, cell.y + 5, cell.z), cell_hash3(cell.x + 9, cell.y, cell.z), cell_hash3(cell.x, cell.y, cell.z + 13)) * 0.6) * SPIRE_CELL).normalized() * RADIUS
+				var at := ((Vector3(cell) + Vector3(0.2, 0.2, 0.2) + Vector3(cell_hash3(cell.x, cell.y + 5, cell.z), cell_hash3(cell.x + 9, cell.y, cell.z), cell_hash3(cell.x, cell.y, cell.z + 13)) * 0.6) * SPIRE_CELL).normalized() * radius
 				if at.distance_to(planet) > reach:
 					continue
 				var p := chart_of(at)
@@ -206,7 +210,30 @@ static func with_atolls(planet: Vector3, high: float) -> float:
 
 
 ## terrain.gdshaderinc's terrain_on: the ground's height at a point of the planet.
+## terrain.gdshaderinc's crater.
+static func crater(planet: Vector3, size: float, share: float, seed: int) -> float:
+	var cell := Vector3i((planet / size).floor())
+	if cell_hash3(cell.x + seed, cell.y + 7, cell.z + 3) > share:
+		return 0.0
+	var middle := (Vector3(cell) + Vector3.ONE * 0.32 + 0.36 * Vector3(cell_hash3(cell.x + seed, cell.y + 1, cell.z), cell_hash3(cell.x + seed, cell.y + 2, cell.z), cell_hash3(cell.x + seed, cell.y + 3, cell.z))) * size
+	var wide := size * (0.12 + 0.13 * cell_hash3(cell.x + seed, cell.y + 4, cell.z))
+	var d := planet.distance_to(middle) / wide
+	return wide * ((0.28 * (d * d - 1.0) if d < 1.0 else 0.0) + 0.07 * exp(-(d - 1.0) * (d - 1.0) * 40.0))
+
+
+## terrain.gdshaderinc's moon_on, the ground itself.
+static func moon_on(planet: Vector3) -> float:
+	var mare := smoothstep(0.5, 0.6, fbm3(planet / 60000.0 + Vector3(17.0, 3.0, 41.0), 2))
+	var roll := (fbm3(planet / 3200.0 + Vector3(5.0, 71.0, 13.0), 3) - 0.5) * 220.0
+	var grain := (noise3(planet / 140.0 + Vector3(29.0, 11.0, 83.0)) - 0.5) * 16.0
+	var high := lerpf(roll, roll * 0.1 - 70.0, mare) + grain + crater(planet, 2400.0, 0.45, 11)
+	high += crater(planet, 420.0, 0.5, 23) + crater(planet, 90.0, 0.5, 37)
+	return 150.0 + high
+
+
 static func height_on(planet: Vector3) -> float:
+	if on_moon:
+		return moon_on(planet)
 	var fields := slow_here(planet)
 	var massif := fields.z
 	var land := smoothstep(0.36, 0.52, fbm3(planet / 520.0 + Vector3(0.0, 13.0, 29.0), 3) + fields.x)
@@ -297,7 +324,7 @@ static func ground_at(x: int, y: int) -> float:
 
 ## The surface a flight stays above: the ground or the sea.
 static func surface(p: Vector2) -> float:
-	return maxf(ground(p), SEA)
+	return ground(p) if on_moon else maxf(ground(p), SEA)
 
 
 const LOT := 16.0
@@ -315,7 +342,7 @@ static func climate(p: Vector2) -> Vector2:
 
 ## terrain.gdshaderinc's climate_on: the climate at a point of the planet.
 static func climate_on(planet: Vector3) -> Vector2:
-	var polar := smoothstep(0.7, 0.98, absf(planet.y) / RADIUS)
+	var polar := smoothstep(0.7, 0.98, absf(planet.y) / radius)
 	return Vector2(fbm3(planet / 900.0 + Vector3(211.0, 57.0, 3.0), 2) + (slow3(planet, 19000.0, Vector3(37.0, 14.0, 82.0)) - 0.5) * 0.55 + (fbm3(planet / 260000.0 + Vector3(13.0, 49.0, 7.0), 2) - 0.5) * 0.3 - 0.55 * polar,
 		fbm3(planet / 560.0 + Vector3(13.0, 143.0, 71.0), 2) + (slow3(planet, 11000.0, Vector3(89.0, 44.0, 26.0)) - 0.5) * 0.45 + (fbm3(planet / 190000.0 + Vector3(67.0, 3.0, 39.0), 2) - 0.5) * 0.4)
 
@@ -341,6 +368,8 @@ static func town_kind(p: Vector2, ground: float) -> int:
 ## building_height, city.gdshader's steep lots, and the most a roof of its kind rises), or -INF
 ## where none does.
 static func building_top(corner: Vector2) -> float:
+	if on_moon:
+		return -INF
 	var lot := Vector2i((corner / LOT + Vector2(0.5, 0.5)).floor())
 	if posmod(lot.x, 5) == 0 or posmod(lot.y, 6) == 0:
 		return -INF
@@ -376,6 +405,8 @@ static var marks := {} # plot -> its landmark, found once
 
 ## How settled a place is (terrain.gdshaderinc's): a town over 0.58, its fields from 0.5.
 static func settled(p: Vector2) -> float:
+	if on_moon:
+		return 0.0
 	var planet := planet_at(p)
 	return fbm3(planet / 760.0 + Vector3(400.0, 109.0, 55.0), 2) + (fbm3(planet / 6100.0 + Vector3(71.0, 220.0, 12.0), 2) - 0.5) * 0.2
 
@@ -386,6 +417,8 @@ static func settled(p: Vector2) -> float:
 ## thousand units over 0.72, a tenth of the world) mushrooms, crystals and floating islands are
 ## six times as frequent. landmarks.gd builds them.
 static func landmark(plot: Vector2i) -> Array:
+	if on_moon:
+		return []
 	if marks.has(plot):
 		return marks[plot]
 	if marks.size() > 600:
