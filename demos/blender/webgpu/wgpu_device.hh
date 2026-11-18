@@ -136,6 +136,11 @@ class WGPUDevice {
   {
     return gpu_ != nullptr;
   }
+  /** A refused batch leaves objects missing for every later one: nothing more is sent. */
+  bool is_lost() const
+  {
+    return lost_;
+  }
   bool has_feature(uint64_t feature) const
   {
     return limits[0] & feature;
@@ -188,6 +193,7 @@ class WGPUDevice {
   uint64_t submission_ = 1;
   uint64_t objects_alive_ = 0;
   uint64_t ring_ = 0, ring_cursor_ = 0;
+  bool lost_ = false;
 
   uint8_t *append(std::vector<uint8_t> &list, uint32_t op, uint32_t bytes);
   bool send_list(const std::vector<uint8_t> &list);

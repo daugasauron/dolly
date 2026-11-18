@@ -7,8 +7,9 @@ Blender's GPU module) is in the tasks tagged `blender`.
 
 ## Images
 
-- `blender`: Blender 5.3 without its interface: `blender -b` runs Python scripts on scenes and `.blend` files, and Cycles renders on the CPU.
-- `blender-deps`: A build stage: the libraries Blender links beyond Dolly's packages, at the versions it pins (OpenImageIO, OpenColorIO, OpenEXR, oneTBB and sixteen more).
+- `blender`: Blender 5.3: its window on the page, drawn on `gpu@0` where the browser grants WebGPU, and `blender -b`, which runs Python scripts on scenes and `.blend` files and renders with Cycles on the CPU.
+- `blender-deps`: A build stage: the libraries Blender links beyond Dolly's packages, at the versions it pins (OpenImageIO, OpenColorIO, OpenEXR, oneTBB, glslang and sixteen more).
+- `blender-ui`: Blender's window on the page at once; quitting it leaves a shell.
 
 ## Use
 

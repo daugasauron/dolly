@@ -1,19 +1,26 @@
 DOLLY 8
 PACKAGE blender
 REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST gpu@0
+REQUIRES HOST clipboard@0
 REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
-# Blender 5.3.0 from upstream's release archive, built headless by its own
-# CMake project inside Dolly: `blender -b` with its Python (the python
-# package's CPython 3.14) and Cycles on the CPU. blender-dolly.patch is three
-# small changes; its head lines say why each.
+# Blender 5.3.0 from upstream's release archive, built by its own CMake
+# project inside Dolly: its window on the page, and `blender -b` with its
+# Python (the python package's CPython 3.14) and Cycles on the CPU.
+# blender-dolly.patch names Dolly's files to the build and adds their enum
+# values; the archive places them (prepare-sources.sh).
 # - blender_lite.cmake, upstream's configuration with every optional library
 #   off, then Cycles and pugixml (OpenImageIO's static library needs it) on.
-# - WITH_HEADLESS: no window system. No OpenGL or Vulkan backend: the GPU
-#   module's dummy backend remains, so EEVEE and Workbench do not render.
+# - WITH_GHOST_DOLLY: the window system is ghost/GHOST_SystemDolly, on
+#   display@0, input@0 and clipboard@0. WITH_WEBGPU_BACKEND: the GPU module
+#   draws through webgpu/ on gpu@0, with glslang (blender-deps) and the
+#   spirv-wgsl package; no OpenGL or Vulkan backend.
 # - Dolly claims no x86 or ARM: Cycles builds its scalar kernel and its own
 #   BVH (Embree off, as in the lite configuration).
 # - PYTHON_LINKFLAGS, by default ELF's -Xlinker -export-dynamic: what
@@ -23,8 +30,13 @@ REQUIRES HOST threads@0
 # - Brotli for FreeType, which Blender puts on the link line only with its
 #   precompiled libraries.
 # - ccfilter for compiles and the link: see its source.
-FROM /demos/blender/Dollyfile-blender-deps 1f72df0680cc2bc141162cfbbbfe5d8115ece72034f27082ce7173fc1876bb22
+FROM /demos/blender/Dollyfile-blender-deps b522e5a0cab1fa7ea7f0a66d142e84508a7312c492d8fdd4825271fe004b99c2
 INSTALL /demos/python/Dollyfile-python 964cd2681453dbb4da3f00eb1feadf7d873b33764e83b668111de230df6f6639
+USE /demos/godot/Dollyfile-spirv-wgsl 721ac7c52c7ff664a5a022385d9cc02756ced165466169dda9e8c167a2a0951e
+USE /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
+USE /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
+USE /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
+USE /Dollyfile-libdolly-clipboard 99746a8bd9b9eb136098753ccc526ac94a14540e6d26082ae8748eb6e3fa08a6
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL patch
@@ -32,7 +44,7 @@ REQUIRES TOOL python3
 REQUIRES TOOL wasm-opt
 REQUIRES TOOL ccfilter
 
-SOURCE /dist/static/blender/blender.tar.gz 03f4920b7ce1d4dc0a537b9cd96c18bcff1093525678cee5d55d0c447e21b26f /tmp/blender.tar.gz
+SOURCE /dist/static/blender/blender.tar.gz 0d6414a7dc7a343dba75d02e197f4bb79365c644d17010c1c2a40a0bb6be3dc0 /tmp/blender.tar.gz
 SLOP gzip -dc /tmp/blender.tar.gz | tar -xf - -C /
 SLOP rm /tmp/blender.tar.gz
 SLOP CWD /tmp/blender/source patch -p1 -i /tmp/blender/blender-dolly.patch
@@ -45,8 +57,9 @@ SLOP time cmake -S /tmp/blender/source -B /tmp/blender/build \
   -DCMAKE_C_LINKER_LAUNCHER=/usr/bin/ccfilter -DCMAKE_CXX_LINKER_LAUNCHER=/usr/bin/ccfilter \
   "-DPYTHON_LINKFLAGS=--dolly-cast-emulation -lffi -llzma -lbz2 -lsqlite3 -lcurl -L/usr/lib/python3.14/embed -lpyexpat -lHacl_HMAC -lHacl_Hash_BLAKE2 -lHacl_Hash_MD5 -lHacl_Hash_SHA1 -lHacl_Hash_SHA2 -lHacl_Hash_SHA3" \
   "-DCMAKE_EXE_LINKER_FLAGS=-lbrotlidec-static -lbrotlicommon-static" \
-  -DWITH_HEADLESS=ON -DWITH_GHOST_WAYLAND=OFF -DWITH_GHOST_X11=OFF \
-  -DWITH_OPENGL_BACKEND=OFF -DWITH_VULKAN_BACKEND=OFF \
+  -DWITH_HEADLESS=OFF -DWITH_GHOST_DOLLY=ON -DWITH_GHOST_WAYLAND=OFF -DWITH_GHOST_X11=OFF -DWITH_GHOST_SDL=OFF \
+  -DWITH_OPENGL_BACKEND=OFF -DWITH_VULKAN_BACKEND=OFF -DWITH_WEBGPU_BACKEND=ON \
+  -DWITH_INPUT_NDOF=OFF -DWITH_INPUT_IME=OFF -DWITH_XR_OPENXR=OFF \
   -DWITH_CYCLES=ON -DWITH_TBB=ON -DWITH_PUGIXML=ON -DWITH_ASSERT_RELEASE=OFF \
   -DPYTHON_VERSION=3.14 -DWITH_PYTHON_INSTALL=OFF -DWITH_INSTALL_PORTABLE=OFF \
   -DWITH_LIBS_PRECOMPILED=OFF -DWITH_LINKER_LLD=OFF -DWITH_LINKER_MOLD=OFF -DWITH_COMPILER_CCACHE=OFF \

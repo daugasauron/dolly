@@ -160,17 +160,19 @@ uint64_t WGPUDevice::stage(const void *data, uint64_t size, uint64_t alignment, 
 
 bool WGPUDevice::send(bool more)
 {
-  if (gpu_->count == 0) {
+  if (gpu_->count == 0 || lost_) {
     dolly_gpu_begin(gpu_);
-    return true;
+    return !lost_;
   }
   const int status = more ? dolly_gpu_continue(gpu_) : dolly_gpu_batch(gpu_);
   const int error = errno;
   dolly_gpu_begin(gpu_);
   if (status < 0) {
     CLOG_ERROR(&LOG,
-               "gpu@0 refused a batch (errno %d); the page's console has the provider's message",
+               "gpu@0 refused a batch (errno %d); the page's console has the provider's message. "
+               "Nothing more is drawn.",
                error);
+    lost_ = true;
     return false;
   }
   return true;
@@ -222,7 +224,7 @@ bool WGPUDevice::submit()
 bool WGPUDevice::wait_idle()
 {
   std::lock_guard lock(mutex);
-  if (!submit()) {
+  if (!submit() || lost_) {
     return false;
   }
   return dolly_gpu_wait(gpu_) >= 0;

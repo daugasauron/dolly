@@ -257,13 +257,13 @@ static uint32_t address_mode(GPUSamplerExtendMode mode)
 
 uint64_t wgpu_sampler(GPUSamplerState state, bool filterable)
 {
-  static std::mutex mutex;
   static Map<uint64_t, uint64_t> samplers;
   uint32_t bits;
   static_assert(sizeof(state) == sizeof(bits));
   memcpy(&bits, &state, sizeof(bits));
   const uint64_t key = uint64_t(bits) | (uint64_t(filterable) << 32);
-  std::lock_guard lock(mutex);
+  WGPUDevice &device = wgpu_device();
+  std::lock_guard lock(device.mutex);
   if (const uint64_t *found = samplers.lookup_ptr(key)) {
     return *found;
   }
@@ -298,8 +298,6 @@ uint64_t wgpu_sampler(GPUSamplerState state, bool filterable)
   if (anisotropy > 1 && !(filter && mip)) {
     anisotropy = 1;
   }
-  WGPUDevice &device = wgpu_device();
-  std::lock_guard device_lock(device.mutex);
   uint64_t handle;
   uint8_t *p = device.create(DOLLY_GPU_CREATE_SAMPLER, 56, handle);
   wgpu_put32(p, 16, filter);

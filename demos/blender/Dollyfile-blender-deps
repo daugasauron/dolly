@@ -46,7 +46,7 @@ REQUIRES LIB lzma
 REQUIRES LIB bz2
 REQUIRES LIB sqlite3
 
-SOURCE /dist/static/blender/deps.tar.gz b5d97a8451e787f78573bab5fbc9220fb87835d8f4d9dc78db1f556be56dc393 /tmp/blender-deps.tar.gz
+SOURCE /dist/static/blender/deps.tar.gz 4cf316ff476f68cb32ae99f142e1894b02352e823e504477a7227231a3c7981a /tmp/blender-deps.tar.gz
 SLOP gzip -dc /tmp/blender-deps.tar.gz | tar -xf - -C /
 SLOP rm /tmp/blender-deps.tar.gz
 SLOP cc -O2 /tmp/blender-deps/ccfilter.c -o /usr/bin/ccfilter
@@ -111,6 +111,11 @@ SLOP time sh /tmp/blender-deps/build eigen -DBUILD_TESTING=OFF -DEIGEN_BUILD_DOC
   -DEIGEN_BUILD_LAPACK=OFF -DEIGEN_BUILD_DEMOS=OFF
 SLOP time sh /tmp/blender-deps/build onetbb -DTBB_TEST=OFF -DTBBMALLOC_BUILD=OFF -DTBB_STRICT=OFF \
   -DTBB_DISABLE_HWLOC_AUTOMATIC_SEARCH=ON -DTBB_EXAMPLES=OFF
+# glslang at the commit Blender pins for its shaderc: the WebGPU backend compiles Blender's GLSL
+# to SPIR-V with it, as the Vulkan backend does with shaderc. Its front end and SPIR-V writer
+# alone; spirv-wgsl brings SPIRV-Tools.
+SLOP time sh /tmp/blender-deps/build glslang -DENABLE_OPT=OFF -DGLSLANG_TESTS=OFF -DENABLE_GLSLANG_BINARIES=OFF \
+  -DENABLE_HLSL=OFF -DENABLE_PCH=OFF -DBUILD_EXTERNAL=OFF -DENABLE_SPVREMAPPER=OFF
 
 # Epoxy's OpenGL dispatch alone (no EGL, GLX or X11), as its meson.build
 # builds it: its generator on the registry, then the two sources. Blender's

@@ -1,0 +1,116 @@
+// Blender's window on gpu@0, on a real adapter, on the private X display DISPLAY names: Chrome on
+// Vulkan, or the installed Firefox (docs/gpu.md). Blender opens its default layout; a script of
+// its own reads the window's frame back (Firefox under Xvfb shows no WebGPU canvas) and says what
+// it drew; the test then presses K, which the script's key map item takes, and Blender quits.
+// Usage: [DOLLY_BROWSER=firefox] node demos/blender/test/blender-gpu-browser.mjs
+import assert from "node:assert/strict";
+import { chromium } from "playwright-core";
+import { composed, launchInstalledFirefox } from "../../../test/browser.mjs";
+import { startBrowserServer } from "../../../test/browser-server.mjs";
+import { browsers } from "../../browsers.mjs";
+import { writeCommand } from "../../browser.mjs";
+
+// The window's frame once the layout has drawn: its size, the share of the interface's greys and
+// of light pixels (text, icons), and the backend; then a key map item on K, which quits.
+const check = `import bpy, gpu, time
+
+started = time.monotonic()
+
+class DOLLY_OT_key(bpy.types.Operator):
+    bl_idname = "wm.dolly_key"
+    bl_label = "Dolly key"
+
+    def execute(self, context):
+        print("KEY", round(time.monotonic() - started, 2), flush=True)
+        bpy.app.timers.register(lambda: bpy.ops.wm.quit_blender() and None, first_interval=0.2)
+        return {'FINISHED'}
+
+bpy.utils.register_class(DOLLY_OT_key)
+
+def frame():
+    window = bpy.context.window_manager.windows[0]
+    with bpy.context.temp_override(window=window, screen=window.screen):
+        bpy.ops.screen.screenshot(filepath="/tmp/frame.png")
+    image = bpy.data.images.load("/tmp/frame.png")
+    width, height = image.size
+    pixels = image.pixels[:]
+    grey = light = 0
+    for i in range(0, width * height, 7):
+        r, g, b = pixels[4 * i:4 * i + 3]
+        if abs(r - g) < 0.03 and abs(g - b) < 0.03 and 0.08 < r < 0.45:
+            grey += 1
+        if r > 0.7 and g > 0.7 and b > 0.7:
+            light += 1
+    samples = (width * height + 6) // 7
+    print("BACKEND", gpu.platform.backend_type_get(), flush=True)
+    print("FRAME", width, height, round(grey / samples, 3), round(light / samples, 4), flush=True)
+    print("READY", round(time.monotonic() - started, 2), flush=True)
+    keymap = bpy.context.window_manager.keyconfigs.addon.keymaps.new(name="Window", space_type="EMPTY")
+    keymap.keymap_items.new("wm.dolly_key", "K", "PRESS")
+
+bpy.app.timers.register(lambda: frame() and None, first_interval=3.0)
+`;
+
+for (const name of browsers) {
+  assert.ok(["chromium", "firefox"].includes(name));
+  const server = await startBrowserServer(new URL("../../..", import.meta.url).pathname, "system");
+  const browser = name === "firefox"
+    ? await launchInstalledFirefox()
+    : await chromium.launch({ channel: "chrome", headless: false,
+      args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan,VulkanFromANGLE"] });
+  const deadline = setTimeout(() => void browser.close(), 900_000);
+  try {
+    const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } }), errors = [];
+    page.setDefaultTimeout(0);
+    page.on("pageerror", error => errors.push(error.message));
+    page.on("console", message => { if (message.text().startsWith("Dolly GPU:")) errors.push(message.text()); });
+    const image = await composed(["gpu", "display", "input", "threads", "sockets", "clipboard", "http", "dso"], ["blender"], { base: "system" });
+    await image.setup(page);
+    await page.goto(server.origin + image.path);
+    await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null, { timeout: 300_000 });
+    await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
+    const run = async command => assert.equal(await page.evaluate(text => __dolly.submit(text), command), 0, command);
+    await run(writeCommand("/tmp/check.py", check));
+    const blender = page.evaluate(text => __dolly.submit(text), "blender --python /tmp/check.py > /tmp/blender.out 2>&1");
+    await page.waitForFunction(() => __dolly.gpu?.active, null, { polling: 200, timeout: 300_000 });
+    // The script reads the frame, then takes K: pressed until Blender quits, or interrupted
+    // after four minutes. Chrome's page is kept as it shows the window (Firefox under Xvfb
+    // shows no WebGPU canvas).
+    let quit = false;
+    void blender.then(() => { quit = true; });
+    const started = performance.now();
+    for (let shot = false; !quit; ) {
+      await page.keyboard.press("k");
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (!shot && name === "chromium" && performance.now() - started > 20_000) {
+        shot = true;
+        await page.screenshot({ path: new URL("../../../build/blender-gpu-chromium.png", import.meta.url).pathname });
+      }
+      if (performance.now() - started > 240_000) {
+        await page.evaluate(() => __dolly.terminal.interruptForeground());
+        await blender;
+        break;
+      }
+    }
+    const status = await blender;
+    await run("clear; grep -v '^$' /tmp/blender.out | tail -n 20");
+    const log = await page.evaluate(() => __dolly.visibleTerminalText());
+    assert.equal(status, 0, `Blender ended with ${status}:\n${log}`);
+    await run("clear; grep -E '^(BACKEND|FRAME|READY|KEY) ' /tmp/blender.out");
+    const output = await page.evaluate(() => __dolly.visibleTerminalText());
+    assert.match(output, /^BACKEND WEBGPU$/m);
+    const [, width, height, grey, light] = output.match(/^FRAME (\d+) (\d+) ([\d.]+) ([\d.]+)$/m) ?? [];
+    assert.ok(Number(width) >= 640 && Number(height) >= 400, `the window's frame is ${width} by ${height}`);
+    assert.ok(Number(grey) > 0.5, `the interface's greys cover ${grey} of the frame`);
+    assert.ok(Number(light) > 0.001, `text and icons cover ${light} of the frame`);
+    assert.match(output, /^KEY [\d.]+$/m, "Blender took the key");
+    assert.equal(await page.evaluate(() => __dolly.gpu.isFallbackAdapter), false);
+    assert.deepEqual(errors, []);
+    console.log(name, output.match(/^READY .*$/m)?.[0]);
+    console.log(`blender-gpu: ${name} passed`);
+  } finally {
+    clearTimeout(deadline);
+    await browser.close();
+    await server.close();
+  }
+}

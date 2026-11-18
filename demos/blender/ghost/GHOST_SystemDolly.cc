@@ -27,9 +27,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
-#include <fcntl.h>
-#include <termios.h>
-#include <unistd.h>
 
 GHOST_SystemDolly::GHOST_SystemDolly(bool background) : background_(background) {}
 
@@ -43,14 +40,6 @@ GHOST_SystemDolly::~GHOST_SystemDolly()
   }
   if (display_) {
     dolly_display_release(display_);
-  }
-  termios modes;
-  if (terminal_ >= 0 && terminal_lflag_ >= 0 && tcgetattr(terminal_, &modes) == 0) {
-    modes.c_lflag = tcflag_t(terminal_lflag_);
-    tcsetattr(terminal_, TCSANOW, &modes);
-  }
-  if (terminal_ >= 0) {
-    close(terminal_);
   }
 }
 
@@ -82,15 +71,6 @@ bool GHOST_SystemDolly::acquirePage()
   /* Without clipboard@0, or beside a program that holds it, the clipboard is Blender's own. */
   if (dolly_clipboard_acquire(&clipboard_) != 0) {
     clipboard_ = 0;
-  }
-  /* Ctrl+C is Copy while Blender has the page's keys, as in its window on a desktop: the
-   * terminal's interrupt key is a key (ISIG off) until it quits, as Godot's editor has it. */
-  termios modes;
-  terminal_ = open("/dev/tty", O_RDWR | O_NOCTTY);
-  if (terminal_ >= 0 && tcgetattr(terminal_, &modes) == 0 && (modes.c_lflag & ISIG)) {
-    terminal_lflag_ = int64_t(modes.c_lflag);
-    modes.c_lflag &= ~ISIG;
-    tcsetattr(terminal_, TCSANOW, &modes);
   }
   error = dolly_display_set_size(display_, screen_width_, screen_height_, &surface);
   if (error != 0) {
