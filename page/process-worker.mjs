@@ -1,5 +1,6 @@
 import { DOLLY_ERRNO } from "./process-constants.mjs";
 import { callFields, callFieldsOffset, controlBytes, controlWord } from "./process-control.mjs";
+import { DOLLY_EXPORT_TABLE, findExport } from "./wasm-interface.mjs";
 
 import {
   DOLLY_PROCESS_CLOCK_MONOTONIC, DOLLY_PROCESS_CLOCK_REALTIME, DOLLY_PROCESS_CLOCK_TIME,
@@ -318,9 +319,14 @@ function failureMessage(error) {
   if (!(error instanceof WebAssembly.Exception)) return error instanceof Error ? error.message : String(error);
   let detail = "";
   try {
-    const { __cpp_exception: tag, __cxa_begin_catch: beginCatch, __cxa_current_exception_type: currentType,
-      __cxa_current_primary_exception: currentException, _ZTISt9exception: exceptionInfo,
+    const { __cpp_exception: tag, _ZTISt9exception: exceptionInfo,
       _ZTVN10__cxxabiv120__si_class_type_infoE: singleBaseInfo, __indirect_function_table: table } = instance.exports;
+    // Function exports but Dolly's own are entries of a table (exportFunctionsByTable).
+    const [beginCatch, currentType, currentException] = ["__cxa_begin_catch", "__cxa_current_exception_type",
+      "__cxa_current_primary_exception"].map(name => {
+      const found = findExport(configuration.processInterface.exports, name);
+      return found?.slot >= 0 ? instance.exports[DOLLY_EXPORT_TABLE].get(found.slot) : instance.exports[name];
+    });
     if (error.is(tag)) {
       const word = address => new DataView(memory.buffer).getBigUint64(Number(address), true);
       const string = address => {
