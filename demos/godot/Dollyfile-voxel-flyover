@@ -16,23 +16,29 @@ REQUIRES HOST clipboard@0
 # the points of the sphere: a pass draws the ground into textures as the flight goes, and the
 # vertex stages raise grids of land to it, out to the horizon and round the planet. Its project
 # (demos/godot/voxel-flyover) is imported and exported here by Godot's editor, and voxel-flyover
-# plays the pack with godot, which installs with it. The project installs too.
+# plays the pack with godot, which installs with it. The project installs too. The flyer, the
+# board with the corgi and the pelican on its bicycle, is made by Blender from the project's
+# flyer.py into flyer.glb, which the game reads when it starts: Blender run on the script again
+# makes it anew.
 FROM /Dollyfile-system 8d54b8fd95bd265381fcacf4d97044d3ad3deb0e969deeed8e4b5e791e71dcb5
-INSTALL /demos/godot/Dollyfile-godot 238c4d82981a7df3f7f2acb427baf949014c372b39b7dedab27dc156eca3d786
+INSTALL /demos/godot/Dollyfile-godot a07eb1a7b241b23dd68aa49582ca0338d8949ff94273d58b8f2010b2c764305e
 USE /demos/godot/Dollyfile-godot-editor 41a3f6f8e56c4de02b5a9498ffd4be8bf8ac37780d7215b9e1a15e72af4c7a5e
+USE /demos/blender/Dollyfile-blender c7162bd0097e17bd6ceaa9644694d7aa5bfeca853f12834d00ce01a31bfd5dda
 
+REQUIRES TOOL blender
 REQUIRES TOOL cp
 REQUIRES TOOL godot-editor
 REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /dist/static/godot/voxel-flyover.tar 4bf805b2af75767c34bd359427b2d90385e1cad331218bd649a15feb286f201c /tmp/voxel-flyover.tar
+SOURCE /dist/static/godot/voxel-flyover.tar 94347a4b72fd350041382b207f38401252899ff1fd95e05f4f3517f4c1565008 /tmp/voxel-flyover.tar
 SLOP CWD / tar -xf /tmp/voxel-flyover.tar
 SLOP mkdir -p /usr/share/voxel-flyover
 SLOP cp -r /usr/src/voxel-flyover /usr/share/voxel-flyover/project
 SLOP CWD /usr/src/voxel-flyover godot-editor --headless --import
 SLOP CWD /usr/src/voxel-flyover godot-editor --headless --export-pack Dolly /usr/share/voxel-flyover/voxel-flyover.pck
+SLOP CWD /tmp blender -b --factory-startup --python /usr/src/voxel-flyover/flyer.py -- /usr/share/voxel-flyover/flyer.glb
 SLOP rm -rf /usr/src/voxel-flyover /tmp/voxel-flyover.tar
 
 FILE /usr/bin/voxel-flyover
@@ -40,7 +46,7 @@ FILE /usr/bin/voxel-flyover
     godot --main-pack /usr/share/voxel-flyover/voxel-flyover.pck "$@"
 EXPORTS TOOL voxel-flyover
 FILE /usr/share/man/cat1/voxel-flyover.1
-    voxel-flyover [GODOT-OPTION...] [-- --autopilot SECONDS] [-- --day HOUR] [-- --tour SECOND]
+    voxel-flyover [GODOT-OPTION...] [-- --autopilot SECONDS] [-- --day HOUR] [-- --tour SECOND] [-- --model FILE]
     Plays Voxel Flyover on the page: a corgi in a cape and sunglasses on a
     jet surfboard, a pelican on a bicycle pedalling under it for the jets,
     over a planet 600,000 units in radius, through its days and nights. The land runs on to a curved horizon, and far ranges rise
@@ -66,6 +72,11 @@ FILE /usr/share/man/cat1/voxel-flyover.1
     shows; --day starts at that hour; --tour leaves the planet at that
     second, to the height --top gives (900000), and comes back. It draws
     through WebGPU (gpu@0). Its project is /usr/share/voxel-flyover/project:
-    copy it to edit it with godot-editor.
+    copy it to edit it with godot-editor. The flyer, board, jets, corgi and
+    pelican, is /usr/share/voxel-flyover/flyer.glb, which Blender makes from
+    the project's flyer.py (blender -b --python flyer.py, or Run Script in
+    Blender's Text Editor); the game reads it as it starts, or the file
+    --model names.
 FILE /usr/share/voxel-flyover/voxel-flyover.pck
+FILE /usr/share/voxel-flyover/flyer.glb
 FOLDER /usr/share/voxel-flyover/project

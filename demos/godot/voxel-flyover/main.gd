@@ -19,7 +19,7 @@ extends Node3D
 const Terrain := preload("res://terrain.gd")
 const Landmarks := preload("res://landmarks.gd")
 const Parts := preload("res://parts.gd")
-const Pelican := preload("res://pelican.gd")
+const Model := preload("res://model.gd")
 const Touch := preload("res://touch.gd")
 ## The grids of land around the flyer, each around the one before: cells across, a cell's width.
 ## The first three are the flyover's; the others carry the land on to the horizon and round the
@@ -142,16 +142,16 @@ var groves: Array[MultiMeshInstance3D] = []
 var water := MeshInstance3D.new()
 var cities: Array[MultiMeshInstance3D] = [] # the towns' buildings, a lot each: the near ones, and the far
 var flyer := Node3D.new()
-var dog := Node3D.new()
-var head := Node3D.new()
+var model := Model.new() # the board, its jets, the pelican and the corgi, as Blender made them
+var dog: Node3D
+var head: Node3D
 var legs: Array[MeshInstance3D] = []
 var paws: Array[MeshInstance3D] = []
 var ears: Array[Node3D] = []
 var tail: MeshInstance3D
-var tongue := ShaderMaterial.new() # the corgi's, a cloth in the wind
+var tongue: ShaderMaterial # the corgi's, a cloth in the wind
 var furs: Array[ShaderMaterial] = []
-var cape_material := ShaderMaterial.new()
-var pelican := Pelican.new()
+var cape_material: ShaderMaterial
 var glows: Array[StandardMaterial3D] = [] # the jets' throats
 var flutter := 0.0 # the phase of what flutters in the wind, which runs with the speed
 var wakes: Array[ShaderMaterial] = []
@@ -890,120 +890,38 @@ static func tree_mesh(rings: int, stem := rings >= 5) -> ArrayMesh:
 	return tool.commit()
 
 
-## The flyer: a corgi in sunglasses and a cape, crouched on a surfboard that two small jets carry.
-## It looks along -z. The character is this game's own.
+## The flyer: a corgi in sunglasses and a cape, crouched on a surfboard that two small jets carry,
+## and a pelican on a bicycle under it pedalling for the jets, as Blender made them (model.gd).
+## Here the jets' flames and throats, the wakes and the lights are added to it. It looks along
+## -z. The characters are this game's own.
 func build_flyer() -> void:
-	var tan_fur := Color(0.8, 0.46, 0.2)
-	var white_fur := Color(0.97, 0.95, 0.9)
-	var fur := Parts.paint(tan_fur, 0.75)
-	var white := Parts.paint(white_fur, 0.8)
-	var black := Parts.paint(Color(0.015, 0.015, 0.02), 0.08)
-	var pink := Parts.paint(Color(0.9, 0.45, 0.5), 0.6)
-	var steel := Parts.paint(Color(0.45, 0.47, 0.5), 0.3)
-	steel.metallic = 0.8
-	var dark := Parts.paint(Color(0.05, 0.05, 0.06), 0.4)
-	dark.metallic = 0.6
-	var shades := Parts.paint(Color(0.03, 0.04, 0.08), 0.04)
-	shades.metallic = 1.0
-	var gold := Parts.paint(Color(1.0, 0.72, 0.2), 0.25)
-	gold.metallic = 0.9
+	flyer.add_child(model)
+	dog = model.dog
+	head = model.dog_head
+	legs = model.legs
+	paws = model.paws
+	ears = model.ears
+	tail = model.tail
+	tongue = model.tongue
+	cape_material = model.cape
+	furs = model.coats
 	var ball := SphereMesh.new()
 	ball.radial_segments = 28
 	ball.rings = 14
-	var rod := CapsuleMesh.new()
-	rod.radial_segments = 28
-	rod.rings = 6
 	var point := CylinderMesh.new()
 	point.top_radius = 0.0
-	# The board: teal with a cream stripe, a fin under its tail.
-	Parts.part(flyer, ball, Parts.paint(Color(0.05, 0.55, 0.6), 0.25), Vector3.ZERO, Vector3.ZERO, Vector3(2.0, 0.28, 6.4))
-	Parts.part(flyer, ball, Parts.paint(Color(0.95, 0.9, 0.75), 0.3), Vector3(0, 0.03, 0), Vector3.ZERO, Vector3(0.5, 0.28, 6.1))
-	Parts.part(flyer, point, steel, Vector3(0, -0.4, 2.3), Vector3(200, 0, 0), Vector3(0.12, 0.35, 0.7))
-	# The jets, one under each rail: an intake's ring, a nozzle, and a flame with a white heart.
+	# Each jet's flame, with a white heart, and its glowing throat.
 	var flame := ShaderMaterial.new()
 	flame.shader = preload("res://flame.gdshader")
 	var heart := flame.duplicate() as ShaderMaterial
 	heart.set_shader_parameter("colour", Color(1.6, 1.5, 1.2))
 	fires = [flame, heart]
-	var lip := TorusMesh.new()
-	lip.inner_radius = 0.2
-	lip.outer_radius = 0.33
-	var nozzle := CylinderMesh.new()
-	nozzle.top_radius = 0.2
-	nozzle.bottom_radius = 0.3
-	nozzle.height = 0.4
 	for x: float in [-0.95, 0.95]:
-		Parts.part(flyer, rod, steel, Vector3(x, -0.3, 1.9), Vector3(90, 0, 0), Vector3(0.55, 0.75, 0.55))
-		Parts.part(flyer, lip, Parts.paint(Color(0.8, 0.1, 0.08), 0.4), Vector3(x, -0.3, 1.2), Vector3(90, 0, 0))
-		Parts.part(flyer, nozzle, dark, Vector3(x, -0.3, 2.75), Vector3(90, 0, 0))
 		glows.append(Parts.paint(Color(1.0, 0.7, 0.35), 0.4, 6.0))
 		Parts.part(flyer, ball, glows[-1], Vector3(x, -0.3, 2.9), Vector3.ZERO, Vector3(0.34, 0.34, 0.12))
 		for pair: Array in [[flame, 0.3, 0.7], [heart, 0.14, 0.4]]:
 			flames.append(Parts.part(flyer, point, pair[0], Vector3(x, -0.3, 2.95 + pair[2]), Vector3(90, 0, 0), Vector3(pair[1], pair[2], pair[1])))
 			flames[-1].cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	flyer.add_child(pelican)
-	furs.append_array(pelican.coats)
-	# The corgi: long, low and slim, white in front and under, with a thick coat and large ears.
-	flyer.add_child(dog)
-	Parts.coated(furs, dog, rod, tan_fur, 0.1, Vector2(140, 150), Vector3(0, 0.92, 0.25), Vector3(90, 0, 0), Vector3(0.8, 1.3, 0.86))
-	Parts.coated(furs, dog, ball, white_fur, 0.12, Vector2(125, 70), Vector3(0, 0.84, -0.6), Vector3.ZERO, Vector3(0.76, 0.84, 0.9))
-	Parts.coated(furs, dog, ball, tan_fur, 0.13, Vector2(125, 70), Vector3(0, 0.95, 1.42), Vector3.ZERO, Vector3(0.76, 0.84, 0.7))
-	Parts.coated(furs, dog, ball, white_fur, 0.14, Vector2(110, 60), Vector3(0, 0.74, 1.52), Vector3.ZERO, Vector3(0.6, 0.5, 0.5))
-	tail = Parts.coated(furs, dog, ball, tan_fur, 0.1, Vector2(70, 35), Vector3(0, 1.24, 1.64), Vector3.ZERO, Vector3(0.28, 0.28, 0.4))
-	for x: float in [-0.26, 0.26]:
-		for z: float in [-0.6, 1.1]:
-			legs.append(Parts.coated(furs, dog, rod, white_fur, 0.05, Vector2(60, 50), Vector3(x, 0.3, z), Vector3.ZERO, Vector3(0.3, 0.32, 0.3)))
-			paws.append(Parts.part(dog, ball, white, Vector3(x, 0.06, z - 0.08), Vector3.ZERO, Vector3(0.34, 0.2, 0.46)))
-	head.position = Vector3(0, 1.62, -1.0)
-	dog.add_child(head)
-	Parts.coated(furs, head, ball, tan_fur, 0.06, Vector2(190, 95), Vector3.ZERO, Vector3.ZERO, Vector3(1.12, 1.02, 1.05))
-	Parts.coated(furs, head, ball, white_fur, 0.09, Vector2(120, 60), Vector3(0, -0.2, -0.08), Vector3.ZERO, Vector3(1.0, 0.7, 0.9))
-	Parts.part(head, ball, white, Vector3(0, -0.14, -0.5), Vector3.ZERO, Vector3(0.56, 0.46, 0.8))
-	Parts.part(head, ball, white, Vector3(0, 0.1, -0.36), Vector3(20, 0, 0), Vector3(0.22, 0.5, 0.5))
-	Parts.part(head, ball, black, Vector3(0, -0.06, -0.9), Vector3.ZERO, Vector3(0.2, 0.15, 0.14))
-	# The mouth: the lower jaw closed under the muzzle, and the tongue, a strip of the cape's
-	# cloth that comes out of the mouth's left side and trails back in the wind.
-	Parts.part(head, ball, white, Vector3(0, -0.4, -0.44), Vector3(-5, 0, 0), Vector3(0.46, 0.16, 0.66))
-	var lick := PlaneMesh.new()
-	lick.size = Vector2.ONE
-	lick.center_offset = Vector3(0, 0, 0.5)
-	lick.subdivide_width = 2
-	lick.subdivide_depth = 10
-	tongue.shader = preload("res://cape.gdshader")
-	tongue.set_shader_parameter("colour", Color(0.9, 0.38, 0.48))
-	tongue.set_shader_parameter("tip", Color(0.96, 0.5, 0.58))
-	tongue.set_shader_parameter("widens", Vector2(1.0, -0.75))
-	tongue.set_shader_parameter("flaps", 0.3)
-	tongue.set_shader_parameter("own", 3.1)
-	var back := Vector3(-0.8, -0.2, 1.0).normalized()
-	var across := Vector3(-0.75, 0.65, 0.0).cross(back).normalized()
-	Parts.part(head, lick, tongue, Vector3.ZERO).transform = Transform3D(Basis(across * 0.24, back.cross(across), back * 0.85), Vector3(-0.06, -0.345, -0.68))
-	var arm := BoxMesh.new()
-	arm.size = Vector3(0.04, 0.05, 0.62)
-	for x: float in [-1.0, 1.0]:
-		var ear := Node3D.new()
-		ear.position = Vector3(x * 0.4, 0.3, 0.12)
-		head.add_child(ear)
-		ears.append(ear)
-		Parts.part(ear, point, fur, Vector3(0, 0.4, 0), Vector3(0, 0, x * -16), Vector3(0.6, 0.42, 0.3))
-		Parts.part(ear, point, pink, Vector3(0, 0.38, -0.05), Vector3(0, 0, x * -16), Vector3(0.36, 0.32, 0.12))
-		# The sunglasses: two dark mirrors in gold frames, a bar across the nose and an arm to each ear.
-		Parts.part(head, ball, shades, Vector3(x * 0.29, 0.13, -0.53), Vector3(8, x * -16, 0), Vector3(0.6, 0.42, 0.1))
-		Parts.part(head, lip, gold, Vector3(x * 0.29, 0.13, -0.52), Vector3(98, x * -16, 0), Vector3(0.95, 0.3, 0.68))
-		Parts.part(head, arm, gold, Vector3(x * 0.6, 0.17, -0.2))
-	var bar := BoxMesh.new()
-	bar.size = Vector3(1.1, 0.05, 0.05)
-	Parts.part(head, bar, gold, Vector3(0, 0.2, -0.52))
-	# The cape, from a gold clasp at the throat.
-	# The cape's clasp, at the throat.
-	Parts.part(dog, ball, gold, Vector3(0, 1.0, -1.02), Vector3.ZERO, Vector3.ONE * 0.16)
-	var cloth := PlaneMesh.new()
-	cloth.size = Vector2(1.0, 2.5)
-	cloth.center_offset = Vector3(0, 0, 1.25)
-	cloth.subdivide_width = 6
-	cloth.subdivide_depth = 20
-	cape_material.shader = preload("res://cape.gdshader")
-	Parts.part(dog, cloth, cape_material, Vector3(0, 1.8, -0.45), Vector3(-22, 0, 0))
 	# The wakes, one from each jet: ribbons the shader lays along where the board has been.
 	var ribbon := PlaneMesh.new()
 	ribbon.subdivide_width = WAKE - 2
@@ -1057,7 +975,7 @@ func ride(delta: float) -> void:
 	# The pelican pedals for the thrust: as fast as the throttle is open.
 	var effort := 0.4 + 1.6 * throttle
 	flutter += delta * fast
-	pelican.pedal(delta, effort, turn)
+	model.pedal(delta, effort, turn)
 	var crouch := clampf(0.05 + 0.14 * (fast - 1.0) + 0.12 * absf(turn) + 0.015 * sin(elapsed * 2.1), 0.0, 0.3)
 	dog.position = Vector3(0, 0.14 - crouch, 0.2)
 	dog.rotation = Vector3(-crouch * 0.5 + climb * 0.008, 0.0, -turn * 0.22)
@@ -1072,14 +990,14 @@ func ride(delta: float) -> void:
 		ears[side].rotation = Vector3(0.05 + 0.2 * fast + 0.06 * sin(elapsed * 23.0 + side * 2.0) * fast, 0.0, turn * 0.25)
 	tail.rotation.y = sin(elapsed * 11.0) * 0.6
 	# The jets burn as the pelican pushes: longer and brighter with each stroke of its legs.
-	var push := pelican.stroke()
+	var push := model.stroke()
 	for flame in flames:
 		flame.scale.y = flame.scale.x * (1.4 + 1.4 * effort) * (0.88 + 0.24 * push)
 		flame.position.z = 2.95 + flame.scale.y
 	for glow in glows:
 		glow.emission_energy_multiplier = 4.5 + 3.0 * push
 	for fire in fires:
-		fire.set_shader_parameter("strokes", pelican.angle / PI)
+		fire.set_shader_parameter("strokes", model.angle / PI)
 	# The air comes from ahead, and from the outside of a turn.
 	# A gust that crosses the flyers (terrain.gdshaderinc's gust) lays the coats flatter and
 	# throws the cape higher.
@@ -1089,7 +1007,7 @@ func ride(delta: float) -> void:
 	cape_material.set_shader_parameter("flaps", 1.0 + 1.2 * blown)
 	for fur in furs:
 		fur.set_shader_parameter("wind", air)
-	for cloth: ShaderMaterial in pelican.plumes + [cape_material, tongue]:
+	for cloth: ShaderMaterial in model.plumes + [cape_material, tongue]:
 		cloth.set_shader_parameter("phase", flutter)
 		cloth.set_shader_parameter("lean", turn)
 	# The wakes keep a place for every stretch flown, the newest at the board's tail: each exactly
@@ -1105,7 +1023,7 @@ func ride(delta: float) -> void:
 		wake_material.set_shader_parameter("path", wake)
 		wake_material.set_shader_parameter("lead", wake[0].distance_to(wake[1]) / WAKE_APART)
 		wake_material.set_shader_parameter("clock", elapsed)
-		wake_material.set_shader_parameter("strokes", pelican.angle / PI)
+		wake_material.set_shader_parameter("strokes", model.angle / PI)
 
 
 ## A loop of noise for the weather, made here. Of each sample `kept` is new: near 1 the noise

@@ -1,7 +1,8 @@
 // Cloth in the wind, fixed along its vertices at z = 0: the corgi's cape, and with other
 // measures the pelican's long feathers. It streams behind, flutters more toward its free end,
 // and swings out of a turn. The flutter's phase is counted by the game, so a change of speed
-// changes its pace and never its place.
+// changes its pace and never its place. Its colour runs from `colour` to `tip` along it, times the
+// colours of its vertices.
 shader_type spatial;
 render_mode cull_disabled;
 
@@ -23,7 +24,7 @@ void vertex() {
 }
 
 void fragment() {
-	ALBEDO = mix(colour, tip, smoothstep(0.45, 0.8, UV.y));
+	ALBEDO = mix(colour, tip, smoothstep(0.45, 0.8, UV.y)) * COLOR.rgb;
 	ROUGHNESS = 0.6;
 	BACKLIGHT = ALBEDO * 0.4;
 	if (!FRONT_FACING) {

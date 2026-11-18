@@ -13,7 +13,8 @@ REQUIRES HOST clipboard@0
 # Godot from its release, patched below, built by SCons with Dolly's cc on a
 # platform of Dolly's own (platform/dolly, from demos/godot/platform): the
 # engine with GDScript, 2D and 3D and Godot's own physics for both, the
-# fallback text server, Ogg Vorbis, MP3, WebP and regular expressions, what an
+# fallback text server, Ogg Vorbis, MP3, WebP, regular expressions and glTF
+# scenes read at run time (GLTFDocument: Voxel Flyover reads its flyer so), what an
 # exported game loads; its Mobile and Forward+ renderers on gpu@0 where the
 # browser grants WebGPU, and its Compatibility renderer on Mesa's OpenGL (EGL
 # and softpipe, the mesa package's, linked in) where it does not, with its
@@ -51,7 +52,8 @@ SLOP CWD /usr/src/godot patch -p1 -i platform/dolly/godot-dolly.patch
 SLOP CWD /usr/src/godot scons -j4 platform=dolly modules_enabled_by_default=no \
   module_gdscript_enabled=yes module_text_server_fb_enabled=yes module_freetype_enabled=yes \
   module_godot_physics_2d_enabled=yes module_godot_physics_3d_enabled=yes module_ogg_enabled=yes module_vorbis_enabled=yes \
-  module_minimp3_enabled=yes module_webp_enabled=yes module_regex_enabled=yes module_glslang_enabled=yes
+  module_minimp3_enabled=yes module_webp_enabled=yes module_regex_enabled=yes module_glslang_enabled=yes \
+  module_gltf_enabled=yes
 SLOP cp /usr/src/godot/bin/godot.dolly.template_release.wasm64 /usr/bin/godot
 SLOP mkdir -p /usr/share/licenses/godot
 SLOP cp /usr/src/godot/LICENSE.txt /usr/src/godot/COPYRIGHT.txt /usr/share/licenses/godot
@@ -73,9 +75,9 @@ FILE /tmp/godot-check/main.tscn
 FILE /tmp/godot-check/main.gd
     extends Node
     func _ready() -> void:
-        print("GODOT ", OS.get_name())
+        print("GODOT ", OS.get_name(), " ", ClassDB.class_exists("GLTFDocument"))
         get_tree().quit()
-SLOP godot --headless --path /tmp/godot-check | grep -qx 'GODOT Dolly'
+SLOP godot --headless --path /tmp/godot-check | grep -qx 'GODOT Dolly true'
 
 EXPORTS TOOL godot
 FILE /usr/share/licenses/godot/LICENSE.txt
