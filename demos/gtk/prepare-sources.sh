@@ -7,6 +7,9 @@ if has_image glib; then
   copy_static "$(bash scripts/fetch-pinned-archive.sh glib)" gtk/glib-2.90.1.tar.xz
   copy_static demos/gtk/glib-dolly.patch gtk/glib-dolly.patch
 fi
+if has_image libepoxy; then
+  copy_static "$(bash scripts/fetch-pinned-archive.sh libepoxy)" gtk/libepoxy-1.5.10.tar.xz
+fi
 if has_image gtk-build; then
   while read -r pin archive; do
     copy_static "$(bash scripts/fetch-pinned-archive.sh "${pin}")" "gtk/${archive}"
@@ -16,7 +19,6 @@ harfbuzz harfbuzz-14.6.0.tar.xz
 fontconfig fontconfig-2.18.3.tar.xz
 cairo cairo-1.18.6.tar.xz
 graphene graphene-1.10.8.tar.xz
-libepoxy libepoxy-1.5.10.tar.xz
 gdk_pixbuf gdk-pixbuf-2.44.8.tar.xz
 pango pango-1.58.2.tar.xz
 gtk gtk-4.24.1.tar.xz

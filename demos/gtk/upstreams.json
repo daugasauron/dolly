@@ -6,7 +6,7 @@
 {"name": "fontconfig", "use": "Font discovery: GTK's", "licence": "HPND AND MIT", "repository": "https://gitlab.freedesktop.org/fontconfig/fontconfig", "pins": ["FONTCONFIG"], "sources": ["dist/static/gtk/fontconfig-*"]},
 {"name": "cairo", "use": "2D drawing: GTK's, over Xlib", "licence": "LGPL-2.1-only OR MPL-1.1", "repository": "https://gitlab.freedesktop.org/cairo/cairo", "pins": ["CAIRO"], "sources": ["dist/static/gtk/cairo-*.tar.xz"]},
 {"name": "graphene", "use": "Geometry: GTK's scene graph", "licence": "MIT", "repository": "https://github.com/ebassi/graphene", "pins": ["GRAPHENE"], "sources": ["dist/static/gtk/graphene-*.tar.xz"]},
-{"name": "libepoxy", "use": "OpenGL dispatch: GTK's", "licence": "MIT", "repository": "https://github.com/anholt/libepoxy", "pins": ["LIBEPOXY"], "sources": ["dist/static/gtk/libepoxy-*.tar.xz"]},
+{"name": "libepoxy", "use": "OpenGL dispatch: GTK's and Blender's, as the libepoxy package", "licence": "MIT", "repository": "https://github.com/anholt/libepoxy", "pins": ["LIBEPOXY"], "sources": ["dist/static/gtk/libepoxy-*.tar.xz"]},
 {"name": "gdk-pixbuf", "use": "Image loading: GTK's", "licence": "LGPL-2.1-or-later", "repository": "https://gitlab.gnome.org/GNOME/gdk-pixbuf", "pins": ["GDK_PIXBUF"], "sources": ["dist/static/gtk/gdk-pixbuf-*.tar.xz"]},
 {"name": "Pango", "use": "Text layout: GTK's", "licence": "LGPL-2.0-or-later", "repository": "https://gitlab.gnome.org/GNOME/pango", "pins": ["PANGO"], "sources": ["dist/static/gtk/pango-*.tar.xz"]},
 {"name": "GTK", "use": "GTK 4, with its X11 backend", "licence": "LGPL-2.1-or-later", "repository": "https://gitlab.gnome.org/GNOME/gtk", "pins": ["GTK"], "sources": ["dist/static/gtk/gtk-*"]}

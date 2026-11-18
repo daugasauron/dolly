@@ -9,11 +9,11 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
 # GTK 4 and the libraries under it, each from its upstream release by its own
-# build, over the libpng, FreeType, expat, libjpeg-turbo, libtiff, pixman and
-# Mesa packages: Meson for FriBidi, HarfBuzz, fontconfig (whose build runs the
-# gperf package), cairo, graphene, libepoxy, gdk-pixbuf, pango and GTK (its
-# X11 backend alone, over x11-build's X libraries). Mesa's EGL and KHR
-# headers serve libepoxy's EGL dispatch and GTK's EGL code; its libraries, a
+# build, over the libpng, FreeType, expat, libjpeg-turbo, libtiff, pixman,
+# libepoxy and Mesa packages: Meson for FriBidi, HarfBuzz, fontconfig (whose
+# build runs the gperf package), cairo, graphene, gdk-pixbuf, pango and GTK
+# (its X11 backend alone, over x11-build's X libraries). Mesa's EGL and KHR
+# headers serve GTK's EGL code; its libraries, a
 # program that draws with OpenGL itself (Ghostty). Static libraries in
 # /usr/lib, as a GTK program links them; GLib's pkg-config file has cc
 # cast-emulate every GObject program, those these builds run among them.
@@ -28,6 +28,7 @@ INSTALL /demos/tools/Dollyfile-libjpeg-turbo 04db0d617e53e5ad835e7fee4a3fcba679b
 INSTALL /demos/tools/Dollyfile-libtiff 33ebfdb762eeb3b41052b4d0db872d174268fde69a740f3de90f953d3942ceb8
 INSTALL /demos/x11/Dollyfile-pixman abd2a983c2de85653e1986c67451e9d7e756047e54c8b9454c3bad3d5615227b
 INSTALL /demos/ghostty-gtk/Dollyfile-mesa 39004d22b17bfdea87fb07ea223f43e8b32330073d62cb3d6d4ebc4038a85163
+INSTALL /demos/gtk/Dollyfile-libepoxy 3c9c9c497f5164cc40b06728eff57d444ab50bd4381c4f8ae5c2cb3c4a4f43f8
 INSTALL /demos/tools/Dollyfile-tar 41a8b3eb2eb4e9ab4bf0d8d1708a5859cbf89872b2658344741c27affa220ffb
 INSTALL /demos/tools/Dollyfile-binaryen 62d42b20ce549007859d3d4c69dd57b1f33a097c9e59a7cb9d39cc44afe3742e
 INSTALL /demos/gtk/Dollyfile-glib a78bf5d288dde3a0676b8a8761abe0005b3b5ecce31c4695f5c41f0512d0708d
@@ -60,7 +61,6 @@ SOURCE /dist/static/gtk/fontconfig-2.18.3.tar.xz 4f7b554a38cdf78c033f666c8871f37
 SOURCE /dist/static/gtk/fontconfig-dolly.patch af0db174251c4d6b1be7800c7c802dac3f52ec1e01e542596f39d392204eb100 /tmp/gtk/fontconfig-dolly.patch
 SOURCE /dist/static/gtk/cairo-1.18.6.tar.xz 1c767308174337a74694da0f3ec069c271452163a1ef4540964c50c301f157d4 /tmp/gtk/cairo.tar.xz
 SOURCE /dist/static/gtk/graphene-1.10.8.tar.xz a37bb0e78a419dcbeaa9c7027bcff52f5ec2367c25ec859da31dfde2928f279a /tmp/gtk/graphene.tar.xz
-SOURCE /dist/static/gtk/libepoxy-1.5.10.tar.xz 072cda4b59dd098bba8c2363a6247299db1fa89411dc221c8b81b8ee8192e623 /tmp/gtk/libepoxy.tar.xz
 SOURCE /dist/static/gtk/gdk-pixbuf-2.44.8.tar.xz 919f529512961a12e81cd4b4b466a48c3933469e7f9a310c6513cd4fb252ba3c /tmp/gtk/gdk-pixbuf.tar.xz
 SOURCE /dist/static/gtk/pango-1.58.2.tar.xz 342385b6ca3b7c73455d7c80a13b7dbe4489e00bc3bd4c5bd6ed4dce421e374a /tmp/gtk/pango.tar.xz
 SOURCE /dist/static/gtk/gtk-4.24.1.tar.xz e98abe720e16129c8c0f50761dee0a2e9ae2478055e31018f6cf977fcf6513e9 /tmp/gtk/gtk.tar.xz
@@ -83,7 +83,7 @@ SLOP CWD /tmp/gtk meson setup build-fontconfig fontconfig-2.18.3 --wrap-mode=nod
 SLOP meson compile -C /tmp/gtk/build-fontconfig && meson install --no-rebuild -C /tmp/gtk/build-fontconfig
 
 # Its drawing over the pixman package: cairo over Xlib (MIT-SHM is asked of
-# the server and Dolly's has none), graphene and libepoxy.
+# the server and Dolly's has none) and graphene.
 SLOP CWD /tmp/gtk meson setup build-cairo cairo-1.18.6 --wrap-mode=nodownload --prefix=/usr --libdir=lib --buildtype=release -Ddefault_library=static -Ddwrite=disabled -Dfontconfig=enabled \
   -Dfreetype=enabled -Dpng=enabled -Dquartz=disabled -Dtee=disabled -Dxcb=disabled -Dxlib=enabled \
   -Dzlib=enabled -Dtests=disabled -Dlzo=disabled -Dglib=enabled -Dspectre=disabled -Dsymbol-lookup=disabled
@@ -92,8 +92,6 @@ SLOP meson compile -C /tmp/gtk/build-cairo && meson install --no-rebuild -C /tmp
 SLOP CWD /tmp/gtk meson setup build-graphene graphene-1.10.8 --wrap-mode=nodownload --prefix=/usr --libdir=lib --buildtype=release -Ddefault_library=static -Dintrospection=disabled -Dtests=false \
   -Dinstalled_tests=false -Dgobject_types=true -Dsse2=false -Darm_neon=false -Dgcc_vector=false
 SLOP meson compile -C /tmp/gtk/build-graphene && meson install --no-rebuild -C /tmp/gtk/build-graphene
-SLOP CWD /tmp/gtk meson setup build-epoxy libepoxy-1.5.10 --wrap-mode=nodownload --prefix=/usr --libdir=lib --buildtype=release -Ddefault_library=static -Ddocs=false -Dtests=false
-SLOP meson compile -C /tmp/gtk/build-epoxy && meson install --no-rebuild -C /tmp/gtk/build-epoxy
 
 # gdk-pixbuf with its PNG and JPEG loaders built in (no glycin, which is Rust's
 # processes, and no MIME sniffing database), pango, and GTK with its X11
@@ -123,7 +121,7 @@ SLOP cc -O1 -pthread /tmp/gtk/check.c -o /tmp/gtk/check $(pkg-config --cflags --
 
 SLOP CWD /tmp/gtk for source in fribidi-1.0.17:COPYING harfbuzz-14.6.0:COPYING \
   fontconfig-2.18.3:COPYING cairo-1.18.6:COPYING-MPL-1.1 graphene-1.10.8:LICENSE.txt \
-  libepoxy-1.5.10:COPYING gdk-pixbuf-2.44.8:COPYING pango-1.58.2:COPYING gtk-4.24.1:COPYING; do \
+  gdk-pixbuf-2.44.8:COPYING pango-1.58.2:COPYING gtk-4.24.1:COPYING; do \
   name=${source%%-[0-9]*}; mkdir -p /usr/share/licenses/$name && cp ${source%%:*}/${source#*:} /usr/share/licenses/$name/; done
 FOLDER /usr/lib/pkgconfig
 FOLDER /usr/include

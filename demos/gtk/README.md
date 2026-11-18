@@ -8,6 +8,7 @@ upstream release.
 
 - `pcre2`: PCRE2's 8-bit library, GLib's regular expressions.
 - `glib`: GLib, GObject and GIO, with their tools.
+- `libepoxy`: libepoxy, the OpenGL function pointer dispatch, with EGL and GLX, a library for programs the `cc` package builds, by upstream's Meson; it brings the `x11-libs` and `mesa` packages its pkg-config file requires, and no compiler.
 - `gtk-build`: A build stage: GTK 4 with its X11 backend and the libraries under it (FreeType, FriBidi, HarfBuzz, fontconfig, cairo, pango, gdk-pixbuf, graphene, libepoxy and the rest), as static libraries.
 
 ## Use
@@ -33,9 +34,10 @@ for libffi.
 - [`Dollyfile-pcre2`](Dollyfile-pcre2): PCRE2 from its generic configuration.
 - [`Dollyfile-gtk-build`](Dollyfile-gtk-build): each library by its own Meson
   build, over the packages of FreeType, expat, libjpeg-turbo, libtiff, gperf
-  (fontconfig's build runs it), pixman, Mesa and X's client libraries.
+  (fontconfig's build runs it), pixman, libepoxy, Mesa and X's client libraries.
   Two patches: [`fontconfig-dolly.patch`](fontconfig-dolly.patch) names Dolly
   in `fcstat.c`'s list of systems whose `statfs` it reads, where upstream stops
   with an `#error`; [`gtk-dolly.patch`](gtk-dolly.patch) builds GTK's library
   as the build's default library asks, static here, where upstream always
   builds it shared (every package exports static libraries).
+- [`Dollyfile-libepoxy`](Dollyfile-libepoxy): libepoxy by its Meson build, as GTK built it.

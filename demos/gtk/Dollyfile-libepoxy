@@ -1,0 +1,40 @@
+DOLLY 8
+PACKAGE libepoxy
+REQUIRES HOST runtime@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+
+# libepoxy, the OpenGL function pointer dispatch (GTK's and Blender's), from
+# upstream's release, unchanged, built by its own Meson as a static library,
+# for programs the cc package builds: GL, with EGL and GLX dispatch. It finds
+# the GL functions when it is called. Its pkg-config file requires x11 and
+# egl, so it brings the x11-libs and mesa packages.
+FROM /demos/tools/Dollyfile-tools-build bfbb7483707086afb8948275f9b68e85f375a9076f2fe687a147eaeea1d2b184
+INSTALL /demos/x11/Dollyfile-x11-libs 764d466938d6540119570463f57152fd7e8c87a44765bae5d04631c95919a949
+INSTALL /demos/ghostty-gtk/Dollyfile-mesa 39004d22b17bfdea87fb07ea223f43e8b32330073d62cb3d6d4ebc4038a85163
+USE /demos/tools/Dollyfile-meson fbf8520c118b634f0a422081a05694a78936ba915699e95fa010f9e6b7ba73fb
+USE /demos/tools/Dollyfile-pkgconf 8e2d10a742a5f3dc0a5da7426f3f276c233bf6672cc0a777fa849672d0f1e0b3
+USE /demos/tools/Dollyfile-xz d469de338c35f239e62a272216458e722dfdd7eb2909ed4a35a21d5694f2ad81
+USE /demos/tools/Dollyfile-tar 41a8b3eb2eb4e9ab4bf0d8d1708a5859cbf89872b2658344741c27affa220ffb
+REQUIRES HEADER egl
+REQUIRES TOOL   cp
+REQUIRES TOOL   meson
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   pkg-config
+REQUIRES TOOL   rm
+REQUIRES TOOL   tar
+REQUIRES TOOL   xz
+
+SOURCE /dist/static/gtk/libepoxy-1.5.10.tar.xz 072cda4b59dd098bba8c2363a6247299db1fa89411dc221c8b81b8ee8192e623 /tmp/libepoxy.tar.xz
+SLOP CWD /tmp xz -dc libepoxy.tar.xz | tar -xf -
+SLOP CWD /tmp meson setup libepoxy-build libepoxy-1.5.10 --wrap-mode=nodownload --prefix=/usr --libdir=lib \
+  --buildtype=release -Ddefault_library=static -Ddocs=false -Dtests=false -Dglx=yes -Degl=yes -Dx11=true
+SLOP meson compile -C /tmp/libepoxy-build && meson install --no-rebuild -C /tmp/libepoxy-build
+SLOP mkdir -p /usr/share/licenses/libepoxy
+SLOP cp /tmp/libepoxy-1.5.10/COPYING /usr/share/licenses/libepoxy/COPYING
+
+EXPORTS LIB    epoxy /usr/lib/libepoxy.a
+EXPORTS HEADER epoxy /usr/include/epoxy
+FILE /usr/lib/pkgconfig/epoxy.pc
+FILE /usr/share/licenses/libepoxy/COPYING
+SLOP rm -rf /tmp/libepoxy-1.5.10 /tmp/libepoxy-build /tmp/libepoxy.tar.xz
