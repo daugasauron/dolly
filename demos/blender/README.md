@@ -53,14 +53,16 @@ grants WebGPU; `blender-ui` opens it at once. Two parts of the port draw it:
 
 The interface draws whole (widgets, text, icons, the splash's image), and the
 3D view shows the default scene in Workbench's solid mode, with the selected
-cube's outline, the camera, the light and the navigation gizmo.
+cube's outline, the floor grid and its axes, the camera, the light and the
+navigation gizmo.
 
-On the NVIDIA adapter, with the machine at load 40 (2026-11-18), the 3D view
-first drew 20.9 s after the command in Chrome and 32.1 s in Firefox, most of
-it compiling some 300 shaders (glslang and the translation run in the
-program); Blender's redraw timer gave the whole window 43.7 ms (Firefox
-62.2), the 3D view 2.8 ms (1.4) and its header 2.4 ms (1.0). A full redraw
-sends about 0.7 MB of records, nearly all of it the frame's staged data.
+On the NVIDIA adapter, with the machine at load 15 to 20 (2026-11-18, 18:40),
+the 3D view first drew 10.7 s after the command in Chrome and 11.8 s in
+Firefox, most of it compiling some 300 shaders (glslang and the translation
+run in the program); Blender's redraw timer gave the whole window 25.0 ms
+(Firefox 15.4), the 3D view 0.9 ms (1.1) and its header 0.9 ms (0.7). At load
+40 these were 20.9 s (32.1 s) and 43.7, 2.8 and 2.4 ms. A full redraw sends
+about 0.7 MB of records, nearly all of it the frame's staged data.
 
 What WebGPU leaves to the backend:
 
@@ -75,11 +77,12 @@ What WebGPU leaves to the backend:
 
 ## Limits
 
-- In Chrome the floor grid draws only towards the horizon, without its axes:
-  Chrome's WebGPU drops a line that crosses the camera's plane, where Firefox's
-  clips it, and the grid's lines reach the view's clip end. Curves, point
-  clouds, Grease Pencil and Gaussian splats do not draw
-  (their shaders read a texel buffer, which WebGPU lacks); EEVEE is not tried.
+- On Chrome's software adapter (SwiftShader) the floor grid draws only
+  towards the horizon: SwiftShader drops a line that crosses the camera's
+  plane, and the grid's lines reach the view's clip end. On the NVIDIA adapter
+  Chrome draws the grid whole, with its axes, and Firefox draws such a line.
+- Curves, point clouds, Grease Pencil and Gaussian splats do not draw (their
+  shaders read a texel buffer, which WebGPU lacks); EEVEE is not tried.
 - Where the browser grants no WebGPU, Blender says it found no GPU backend
   and quits; `blender -b` works everywhere.
 - It is linked through cast emulation (below), so it loads no Python extension

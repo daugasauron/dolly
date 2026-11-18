@@ -33,14 +33,14 @@ splash's image, the outliner and properties, and the 3D view draws the default c
 solid mode with the camera, light and navigation gizmo. Fixed for it: a view of one aspect of a
 depth-stencil texture takes the aspect's format; storage usage only for WebGPU's storage formats;
 the surface's pass is its own small submission (a batch continued in a second packet lets the page
-show the canvas between them, which destroys its texture). Left visible: the floor grid draws only
+show the canvas between them, which destroys its texture). Left visible on SwiftShader: the floor grid draws only
 towards the horizon, without its axes. Measured (17:45, Chrome's SwiftShader): a line with one end
 behind the camera draws nothing (a line in front lit 26 pixels; the same line reaching behind the
 camera, either end first, 0; a triangle reaching behind it 650), and the grid's lines run to the
 view's clip end on both sides, so every near one crosses the camera's plane: shortened to 8 m,
-they all draw. The NVIDIA adapter in Chrome shows the same grid. Firefox on the NVIDIA adapter
-draws that line (26 pixels, either end first): Chrome's WebGPU drops a line that crosses the
-camera's plane where Firefox's clips it. Not worked around: the backend sees one vertex at a time.
+they all draw. Firefox on the NVIDIA adapter draws that line (26 pixels, either end first), and
+Chrome on the NVIDIA adapter draws the grid whole with its axes (18:40, the test's page): it is
+SwiftShader that drops a line crossing the camera's plane.
 
 12:00, the same on the NVIDIA adapter in Chrome (`nvidia blackwell`). Then (SwiftShader): the
 polyline and armature shaders translate (Blender's shader preprocessor spells NaN out as
@@ -58,6 +58,11 @@ draws words on the GPU against Blender's font library drawing them on the CPU (F
 exactly). 13 shaders do not translate, all for
 curves, point clouds, Grease Pencil or Gaussian splats: their `samplerBuffer` is a texel buffer,
 which WebGPU lacks (a storage buffer read by index would replace it).
+
+Milestones 1 and 2 (18:40, the images of 3773b9bf4, served on 9052): the interface, and
+Workbench's solid default cube with its outline, the floor grid and its axes, on the NVIDIA
+adapter; `demos/blender/test/blender-gpu-browser.mjs` passed in Chrome and Firefox (text, frame,
+key). Left for the next milestones: texel buffers as storage buffers, then EEVEE.
 
 Found in Dolly's provider, fixed with the port:
 - A shader or pipeline released in the batch that creates it, before its compilation is known,
