@@ -14,8 +14,8 @@ extends Node3D
 ## starts at that hour of 24, and `--tour SECOND` leaves the planet at that second of a flight by
 ## itself, looks at it from 900,000 units up (`--top`), and comes back; `--high HEIGHT` starts
 ## a flight by itself at that height and keeps it; `--cloud 1` starts it before the first cloud of
-## the chain nearest the start, headed through it, and `--chain 1` flies on through the chains.
-## Q prints how far the flight went, the clouds, and how the board was flying.
+## the chain nearest the start, headed through it, and `--chain 1` flies on through the chains,
+## with `--aside RADII` that far to the right of each cloud's middle. Q prints how far the flight went, the clouds, and how the board was flying.
 
 const Terrain := preload("res://terrain.gd")
 const Landmarks := preload("res://landmarks.gd")
@@ -76,6 +76,7 @@ const CHAIN_TIME := 5.0 # seconds from a cloud to the next for a chain to go on
 const CLOUD_BOOST := 20.0 # the speed the first cloud of a chain adds to the cruise; each next doubles it
 const BOOST_FADES := 2.5 # seconds in which a boost wears off to 1/e
 const CLOUD_SIZE := 7.0 # a cloud's radius where the board is not faster for its height
+const CLOUD_REACH := 1.6 # a cloud is flown through within so many of its radii of its middle: its drawn ball's furthest bulge (wisp.gdshader)
 const CHAIN_TOP := 60000.0 # no cloud is higher: over the air, and under the anchor's moves at any distance a chain spans
 const CARRIED := Vector2i(1 << 30, 0) # the plot that names the chain the board is in once the chart's anchor has moved
 ## Where on the planet the flight starts: on the equator at this longitude (radians), the chart's
@@ -197,12 +198,13 @@ var burst_at := -100.0
 var burst_wide := 1.0 # the radius of that cloud
 var points := 0 # the score: each cloud flown through counts as many as the clouds of its chain so far
 var passes := 0 # the clouds flown through
+var taken := PackedStringArray() # each of them, for the report: the chain it made, and the boost it gave
 var chain := 0 # the clouds flown through one after another, each in time for the next
 var chain_ends := 0.0 # the clock when it is over unless another cloud is flown through
 var longest := 0 # the longest chain of the flight
 var onward_chain := {} # the chain whose next cloud is the one to make for, or none
-var onward := 0 # which of its clouds that is
 var chasing := false # with --chain the corgi flying itself flies on through the chains it meets
+var aside := 0.0 # with --aside, so many radii to the right of each cloud's middle
 var gained_at := -100.0 # the clock when the last cloud was flown through, for the words that show it
 var glints: Array[Vector4] = [] # the last eight clouds flown through, the newest first: where (x, y) and the clock then (z)
 var was := Vector3.ZERO # where the flyer was a frame ago
@@ -475,6 +477,7 @@ func _ready() -> void:
 		tour_phase = 2
 		tour_held = -1e9
 	chasing = option("--chain", 0.0) > 0.0
+	aside = option("--aside", 0.0)
 	if option("--cloud", 0.0) > 0.0:
 		start_at_cloud()
 	baked.shader = preload("res://baked.gdshader")
@@ -1631,7 +1634,8 @@ func fly_itself(delta: float, alt: float, ground: float, under: float, forward: 
 		if cloud != null:
 			var to: Vector3 = cloud - flyer.position - Vector3(0.0, lowered, 0.0)
 			if chasing:
-				return chase(to, delta)
+				var wide: float = onward_chain.clouds[onward_chain.next][1] if not onward_chain.is_empty() else CLOUD_SIZE
+				return chase(to + Vector3(-to.z, 0.0, to.x).normalized() * wide * aside, delta)
 			var far := Vector2(to.x, to.z).length()
 			wanted_turn = clampf(forward.signed_angle_to(Vector3(to.x, 0.0, to.z), Vector3.DOWN) * 2.5, -1.0, 1.0)
 			# It climbs to a cloud as the way to it rises, and no steeper than the corgi dares.
@@ -1721,7 +1725,7 @@ func move_anchor() -> void:
 	Terrain.anchor = (Terrain.anchor * Terrain.chart_frame(here)).orthonormalized()
 	Terrain.forget()
 	flyer.position -= Vector3(here.x, 0.0, here.y)
-	was = flyer.position
+	was -= Vector3(here.x, 0.0, here.y)
 	carry(-Vector3(here.x, 0.0, here.y))
 	for chart in charts:
 		chart.set_shader_parameter("anchor_frame", Terrain.anchor)
@@ -1889,7 +1893,7 @@ func tend_spires() -> void:
 ## sixth cloud is over the air. A chain is the plot it starts in, the heading of the way it was
 ## first laid for, the side it turns to first, its clouds (a middle in the chart with its height,
 ## not the height taken off, and a radius: CLOUD_SIZE times how much faster the board is there;
-## those not laid yet are where the first is, of no radius), and which of them are spent.
+## those not laid yet are where the first is, of no radius), and which of them is its next.
 static func chain_start(plot: Vector2i) -> Dictionary:
 	if Terrain.cell_hash(plot.x + 101, plot.y + 59) > CHAIN_SHARE:
 		return {}
@@ -1898,15 +1902,13 @@ static func chain_start(plot: Vector2i) -> Dictionary:
 	var clouds := [[at, cloud_size(at.y)]]
 	for index in range(1, CHAIN):
 		clouds.append([at, 0.0])
-	var spent: Array[bool] = []
-	spent.resize(CHAIN)
-	return {"plot": plot, "heading": Terrain.cell_hash(plot.x + 7, plot.y + 3) * TAU, "clouds": clouds, "spent": spent, "first": 0,
+	return {"plot": plot, "heading": Terrain.cell_hash(plot.x + 7, plot.y + 3) * TAU, "clouds": clouds, "next": 0, "first": 0,
 		"side": 1.0 if Terrain.cell_hash(plot.x + 3, plot.y + 11) < 0.5 else -1.0}
 
 
 ## Lays a chain's clouds after its first, flown through at that heading, pitch and speed by a chain
-## of so many clouds: a flight a twentieth of a second at a time, as fly() flies it, the boost
-## wearing off and the speed going toward it.
+## of so many clouds, up to CHAIN of them: a flight a twentieth of a second at a time, as fly()
+## flies it, the boost wearing off and the speed going toward it.
 static func lay_chain(chain_at: Dictionary, heading: float, pitch: float, speed: float, chained: int) -> void:
 	var plot: Vector2i = chain_at.plot
 	var at: Vector3 = chain_at.clouds[0][0]
@@ -1917,6 +1919,9 @@ static func lay_chain(chain_at: Dictionary, heading: float, pitch: float, speed:
 	var step := 0.05
 	for index in range(1, CHAIN):
 		var count := chained + index - 1
+		if count >= CHAIN:
+			chain_at.clouds[index] = [at, 0.0]
+			continue
 		var rise := deg_to_rad(30.0 + 5.0 * mini(count - 1, 3) + 15.0 * Terrain.cell_hash(plot.x + 13 * index, plot.y - 7 * index))
 		var boost := chain_boost(count)
 		var last := count >= CHAIN - 1
@@ -2016,21 +2021,25 @@ func build_wisps() -> void:
 	add_child(burst)
 
 
-## How a cloud glows: [how bright, how far it is spent, the clock when the chain's time for it runs
-## out]. A chain's first cloud is always there, and counts; the next cloud of the chain the board is
-## in beats, faster as the chain's time runs out, and the one after it shows faintly; a spent cloud
-## fades to a faint ghost; the others are not there (none of them, 0).
+## How a cloud glows: [how bright, 0, the clock when the chain's time for it runs out]. Each chain
+## shows its next cloud: its first until that is flown through, and then the one after the last
+## flown through. The next cloud of the chain the board is in beats, faster as the chain's time
+## runs out, and the one after it shows faintly. The others are not there (none of them, 0): those
+## flown through, and those to come. Every cloud that is there counts (counts).
 func wisp_glow(chain_at: Dictionary, index: int) -> Array:
-	if chain_at.spent[index]:
-		return [0.35, 1.0, 0.0]
+	if chain_at.clouds[index][1] == 0.0:
+		return [0.0, 0.0, 0.0]
 	var going := elapsed < chain_ends and is_same(onward_chain, chain_at)
-	if going and index == onward:
-		return [2.6, 0.0, chain_ends]
-	if index == 0:
-		return [1.4, 0.0, 0.0]
-	if going and index == onward + 1:
+	if index == chain_at.next:
+		return [2.6, 0.0, chain_ends] if going else [1.4, 0.0, 0.0]
+	if going and index == chain_at.next + 1:
 		return [0.45, 0.0, 0.0]
 	return [0.0, 0.0, 0.0]
+
+
+## Whether a cloud is there to be flown through (wisp_glow).
+func counts(chain_at: Dictionary, index: int) -> bool:
+	return index < CHAIN and wisp_glow(chain_at, index)[0] > 0.0
 
 
 ## Notes how a cloud glows from now on, for the shader, which takes it there by degrees from how
@@ -2086,28 +2095,28 @@ func tend_wisps() -> void:
 	if relaid:
 		lay_wisps()
 	var glows := false
-	# A chain whose time ran out is over, and its next cloud is no longer there.
+	# A chain whose time ran out is over: its next cloud stays, a cloud to start a chain at.
 	if chain > 0 and elapsed >= chain_ends:
 		chain = 0
 		var was_onward := onward_chain
 		onward_chain = {}
-		for index in [onward, onward + 1]:
+		for index in CHAIN:
 			set_wisp(was_onward, index)
 		glows = true
-	# The way flown since the last frame, in the chart with the heights not taken off: the cloud
-	# whose middle is nearer to it than its radius is flown through, if it is there.
+	# The way flown since the last frame, in the chart with the heights not taken off: a cloud that
+	# is there and whose middle is nearer to it than its reach is flown through.
 	var from := was + Vector3(0.0, lowered, 0.0)
 	var flew := flyer.position + Vector3(0.0, lowered, 0.0) - from
 	for plot: Vector2i in chains:
 		var chain_at: Dictionary = chains[plot]
-		if chain_at.is_empty():
+		if chain_at.is_empty() or leaving:
 			continue
-		for index in CHAIN:
-			if chain_at.spent[index] or (index > 0 and not (is_same(chain_at, onward_chain) and index == onward and elapsed < chain_ends)):
+		for index: int in [chain_at.next, chain_at.next + 1]:
+			if not counts(chain_at, index):
 				continue
 			var at: Vector3 = chain_at.clouds[index][0]
 			var along := clampf((at - from).dot(flew) / maxf(flew.length_squared(), 1e-6), 0.0, 1.0)
-			if (from + flew * along).distance_to(at) < chain_at.clouds[index][1] and not leaving:
+			if (from + flew * along).distance_to(at) < chain_at.clouds[index][1] * CLOUD_REACH:
 				pass_wisp(chain_at, index)
 				glows = true
 				break
@@ -2129,29 +2138,33 @@ func tend_wisps() -> void:
 	tell("pulses", pulses)
 
 
-## A cloud flown through: it is spent; the chain goes on if it came in time, or starts again; the
-## score gains as many as the chain has clouds, and the board the boost of a chain of so many,
-## twice the last's. The next cloud of its chain is the one to make for, and a note rises with
-## the chain.
+## A cloud flown through: the chain goes on if it came in time, or starts again; the score gains
+## as many as the chain has clouds, and the board the boost of a chain of so many, twice the
+## last's. The cloud after it is the one to make for. If the board did not come along this chain
+## (a first cloud, a chain let lapse, or another chain's), the rest of it is laid anew from here,
+## the way the board goes (lay_chain). A note rises with the chain.
 func pass_wisp(chain_at: Dictionary, index: int) -> void:
-	chain_at.spent[index] = true
+	var along := elapsed < chain_ends and is_same(chain_at, onward_chain)
 	passes += 1
 	chain = chain + 1 if elapsed < chain_ends else 1
-	if index == 0:
+	taken.append("%d/%d" % [chain, int(chain_boost(chain))])
+	if not along:
+		chain_at.clouds[0] = chain_at.clouds[index]
+		index = 0
 		lay_chain(chain_at, heading, pitch, speed, chain)
-		lay_wisps()
+	chain_at.next = index + 1
 	longest = maxi(longest, chain)
 	points += chain
 	chain_ends = elapsed + CHAIN_TIME
 	boost = chain_boost(chain)
 	gained_at = elapsed
 	gain.text = "+%d" % chain
-	var was_onward := onward_chain
-	var was_index := onward
-	onward_chain = chain_at if index + 1 < CHAIN else {}
-	onward = index + 1
-	for each in [[was_onward, was_index], [was_onward, was_index + 1], [chain_at, index], [chain_at, index + 1], [chain_at, index + 2]]:
-		set_wisp(each[0], each[1])
+	onward_chain = chain_at if counts(chain_at, chain_at.next) else {}
+	if along:
+		for each in CHAIN:
+			set_wisp(chain_at, each)
+	else:
+		lay_wisps()
 	var at: Vector3 = chain_at.clouds[index][0]
 	glints.push_front(Vector4(at.x, at.z, elapsed, 1.0))
 	glints.resize(mini(glints.size(), 8))
@@ -2163,22 +2176,22 @@ func pass_wisp(chain_at: Dictionary, index: int) -> void:
 
 
 ## The cloud the corgi flying itself makes for, or none, as a place in the chart with its height:
-## with --chain the next of the chain it is in; else the nearest first cloud of a chain, not yet
-## spent, that lies ahead.
+## with --chain the next of the chain it is in; else the nearest next cloud of a chain that lies
+## ahead.
 func wisp_ahead(forward: Vector3) -> Variant:
-	if chasing and not onward_chain.is_empty() and elapsed < chain_ends:
-		return onward_chain.clouds[onward][0]
+	if chasing and not onward_chain.is_empty():
+		return onward_chain.clouds[onward_chain.next][0]
 	var nearest: Variant = null
 	var nearest_far := 1500.0
 	for plot: Vector2i in chains:
 		var chain_at: Dictionary = chains[plot]
-		if chain_at.is_empty() or chain_at.spent[0]:
+		if chain_at.is_empty() or not counts(chain_at, chain_at.next):
 			continue
-		var to: Vector3 = chain_at.clouds[0][0] - flyer.position
+		var to: Vector3 = chain_at.clouds[chain_at.next][0] - flyer.position
 		to.y = 0.0
 		var far := to.length()
 		if far > 12.0 and far < nearest_far and to.dot(forward) > 0.5 * far:
-			nearest = chain_at.clouds[0][0]
+			nearest = chain_at.clouds[chain_at.next][0]
 			nearest_far = far
 	return nearest
 
@@ -2310,7 +2323,7 @@ func follow(delta: float) -> void:
 	# The next cloud of the chain going on, if it is off the screen: the way to it from the middle.
 	touch.next_way = Vector2.ZERO
 	if not onward_chain.is_empty() and elapsed < chain_ends:
-		var next: Vector3 = onward_chain.clouds[onward][0] - Vector3(0.0, lowered, 0.0)
+		var next: Vector3 = onward_chain.clouds[onward_chain.next][0] - Vector3(0.0, lowered, 0.0)
 		var seen_at := camera.unproject_position(next)
 		var middle := get_viewport().get_visible_rect().size / 2.0
 		if camera.is_position_behind(next) or absf(seen_at.x - middle.x) > middle.x * 0.92 or absf(seen_at.y - middle.y) > middle.y * 0.92:
@@ -2482,6 +2495,7 @@ func watch() -> void:
 	var timed := maxi(reported_frames - 8, 1)
 	print("FLYOVER level %d scale %.2f" % [level, LEVELS[level][0]])
 	print("FLYOVER seconds %.1f frames %d fps %.1f gpu %.1f cpu %.1f flown %d clouds %d score %d longest %d" % [elapsed, frames, steady / steady_seconds, gpu_milliseconds / timed, cpu_milliseconds / timed, int(flown), passes, points, longest])
+	print("FLYOVER taken %s" % " ".join(taken))
 	print("FLYOVER highest %d anchors %d" % [int(highest), anchors])
 	print("FLYOVER moon crossings %d lowest %d home %d" % [crossings, int(minf(moon_lowest, 999999.0)), int(minf(home_lowest, 999999.0))])
 	# How even the frames were: the long ones are counted against the median.

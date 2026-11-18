@@ -52,7 +52,11 @@ a little late and the look is turned on from there; let go, it comes back behind
 Enter takes the board as in v0.1.7, Z and X zoom, L lets go (no key is Escape). Touch: v0.1.7's
 stick under the left thumb, which steers as the keys do, and a finger elsewhere that looks; the
 chain's arc and the arrow to the next cloud stay. The game prints the heading, pitch and view at
-each change of hands (`FLYOVER helm ... pointer ...`), which the tests read.
+each change of hands (`FLYOVER helm ... pointer ...`), which the tests read. L asks for the
+pointer to be free, and only 0.3 s later for it to be captured at the next click: asked for both in
+one frame, the page could see only the second (it reads the game's request by a Worker that waits
+on its word and may wake after both), and the pointer stayed held; the flyover test found that
+(`e1a01cb8c`).
 
 The chains had to follow: laid for a mouse that turned the board at once, they could not be flown
 on the keys (the `--chain` corgi on the keys' rates took one cloud in 35 s). A chain's first cloud
@@ -64,6 +68,40 @@ the sixth at 60,000; 2.1 ms to lay the rest (4.9 at most), on the frame the firs
 corgi with `--chain 1` now holds the keys toward each next cloud (`chase` through `hand`):
 headless, a chain of six in 3.45 s a cloud to 57,151 units; the moon voyage, also steered by
 `chase`, still crosses twice (76 units over the moon's ground, 23 over the planet's).
+
+### 2. No dead cloud
+
+Why some clouds gave nothing, found by reading the pass test against what is drawn and flying it:
+
+- **The hit was smaller than the cloud.** A cloud counted within one radius of its middle, and its
+  drawn ball boils out to 1.55 radii (puffs to 1.9). Flown through 1.3 radii off each middle (the
+  corgi's new `--aside 1.3`), a chain counted none of its six (`c-dead-reach1`, headless); with a
+  reach of 1.6 radii (`CLOUD_REACH`, the ball's furthest bulge) all six count, boosts 20 to 640.
+- **Clouds that were drawn and could not count**: a cloud flown through stayed as a ghost of its
+  full size; the faint cloud after the next showed at its full size; a chain let lapse faded its
+  next cloud out, uncountable as it went. Now every cloud that is there counts (`counts`): a chain
+  shows its next cloud only, the next of the chain going on beats and the faint one after it counts
+  too; a cloud flown through goes; a lapsed chain keeps its next cloud as one to start at, and
+  flown through, the rest is laid anew from there (as is another chain's met in a chain going on,
+  which carries the chain on).
+- **The frame the chart's anchor moves** (high up, 26 times in the chain's flight): `move_anchor`
+  set the way flown that frame to nothing, so a cloud passed on it was missed. The way is carried
+  into the new chart now.
+- Looked for and not a cause: a cloud passed at speed between two frames (the test is the
+  segment flown since the last frame, the 640 boost's included) and the crossing to the moon
+  (which lays the chains anew).
+
+The flyover test's chain flight is now that flight: through every cloud 1.3 radii off its middle,
+and the report lists each cloud taken with its chain and boost (`FLYOVER taken 1/20 2/40 3/80
+4/160 5/320 6/640`), which must be all six.
+Tested on the image of steps 1 and 2 with L's fix (`e1a01cb8c`), served on 9055. Chrome: the flyover
+test passed (the mouse turned the view 52 degrees and left the heading at 143; D turned the board
+40 degrees right; W raised the nose to 85; the chain flight took 1/20 2/40 3/80 4/160 5/320 6/640
+to 221,052 units; the moon: two crossings, 78 units over its ground and 26 over the planet's after;
+the morning at 39.1 frames a second with the machine's load at 19). The first run of step 1's
+test had failed at L: the pointer stayed held (L's race, above, `e1a01cb8c`); run by hand on the
+same image (`build/planet/lrepro.mjs`), L gave it back with and without Enter first, so the race
+is the timing's. Firefox and the touch tests: in this round, below when they are done.
 
 ## State (2026-11-19)
 

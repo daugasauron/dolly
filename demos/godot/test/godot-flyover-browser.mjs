@@ -7,8 +7,9 @@
 // morning from before a chain's first cloud and reports: its flyer flew through it, so the ground the
 // script flies over is the ground the shaders draw on the sphere, its frame has the sky along the top
 // and a scene's worth of colours, and few of its frames took over twice the median, fewer over four
-// times. Flying on through the chain as a quick hand would, it chains five clouds or six and is over
-// the air (50,000 units). It flies by itself to the moon, low over its ground, and back to the
+// times. Flying on through the chain as a hand on the keys would, through each cloud 1.3 of its radii from
+// its middle (inside its drawn ball, past the ball of one radius that counted once), every cloud of the chain
+// counts, to the sixth's boost of 640, and the board is over the air (50,000 units). It flies by itself to the moon, low over its ground, and back to the
 // planet's. Then it leaves the planet by itself: it reports a height of over
 // 150,000 units, a chart whose anchor moved on the way, and a frame with a scene's worth of colours
 // (the planet under it). Chrome shows its frames on the X display by copies
@@ -103,12 +104,12 @@ for (const name of browsers) {
     // Of some 1,700 frames, a display's frame apart on a quiet machine: one in six may miss a display's
     // frame on a loaded one, and few stand for four.
     assert.ok(Number(median) > 0 && Number(late) <= 300 && Number(long) <= 30, `Voxel Flyover's frames are even: ${report}`);
-    // A chain flown through by a quick hand (the corgi with --chain: most of a turn in an eighth of a second) is over
-    // the air by its fifth or sixth cloud, each boosting twice the last.
-    const chained = await flown("--autopilot 35 --day 9 --cloud 1 --chain 1");
-    const [, longest] = chained.match(/^FLYOVER seconds .* clouds \d+ score \d+ longest (\d+)$/m) ?? [];
+    // A chain flown through as a hand on the keys flies it (the corgi with --chain), each cloud 1.3 radii off its
+    // middle: each of the six counts, in a chain, its boost twice the last's, and the chain is over the air.
+    const chained = await flown("--autopilot 35 --day 9 --cloud 1 --chain 1 --aside 1.3");
+    const [, counted] = chained.match(/^FLYOVER taken (.*)$/m) ?? [];
     const [, chainTop] = chained.match(/^FLYOVER highest (\d+) anchors \d+$/m) ?? [];
-    assert.ok(Number(longest) >= 5 && Number(chainTop) > 50_000, `a chain of clouds leaves the air: ${chained}`);
+    assert.ok(counted?.startsWith("1/20 2/40 3/80 4/160 5/320 6/640") && Number(chainTop) > 50_000, `every cloud of a chain counts, to the air: ${chained}`);
     // The moon: out toward it, a crossing into its chart, down to fly low over its ground, out again, a crossing
     // back, and down to the planet's.
     const voyage = await flown("--autopilot 80 --day 9 --moon 2");
@@ -119,7 +120,7 @@ for (const name of browsers) {
     const [, lit] = tour.match(/^FLYOVER frame \d+x\d+ sky \d+ colours (\d+)$/m) ?? [];
     assert.ok(Number(highest) > 150_000 && Number(anchors) >= 1 && Number(lit) > 60, `Voxel Flyover is left: ${tour}`);
     assert.deepEqual(errors, []);
-    console.log(name, `view ${freed.view}, heading ${taken.heading} to ${freed.heading}, turned right ${right}, pitch ${pitch}; clouds ${clouds}, chain of ${longest} to ${chainTop}; moon: crossings ${crossed}, over it ${overMoon}, over home ${overHome}`, ...report.match(/^FLYOVER (seconds|frame) .*$/gm), "tour:", ...tour.match(/^FLYOVER (seconds|frame|highest) .*$/gm));
+    console.log(name, `view ${freed.view}, heading ${taken.heading} to ${freed.heading}, turned right ${right}, pitch ${pitch}; clouds ${clouds}, chain ${counted} to ${chainTop}; moon: crossings ${crossed}, over it ${overMoon}, over home ${overHome}`, ...report.match(/^FLYOVER (seconds|frame) .*$/gm), "tour:", ...tour.match(/^FLYOVER (seconds|frame|highest) .*$/gm));
     console.log(`godot-flyover: ${name} passed`);
   } finally {
     clearTimeout(deadline);

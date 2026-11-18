@@ -15,7 +15,7 @@ REQUIRES HOST clipboard@0
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
 INSTALL /Dollyfile-posix c24b7cb8dfc057769bc7f644f68c2922514adb89272756d8ed793c0318d5f3d5
 INSTALL /Dollyfile-display cc98bc6edc0e5dea2bfb79e3095ea1fb6744e28282d28cec6c2e013cf6435992
-INSTALL /demos/godot/Dollyfile-voxel-flyover 4776086fb8c7bfd906ff05d0c115a9e4311d2ac1e96163ba9bf0287c2fcb3382
+INSTALL /demos/godot/Dollyfile-voxel-flyover bcdc2ff5342bed9aff6330431d39b60c41bf882aacf7b88218cfb3a01e29157c
 REQUIRES TOOL voxel-flyover
 
 FILE /etc/dolly/init.slop

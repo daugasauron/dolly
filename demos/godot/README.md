@@ -295,18 +295,34 @@ the rest of a chain takes 2.1 ms to lay, 4.9 at most, on the frame its first clo
 through). A cloud's radius grows with the height as the board's speed does, so each is as easy to
 hit at its own height.
 
-Only a chain's first cloud is always there, and a single one is worth taking: it counts a point
-and gives the boost. Flown through, the chain's next cloud grows out of nothing and beats, faster
-as the chain's time runs out, and the one after it shows faintly, so the way the chain goes is
-seen; a chain let lapse starts again at a first cloud. Each counts as many points as the chain
-has clouds, so a chain of six is worth 21. A chain takes a hand that turns the board at each
-cloud: flown straight on, the next is missed; the corgi with `--chain 1`, which holds the keys
-toward each next cloud (`chase`), flies chains of six in 3.5 seconds a cloud. The
-score swells, what the cloud added rises from the middle of the screen and fades, the chain
-shows under the score with its time left in an arc around the score's ring, and a note rises
-with it. A cloud is a ball whose puffs boil, a pearly sheen at its rim that runs through the
+Every cloud that is there counts, and a single one is worth taking: it counts a point and gives
+the boost. Each chain shows one cloud, its next: its first, and once that is flown through, the
+cloud after the last flown through. The next cloud of the chain the board is in grows out of
+nothing and beats, faster as the chain's time runs out, and the one after it shows faintly and
+counts too, so the way the chain goes is seen. A cloud flown through goes; a chain let lapse keeps
+its next cloud, a cloud to start a chain at, and the rest is laid anew from there when it is
+flown through, as from a first cloud (so is a chain met while another goes on, which carries the
+chain on). A cloud is flown through within 1.6 of its radii of its middle (`CLOUD_REACH`), all of
+its drawn ball, and the way the board went since the last frame is what is tested, so a cloud
+passed at speed between two frames counts, as one does on the frame the chart's anchor moves.
+Each counts as many points as the chain has clouds, so a chain of six is worth 21. A chain takes
+a hand that turns the board at each cloud: flown straight on, the next is missed; the corgi with
+`--chain 1`, which holds the keys toward each next cloud (`chase`), flies chains of six in 3.5
+seconds a cloud. The score swells, what the cloud added rises from the middle of the screen and
+fades, the chain shows under the score with its time left in an arc around the score's ring, and
+a note rises with it.
+
+"Dead" clouds, found on 2026-11-19 (the owner: "sometimes they don't do anything"): a cloud
+counted within one radius of its middle while its drawn ball bulged to 1.55 radii, and the corgi
+flown through every cloud of a chain 1.3 radii off its middle took none of them; a cloud flown
+through stayed as a faint ghost of its full size that counted nothing; the faint cloud after the
+next showed at its full size and counted nothing; a chain let lapse faded its next cloud, which
+counted nothing as it went; and on the frame the chart's anchor moved, high up, the way flown that
+frame was not tested.
+
+A cloud is a ball whose puffs boil, a pearly sheen at its rim that runs through the
 colours, a light at its heart in the colour of its place in the chain, and three small puffs
-that circle it; spent, it is a faint amber ghost. All of them are instances of one mesh, placed,
+that circle it; flown through, it goes. All of them are instances of one mesh, placed,
 grown and lit by its shader, which carries each onto the sphere, so they cost the renderer one
 thing to draw.
 
