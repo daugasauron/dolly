@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM /Dollyfile-system ede57a1516844ae47fe5aa8dcf693ca90862dd38547e1587f7e163f513079551
-INSTALL /demos/pi/Dollyfile-pi-dolly 255b936cc2ccd96b99adf9dab445feef70029f6072a0d6cc23af7dfe3aabc5f6
+INSTALL /demos/pi/Dollyfile-pi-dolly b857ec04aa9d3726d1cb661a995be294560a29e3a2c4939634d8f48c661ef9b9
 # curl, which Pi's dolly skill fetches with: system holds none.
 INSTALL /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6e458431e
 
