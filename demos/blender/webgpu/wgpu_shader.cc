@@ -94,12 +94,20 @@ static std::string glsl_patch(const char *stage_define)
   ss << "#define GPU_PROVOKING_VERTEX_LAST\n";
   ss << stage_define;
   GeneratedSourceList sources{GeneratedSource{"gpu_shader_glsl_extension.glsl", {}, ss.str()}};
-  /* WGSL has no NaN constant: NaN is read from a private variable, which nothing folds. */
   return fmt::to_string(fmt::join(
              gpu_shader_dependency_get_resolved_source("gpu_shader_compat_glsl.glsl", sources),
              "")) +
-         "\nuint dolly_nan_bits = 0x7FC00000u;\n#undef NAN_FLT\n"
-         "#define NAN_FLT uintBitsToFloat(dolly_nan_bits)\n";
+         "\nuint dolly_nan_bits = 0x7FC00000u;\n";
+}
+
+/* WGSL has no NaN constant: Blender's NaN, spelled out by its shader preprocessor, is read from
+ * a private variable instead, which nothing folds. */
+static void runtime_nan(std::string &source)
+{
+  const std::string nan = "uintBitsToFloat(0x7FC00000u)";
+  for (size_t at = source.find(nan); at != std::string::npos; at = source.find(nan, at)) {
+    source.replace(at, nan.size(), "uintBitsToFloat(dolly_nan_bits)");
+  }
 }
 
 /** \} */
@@ -965,20 +973,26 @@ void WGPUShader::compile(Stage stage, MutableSpan<StringRefNull> sources)
   const std::string patch = glsl_patch(defines[stage]);
   sources[SOURCES_INDEX_VERSION] = patch;
   glsl_[stage] = fmt::to_string(fmt::join(sources, ""));
+  runtime_nan(glsl_[stage]);
   std::string log;
   spirv_[stage] = compile_glsl(glsl_[stage], languages[stage], log);
   if (spirv_[stage].empty()) {
-    /* The source beside the log, whose lines it numbers. */
-    static const char *stage_names[] = {"vert", "frag", "comp"};
-    const std::string path = std::string("/tmp/") + name + "." + stage_names[stage] + ".glsl";
-    if (FILE *file = fopen(path.c_str(), "w")) {
-      fwrite(glsl_[stage].data(), 1, glsl_[stage].size(), file);
-      fclose(file);
-    }
-    CLOG_ERROR(&LOG, "shader \"%s\" did not compile to SPIR-V (%s):\n%s", name, path.c_str(),
-               log.c_str());
+    CLOG_ERROR(&LOG, "shader \"%s\" did not compile to SPIR-V (%s):\n%s", name,
+               dump(stage).c_str(), log.c_str());
     failed_ = true;
   }
+}
+
+/* A stage's GLSL, written where a failure's message names it. */
+std::string WGPUShader::dump(Stage stage) const
+{
+  static const char *stage_names[] = {"vert", "frag", "comp"};
+  const std::string path = std::string("/tmp/") + name + "." + stage_names[stage] + ".glsl";
+  if (FILE *file = fopen(path.c_str(), "w")) {
+    fwrite(glsl_[stage].data(), 1, glsl_[stage].size(), file);
+    fclose(file);
+  }
+  return path;
 }
 
 void WGPUShader::vertex_shader_from_glsl(const ShaderCreateInfo & /*info*/,
@@ -1057,7 +1071,11 @@ bool WGPUShader::translate(const ShaderCreateInfo & /*info*/)
     spirv_wgsl_translate(
         spirv_[stage].data(), spirv_[stage].size(), uniforms.data(), uniforms.size(), &result);
     if (result.error) {
-      CLOG_ERROR(&LOG, "shader \"%s\" did not translate to WGSL: %s", name, result.error);
+      CLOG_ERROR(&LOG,
+                 "shader \"%s\" did not translate to WGSL (%s): %s",
+                 name,
+                 dump(stage).c_str(),
+                 result.error);
       spirv_wgsl_free(&result);
       return false;
     }

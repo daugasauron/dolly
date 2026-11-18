@@ -142,6 +142,7 @@ class WGPUShader : public Shader {
   Map<std::string, uint64_t> groups_;
 
   void compile(Stage stage, MutableSpan<StringRefNull> sources);
+  std::string dump(Stage stage) const;
   bool translate(const shader::ShaderCreateInfo &info);
   template<typename T> void push_constant_set(int location, int comp_len, int array_size, const T *data);
   uint32_t constant_count(const shader::SpecializationConstants &constants) const;
