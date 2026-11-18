@@ -1,6 +1,6 @@
 # The blender demo's upstream source pins, sourced by config/source-pins.sh.
-# The libraries it links are pinned in build-sources.txt, at the versions
-# Blender's own versions.cmake names.
+# The libraries it links are packages (demos/tools, demos/gtk), pinned at the
+# versions Blender's own versions.cmake names.
 
 # Blender: the release archive (demos/blender), whose MD5 download.blender.org states beside it.
 DOLLY_BLENDER_VERSION=5.3.0

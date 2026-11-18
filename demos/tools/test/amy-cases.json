@@ -204,6 +204,131 @@
     { "script": "amy install gperf", "status": 0 },
     { "script": "amy install cc", "status": 0 },
     { "script": "printf '%s\\n' %% red green blue %% 'int main(void) { return !(in_word_set(\"green\", 5) && !in_word_set(\"grey\", 4)); }' > /tmp/amy-words.gperf && gperf --includes --output-file=/tmp/amy-words.c /tmp/amy-words.gperf && cc /tmp/amy-words.c -o /tmp/amy-words && /tmp/amy-words", "status": 0 },
-    { "script": "man gperf > /tmp/amy-man && grep -q 'hash' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 }
+    { "script": "man gperf > /tmp/amy-man && grep -q 'hash' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
+    {
+      "fresh": true,
+      "why": "cc refuses an option that upstream build files give every Clang; ccfilter runs it without.",
+      "script": "! command -v ccfilter",
+      "status": 0
+    },
+    { "script": "amy install ccfilter", "status": 0 },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf 'int main(void) { return 42; }\\n' > /tmp/amy-ccfilter.c && ! cc -Qunused-arguments /tmp/amy-ccfilter.c -o /tmp/amy-ccfilter && ccfilter cc -Qunused-arguments -fstack-protector-strong -O2 /tmp/amy-ccfilter.c -o /tmp/amy-ccfilter; /tmp/amy-ccfilter; test $? = 42", "status": 0 },
+    {
+      "fresh": true,
+      "why": "Eigen solves a linear system and finds a symmetric matrix's eigenvalues.",
+      "script": "amy install eigen",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <Eigen/Dense>' 'int main() {' '  Eigen::Matrix2d a;' '  a << 3, 1, 1, 2;' '  Eigen::Vector2d x = a.colPivHouseholderQr().solve(Eigen::Vector2d(9, 8));' '  Eigen::SelfAdjointEigenSolver<Eigen::Matrix2d> eigen(a);' '  return (x - Eigen::Vector2d(2, 3)).norm() < 1e-12 && std::abs(eigen.eigenvalues().sum() - 5) < 1e-12 ? 0 : 1;' '}' > /tmp/amy-eigen.cpp && c++ $(pkg-config --cflags eigen3) /tmp/amy-eigen.cpp -o /tmp/amy-eigen && /tmp/amy-eigen", "status": 0 },
+    {
+      "fresh": true,
+      "why": "Imath's half float, a vector moved by a matrix and a cross product.",
+      "script": "amy install imath",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <Imath/ImathMatrix.h>' '#include <Imath/ImathVec.h>' '#include <Imath/half.h>' 'int main() {' '  half h(1.5f);' '  Imath::V3f v(1, 2, 3);' '  Imath::M44f m;' '  m.setTranslation(Imath::V3f(1, 1, 1));' '  return float(h) == 1.5f && v * m == Imath::V3f(2, 3, 4) && v.cross(Imath::V3f(0, 0, 1)) == Imath::V3f(2, -1, 0) ? 0 : 1;' '}' > /tmp/amy-imath.cpp && c++ $(pkg-config --cflags Imath) /tmp/amy-imath.cpp $(pkg-config --libs Imath) -o /tmp/amy-imath && /tmp/amy-imath", "status": 0 },
+    {
+      "fresh": true,
+      "why": "A text compressed by libdeflate as gzip is smaller and comes back whole.",
+      "script": "amy install libdeflate",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <libdeflate.h>' '#include <string.h>' 'int main(void) {' '  static char text[4000], packed[4000], unpacked[4000];' '  size_t size = 0;' '  for (int i = 0; i < 4000; i++) text[i] = \"Dolly\"[i % 5];' '  struct libdeflate_compressor *compressor = libdeflate_alloc_compressor(9);' '  size_t packed_size = libdeflate_gzip_compress(compressor, text, sizeof text, packed, sizeof packed);' '  struct libdeflate_decompressor *decompressor = libdeflate_alloc_decompressor();' '  if (!packed_size || packed_size >= 200) return 1;' '  if (libdeflate_gzip_decompress(decompressor, packed, packed_size, unpacked, sizeof unpacked, &size)) return 1;' '  return size == sizeof text && !memcmp(text, unpacked, size) ? 0 : 1;' '}' > /tmp/amy-libdeflate.c && cc $(pkg-config --cflags libdeflate) /tmp/amy-libdeflate.c $(pkg-config --libs libdeflate) -o /tmp/amy-libdeflate && /tmp/amy-libdeflate", "status": 0 },
+    {
+      "fresh": true,
+      "why": "An image encoded as lossless HTJ2K in memory decodes to its pixels.",
+      "script": "amy install openjph",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <openjph/ojph_codestream.h>' '#include <openjph/ojph_file.h>' '#include <openjph/ojph_mem.h>' '#include <openjph/ojph_params.h>' 'int main() {' '  ojph::codestream encoder;' '  ojph::param_siz siz = encoder.access_siz();' '  siz.set_image_extent(ojph::point(16, 16));' '  siz.set_num_components(1);' '  siz.set_component(0, ojph::point(1, 1), 8, false);' '  siz.set_tile_size(ojph::size(16, 16));' '  ojph::param_cod cod = encoder.access_cod();' '  cod.set_reversible(true);' '  cod.set_color_transform(false);' '  encoder.set_planar(false);' '  ojph::mem_outfile packed;' '  packed.open();' '  encoder.write_headers(&packed);' '  ojph::ui32 component;' '  ojph::line_buf *line = encoder.exchange(NULL, component);' '  for (int y = 0; y < 16; y++) {' '    for (int x = 0; x < 16; x++) line->i32[x] = x * 16 + y;' '    line = encoder.exchange(line, component);' '  }' '  encoder.flush();' '  ojph::si64 size = packed.tell();' '  encoder.close();' '  ojph::mem_infile input;' '  input.open(packed.get_data(), size);' '  ojph::codestream decoder;' '  decoder.read_headers(&input);' '  decoder.create();' '  for (int y = 0; y < 16; y++) {' '    line = decoder.pull(component);' '    for (int x = 0; x < 16; x++) if (line->i32[x] != x * 16 + y) return 1;' '  }' '  decoder.close();' '  return 0;' '}' > /tmp/amy-openjph.cpp && c++ $(pkg-config --cflags openjph) /tmp/amy-openjph.cpp $(pkg-config --libs openjph) -o /tmp/amy-openjph && /tmp/amy-openjph", "status": 0 },
+    {
+      "fresh": true,
+      "why": "An RGBA image written as EXR reads back with its half floats; OpenEXR links with -pthread.",
+      "script": "amy install openexr",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <ImfRgbaFile.h>' 'int main() {' '  const int width = 8, height = 4;' '  static Imf::Rgba pixels[height][width], back[height][width];' '  for (int y = 0; y < height; y++)' '    for (int x = 0; x < width; x++) pixels[y][x] = Imf::Rgba(x * 0.5f, y * 0.25f, 1.0f, 1.0f);' '  {' '    Imf::RgbaOutputFile output(\"/tmp/amy.exr\", width, height, Imf::WRITE_RGBA);' '    output.setFrameBuffer(&pixels[0][0], 1, width);' '    output.writePixels(height);' '  }' '  Imf::RgbaInputFile input(\"/tmp/amy.exr\");' '  Imath::Box2i window = input.dataWindow();' '  input.setFrameBuffer(&back[0][0], 1, width);' '  input.readPixels(window.min.y, window.max.y);' '  return window.max.x == width - 1 && float(back[3][5].r) == 2.5f && float(back[3][5].g) == 0.75f ? 0 : 1;' '}' > /tmp/amy-openexr.cpp && c++ -pthread $(pkg-config --cflags OpenEXR) /tmp/amy-openexr.cpp $(pkg-config --static --libs OpenEXR) -o /tmp/amy-openexr && /tmp/amy-openexr", "status": 0 },
+    {
+      "fresh": true,
+      "why": "robin-map holds a thousand keys and forgets one.",
+      "script": "amy install robin-map",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <string>' '#include <tsl/robin_map.h>' 'int main() {' '  tsl::robin_map<std::string, int> words;' '  for (int i = 0; i < 1000; i++) words[\"word\" + std::to_string(i)] = i;' '  words.erase(\"word7\");' '  return words.size() == 999 && words.at(\"word42\") == 42 && !words.count(\"word7\") ? 0 : 1;' '}' > /tmp/amy-robin-map.cpp && c++ /tmp/amy-robin-map.cpp -o /tmp/amy-robin-map && /tmp/amy-robin-map", "status": 0 },
+    {
+      "fresh": true,
+      "why": "An XPath query sums two attributes of a document.",
+      "script": "amy install pugixml",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <pugixml.hpp>' '#include <string>' 'int main() {' '  pugi::xml_document document;' '  if (!document.load_string(\"<a><b x='\\''40'\\''/><b x='\\''2'\\''/></a>\")) return 1;' '  int sum = 0;' '  for (pugi::xpath_node node : document.select_nodes(\"/a/b[@x]\")) sum += node.node().attribute(\"x\").as_int();' '  return sum == 42 ? 0 : 1;' '}' > /tmp/amy-pugixml.cpp && c++ $(pkg-config --cflags pugixml) /tmp/amy-pugixml.cpp $(pkg-config --libs pugixml) -o /tmp/amy-pugixml && /tmp/amy-pugixml", "status": 0 },
+    {
+      "fresh": true,
+      "why": "A YAML document is parsed into nodes that give its values.",
+      "script": "amy install yaml-cpp",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <yaml-cpp/yaml.h>' 'int main() {' '  YAML::Node document = YAML::Load(\"name: Dolly\\nsizes: [6, 7]\\nnested: {deep: [true]}\\n\");' '  return document[\"name\"].as<std::string>() == \"Dolly\" && document[\"sizes\"][0].as<int>() * document[\"sizes\"][1].as<int>() == 42 &&' '      document[\"nested\"][\"deep\"][0].as<bool>() && document[\"sizes\"].IsSequence() ? 0 : 1;' '}' > /tmp/amy-yaml-cpp.cpp && c++ $(pkg-config --cflags yaml-cpp) /tmp/amy-yaml-cpp.cpp $(pkg-config --libs yaml-cpp) -o /tmp/amy-yaml-cpp && /tmp/amy-yaml-cpp", "status": 0 },
+    {
+      "fresh": true,
+      "why": "Python's split, upper, strip and endswith on C++ strings.",
+      "script": "amy install pystring",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <pystring/pystring.h>' '#include <string>' '#include <vector>' 'int main() {' '  std::vector<std::string> words;' '  pystring::split(\"a,bb,ccc\", words, \",\");' '  return words.size() == 3 && pystring::upper(words[1]) == \"BB\" && pystring::strip(\"  x  \") == \"x\" &&' '      pystring::endswith(\"image.exr\", \".exr\") ? 0 : 1;' '}' > /tmp/amy-pystring.cpp && c++ /tmp/amy-pystring.cpp -lpystring -o /tmp/amy-pystring && /tmp/amy-pystring", "status": 0 },
+    {
+      "fresh": true,
+      "why": "A text written into a zip archive is read back out of it.",
+      "script": "amy install minizip-ng",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <mz.h>' '#include <mz_strm.h>' '#include <mz_zip.h>' '#include <mz_zip_rw.h>' '#include <string.h>' 'int main(void) {' '  static const char text[] = \"Dolly Dolly Dolly Dolly Dolly Dolly\";' '  char back[64] = {0};' '  void *writer = mz_zip_writer_create();' '  if (mz_zip_writer_open_file(writer, \"/tmp/amy.zip\", 0, 0) != MZ_OK) return 1;' '  mz_zip_file file = {0};' '  file.filename = \"dolly.txt\";' '  file.compression_method = MZ_COMPRESS_METHOD_DEFLATE;' '  if (mz_zip_writer_add_buffer(writer, (void *)text, sizeof text, &file) != MZ_OK) return 1;' '  mz_zip_writer_close(writer);' '  mz_zip_writer_delete(&writer);' '  void *reader = mz_zip_reader_create();' '  if (mz_zip_reader_open_file(reader, \"/tmp/amy.zip\") != MZ_OK) return 1;' '  if (mz_zip_reader_locate_entry(reader, \"dolly.txt\", 0) != MZ_OK) return 1;' '  if (mz_zip_reader_entry_save_buffer(reader, back, sizeof text) != MZ_OK) return 1;' '  mz_zip_reader_close(reader);' '  mz_zip_reader_delete(&reader);' '  return memcmp(text, back, sizeof text) ? 1 : 0;' '}' > /tmp/amy-minizip-ng.c && cc $(pkg-config --cflags minizip) /tmp/amy-minizip-ng.c $(pkg-config --static --libs minizip) -o /tmp/amy-minizip-ng && /tmp/amy-minizip-ng", "status": 0 },
+    {
+      "fresh": true,
+      "why": "Its built-in configuration is parsed from YAML, and a gamma applied to a pixel.",
+      "script": "amy install opencolorio",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <OpenColorIO/OpenColorIO.h>' '#include <cmath>' 'namespace OCIO = OCIO_NAMESPACE;' 'int main() {' '  OCIO::ConstConfigRcPtr config = OCIO::Config::CreateFromBuiltinConfig(\"cg-config-latest\");' '  OCIO::ExponentTransformRcPtr gamma = OCIO::ExponentTransform::Create();' '  const double value[4] = {2.2, 2.2, 2.2, 1.0};' '  gamma->setValue(value);' '  float pixel[3] = {0.5f, 0.5f, 0.5f};' '  config->getProcessor(gamma)->getDefaultCPUProcessor()->applyRGB(pixel);' '  return config->getNumColorSpaces() > 10 && std::fabs(pixel[0] - std::pow(0.5f, 2.2f)) < 1e-4f ? 0 : 1;' '}' > /tmp/amy-opencolorio.cpp && c++ -pthread /tmp/amy-opencolorio.cpp -lOpenColorIO -lyaml-cpp -lpystring -lminizip -lexpat $(pkg-config --libs Imath) -lz -o /tmp/amy-opencolorio && /tmp/amy-opencolorio", "status": 0 },
+    {
+      "fresh": true,
+      "why": "A parallel sum over a hundred thousand numbers.",
+      "script": "amy install onetbb",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <oneapi/tbb/blocked_range.h>' '#include <oneapi/tbb/parallel_reduce.h>' '#include <oneapi/tbb/task_arena.h>' '#include <functional>' 'int main() {' '  long sum = oneapi::tbb::parallel_reduce(oneapi::tbb::blocked_range<long>(1, 100001), 0L,' '      [](const oneapi::tbb::blocked_range<long> &range, long partial) {' '        for (long i = range.begin(); i != range.end(); i++) partial += i;' '        return partial;' '      }, std::plus<long>());' '  return sum == 5000050000L && oneapi::tbb::this_task_arena::max_concurrency() >= 1 ? 0 : 1;' '}' > /tmp/amy-onetbb.cpp && c++ -pthread /tmp/amy-onetbb.cpp -ltbb -o /tmp/amy-onetbb && /tmp/amy-onetbb", "status": 0 },
+    {
+      "fresh": true,
+      "why": "oiiotool makes a checker pattern as EXR, resizes it into a TIFF and converts that to PNG and JPEG; a program resizes one with the library and reads it back.",
+      "script": "! command -v oiiotool",
+      "status": 0
+    },
+    { "script": "amy install openimageio", "status": 0 },
+    { "script": "oiiotool --pattern checker:width=8:height=8 64x64 3 -o /tmp/amy.exr && oiiotool /tmp/amy.exr --resize 32x32 -o /tmp/amy.tif && iinfo /tmp/amy.tif | grep -Eq '32 x +32' && oiiotool /tmp/amy.tif -o /tmp/amy.png && oiiotool /tmp/amy.png -o /tmp/amy.jpg && iinfo /tmp/amy.jpg | grep -q jpeg && idiff /tmp/amy.exr /tmp/amy.exr", "status": 0 },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <OpenImageIO/imagebuf.h>' '#include <OpenImageIO/imagebufalgo.h>' 'int main() {' '  OIIO::ImageBuf image = OIIO::ImageBufAlgo::checker(8, 8, 1, {0.0f, 0.0f, 0.0f}, {1.0f, 0.5f, 0.25f},' '      0, 0, 0, OIIO::ROI(0, 64, 0, 64, 0, 1, 0, 3));' '  OIIO::ImageBuf small = OIIO::ImageBufAlgo::resize(image, {}, OIIO::ROI(0, 32, 0, 32, 0, 1, 0, 3));' '  if (!small.write(\"/tmp/amy-oiio.exr\")) return 1;' '  OIIO::ImageBuf back(\"/tmp/amy-oiio.exr\");' '  std::vector<float> average = OIIO::ImageBufAlgo::computePixelStats(back).avg;' '  return back.spec().width == 32 && std::abs(average[1] - 0.25f) < 0.02f ? 0 : 1;' '}' > /tmp/amy-openimageio.cpp && c++ -pthread $(pkg-config --cflags OpenImageIO) /tmp/amy-openimageio.cpp $(pkg-config --libs OpenImageIO) -lOpenColorIO -lyaml-cpp -lpystring -lminizip -lexpat $(pkg-config --static --libs OpenEXR libtiff-4 libpng fmt pugixml) -lz -o /tmp/amy-openimageio && /tmp/amy-openimageio", "status": 0 }
   ]
 }

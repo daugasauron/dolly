@@ -44,8 +44,8 @@ fails when a recipe `SOURCE` or a pin of [`source-pins.sh`](../config/source-pin
 | GPL-2.0/3.0 | Git, Make, less (through GNU termcap), Emacs, tree, dte, the lz4 program, Seven Kingdoms, 0 A.D. engine, Xonotic (engine, game logic, data, fonts), Blender, Dolly's GPL files | Complete corresponding source, including build scripts, or a written offer | Met: the prepared source archives and the recipe that builds them are served beside the images, for 0 A.D., Xonotic and Blender too (below) |
 | IJG | IJG libjpeg in Wine's NetSurf; libjpeg-turbo in Xonotic, Pillow (`python-data`), GTK and Blender | Source: the unaltered `README` with it; binaries: the documentation states that the software is based in part on the work of the Independent JPEG Group | `README` kept as `/usr/share/licenses/libjpeg/README` in `wine`, libjpeg-turbo's `README.ijg` as `/usr/share/licenses/libjpeg-turbo/README.ijg` (and `/usr/share/licenses/blender/libjpeg-turbo/README.ijg`); the statement is in the Xonotic section below, under combined binaries and on `/licences/` |
 | LGPL-2.0+ | OpenAL Soft, static in the 0 A.D. engine; FFmpeg (LGPL-2.1-or-later), static in `ffmpeg` and `ffprobe` | Source, and the means to relink | Source served (`openal/source.tar`, `ffmpeg/ffmpeg-9.0.2.tar.gz` as released), and the engine's (below), so it can be relinked; the `ffmpeg` package holds its libraries' archives |
-| MPL-2.0 | SpiderMonkey in 0 A.D.; MPL crates vendored by Codex; Eigen's headers in Blender | Source of the MPL files available; tell recipients where | Codex sources served; SpiderMonkey's pinned tarball is served (below); its MPL text is in `zero-ad`; Eigen's source is in the served `blender/deps.tar.gz`, unchanged, its texts in `blender` |
-| Apache-2.0 | LLVM (with exception), Mojo (with exception), TypeScript, Neovim, luv, Codex, WAMR, Meson, WABT, Droid Sans Fallback, crates, npm packages; OpenImageIO and oneTBB in Blender | Licence copy, NOTICE files, modified files marked | OpenImageIO's changed files are those of `openimageio-dolly.patch`, served with its source; its and oneTBB's licence and third-party notices are in `blender`. Codex `NOTICE`, crates' notices and TypeScript notices shipped; the Android fonts' `NOTICE`, the licence's text, is in `display`. LLVM's text is in every compiler image as `/usr/share/licenses/libcxx`; its exception covers runtime code compiled into programs. The Mojo compiler's patched files are those of `mojo-dolly.patch` and the target's patches, served with its source |
+| MPL-2.0 | SpiderMonkey in 0 A.D.; MPL crates vendored by Codex; Eigen's headers in Blender | Source of the MPL files available; tell recipients where | Codex sources served; SpiderMonkey's pinned tarball is served (below); its MPL text is in `zero-ad`; Eigen's source is the `eigen` package's served archive, unchanged, its texts in `eigen` and `blender` |
+| Apache-2.0 | LLVM (with exception), Mojo (with exception), TypeScript, Neovim, luv, Codex, WAMR, Meson, WABT, Droid Sans Fallback, crates, npm packages; OpenImageIO and oneTBB in Blender | Licence copy, NOTICE files, modified files marked | OpenImageIO's changed files are those of `openimageio-dolly.patch`, served with its source; its and oneTBB's licence and third-party notices are in their packages and `blender`. Codex `NOTICE`, crates' notices and TypeScript notices shipped; the Android fonts' `NOTICE`, the licence's text, is in `display`. LLVM's text is in every compiler image as `/usr/share/licenses/libcxx`; its exception covers runtime code compiled into programs. The Mojo compiler's patched files are those of `mojo-dolly.patch` and the target's patches, served with its source |
 | MIT, BSD, ISC, curl, Zlib, BSL, bzip2, ICU | Most of the catalog | Copyright and permission notice with copies, binaries included (not for Zlib or BSL binaries) | Shipped in `/usr/share/licenses`, including musl, Emscripten and every vendored crate's own licence files |
 | Info-ZIP | zip, unzip | The licence with copies, binaries included; an altered version may not be called Zip or UnZip | Built from the release archives unchanged; `LICENSE` is in each package |
 | Public domain, 0BSD | SQLite, XZ Utils, Berkeley Yacc, toybox | None | SQLite's dedication, xz's `COPYING`, and yacc's and toybox's `LICENSE` are in the packages |
@@ -115,7 +115,7 @@ fails when a recipe `SOURCE` or a pin of [`source-pins.sh`](../config/source-pin
   Epoxy (MIT and alike), minizip-ng, zlib, libpng and Zstandard. All are
   compatible with GPL-3.0. Each one's licence files are in
   `/usr/share/licenses/blender`, the sources in the served
-  `blender/blender.tar.gz` and `blender/deps.tar.gz` and the packages' archives, with the recipes
+  `blender/blender.tar.gz` and the packages' archives, with the recipes
   that build them.
 - less links GNU termcap (GPL-2.0-or-later) statically, so the program is a
   GPL one. less itself is taken under its own two-clause licence, which the
@@ -172,7 +172,7 @@ licence. The export writes the site's `robots.txt` at the host root
 0 A.D. is built in Dolly: the packages of the libraries it links (each from
 its own source archive, such as `spidermonkey/source.tar.gz`, SpiderMonkey
 128.13's pinned tarball without its test suites, with 0 A.D.'s patches and
-Dolly's), `zero-ad-deps` (ENet, from `zero-ad-build/deps.tar.gz`) and
+Dolly's, and `enet/source.tar.gz`, ENet with Dolly's transport) and
 `zero-ad-engine` (the engine, from `zero-ad-build/engine.tar.gz`), whose inputs
 the site serves. `zero-ad-data` makes the game content from Wildfire Games' data
 archive, which the site serves too: its SPIR-V shaders are translated to WGSL

@@ -1,0 +1,28 @@
+DOLLY 8
+PACKAGE ccfilter
+REQUIRES HOST runtime@0
+
+# ccfilter COMPILER ARG...: runs COMPILER without the options that upstream
+# build files pass to every Clang and Dolly's cc refuses as unknown, as CMake's
+# compiler launcher (CMAKE_<LANG>_COMPILER_LAUNCHER). ccfilter.c says which
+# and why.
+FROM /demos/cmake/Dollyfile-cmake-build ef925b15c0342d66937cb491e956474f5dbb37d60cb2063e6e7ec91e0cb85d71
+REQUIRES HEADER libc
+REQUIRES TOOL cc
+REQUIRES TOOL rm
+
+SOURCE /dist/static/tools/ccfilter.c f1b6d29d7e70dd2a8e3a1059a320d8f3c36bceac73c2e7ca2fbdca8853315ac1 /tmp/ccfilter.c
+SLOP cc -O2 /tmp/ccfilter.c -o /usr/bin/ccfilter
+SLOP rm /tmp/ccfilter.c
+EXPORTS TOOL ccfilter
+FILE /usr/share/man/cat1/ccfilter.1
+    ccfilter: runs a compiler without the options that upstream build files
+    give every Clang and Dolly's cc refuses as unknown.
+    
+      ccfilter cc ARG...          cc with ARG..., less those options
+      cmake -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccfilter
+            -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccfilter ...
+    
+    It drops -Qunused-arguments, -fstack-protector-strong, -fno-trapping-math,
+    -fno-signed-zeros, -freciprocal-math, -ffp-contract=on, -ffast-math and
+    every -Wl,--version-script=.

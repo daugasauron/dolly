@@ -8,7 +8,7 @@ Blender's GPU module) is in the tasks tagged `blender`.
 ## Images
 
 - `blender`: Blender 5.3 without its interface: `blender -b` runs Python scripts on scenes and `.blend` files, and Cycles renders on the CPU.
-- `blender-deps`: A build stage: the libraries Blender links beyond Dolly's packages, at the versions it pins (OpenImageIO, OpenColorIO, OpenEXR, oneTBB and ten more), over the packages of FreeType with Brotli, libjpeg-turbo, libtiff, expat, {fmt} and Python.
+- `blender-deps`: A build stage: the packages of the libraries Blender links, at the versions it pins: OpenImageIO, OpenColorIO, OpenEXR, oneTBB, Eigen, libepoxy and the libraries under them, FreeType with Brotli, libjpeg-turbo, libtiff, expat, {fmt} and Python.
 
 ## Use
 
@@ -50,19 +50,22 @@ blender -b --python script.py -- arguments
 
 ## Building
 
-[`Dollyfile-blender-deps`](Dollyfile-blender-deps) builds twenty libraries from
-the archives Blender pins ([`build-sources.txt`](build-sources.txt)), each by
-its own CMake project; [`Dollyfile-blender`](Dollyfile-blender) then configures
-Blender with upstream's `blender_lite.cmake`, Cycles on, and builds it with
-Make at four jobs. What the platform decided:
+[`Dollyfile-blender-deps`](Dollyfile-blender-deps) installs the libraries
+Blender links, each a package at the version Blender pins (Imath, OpenEXR,
+OpenColorIO, OpenImageIO, oneTBB, Eigen and the libraries under them, in
+[the tools demo](../tools/README.md));
+[`Dollyfile-blender`](Dollyfile-blender) then configures Blender with
+upstream's `blender_lite.cmake`, Cycles on, and builds it with Make at four
+jobs. What the platform decided:
 
 - **Options `cc` refuses.** Dolly's `cc` stops at an option it does not know.
-  [`ccfilter.c`](ccfilter.c) runs it without the eight that these projects
-  pass to every Clang (Cycles' floating-point permissions, ELF's symbol
-  versions and others; each has its reason there), as CMake's compiler and
-  linker launcher.
-- **Threads.** Everything is compiled with `-pthread`; C11's `call_once`,
-  which OpenEXR uses, links only so.
+  The `ccfilter` package ([`ccfilter.c`](../tools/ccfilter.c)) runs it
+  without the eight that these projects pass to every Clang (Cycles'
+  floating-point permissions, ELF's symbol versions and others; each has its
+  reason there), as CMake's compiler and linker launcher.
+- **Threads.** Blender, and the packages of its libraries that use threads
+  (OpenEXR, OpenColorIO, OpenImageIO, oneTBB), are compiled with `-pthread`;
+  C11's `call_once`, which OpenEXR uses, links only so.
 - **Function pointer casts.** Blender defines hundreds of Python methods that
   take no arguments with one parameter; CPython calls them with two, which
   WebAssembly traps on. The program is linked with `cc --dolly-cast-emulation`
@@ -79,22 +82,21 @@ Make at four jobs. What the platform decided:
 - **Systems named in sources.** OpenImageIO chooses its string and system
   helpers by a list of systems, as Blender does `statvfs`: the patches add
   Dolly beside the systems whose plain libc paths it shares
-  ([`openimageio-dolly.patch`](openimageio-dolly.patch),
+  ([`openimageio-dolly.patch`](../tools/openimageio-dolly.patch),
   [`blender-dolly.patch`](blender-dolly.patch)).
 - **FreeType reads Brotli** (Blender's fonts are WOFF2), and JPEG is
   libjpeg-turbo's (Blender takes `boolean` as an integer): the packages'.
-- **Epoxy** is required by Blender's build even with no OpenGL backend: its
-  dispatch is built from its generator and two sources, without Meson.
+- **Epoxy** is required by Blender's build even with no OpenGL backend: the
+  `libepoxy` package, GTK's, whose GL dispatch Blender links.
 
 The stage ends by linking and running an interpreter with the options
 Blender's link gets, so a library the `python` package stops bringing fails
-there and not after an hour of compiling. Each library's licence files are in
-`/usr/share/licenses/blender`, Blender's own notices in
+there and not after an hour of compiling. Each library's licence files are
+copied into `/usr/share/licenses/blender`, Blender's own notices are in
 `/usr/share/doc/blender/license`.
 
-In Chrome on a machine busy with other builds (2026-11-17), `blender-deps`
-built in about 11 minutes (OpenImageIO 197 s, OpenColorIO 90 s) and `blender`
-in 4,562 s, of which `make -j4` took 4,356 s for 2,838 units; the build's
+In Chrome on a machine busy with other builds (2026-11-17), `blender` built in
+4,562 s, of which `make -j4` took 4,356 s for 2,838 units; the build's
 Node and Chrome peaked at 6,590 MiB, the kernel held 1,976 MiB at the end.
 The program is 124 MB, its data 68 MB, the package 177 MB.
 

@@ -77,7 +77,10 @@ if has_image freetype; then
     "${tool_dir}/docs/FTL.TXT" /usr/share/licenses/freetype/FTL.TXT
 fi
 for library in brotli:LICENSE libjpeg-turbo:LICENSE.md:README.ijg libtiff:LICENSE.md expat:COPYING fmt:LICENSE \
-    gperf:COPYING; do
+    gperf:COPYING eigen:COPYING.README:COPYING.MPL2:COPYING.BSD:COPYING.APACHE:COPYING.MINPACK imath:LICENSE.md \
+    libdeflate:COPYING openjph:LICENSE robin-map:LICENSE pugixml:LICENSE.md yaml-cpp:LICENSE pystring:LICENSE \
+    minizip-ng:LICENSE opencolorio:LICENSE:THIRD-PARTY.md openimageio:LICENSE.md:THIRD-PARTY.md \
+    onetbb:LICENSE.txt:third-party-programs.txt; do
   library_name="${library%%:*}"
   if has_image "${library_name}"; then
     tool_dir="$(bash scripts/fetch-pinned-source.sh "${library_name//-/_}")"
@@ -90,6 +93,23 @@ for library in brotli:LICENSE libjpeg-turbo:LICENSE.md:README.ijg libtiff:LICENS
       "${library_licences[@]}"
   fi
 done
+# OpenEXR's tests hold a symbolic link, which Dolly's tar refuses: its archive without them.
+if has_image openexr; then
+  tool_dir="$(bash scripts/fetch-pinned-source.sh openexr)"
+  tool_inputs=()
+  for tool_file in "${tool_dir}"/* "${tool_dir}"/src/*; do
+    [[ "${tool_file}" == "${tool_dir}/src" || "${tool_file}" == "${tool_dir}/src/test" ]] && continue
+    tool_inputs+=("${tool_file}" "/tmp/openexr/${tool_file#"${tool_dir}/"}")
+  done
+  node scripts/build-source-tar.mjs "${static_dir}/openexr/source.tar.gz" "${tool_inputs[@]}" \
+    "${tool_dir}/LICENSE.md" /usr/share/licenses/openexr/LICENSE.md
+fi
+if has_image ccfilter; then
+  copy_static demos/tools/ccfilter.c tools/ccfilter.c
+fi
+if has_image openimageio; then
+  copy_static demos/tools/openimageio-dolly.patch openimageio/openimageio-dolly.patch
+fi
 if has_image pkgconf; then
   tool_dir="$(bash scripts/fetch-pinned-source.sh pkgconf)"
   node scripts/build-source-tar.mjs "${static_dir}/pkgconf/source.tar" \

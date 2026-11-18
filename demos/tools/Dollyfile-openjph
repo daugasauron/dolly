@@ -1,0 +1,32 @@
+DOLLY 8
+PACKAGE openjph
+REQUIRES HOST runtime@0
+
+# OpenJPH, the High-Throughput JPEG 2000 (HTJ2K) codec that OpenEXR's HT
+# compression uses, from upstream's release archive, unchanged, built by its
+# CMake project, for programs the cc package builds; without its programs and
+# their TIFF input.
+FROM /demos/cmake/Dollyfile-cmake-build ef925b15c0342d66937cb491e956474f5dbb37d60cb2063e6e7ec91e0cb85d71
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /dist/static/openjph/source.tar.gz ba138fcf57cbba76e825732639b927581a7d34380bad3cadcfdbab057327e7f8 /tmp/openjph.tar.gz
+SLOP gzip -dc /tmp/openjph.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/openjph -B /tmp/openjph-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+  -DOJPH_BUILD_TESTS=OFF -DOJPH_ENABLE_TIFF_SUPPORT=OFF \
+  -DOJPH_BUILD_EXECUTABLES=OFF
+SLOP cmake --build /tmp/openjph-build -j4
+SLOP cmake --install /tmp/openjph-build
+
+EXPORTS LIB    openjph       /usr/lib/libopenjph.a
+EXPORTS HEADER openjph       /usr/include/openjph
+EXPORTS FOLDER openjph-cmake /usr/lib/cmake/openjph
+FILE /usr/lib/pkgconfig/openjph.pc
+FILE /usr/share/licenses/openjph/LICENSE
+SLOP rm -rf /tmp/openjph /tmp/openjph-build /tmp/openjph.tar.gz

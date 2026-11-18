@@ -36,6 +36,20 @@ the script would find here, in the comments beside its flags.
 - `expat`: expat, the XML parser, a library for programs the `cc` package builds, by upstream's CMake, with two internal names that CPython's own expat keeps renamed; it brings no compiler.
 - `fmt`: {fmt}, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
 - `gperf`: GNU gperf, the perfect hash function generator that fontconfig's build runs.
+- `ccfilter`: ccfilter, which runs a compiler without the options that upstream build files pass to every Clang and `cc` refuses, as CMake's compiler launcher.
+- `eigen`: Eigen, the C++ template library for linear algebra: its headers, CMake package and pkg-config file; it brings no compiler.
+- `imath`: Imath, the half floats, vectors and matrices of computer graphics, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
+- `libdeflate`: libdeflate, whole-buffer DEFLATE, zlib and gzip compression, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
+- `openjph`: OpenJPH, the High-Throughput JPEG 2000 codec, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
+- `openexr`: OpenEXR, the high-dynamic-range image format, with Imath, libdeflate and OpenJPH, a library for programs the `cc` package builds with `-pthread`, by upstream's CMake; it brings no compiler.
+- `robin-map`: robin-map, C++ hash maps and sets with Robin Hood hashing: its headers and CMake package; it brings no compiler.
+- `pugixml`: pugixml, the C++ XML parser with XPath, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
+- `yaml-cpp`: yaml-cpp, a YAML parser and emitter for C++, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
+- `pystring`: pystring, Python's string methods for C++, a library for programs the `cc` package builds; it brings no compiler.
+- `minizip-ng`: minizip-ng, zip archives over zlib, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
+- `opencolorio`: OpenColorIO, colour management for film and graphics, a library for programs the `cc` package builds with `-pthread`, by upstream's CMake; it brings no compiler.
+- `openimageio`: OpenImageIO: `oiiotool`, `iinfo`, `iconvert`, `idiff`, `igrep`, `maketx` and `testtex`, and its libraries, over OpenEXR, libtiff, libjpeg-turbo, libpng and OpenColorIO, on threads.
+- `onetbb`: oneTBB, parallel algorithms and concurrent containers on threads, a library for programs the `cc` package builds with `-pthread`, by upstream's CMake; it brings no compiler.
 - `toybox`: toybox's `grep` and `sed`, which have `grep -r` and `sed -i`, in place of the image's.
 - `dte`: dte, a small full-screen editor with the keys of a desktop one.
 - `tools-build`: A build stage: `cmake-build` with the core's `mandoc`, what these packages are built on.

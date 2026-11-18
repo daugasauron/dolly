@@ -8,19 +8,19 @@ REQUIRES HOST input@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
-# Build-only: the libraries Blender 5.3.0 links beyond Dolly's packages, each
-# from the archive Blender pins (build_files/build_environment/cmake/versions.cmake
-# there; build-sources.txt here), unchanged but for OpenImageIO's patch, built
-# by its own CMake project and installed in /usr.
-# - Everything is compiled with -pthread: Blender is, and OpenEXR's call_once
-#   links only so.
+# Build-only: the libraries Blender 5.3.0 links, each a package at the version
+# Blender pins (build_files/build_environment/cmake/versions.cmake there).
+# - Blender's own: Imath, OpenEXR (over libdeflate and OpenJPH), OpenColorIO
+#   (over yaml-cpp, pystring and minizip-ng), OpenImageIO (over pugixml and
+#   robin-map) with its programs, which its CMake package checks are there,
+#   oneTBB, Eigen and libepoxy. OpenEXR, OpenColorIO, OpenImageIO and oneTBB
+#   are compiled with -pthread, as Blender is: OpenEXR's call_once links only so.
+# - FreeType with Brotli (Blender's fonts are WOFF2), libjpeg-turbo (Blender
+#   takes libjpeg's boolean as an integer, which it is there), libtiff, expat,
+#   {fmt}, and Python with libpython and what a program that embeds it links.
 # - ccfilter runs the compiler without the options upstream passes to every
-#   Clang and Dolly's cc refuses; its source says which and why.
-# - The packages: FreeType with Brotli (Blender's fonts are WOFF2),
-#   libjpeg-turbo (Blender takes libjpeg's boolean as an integer, which it is
-#   there), libtiff, expat, {fmt}, and Python with libpython and what a
-#   program that embeds it links.
-# - binaryen is for Blender's link (Dollyfile-blender).
+#   Clang and Dolly's cc refuses; binaryen is for Blender's link
+#   (Dollyfile-blender).
 FROM /demos/cmake/Dollyfile-cmake-build ef925b15c0342d66937cb491e956474f5dbb37d60cb2063e6e7ec91e0cb85d71
 INSTALL /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
 INSTALL /Dollyfile-gzip cef69a22c3b9f73889f4c819fcfaee2fb4487474ea4efa364117b8796465d1a4
@@ -35,6 +35,15 @@ INSTALL /demos/tools/Dollyfile-xz d469de338c35f239e62a272216458e722dfdd7eb2909ed
 INSTALL /demos/tools/Dollyfile-bzip2 76653f54f6f089826b7ef5ca6e86cae5286f7b441e3c5ef91d0894f819ea8b7b
 INSTALL /demos/tools/Dollyfile-sqlite 926ac562e54fc44fab836444bf00e6ce3792915c3bcfea5d31f81b4eae682dd6
 INSTALL /demos/tools/Dollyfile-binaryen 62d42b20ce549007859d3d4c69dd57b1f33a097c9e59a7cb9d39cc44afe3742e
+INSTALL /demos/tools/Dollyfile-ccfilter c0b143cfbb34f61ceae68b2ed62b8bf93f55385c1567b688b50ba02bc72b3ded
+INSTALL /demos/tools/Dollyfile-imath 61b561c7155b4b1dba5e42ceb22632f903bceefb8e4b26a1a8caabf028b69886
+INSTALL /demos/tools/Dollyfile-openexr fb9ba4326908359c886ca2db14d60203465850788453e95ec036743dce547590
+INSTALL /demos/tools/Dollyfile-opencolorio 434b3bb84d41f6ab5f7a74aecfbcd6f75a19cabbe9fa6dbd23217521b5afe719
+INSTALL /demos/tools/Dollyfile-openimageio 3bd99c7d2537e7466a64e0b751b3adbde97397093b0ce1b98cdac3f1fc8be79f
+INSTALL /demos/tools/Dollyfile-robin-map dc8baaa9a6265172abab43fd8f4b577b5b242d4ea78c3f4d1f3cc3651e048056
+INSTALL /demos/tools/Dollyfile-onetbb e58162bb72e676627e77e23241a9bd51169bd7b995285eb1d37cf7dfda39af02
+INSTALL /demos/tools/Dollyfile-eigen 93276a37f12d0fd6d327fff10565c591c70211878df41bb637eb422da4345bdf
+INSTALL /demos/gtk/Dollyfile-libepoxy 3c9c9c497f5164cc40b06728eff57d444ab50bd4381c4f8ae5c2cb3c4a4f43f8
 INSTALL /demos/python/Dollyfile-python 929382033ca4d961078f460d75185d58edaa75668f686b04b53f44bfd85833b0
 # What the python package links and does not bring: libpython's modules need them.
 INSTALL /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6e458431e
@@ -45,6 +54,8 @@ REQUIRES TOOL patch
 REQUIRES TOOL python3
 REQUIRES LIB python
 REQUIRES TOOL wasm-opt
+REQUIRES TOOL ccfilter
+REQUIRES TOOL oiiotool
 REQUIRES LIB z
 REQUIRES LIB png16
 REQUIRES LIB freetype
@@ -57,77 +68,15 @@ REQUIRES LIB zstd
 REQUIRES LIB lzma
 REQUIRES LIB bz2
 REQUIRES LIB sqlite3
+REQUIRES LIB Imath
+REQUIRES LIB OpenEXR
+REQUIRES LIB OpenColorIO
+REQUIRES LIB OpenImageIO
+REQUIRES LIB tbb
+REQUIRES LIB epoxy
+REQUIRES HEADER eigen3
+REQUIRES HEADER tsl
 
-SOURCE /dist/static/blender/deps.tar.gz 24d1dfd183c5db04b3f0ac9d87aaa32d08169b06526973c7b7dbb098f1c29009 /tmp/blender-deps.tar.gz
-SLOP gzip -dc /tmp/blender-deps.tar.gz | tar -xf - -C /
-SLOP rm /tmp/blender-deps.tar.gz
-SLOP cc -O2 /tmp/blender-deps/ccfilter.c -o /usr/bin/ccfilter
-EXPORTS TOOL ccfilter
-
-# build NAME [cmake options]: configures /tmp/blender-deps/NAME for Dolly,
-# builds it at four jobs, installs it and removes its objects.
-FILE /tmp/blender-deps/build
-    name=$1
-    shift
-    cmake -S "/tmp/blender-deps/$name" -B /tmp/blender-deps/objects -DCMAKE_SYSTEM_NAME=Dolly \
-      -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib \
-      -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-      -DCMAKE_C_FLAGS=-pthread -DCMAKE_CXX_FLAGS=-pthread \
-      -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccfilter -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccfilter "$@" &&
-    cmake --build /tmp/blender-deps/objects -j4 &&
-    cmake --install /tmp/blender-deps/objects &&
-    rm -rf /tmp/blender-deps/objects
-
-SLOP time sh /tmp/blender-deps/build imath -DBUILD_TESTING=OFF
-SLOP time sh /tmp/blender-deps/build libdeflate -DLIBDEFLATE_BUILD_SHARED_LIB=OFF -DLIBDEFLATE_BUILD_GZIP=OFF
-SLOP time sh /tmp/blender-deps/build openjph -DOJPH_BUILD_TESTS=OFF -DOJPH_ENABLE_TIFF_SUPPORT=OFF -DOJPH_BUILD_EXECUTABLES=OFF
-SLOP time sh /tmp/blender-deps/build openexr -DBUILD_TESTING=OFF -DOPENEXR_BUILD_PYTHON=OFF -DOPENEXR_INSTALL_TOOLS=OFF \
-  -DOPENEXR_BUILD_TOOLS=OFF -DOPENEXR_BUILD_EXAMPLES=OFF -DOPENEXR_INSTALL_DOCS=OFF -DBUILD_WEBSITE=OFF
-SLOP time sh /tmp/blender-deps/build robin-map
-SLOP time sh /tmp/blender-deps/build pugixml
-SLOP time sh /tmp/blender-deps/build yaml-cpp -DYAML_CPP_BUILD_TESTS=OFF -DYAML_CPP_BUILD_TOOLS=OFF -DYAML_CPP_BUILD_CONTRIB=OFF
-SLOP time sh /tmp/blender-deps/build minizip-ng -DMZ_FETCH_LIBS=OFF -DMZ_LIBCOMP=OFF -DMZ_PKCRYPT=OFF -DMZ_WZAES=OFF \
-  -DMZ_OPENSSL=OFF -DMZ_SIGNING=OFF -DMZ_PPMD=OFF -DMZ_LZMA=OFF -DMZ_ZSTD=OFF -DMZ_BZIP2=OFF -DMZ_ICONV=OFF \
-  -DMZ_ZLIB=ON -DMZ_ZLIB_FLAVOR=zlib
-# pystring is one source file with a Makefile for libtool.
-SLOP CWD /tmp/blender-deps/pystring c++ -O2 -pthread -c pystring.cpp -o pystring.o
-SLOP CWD /tmp/blender-deps/pystring ar rcs /usr/lib/libpystring.a pystring.o
-SLOP mkdir -p /usr/include/pystring
-SLOP cp /tmp/blender-deps/pystring/pystring.h /usr/include/pystring/pystring.h
-SLOP time sh /tmp/blender-deps/build opencolorio -DOCIO_BUILD_APPS=OFF -DOCIO_BUILD_PYTHON=OFF -DOCIO_BUILD_NUKE=OFF \
-  -DOCIO_BUILD_JAVA=OFF -DOCIO_BUILD_DOCS=OFF -DOCIO_BUILD_TESTS=OFF -DOCIO_BUILD_GPU_TESTS=OFF -DOCIO_USE_SIMD=OFF \
-  -DOCIO_INSTALL_EXT_PACKAGES=NONE -Dyaml-cpp_VERSION=0.8.0
-# OpenImageIO with its tools: Blender's build names the oiiotool target.
-SLOP CWD /tmp/blender-deps/openimageio patch -p1 -i /tmp/blender-deps/openimageio-dolly.patch
-SLOP time sh /tmp/blender-deps/build openimageio -DUSE_PYTHON=OFF -DOIIO_BUILD_TOOLS=ON -DOIIO_BUILD_TESTS=OFF \
-  -DBUILD_TESTING=OFF -DBUILD_DOCS=OFF -DINSTALL_DOCS=OFF -DSTOP_ON_WARNING=OFF -DLINKSTATIC=ON \
-  -DUSE_EXTERNAL_PUGIXML=ON -DUSE_TBB=OFF -DUSE_FREETYPE=OFF -DUSE_QT=OFF -DUSE_OPENCV=OFF -DUSE_FFMPEG=OFF \
-  -DUSE_NUKE=OFF -DUSE_OPENVDB=OFF -DUSE_GIF=OFF -DUSE_LIBRAW=OFF -DUSE_LIBHEIF=OFF -DUSE_PTEX=OFF -DUSE_WEBP=OFF \
-  -DUSE_OPENJPEG=OFF -DUSE_JXL=OFF -DUSE_DCMTK=OFF -DUSE_R3DSDK=OFF -DUSE_OPENGL=OFF \
-  -DOpenImageIO_BUILD_MISSING_DEPS=none
-SLOP time sh /tmp/blender-deps/build eigen -DBUILD_TESTING=OFF -DEIGEN_BUILD_DOC=OFF -DEIGEN_BUILD_BLAS=OFF \
-  -DEIGEN_BUILD_LAPACK=OFF -DEIGEN_BUILD_DEMOS=OFF
-SLOP time sh /tmp/blender-deps/build onetbb -DTBB_TEST=OFF -DTBBMALLOC_BUILD=OFF -DTBB_STRICT=OFF \
-  -DTBB_DISABLE_HWLOC_AUTOMATIC_SEARCH=ON -DTBB_EXAMPLES=OFF
-
-# Epoxy's OpenGL dispatch alone (no EGL, GLX or X11), as its meson.build
-# builds it: its generator on the registry, then the two sources. Blender's
-# build requires the library even with no OpenGL backend.
-SLOP mkdir -p /tmp/blender-deps/libepoxy/build/epoxy /usr/include/epoxy
-SLOP CWD /tmp/blender-deps/libepoxy python3 src/gen_dispatch.py --header --no-source --outputdir=build registry/gl.xml
-SLOP CWD /tmp/blender-deps/libepoxy python3 src/gen_dispatch.py --source --no-header --outputdir=build registry/gl.xml
-FILE /tmp/blender-deps/libepoxy/build/config.h
-    #define ENABLE_GLX 0
-    #define ENABLE_EGL 0
-    #define ENABLE_X11 0
-    #define EPOXY_PUBLIC __attribute__((visibility("default"))) extern
-SLOP cp /tmp/blender-deps/libepoxy/build/gl_generated.h /tmp/blender-deps/libepoxy/build/epoxy/gl_generated.h
-SLOP CWD /tmp/blender-deps/libepoxy cc -O2 -pthread -Ibuild -Iinclude -Isrc -c src/dispatch_common.c -o build/dispatch_common.o
-SLOP CWD /tmp/blender-deps/libepoxy cc -O2 -pthread -Ibuild -Iinclude -Isrc -c build/gl_generated_dispatch.c -o build/gl_generated_dispatch.o
-SLOP CWD /tmp/blender-deps/libepoxy ar rcs /usr/lib/libepoxy.a build/dispatch_common.o build/gl_generated_dispatch.o
-SLOP CWD /tmp/blender-deps/libepoxy cp include/epoxy/gl.h include/epoxy/common.h build/gl_generated.h /usr/include/epoxy
-
-SLOP rm -rf /tmp/blender-deps
 # The interpreter links and runs with the options Dollyfile-blender gives
 # Blender's link, an hour of compiling before that link, beside the expat
 # package, which OpenColorIO links there.
@@ -145,20 +94,5 @@ SLOP cc -pthread /tmp/embed.c -I/usr/include/python3.14 -o /tmp/embed -lpython3.
   -lffi -llzma -lbz2 -lsqlite3 -lcurl -L/usr/lib/python3.14/embed -lpyexpat -lHacl_Hash_BLAKE2 \
   -lHacl_Hash_MD5 -lHacl_Hash_SHA1 -lHacl_Hash_SHA2 -lHacl_Hash_SHA3 -lexpat -lz -lm
 SLOP /tmp/embed
-
-FOLDER /usr/include
-FOLDER /usr/lib
-FOLDER /usr/share/OpenColorIO
-FOLDER /usr/share/eigen3
-# Each library's licence files, which the archive puts there for the blender package.
-FOLDER /usr/share/licenses/blender
-# OpenImageIO's CMake package checks that each of its tools is there.
-EXPORTS TOOL oiiotool
-EXPORTS TOOL iconvert
-EXPORTS TOOL idiff
-EXPORTS TOOL igrep
-EXPORTS TOOL iinfo
-EXPORTS TOOL maketx
-EXPORTS TOOL testtex
 
 ENTRY /bin/foreground -i /bin/slop

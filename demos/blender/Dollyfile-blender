@@ -23,7 +23,7 @@ REQUIRES HOST threads@0
 # - Brotli for FreeType, which Blender puts on the link line only with its
 #   precompiled libraries.
 # - ccfilter for compiles and the link: see its source.
-FROM /demos/blender/Dollyfile-blender-deps 8beeaec338af7a4bfa0efa3d1382d45dcd9bc19df2a2b67aba19dab8a973726e
+FROM /demos/blender/Dollyfile-blender-deps c34e314a838b2d8a02283b95ca79238c2cf1185b91443c292ebda27c431b51fa
 INSTALL /demos/python/Dollyfile-python 929382033ca4d961078f460d75185d58edaa75668f686b04b53f44bfd85833b0
 REQUIRES TOOL cmake
 REQUIRES TOOL make
@@ -31,6 +31,7 @@ REQUIRES TOOL patch
 REQUIRES TOOL python3
 REQUIRES TOOL wasm-opt
 REQUIRES TOOL ccfilter
+REQUIRES TOOL mkdir
 
 SOURCE /dist/static/blender/blender.tar.gz 03f4920b7ce1d4dc0a537b9cd96c18bcff1093525678cee5d55d0c447e21b26f /tmp/blender.tar.gz
 SLOP gzip -dc /tmp/blender.tar.gz | tar -xf - -C /
@@ -72,11 +73,13 @@ EXPORTS TOOL blender
 FOLDER /usr/share/blender
 FOLDER /usr/share/doc/blender
 # The licences of what is linked into the program: Blender's (its own notices
-# are in /usr/share/doc/blender/license), the build stage's libraries', which
-# that stage keeps here, and those of the packages it links. libpython's are
-# the python package's.
+# are in /usr/share/doc/blender/license) and those of the packages it links.
+# libpython's are the python package's.
+SLOP mkdir -p /usr/share/licenses/blender
 SLOP cp /tmp/blender/source/COPYING /usr/share/licenses/blender/COPYING
-SLOP CWD /usr/share/licenses cp -R zlib libpng zstd freetype brotli libjpeg-turbo libtiff expat fmt /usr/share/licenses/blender
+SLOP CWD /usr/share/licenses cp -R zlib libpng zstd freetype brotli libjpeg-turbo libtiff expat fmt imath libdeflate \
+  openjph openexr robin-map pugixml yaml-cpp pystring minizip-ng opencolorio openimageio onetbb eigen libepoxy \
+  /usr/share/licenses/blender
 FOLDER /usr/share/licenses/blender
 SLOP blender --help > /usr/share/man/cat1/blender.1
 FILE /usr/share/man/cat1/blender.1
