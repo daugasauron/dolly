@@ -1,8 +1,20 @@
 # Seed commands: tar restores modification times, sleep takes a fraction, cc passes -Wp
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 180
 - TAGS: core,commands,seed
+
+## Closed (2026-11-18)
+
+The part left is answered by measurement: zig-llvm's `libc.txt` and `ZIG_LIBC` stay. In a
+`default` session (Chromium, 0.1.8's integration images, `fix/compiler-batch`), after `amy
+install zig-llvm`, with `/usr/lib/zig/libc.txt` removed and Zig run without `ZIG_LIBC`
+(`ZIG_LIB_DIR=/usr/lib/zig /usr/lib/zig-llvm/zig`), `zig build-exe hello.zig` (the demo test's
+program) and `zig translate-c -lc answer.h` both fail with `libc installation is missing crt
+directory`, as `Compilation.create` predicted (Work, below); `zig build-obj -ofmt=c` succeeds,
+which is why the `zig` package's file could go. Every other part was met and confirmed by the
+rounds of 2026-11-05 and 0.1.7 (State, below). Probe: `build/agent/zig-probe.mjs` of
+`work/compiler` (not committed).
 
 ## State (2026-11-05)
 
