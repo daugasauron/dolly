@@ -8,6 +8,32 @@ Owner (2026-11-17): "would it be possible to compile and run blender in dolly?" 
 whole plan: `work/research/blender-2026-11-17.md`. Stage 1 (the headless build) is
 [20261116-230501-blender-1](../20261116-230501-blender-1/TASK.md).
 
+## State (2026-11-18, the compiler batch)
+
+Two of the parts below are now the seed's, on `fix/compiler-batch`, for 0.1.8's compiler round:
+- **The cc option filter is gone.** The driver (`programs/compiler.cpp`) takes the eight options
+  `ccfilter.c` dropped as Clang does: `-Qunused-arguments` (nothing to silence),
+  `-fstack-protector[-strong|-all]` (cc1's `-stack-protector N`; libc has the guard and its
+  failure), Cycles' `-fno-trapping-math -fno-signed-zeros -freciprocal-math -ffp-contract=on` and
+  `-ffast-math`, rendered for cc1 as Clang's driver renders them, and `-Wl,--version-script`,
+  which it drops as Emscripten's emcc does (WebAssembly has no symbol versions). The filter, its
+  staging and its launcher rows are out of `Dollyfile-blender-deps` and `Dollyfile-blender`;
+  the round rebuilds both and runs `demos/blender/test/blender-browser.mjs`.
+- **`dso@0` loads a cast-emulated library into a cast-emulated program** (the contract is in
+  `docs/process-model.md`, `dso@0`): `cc -shared --dolly-cast-emulation` passes the library
+  through `wasm-opt --fpcast-emu` too; the loader admits into a cast-emulated host only a
+  library whose table entries are thunks of the host's signature (refusing the others, and a
+  cast-emulated library in any other program), and places each function it puts in the table
+  (`GOT.func`, `dlsym`) as a thunk of that signature, or as the host's own thunk where it has
+  one, so a pointer compares equal wherever it was taken. Closures stay refused.
+  `demos/tools/test/cast-emulation-browser.mjs` checks calls both ways through pointers of other
+  types, the equality and the refusal.
+
+What Blender needs then, not done here: it is linked without `-rdynamic` (its
+`PYTHON_LINKFLAGS` replace ELF's `-export-dynamic`), so it hosts no library; with `-rdynamic`
+it would, and NumPy's extension modules would have to be linked with `--dolly-cast-emulation`
+too (a NumPy built for Blender, not the `numpy` package's).
+
 ## State (2026-11-17)
 
 Stage 1 is done and went further than planned: the `blender` package exists

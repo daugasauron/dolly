@@ -56,11 +56,6 @@ its own CMake project; [`Dollyfile-blender`](Dollyfile-blender) then configures
 Blender with upstream's `blender_lite.cmake`, Cycles on, and builds it with
 Make at four jobs. What the platform decided:
 
-- **Options `cc` refuses.** Dolly's `cc` stops at an option it does not know.
-  [`ccfilter.c`](ccfilter.c) runs it without the eight that these projects
-  pass to every Clang (Cycles' floating-point permissions, ELF's symbol
-  versions and others; each has its reason there), as CMake's compiler and
-  linker launcher.
 - **Threads.** Everything is compiled with `-pthread`; C11's `call_once`,
   which OpenEXR uses, links only so.
 - **Function pointer casts.** Blender defines hundreds of Python methods that

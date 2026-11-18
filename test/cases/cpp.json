@@ -278,6 +278,16 @@
       "status": 0
     },
     {
+      "why": "-flto compiles to LLVM bitcode, which the link compiles with ordinary objects and archives (Meson's b_lto).",
+      "script": "echo 'int twice(int x) { return 2 * x; }' > lto-a.c && echo 'int twice(int); int main(void) { return twice(21) != 42; }' > lto-main.c && cc -flto -c lto-a.c -o lto-a.o && dd if=lto-a.o bs=2 count=1 2>/dev/null | grep -qx BC && ar rcs liblto.a lto-a.o && cc -c lto-main.c -o lto-main.o && cc lto-main.o -L. -llto -o lto && ./lto && cc -flto=thin lto-main.c lto-a.c -o lto-thin && ./lto-thin",
+      "status": 0
+    },
+    {
+      "why": "Options upstream build files pass to every Clang (Blender's, OpenImageIO's, oneTBB's, Cycles'), as Clang renders them for cc1.",
+      "script": "echo 'int main(int argc, char **argv) { char line[64]; return argv[0][0] == 0 || sizeof line != 64; }' > clang-flags.c && echo '{ global: main; local: *; };' > clang-flags.map && cc -Qunused-arguments -fstack-protector-strong -fno-trapping-math -fno-signed-zeros -freciprocal-math -ffp-contract=on -ffast-math -Wl,--version-script=clang-flags.map -Wl,--version-script,clang-flags.map clang-flags.c -o clang-flags && ./clang-flags && cc -E -dM -ffast-math -fstack-protector-strong -x c /dev/null | grep -c -E '__FAST_MATH__|__FINITE_MATH_ONLY__ 1|__SSP_STRONG__' | grep -qx 3 && cc -E -dM -ffast-math -fno-fast-math -x c /dev/null | grep -c __FAST_MATH__ | grep -qx 0",
+      "status": 0
+    },
+    {
       "why": "Meson preprocesses with -E and -c together; -E stops after preprocessing.",
       "script": "printf '%s\\n' '#define TWICE(x) x x' 'TWICE(ok)' > pp.h && cc -E -P -xc pp.h -o pp.i -c && grep -qx 'ok ok' pp.i",
       "status": 0

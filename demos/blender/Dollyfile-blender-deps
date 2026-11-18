@@ -14,23 +14,21 @@ REQUIRES HOST threads@0
 # by its own CMake project and installed in /usr.
 # - Everything is compiled with -pthread: Blender is, and OpenEXR's call_once
 #   links only so.
-# - ccfilter runs the compiler without the options upstream passes to every
-#   Clang and Dolly's cc refuses; its source says which and why.
 # - FreeType, {fmt} and libjpeg are built here though Dolly has packages of
 #   them: Blender's fonts are WOFF2, which FreeType reads with Brotli; it uses
 #   {fmt} 12 (the package is 7); it takes libjpeg's boolean as an integer,
 #   which it is in libjpeg-turbo.
 # - binaryen is for Blender's link (Dollyfile-blender).
-FROM /demos/cmake/Dollyfile-cmake-build ef925b15c0342d66937cb491e956474f5dbb37d60cb2063e6e7ec91e0cb85d71
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
 INSTALL /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
 INSTALL /Dollyfile-gzip cef69a22c3b9f73889f4c819fcfaee2fb4487474ea4efa364117b8796465d1a4
-INSTALL /demos/tools/Dollyfile-libpng f9220787128996320c6fa8b6f98a3d61945c69bcba9fbe41eb1b48f699ae3e16
-INSTALL /demos/tools/Dollyfile-zstd 86647afd8dd74cea9f34f68efb4e6a5d87aba07083a29f899591f3be6f9dd6d7
-INSTALL /demos/tools/Dollyfile-xz d469de338c35f239e62a272216458e722dfdd7eb2909ed4a35a21d5694f2ad81
-INSTALL /demos/tools/Dollyfile-bzip2 76653f54f6f089826b7ef5ca6e86cae5286f7b441e3c5ef91d0894f819ea8b7b
-INSTALL /demos/tools/Dollyfile-sqlite 926ac562e54fc44fab836444bf00e6ce3792915c3bcfea5d31f81b4eae682dd6
-INSTALL /demos/tools/Dollyfile-binaryen 62d42b20ce549007859d3d4c69dd57b1f33a097c9e59a7cb9d39cc44afe3742e
-INSTALL /demos/python/Dollyfile-python cf63b4b3751fb8512eef3e24eb87135fd7d294c25556fcd986fb5ff22fc65fcd
+INSTALL /demos/tools/Dollyfile-libpng b30b694311392c7242c13b8d263d86fa14806f27657ed493bdf5d5a487850b6d
+INSTALL /demos/tools/Dollyfile-zstd 3fa6d4f97ba9831868c4690894f20ee31c17dd6648be30f00d5cab2868106b65
+INSTALL /demos/tools/Dollyfile-xz 459f0cc5ab2cda8ede96f9c9434f947f97b7e5faef4bfd3543abcb2be3e8e909
+INSTALL /demos/tools/Dollyfile-bzip2 d6347b250f4debc2f903c3a4a7cd770f055933d2b695c8cc67e930c4412ae415
+INSTALL /demos/tools/Dollyfile-sqlite 55762b6f4a8de41a2e28f94e23eb548e483f58212ef1cada30df747f9b4c7455
+INSTALL /demos/tools/Dollyfile-binaryen e798ba99ca24562c5bd6b48891798995a83243a3294b6842dc4fda530dba5b34
+INSTALL /demos/python/Dollyfile-python b67e91c0799a7d53057d277c506a28ef912f95597caf298b621c263593e9f88b
 # What the python package links and does not bring: libpython's modules need them.
 INSTALL /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6e458431e
 INSTALL /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
@@ -49,8 +47,6 @@ REQUIRES LIB sqlite3
 SOURCE /dist/static/blender/deps.tar.gz b5d97a8451e787f78573bab5fbc9220fb87835d8f4d9dc78db1f556be56dc393 /tmp/blender-deps.tar.gz
 SLOP gzip -dc /tmp/blender-deps.tar.gz | tar -xf - -C /
 SLOP rm /tmp/blender-deps.tar.gz
-SLOP cc -O2 /tmp/blender-deps/ccfilter.c -o /usr/bin/ccfilter
-EXPORTS TOOL ccfilter
 
 # build NAME [cmake options]: configures /tmp/blender-deps/NAME for Dolly,
 # builds it at four jobs, installs it and removes its objects.
@@ -60,8 +56,7 @@ FILE /tmp/blender-deps/build
     cmake -S "/tmp/blender-deps/$name" -B /tmp/blender-deps/objects -DCMAKE_SYSTEM_NAME=Dolly \
       -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib \
       -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-      -DCMAKE_C_FLAGS=-pthread -DCMAKE_CXX_FLAGS=-pthread \
-      -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccfilter -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccfilter "$@" &&
+      -DCMAKE_C_FLAGS=-pthread -DCMAKE_CXX_FLAGS=-pthread "$@" &&
     cmake --build /tmp/blender-deps/objects -j4 &&
     cmake --install /tmp/blender-deps/objects &&
     rm -rf /tmp/blender-deps/objects

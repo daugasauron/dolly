@@ -19,18 +19,17 @@ REQUIRES HOST threads@0
 # - PYTHON_LINKFLAGS, by default ELF's -Xlinker -export-dynamic: what
 #   libpython's built-in modules link, and cc --dolly-cast-emulation, since
 #   Blender defines Python methods taking no arguments with one parameter,
-#   which CPython calls with two. Such a program loads no extension module.
+#   which CPython calls with two. Such a program loads only extension modules
+#   linked so too, and is a host of none without -rdynamic.
 # - Brotli for FreeType, which Blender puts on the link line only with its
 #   precompiled libraries.
-# - ccfilter for compiles and the link: see its source.
-FROM /demos/blender/Dollyfile-blender-deps 058214677d92173a67527ff5043ad96d5c3c22b1ffc4864735824820da458962
-INSTALL /demos/python/Dollyfile-python cf63b4b3751fb8512eef3e24eb87135fd7d294c25556fcd986fb5ff22fc65fcd
+FROM /demos/blender/Dollyfile-blender-deps eb926ddab4b6e30fbd05b0df05355cbdb7f6f8cc820f5cedda34896978ff408e
+INSTALL /demos/python/Dollyfile-python b67e91c0799a7d53057d277c506a28ef912f95597caf298b621c263593e9f88b
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL patch
 REQUIRES TOOL python3
 REQUIRES TOOL wasm-opt
-REQUIRES TOOL ccfilter
 
 SOURCE /dist/static/blender/blender.tar.gz 03f4920b7ce1d4dc0a537b9cd96c18bcff1093525678cee5d55d0c447e21b26f /tmp/blender.tar.gz
 SLOP gzip -dc /tmp/blender.tar.gz | tar -xf - -C /
@@ -41,8 +40,6 @@ SLOP time cmake -S /tmp/blender/source -B /tmp/blender/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
   -DCMAKE_C_FLAGS=-pthread -DCMAKE_CXX_FLAGS=-pthread \
-  -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccfilter -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccfilter \
-  -DCMAKE_C_LINKER_LAUNCHER=/usr/bin/ccfilter -DCMAKE_CXX_LINKER_LAUNCHER=/usr/bin/ccfilter \
   "-DPYTHON_LINKFLAGS=--dolly-cast-emulation -lffi -llzma -lbz2 -lsqlite3 -lcurl -L/usr/lib/python3.14/embed -lpyexpat -lHacl_HMAC -lHacl_Hash_BLAKE2 -lHacl_Hash_MD5 -lHacl_Hash_SHA1 -lHacl_Hash_SHA2 -lHacl_Hash_SHA3" \
   "-DCMAKE_EXE_LINKER_FLAGS=-lbrotlidec-static -lbrotlicommon-static" \
   -DWITH_HEADLESS=ON -DWITH_GHOST_WAYLAND=OFF -DWITH_GHOST_X11=OFF \
