@@ -118,6 +118,8 @@ class WGPUShader : public Shader {
   enum Stage { VERTEX = 0, FRAGMENT = 1, COMPUTE = 2 };
   std::vector<uint32_t> spirv_[3];
   std::string glsl_[3];
+  /** Integer 2D samplers, which WGSL cannot sample: read by texel instead. */
+  Vector<std::string> integer_samplers_;
   uint64_t modules_[3] = {};
   std::vector<uint32_t> overrides_[3];
   bool compute_ = false, ready_ = false, failed_ = false;

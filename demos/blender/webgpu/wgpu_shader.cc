@@ -31,6 +31,7 @@
 
 #include <algorithm>
 #include <mutex>
+#include <regex>
 #include <sstream>
 
 namespace blender {
@@ -862,9 +863,15 @@ std::string WGPUShader::vertex_interface_declare(const ShaderCreateInfo &info) c
     location += 6;
   }
   ss << "\n";
-  /* Depth from OpenGL's -1..1 to WebGPU's 0..1. */
-  post_main += "gl_Position.z = (gl_Position.z + gl_Position.w) * 0.5;\n";
+  /* The shader writes its position into a variable of its own, stored once at the end with the
+   * depth from OpenGL's -1..1 to WebGPU's 0..1: the translation negates y on each store to the
+   * position, which a shader reading its position back (lines' screen positions) must not see. */
+  ss << "vec4 dolly_position;\n";
+  post_main +=
+      "gl_Position = vec4(dolly_position.xy, (dolly_position.z + dolly_position.w) * 0.5, "
+      "dolly_position.w);\n";
   ss << main_function_wrapper(pre_main, post_main);
+  ss << "#define gl_Position dolly_position\n";
   return ss.str();
 }
 
@@ -963,6 +970,46 @@ void WGPUShader::init(const ShaderCreateInfo &info, bool /*is_codegen_only*/)
   interface = wgpu_interface;
   compute_ = !info.compute_source_.is_empty() || !info.compute_source_generated.empty();
   push_data_.assign(std::max<uint32_t>(wgpu_interface->push_constants_bytes, 16), 0);
+  for (const auto *resources : {&info.pass_resources_, &info.batch_resources_, &info.geometry_resources_}) {
+    for (const ShaderCreateInfo::Resource &res : *resources) {
+      if (res.bind_type == ShaderCreateInfo::Resource::BindType::SAMPLER &&
+          ELEM(res.sampler.type, ImageType::Uint2D, ImageType::Int2D))
+      {
+        integer_samplers_.append(std::string(res.sampler.name));
+      }
+    }
+  }
+}
+
+/* WGSL samples no integer texture: texture() and textureLod() of an integer 2D sampler read the
+ * texel at the point instead, as the nearest filter would. */
+static const char *INTEGER_SAMPLES = R"(
+uvec4 dolly_textureLod(usampler2D s, vec2 uv, float lod)
+{
+  ivec2 size = textureSize(s, int(lod));
+  return texelFetch(s, clamp(ivec2(floor(uv * vec2(size))), ivec2(0), size - 1), int(lod));
+}
+ivec4 dolly_textureLod(isampler2D s, vec2 uv, float lod)
+{
+  ivec2 size = textureSize(s, int(lod));
+  return texelFetch(s, clamp(ivec2(floor(uv * vec2(size))), ivec2(0), size - 1), int(lod));
+}
+uvec4 dolly_texture(usampler2D s, vec2 uv)
+{
+  return dolly_textureLod(s, uv, 0.0);
+}
+ivec4 dolly_texture(isampler2D s, vec2 uv)
+{
+  return dolly_textureLod(s, uv, 0.0);
+}
+)";
+
+static void integer_samples(std::string &source, const Vector<std::string> &samplers)
+{
+  for (const std::string &sampler : samplers) {
+    const std::regex call("\\b(texture|textureLod)\\(\\s*" + sampler + "\\s*,");
+    source = std::regex_replace(source, call, "dolly_$1(" + sampler + ",");
+  }
 }
 
 void WGPUShader::compile(Stage stage, MutableSpan<StringRefNull> sources)
@@ -971,9 +1018,12 @@ void WGPUShader::compile(Stage stage, MutableSpan<StringRefNull> sources)
       "#define GPU_VERTEX_SHADER\n", "#define GPU_FRAGMENT_SHADER\n", "#define GPU_COMPUTE_SHADER\n"};
   static const EShLanguage languages[] = {EShLangVertex, EShLangFragment, EShLangCompute};
   const std::string patch = glsl_patch(defines[stage]);
-  sources[SOURCES_INDEX_VERSION] = patch;
+  const std::string patch_with_samples = integer_samplers_.is_empty() ? patch :
+                                                                        patch + INTEGER_SAMPLES;
+  sources[SOURCES_INDEX_VERSION] = patch_with_samples;
   glsl_[stage] = fmt::to_string(fmt::join(sources, ""));
   runtime_nan(glsl_[stage]);
+  integer_samples(glsl_[stage], integer_samplers_);
   std::string log;
   spirv_[stage] = compile_glsl(glsl_[stage], languages[stage], log);
   if (spirv_[stage].empty()) {
