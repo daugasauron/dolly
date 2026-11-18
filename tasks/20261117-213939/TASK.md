@@ -91,8 +91,15 @@ neovim, slopyard, mojo, zero-ad, x11, sdl2 and gtk (new), and `neovim-browser.mj
 `studio-browser.mjs`, `slopyard-browser.mjs`, `mojo-browser.mjs`, `deep-hedger-browser.mjs`,
 `0ad-enet-browser.mjs`, `0ad-multiplayer-browser.mjs`, `x11-browser.mjs`, `godot-x11-browser.mjs`,
 `photocraft-x11-browser.mjs`, `ghostty-gtk-browser.mjs`, `blender-browser.mjs` and
-`blender-gpu-browser.mjs`. Every package here but glslang was built before the second merge, with
-the `cc` it replaced; `onetbb` and `openimageio` build without `ccfilter` first in the round.
+`blender-gpu-browser.mjs`.
+
+After the second merge this tree rebuilt eigen, imath, libdeflate, openjph, openexr, robin-map,
+pugixml, yaml-cpp, pystring, minizip-ng, opencolorio and glslang (on the new `cmake-build`), and
+their cases passed again in Chromium and Firefox. Its core is still the one built from the seed
+before the merge: the new `cc`, which takes `-fstack-protector-strong` and `-Qunused-arguments`,
+comes with the seed the merge pins (`db782830`) and a core build. Here `onetbb` stops at that
+option (`unsupported option: -fstack-protector-strong`), as it must without `ccfilter`; the
+round, on the new core, builds `onetbb` and `openimageio` without it first.
 
 The owner, 2026-11-18 morning, on `20261117-123021-packages-00`'s verdicts:
 
