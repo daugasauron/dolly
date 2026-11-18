@@ -1,5 +1,5 @@
 [
 {"name": "raylib", "use": "Game library for Slopyard and Airtime", "licence": "Zlib", "repository": "https://github.com/raysan5/raylib", "pins": ["RAYLIB"], "sources": ["dist/static/gamedev/raylib.tar"]},
 {"name": "Box3D", "use": "Physics for Slopyard and Airtime", "licence": "MIT", "repository": "https://github.com/erincatto/box3d", "pins": ["BOX3D"], "sources": ["dist/static/gamedev/box3d.tar"]},
-{"name": "Lua 5.5", "use": "Slopyard's machine controllers", "licence": "MIT", "repository": "https://www.lua.org/", "pins": ["LUA55"], "sources": ["dist/static/slopyard/lua-5.5.1.tar.gz"]}
+{"name": "Lua 5.5", "use": "lua5.5 and luac5.5, and the library Slopyard's machine controllers run in, as the lua5.5 package", "licence": "MIT", "repository": "https://www.lua.org/", "pins": ["LUA55"], "sources": ["dist/static/slopyard/lua-5.5.1.tar.gz"]}
 ]

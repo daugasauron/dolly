@@ -1,0 +1,48 @@
+DOLLY 8
+PACKAGE lua5.5
+REQUIRES HOST runtime@0
+
+# PUC Lua 5.5 from upstream's release archive, unchanged: the interpreter and
+# compiler as lua5.5 and luac5.5, beside the lua package's 5.1, and the library
+# and headers (/usr/include/lua5.5) for programs that embed it (Slopyard's
+# machine controllers). With POSIX's io.popen and os.tmpname; it loads no C
+# modules.
+FROM /demos/cmake/Dollyfile-cmake-build ef925b15c0342d66937cb491e956474f5dbb37d60cb2063e6e7ec91e0cb85d71
+USE /Dollyfile-mandoc 4c46a3289002905fd4050b575a26c09d8ecd403d4848ba020f10ea4360bf5d69
+REQUIRES HEADER libc
+REQUIRES TOOL cc
+REQUIRES TOOL ar
+REQUIRES TOOL make
+REQUIRES TOOL gzip
+REQUIRES TOOL tar
+REQUIRES TOOL mkdir
+REQUIRES TOOL cp
+REQUIRES TOOL rm
+REQUIRES TOOL text-page
+
+SOURCE /dist/static/slopyard/lua-5.5.1.tar.gz 1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373dce /tmp/lua55/source.tar.gz
+SLOP gzip -dc /tmp/lua55/source.tar.gz > /tmp/lua55/source.tar
+SLOP tar -xf /tmp/lua55/source.tar -C /tmp/lua55
+SLOP make -C /tmp/lua55/lua-5.5.1/src CC=cc 'CFLAGS=-O2 -std=gnu99 -DLUA_USE_POSIX' 'AR=ar rcs' RANLIB=: lua luac
+SLOP cp /tmp/lua55/lua-5.5.1/src/lua /usr/bin/lua5.5
+SLOP cp /tmp/lua55/lua-5.5.1/src/luac /usr/bin/luac5.5
+SLOP cp /tmp/lua55/lua-5.5.1/src/liblua.a /usr/lib/liblua5.5.a
+SLOP mkdir -p /usr/include/lua5.5 /usr/share/licenses/lua5.5
+SLOP cp /tmp/lua55/lua-5.5.1/src/lua.h /tmp/lua55/lua-5.5.1/src/luaconf.h /tmp/lua55/lua-5.5.1/src/lauxlib.h \
+  /tmp/lua55/lua-5.5.1/src/lualib.h /usr/include/lua5.5
+SLOP cp /tmp/lua55/lua-5.5.1/doc/readme.html /usr/share/licenses/lua5.5/readme.html
+SLOP lua5.5 -e 'assert(_VERSION == "Lua 5.5"); assert(math.type(1 << 62) == "integer"); assert(io.popen("echo Dolly"):read("l") == "Dolly")'
+
+EXPORTS TOOL   lua5.5
+EXPORTS TOOL   luac5.5
+EXPORTS LIB    lua55 /usr/lib/liblua5.5.a
+EXPORTS HEADER lua55 /usr/include/lua5.5
+FILE /usr/share/licenses/lua5.5/readme.html
+
+SLOP text-page /tmp/lua55/lua-5.5.1/doc/lua.1
+SLOP cp /usr/share/man/cat1/lua.1 /usr/share/man/cat1/lua5.5.1
+SLOP text-page /tmp/lua55/lua-5.5.1/doc/luac.1
+SLOP cp /usr/share/man/cat1/luac.1 /usr/share/man/cat1/luac5.5.1
+FILE /usr/share/man/cat1/lua5.5.1
+FILE /usr/share/man/cat1/luac5.5.1
+SLOP rm -rf /tmp/lua55

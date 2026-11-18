@@ -11,11 +11,12 @@ REQUIRES HOST gpu@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-# Where Slopyard is compiled: its Lua 5.5, its Box3D build, the game and its
+# Where Slopyard is compiled: the lua5.5 package, its Box3D build, the game and its
 # sources. slopyard-game keeps the game; the game's tests compile here.
 FROM /demos/slopyard/Dollyfile-gamedev-sdk 8b15c83a7f94eb23d91e78c03b443a79faf4a7cbe66ff43a082d139e854a9f52
 INSTALL /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
 INSTALL /demos/javascript/Dollyfile-janis ece3b8a57e841213b45163dee5d821cecd1bec8901ca0be7d52e35c6504a52b9
+INSTALL /demos/slopyard/Dollyfile-lua5.5 a1ce0058d4f2eff54b7e5fbc9012b7601b6d8ee66f52e7e239988c17e49f2537
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make
@@ -26,25 +27,6 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES HEADER libc
 
-SOURCE /dist/static/slopyard/lua-5.5.1.tar.gz 1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373dce /tmp/lua55/source.tar.gz
-SLOP gzip -dc /tmp/lua55/source.tar.gz > /tmp/lua55/source.tar
-SLOP tar -xf /tmp/lua55/source.tar -C /tmp/lua55
-FILE /tmp/lua55/Makefile
-    SOURCE := /tmp/lua55/lua-5.5.1/src
-    FILES := $(filter-out $(SOURCE)/lua.c,$(wildcard $(SOURCE)/*.c))
-    OBJECTS := $(patsubst $(SOURCE)/%.c,/tmp/lua55/%.o,$(FILES))
-    /usr/lib/liblua5.5.a: $(OBJECTS)
-    	ar rcs $@ $^
-    /tmp/lua55/%.o: $(SOURCE)/%.c
-    	cc -std=c17 -O2 -DLUA_USE_C89 -I $(SOURCE) -c $< -o $@
-SLOP make -f /tmp/lua55/Makefile
-SLOP mkdir -p /usr/include/lua5.5 /usr/share/licenses/lua5.5
-SLOP cp /tmp/lua55/lua-5.5.1/src/lua.h /tmp/lua55/lua-5.5.1/src/luaconf.h /tmp/lua55/lua-5.5.1/src/lauxlib.h /tmp/lua55/lua-5.5.1/src/lualib.h /usr/include/lua5.5
-SLOP cp /tmp/lua55/lua-5.5.1/doc/readme.html /usr/share/licenses/lua5.5/readme.html
-SLOP rm -rf /tmp/lua55
-EXPORTS LIB lua55 /usr/lib/liblua5.5.a
-EXPORTS HEADER lua55 /usr/include/lua5.5
-FILE /usr/share/licenses/lua5.5/readme.html
 REQUIRES LIB raylib
 REQUIRES LIB box3d
 REQUIRES LIB dolly-raylib

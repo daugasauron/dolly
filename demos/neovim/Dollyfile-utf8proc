@@ -1,0 +1,26 @@
+DOLLY 8
+PACKAGE utf8proc
+REQUIRES HOST runtime@0
+
+# utf8proc, the Unicode library of Julia and Neovim: normalization, case
+# folding, character widths and categories, from upstream's release archive,
+# unchanged, built by its Makefile as a static library for programs the cc
+# package builds.
+FROM /demos/cmake/Dollyfile-cmake-build ef925b15c0342d66937cb491e956474f5dbb37d60cb2063e6e7ec91e0cb85d71
+REQUIRES HEADER libc
+REQUIRES TOOL cc
+REQUIRES TOOL cp
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /dist/static/neovim/utf8proc.tar c9fdc1bf18b4d5ceb006b2847f6ead4642bfd82a7f102652cac4c13105b0e12a /tmp/utf8proc/source.tar
+SLOP tar -xf /tmp/utf8proc/source.tar -C /
+SLOP make -C /tmp/utf8proc/source CC=cc CFLAGS=-O2 libutf8proc.a
+SLOP cp /tmp/utf8proc/source/libutf8proc.a /usr/lib/libutf8proc.a
+SLOP cp /tmp/utf8proc/source/utf8proc.h /usr/include/utf8proc.h
+
+EXPORTS LIB    utf8proc /usr/lib/libutf8proc.a
+EXPORTS HEADER utf8proc /usr/include/utf8proc.h
+FILE /usr/share/licenses/utf8proc/LICENSE
+SLOP rm -rf /tmp/utf8proc

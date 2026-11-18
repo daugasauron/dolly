@@ -8,6 +8,8 @@ Neovim, PUC Lua and Tree-sitter grammars compiled inside Dolly from pinned sourc
 - `nvim`: `nvim`, Neovim with its runtime and parsers.
 - `lua`: `lua`, PUC Lua 5.1, with its library and headers and the LPeg and luv
   modules, also as static libraries.
+- `utf8proc`: utf8proc, the Unicode library: normalization, case folding and character widths, for programs the `cc` package builds; it brings no compiler.
+- `tree-sitter`: the tree-sitter runtime, which grammars' parsers run on, for programs the `cc` package builds; it brings no compiler.
 
 Open `/neovim/`; build with `npm run image -- neovim`. The image enters the
 editor; `:q` returns to Slop and `nvim` reopens it. `:!command` runs Slop.

@@ -1,0 +1,41 @@
+DOLLY 8
+PACKAGE enet
+REQUIRES HOST runtime@0
+REQUIRES HOST http@0
+
+# ENet, the reliable UDP networking library of games (0 A.D.'s multiplayer),
+# from upstream's release archive, unchanged but for its sockets: enet-dolly.c
+# replaces the unix.c and win32.c backends with datagrams through a relay over
+# the HTTP broker, which assigns hosts and owns routing. A static library with
+# its headers and pkg-config file, for programs the cc package builds.
+FROM /Dollyfile-system-tools 7b1306fddb4975e68b655f6d0bd6a478f6f02ba877ce033af921969099844d2d
+REQUIRES HEADER libc
+REQUIRES TOOL ar
+REQUIRES TOOL cc
+REQUIRES TOOL cp
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /dist/static/enet/source.tar.gz 82525b9aa8a9bfe6ab7e9bfeb5d52a3ef251282672d61d53545d7cee049bc610 /tmp/enet.tar.gz
+SLOP gzip -dc /tmp/enet.tar.gz | tar -xf - -C /
+SLOP cp /tmp/enet-dolly.c /tmp/enet/dolly.c
+SLOP rm /tmp/enet/unix.c /tmp/enet/win32.c
+FILE /tmp/enet/Makefile
+    CFLAGS := -O2 -I/tmp/enet/include
+    /usr/lib/libenet.a: $(patsubst %.c,%.o,$(wildcard /tmp/enet/*.c))
+    	ar rcs $@ $^
+SLOP make -C /tmp/enet -j4
+SLOP cp -R /tmp/enet/include/enet /usr/include/
+
+EXPORTS HEADER enet /usr/include/enet
+EXPORTS LIB    enet /usr/lib/libenet.a
+# ENet's pkg-config description; upstream's build system is not run.
+FILE /usr/lib/pkgconfig/libenet.pc
+    Name: libenet
+    Description: Low-latency UDP networking library supporting optional reliability
+    Version: 1.3.18
+    Libs: -lenet
+FILE /usr/share/licenses/enet/LICENSE
+SLOP rm -rf /tmp/enet /tmp/enet-dolly.c /tmp/enet.tar.gz

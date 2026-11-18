@@ -31,7 +31,7 @@ INSTALL /demos/pi/Dollyfile-pi-dolly 2be960f4d077bb7d439fa38aea21190e25fbdd96756
 INSTALL /Dollyfile-amy 95b7ecb251d9d5c3d28eb8aaa63b6bd2a465fac35756bdf95b520884a61547e4
 # nena enables the host modules a package needs beyond these.
 INSTALL /Dollyfile-nena 67a37d644a04e3eddd12fe2e5d335dcf473b1b549337f0a9ce2f445f00b91ad8
-INSTALL /demos/neovim/Dollyfile-nvim 038fbbe7a79960149035ce3ab7f7752f5e469d11799b9e3c2b4e4d56cbbbd173
+INSTALL /demos/neovim/Dollyfile-nvim 5f8ef866614d4a176b805607705c60440d9d317aa36a78436e27f69133d1451e
 REQUIRES TOOL pi
 REQUIRES TOOL nvim
 REQUIRES TOOL janis

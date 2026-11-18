@@ -9,8 +9,8 @@ REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
 # Build-only: the libraries the 0 A.D. engine links, installed from their
-# packages, and ENet with Dolly's transport built here from the pinned upstream
-# source of build-sources.tsv; pkgconf for its premake scripts.
+# packages (ENet with Dolly's transport among them); pkgconf for its premake
+# scripts.
 FROM /Dollyfile-system-tools 7b1306fddb4975e68b655f6d0bd6a478f6f02ba877ce033af921969099844d2d
 INSTALL /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6e458431e
 INSTALL /demos/zero-ad/Dollyfile-openal 2060692314085cc8dd97b3d879d7dc52bf1932939309a754aab35c6acda645a5
@@ -18,6 +18,7 @@ INSTALL /demos/tools/Dollyfile-pkgconf 8e2d10a742a5f3dc0a5da7426f3f276c233bf6672
 INSTALL /demos/tools/Dollyfile-freetype cb073fa00533688584684aeca85e8d1a26cd918295fb1c3dff5f2dbabeb3cd80
 INSTALL /demos/xonotic/Dollyfile-libvorbis f1badf5a8e6b36551ace0ef618613d5ebc4568813231c82145e1c523110db37a
 INSTALL /demos/tools/Dollyfile-fmt 95f417b949de4697ea4ce8b584c1250bce00b9dd6d231ae5d983136048b418bb
+INSTALL /demos/zero-ad/Dollyfile-enet 859a66dbe98f457ea6e7e2102058125c557ab582be054870b8e145d03f2bc757
 INSTALL /demos/zero-ad/Dollyfile-libxml2 8a270643c153dff159e11b9095f20d4a314343e8bffa2d8ddb0d25d43c17aad6
 INSTALL /demos/zero-ad/Dollyfile-libsodium e81fa7994c9ed321c832207f2ff5997a9cc4320ffd4a68a4b20044c15d705398
 INSTALL /demos/zero-ad/Dollyfile-boost-headers 1d53fe52a3519601a715911ab09df85353166c66e78361c20386d84030391a5b
@@ -40,28 +41,12 @@ SLOP gzip -dc /tmp/zad/deps.tar.gz | tar -xf - -C /
 # Licences of the libraries the engine links; zero-ad copies them.
 FOLDER /usr/share/licenses
 
-# ENet keeps its protocol; dolly.c replaces the unix.c and win32.c socket backends.
-SLOP cp /tmp/zad/enet-dolly.c /tmp/zad/enet/dolly.c
-SLOP rm /tmp/zad/enet/unix.c /tmp/zad/enet/win32.c
-FILE /tmp/zad/enet/Makefile
-    CFLAGS := -O2 -I/tmp/zad/enet/include
-    /usr/lib/libenet.a: $(patsubst %.c,%.o,$(wildcard /tmp/zad/enet/*.c))
-    	ar rcs $@ $^
-SLOP make -C /tmp/zad/enet -j4
-SLOP cp -R /tmp/zad/enet/include/enet /usr/include/
-
-# pkg-config descriptions of Dolly's libcurl and of ENet, built without its
-# upstream build system.
+# The pkg-config description of Dolly's libcurl.
 FILE /usr/lib/pkgconfig/libcurl.pc
     Name: libcurl
     Description: Dolly's libcurl over the HTTP broker
     Version: 8.21.0
     Libs: -lcurl
-FILE /usr/lib/pkgconfig/libenet.pc
-    Name: libenet
-    Description: Low-latency UDP networking library supporting optional reliability
-    Version: 1.3.18
-    Libs: -lenet
 SLOP pkg-config --exists zlib libcurl icu-i18n libsodium libenet libpng freetype2 vorbisfile fmt libxml-2.0 openal sdl2
 
 # Probes for test/0ad-enet-browser.mjs and test/0ad-openal-browser.mjs.
@@ -71,7 +56,5 @@ SLOP c++ -O1 /tmp/zad/openal-check.cpp -lopenal -lm -o /usr/libexec/zero-ad/open
 FOLDER /usr/libexec/zero-ad
 
 EXPORTS FOLDER zero-ad-pkgconfig /usr/lib/pkgconfig
-EXPORTS HEADER enet /usr/include/enet
-EXPORTS LIB enet /usr/lib/libenet.a
 
 ENTRY /bin/foreground -i /bin/slop

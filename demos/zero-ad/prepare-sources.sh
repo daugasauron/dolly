@@ -10,7 +10,7 @@ if has_image openal; then
     "${openal_dir}/fmt-11.1.1/LICENSE" /usr/share/licenses/OpenAL/fmt
 fi
 if has_image zero-ad-deps || has_image zero-ad-engine || has_image spidermonkey ||
-   has_image libxml2 || has_image libsodium ||
+   has_image libxml2 || has_image libsodium || has_image enet ||
    has_image boost-headers || has_image icu || has_image premake || has_image zero-ad-data; then
   zad_dir="$(bash demos/zero-ad/prepare-build-sources.sh)"
 fi
@@ -70,11 +70,14 @@ if has_image premake; then
     demos/zero-ad/premake-dolly.patch /tmp/premake/dolly.patch \
     "${zad_dir}/premake-core-5.0.0-beta7/LICENSE.txt" /usr/share/licenses/premake/LICENSE.txt
 fi
+if has_image enet; then
+  node scripts/build-source-tar.mjs "${static_dir}/enet/source.tar.gz" \
+    "${zad_dir}/enet-1.3.18" /tmp/enet \
+    demos/zero-ad/enet-dolly.c /tmp/enet-dolly.c \
+    "${zad_dir}/enet-1.3.18/LICENSE" /usr/share/licenses/enet/LICENSE
+fi
 if has_image zero-ad-deps; then
   node scripts/build-source-tar.mjs "${static_dir}/zero-ad-build/deps.tar.gz" \
-    "${zad_dir}/enet-1.3.18/LICENSE" /usr/share/licenses/enet/LICENSE \
-    "${zad_dir}/enet-1.3.18" /tmp/zad/enet \
-    demos/zero-ad/enet-dolly.c /tmp/zad/enet-dolly.c \
     demos/zero-ad/test/fixtures/0ad-enet.c /tmp/zad/enet-check.c \
     demos/zero-ad/test/fixtures/0ad-openal.cpp /tmp/zad/openal-check.cpp
 fi

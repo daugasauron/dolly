@@ -14,6 +14,22 @@
     { "fresh": true, "script": "! command -v nvim", "status": 0 },
     { "script": "amy install nvim", "status": 0 },
     { "script": "nvim --headless -c 'call writefile([\"written\"], \"/tmp/amy-nvim\")' -c 'qa!' && test \"$(cat /tmp/amy-nvim)\" = written", "status": 0 },
-    { "script": "man nvim > /tmp/amy-man && grep -q 'edit text' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 }
+    { "script": "man nvim > /tmp/amy-man && grep -q 'edit text' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
+    {
+      "fresh": true,
+      "why": "utf8proc composes, folds case, measures a wide character and names a category.",
+      "script": "amy install utf8proc",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <stdlib.h>' '#include <string.h>' '#include <utf8proc.h>' 'int main(void) {' '  unsigned char *composed = utf8proc_NFC((const unsigned char *)\"e\\xcc\\x81\");' '  unsigned char *folded = utf8proc_NFKC_Casefold((const unsigned char *)\"DOLLY\");' '  int ok = composed && !strcmp((char *)composed, \"\\xc3\\xa9\") && folded && !strcmp((char *)folded, \"dolly\") &&' '      utf8proc_charwidth(0x65e5) == 2 && utf8proc_category(0x41) == UTF8PROC_CATEGORY_LU;' '  free(composed);' '  free(folded);' '  return ok ? 0 : 1;' '}' > /tmp/amy-utf8proc.c && cc /tmp/amy-utf8proc.c -lutf8proc -o /tmp/amy-utf8proc && /tmp/amy-utf8proc", "status": 0 },
+    {
+      "fresh": true,
+      "why": "The tree-sitter runtime makes a parser, which parses nothing without a grammar.",
+      "script": "amy install tree-sitter",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <tree_sitter/api.h>' 'int main(void) {' '  TSParser *parser = ts_parser_new();' '  if (!parser || ts_parser_language(parser)) return 1;' '  int ok = !ts_parser_parse_string(parser, NULL, \"x\", 1) && TREE_SITTER_LANGUAGE_VERSION >= 14;' '  ts_parser_delete(parser);' '  return ok ? 0 : 1;' '}' > /tmp/amy-tree-sitter.c && cc /tmp/amy-tree-sitter.c -ltree-sitter -o /tmp/amy-tree-sitter && /tmp/amy-tree-sitter", "status": 0 }
   ]
 }
