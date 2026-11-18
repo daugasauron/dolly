@@ -18,3 +18,4 @@ onetbb-2022.3.0.tar.gz https://github.com/uxlfoundation/oneTBB/archive/refs/tags
 libepoxy-1.5.10.tar.gz https://github.com/anholt/libepoxy/archive/refs/tags/1.5.10.tar.gz a7ced37f4102b745ac86d6a70a9da399cc139ff168ba6b8002b4d8d43c900c15
 brotli-1.0.10.tar.gz https://github.com/google/brotli/archive/refs/tags/v1.0.10.tar.gz b517ebdb5266b963d28d6e639b973479874ec72086deb6ee4a2d639e1b13606b
 freetype-VER-2-14-3.tar.gz https://github.com/freetype/freetype/archive/VER-2-14-3.tar.gz dc49de6b01a266eef4876a4dd34d9842c475d3e28ff2eff63bd2fb760ab56261
+glslang-d213562e.tar.gz https://github.com/KhronosGroup/glslang/archive/d213562e35573012b6348b2d584457c3704ac09b.tar.gz 9537e5896d10bc493775675153687e078d83aead3a5a3b90e9ac28af2bc966fc

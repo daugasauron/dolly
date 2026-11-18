@@ -1,15 +1,31 @@
 # Blender in Dolly, stage 4: the interface on softpipe, to measure
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: blender,port,demo,display
 
 Research and the whole plan: `work/research/blender-2026-11-17.md` (the section on the GPU
 module). Stage 1 is [20261116-230501-blender-1](../20261116-230501-blender-1/TASK.md).
 
-## State (2026-11-17)
+## State (2026-11-18)
 
-Not started.
+Changed by the owner (2026-11-18): "Yes go directly to hardware accelerated for blender. Do it in
+the same way as godot, and learn from that." The OpenGL interface on softpipe is not built and
+not measured: this stage's GHOST system is built for stage 5's WebGPU backend instead
+([20261116-230506-blender-5](../20261116-230506-blender-5/TASK.md)), on `port/blender-ui`.
+
+- Written: `demos/blender/ghost/` (`GHOST_SystemDolly`, `GHOST_WindowDolly`,
+  `GHOST_ContextWebGPU`), placed in `intern/ghost/intern` by the source archive and named to
+  CMake by `blender-dolly.patch` (`WITH_GHOST_DOLLY`). One window a time fills the page's
+  surface (`display@0`); keys, text, the pointer, the wheel and focus are `input@0`'s records
+  as GHOST's events (letters by the layout's key, the rest by the key's place); the clipboard is
+  `clipboard@0`'s; CSS cursors for GHOST's standard ones; no pointer warp. The context holds no
+  device: the GPU backend opens gpu@0 and presents on the window's swap.
+- Runs with stage 5's backend (2026-11-18): Blender's interface on the page in Chrome and
+  Firefox on the NVIDIA adapter; `demos/blender/test/blender-gpu-browser.mjs` reads the frame
+  back, presses Escape for the splash screen and K, which a key map item of its script takes,
+  and passed in both (13:33, the image of 05f70697b). Without WebGPU Blender says it found no
+  GPU backend and quits.
 
 ## What
 
@@ -39,3 +55,10 @@ more.
 
 The measurements are in the README, or the list of what softpipe lacks is, and the GHOST system
 is committed with a test that sees a frame and sends a key.
+
+## Closed (2026-11-18)
+
+The owner dropped softpipe for the hardware path, so neither its measurements nor its list exist.
+The GHOST system is committed (`demos/blender/ghost`, 59e8a25e4) with the test that sees a frame
+and sends a key: `demos/blender/test/blender-gpu-browser.mjs` passed in Chrome and Firefox on the
+NVIDIA adapter (d6a8ca2d0), drawing through stage 5's backend, where the rest goes on.

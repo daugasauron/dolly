@@ -55,10 +55,20 @@ if has_image blender-deps; then
     "${blender_dir}/oneTBB-2022.3.0/LICENSE.txt" "${blender_licences}/onetbb/LICENSE.txt" \
     "${blender_dir}/oneTBB-2022.3.0/third-party-programs.txt" "${blender_licences}/onetbb/third-party-programs.txt" \
     "${blender_dir}/libepoxy-1.5.10" /tmp/blender-deps/libepoxy \
-    "${blender_dir}/libepoxy-1.5.10/COPYING" "${blender_licences}/epoxy/COPYING"
+    "${blender_dir}/libepoxy-1.5.10/COPYING" "${blender_licences}/epoxy/COPYING" \
+    "${blender_dir}/glslang-d213562e35573012b6348b2d584457c3704ac09b" /tmp/blender-deps/glslang \
+    "${blender_dir}/glslang-d213562e35573012b6348b2d584457c3704ac09b/LICENSE.txt" "${blender_licences}/glslang/LICENSE.txt"
 fi
 if has_image blender; then
+  # Dolly's files in Blender's tree: the GHOST system and the GPU module's WebGPU backend.
+  ghost=/tmp/blender/source/intern/ghost/intern
   node scripts/build-source-tar.mjs "${static_dir}/blender/blender.tar.gz" \
     demos/blender/blender-dolly.patch /tmp/blender/blender-dolly.patch \
-    "${blender_dir}/blender-5.3.0" /tmp/blender/source
+    "${blender_dir}/blender-5.3.0" /tmp/blender/source \
+    demos/blender/ghost/GHOST_ContextWebGPU.hh "${ghost}/GHOST_ContextWebGPU.hh" \
+    demos/blender/ghost/GHOST_SystemDolly.cc "${ghost}/GHOST_SystemDolly.cc" \
+    demos/blender/ghost/GHOST_SystemDolly.hh "${ghost}/GHOST_SystemDolly.hh" \
+    demos/blender/ghost/GHOST_WindowDolly.cc "${ghost}/GHOST_WindowDolly.cc" \
+    demos/blender/ghost/GHOST_WindowDolly.hh "${ghost}/GHOST_WindowDolly.hh" \
+    demos/blender/webgpu /tmp/blender/source/source/blender/gpu/webgpu
 fi

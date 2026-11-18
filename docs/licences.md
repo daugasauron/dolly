@@ -23,12 +23,13 @@ fails when a recipe `SOURCE` or a pin of [`source-pins.sh`](../config/source-pin
   outside Dolly: model weights, fonts and game data.
 - **Sources**: every site-path `SOURCE` of the catalog under `dist/static/`,
   the recipes and headers, at the same release path as the images.
-- **Dolly's code**: MIT ([`LICENSE`](../LICENSE), `package.json`), except 12
+- **Dolly's code**: MIT ([`LICENSE`](../LICENSE), `package.json`), except 32
   files marked `SPDX-License-Identifier: GPL-2.0-or-later` because they are
   compiled into GPL programs: the Seven Kingdoms port in `demos/rts`
   (`Makefile`, `OAUDIO.h`, `arena.*`, `config.h`, `input.*`, built with the game),
-  the 0 A.D. `engine.patch`, and the Xonotic port's `Makefile`, `dpgpurast.c`,
-  `dpshaders.c` and `simd-unit.c`; the Blender port's `blender-dolly.patch`,
+  the 0 A.D. `engine.patch`, the Xonotic port's `Makefile`, `dpgpurast.c`,
+  `dpshaders.c` and `simd-unit.c`, and the Blender port's GHOST system and GPU
+  backend (`demos/blender/ghost`, `demos/blender/webgpu`); the Blender port's `blender-dolly.patch`,
   which changes GPL files and is under their licence; and 4 files marked
   `SPDX-License-Identifier: LGPL-2.1-or-later` because they are compiled into
   Wine: the Wine port's `dlls/winedolly.drv/dolly.h`, `port/shcore/initguid.h`,
@@ -112,7 +113,8 @@ fails when a recipe `SOURCE` or a pin of [`source-pins.sh`](../config/source-pin
   Project, www.freetype.org), libjpeg-turbo (IJG and BSD-3-Clause: this
   software is based in part on the work of the Independent JPEG Group),
   libtiff, Brotli, {fmt}, libdeflate, robin-map, pugixml, expat, yaml-cpp,
-  Epoxy (MIT and alike), minizip-ng, zlib, libpng and Zstandard. All are
+  Epoxy (MIT and alike), minizip-ng, zlib, libpng and Zstandard, and glslang
+  (BSD-3-Clause, BSD-2-Clause, MIT and Apache-2.0). All are
   compatible with GPL-3.0. Each one's licence files are in
   `/usr/share/licenses/blender`, the sources in the served
   `blender/blender.tar.gz` and `blender/deps.tar.gz` with the two recipes
