@@ -10,8 +10,11 @@ FROM /demos/mojo/Dollyfile-mojo-llvm c133648c3caaa8669c76d295669e211fdcfba9832cd
 # mojo build links what it compiles with the C toolchain.
 INSTALL /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
 INSTALL /Dollyfile-cc 3c50048026aec1c0c21ac6c0b74d93f53b5c0a3fa83b5c9930d86924a3b59eaa
-# {fmt}, which the compiler's log formats with; mojo-llvm brings Zstandard's package.
+# {fmt}, which the compiler's log formats with, xxHash and OpenTelemetry's
+# headers; mojo-llvm brings Zstandard's package.
 USE /demos/tools/Dollyfile-fmt 95f417b949de4697ea4ce8b584c1250bce00b9dd6d231ae5d983136048b418bb
+USE /demos/mojo/Dollyfile-xxhash c3b2a6ec674e091af6828fc2c876cd8fcb5be2e55cba7468800b110ddaaa367c
+USE /demos/mojo/Dollyfile-opentelemetry-cpp 343792960f99b7cce95cfa3cd3fc6362bdc972ed8dde95f0f75d5cd44b494907
 REQUIRES HEADER gpu
 REQUIRES LIB    dolly-gpu
 REQUIRES TOOL cmake
@@ -30,7 +33,7 @@ REQUIRES TOOL rm
 REQUIRES TOOL sha256sum
 REQUIRES TOOL cut
 
-SOURCE /dist/static/mojo/mojo.tar.gz 85c382a809ee195c5d153de052aef38618ef1466d9f54a603a2e486445fda9fd /tmp/mojo.tar.gz
+SOURCE /dist/static/mojo/mojo.tar.gz 1ea25ace732e78db2f48d1110f233f33067e068875762719c7117ea3f10d9ae4 /tmp/mojo.tar.gz
 SLOP slop -c 'gzip -dc /tmp/mojo.tar.gz | tar -xf - -C /'
 # Where the sources name Linux, macOS and Windows, and Dolly is none of them.
 SLOP patch -p1 -d /tmp/mojo/modular -i /tmp/mojo/mojo-dolly.patch
@@ -53,8 +56,6 @@ FILE /tmp/mojo/Dolly.cmake
     set(MOJO_SOURCE /tmp/mojo/modular CACHE PATH "")
     set(MOJO_PORT /tmp/mojo/port CACHE PATH "")
     set(MOJO_LLVM /opt/mojo-llvm CACHE PATH "")
-    set(XXHASH /tmp/mojo/xxhash CACHE PATH "")
-    set(OPENTELEMETRY /tmp/mojo/opentelemetry CACHE PATH "")
     set(MOJO_VERSION_LABEL "" CACHE STRING "")
 # The revision is the pin and this archive: the compiler keys its caches by
 # it, where upstream reads the build id of its own ELF file.
@@ -74,8 +75,8 @@ SLOP cp /tmp/mojo/modular/LICENSE /usr/share/licenses/mojo/LICENSE
 SLOP cp /opt/mojo-llvm/LICENSE.TXT /usr/share/licenses/mojo/LICENSE.llvm
 SLOP cp /usr/share/licenses/zstd/LICENSE /usr/share/licenses/mojo/LICENSE.zstd
 SLOP cp /usr/share/licenses/fmt/LICENSE /usr/share/licenses/mojo/LICENSE.fmt
-SLOP cp /tmp/mojo/xxhash/LICENSE /usr/share/licenses/mojo/LICENSE.xxhash
-SLOP cp /tmp/mojo/opentelemetry/LICENSE /usr/share/licenses/mojo/LICENSE.opentelemetry
+SLOP cp /usr/share/licenses/xxhash/LICENSE /usr/share/licenses/mojo/LICENSE.xxhash
+SLOP cp /usr/share/licenses/opentelemetry-cpp/LICENSE /usr/share/licenses/mojo/LICENSE.opentelemetry
 
 # What a Mojo object links against in Dolly: cc NAME.o -lmojo-rt, and
 # -lmojo-gpu -ldolly-gpu for a program that uses the package gpu.

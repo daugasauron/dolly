@@ -2,8 +2,8 @@
 
 # Mojo: tag mojo/v1.1.0 of Modular's repository, the LLVM it pins
 # (bazel/public-patches/llvm_source.bzl) and what its compiler takes besides
-# LLVM (bazel/common.MODULE.bazel): xxHash and OpenTelemetry's headers; {fmt} and
-# Zstandard, with which LLVM compresses a precompiled package, are the packages'.
+# LLVM (bazel/common.MODULE.bazel): xxHash, OpenTelemetry C++, {fmt} and Zstandard
+# (with which LLVM compresses a precompiled package), each a package.
 DOLLY_MODULAR_VERSION=1.1.0
 DOLLY_MODULAR_COMMIT=c6fa49f712fe15c99d0461ad2baaf2a15cbc58ce
 DOLLY_MODULAR_URL='https://github.com/modular/modular.git'

@@ -20,6 +20,8 @@ files.
   the `cc` package: `mojo build NAME.mojo` makes a Dolly executable.
 - `mojo-gpu`: a shell that installs `mojo` in an image that declares `gpu@0`,
   where the kernels of its programs run. Requires WebGPU.
+- `xxhash`: xxHash: `xxhsum`, which prints and checks XXH32, XXH64 and XXH128 sums, and libxxhash for programs the `cc` package builds; it brings no compiler.
+- `opentelemetry-cpp`: OpenTelemetry's C++ API and SDK: traces, metrics and logs with the ostream and in-memory exporters, for programs the `cc` package builds with `-pthread`; it brings no compiler.
 
 Programs for Dolly, their runtime and GPU kernels: [target](target/README.md).
 

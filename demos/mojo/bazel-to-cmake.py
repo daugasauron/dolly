@@ -4,9 +4,9 @@
 Usage: bazel-to-cmake.py MODULAR_ROOT > CMakeLists.txt
 
 The CMake project takes MOJO_SOURCE (Modular's tree), MOJO_LLVM (bin, lib and
-include of the LLVM, MLIR and Clang build), XXHASH and OPENTELEMETRY (source
-trees) and MOJO_PORT (port/ beside this script); {fmt} and Zstandard are the
-fmt and zstd packages' libraries.
+include of the LLVM, MLIR and Clang build) and MOJO_PORT (port/ beside this
+script); {fmt}, xxHash and Zstandard are the fmt, xxhash and zstd packages'
+libraries, OpenTelemetry's headers the opentelemetry-cpp package's.
 """
 import glob as filesystem_glob, os, shlex, sys
 
@@ -23,9 +23,8 @@ PORTED = {"//Support:CrashReporting": "CrashReporting.cpp", "//Support:Telemetry
 # The compiler options of dependencies outside the tree. LLVM's headers are
 # MOJO_LLVM/include; OpenTelemetry's API takes the standard library's types, as
 # its Bazel default does; TCMalloc's three entry points are port/tcmalloc/tcmalloc.h.
-EXTERNAL = {"@fmt": [], "@xxhash": ["-I${XXHASH}"],
-            "@opentelemetry-cpp//api": ["-I${OPENTELEMETRY}/api/include", "-I${OPENTELEMETRY}/sdk/include",
-                                        "-DOPENTELEMETRY_STL_VERSION=2020"],
+EXTERNAL = {"@fmt": [], "@xxhash": [],
+            "@opentelemetry-cpp//api": ["-DOPENTELEMETRY_STL_VERSION=2020"],
             "//bazel/internal:tcmalloc_numa_aware": ["-I${MOJO_PORT}"], "//bazel/internal:tcmalloc_want_numa_aware": []}
 PREAMBLE = """cmake_minimum_required(VERSION 3.20)
 project(mojo C CXX)
@@ -38,8 +37,8 @@ set(B ${CMAKE_BINARY_DIR})
 # Bazel compiles from the workspace root, with generated files beside sources.
 include_directories(${S} ${B} ${MOJO_LLVM}/include)
 file(GLOB LLVM_ARCHIVES ${MOJO_LLVM}/lib/*.a)
-add_library(third-party STATIC ${XXHASH}/xxhash.c)
-target_link_libraries(third-party PUBLIC fmt zstd)"""
+add_library(third-party INTERFACE)
+target_link_libraries(third-party INTERFACE xxhash fmt zstd)"""
 
 rules = {}
 

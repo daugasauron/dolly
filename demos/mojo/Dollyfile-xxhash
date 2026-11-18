@@ -1,0 +1,40 @@
+DOLLY 8
+PACKAGE xxhash
+REQUIRES HOST runtime@0
+
+# xxHash, the fast non-cryptographic hashes (XXH32, XXH64, XXH3 and XXH128),
+# from upstream's release archive, unchanged: xxhsum, which prints and checks
+# them as sha256sum does, and libxxhash and its headers for programs the cc
+# package builds (the Mojo compiler's). Upstream's Makefile is for its x86
+# dispatch and shared library: the recipe compiles the sources it names.
+FROM /demos/cmake/Dollyfile-cmake-build ef925b15c0342d66937cb491e956474f5dbb37d60cb2063e6e7ec91e0cb85d71
+USE /Dollyfile-mandoc 4c46a3289002905fd4050b575a26c09d8ecd403d4848ba020f10ea4360bf5d69
+REQUIRES HEADER libc
+REQUIRES TOOL ar
+REQUIRES TOOL cc
+REQUIRES TOOL cp
+REQUIRES TOOL cut
+REQUIRES TOOL gzip
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+REQUIRES TOOL test
+REQUIRES TOOL text-page
+
+SOURCE /dist/static/xxhash/source.tar.gz 56d4ec2a2f037d472bb0850b910eb966084b2ba76baa68fbc4c3ef1928182ac6 /tmp/xxhash.tar.gz
+SLOP gzip -dc /tmp/xxhash.tar.gz | tar -xf - -C /
+SLOP CWD /tmp/xxhash cc -O2 -c xxhash.c -o xxhash.o
+SLOP CWD /tmp/xxhash ar rcs /usr/lib/libxxhash.a xxhash.o
+SLOP CWD /tmp/xxhash cc -O2 -I. cli/xxhsum.c cli/xsum_arch.c cli/xsum_bench.c cli/xsum_os_specific.c \
+  cli/xsum_output.c cli/xsum_sanity_check.c xxhash.o -o /usr/bin/xxhsum
+SLOP cp /tmp/xxhash/xxhash.h /tmp/xxhash/xxh3.h /usr/include
+SLOP text-page /tmp/xxhash/cli/xxhsum.1
+SLOP test "$(printf abc | xxhsum -H2 | cut -c1-32)" = 06b05ab6733a618578af5f94892f3950
+
+EXPORTS TOOL   xxhsum
+EXPORTS LIB    xxhash /usr/lib/libxxhash.a
+EXPORTS HEADER xxhash /usr/include/xxhash.h
+EXPORTS HEADER xxh3   /usr/include/xxh3.h
+FILE /usr/share/man/cat1/xxhsum.1
+FILE /usr/share/licenses/xxhash/LICENSE
+FILE /usr/share/licenses/xxhash/COPYING
+SLOP rm -rf /tmp/xxhash /tmp/xxhash.tar.gz
