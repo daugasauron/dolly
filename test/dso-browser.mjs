@@ -45,6 +45,14 @@ int main(void) {
   return present == 0 || present() != 37;
 }
 `,
+  // A throw no frame catches, in the main thread or another.
+  "uncaught.cpp": `#include <stdexcept>
+#include <thread>
+int main(int argc, char **) {
+  if (argc > 1) std::thread([] { throw std::runtime_error("no frame catches this"); }).join();
+  throw std::runtime_error("no frame catches this");
+}
+`,
   "ffi.c": `#include <errno.h>
 #include <stdint.h>
 #include <dolly/dso.h>
@@ -138,6 +146,14 @@ await browserTest("dso", { image: "system", timeout: 300_000, server: { fixtures
   // A library's own records are checked before it is entered, and packets are bounded.
   await run("cc -O1 -shared denied.c -o denied.so && cc -O1 -rdynamic host.c -o host && ./host && test ! -e /tmp/dso/entered");
   await run("cc -O1 -shared weak.c -o weak.so && cc -O1 -rdynamic weak-host.c -o weak-host && ./weak-host");
+  // A process that an exception no frame catches ends says so, in a host with its type and what().
+  await run("c++ -O1 -pthread -rdynamic uncaught.cpp -o uncaught && c++ -O1 uncaught.cpp -o uncaught-plain");
+  const uncaught = "an exception the program threw and none of its frames caught";
+  for (const [command, said] of [["./uncaught", `${uncaught}: C++ St13runtime_error: no frame catches this`],
+    ["./uncaught thread", `${uncaught}: C++ St13runtime_error: no frame catches this`], ["./uncaught-plain", uncaught]]) {
+    assert.equal(await submit(`${command} 2> uncaught.err`), 126, command);
+    await run(`grep -qF '${said}' uncaught.err`);
+  }
   // FFI needs no host: a program that links its client is served.
   await run("cc -O1 ffi.c -o ffi && ./ffi");
   // A host keeps one owner of signal state although -rdynamic roots all of libc.
