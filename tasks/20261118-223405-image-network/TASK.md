@@ -11,7 +11,18 @@ specific extensions/skills", nothing special for OpenRouter; and the video's ima
 the owner's `~/.tmux.conf`, Pi in window 1 and Neovim in window 2. Brief:
 `work/briefs-2026-11-18/npm-policy.md`. Branch `feature/npm-policy`.
 
-## State (2026-11-18, 23:50): design, code, docs and the browser checks below done; npm's flow test and the video running
+## State (2026-11-19, 00:25): done on `feature/npm-policy`; open for the merge's round and the release's take
+
+Left: the round after the merge rebuilds what the branch changed (`clip`, new; `dolly-docs`, whose
+documents changed, and the images that install it: the Pi images, Studio, ClassiCube, Slopyard, the RTS
+arena, Seven Kingdoms, the local-model Pi images; Studio's archive), and the release makes the video
+again from the published packages (`build/video/` of the branch's tree, `retake.sh`). None of it is
+seed. Close after both.
+
+The video, from this branch's packages (`scripts/package-npm.mjs`, served by a registry on
+127.0.0.1): `build/video/npm-pi-agent.mp4` of `work/npm-policy` (3:00, take 2; `build/video/README.md`
+there says what it shows and how it was made). The key never shows: the page's upload dialog brings
+`~/.openrouter` in, and Pi's `/login` reads it with `!cat FILE`.
 
 Measured on this tree's images (the round's pass 1 linked, and `clip`, `dolly-docs`, `pi-dolly`,
 `pi-minimal`, `tmux`, `nvim`, `default`, `jq`, `less`, `seaborn` and `python-data` built here):
@@ -24,7 +35,8 @@ Measured on this tree's images (the round's pass 1 linked, and `clip`, `dolly-do
 - `test/http-refusals-browser.mjs` passes in Chrome and Firefox, `test/custom-session-browser.mjs` in
   Chrome; `demos/pi/test/frontend-browser.mjs`, whose orders API and model are now the recipe's
   HTTP rows in place of a route's policy, in Chrome and Firefox.
-- `test/npm-browser.mjs` (packed from this tree, `DOLLY_NPM_PACKS`, offline) passes in Chrome: Pi starts
+- `test/npm-browser.mjs` (packed from this tree, `DOLLY_NPM_PACKS`, offline) passes in Chrome and
+  Firefox, nothing leaving the machine: Pi starts
   plain with the `sandbox` skill and the `/network` extension, which lists the rows; a row the test
   adds answers at its path, and another path, method and host are refused (curl 9); the build's
   summary lists the rows; the `python-data` project's site, whose recipe has none, refuses a request.
