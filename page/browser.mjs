@@ -33,8 +33,8 @@ pageStyle.replaceSync(`
     scrollbar-width: thin; scrollbar-color: var(--dolly-ui-accent) var(--dolly-ui-background); }
   .dolly-terminal #bootstrap-log[hidden] { display: none; }
   /* The page's notes over the display, the status line and the indicators (page-indicators.mjs): a column
-     a corner, each note in the embedding's colours with a border of its state's (quiet, accent, alert).
-     Only their links and buttons take the pointer. */
+     a corner, each note in the embedding's colours and its popups' font (docs/embedding.md) with a border
+     of its state's colour (quiet, accent, alert). Only their links and buttons take the pointer. */
   .dolly-terminal .page-corner { position: absolute; z-index: 7; display: flex; flex-direction: column; gap: 0.35rem;
     max-width: calc(100% - 1rem); pointer-events: none; }
   .dolly-terminal .page-corner[data-corner^="top"] { top: 0.5rem; }
@@ -43,7 +43,7 @@ pageStyle.replaceSync(`
   .dolly-terminal .page-corner[data-corner$="right"] { right: 0.5rem; align-items: flex-end; }
   .dolly-terminal .page-corner > * { box-sizing: border-box; max-width: 100%; margin: 0; padding: 0.2rem 0.45rem;
     color: var(--dolly-ui-color); background: var(--dolly-ui-background); border: 1px solid var(--dolly-ui-quiet);
-    font: inherit; font-size: 13px; line-height: 1.5; list-style: none; overflow-wrap: anywhere; }
+    font: 13px/1.5 var(--dolly-html-font, ui-monospace, monospace); list-style: none; overflow-wrap: anywhere; }
   .dolly-terminal .page-corner > [hidden], html[data-indicators="hidden"] .page-indicator { display: none; }
   .dolly-terminal .page-corner li { display: flex; gap: 0.45rem; align-items: baseline; }
   .dolly-terminal .page-corner li + li { margin-top: 0.25rem; }
