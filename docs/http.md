@@ -88,6 +88,18 @@ const policy = {
 };
 ```
 
+- An image narrows it with the requests its recipe declares, `HTTP` rows of
+  these fields ([Dollyfile](dollyfile.md#the-images-network)):
+
+  ```text
+  HTTP POST https://openrouter.ai/api/v1/chat/completions authorization
+  ```
+
+  The page intersects its policy with that one, so a request must pass both
+  and a declaration can never widen what the embedding admits; its quota and
+  limits are a policy's defaults. A tab opened from the page, a restored
+  session and a build in the page keep it. An image without `HTTP` rows keeps
+  the page's policy.
 - The policy is the page's ([`network.mjs`](../page/network.mjs)), not
   `http@0`'s: the files `packages@0` reads of a directory `amy server` names
   are judged and counted by it too, and an image without `http@0` installs

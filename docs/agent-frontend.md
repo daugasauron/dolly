@@ -2,7 +2,7 @@
 
 A page can give its users an agent instead of a frontend: Pi, instructions for
 how to work in your company, skills that describe an existing system's API, and
-an HTTP policy that admits that API and the model's provider and nothing else.
+a recipe whose `HTTP` rows admit that API and the model's provider and nothing else.
 The agent does through the API what the frontend did; the backend stays as it
 is. This guide builds such a page from the npm packages ([Dolly from npm](npm.md)).
 
@@ -10,13 +10,13 @@ is. This guide builds such a page from the npm packages ([Dolly from npm](npm.md
 
 Make the project of [Dolly from npm](npm.md) first: `npx dolly-build init my-pi git` writes
 a project that runs `pi-minimal` (Pi, a shell, POSIX tools, curl, ripgrep and fd)
-with Git under a policy that admits OpenRouter alone, and `dolly-build` builds
-its image. This guide changes its files:
+with Git, whose recipe declares the model providers' APIs and no other request, and
+`dolly-build` builds its image. This guide changes its files:
 
 ```
-Dollyfile-my-pi               the sandbox: Pi's instructions, extensions, tools, how Pi starts
+Dollyfile-my-pi               the sandbox: its requests, Pi's instructions, extensions, tools, how Pi starts
 public/skills/                Pi's skills, written into ~/.pi/agent/skills/ at each boot
-public/main.mjs               the page's script: the policy, relays, and the files it writes at boot
+public/main.mjs               the page's script: relays, and the files it writes at boot
 public/workspace/             the project Pi works on, written into /workspace at each boot
 my-pi/                        the site dolly-build writes, for a static host
 ```
@@ -63,9 +63,14 @@ tools can read them, and so can its model.
 
 ## Your backend
 
-A rule admits the API's origin, the paths and methods the agent may use, and
-the header that carries its token (`credentialHeaders`); [HTTP](http.md) has
-every field. The backend answers CORS for the page's origin, preflights of
+A row of the recipe admits the API's origin, the paths and methods the agent
+may use, and the header that carries its token
+([Dollyfile](dollyfile.md#the-images-network)):
+
+```text
+HTTP GET POST https://api.example.com/api/* authorization
+```
+ The backend answers CORS for the page's origin, preflights of
 `Authorization` and `POST` included, and takes bearer tokens: Dolly's requests
 never carry cookies. It answers itself; the broker follows no redirect under a
 policy. A backend that cannot answer CORS is reached through a relay (below).
@@ -73,24 +78,19 @@ policy. A backend that cannot answer CORS is reached through a relay (below).
 ## The model's provider
 
 - A provider Pi knows by name (Pi's `docs/providers.md`), such as OpenRouter,
-  Anthropic or OpenAI: the `pi-key` line of `init.slop` names the variable Pi
-  reads for it, the provider and a model of its catalog (`--provider` needs
-  `--model`; `/model` in Pi changes it for the session), and the page's policy
-  has one rule for its API with the header that carries the key. `init` writes
-  OpenRouter (`OPENROUTER_API_KEY`, `authorization`) and, as a comment on the
-  next line of each file, Anthropic's API with your own key (`ANTHROPIC_API_KEY`,
-  `x-api-key`; Pi sends the `anthropic-dangerous-direct-browser-access` header
-  its CORS requires). OpenAI's is `OPENAI_API_KEY` with `authorization`; it
-  answers the preflight, and its error answers carry no CORS header, so a
-  refused key reads `Connection error.` in Pi. There is no login: a key, typed
-  at the prompt. Pi sends
-  OpenRouter's `anthropic/*` models through Anthropic's Messages API, whose
-  browser header OpenRouter's CORS refuses; `init`'s `models.json` row sends
-  them through Chat Completions, one `id` per Claude model you want there.
+  Anthropic or OpenAI: `/login` in Pi takes its key, or Pi reads the variable
+  for it from its environment (below), `/model` chooses a model, and the
+  recipe has a row for its API with the headers it needs. `init` writes the
+  rows of the providers Pi offers whose API answers a page ([Dolly from
+  npm](npm.md#the-network)). OpenAI's error answers carry no CORS header, so a
+  refused key reads `Connection error.` in Pi. OpenRouter's CORS refuses two
+  headers Pi sends to its Anthropic endpoint (`anthropic-version`,
+  `anthropic-dangerous-direct-browser-access`); `init`'s row for it lists
+  `x-api-key` alone, so the page removes them and its Claude models answer.
 - An endpoint that speaks OpenAI's or Anthropic's API, such as your gateway
   (LiteLLM, Azure OpenAI, a proxy of your own): an entry in `models.json`,
-  whose `apiKey` names the variable the key is in, a `pi-key` line with that
-  variable, `--provider company --model MODEL`, and a rule for its origin:
+  whose `apiKey` names the variable the key is in, that variable set where Pi
+  starts (below), `--provider company --model MODEL`, and a row for its origin:
 
   ```json
   { "providers": { "company": {
@@ -122,26 +122,25 @@ Bedrock and Copilot refuse the CORS preflight of the headers Pi's clients send
 A static host relays nothing: a host without CORS headers is reached through a
 relay of your own, a route of your server that sends `METHOD /relay/HOST/PATH` on
 to `https://HOST/PATH` with the request's headers and body
-([CORS and relays](http.md#cors-and-relays)). The page maps the origin to it next
-to the policy:
+([CORS and relays](http.md#cors-and-relays)). The page maps the origin to it:
 
 ```js
 const relays = [{ origin: "https://api.individual.githubcopilot.com",
   through: "https://relay.example.com/relay/", credentialHeaders: ["authorization"] }];
-await boot(document.querySelector("#dolly"), { images, image, modules, http: { policy, relays }, files });
+await boot(document.querySelector("#dolly"), { images, image, modules, http: { relays }, files });
 ```
 
-The policy still judges the real URL, so it needs its rule as before. The relay
+The page still judges the real URL, so the recipe needs its row as before. The relay
 sees each request whole, its credentials among them (`credentialHeaders` lists
 the ones it may see).
 
 ## How Pi starts
 
 The recipe's `FILE /etc/dolly/init.slop` is the script `ENTRY` runs. `init`
-wrote one that asks for the OpenRouter key; this one asks for two secrets at
-hidden prompts, puts them in Pi's environment alone, and starts Pi with its
-provider and model. `--offline` keeps Pi from catalog and update requests,
-which the policy would refuse:
+wrote one that starts Pi to sign in with `/login`; this one asks for two
+secrets at hidden prompts, puts them in Pi's environment alone, and starts Pi
+with its provider and model. `--offline` keeps Pi from catalog and update
+requests, which the recipe does not declare:
 
 ```
 FILE /etc/dolly/init.slop
@@ -154,7 +153,7 @@ FILE /etc/dolly/init.slop
 `secretenv NAME PROMPT COMMAND` reads one secret without showing it; the page
 can also type it (`paste(text)` on `boot()`'s handle). The secrets are gone when
 Pi exits. The model can read them through its tools, and its provider then
-sees what it prints; the policy keeps them from any other destination. Give the
+sees what it prints; the recipe's rows keep them from any other destination. Give the
 agent a short-lived token that allows what the frontend allowed.
 
 ## What is measured
@@ -163,7 +162,8 @@ agent a short-lived token that allows what the frontend allowed.
   as written, packed from the checkout and installed from a registry: the project
   `init` writes, built by `dolly-build` in the same browser, where Pi lists the
   extension and the skill, runs the extension's command, has `AGENTS.md`, the
-  `todo` tool, Git and the workspace, and the policy refuses another origin;
+  `todo` tool, Git and the workspace, and the page refuses a request the recipe
+  does not declare;
   `boot()`'s `files` in the `default` image.
 - `demos/pi/test/frontend-browser.mjs`, in Chromium and Firefox: the files of
   this guide built into an image: a scripted model on an origin of its own

@@ -130,6 +130,11 @@ try {
       const shown = (await run("cat /tmp/dh/chain.txt.shown; echo; awk '/^DH residual/ { before = last; last = $3 } END { print before; print last }' /tmp/dh/fit.out"))
         .split("\n").map(line => line.trim()).filter(line => /^\d+$/.test(line));
       assert.ok(shown.length === 3 && shown[1] === shown[0] && shown[2] === shown[0], `${name}: the row clicked and the contracts hedged: ${shown}`);
+      // What the Network tab draws: the hedger's 417 numbers, the law's 49 for each of the
+      // fixture's four intervals and the state's three, each with Adam's two moments.
+      const net = await run("awk '/^DH net/ { sizes[$3 $4] = NF - 4 } END { for (key in sizes) print \"net\", key, sizes[key] }' /tmp/dh/fit.out");
+      assert.deepEqual(Object.fromEntries([...net.matchAll(/^net (\d\d) (\d+)$/gm)].map(match => [match[1], Number(match[2])])),
+        { "00": 417, "01": 417, "02": 417, 10: 196, 11: 196, 12: 196, 20: 3, 21: 3, 22: 3 }, net);
       // dh-fit check: the kernels' bids and asks beside the host's own ledger on the same
       // paths, and each gradient beside its central difference, its section's largest
       // gradients to a few percent; the same for the state's three numbers.

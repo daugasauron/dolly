@@ -33,6 +33,8 @@ matplotlib
 seaborn
 nvim
 less
+tmux
+clip
 jq
 sqlite
 libdolly-audio

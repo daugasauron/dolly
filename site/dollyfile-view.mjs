@@ -1,4 +1,5 @@
 import { hostRequirement, hostRequirements } from "../host/requirements.mjs";
+import { DollyHttpPolicy } from "../page/http-policy.mjs";
 import { unretainedPath, validName } from "../page/image-names.mjs";
 
 export const MAX_DOLLYFILE_BYTES = 128 * 1024;
@@ -157,6 +158,25 @@ function assertObject(tokens, label, item, directive) {
   }
 }
 
+// HTTP METHOD... URL [HEADER...]: a rule of the page's HTTP policy (docs/http.md), checked
+// as the page checks one. URL is an origin and a path, or with a final /* every path
+// under it; HEADER names a header beyond an ordinary request's that may go with it.
+function httpRule(tokens, label, line) {
+  const at = tokens.findIndex(word => !/^[A-Z]+$/.test(word));
+  const [location = "", ...headers] = tokens.slice(at);
+  const under = location.endsWith("/*"), url = under ? location.slice(0, -1) : location;
+  let parsed = null;
+  try { parsed = new URL(url); } catch {}
+  // Written as the page compares it: no user, query or fragment, nothing a URL parser changes.
+  if (at < 1 || url !== `${parsed?.origin}${parsed?.pathname}` || url.includes("*")) {
+    fail(label, line, "invalid HTTP; expected HTTP METHOD... https://HOST/PATH[/*] [HEADER...]");
+  }
+  const rule = { origin: parsed.origin, [under ? "pathPrefix" : "path"]: parsed.pathname,
+    methods: tokens.slice(0, at), credentialHeaders: headers.map(name => name.toLowerCase()) };
+  try { new DollyHttpPolicy({ rules: [rule] }); } catch (error) { fail(label, line, error.message); }
+  return rule;
+}
+
 // RUN and ENTRY share one argument vector grammar and its record limits.
 function programWords(tokens, label, item) {
   if (tokens.length === 0 || !validAbsolutePath(tokens[0])) fail(label, item.line, `invalid ${item.directive}`);
@@ -178,6 +198,7 @@ function inspectRecipe(source, label, rows) {
   const files = [];
   const folders = [];
   const artifacts = [];
+  const http = [];
   let from = null;
   // REQUIRES HOST lines are the image's manifest: they follow the role line.
   let operations = 0;
@@ -241,6 +262,13 @@ function inspectRecipe(source, label, rows) {
         if (tokens.length !== 2) fail(label, item.line, "invalid REQUIRES");
         if (tokens[0] === "TOOL" && tokens[1] === "slop") fail(label, item.line, "SLOP depends on /bin/slop by definition");
         requirements.push({ type: tokens[0], name: tokens[1], line: item.line });
+        break;
+      case "HTTP":
+        // Page configuration, never the engine's: it describes running the image.
+        if (role === "package") fail(label, item.line, "HTTP is an image's network: a PACKAGE declares none");
+        if (operations !== 0) fail(label, item.line, "HTTP lines follow the role line, before every other declaration");
+        http.push(httpRule(tokens, label, item.line));
+        item.fields = null;
         break;
       case "EXPORTS": {
         operations += 1;
@@ -312,7 +340,7 @@ function inspectRecipe(source, label, rows) {
   try { required = hostRequirements(requirements.filter(item => item.type === "HOST").map(item => item.name)); }
   catch (error) { throw new Error(`${label}: ${error.message}`); }
   return {
-    hostRequirements: required, role, name, image: name, entry,
+    hostRequirements: required, httpPolicy: http.length ? { rules: http } : null, role, name, image: name, entry,
     requirements, exports, artifacts, from, sources, slops, files, folders, rows, source,
   };
 }
@@ -320,10 +348,10 @@ function inspectRecipe(source, label, rows) {
 // The rows /bin/dollyfile executes, which the page writes to
 // /etc/dolly/recipe.rows: the engine parses no recipe text, so this file is the
 // language's one parser. Every field ends with NUL, which no recipe holds:
-// "DOLLY 8 SHA256" of the recipe's text, then for each row after DOLLY
-// "LINE COUNT" and that many fields, the directive first.
+// "DOLLY 8 SHA256" of the recipe's text, then for each row after DOLLY but HTTP
+// (the page's) "LINE COUNT" and that many fields, the directive first.
 export const recipeRows = (recipe, sha256) => [`DOLLY 8 ${sha256}`,
-  ...recipe.rows.slice(1).flatMap(row => [`${row.line} ${row.fields.length}`, ...row.fields])]
+  ...recipe.rows.slice(1).filter(row => row.fields).flatMap(row => [`${row.line} ${row.fields.length}`, ...row.fields])]
   .map(field => `${field}\0`).join("");
 
 export function inspectDollyfile(source, label = "Dollyfile") {

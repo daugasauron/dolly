@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { DollyHttpPolicy, isDollyCredentialHeader, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../page/http-policy.mjs";
 import { DOLLY_ERRNO } from "../page/process-constants.mjs";
+import { inspectDollyfile } from "../site/dollyfile-view.mjs";
 
 test("response quotas are optional and finite inherited quotas cannot be widened", () => {
   const target = new URL("https://models.example/weights");
@@ -184,4 +185,32 @@ test("a hardened rule lets through only the credential headers it names", () => 
   for (const name of names) assert.deepEqual(left([name]), [name]);
   assert.deepEqual(left([]), []);
   assert.deepEqual(left(undefined), []);
+});
+
+test("an image's HTTP rows narrow the page's policy and never widen it", () => {
+  const { httpPolicy } = inspectDollyfile("DOLLY 8\nAPPLICATION a\n" +
+    "HTTP POST https://models.example/v1/chat/completions Authorization\nHTTP GET HEAD https://files.example/data/*\nENTRY /bin/slop\n");
+  assert.deepEqual(httpPolicy, { rules: [
+    { origin: "https://models.example", path: "/v1/chat/completions", methods: ["POST"], credentialHeaders: ["authorization"] },
+    { origin: "https://files.example", pathPrefix: "/data/", methods: ["GET", "HEAD"], credentialHeaders: [] }] });
+  const admitted = (policy, method, url, headers = new Headers()) => {
+    try { policy.authorize(new URL(url), method, headers, 0); return true; }
+    catch (error) { assert.equal(error.errno, DOLLY_ERRNO.EACCES); return false; }
+  };
+  const page = restrictDollyHttpPolicy(new DollyHttpPolicy(), [httpPolicy]);
+  const headers = new Headers({ authorization: "Bearer key", "x-trace": "unnamed" });
+  assert.equal(admitted(page, "POST", "https://models.example/v1/chat/completions", headers), true);
+  assert.deepEqual([...headers.keys()], ["authorization"]);
+  assert.deepEqual([["GET", "https://files.example/data/a.csv"], ["HEAD", "https://files.example/data/"],
+    ["GET", "https://models.example/v1/chat/completions"], ["POST", "https://models.example/v1/models"],
+    ["POST", "https://other.example/v1/chat/completions"], ["GET", "https://files.example/database"]]
+    .map(([method, url]) => admitted(page, method, url)), [true, true, false, false, false, false]);
+  // An embedding that admits files.example alone keeps refusing what the image declares beyond it.
+  const narrow = restrictDollyHttpPolicy(new DollyHttpPolicy({ rules: [{ origin: "https://files.example" }] }), [httpPolicy]);
+  assert.equal(admitted(narrow, "POST", "https://models.example/v1/chat/completions"), false);
+  assert.equal(admitted(narrow, "GET", "https://files.example/data/a.csv"), true);
+  // A tab opened from the page inherits the declaration.
+  const child = restrictDollyHttpPolicy(new DollyHttpPolicy(), httpPolicyConfigurations(page));
+  assert.equal(admitted(child, "GET", "https://other.example/"), false);
+  assert.equal(admitted(child, "GET", "https://files.example/data/a.csv"), true);
 });
