@@ -49,7 +49,7 @@ asset pricing, with frictions (cher-sim, 04-09; braut, 07-22).
 | 6 | No ad hoc structure: no jump channels, no targeted statistics. | "these kind of jumps should be something that emerges from the fundamental model and not something that is hard coded" (cher-sim, 06-02) |
 | 7 | One hedger network for all contracts, generic across days; it never sees market quotes. It replicates; a profit-seeking copy is a later tool with its own weights. | "I want the generator to represent the market view of the distribution of the underlying, and the hedger to be sort of a generic hedger - not specific to the current market prices." (braut, 07-23) |
 | 8 | The hedger's previous position is its input. | "If the next hedge didn't depend on the current hedge the transaction costs would not be relevant." (cher, 02-22) |
-| 9 | Daily rebalancing; an order decided today fills tomorrow. | "Are you taking into consideration that you can't buy/sell at the same day?" (braut, 07-22) |
+| 9 | Daily rebalancing. A decision made on a day's information trades at that day's prices, the stock at its spread and options at their bid or ask. A position entered on a day is held until the next decision, so a contract cannot be bought and closed the same day, and closing it later pays that day's spread. Until 2026-11-19 this row read "an order decided today fills tomorrow", from the same words of 07-22; that was a misreading, and it cost the hedger a day it could have hedged. | "This makes no sense to me, can we just remove it? I think what I meant was regarding \"self trading\" a contract, where the initial pushback from claude was that you can just exit the contract directly as a hedge. But my pushback to the pushback was that the option position entered at any day won't change until the next hedge (next day) and then to exit that position you'd have to pay the spread." (2026-11-19); "Are you taking into consideration that you can't buy/sell at the same day?" (braut, 07-22) |
 | 10 | Two frictions make the spread. | "For me the 2 reasons for frictions are 1: transaction costs and 2: discrete time hedging." (sig-mmd, 07-08) |
 | 11 | Costs are inside the hedge, never added to a backtest afterwards; options have costs too. | "The transaction costs are built in to the model at a fundamental level" (cher-sim, 05-24); "it is crucial that the options have transaction cost" (braut, 08-13) |
 | 12 | The hedger may trade the stock and every listed option at the model's own quotes, the contract being priced included. No stock-only fallback. | "Why would it make sense that the intermediate prices are the prices of hedging with stock only? Other people can hedge with options as well. This is a core idea" (braut, 07-22) |
@@ -85,8 +85,9 @@ before the expiry, which is assumed; that gives each expiry its discount `D`
 and forward `F` from the strikes near the money (decision 4). Every price is
 then divided by `D F` and every strike by `F`. The model has no rate.
 
-**Time.** Business days. One decision a day; it fills at the next day's price
-(decision 9), so the last day before expiry cannot be hedged at all.
+**Time.** Business days. One decision a day, at the close, traded at that
+close and held to the next (decision 9). A book trades from the day it is
+opened to the last day before its expiry.
 
 **The path law.** `x_0 = 1`, `log x_{t+1} = log x_t + s_t z_t`. The shock
 `z_t` is drawn from a density that is a weighted sum of N fixed kernels on a
@@ -255,7 +256,7 @@ prices every contract, so the levels are consistent in strike and expiry, and
 | `c` | what a stock trade costs | the stock's own market |
 | the floor, in ticks | the least any contract of the name costs to deal in | implied by today's spreads |
 | an expiry's number: `k`, or `h` in days | what a day's risk costs in that expiry, or how long its holder is in before he is out | implied by today's spreads |
-| the clock and the lag | one decision a day, filled the next | the trader's situation |
+| the clock | one decision a day, traded at that day's close and held to the next | the trader's situation |
 
 The hedger's network is not among them: it is the solver, judged by the risk
 it leaves.
@@ -370,8 +371,11 @@ another at that dealer's quote, because the deviation of a sum is at most the su
 deviations. So that rule is consistent with "everything is other dealers giving prices"; a rule
 on a variance is not.
 
-**What was measured** (AAPL, weekly trade days 2020-09 to 2022-12, each day's model fitted from
-that day's chain alone and scored on the real closes after it; two seeds; task dh-39):
+**What was measured, under the fill lag that decision 9 had until 2026-11-19** (AAPL, weekly
+trade days 2020-09 to 2022-12, each day's model fitted from that day's chain alone and scored on
+the real closes after it; two seeds; task dh-39). These numbers are history: the model they
+measured filled every stock trade a day late. The same period is fitted again without the lag;
+its numbers are in task dh-39 and replace these when they are in.
 
 - A short straddle hedged this way left 46 to 84 bp of deviation in its realised P&L, by
   expiry; a Black delta alone 130 to 188; a Black vega hedge in the next expiry's straddle 108

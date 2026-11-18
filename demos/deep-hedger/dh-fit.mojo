@@ -194,7 +194,7 @@ def policy(
     mut second: Array[Float32, HIDDEN],
     hidden: Int,
 ) -> Float32:
-    """The position to hold from tomorrow, from what is seen today. `hidden`
+    """The position to hold from today's close, from what that close shows. `hidden`
     is HIDDEN, as a value the compiler does not know: with constant bounds it
     unrolls every loop of the network, and the adjoint kernel is then more
     WGSL than a software adapter compiles before the browser gives up on it."""
@@ -243,10 +243,10 @@ def roll(
 ):
     """Every book of a path, hedged from empty to its expiry: what is left
     with the dealer, and what the hedge paid in costs. A position decided on
-    day u-1 is bought at day u's price and held from then; it is bought
+    day u's close is bought at that close and held to the next; it is bought
     forward, so a day earns it the move less the day's mean move on its path,
     and holding stock is a fair game under any law. The hedger sees the
-    volatility state its last seen day had. What the hedge has gained before
+    volatility state of that close. What the hedge has gained before
     each check day is kept, for `carry`. Neighbouring threads
     are neighbouring paths on the same books, so a block runs in step."""
     var thread = global_idx.x
@@ -269,18 +269,18 @@ def roll(
         var cash = Float32(0)
         var fees = Float32(0)
         var check = 0
-        for u in range(1, expiry):
+        for u in range(expiry):
             if check < CHECKS and u == check_day(check):
                 carried[unsafe_offset=(check * books + b) * paths + p] = cash
                 check += 1
             var price = exp(logx[unsafe_offset=row + u])
             var target = policy(
                 phi,
-                logx[unsafe_offset=row + u - 1] - log_strike,
-                Float32(expiry - u + 1),
+                logx[unsafe_offset=row + u] - log_strike,
+                Float32(expiry - u),
                 call,
                 side,
-                draw[unsafe_offset=(p * days + u - 1) * DRAW + 1],
+                draw[unsafe_offset=(p * days + u) * DRAW + 1],
                 position,
                 inputs,
                 first,
@@ -514,22 +514,23 @@ def adjoint(
         var cash = Float32(0)
         var before = Float32(0)
         held_rows[unsafe_offset=thread] = 0
-        for u in range(1, expiry):
+        for u in range(expiry):
             var price = exp(logx[unsafe_offset=row + u])
             var after = policy(
                 phi,
-                logx[unsafe_offset=row + u - 1] - log_strike,
-                Float32(expiry - u + 1),
+                logx[unsafe_offset=row + u] - log_strike,
+                Float32(expiry - u),
                 call,
                 side,
-                draw[unsafe_offset=(p * days + u - 1) * DRAW + 1],
+                draw[unsafe_offset=(p * days + u) * DRAW + 1],
                 before,
                 inputs,
                 first,
                 second,
                 hidden,
             )
-            held_rows[unsafe_offset=u * threads + thread] = after
+            # Row u + 1 holds the position bought on day u; row 0 is the empty book before it.
+            held_rows[unsafe_offset=(u + 1) * threads + thread] = after
             cash += after * (
                 exp(logx[unsafe_offset=row + u + 1]) - (1 + draw[unsafe_offset=(p * days + u) * DRAW + 2]) * price
             ) - cost * abs(after - before) * price
@@ -546,10 +547,10 @@ def adjoint(
 
         var carry = seed * cost * direction(closing) * last
         var u = expiry - 1
-        while u >= 1:
+        while u >= 0:
             var price = exp(logx[unsafe_offset=row + u])
-            var now = held_rows[unsafe_offset=u * threads + thread]
-            var earlier = held_rows[unsafe_offset=(u - 1) * threads + thread]
+            var now = held_rows[unsafe_offset=(u + 1) * threads + thread]
+            var earlier = held_rows[unsafe_offset=u * threads + thread]
             var turn = direction(now - earlier)
             var grown = 1 + draw[unsafe_offset=(p * days + u) * DRAW + 2]
             level_rows[unsafe_offset=u * threads + thread] += loss_seed * (grown * now - earlier + cost * abs(now - earlier))
@@ -558,11 +559,11 @@ def adjoint(
             var on_position = carry - seed * (exp(logx[unsafe_offset=row + u + 1]) - grown * price - cost * turn * price)
             _ = policy(
                 phi,
-                logx[unsafe_offset=row + u - 1] - log_strike,
-                Float32(expiry - u + 1),
+                logx[unsafe_offset=row + u] - log_strike,
+                Float32(expiry - u),
                 call,
                 side,
-                draw[unsafe_offset=(p * days + u - 1) * DRAW + 1],
+                draw[unsafe_offset=(p * days + u) * DRAW + 1],
                 earlier,
                 inputs,
                 first,
@@ -1199,16 +1200,15 @@ def ledger(mut model: Model, chain: Chain, seed: UInt32, position: Float64) rais
             var residuals = List[Float64]()
             for p in range(model.paths):
                 var cash = Float64(0)
-                for u in range(1, expiry):
+                for u in range(expiry):
                     cash += position * (
                         exp(Float64(model.logx[p * row + u + 1]))
                         - (1 + Float64(model.draw[(p * model.days + u) * DRAW + 2])) * exp(Float64(model.logx[p * row + u]))
                     )
-                if expiry > 1:
-                    # Bought once on day 1, sold once at the expiry.
-                    cash -= Float64(model.cost) * abs(position) * (
-                        exp(Float64(model.logx[p * row + 1])) + exp(Float64(model.logx[p * row + expiry]))
-                    )
+                # Bought once on day 0, sold once at the expiry.
+                cash -= Float64(model.cost) * abs(position) * (
+                    exp(Float64(model.logx[p * row])) + exp(Float64(model.logx[p * row + expiry]))
+                )
                 residuals.append(side * max(call * (exp(Float64(model.logx[p * row + expiry])) - strike), 0) - cash)
             var sum = Float64(0)
             for p in range(model.paths):
@@ -1629,14 +1629,14 @@ def fit(mut model: Model, mut chain: Chain, path: String, seed: UInt64, iteratio
                     line = String("DH hedge ") + String(hedge) + " " + String(chosen)
                     hedge += 1
                     var position = Float32(0)
-                    for u in range(1, expiry):
+                    for u in range(expiry):
                         position = policy(
                             rebind[Floats](model.phi.unsafe_ptr()),
-                            model.logx[p * (model.days + 1) + u - 1] - log_strike,
-                            Float32(expiry - u + 1),
+                            model.logx[p * (model.days + 1) + u] - log_strike,
+                            Float32(expiry - u),
                             chain.contracts[chosen * CONTRACT + 2],
                             1,
-                            model.draw[(p * model.days + u - 1) * DRAW + 1],
+                            model.draw[(p * model.days + u) * DRAW + 1],
                             position,
                             inputs,
                             first_layer,

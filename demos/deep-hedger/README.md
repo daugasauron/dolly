@@ -179,8 +179,10 @@ On an RTX 5070 in Chrome 156 (Vulkan), AAPL's chain of 2026-11-13 as loaded on
 - **The hedger against the delta**, measured on the version of the afternoon,
   on a PyTorch reference of it, a lognormal 25% chain: the hedger and the
   Black-Scholes delta at 25%, decided a day before, both left 0.47, 0.34, 0.25
-  and 0.18 of the unhedged deviation at 5, 10, 21 and 42 days. What is left is
-  the day's lag: a book's first day is not hedged at all (decision 9).
+  and 0.18 of the unhedged deviation at 5, 10, 21 and 42 days. That version
+  filled each stock trade a day after its decision, and what was left was
+  that lag. The model has none since 2026-11-19 (THEORY.md, decision 9); this
+  has not been measured again on that chain.
 
 The test ([`test/`](test)) drives the image as a user does, the service's
 answer being a lognormal chain of its own: Load quotes, Fit, Stop, Fit again,
