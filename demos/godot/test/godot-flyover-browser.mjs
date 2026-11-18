@@ -1,8 +1,8 @@
 // Voxel Flyover on gpu@0, on a real adapter, on the private X display DISPLAY names: Chrome on
 // Vulkan, or the installed Firefox (docs/gpu.md). The front page lists godot-voxel-flyover among
-// its applications, and its link starts the game on the page. A click gives the game the pointer
-// and the player the board: the mouse pushed forward raises the board's nose and W opens the
-// throttle, which the Q that leaves the shell prints. There the game flies itself through a
+// its applications, and its link starts the game on the page. A click gives the game the pointer, L gives it back
+// and a click again gives the player the board, and the mouse then steers: pushed forward, the board noses up to almost
+// straight up, which the Q that leaves the shell prints. There the game flies itself through a
 // morning and reports: its flyer flew through rings along their courses, so the ground the script
 // flies over is the ground the shaders draw on the sphere, its frame has the sky along the top and
 // a scene's worth of colours, and few of its frames took over twice the median, fewer over four
@@ -36,25 +36,29 @@ for (const name of browsers) {
     await page.waitForURL(`${server.origin}/godot-voxel-flyover/`);
     await page.waitForFunction(() => window.__dolly?.gpu?.active && __dolly.gpu.stats.frames > 120, null, { polling: 250, timeout: 300_000 });
     assert.equal(await page.evaluate(() => __dolly.gpu.isFallbackAdapter), false);
-    // A person's click captures the pointer; 240 pixels up then push the stick back (the nose rises), and W held
-    // opens the throttle.
+    // A person's click captures the pointer, L gives it back, and a click captures it again; 900 pixels up then
+    // raise the board's nose to almost straight up.
     const box = await page.locator("#display").boundingBox(), x = box.x + box.width / 2, y = box.y + box.height / 2;
-    await page.mouse.click(x, y);
-    await page.waitForFunction(() => document.pointerLockElement?.id === "display", null, { timeout: 10_000 });
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    await page.mouse.move(x, y - 240, { steps: 30 });
-    await page.keyboard.down("w");
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    await page.keyboard.up("w");
+    const capture = async () => {
+      await page.mouse.click(x, y);
+      await page.waitForFunction(() => document.pointerLockElement?.id === "display", null, { timeout: 10_000 });
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    };
+    await capture();
+    await page.keyboard.press("l");
+    await page.waitForFunction(() => document.pointerLockElement === null, null, { timeout: 10_000 });
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    await capture();
+    await page.mouse.move(x, y - 900, { steps: 90 });
+    await new Promise(resolve => setTimeout(resolve, 1500));
     await page.keyboard.press("q");
     await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
     const flight = await page.evaluate(() => __dolly.visibleTerminalText());
-    const [, helm, pitch, throttle] = flight.match(/^FLYOVER flown \d+ rings \d+ score \d+ helm (\d) high -?\d+ heading -?\d+ pitch (-?\d+) bank -?\d+ speed \d+ throttle ([\d.]+) zoom [\d.]+ touches \d+$/m) ?? [];
-    // A pixel of the motion the page is given pitches the nose 0.0024 radians, so 240 pixels raise it some 33 degrees
-    // from the few the corgi flew at when the board was taken. Firefox gives the moves (2026-11-18: 216 of the 240) after
-    // a jump that the game leaves (320 and 115 pixels for the first move of 8). The throttle opens by half of all of it a
-    // second, so two seconds open it whole from where the corgi had it (2026-11-18 in Firefox: 0.14).
-    assert.ok(helm === "1" && Number(pitch) >= 8 && Number(pitch) <= 80 && Number(throttle) >= 0.9, `the captured mouse and the keys fly the board: ${flight}`);
+    const [, helm, pitch] = flight.match(/^FLYOVER flown \d+ rings \d+ score \d+ helm (\d) high -?\d+ heading -?\d+ pitch (-?\d+) speed \d+ zoom [\d.]+ touches \d+$/m) ?? [];
+    // The heading turns 0.0025 radians a pixel of the motion the page is given, so 900 pixels would raise the nose 129
+    // degrees, and it stops at 86. Firefox gives the moves (2026-11-18: 216 of 240) after
+    // a jump that the game leaves (320 and 115 pixels for the first move of 8).
+    assert.ok(helm === "1" && Number(pitch) >= 80 && Number(pitch) <= 86, `the captured mouse steers the board to almost straight up: ${flight}`);
     assert.equal(await page.evaluate(() => document.pointerLockElement), null, "the pointer is the page's again once the game has quit");
     const run = async command => assert.equal(await page.evaluate(text => __dolly.submit(text), command), 0, command);
     const flown = async options => {
@@ -86,7 +90,7 @@ for (const name of browsers) {
     const [, lit] = tour.match(/^FLYOVER frame \d+x\d+ sky \d+ colours (\d+)$/m) ?? [];
     assert.ok(Number(highest) > 150_000 && Number(anchors) >= 1 && Number(lit) > 60, `Voxel Flyover is left: ${tour}`);
     assert.deepEqual(errors, []);
-    console.log(name, `pitch ${pitch} throttle ${throttle}; rings along ${morning - morningAgainst}, against ${back}`, ...report.match(/^FLYOVER (seconds|frame) .*$/gm), "tour:", ...tour.match(/^FLYOVER (seconds|frame|highest) .*$/gm));
+    console.log(name, `pitch ${pitch}; rings along ${morning - morningAgainst}, against ${back}`, ...report.match(/^FLYOVER (seconds|frame) .*$/gm), "tour:", ...tour.match(/^FLYOVER (seconds|frame|highest) .*$/gm));
     console.log(`godot-flyover: ${name} passed`);
   } finally {
     clearTimeout(deadline);
