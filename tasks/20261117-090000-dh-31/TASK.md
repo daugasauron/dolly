@@ -21,3 +21,11 @@ In `dh-fit.mojo` (`Model.__init__`, `simulate`):
   keep 0.9, swing 0.1, lean 0. One state for all intervals.
 
 Waits for the owner's yes, or for another form.
+
+## The owner, 2026-11-17 evening
+
+The volatility state is accepted: "that is fine, what I meant with no hidden vol dynamics is
+that I don't want the \"BS vol\" that makes so many model assumptions, I want more of a
+non-parametric representation of the vol state." So decision 4 of THEORY.md forbids a
+Black-Scholes volatility in the model, not a state of the path. Left to confirm here: that a
+fit starts from a normal law.

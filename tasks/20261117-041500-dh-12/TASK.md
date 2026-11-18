@@ -27,3 +27,7 @@ leaving such puts out (now, task dh-16) loses the in-the-money puts of the longe
 nothing else; pricing exercise makes the holder's decision part of the long book and the
 writer's risk part of the short one, a second policy and a stopping time in the kernels; a
 European chain (an index) removes the question and is not the single name the owner wants.
+
+## The owner, 2026-11-17 evening
+
+Postponed: "dh-12 and dh-16 - postpone for now."

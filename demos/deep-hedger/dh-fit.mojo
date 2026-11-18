@@ -3,7 +3,7 @@
 The model is demos/deep-hedger/THEORY.md, sections 3 and 4, with the stock as
 the only hedge instrument. Every number of an iteration is made by the kernels
 below; the host keeps the parameters (the law's weights and its volatility state's
-three numbers, the hedger's network, the confidence) and their Adam moments.
+three numbers, the hedger's network) and their Adam moments.
 
   dh-fit CHAIN PATHS SEED [ITERATIONS]     fit, reporting on stdout until killed
   dh-fit check CHAIN PATHS [ITERATIONS]    the gradients against finite differences
@@ -42,14 +42,14 @@ comptime MAX_DAYS = 64
 # gradient in words of its own, so GROUPS bounds that buffer.
 comptime GROUPS = 8
 comptime BLOCK = 64
-# A contract is strike, expiry day, +1 call or -1 put, bid, ask, band unit.
-comptime CONTRACT = 6
-# A contract's results: bid, ask, cost short, cost long, deviation short, deviation long, loss,
-# deviation unhedged, mean short, mean long, the confidence's own loss and its derivative, the
-# hedger's funding short and long.
-comptime RESULT = 14
-# A book's numbers for the backward pass: its quantile at the hedger's preference, the loss's
-# derivative by its price, its quantile at the price's confidence.
+# A contract is strike, expiry day, +1 call or -1 put, bid, ask, band unit, and the charge its
+# quotes carry: the nearest closure's at the last report, nothing before the first.
+comptime CONTRACT = 7
+# A contract's results: bid, ask (the two books' mean replication costs), cost short, cost
+# long, deviation short, deviation long, loss, deviation unhedged.
+comptime RESULT = 8
+# A book's numbers for the backward pass: its residual's mean and deviation, the loss's
+# derivative by its price.
 comptime BOOK = 3
 
 # The volatility state's numbers: what a day keeps of it, what the size of a day's shock adds,
@@ -63,7 +63,17 @@ comptime MAX_LOG_SCALE = 1.5
 # that mean move's derivative by the log scale.
 comptime DRAW = 4
 
+
+# The days at which a book's cost-to-go is looked at again: 1, 2, 3, 5, 8, 12, 17, 23, 30, 38.
+comptime CHECKS = 10
+# The paths nearest in the stock over which a check day's cost-to-go is averaged.
+comptime NEAR = 64
+
 comptime Floats = Pointer[Float32, MutAnyOrigin]
+
+
+def check_day(k: Int) -> Int:
+    return 1 if k == 0 else 2 + (k - 1) * k // 2
 
 
 def uniform(path: Int, day: Int, seed: UInt32) -> Float32:
@@ -223,6 +233,7 @@ def roll(
     phi: Floats,
     residual: Floats,
     paid: Floats,
+    carried: Floats,
     draw: Floats,
     paths: Int,
     days: Int,
@@ -235,7 +246,8 @@ def roll(
     day u-1 is bought at day u's price and held from then; it is bought
     forward, so a day earns it the move less the day's mean move on its path,
     and holding stock is a fair game under any law. The hedger sees the
-    volatility state its last seen day had. Neighbouring threads
+    volatility state its last seen day had. What the hedge has gained before
+    each check day is kept, for `carry`. Neighbouring threads
     are neighbouring paths on the same books, so a block runs in step."""
     var thread = global_idx.x
     if thread >= paths * GROUPS:
@@ -256,7 +268,11 @@ def roll(
         var position = Float32(0)
         var cash = Float32(0)
         var fees = Float32(0)
+        var check = 0
         for u in range(1, expiry):
+            if check < CHECKS and u == check_day(check):
+                carried[unsafe_offset=(check * books + b) * paths + p] = cash
+                check += 1
             var price = exp(logx[unsafe_offset=row + u])
             var target = policy(
                 phi,
@@ -299,31 +315,6 @@ def beyond(error: Float32) -> Float32:
     return size * size if size <= 1 else 2 * size - 1
 
 
-def level_at(residual: Floats, b: Int, books: Int, paths: Int, share: Float32, mean: Float32, deviation: Float32) -> Float32:
-    """A book's quantile by halving: the least level with that share of its paths at or under it."""
-    var under = mean - 12 * deviation
-    var over = mean + 12 * deviation
-    for _ in range(26):
-        var level = (under + over) / 2
-        var count = Float32(0)
-        for p in range(paths):
-            count += max(direction(level - residual[unsafe_offset=p * books + b]), 0)
-        if count < share * Float32(paths):
-            under = level
-        else:
-            over = level
-    return over
-
-
-def shortfall(residual: Floats, b: Int, books: Int, paths: Int, share: Float32, level: Float32) -> Float32:
-    """A book's Expected Shortfall at a share, from its quantile there: the mean
-    of all but the best that share of its paths."""
-    var excess = Float32(0)
-    for p in range(paths):
-        excess += max(residual[unsafe_offset=p * books + b] - level, 0)
-    return level + excess / (Float32(paths) * (1 - share))
-
-
 def quote(
     residual: Floats,
     paid: Floats,
@@ -334,27 +325,19 @@ def quote(
     paths: Int,
     days: Int,
     books: Int,
-    confidence: Float32,
-    preference: Float32,
     offset: Int,
 ):
-    """A contract's two books. A book's price is the Expected Shortfall of its
-    residual at the confidence c: q + mean(max(L - q, 0)) / (1 - c) at that
-    quantile q, which moves with c by (price - q) / (1 - c). The short book's
-    is the model's ask, the long book's minus its bid. The hedger's own
-    funding is the same at its preference. The generator's loss is the quotes'
-    distance outside the market's band, nothing inside it. That leaves the
-    spread's width free, so the confidence has a loss of its own: the model's
-    bid from the market's bid and its ask from the market's ask."""
+    """A contract's two books. A book's middle is the mean of its residual, what
+    replicating it costs on average: the short book's is the model's ask less
+    its charge, the long book's minus its bid less its charge. The generator's
+    loss is the ask's and the bid's distance outside the market's band,
+    nothing inside it. The hedger's is each book's deviation."""
     var i = global_idx.x
     if i >= books // 2:
         return
     var funding = Array[Float32, 2](fill=0)
     var deviation = Array[Float32, 2](fill=0)
     var fees = Array[Float32, 2](fill=0)
-    var means = Array[Float32, 2](fill=0)
-    var quantile = Array[Float32, 2](fill=0)
-    var hedger_funding = Array[Float32, 2](fill=0)
     for s in range(2):
         var b = 2 * i + s
         var sum = Float32(0)
@@ -368,25 +351,21 @@ def quote(
             var d = residual[unsafe_offset=p * books + b] - mean
             squares += d * d
         deviation[s] = sqrt(squares / Float32(paths) + 1e-12)
-        quantile[s] = level_at(residual, b, books, paths, confidence, mean, deviation[s])
-        funding[s] = shortfall(residual, b, books, paths, confidence, quantile[s])
-        var hedged = level_at(residual, b, books, paths, preference, mean, deviation[s])
-        hedger_funding[s] = shortfall(residual, b, books, paths, preference, hedged)
-        means[s] = mean
-        book_stats[unsafe_offset=b * BOOK] = hedged
-        book_stats[unsafe_offset=b * BOOK + 2] = quantile[s]
+        funding[s] = mean
+        book_stats[unsafe_offset=b * BOOK] = mean
+        book_stats[unsafe_offset=b * BOOK + 1] = deviation[s]
         fees[s] = fee / Float32(paths)
     var c = i * CONTRACT
     var market_bid = contracts[unsafe_offset=c + 3]
     var market_ask = contracts[unsafe_offset=c + 4]
     var unit = contracts[unsafe_offset=c + 5]
-    var ask = funding[0]
-    var bid = -funding[1]
+    var ask = funding[0] + contracts[unsafe_offset=c + 6]
+    var bid = -funding[1] - contracts[unsafe_offset=c + 6]
     var ask_error = outside(ask, market_bid, market_ask, unit)
     var bid_error = outside(bid, market_bid, market_ask, unit)
     var contracts_count = Float32(books // 2)
-    book_stats[unsafe_offset=2 * i * BOOK + 1] = 2 * min(max(ask_error, -1), 1) / (unit * contracts_count)
-    book_stats[unsafe_offset=(2 * i + 1) * BOOK + 1] = -2 * min(max(bid_error, -1), 1) / (unit * contracts_count)
+    book_stats[unsafe_offset=2 * i * BOOK + 2] = 2 * min(max(ask_error, -1), 1) / (unit * contracts_count)
+    book_stats[unsafe_offset=(2 * i + 1) * BOOK + 2] = -2 * min(max(bid_error, -1), 1) / (unit * contracts_count)
     var expiry = Int(contracts[unsafe_offset=c + 1])
     # The payoff's own deviation: the risk of a book that does not hedge.
     var payoff = Float32(0)
@@ -401,24 +380,91 @@ def quote(
         payoff_squares += paid_out * paid_out
     payoff /= Float32(paths)
     var r = offset + i * RESULT
-    result[unsafe_offset=r] = bid
-    result[unsafe_offset=r + 1] = ask
+    result[unsafe_offset=r] = -funding[1]
+    result[unsafe_offset=r + 1] = funding[0]
     result[unsafe_offset=r + 2] = fees[0]
     result[unsafe_offset=r + 3] = fees[1]
     result[unsafe_offset=r + 4] = deviation[0]
     result[unsafe_offset=r + 5] = deviation[1]
     result[unsafe_offset=r + 6] = beyond(ask_error) + beyond(bid_error)
     result[unsafe_offset=r + 7] = sqrt(max(payoff_squares / Float32(paths) - payoff * payoff, 0))
-    result[unsafe_offset=r + 8] = means[0]
-    result[unsafe_offset=r + 9] = means[1]
-    var ask_gap = (ask - market_ask) / unit
-    var bid_gap = (bid - market_bid) / unit
-    result[unsafe_offset=r + 10] = beyond(ask_gap) + beyond(bid_gap)
-    result[unsafe_offset=r + 11] = (
-        2 * min(max(ask_gap, -1), 1) * (funding[0] - quantile[0]) - 2 * min(max(bid_gap, -1), 1) * (funding[1] - quantile[1])
-    ) / (unit * contracts_count * (1 - confidence))
-    result[unsafe_offset=r + 12] = hedger_funding[0]
-    result[unsafe_offset=r + 13] = hedger_funding[1]
+
+
+def carry(
+    carried: Floats,
+    residual: Floats,
+    draw: Floats,
+    logx: Floats,
+    order: Floats,
+    contracts: Floats,
+    left: Floats,
+    paths: Int,
+    days: Int,
+    books: Int,
+):
+    """The variance a book's cost-to-go from a check day still has once that
+    day's stock and volatility state are known (THEORY.md, section 4: U_h).
+    The cost-to-go is the residual with the hedge's gains before that day
+    given back. Its mean given the day is a plane in the stock and the
+    volatility state over the NEAR paths nearest in the stock; `order` has the
+    paths by their stock of each check day. Minus one for a book that has
+    expired by then."""
+    var id = global_idx.x
+    var k = id // books
+    if k >= CHECKS:
+        return
+    var b = id % books
+    var day = check_day(k)
+    if Int(contracts[unsafe_offset=(b // 2) * CONTRACT + 1]) <= day:
+        left[unsafe_offset=k * books + b] = -1
+        return
+    var total = Float32(0)
+    for j in range(paths):
+        var start = min(max(j - NEAR // 2, 0), paths - NEAR)
+        var p = Int(order[unsafe_offset=k * paths + j])
+        var level = logx[unsafe_offset=p * (days + 1) + day]
+        var state = draw[unsafe_offset=(p * days + day) * DRAW + 1]
+        # Sums over the neighbours of the stock (in percent of the path's own) and the
+        # state, each from the path's own, and of the cost-to-go.
+        var x = Float32(0)
+        var s = Float32(0)
+        var xx = Float32(0)
+        var xs = Float32(0)
+        var ss = Float32(0)
+        var c = Float32(0)
+        var cx = Float32(0)
+        var cs = Float32(0)
+        for n in range(NEAR):
+            var q = Int(order[unsafe_offset=k * paths + start + n])
+            var dx = 100 * (logx[unsafe_offset=q * (days + 1) + day] - level)
+            var ds = draw[unsafe_offset=(q * days + day) * DRAW + 1] - state
+            var togo = residual[unsafe_offset=q * books + b] + carried[unsafe_offset=(k * books + b) * paths + q]
+            x += dx
+            s += ds
+            xx += dx * dx
+            xs += dx * ds
+            ss += ds * ds
+            c += togo
+            cx += togo * dx
+            cs += togo * ds
+        x /= NEAR
+        s /= NEAR
+        c /= NEAR
+        # The plane's slopes, from the neighbours' covariances; a little is added to the two
+        # variances, so that a state that does not vary gets no slope.
+        var vx = xx / NEAR - x * x + 1e-7
+        var vs = ss / NEAR - s * s + 1e-7
+        var cross = xs / NEAR - x * s
+        var by_x = cx / NEAR - c * x
+        var by_s = cs / NEAR - c * s
+        var det = vx * vs - cross * cross
+        var slope_x = (by_x * vs - by_s * cross) / det
+        var slope_s = (by_s * vx - by_x * cross) / det
+        # The plane at the path's own stock and state.
+        var togo = residual[unsafe_offset=p * books + b] + carried[unsafe_offset=(k * books + b) * paths + p]
+        var miss = togo - (c - slope_x * x - slope_s * s)
+        total += miss * miss
+    left[unsafe_offset=k * books + b] = total / Float32(paths) * NEAR / (NEAR - 3)
 
 
 def adjoint(
@@ -434,12 +480,10 @@ def adjoint(
     days: Int,
     books: Int,
     cost: Float32,
-    confidence: Float32,
-    preference: Float32,
     hidden: Int,
 ):
     """The backward pass of roll and quote for a thread's books. For the
-    hedger, the derivative of the sum of its books' fundings by its parameters,
+    hedger, the derivative of the sum of its books' deviations by its parameters,
     through every day's position and the position it was decided from. For the
     generator, the derivative of the loss by the path's levels with the
     positions held fixed (THEORY.md, section 4), and by each day's mean move. A thread sums into words of
@@ -493,13 +537,10 @@ def adjoint(
         var last = exp(logx[unsafe_offset=row + expiry])
         var closing = before
         var left = side * max(call * (last - strike), 0) - (cash - cost * abs(closing) * last)
-        # An Expected Shortfall's derivative by this path's residual: its share of the
-        # mean above the quantile, nothing under it. The hedger's funding, then the price.
-        var seed = max(direction(left - book_stats[unsafe_offset=b * BOOK]), 0) / (Float32(paths) * (1 - preference))
-        var loss_seed = (
-            book_stats[unsafe_offset=b * BOOK + 1]
-            * max(direction(left - book_stats[unsafe_offset=b * BOOK + 2]), 0) / (Float32(paths) * (1 - confidence))
-        )
+        # A deviation's derivative by this path's residual, for the hedger; a mean's, for
+        # the loss.
+        var seed = (left - book_stats[unsafe_offset=b * BOOK]) / (Float32(paths) * book_stats[unsafe_offset=b * BOOK + 1])
+        var loss_seed = book_stats[unsafe_offset=b * BOOK + 2] / Float32(paths)
         var in_the_money = max(direction(call * (last - strike)), 0)
         level_rows[unsafe_offset=expiry * threads + thread] += loss_seed * (side * call * in_the_money - closing + cost * abs(closing))
 
@@ -707,19 +748,19 @@ def number(text: String) -> Float64:
 struct Chain(Movable):
     """What dh-gui wrote: prices over the forward, strikes over the forward.
 
-    cost C hedge H             a stock trade's cost, the hedger's risk preference
+    cost C tick K              a stock trade's cost, the options' tick over the forward
     days D1 D2 ...             each expiry's business day, increasing
     STRIKE EXPIRY-INDEX CALL(1|-1) BID ASK     one line a contract
     """
 
     var cost: Float32
-    var preference: Float32
+    var tick: Float32
     var expiry_days: List[Int]
     var contracts: List[Float32]
 
     def __init__(out self, path: String) raises:
         self.cost = 0
-        self.preference = 0
+        self.tick = 0
         self.expiry_days = List[Int]()
         self.contracts = List[Float32]()
         for line in Path(path).read_text().split("\n"):
@@ -729,7 +770,7 @@ struct Chain(Movable):
                     fields.append(String(field))
             if len(fields) == 4 and fields[0] == "cost":
                 self.cost = Float32(number(fields[1]))
-                self.preference = Float32(number(fields[3]))
+                self.tick = Float32(number(fields[3]))
             elif len(fields) > 1 and fields[0] == "days":
                 for i in range(1, len(fields)):
                     self.expiry_days.append(Int(number(fields[i])))
@@ -742,6 +783,7 @@ struct Chain(Movable):
                 self.contracts.append(bid)
                 self.contracts.append(ask)
                 self.contracts.append(ask - bid)
+                self.contracts.append(0)
         if len(self.expiry_days) == 0 or len(self.contracts) == 0:
             raise Error("no contracts in ", path)
         if self.expiry_days[len(self.expiry_days) - 1] > MAX_DAYS:
@@ -793,16 +835,15 @@ struct Model(Movable):
     var intervals: Int
     var books: Int
     var cost: Float32
-    var preference: Float32
     var grid: List[Float32]
     var state: List[Float32]
     var unit: List[Float32]
     var interval_of_day: List[Int]
     var logits: List[Float32]
-    var confidence_logit: List[Float32]
     var weights: List[Float32]
     var phi: List[Float32]
     var result: List[Float32]
+    var left: List[Float32]
     var logx: List[Float32]
     var draw: List[Float32]
     var residual: List[Float32]
@@ -815,6 +856,9 @@ struct Model(Movable):
     var draw_buffer: DeviceBuffer[DType.float32]
     var residual_buffer: DeviceBuffer[DType.float32]
     var paid_buffer: DeviceBuffer[DType.float32]
+    var carried_buffer: DeviceBuffer[DType.float32]
+    var order_buffer: DeviceBuffer[DType.float32]
+    var left_buffer: DeviceBuffer[DType.float32]
     var book_buffer: DeviceBuffer[DType.float32]
     var gradient_rows: DeviceBuffer[DType.float32]
     var level_rows: DeviceBuffer[DType.float32]
@@ -829,9 +873,6 @@ struct Model(Movable):
         self.days = chain.expiry_days[self.intervals - 1]
         self.books = 2 * chain.count()
         self.cost = chain.cost
-        self.preference = chain.preference
-        # The confidence starts at 0.12.
-        self.confidence_logit = [Float32(-2)]
         self.grid = List[Float32](length=NODES, fill=0)
         for j in range(NODES):
             var u = GRID_STRETCH * (2 * Float64(j) / Float64(NODES - 1) - 1)
@@ -895,6 +936,10 @@ struct Model(Movable):
         self.draw_buffer = self.ctx.enqueue_create_buffer[DType.float32](paths * self.days * DRAW)
         self.residual_buffer = self.ctx.enqueue_create_buffer[DType.float32](paths * self.books)
         self.paid_buffer = self.ctx.enqueue_create_buffer[DType.float32](paths * self.books)
+        self.carried_buffer = self.ctx.enqueue_create_buffer[DType.float32](paths * self.books * CHECKS)
+        self.order_buffer = self.ctx.enqueue_create_buffer[DType.float32](paths * CHECKS)
+        self.left_buffer = self.ctx.enqueue_create_buffer[DType.float32](self.books * CHECKS)
+        self.left = List[Float32](length=self.books * CHECKS, fill=0)
         self.book_buffer = self.ctx.enqueue_create_buffer[DType.float32](self.books * BOOK)
         self.gradient_rows = self.ctx.enqueue_create_buffer[DType.float32](paths * GROUPS * PARAMS)
         self.level_rows = self.ctx.enqueue_create_buffer[DType.float32](paths * GROUPS * 2 * (MAX_DAYS + 1))
@@ -933,10 +978,6 @@ struct Model(Movable):
                 table[base + NODES + j] = Float32(mass)
         return table^
 
-    def confidence(self) -> Float32:
-        """The Expected Shortfall's confidence, between 0 (the mean) and 1 (the worst path)."""
-        return 1 / (1 + exp(-self.confidence_logit[0]))
-
     def keep(self) -> Float32:
         """The share of its logarithm the volatility state keeps a day."""
         return 1 / (1 + exp(-self.state[0]))
@@ -953,11 +994,11 @@ struct Model(Movable):
         )
         self.ctx.enqueue_function[roll](
             self.logx_buffer, self.contracts_buffer, self.phi_buffer, self.residual_buffer, self.paid_buffer,
-            self.draw_buffer, self.paths, self.days, self.books, self.cost, HIDDEN, grid_dim=threads // BLOCK, block_dim=BLOCK,
+            self.carried_buffer, self.draw_buffer, self.paths, self.days, self.books, self.cost, HIDDEN, grid_dim=threads // BLOCK, block_dim=BLOCK,
         )
         self.ctx.enqueue_function[quote](
             self.residual_buffer, self.paid_buffer, self.contracts_buffer, self.logx_buffer, self.book_buffer,
-            self.result_buffer, self.paths, self.days, self.books, self.confidence(), self.preference,
+            self.result_buffer, self.paths, self.days, self.books,
             PARAMS + self.intervals * KERNELS + STATE, grid_dim=(self.books // 2 + BLOCK - 1) // BLOCK, block_dim=BLOCK,
         )
 
@@ -970,7 +1011,7 @@ struct Model(Movable):
         var threads = self.paths * GROUPS
         self.ctx.enqueue_function[adjoint](
             self.logx_buffer, self.contracts_buffer, self.phi_buffer, self.book_buffer, self.gradient_rows,
-            self.level_rows, self.held_rows, self.draw_buffer, self.paths, self.days, self.books, self.cost, self.confidence(), self.preference, HIDDEN,
+            self.level_rows, self.held_rows, self.draw_buffer, self.paths, self.days, self.books, self.cost, HIDDEN,
             grid_dim=threads // BLOCK, block_dim=BLOCK,
         )
 
@@ -989,6 +1030,28 @@ struct Model(Movable):
             self.result_buffer, self.paths, self.days, self.intervals, PARAMS,
             grid_dim=(self.intervals * KERNELS + STATE + BLOCK - 1) // BLOCK, block_dim=BLOCK,
         )
+
+    def carry(mut self) raises:
+        """Into `left`, each book's variance still to come at each check day, of the
+        batch read_batch has just read."""
+        var order = List[Float32](length=self.paths * CHECKS, fill=0)
+        for k in range(CHECKS):
+            var day = min(check_day(k), self.days)
+            for p in range(self.paths):
+                var level = self.logx[p * (self.days + 1) + day]
+                var rank = 0
+                for q in range(self.paths):
+                    var other = self.logx[q * (self.days + 1) + day]
+                    if other < level or (other == level and q < p):
+                        rank += 1
+                order[k * self.paths + rank] = Float32(p)
+        self.order_buffer.enqueue_copy_from(order.unsafe_ptr())
+        self.ctx.enqueue_function[carry](
+            self.carried_buffer, self.residual_buffer, self.draw_buffer, self.logx_buffer, self.order_buffer, self.contracts_buffer,
+            self.left_buffer, self.paths, self.days, self.books,
+            grid_dim=(self.books * CHECKS + BLOCK - 1) // BLOCK, block_dim=BLOCK,
+        )
+        self.left_buffer.enqueue_copy_to(self.left.unsafe_ptr())
 
     def read_batch(mut self) raises:
         """The last batch's paths, days and residuals, for the reports."""
@@ -1009,18 +1072,11 @@ struct Model(Movable):
             sum += Float64(self.contract(i, 6))
         return sum / Float64(self.books // 2)
 
-    def confidence_loss(self) -> Float64:
-        """The confidence's: mean squared distance of the model's bids and asks from the market's own."""
-        var sum = Float64(0)
-        for i in range(self.books // 2):
-            sum += Float64(self.contract(i, 10))
-        return sum / Float64(self.books // 2)
-
     def funding(self) -> Float64:
-        """The hedger's: the sum of every book's Expected Shortfall at its preference."""
+        """The hedger's: the sum of every book's deviation."""
         var sum = Float64(0)
         for i in range(self.books // 2):
-            sum += Float64(self.contract(i, 12) + self.contract(i, 13))
+            sum += Float64(self.contract(i, 4) + self.contract(i, 5))
         return sum
 
     def hedger_gradient(self) -> List[Float64]:
@@ -1048,14 +1104,6 @@ struct Model(Movable):
         var keep = Float64(self.keep())
         return [Float64(self.result[at]) * keep * (1 - keep), Float64(self.result[at + 1]), Float64(self.result[at + 2])]
 
-    def confidence_gradient(self) -> List[Float64]:
-        """Of the confidence's loss, by its logit."""
-        var sum = Float64(0)
-        for i in range(self.books // 2):
-            sum += Float64(self.contract(i, 11))
-        var confidence = Float64(self.confidence())
-        return [sum * confidence * (1 - confidence)]
-
 
 struct Training(Movable):
     """The optimizers and one joint step: fresh paths, every gradient from
@@ -1063,13 +1111,11 @@ struct Training(Movable):
 
     var hedger: Adam
     var generator: Adam
-    var confidence: Adam
     var state: Adam
 
     def __init__(out self, intervals: Int):
         self.hedger = Adam(PARAMS, 0.005)
         self.generator = Adam(intervals * KERNELS, 0.05)
-        self.confidence = Adam(1, 0.05)
         self.state = Adam(STATE, 0.01)
 
     def step(mut self, mut model: Model, seed: UInt32) raises:
@@ -1078,11 +1124,9 @@ struct Training(Movable):
         model.read()
         var hedger_gradient = model.hedger_gradient()
         var generator_gradient = model.generator_gradient()
-        var confidence_gradient = model.confidence_gradient()
         var state_gradient = model.state_gradient()
         self.hedger.step(model.phi, hedger_gradient)
         self.generator.step(model.logits, generator_gradient)
-        self.confidence.step(model.confidence_logit, confidence_gradient)
         self.state.step(model.state, state_gradient)
 
 
@@ -1120,20 +1164,6 @@ def generator_differences(mut model: Model, seed: UInt32) raises:
             var down = model.loss()
             model.logits[n] = kept
             print("DH check", n, gradient[n], (up - down) / Float64(2 * step))
-    model.forward(seed)
-    model.read()
-    var by_confidence = model.confidence_gradient()[0]
-    var kept = model.confidence_logit[0]
-    model.confidence_logit[0] = kept + 0.05
-    model.forward(seed)
-    model.read()
-    var up = model.confidence_loss()
-    model.confidence_logit[0] = kept - 0.05
-    model.forward(seed)
-    model.read()
-    var down = model.confidence_loss()
-    model.confidence_logit[0] = kept
-    print("DH check confidence", by_confidence, (up - down) / 0.1)
 
 
 def ledger(mut model: Model, chain: Chain, seed: UInt32, position: Float64) raises:
@@ -1164,14 +1194,10 @@ def ledger(mut model: Model, chain: Chain, seed: UInt32, position: Float64) rais
                         exp(Float64(model.logx[p * row + 1])) + exp(Float64(model.logx[p * row + expiry]))
                     )
                 residuals.append(side * max(call * (exp(Float64(model.logx[p * row + expiry])) - strike), 0) - cash)
-            # Expected Shortfall from the sorted residuals' quantile.
-            sort(residuals)
-            var confidence = Float64(model.confidence())
-            var level = residuals[min(Int(confidence * Float64(model.paths)), model.paths - 1)]
-            var excess = Float64(0)
+            var sum = Float64(0)
             for p in range(model.paths):
-                excess += max(residuals[p] - level, 0)
-            funding.append(level + excess / (Float64(model.paths) * (1 - confidence)))
+                sum += residuals[p]
+            funding.append(sum / Float64(model.paths))
         print("DH check", i, model.contract(i, 0), model.contract(i, 1), -funding[1], funding[0])
 
 
@@ -1220,6 +1246,71 @@ def check(mut model: Model, chain: Chain, iterations: Int) raises:
         generator_differences(model, seed)
 
 
+def stretch(profile: List[Float64], at: Int, expiry: Int, k: Int) -> List[Float64]:
+    """The k-th stretch of a book's days, up to its expiry: its first day, its last,
+    and the variance still to come at each. `profile` holds, from `at`, the variance
+    still to come at day 0 and at each check day; it is taken as never rising."""
+    var day = Float64(0)
+    var togo = profile[at]
+    for n in range(k + 1):
+        var next_day = Float64(expiry)
+        var next_togo = Float64(0)
+        if n < CHECKS and check_day(n) < expiry:
+            next_day = Float64(check_day(n))
+            next_togo = min(max(profile[at + 1 + n], 0), togo)
+        if n == k:
+            return [day, next_day, togo, next_togo]
+        day = next_day
+        togo = next_togo
+    return [day, day, togo, togo]
+
+
+def shed(profile: List[Float64], at: Int, expiry: Int, days: Float64) -> Float64:
+    """The variance of a book's first `days` days."""
+    var whole = profile[at]
+    for k in range(CHECKS + 1):
+        var part = stretch(profile, at, expiry, k)
+        if days <= part[1] or part[1] >= Float64(expiry):
+            var share = min(max((days - part[0]) / max(part[1] - part[0], 1e-9), 0), 1)
+            return whole - part[2] + (part[2] - part[3]) * share
+    return whole
+
+
+def chain_of_days(profile: List[Float64], at: Int, expiry: Int) -> Float64:
+    """The sum of the days' deviations to expiry, a stretch's days taken as alike."""
+    var sum = Float64(0)
+    for k in range(CHECKS + 1):
+        var part = stretch(profile, at, expiry, k)
+        sum += sqrt((part[1] - part[0]) * (part[2] - part[3]))
+        if part[1] >= Float64(expiry):
+            break
+    return sum
+
+
+def days_implied(profile: List[Float64], at: Int, expiry: Int, excess: Float64) -> Float64:
+    """The days after which one deviation of what the book has shed is `excess`;
+    nothing for no excess, minus one if not even the whole residual's is."""
+    if excess <= 0:
+        return 0
+    var want = excess * excess
+    var whole = profile[at]
+    if want >= whole:
+        return -1
+    for k in range(CHECKS + 1):
+        var part = stretch(profile, at, expiry, k)
+        if want <= whole - part[3]:
+            return part[0] + (part[1] - part[0]) * (want - (whole - part[2])) / max(part[2] - part[3], 1e-30)
+    return -1
+
+
+def quartile(values: List[Float64], share: Float64) -> Float64:
+    var sorted = values.copy()
+    sort(sorted)
+    if len(sorted) == 0:
+        return 0
+    return sorted[min(Int(share * Float64(len(sorted))), len(sorted) - 1)]
+
+
 def shown_contracts(chain: Chain, path: String) -> List[Int]:
     """The contracts whose hedges a report shows: those dh-gui wrote beside the
     chain (PATH.shown, their indices on a line), else three calls of the middle
@@ -1254,8 +1345,8 @@ def shown_contracts(chain: Chain, path: String) -> List[Int]:
     return chosen^
 
 
-def fit(mut model: Model, chain: Chain, path: String, seed: UInt64, iterations: Int) raises:
-    """Generator, hedger and confidence move together, each by its own loss, on fresh
+def fit(mut model: Model, mut chain: Chain, path: String, seed: UInt64, iterations: Int) raises:
+    """Generator and hedger move together, each by its own loss, on fresh
     paths every iteration. A report is the mean of the iterations since the
     last one."""
     comptime REPORT = 20
@@ -1265,6 +1356,8 @@ def fit(mut model: Model, chain: Chain, path: String, seed: UInt64, iterations: 
     var training = Training(model.intervals)
     var contracts = chain.count()
     var window = List[Float64](length=contracts * RESULT, fill=0)
+    # Each contract's variance still to come at day 0 and at each check day, smoothed over the reports.
+    var profile = List[Float64](length=contracts * (CHECKS + 1), fill=0)
     var window_loss = Float64(0)
     var started = perf_counter_ns()
     var line = String("DH nodes")
@@ -1283,7 +1376,7 @@ def fit(mut model: Model, chain: Chain, path: String, seed: UInt64, iterations: 
             # Of the window's mean bids and asks, the share inside the market's band;
             # mean spreads of the market and of the model, the hedges' costs, the deviation
             # of what they leave, and the payoffs' own.
-            var inside = 0
+            var inside = [0, 0]
             var market = Float64(0)
             var spread = Float64(0)
             var fees = Float64(0)
@@ -1293,9 +1386,9 @@ def fit(mut model: Model, chain: Chain, path: String, seed: UInt64, iterations: 
                 var bid = Float64(chain.contracts[i * CONTRACT + 3])
                 var ask = Float64(chain.contracts[i * CONTRACT + 4])
                 for side in range(2):
-                    var price = window[i * RESULT + side] / REPORT
+                    var price = window[i * RESULT + side] / REPORT + Float64(2 * side - 1) * Float64(chain.contracts[i * CONTRACT + 6])
                     if price >= bid and price <= ask:
-                        inside += 1
+                        inside[side] += 1
                 market += ask - bid
                 spread += (window[i * RESULT + 1] - window[i * RESULT]) / REPORT
                 fees += (window[i * RESULT + 2] + window[i * RESULT + 3]) / REPORT
@@ -1303,18 +1396,106 @@ def fit(mut model: Model, chain: Chain, path: String, seed: UInt64, iterations: 
                 unhedged += 2 * window[i * RESULT + 7] / REPORT
             print(
                 "DH iteration", iteration, "loss", window_loss / REPORT, "seconds", seconds,
-                "inside", Float64(inside) / Float64(2 * contracts), "market", market / Float64(contracts),
+                "inside", Float64(inside[0] + inside[1]) / Float64(2 * contracts), "market", market / Float64(contracts),
                 "model", spread / Float64(contracts), "cost", fees / Float64(contracts),
                 "risk", deviations / Float64(contracts), "unhedged", unhedged / Float64(contracts),
-                "confidence", model.confidence(), "keep", model.keep(), "swing", model.state[1], "lean", model.state[2], flush=True,
+                "keep", model.keep(), "swing", model.state[1], "lean", model.state[2],
+                "bids", Float64(inside[0]) / Float64(contracts), "asks", Float64(inside[1]) / Float64(contracts), flush=True,
             )
             model.read_batch()
+            model.carry()
+            # What the spreads imply (THEORY.md, section 4). A contract's risk is the mean
+            # of its two books'; its spread counts as three ticks at least.
+            var fresh = Float64(1) if iteration == REPORT else Float64(0.3)
+            var excess = List[Float64](length=contracts, fill=0)
+            var half = List[Float64](length=contracts, fill=0)
+            var hedge_cost = List[Float64](length=contracts, fill=0)
+            var chain_risk = List[Float64](length=contracts, fill=0)
+            var whole_risk = List[Float64](length=contracts, fill=0)
+            var out_of_the_money = List[Bool](length=contracts, fill=False)
+            for i in range(contracts):
+                var at = i * (CHECKS + 1)
+                var whole = Float64(model.contract(i, 4) * model.contract(i, 4) + model.contract(i, 5) * model.contract(i, 5)) / 2
+                profile[at] += fresh * (whole - profile[at])
+                for k in range(CHECKS):
+                    var togo = Float64(model.left[k * model.books + 2 * i] + model.left[k * model.books + 2 * i + 1]) / 2
+                    profile[at + 1 + k] += fresh * (max(togo, 0) - profile[at + 1 + k])
+                half[i] = max(Float64(chain.contracts[i * CONTRACT + 5]), 3 * Float64(chain.tick)) / 2
+                hedge_cost[i] = (window[i * RESULT + 2] + window[i * RESULT + 3]) / (2 * REPORT)
+                excess[i] = half[i] - hedge_cost[i]
+                var expiry = Int(chain.contracts[i * CONTRACT + 1])
+                chain_risk[i] = max(chain_of_days(profile, at, expiry), 1e-12)
+                whole_risk[i] = max(sqrt(profile[at]), 1e-12)
+                out_of_the_money[i] = (chain.contracts[i * CONTRACT] >= 1) == (chain.contracts[i * CONTRACT + 2] > 0)
+            # What the spreads imply under each closure: a floor every contract of the name
+            # pays, in ticks, and for each expiry the closure's own number (the price of a
+            # day's deviation, of the whole residual's, the days to get out), at which half
+            # the expiry's out-of-the-money contracts have a wider model spread than market
+            # spread. A closure's miss: the middle half of log(model / market half spread)
+            # over all the out-of-the-money contracts. `closures` holds, for each closure,
+            # the floor, the miss, and the expiries' numbers.
+            var expiries = model.intervals
+            var closures = List[Float64](length=3 * (2 + expiries), fill=1e9)
+            var expiry_of = List[Int](length=contracts, fill=0)
+            for i in range(contracts):
+                for e in range(expiries):
+                    if Int(chain.contracts[i * CONTRACT + 1]) == chain.expiry_days[e]:
+                        expiry_of[i] = e
+            for ticks in [Float64(0), 0.5, 1, 1.5, 2, 3, 4, 6, 8]:
+                var floor = ticks * Float64(chain.tick)
+                for closure in range(3):
+                    var numbers = List[Float64](length=expiries, fill=0)
+                    var errors = List[Float64]()
+                    for e in range(expiries):
+                        var candidates = List[Float64]()
+                        if closure == 2:
+                            candidates = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.25, 0.5, 1, 2, 3, 5, 8, 12, 17, 23, 30, 38, 64]
+                        else:
+                            var prices = List[Float64]()
+                            for i in range(contracts):
+                                if expiry_of[i] == e and out_of_the_money[i] and excess[i] > floor:
+                                    prices.append((excess[i] - floor) / (chain_risk[i] if closure == 0 else whole_risk[i]))
+                            candidates = [quartile(prices, 0.5)]
+                        var nearest = List[Float64]()
+                        var off = Float64(1e9)
+                        for candidate in candidates:
+                            var these = List[Float64]()
+                            for i in range(contracts):
+                                if expiry_of[i] == e and out_of_the_money[i]:
+                                    var charge = floor
+                                    if closure == 0:
+                                        charge += candidate * chain_risk[i]
+                                    elif closure == 1:
+                                        charge += candidate * whole_risk[i]
+                                    else:
+                                        charge += sqrt(shed(profile, i * (CHECKS + 1), chain.expiry_days[e], candidate))
+                                    these.append(log(max(hedge_cost[i] + charge, 1e-12) / half[i]))
+                            if abs(quartile(these, 0.5)) < off:
+                                off = abs(quartile(these, 0.5))
+                                numbers[e] = candidate
+                                nearest = these.copy()
+                        for error in nearest:
+                            errors.append(error)
+                    var miss = quartile(errors, 0.75) - quartile(errors, 0.25) + abs(quartile(errors, 0.5))
+                    var at = closure * (2 + expiries)
+                    if miss < closures[at + 1]:
+                        closures[at] = floor
+                        closures[at + 1] = miss
+                        for e in range(expiries):
+                            closures[at + 2 + e] = numbers[e]
+            line = String("DH closure")
+            for n in range(len(closures)):
+                line += " " + String(closures[n])
+            print(line)
+            var nearest = 0
+            for closure in range(3):
+                if closures[closure * (2 + expiries) + 1] < closures[nearest * (2 + expiries) + 1]:
+                    nearest = closure
             var worst = List[Float32](length=model.paths, fill=0)
             for i in range(contracts):
                 line = String("DH quote ") + String(i)
                 for field in range(RESULT):
-                    if field < 10:
-                        line += " " + String(window[i * RESULT + field] / REPORT)
+                    line += " " + String(window[i * RESULT + field] / REPORT)
                     window[i * RESULT + field] = 0
                 # And of the last batch, the mean of each book's worst twentieth of paths.
                 for side in range(2):
@@ -1325,7 +1506,22 @@ def fit(mut model: Model, chain: Chain, path: String, seed: UInt64, iterations: 
                     for p in range(model.paths - model.paths // 20, model.paths):
                         sum += Float64(worst[p])
                     line += " " + String(sum / Float64(model.paths // 20))
+                # The days its spread pays for over the floor, and its charge under each closure.
+                var at = i * (CHECKS + 1)
+                var expiry = Int(chain.contracts[i * CONTRACT + 1])
+                var e = expiry_of[i]
+                line += " " + String(days_implied(profile, at, expiry, excess[i] - closures[2 * (2 + expiries)]))
+                var charges = [
+                    closures[0] + closures[2 + e] * chain_risk[i],
+                    closures[2 + expiries] + closures[2 + expiries + 2 + e] * whole_risk[i],
+                    closures[2 * (2 + expiries)] + sqrt(shed(profile, at, expiry, closures[2 * (2 + expiries) + 2 + e])),
+                ]
+                for closure in range(3):
+                    line += " " + String(charges[closure])
                 print(line)
+                # The next iterations' quotes carry the nearest closure's charge.
+                chain.contracts[i * CONTRACT + 6] = Float32(charges[nearest])
+            model.contracts_buffer.enqueue_copy_from(chain.contracts.unsafe_ptr())
             for interval in range(model.intervals):
                 line = String("DH law ") + String(interval)
                 for k in range(KERNELS):

@@ -23,3 +23,7 @@ Also chosen there, for the same confirmation: the carry of an expiry is `D = (S 
 over the strikes within 5% of the stock, `F = S / D`, which assumes no dividend before the
 expiry; expiries of 2 to 64 business days, at most 8; no quote with a bid under three cents
 ("quotes in the wings that are limited by tick size are removed", sig-mmd, 2026-07-08).
+
+## The owner, 2026-11-17 evening
+
+Postponed: "dh-12 and dh-16 - postpone for now."

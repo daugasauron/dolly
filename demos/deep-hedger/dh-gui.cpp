@@ -43,7 +43,11 @@ struct Contract {
   double strike;       // in currency
   int call;            // +1 or -1
   double bid, ask;     // in currency
-  double model[12] = {};  // dh-fit's result fields and the two books' worst twentieths, in forward units
+  // dh-fit's report of the contract, in forward units: the two middles (what replicating the long
+  // and the short book costs on average), the two hedges' costs, the two residuals' deviations,
+  // the loss, the payoff's deviation, the two books' worst twentieths, the days its market spread
+  // pays for (-1: more than to its expiry), and its charge under each closure (CHAIN, WHOLE, OUT).
+  double model[14] = {};
   bool fitted = false;
 };
 struct Expiry {
@@ -62,7 +66,12 @@ struct State {
   std::vector<std::vector<float>> hedges;  // contract, then the position bought each day, a path each
   std::vector<std::vector<float>> residuals;  // contract, side (0 short, 1 long), then what the hedge left on each path
   std::vector<float> losses, inside;  // by report: the loss, the share of the model's bids and asks in the market's bands
-  double confidence = 0;  // the Expected Shortfall's, as fitted
+  // What the market's spreads imply under each closure of THEORY.md, section 4: a floor every
+  // contract pays (over the forward), each expiry's number (the price of a day's deviation, of
+  // the whole residual's, the days to get out), and how far those leave the model's spreads
+  // from the market's.
+  double closure_floor[3] = {}, closure_miss[3] = {};
+  std::vector<double> closure_numbers[3];
   double keep = 0, swing = 0, lean = 0;  // the volatility state's numbers, as fitted
   double spot = 0;
   long quoted = 0;      // epoch seconds of the newest quote
@@ -199,9 +208,10 @@ static bool load_chain() {
 }
 
 // What dh-fit reads: prices over D F, strikes over F (dh-fit.mojo, Chain).
-static void write_chain(double cost, double preference) {
+static void write_chain(double cost) {
   FILE *file = fopen(chain_text, "w");
-  fprintf(file, "cost %.9g hedge %.9g\ndays", cost, preference);
+  // The options' tick is a cent.
+  fprintf(file, "cost %.9g tick %.9g\ndays", cost, 0.01 / state.spot);
   for (const Expiry &expiry : state.expiries) fprintf(file, " %d", expiry.business_days);
   fprintf(file, "\n");
   for (const Contract &c : state.contracts) {
@@ -272,9 +282,14 @@ static void read_fit(FILE *output, std::string &pending, State &staged) {
     if (name == "nodes") state.nodes = numbers;
     else if (double loss, seconds; name == "iteration" && sscanf(line.c_str(), "DH iteration %d loss %lf seconds %lf", &index, &loss, &seconds) == 3)
       staged.iteration = index, staged.losses.push_back((float)loss), staged.inside.push_back((float)named(line, " inside ")), staged.seconds = seconds, staged.residuals.clear(),
-      staged.confidence = named(line, " confidence "), staged.keep = named(line, " keep "), staged.swing = named(line, " swing "), staged.lean = named(line, " lean ");
+      staged.keep = named(line, " keep "), staged.swing = named(line, " swing "), staged.lean = named(line, " lean ");
     else if (name == "residual" && numbers.size() > 2) staged.residuals.emplace_back(numbers.begin(), numbers.end());
-    else if (name == "quote" && numbers.size() == 13 && numbers[0] < staged.contracts.size()) {
+    else if (name == "closure" && numbers.size() == 3 * (2 + staged.expiries.size()))
+      for (size_t n = 0, at = 0; n < 3; n++, at += 2 + staged.expiries.size()) {
+        staged.closure_floor[n] = numbers[at], staged.closure_miss[n] = numbers[at + 1];
+        staged.closure_numbers[n].assign(numbers.begin() + at + 2, numbers.begin() + at + 2 + staged.expiries.size());
+      }
+    else if (name == "quote" && numbers.size() == 15 && numbers[0] < staged.contracts.size()) {
       Contract &c = staged.contracts[(size_t)numbers[0]];
       std::copy(numbers.begin() + 1, numbers.end(), c.model);
       c.fitted = true;
@@ -325,6 +340,19 @@ static double implied_volatility(double price, double strike, int call, double y
 static const ImU32 market_colour = IM_COL32(205, 205, 205, 255), bid_colour = IM_COL32(64, 156, 255, 255), ask_colour = IM_COL32(255, 138, 48, 255),
                    frame_colour = IM_COL32(90, 90, 90, 255), text_colour = IM_COL32(170, 170, 170, 255),
                    grid_colour = IM_COL32(45, 45, 45, 255);
+
+enum { CHAIN, WHOLE, OUT };
+static const char *closure_names[3] = {"a chain of dealers", "held to expiry", "out after some days"};
+// The closure whose one number leaves the spreads nearest the market's.
+static int best_closure() {
+  int best = CHAIN;
+  for (int n : {WHOLE, OUT})
+    if (state.closure_miss[n] < state.closure_miss[best]) best = n;
+  return best;
+}
+// The model's bid and ask of a contract, over D F: a middle less or plus the charge.
+static double model_bid(const Contract &c, int closure) { return c.model[0] - c.model[11 + closure]; }
+static double model_ask(const Contract &c, int closure) { return c.model[1] + c.model[11 + closure]; }
 
 struct Plot {
   ImVec2 origin, size;
@@ -382,7 +410,7 @@ static bool quotes_plot(int expiry_index, int call, bool volatility, ImVec2 size
       plot.draw->AddLine(plot.at(x, std::isnan(bar_low) ? low : bar_low), plot.at(x, bar_high), std::isnan(bar_low) ? frame_colour : market_colour, 3);
     if (fabsf(plot.at(x, low).x - pointer) < distance) distance = fabsf(plot.at(x, low).x - pointer), nearest = &c;
     if (!c.fitted) continue;
-    double bid = shown(c.model[0]), ask = shown(c.model[1]);
+    double bid = shown(model_bid(c, best_closure())), ask = shown(model_ask(c, best_closure()));
     if (!std::isnan(bid)) bids.push_back(plot.at(x, bid));
     if (!std::isnan(ask)) asks.push_back(plot.at(x, ask));
   }
@@ -403,11 +431,14 @@ static bool quotes_plot(int expiry_index, int call, bool volatility, ImVec2 size
     ImGui::Text("%s at %.5g, forward %.5g", title, c.strike, expiry.forward);
     ImGui::TextColored(ImColor(market_colour), "market  %8.3f to %8.3f   %s to %s", c.bid, c.ask, vol(c.bid).c_str(), vol(c.ask).c_str());
     if (c.fitted) {
-      double bid = c.model[0] * unit, ask = c.model[1] * unit;
+      double bid = model_bid(c, best_closure()) * unit, ask = model_ask(c, best_closure()) * unit;
       ImGui::Text("model   %8.3f to %8.3f   %s to %s", bid, ask, vol(bid).c_str(), vol(ask).c_str());
-      ImGui::Text("of it hedge cost %.3f; the hedger leaves %.0f%% of the risk", (c.model[2] + c.model[3]) * unit, c.model[7] > 0 ? 50 * (c.model[4] + c.model[5]) / c.model[7] : 0.0);
-      ImGui::TextColored(ImColor(ask_colour), "sold at the bid, hedged: mean %+.3f, worst twentieth %+.2f", c.bid - c.model[8] * unit, c.bid - c.model[10] * unit);
-      ImGui::TextColored(ImColor(bid_colour), "bought at the ask, hedged: mean %+.3f, worst twentieth %+.2f", -c.ask - c.model[9] * unit, -c.ask - c.model[11] * unit);
+      ImGui::Text("replicating it costs %.3f short, %.3f long; the hedger leaves %.0f%% of the risk", c.model[1] * unit, c.model[0] * unit,
+                  c.model[7] > 0 ? 50 * (c.model[4] + c.model[5]) / c.model[7] : 0.0);
+      if (c.model[10] < 0) ImGui::TextUnformatted("its spread pays for more risk than holding it to expiry has");
+      else ImGui::Text("its spread pays for %.2g days of the hedged book's risk", c.model[10]);
+      ImGui::TextColored(ImColor(ask_colour), "sold at the bid, hedged: mean %+.3f, worst twentieth %+.2f", c.bid - c.model[1] * unit, c.bid - c.model[8] * unit);
+      ImGui::TextColored(ImColor(bid_colour), "bought at the ask, hedged: mean %+.3f, worst twentieth %+.2f", -c.ask + c.model[0] * unit, -c.ask - c.model[9] * unit);
     }
     ImGui::EndTooltip();
   }
@@ -624,9 +655,9 @@ static void hedge_tab() {
 static void contracts_tab() {
   ImGui::TextWrapped("Buy at ask, sell at bid: a trade at the market's price, hedged to expiry by the model's hedger under the fitted law. Its mean result over the paths, a gain in "
                      "colour, and the mean of its worst twentieth. A click on a row: the Hedge tab shows that contract from the fit's next report, three at most.");
-  if (!ImGui::BeginTable("quotes", 14, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY)) return;
+  if (!ImGui::BeginTable("quotes", 15, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY)) return;
   ImGui::TableSetupScrollFreeze(0, 1);
-  for (const char *name : {"expiry", "", "strike", "market bid", "market ask", "model bid", "model ask", "hedge cost", "risk left", "in band", "buy at ask",
+  for (const char *name : {"expiry", "", "strike", "market bid", "market ask", "model bid", "model ask", "hedge cost", "risk left", "days paid for", "in band", "buy at ask",
                            "worst 1/20", "sell at bid", "worst 1/20"})
     ImGui::TableSetupColumn(name);
   ImGui::TableHeadersRow();
@@ -647,17 +678,20 @@ static void contracts_tab() {
     ImGui::TableNextColumn(), ImGui::Text("%.2f", c.bid);
     ImGui::TableNextColumn(), ImGui::Text("%.2f", c.ask);
     if (!c.fitted) continue;
-    double bid = c.model[0] * unit, ask = c.model[1] * unit;
+    double bid = model_bid(c, best_closure()) * unit, ask = model_ask(c, best_closure()) * unit;
     bool bid_in = bid >= c.bid - 1e-9 && bid <= c.ask + 1e-9, ask_in = ask >= c.bid - 1e-9 && ask <= c.ask + 1e-9;
     ImGui::TableNextColumn(), ImGui::Text("%.3f", bid);
     ImGui::TableNextColumn(), ImGui::Text("%.3f", ask);
     ImGui::TableNextColumn(), ImGui::Text("%.3f", (c.model[2] + c.model[3]) * unit);
     ImGui::TableNextColumn();
     if (c.model[7] > 0) ImGui::Text("%.0f%%", 50 * (c.model[4] + c.model[5]) / c.model[7]);
+    ImGui::TableNextColumn();
+    if (c.model[10] < 0) ImGui::TextUnformatted("> expiry");
+    else ImGui::Text("%.2f", c.model[10]);
     ImGui::TableNextColumn(), ImGui::TextUnformatted(bid_in && ask_in ? "both" : bid_in ? "bid" : ask_in ? "ask" : "");
     // What the model says buying at the ask, or selling at the bid, and hedging comes to:
     // on average, and over the worst twentieth of the paths. A gain in colour.
-    double values[4] = {-c.ask - c.model[9] * unit, -c.ask - c.model[11] * unit, c.bid - c.model[8] * unit, c.bid - c.model[10] * unit};
+    double values[4] = {-c.ask + c.model[0] * unit, -c.ask - c.model[9] * unit, c.bid - c.model[1] * unit, c.bid - c.model[8] * unit};
     for (double value : values) {
       ImGui::TableNextColumn();
       if (value > 0) ImGui::TextColored(ImColor(ask_colour), "%+.3f", value);
@@ -668,15 +702,16 @@ static void contracts_tab() {
 }
 
 static void fit_tab() {
-  if (ImGui::BeginTable("fit", 12, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+  if (ImGui::BeginTable("fit", 13, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
     for (const char *name : {"expiry", "days", "forward, quotes", "forward, model", "discount", "contracts", "in band", "market spread", "model spread", "hedge cost",
-                             "risk left", "model over market"})
+                             "risk left", "days paid for", "implied"})
       ImGui::TableSetupColumn(name);
     ImGui::TableHeadersRow();
     for (int e = 0; e <= (int)state.expiries.size(); e++) {
       bool all = e == (int)state.expiries.size();
       int count = 0, inside = 0, fitted = 0;
       double market = 0, model = 0, cost = 0, deviation = 0, unhedged = 0;
+      std::vector<double> days;
       for (const Contract &c : state.contracts) {
         if (!all && c.expiry != e) continue;
         const Expiry &expiry = state.expiries[c.expiry];
@@ -684,8 +719,10 @@ static void fit_tab() {
         count++, market += c.ask - c.bid;
         if (!c.fitted) continue;
         fitted++;
-        for (int side = 0; side < 2; side++) inside += c.model[side] * unit >= c.bid - 1e-9 && c.model[side] * unit <= c.ask + 1e-9;
-        model += (c.model[1] - c.model[0]) * unit, cost += (c.model[2] + c.model[3]) * unit, deviation += (c.model[4] + c.model[5]) * unit, unhedged += 2 * c.model[7] * unit;
+        double quotes[2] = {model_bid(c, best_closure()) * unit, model_ask(c, best_closure()) * unit};
+        for (double quote : quotes) inside += quote >= c.bid - 1e-9 && quote <= c.ask + 1e-9;
+        days.push_back(c.model[10] < 0 ? 1e9 : c.model[10]);
+        model += quotes[1] - quotes[0], cost += (c.model[2] + c.model[3]) * unit, deviation += (c.model[4] + c.model[5]) * unit, unhedged += 2 * c.model[7] * unit;
       }
       ImGui::TableNextRow();
       if (all) {
@@ -714,16 +751,22 @@ static void fit_tab() {
       ImGui::TableNextColumn();
       if (fitted && unhedged > 0) ImGui::Text("%.0f%%", 100 * deviation / unhedged);
       ImGui::TableNextColumn();
-      // Above one, the confidence asks more for risk than this market's spreads pay; under one, less.
-      if (fitted && market > 0) ImGui::Text("%.2f", model / fitted / (market / count));
+      // The median over the contracts of the days of the hedged book's risk a market spread pays for.
+      std::sort(days.begin(), days.end());
+      if (fitted && days[days.size() / 2] > 1e8) ImGui::TextUnformatted("> expiry");
+      else if (fitted) ImGui::Text("%.2f", days[days.size() / 2]);
+      // The expiry's number under the nearest closure.
+      ImGui::TableNextColumn();
+      if (!all && (size_t)e < state.closure_numbers[best_closure()].size())
+        ImGui::Text(best_closure() == OUT ? "%.2g days" : "%.2g deviations", state.closure_numbers[best_closure()][e]);
     }
     ImGui::EndTable();
   }
-  ImGui::TextWrapped("In band: the model's bids and asks inside the market's. Spreads are means, in currency. The hedger hedges to make the Expected Shortfall of what is left small, at the "
-                     "confidence typed: the mean of all but the best that share of the paths. A model price is the Expected Shortfall of what that hedge leaves at "
-                     "another confidence, one for every contract, fitted to the market's bids and asks (now %.3f); at 0 a price is the plain mean and a spread the two "
-                     "hedges' cost alone. Risk left: the deviation of what is left as a share of the payoff's own. Model over market: the model's mean spread as a "
-                     "share of the market's.", state.confidence);
+  ImGui::TextWrapped("In band: the model's bids and asks inside the market's. Spreads are means, in currency. A model quote is what replicating the contract costs on "
+                     "average, less or plus a charge for the risk of not being out of it yet; the charge is as the Spreads tab's best closure has it (%s). Risk "
+                     "left: the deviation of what the hedge leaves as a share of the payoff's own. Days paid for: the median over the contracts of the days of "
+                     "that risk a market spread pays for at one deviation, over the floor. Implied: the expiry's number under that closure. The loss below is the two "
+                     "middles' distance outside the bands.", closure_names[best_closure()]);
   if (state.losses.size() > 1) {
     ImVec2 available = ImGui::GetContentRegionAvail();
     double low = 1e30, high = -1e30;
@@ -750,7 +793,7 @@ static void verdict() {
     if (!c.fitted) continue;
     double unit = state.expiries[c.expiry].discount * state.expiries[c.expiry].forward;
     fitted += 2;
-    for (int side = 0; side < 2; side++) inside += c.model[side] * unit >= c.bid - 1e-9 && c.model[side] * unit <= c.ask + 1e-9;
+    for (double quote : {model_bid(c, best_closure()) * unit, model_ask(c, best_closure()) * unit}) inside += quote >= c.bid - 1e-9 && quote <= c.ask + 1e-9;
   }
   size_t reports = state.losses.size();
   const char *trend = "";
@@ -761,8 +804,63 @@ static void verdict() {
   }
   ImGui::Text("iteration %d, %.1f a second.", state.iteration, state.iteration / std::max(state.seconds, 1e-9));
   ImGui::SameLine();
-  ImGui::TextColored(ImColor(ask_colour), "%.0f%% of the model's bids and asks in the market's bands, loss %.3g%s, the quotes' confidence %.3f.  ", fitted ? 100.0 * inside / fitted : 0.0,
-                     reports ? state.losses.back() : 0.0f, trend, state.confidence);
+  int closure = best_closure();
+  ImGui::TextColored(ImColor(ask_colour), "%.0f%% of the model's bids and asks in the market's bands, loss %.3g%s; spreads as %s, over %.1f cents.  ",
+                     fitted ? 100.0 * inside / fitted : 0.0, reports ? state.losses.back() : 0.0f, trend, closure_names[closure], 100 * state.closure_floor[closure] * state.spot);
+}
+
+// The market's spreads against the model's under each closure, and the days each pays for.
+static void spreads_tab() {
+  static const ImU32 colours[3] = {ask_colour, bid_colour, IM_COL32(110, 200, 120, 255)};
+  ImGui::TextColored(ImColor(market_colour), "o the market's half spread");
+  for (int n = 0; n < 3; n++) {
+    ImGui::SameLine();
+    char label[128];
+    snprintf(label, sizeof label, "   %s: over %.1f cents, off by %.2f", closure_names[n], 100 * state.closure_floor[n] * state.spot, state.closure_miss[n]);
+    ImGui::TextColored(ImColor(colours[n]), "%s%s", label, n == best_closure() ? ", the nearest" : "");
+  }
+  ImGui::TextUnformatted("by log(strike / forward), in the money faint: log10 of half the spread in currency; and log10 of the days of the hedged book's risk each market spread "
+                         "pays for, at one deviation over the floor (at the top, more than to expiry)");
+  double x0 = 0, x1 = 0;
+  for (const Contract &c : state.contracts) {
+    double x = log(c.strike / state.expiries[c.expiry].forward);
+    x0 = std::min(x0, x), x1 = std::max(x1, x);
+  }
+  const int columns = 4;
+  int rows = ((int)state.expiries.size() * 2 + columns - 1) / columns;
+  ImVec2 available = ImGui::GetContentRegionAvail();
+  ImVec2 size((available.x - 8 * (columns - 1)) / columns, std::max(120.0f, (available.y - 8 * rows) / rows));
+  for (int e = 0, cell = 0; e < (int)state.expiries.size(); e++)
+    for (int row = 0; row < 2; row++) {
+      const Expiry &expiry = state.expiries[e];
+      double unit = expiry.discount * expiry.forward;
+      char title[96];
+      time_t day = expiry.day * 86400;
+      size_t length = strftime(title, sizeof title, row ? "days paid for, %b %d" : "half spread, %b %d", gmtime(&day));
+      // The expiry's number under the nearest closure.
+      if (row == 0 && (size_t)e < state.closure_numbers[best_closure()].size())
+        snprintf(title + length, sizeof title - length, best_closure() == OUT ? ": out after %.2g days" : ": %.2g deviations", state.closure_numbers[best_closure()][e]);
+      Plot plot(title, size, x0, x1, row ? -4 : -2.5, row ? 2 : 1);
+      plot.draw->AddLine(plot.at(0, plot.y0), plot.at(0, plot.y1), frame_colour);
+      std::vector<ImVec2> lines[3];
+      for (const Contract &c : state.contracts) {
+        if (c.expiry != e) continue;
+        double x = log(c.strike / expiry.forward);
+        bool in_the_money = (c.strike < expiry.forward) == (c.call > 0);
+        ImU32 colour = in_the_money ? frame_colour : market_colour;
+        if (row == 0) {
+          plot.draw->AddCircle(plot.at(x, log10((c.ask - c.bid) / 2)), 3, colour);
+          if (c.fitted && !in_the_money)
+            for (int n = 0; n < 3; n++) lines[n].push_back(plot.at(x, log10(std::max((model_ask(c, n) - model_bid(c, n)) * unit / 2, 1e-9))));
+        } else if (c.fitted)
+          plot.draw->AddCircle(plot.at(x, c.model[10] < 0 ? 2 : log10(std::max(c.model[10], 1e-9))), 3, colour);
+      }
+      for (int n = 0; n < 3; n++) {
+        std::sort(lines[n].begin(), lines[n].end(), [](const ImVec2 &a, const ImVec2 &b) { return a.x < b.x; });
+        if (lines[n].size() > 1) plot.draw->AddPolyline(lines[n].data(), (int)lines[n].size(), colours[n], n == best_closure() ? 2.5f : 1.0f);
+      }
+      if (cell++ % columns != columns - 1) ImGui::SameLine(0, 8);
+    }
 }
 
 int main(int, char **) {
@@ -778,7 +876,7 @@ int main(int, char **) {
   ImGui_ImplSDLRenderer2_Init(renderer);
 
   char symbol[16] = "AAPL", token[128] = "";
-  float cost_bp = 0.25f, preference = 0.5f;
+  float cost_bp = 0.25f;
   int paths = 1024, seed = 1;
   pid_t download = -1, fit = -1;
   FILE *output = nullptr;
@@ -821,15 +919,13 @@ int main(int, char **) {
       state.status = download > 0 ? "Loading quotes..." : "curl did not start.";
     }
     ImGui::SameLine(0, 24), ImGui::SetNextItemWidth(60), ImGui::InputFloat("stock cost, bp", &cost_bp, 0, 0, "%.2f");
-    ImGui::SameLine(), ImGui::SetNextItemWidth(50), ImGui::InputFloat("hedger's confidence", &preference, 0, 0, "%.2f");
     ImGui::SameLine(), ImGui::SetNextItemWidth(70), ImGui::InputInt("paths", &paths, 0);
     ImGui::SameLine();
     if (fit > 0 ? ImGui::Button("Stop") : ImGui::Button("Fit") && !state.contracts.empty()) {
       if (fit > 0) stop(fit);
       else {
         paths = std::max(64, paths / 64 * 64);
-        preference = std::min(std::max(preference, 0.0f), 0.99f);
-        write_chain(cost_bp * 1e-4, preference);
+        write_chain(cost_bp * 1e-4);
         for (Contract &c : state.contracts) c.fitted = false;
         state.losses.clear(), state.inside.clear(), state.iteration = 0;
         staged = state, pending.clear();
@@ -846,6 +942,7 @@ int main(int, char **) {
     if (!state.contracts.empty() && ImGui::BeginTabBar("views")) {
       if (ImGui::BeginTabItem("Volatility")) quotes_tab(true), ImGui::EndTabItem();
       if (ImGui::BeginTabItem("Price")) quotes_tab(false), ImGui::EndTabItem();
+      if (ImGui::BeginTabItem("Spreads")) spreads_tab(), ImGui::EndTabItem();
       if (ImGui::BeginTabItem("Law")) law_tab(), ImGui::EndTabItem();
       if (ImGui::BeginTabItem("Hedge")) hedge_tab(), ImGui::EndTabItem();
       if (ImGui::BeginTabItem("Quotes")) contracts_tab(), ImGui::EndTabItem();

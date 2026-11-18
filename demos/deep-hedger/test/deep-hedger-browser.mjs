@@ -87,16 +87,16 @@ try {
       await click(476, 18);  // Load quotes
       await coloured([205, 205, 205]);
       assert.deepEqual(requested.splice(0).map(path => path.replace(/\/$/, "")), ["/fixture/marketdata/v1/options/chain/AAPL"]);
-      await click(1040, 18);  // Fit
+      await click(844, 18);  // Fit
       await coloured([64, 156, 255]);
       // Stop, and Fit again: the first fit's lines go, the second's come.
-      await click(1040, 18);
+      await click(844, 18);
       await delay(1000);
-      await click(1040, 18);
+      await click(844, 18);
       await coloured([64, 156, 255], false);
       await coloured([64, 156, 255]);
       // A row of the Quotes tab clicked: the fit's next reports hedge that contract.
-      await click(246, 57);
+      await click(322, 57);
       await click(400, 150);
       await delay(200_000);
       // Ctrl+C, the fit running: dh-gui and its dh-fit end, and the shell is in front.
@@ -112,7 +112,8 @@ try {
       // loss fell, most quotes came to lie in the fixture's bands, the law's forward and the
       // deviation of the batch's days are the fixture's, and the hedger hedges: what its
       // books are left with deviates clearly less than their payoffs do.
-      const report = await run("grep 'DH iteration' /tmp/dh/fit.out | head -n 1 && grep 'DH iteration' /tmp/dh/fit.out | tail -n 1 && grep 'DH forward' /tmp/dh/fit.out | tail -n 4");
+      const report = await run("awk '/^DH iteration/ { if (!first) first = $0; last = $0 } /^DH forward/ { forward[n++ % 4] = $0 } " +
+        "END { print first; print last; for (i = 0; i < 4; i++) print forward[(n + i) % 4] }' /tmp/dh/fit.out");
       const reports = [...report.matchAll(/^DH iteration (\d+) loss (\S+) .* inside (\S+) .* risk (\S+) unhedged (\S+)/gm)].map(match => match.slice(1).map(Number));
       const intervals = [...report.matchAll(/^DH forward \d+ (\S+) \S+ (\S+)/gm)].map(match => match.slice(1).map(Number));
       assert.equal(reports.length, 2, report);
@@ -126,15 +127,15 @@ try {
         assert.ok(Math.abs(forward - 1) < 0.004, `${name}: forward ${forward}`);
         assert.ok(Math.abs(deviation / (volatility / Math.sqrt(252)) - 1) < 0.12, `${name}: a day's deviation ${deviation}`);
       }
-      const shown = (await run("cat /tmp/dh/chain.txt.shown && echo && grep 'DH residual' /tmp/dh/fit.out | tail -n 2 | cut -d ' ' -f 3"))
+      const shown = (await run("cat /tmp/dh/chain.txt.shown; echo; awk '/^DH residual/ { before = last; last = $3 } END { print before; print last }' /tmp/dh/fit.out"))
         .split("\n").map(line => line.trim()).filter(line => /^\d+$/.test(line));
       assert.ok(shown.length === 3 && shown[1] === shown[0] && shown[2] === shown[0], `${name}: the row clicked and the contracts hedged: ${shown}`);
       // dh-fit check: the kernels' bids and asks beside the host's own ledger on the same
       // paths, and each gradient beside its central difference, its section's largest
-      // gradients to a few percent; the same for the state's three numbers and the confidence.
+      // gradients to a few percent; the same for the state's three numbers.
       const checked = await run("dh-fit check /tmp/dh/chain.txt 256");
-      const named = [...checked.matchAll(/^DH check (?:state \d|confidence) (\S+) (\S+)$/gm)].map(match => [Number(match[1]), Number(match[2])]);
-      assert.equal(named.length, 4, checked);
+      const named = [...checked.matchAll(/^DH check state \d (\S+) (\S+)$/gm)].map(match => [Number(match[1]), Number(match[2])]);
+      assert.equal(named.length, 3, checked);
       for (const [gradient, difference] of named) {
         // The state's loss has kinks a difference steps over: a twentieth of the largest besides.
         assert.ok(Math.abs(gradient - difference) <= 0.05 * Math.abs(difference) + 0.05 * Math.max(...named.map(pair => Math.abs(pair[1]))),
