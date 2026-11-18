@@ -24,8 +24,8 @@ cases) passed in Chromium and Firefox (`work/packages-evidence-1117/runs/test-am
 
 Built in `work/packages`: `fmt` 12.1.0 (923,458 bytes).
 
-Mojo's staged `mojo/mojo.tar.gz` no longer holds {fmt}: its `SOURCE` pin is refreshed when the next
-round stages Mojo (this tree does not stage it).
+Mojo's staged `mojo/mojo.tar.gz` no longer holds {fmt} (nor, since packages round two, xxHash or
+OpenTelemetry's headers): its `SOURCE` pin was refreshed on 2026-11-18 by staging it alone.
 
 Built in `work/packages`: `blender-deps` over the packages (460,838,815 bytes, 873 s): OpenColorIO
 found expat 2.8.5, OpenImageIO {fmt} 12.1.0, TIFF 4.7.2 and JPEG 62 (FindJPEG's `libjpeg.a`, as when
