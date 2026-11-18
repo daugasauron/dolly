@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # as lean-std is: its .olean files and libLean.a, which every Lean program
 # links, as upstream's flags name it.
 FROM /demos/lean/Dollyfile-lean-stage0 7f7869f74c9758bcb24879fb29555ba022a4f0e4513c3d65c53918cf6b6f15af
-INSTALL /demos/lean/Dollyfile-lean-std a3551117531cb7b33429a7db7ad787c75e2201f9b408566a951c6df4714460aa
+INSTALL /demos/lean/Dollyfile-lean-std 7cfb264653409e027bb305e06a5e5660a517dfba93a4b28443f3bcff473ac2f1
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL find
@@ -24,9 +24,9 @@ SOURCE /dist/static/lean/port.tar b98085e118db528bb5b28bb24b5c2c74e5caff7a582025
 # Stage 1 reads only src/.
 SLOP gzip -dc /tmp/lean.tar.gz | tar -xf - -C / && rm -r /tmp/lean.tar.gz /tmp/lean/stage0
 SLOP tar -xf /tmp/lean-port.tar -C /
-# Three jobs: the last modules import most of Lean, and four of them at once
-# exceeded a 9 GB build.
-SLOP CWD /tmp/lean make -f dolly/lean-dolly.mk -j3 STAGE=1 LIBRARIES=Lean LEAN=/usr/lib/lean-stage0/lean
+# Two jobs, for the threads lean-std's recipe counts; the last modules import
+# most of Lean too, and four of them at once exceeded a 9 GB build.
+SLOP CWD /tmp/lean make -f dolly/lean-dolly.mk -j2 STAGE=1 LIBRARIES=Lean LEAN=/usr/lib/lean-stage0/lean
 
 FOLDER /usr/lib/lean/Lean
 FILE /usr/lib/lean/Lean.olean

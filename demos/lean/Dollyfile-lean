@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 # (lean-dolly.mk), with the C++ runtime compiled again from src/. Lake
 # compiles a package's C with cc and links it with libuv.
 FROM /demos/lean/Dollyfile-lean-stage0 7f7869f74c9758bcb24879fb29555ba022a4f0e4513c3d65c53918cf6b6f15af
-INSTALL /demos/lean/Dollyfile-lean-meta 3fd173d6d971ea4016ece93fa2ada9787e9821e5dedb07d5da88556d5e8ddac5
+INSTALL /demos/lean/Dollyfile-lean-meta 54acd26f19f453accdf50f94da8bfdeaf99d13050b5808d0361299873b2435cb
 INSTALL /Dollyfile-cc 3c50048026aec1c0c21ac6c0b74d93f53b5c0a3fa83b5c9930d86924a3b59eaa
 INSTALL /demos/cmake/Dollyfile-libuv 60d5b06d357ab027d9fd0e43b40e1d262da5544be2a1e1fe430943c29c66105a
 
