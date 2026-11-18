@@ -71,6 +71,9 @@ asset pricing, with frictions (cher-sim, 04-09; braut, 07-22).
 | 28 | On every day of a path the stock's price with its spread and every option's quote are known that day; a book may hedge with options at them. | "there is no such thing as a \"pathwise rule\" [...] the things that are known to me today are the price of the underlying (including spread), and all the option quotes today, induced backwards from yesterday *somehow*" (2026-11-17) |
 | 29 | The tick is no parameter of the model, and must not distort the wings. | "The trader doesn't care bout the tick."; "I just dont want weird errors because tick sizeo nthe wings." (2026-11-17) |
 | 30 | The model is a fundamental theorem of asset pricing with spreads and slippage as first class parameters: market makers set the spread, offer the quotes, keep the spread as profit and hedge everything else. Demand for options as hedges of other contracts is set aside. | "The idea is to do something like the fundamental theorem of asset pricing, but with spreads and slippage as first class parameters. In classical financial mathematics, there is no edge, and no spread. [...] the spread is determined by the sell side/market makers. The market makers think that they can offer those quotes, get the \"spread\" as profit, and hedge everything else. This is not entirely true since there is some demand for options as hedges for other types of contracts as well but lets disregard that for now." (2026-11-18) |
+| 31 | No model is decided: assumptions are tried until one gives a model that makes sense. The spread may be an output of the network, or the bids and asks directly. | "there is no model decided yet, this is still in experimentation phase where we are trying to use assumptions to deriva a model that makes sense. [...] somehow the spread would be an output of the neural net, or even that the bids/asks are the output directly." (2026-11-18) |
+| 32 | The model is good when it finds statistical arbitrage in a calibrated model and that holds up in backtests. | "If you get a model that finds statistical arbitrage in a calibrated model and it holds up in backtests we're good." (2026-11-18) |
+| 33 | The model must hedge volatility without a Black-Scholes core: some way to express hedging the implied moments of the underlying. The desk's question is which contract to pick. | "a model that can be used to hedge Vol in a realistic setting but where the core has nothing to do with \"black sholes\" or SDEs"; "if you're at a desk and want to hege 2week Vega at some level - what contract do you pick?" (2026-11-18) |
 
 ## 3. Assumptions
 
@@ -342,3 +345,44 @@ Not implemented, in the order the theory needs them:
    and with the path's own turbulence ("the spreads increase/decrease with
    vol, they should definitely increase during e.g. COVID", fable, 06-28).
 4. An illiquid name (conflict 5); the realized backtest (decision 22).
+
+## 8. Exposure to volatility in the model's terms, and the backtest (2026-11-18)
+
+Sources: the owner's (decisions 32, 33); the lay-off rule and the measurements are this work's
+(tasks dh-38, dh-39; `work/research/deep-hedger-2026-11-18.md` outside the tree).
+
+**What an exposure is.** The model has no vega. A book has a residual on every path of the law:
+what its payoff costs less what its stock hedge made. The residual's mean is the book's value;
+its movement across the paths is everything the stock cannot hedge, which is the book's exposure
+to how the law's days come out: quiet or wild (the volatility state), and with what tails (each
+interval's law, which is where the quotes' implied moments are). Two books share an exposure as
+far as their residuals move together under the law.
+
+**What hedging it is.** Holdings in other listed contracts, bought at their asks and sold at
+their bids, that make the deviation of the whole book's residual small, net of what their spreads
+cost: one number, the price at which a deviation is worth paying a spread for, sets how far to
+go. This is decision 28 with the options bought today and held; trading them on later days
+needs the model's later-day quotes, which are not built.
+
+**Why other dealers' quotes close the model.** If every dealer asks its mean replication cost
+plus a price times its residual's deviation, no dealer gains by passing part of a position to
+another at that dealer's quote, because the deviation of a sum is at most the sum of the
+deviations. So that rule is consistent with "everything is other dealers giving prices"; a rule
+on a variance is not.
+
+**What was measured** (AAPL, weekly trade days 2020-09 to 2022-12, each day's model fitted from
+that day's chain alone and scored on the real closes after it; two seeds; task dh-39):
+
+- A short straddle hedged this way left 46 to 84 bp of deviation in its realised P&L, by
+  expiry; a Black delta alone 130 to 188; a Black vega hedge in the next expiry's straddle 108
+  to 200. The option hedge's spreads cost 5 to 12 bp. The model may use many contracts where
+  the vega hedge uses one.
+- The hedger's stock hedge is as good as a Black delta given the same one-day lag, and no
+  better; the lag itself costs about 40% more risk than a delta traded the same day.
+- Where the law fits (within 1.5 deviations of the forward) the best deal the model sees at the
+  market's quotes made nothing (+0.19 bp a trade, t 0.25). Beyond 1.5 deviations the law prices
+  under the market, the model sells those wings, and that paid in this period (+1.9 to +2.1 bp a
+  trade at a deviation of 3.5 to 3.8, both seeds, still +1.3 a day late): the premium of far
+  options, which a law too thin there cannot tell from a mispricing.
+- 2023-01 to 2025-11 is scored once, with the rules fixed on the first period.
+

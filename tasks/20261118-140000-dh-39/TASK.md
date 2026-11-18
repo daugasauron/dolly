@@ -126,3 +126,11 @@ values every book on 131,072 fresh paths; it prints the share of middles in band
 
 What the first period makes likely: 1 pays in the wings and not within 1.5 deviations; 2 and 3
 do not pay; 4 holds.
+
+### The fit beyond 1.5 deviations (2026-11-19)
+
+One day (2022-02-17, seed 1) fitted with 1800 iterations in place of 600: within 1.5 deviations
+the out-of-the-money middles in band go from 85% to 98%; beyond, from 63% to 68%, the median
+place from 0.9 to 0.5 half spreads under the mid. So the wings are thin partly from too short a
+fit and partly from the law. 4096 paths do not fit the GPU's memory beside the round. The
+backtest keeps 600 iterations for both periods; a longer fit is a new model to score.
