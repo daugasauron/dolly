@@ -12,8 +12,8 @@ REQUIRES HOST threads@0
 # the seed compiler and installed in its place: this image's cc is built by Dolly.
 # The archives come by COPY, so the rest of LLVM that llvm-build installed for
 # the llvm package stays out of this image.
-FROM /demos/llvm/Dollyfile-llvm-tablegen 227d04803ca92a986d9a3d3e702eb45857d48985fb0d616b124b62585e7a4a1e
-COPY /demos/llvm/Dollyfile-llvm-build fd8e7f6810a526a1e3e78c5310ed01b56443ff4915132a1623bc41ddc3cc56ec /usr/lib/llvm-build /usr/lib/llvm-build
+FROM /demos/llvm/Dollyfile-llvm-tablegen 6e5a1656cf3a0a5d10ad15ba3b6abed9b7afe80eac3ada8789f88307b1483806
+COPY /demos/llvm/Dollyfile-llvm-build 8b5a714305fab91dd3f746fb4362901c977692d55c76ecab87fae257cb328ecf /usr/lib/llvm-build /usr/lib/llvm-build
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL gzip
@@ -33,7 +33,7 @@ SLOP slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
 # The driver the seed compiler is (programs/compiler.cpp), with the two contract
 # digests the runtime build generates.
-SOURCE /dist/static/llvm/compiler.cpp 1522af61d8b920ad7d679ce44165e075f646c583f50cf21f9c67786d7a5257cb /tmp/dolly-compiler/compiler.cpp
+SOURCE /dist/static/llvm/compiler.cpp c55c820a2a2332805765e99a1474a2a4163315e9196da90df0822181579033df /tmp/dolly-compiler/compiler.cpp
 SOURCE /dist/static/llvm/compiler-main.c 45b15780c4df81b895c7dc7cf6135ba8c6f40659682e841d2ea95dc69268dd34 /tmp/dolly-compiler/compiler-main.c
 SOURCE /dist/static/llvm/toolchain.h e3e12fa1eabbf433c25bc3db0ef71256667f21669a93ee2dcb0ac20ce18f6fa5 /tmp/dolly-compiler/commands/toolchain.h
 SOURCE /dist/static/llvm/dolly-process-abi-digest.h cf7a584634c1310446d9f988d1c321be90159ca68fb3e1fd505b83a59e21fe85 /tmp/dolly-compiler/dolly-process-abi-digest.h

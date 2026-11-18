@@ -15,9 +15,9 @@ REQUIRES HOST clipboard@0
 # Forward+ renderer on gpu@0 as a foundry at night over a sea of molten metal. Its project
 # (demos/godot/airtime) is imported and exported here by Godot's editor, and airtime-godot plays
 # the pack with godot, which installs with it. The project installs too, for the editor.
-FROM /Dollyfile-system ede57a1516844ae47fe5aa8dcf693ca90862dd38547e1587f7e163f513079551
-INSTALL /demos/godot/Dollyfile-godot 7ddf2bdf713e39f9f35dc01fdf29c7b9b025fa7562761b1afc714ad1f5f42d23
-USE /demos/godot/Dollyfile-godot-editor 146cb3275c26b7259f729481399ce956add36c2c90222f94bd2ffddcfe35a24a
+FROM /Dollyfile-system 8d54b8fd95bd265381fcacf4d97044d3ad3deb0e969deeed8e4b5e791e71dcb5
+INSTALL /demos/godot/Dollyfile-godot 15319d7ee68c12a9161f7691642f862267fc0ed6ffa66b2c75fa5add42e394c1
+USE /demos/godot/Dollyfile-godot-editor a920e25e50ec53eaef77651a5e259bd639c7aa2a138af11ae6bb4e774235ef6a
 
 REQUIRES TOOL cp
 REQUIRES TOOL godot-editor

@@ -156,6 +156,9 @@ int raise(int signal_number) {
 /* Returns deliver_pending's result: 2 when no handler ran. */
 static int set_mask(int how, const sigset_t *set) {
   for (int number = 1; number < _NSIG; ++number) {
+    /* musl keeps 32 to 34 for itself: its sigaddset and sigdelset refuse them,
+     * setting errno, which a successful call leaves as it was. */
+    if (number - 32u < 3) continue;
     const int member = sigismember(set, number) == 1;
     if (how == SIG_SETMASK || member) {
       if (member && how != SIG_UNBLOCK && number != SIGKILL && number != SIGSTOP)

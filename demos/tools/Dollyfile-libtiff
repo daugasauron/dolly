@@ -5,9 +5,9 @@ REQUIRES HOST runtime@0
 # libtiff from upstream's release archive, unchanged, built by its CMake
 # project, for programs the cc package builds: TIFF images, compressed with
 # zlib's Deflate and libjpeg-turbo's JPEG among the codecs it carries.
-FROM /demos/cmake/Dollyfile-cmake-build ef925b15c0342d66937cb491e956474f5dbb37d60cb2063e6e7ec91e0cb85d71
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
 INSTALL /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
-INSTALL /demos/tools/Dollyfile-libjpeg-turbo 04db0d617e53e5ad835e7fee4a3fcba679b74ec9f35beea3f7f4eba947b89880
+INSTALL /demos/tools/Dollyfile-libjpeg-turbo 1e61de3e2c532637c8d07ebbc820361b211b8421307492bf35398e96beb6a029
 REQUIRES HEADER libc
 REQUIRES HEADER jpeglib
 REQUIRES HEADER zlib

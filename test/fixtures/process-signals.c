@@ -276,6 +276,10 @@ int main(int argc, char **argv) {
   sigset_t waiting;
   CHECK(sigpending(&waiting) == 0 && sigismember(&waiting, SIGTERM) == 1);
   CHECK(sigprocmask(SIG_SETMASK, &previous, NULL) == 0 && received == 1);
+  /* A successful call leaves errno as it was: Emacs reads a failed select's after it. */
+  errno = EINTR;
+  CHECK(sigprocmask(SIG_SETMASK, &previous, NULL) == 0 && errno == EINTR);
+  CHECK(pthread_sigmask(SIG_SETMASK, &previous, NULL) == 0 && errno == EINTR);
   CHECK(signal(SIGTERM, SIG_DFL) != SIG_ERR);
   CHECK(signal(SIGKILL, SIG_IGN) == SIG_ERR && errno == EINVAL);
   for (int flags = 0; flags <= 1; ++flags) {

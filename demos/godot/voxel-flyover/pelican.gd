@@ -281,7 +281,7 @@ func lay_flat(limb: Node3D, from: Vector3, to: Vector3, side: float, wide: float
 	limb.transform = Transform3D(Basis(out * thick, along, up.cross(out) * wide), (from + to) / 2.0)
 
 
-## Turns the cranks: `fast` is the flight's speed over its cruise. Everything the pedalling
+## Turns the cranks: `fast` is how fast, 1 at the cruise's throttle. Everything the pedalling
 ## drives turns by the cranks' angle, so nothing slips against anything else.
 func pedal(delta: float, fast: float, turn: float) -> void:
 	angle += TAU * 1.05 * fast * delta

@@ -9,6 +9,7 @@
 #include <sys/wait.h>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -40,6 +41,8 @@
 #include <llvm/Support/StringSaver.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/VirtualFileSystem.h>
+#include <llvm/Support/VirtualOutputBackends.h>
+#include <llvm/Support/VirtualOutputFile.h>
 #include <llvm/Support/raw_ostream.h>
 
 #include "commands/toolchain.h"
@@ -67,6 +70,21 @@ enum class DebugInfoKind {
   Full,
 };
 
+// Clang's driver state for its floating-point options, which it renders into
+// cc1's (RenderFloatingPointOptions); the defaults are cc1's own.
+struct FloatingPoint {
+  bool honor_infinities = true, honor_nans = true, approximate_functions = false,
+       associative = false, reciprocal = false, signed_zeros = true, trapping = false,
+       basic_complex_range = false;
+  std::string contract, exception_behavior;
+  void fast(bool on) {
+    honor_infinities = honor_nans = signed_zeros = !on;
+    approximate_functions = associative = reciprocal = basic_complex_range = on;
+    contract = on ? "fast" : "";
+    if (on) trapping = false, exception_behavior.clear();
+  }
+};
+
 struct DriverOptions {
   bool compile_only = false;
   bool preprocess_only = false;
@@ -89,6 +107,9 @@ struct DriverOptions {
   bool unsigned_char = false;
   bool pthread = false;
   bool cast_emulation = false;
+  int stack_protector = 0;
+  std::string lto;
+  FloatingPoint floating_point;
   std::string thread_model;
   DebugInfoKind debug_info = DebugInfoKind::None;
   bool limited_debug_info = false;
@@ -236,7 +257,9 @@ void print_help(const char *program, int driver_mode) {
       "  --dolly-cast-emulation\n"
       "                     after the link, make calls through pointers cast to\n"
       "                     other function types work (wasm-opt --fpcast-emu, of\n"
-      "                     the binaryen package): GObject programs make them\n"
+      "                     the binaryen package): GObject programs make them.\n"
+      "                     Such a program loads only -shared libraries linked so\n"
+      "  -flto[=thin]       compile to LLVM bitcode, which the link compiles\n"
       "  -x c|c++           override source language\n"
       "  -std=STANDARD      select a C or C++ language standard\n"
       "  -O0|-O1|-O2|-O3|-Os|-Oz\n"
@@ -397,11 +420,38 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
     } else if (argument == "-fuse-ld=lld") {
       // cc links with lld already, the one linker it has.
     } else if (starts_with(argument, "-ffp-contract=")) {
-      // Follows the default -ffp-contract=on in cc1's arguments, so it wins.
-      options.frontend_options.push_back(argument);
+      options.floating_point.contract = argument.substr(std::strlen("-ffp-contract="));
+    } else if (argument == "-ffast-math" || argument == "-fno-fast-math") {
+      options.floating_point.fast(argument == "-ffast-math");
+    } else if (argument == "-fno-signed-zeros" || argument == "-fsigned-zeros") {
+      options.floating_point.signed_zeros = argument == "-fsigned-zeros";
+    } else if (argument == "-freciprocal-math" || argument == "-fno-reciprocal-math") {
+      options.floating_point.reciprocal = argument == "-freciprocal-math";
+    } else if (argument == "-fassociative-math" || argument == "-fno-associative-math") {
+      options.floating_point.associative = argument == "-fassociative-math";
+    } else if (argument == "-ffinite-math-only" || argument == "-fno-finite-math-only") {
+      options.floating_point.honor_infinities = options.floating_point.honor_nans =
+          argument == "-fno-finite-math-only";
+    } else if (argument == "-ftrapping-math" || argument == "-fno-trapping-math") {
+      options.floating_point.trapping = argument == "-ftrapping-math";
+      options.floating_point.exception_behavior = options.floating_point.trapping ? "strict" : "ignore";
+    } else if (argument == "-flto" || argument == "-flto=full" || argument == "-flto=auto" ||
+               argument == "-flto=jobserver") {
+      // As Clang: the GCC spellings are full LTO. A unit compiles to bitcode,
+      // which the link (wasm-ld's LTO) compiles with the rest.
+      options.lto = "full";
+    } else if (argument == "-flto=thin") {
+      options.lto = "thin";
     } else if (argument == "-fno-lto") {
-      // Dolly links no LTO bitcode; -flto is never enabled, so the negative
-      // states the default and cc1, which has no such driver flag, gets nothing.
+      options.lto.clear();
+    } else if (argument == "-fstack-protector" || argument == "-fstack-protector-strong" ||
+               argument == "-fstack-protector-all" || argument == "-fno-stack-protector") {
+      // Canaries guard the buffers of the stack in linear memory; libc has
+      // __stack_chk_guard and __stack_chk_fail.
+      options.stack_protector = argument == "-fstack-protector" ? 1
+          : argument == "-fstack-protector-strong" ? 2 : argument == "-fstack-protector-all" ? 3 : 0;
+    } else if (argument == "-Qunused-arguments") {
+      // cc warns about no unused argument.
     } else if (argument == "-fstandalone-debug") {
       // Clang's driver turns this into -debug-info-kind=standalone only with
       // -g, which is already the kind cc emits for -g; cc1 gets nothing here.
@@ -443,8 +493,6 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
       // WebAssembly has no unwind tables: C++ exceptions use Wasm EH.
     } else if (argument == "-ffunction-sections" || argument == "-fdata-sections") {
       options.frontend_options.push_back(argument);
-    } else if (argument == "-ftrapping-math") {
-      options.frontend_options.push_back("-ffp-exception-behavior=strict");
     } else if (argument == "-Xclang") {
       std::string value;
       if (!take_option_value(argc, argv, index, "-Xclang", value)) return -1;
@@ -534,6 +582,12 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
           options.linker_version = true;
         } else if (option == "--start-group" || option == "--end-group") {
           // wasm-ld rescans archives without GNU ld's group delimiters.
+        } else if (option == "--version-script" || starts_with(option, "--version-script=")) {
+          // ELF symbol versions, which WebAssembly has not; Emscripten's emcc
+          // drops the option too. Its file follows as the next ARG or after '='.
+          if (option == "--version-script" && comma != std::string::npos) {
+            comma = argument.find(',', comma + 1);
+          }
         } else if (!option.empty() && option != "--no-as-needed" &&
                    option != "--as-needed" && option != "--no-undefined" &&
                    option != "--allow-shlib-undefined") {
@@ -572,9 +626,8 @@ std::vector<const char *> argument_pointers(
   return pointers;
 }
 
-bool run_clang(const std::string &source, const std::string &language,
-               const std::string &output,
-               const DriverOptions &options) {
+// Clang compiles, and ar reads the symbols of LTO bitcode members.
+void initialize_targets() {
   static bool targets_initialized = false;
   if (!targets_initialized) {
     llvm::InitializeAllTargets();
@@ -583,6 +636,76 @@ bool run_clang(const std::string &source, const std::string &language,
     llvm::InitializeAllAsmParsers();
     targets_initialized = true;
   }
+}
+
+// As Clang's driver renders them (RenderFloatingPointOptions).
+void render_floating_point(const FloatingPoint &fp, std::vector<std::string> &arguments) {
+  const bool finite = !fp.honor_infinities && !fp.honor_nans;
+  if (!fp.honor_infinities) arguments.push_back("-menable-no-infs");
+  if (!fp.honor_nans) arguments.push_back("-menable-no-nans");
+  if (fp.approximate_functions) arguments.push_back("-fapprox-func");
+  if (fp.associative && fp.reciprocal && !fp.signed_zeros && fp.approximate_functions && !fp.trapping) {
+    arguments.push_back("-funsafe-math-optimizations");
+  }
+  if (!fp.signed_zeros) arguments.push_back("-fno-signed-zeros");
+  if (fp.associative && !fp.signed_zeros && !fp.trapping) arguments.push_back("-mreassociate");
+  if (fp.reciprocal) arguments.push_back("-freciprocal-math");
+  if (!fp.contract.empty()) arguments.push_back("-ffp-contract=" + fp.contract);
+  if (!fp.exception_behavior.empty()) arguments.push_back("-ffp-exception-behavior=" + fp.exception_behavior);
+  if (finite && fp.associative && fp.approximate_functions && fp.reciprocal && !fp.signed_zeros &&
+      !fp.trapping) {
+    arguments.push_back("-ffast-math");
+  }
+  if (finite) arguments.push_back("-ffinite-math-only");
+  if (fp.basic_complex_range) arguments.push_back("-complex-range=basic");
+}
+
+// LLVM's object writers patch each relocation into the file they wrote with
+// pwrite, which a file stream makes three kernel calls (lseek, write, lseek):
+// over a hundred thousand for a large unit. Clang writes its outputs here into
+// memory, as it does for a stream that cannot seek, and each file in one write.
+class MemoryOutputFile final
+    : public llvm::RTTIExtends<MemoryOutputFile, llvm::vfs::OutputFileImpl> {
+ public:
+  static char ID;
+  explicit MemoryOutputFile(llvm::vfs::OutputFile file) : file(std::move(file)) {}
+  llvm::raw_pwrite_stream &getOS() override { return stream; }
+  llvm::Error keep() override {
+    file.getOS() << stream.str();
+    return file.keep();
+  }
+  llvm::Error discard() override { return file.discard(); }
+
+ private:
+  llvm::vfs::OutputFile file;
+  llvm::SmallVector<char, 0> bytes;
+  llvm::raw_svector_ostream stream{bytes};
+};
+char MemoryOutputFile::ID = 0;
+
+class MemoryOutputBackend final : public llvm::vfs::ProxyOutputBackend {
+ public:
+  MemoryOutputBackend()
+      : ProxyOutputBackend(llvm::makeIntrusiveRefCnt<llvm::vfs::OnDiskOutputBackend>()) {}
+
+ protected:
+  llvm::IntrusiveRefCntPtr<llvm::vfs::OutputBackend> cloneImpl() const override {
+    return llvm::makeIntrusiveRefCnt<MemoryOutputBackend>();
+  }
+  llvm::Expected<std::unique_ptr<llvm::vfs::OutputFileImpl>> createFileImpl(
+      llvm::StringRef path, std::optional<llvm::vfs::OutputConfig> config) override {
+    llvm::vfs::OutputFile file;
+    if (llvm::Error error = getUnderlyingBackend().createFile(path, config).moveInto(file)) {
+      return std::move(error);
+    }
+    return std::make_unique<MemoryOutputFile>(std::move(file));
+  }
+};
+
+bool run_clang(const std::string &source, const std::string &language,
+               const std::string &output,
+               const DriverOptions &options) {
+  initialize_targets();
 
   std::vector<std::string> arguments = {
       // LLVM has no Dolly OS. This triple selects the code-generation ABI of
@@ -595,9 +718,13 @@ bool run_clang(const std::string &source, const std::string &language,
   if (options.preprocess_only) {
     arguments.push_back("-E");
     if (options.dump_macros) arguments.push_back("-dM");
+  } else if (!options.lto.empty()) {
+    arguments.insert(arguments.end(), {"-emit-llvm-bc", "-flto=" + options.lto, "-flto-unit"});
   } else {
+    arguments.push_back("-emit-obj");
+  }
+  if (!options.preprocess_only) {
     arguments.insert(arguments.end(), {
-        "-emit-obj",
         "-clear-ast-before-backend",
         "-disable-llvm-verifier",
         "-discard-value-names",
@@ -714,6 +841,10 @@ bool run_clang(const std::string &source, const std::string &language,
                                                      : "-debug-info-kind=standalone");
     arguments.push_back("-dwarf-version=5");
   }
+  render_floating_point(options.floating_point, arguments);
+  if (options.stack_protector != 0) {
+    arguments.insert(arguments.end(), {"-stack-protector", std::to_string(options.stack_protector)});
+  }
   arguments.insert(arguments.end(), options.frontend_options.begin(),
                    options.frontend_options.end());
   if (!options.preprocess_only && options.dependency_output) {
@@ -754,6 +885,7 @@ bool run_clang(const std::string &source, const std::string &language,
       llvm::vfs::createPhysicalFileSystem());
   compiler.createVirtualFileSystem(std::move(physical_filesystem),
                                    diagnostic_buffer);
+  compiler.setOutputManager(llvm::makeIntrusiveRefCnt<MemoryOutputBackend>());
   compiler.createDiagnostics();
   diagnostic_buffer->FlushDiagnostics(compiler.getDiagnostics());
 
@@ -1748,7 +1880,7 @@ int compile_and_link(const DriverOptions &options, int default_language) {
     return 1;
   }
   cleanup(temporary_objects);
-  if (options.cast_emulation && !options.kernel_plugin && !options.shared_library &&
+  if (options.cast_emulation && !options.kernel_plugin &&
       !emulate_casts(linked)) {
     return 1;
   }
@@ -1790,6 +1922,7 @@ int run_archive(int argc, const char *const *argv) {
     return 64;
   }
 
+  initialize_targets();
   std::vector<llvm::NewArchiveMember> members;
   auto archive_bytes = llvm::MemoryBuffer::getFile(argv[2], false, false);
   if (archive_bytes) {

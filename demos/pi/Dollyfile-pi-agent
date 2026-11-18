@@ -13,8 +13,8 @@ REQUIRES HOST packages@0
 REQUIRES HOST nena@0
 
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix c67f734780c8ee1d6294e903694f1ca0604308013a00ed3439a1a69b5218a854
-INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
+INSTALL /Dollyfile-posix c24b7cb8dfc057769bc7f644f68c2922514adb89272756d8ed793c0318d5f3d5
+INSTALL /Dollyfile-display cc98bc6edc0e5dea2bfb79e3095ea1fb6744e28282d28cec6c2e013cf6435992
 # The tools Pi's dolly skill teaches: cc and make with the host modules' client
 # libraries, Git, curl.
 INSTALL /Dollyfile-cc 3c50048026aec1c0c21ac6c0b74d93f53b5c0a3fa83b5c9930d86924a3b59eaa
@@ -25,7 +25,7 @@ INSTALL /Dollyfile-libdolly-upload 8ac6d3294c36592ef7147a9d0fddfe1558ab9edfae12e
 INSTALL /Dollyfile-libdolly-threads dc22418aec61aa289a4b7c746891cc161b447fb14b6075696c4c04ddb9d6aecf
 INSTALL /Dollyfile-git beec0dcd0aadae135004bdad2dc5ca42ae35cbf06eb67475d0c57e9185bd4f76
 INSTALL /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6e458431e
-INSTALL /demos/pi/Dollyfile-pi-dolly 2be960f4d077bb7d439fa38aea21190e25fbdd967562239489effd2da7aacbb5
+INSTALL /demos/pi/Dollyfile-pi-dolly ae958d63bb473fc05137d7eb6932df7caf81429024f77610ac6b41c16a9d4512
 INSTALL /Dollyfile-amy 95b7ecb251d9d5c3d28eb8aaa63b6bd2a465fac35756bdf95b520884a61547e4
 # nena enables the host modules a package needs beyond these.
 INSTALL /Dollyfile-nena 67a37d644a04e3eddd12fe2e5d335dcf473b1b549337f0a9ce2f445f00b91ad8

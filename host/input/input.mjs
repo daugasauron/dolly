@@ -573,13 +573,15 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
     void deliverPaste(event.clipboardData?.getData("text/plain") ?? "");
   });
   // The page's bar below the canvas: the buttons of the program holding the
-  // touch lease (touch@0) and, where no pointer is fine (a phone or a tablet,
-  // which have no paste chord), Paste, which reads the clipboard only inside the
-  // user's press of it. A laptop whose touchscreen is its primary pointer still
-  // has its touchpad and Ctrl+V.
+  // touch lease (touch@0) and Paste, which reads the clipboard only inside the
+  // user's press of it, for a device without a paste chord (a phone or a
+  // tablet): no pointer is fine, and a finger has touched the page, never a
+  // mouse. A laptop with a touchscreen has its touchpad and Ctrl+V: its browser
+  // reports a fine pointer or, where it calls the laptop a tablet (as Chrome on
+  // Windows may beside a rotation sensor), the touchpad moves a mouse's pointer.
   const bar = mount.appendChild(document.createElement("div"));
   bar.id = "buttons";
-  bar.style.cssText = "display:none;flex-wrap:wrap;gap:0.5rem;padding:0.4rem";
+  bar.style.cssText = "grid-area:2/1;display:none;flex-wrap:wrap;gap:0.5rem;padding:0.4rem";
   const button = (label, press) => {
     const node = document.createElement("button");
     node.type = "button";
@@ -596,15 +598,27 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
       .then(deliverPaste, () => showStatus("Paste refused: the browser did not let the page read the clipboard"));
   });
   pasteButton.id = "paste";
-  const touchOnly = matchMedia("not (any-pointer: fine)");
-  let programButtons = [];
+  const touchOnly = matchMedia("not (any-pointer: fine)"), watching = new AbortController();
+  let programButtons = 0, touched = false, moused = false;
   const showBar = () => {
-    pasteButton.hidden = !touchOnly.matches;
-    bar.replaceChildren(...programButtons, pasteButton);
-    bar.style.display = programButtons.length || touchOnly.matches ? "flex" : "none";
+    const paste = touchOnly.matches && touched && !moused;
+    pasteButton.hidden = !paste;
+    bar.style.display = programButtons || paste ? "flex" : "none";
   };
+  bar.append(pasteButton);
+  // A finger counts once lifted, and the bar changes after the event's own
+  // handlers: a press and its release land in one layout.
+  const pointerSeen = ({ pointerType, type }) => {
+    if (pointerType === "mouse" && !moused) moused = true;
+    else if (pointerType === "touch" && type === "pointerup" && !touched) touched = true;
+    else return;
+    setTimeout(showBar);
+  };
+  for (const type of ["pointerdown", "pointermove", "pointerup"]) {
+    window.addEventListener(type, pointerSeen, { capture: true, passive: true, signal: watching.signal });
+  }
   showBar();
-  touchOnly.addEventListener("change", showBar);
+  touchOnly.addEventListener("change", showBar, { signal: watching.signal });
 
   return {
     page: {
@@ -620,11 +634,12 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
     // touch@0's: the holder's labels, each a button that calls press(index,
     // event); a press keeps the focus where it was.
     buttons(labels, press) {
-      programButtons = labels.map((label, index) => {
+      bar.replaceChildren(...labels.map((label, index) => {
         const node = button(label, event => press(index, event));
         node.addEventListener("pointerdown", event => event.preventDefault());
         return node;
-      });
+      }), pasteButton);
+      programButtons = labels.length;
       showBar();
     },
     messages: {
@@ -643,7 +658,7 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
     dispose() {
       started = false;
       endStaleCapture();
-      touchOnly.removeEventListener("change", showBar);
+      watching.abort();
       bar.remove();
     },
   };

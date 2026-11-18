@@ -10,17 +10,15 @@ REQUIRES HOST threads@0
 # OpenEXR, libtiff, libjpeg-turbo, libpng, pugixml, {fmt} and OpenColorIO
 # packages: its libraries and its programs (oiiotool, iinfo, iconvert, idiff, igrep, maketx,
 # testtex) with -pthread, on threads@0. No TBB, FreeType, video, camera raw,
-# HEIF, WebP, GIF, JPEG 2000 or OpenGL. ccfilter drops the -Qunused-arguments
-# it gives Clang.
-FROM /demos/cmake/Dollyfile-cmake-build ef925b15c0342d66937cb491e956474f5dbb37d60cb2063e6e7ec91e0cb85d71
-INSTALL /demos/tools/Dollyfile-openexr fb9ba4326908359c886ca2db14d60203465850788453e95ec036743dce547590
-INSTALL /demos/tools/Dollyfile-libtiff 33ebfdb762eeb3b41052b4d0db872d174268fde69a740f3de90f953d3942ceb8
-INSTALL /demos/tools/Dollyfile-libpng f9220787128996320c6fa8b6f98a3d61945c69bcba9fbe41eb1b48f699ae3e16
-INSTALL /demos/tools/Dollyfile-pugixml 1be9c0b01184b333059d02803edea94d59e6113c47b9173876f7186dc24b4047
-INSTALL /demos/tools/Dollyfile-fmt 95f417b949de4697ea4ce8b584c1250bce00b9dd6d231ae5d983136048b418bb
-INSTALL /demos/tools/Dollyfile-opencolorio 434b3bb84d41f6ab5f7a74aecfbcd6f75a19cabbe9fa6dbd23217521b5afe719
-USE /demos/tools/Dollyfile-robin-map dc8baaa9a6265172abab43fd8f4b577b5b242d4ea78c3f4d1f3cc3651e048056
-USE /demos/tools/Dollyfile-ccfilter c0b143cfbb34f61ceae68b2ed62b8bf93f55385c1567b688b50ba02bc72b3ded
+# HEIF, WebP, GIF, JPEG 2000 or OpenGL.
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+INSTALL /demos/tools/Dollyfile-openexr c1965396dd436bdf404514605d9b29c518c865b989b076e8d7451ffa6c81b27c
+INSTALL /demos/tools/Dollyfile-libtiff 7d9e63783c9c99e4e9a90184e546ec8b21eee2f926cdc9614a144f9d1d245bf3
+INSTALL /demos/tools/Dollyfile-libpng b30b694311392c7242c13b8d263d86fa14806f27657ed493bdf5d5a487850b6d
+INSTALL /demos/tools/Dollyfile-pugixml 8935115aed96c4d664514720d00d043c611482951d029c0eac320346ccf771ce
+INSTALL /demos/tools/Dollyfile-fmt de962c9c55465cab32d8996d673d856e4d891832b9af300aa76446943a00a483
+INSTALL /demos/tools/Dollyfile-opencolorio 168f390e67f7385c9c4e794e30fc74025ad82be8c1ed690b161bf46545094752
+USE /demos/tools/Dollyfile-robin-map c75b52aac6155bd0e357e8a325e7d68a5f43bc3574d8ce56748a27b1f05e2ddf
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES HEADER tsl
@@ -31,7 +29,6 @@ REQUIRES LIB png16
 REQUIRES LIB pugixml
 REQUIRES LIB fmt
 REQUIRES LIB OpenColorIO
-REQUIRES TOOL ccfilter
 REQUIRES TOOL cmake
 REQUIRES TOOL gzip
 REQUIRES TOOL make
@@ -47,7 +44,6 @@ SLOP patch -p1 -d /tmp/openimageio -i /tmp/openimageio-dolly.patch
 SLOP cmake -S /tmp/openimageio -B /tmp/openimageio-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
   -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_C_FLAGS=-pthread -DCMAKE_CXX_FLAGS=-pthread \
-  -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccfilter -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccfilter \
   -DUSE_PYTHON=OFF -DOIIO_BUILD_TOOLS=ON -DOIIO_BUILD_TESTS=OFF -DBUILD_TESTING=OFF -DBUILD_DOCS=OFF \
   -DINSTALL_DOCS=OFF -DSTOP_ON_WARNING=OFF -DLINKSTATIC=ON -DUSE_EXTERNAL_PUGIXML=ON -DUSE_TBB=OFF \
   -DUSE_FREETYPE=OFF -DUSE_QT=OFF -DUSE_OPENCV=OFF -DUSE_FFMPEG=OFF -DUSE_NUKE=OFF -DUSE_OPENVDB=OFF \

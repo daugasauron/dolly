@@ -200,7 +200,8 @@ async function getDevice() {
     created.lost.then(info => {
       if (device !== created) return;
       device = null;
-      for (const scope of slots) if (scope) scope.lost = true;
+      // The page counts no more frames: a batch waiting for one to be shown goes on.
+      for (const scope of slots) if (scope) { scope.lost = true; for (const shown of scope.shows.splice(0)) shown(); }
       postMessage({ type: "status", active: false, error: `GPU device lost: ${info.message}` });
     });
     return created;
@@ -279,7 +280,7 @@ function range(resource, offset, length) {
 function collectReleased(scope, completed) {
   for (const [id, resource] of scope.retired) {
     if (resource.submission > completed) continue;
-    resource.value.destroy?.();
+    resource.value?.destroy?.();
     usedBytes -= resource.size;
     scope.retired.delete(id);
   }
@@ -288,7 +289,7 @@ function release(scope, id, progress) {
   const resource = object(scope, id);
   scope.objects.delete(id);
   if (!resource.size || progress.completed >= progress.queued) {
-    resource.value.destroy?.();
+    resource.value?.destroy?.();
     usedBytes -= resource.size;
     return;
   }
@@ -317,7 +318,7 @@ function retire(scope) {
   scope.retiring = (async () => {
     try { if (scope.device) await scope.device.queue.onSubmittedWorkDone(); } catch {}
     for (const r of scope.objects.values()) {
-      r.value.destroy?.();
+      r.value?.destroy?.();
       usedBytes -= r.size;
     }
     dropOwn(scope);

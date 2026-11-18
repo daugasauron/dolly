@@ -10,9 +10,9 @@ REQUIRES HOST sockets@0
 # stack. Static libraries with their headers, X.Org's protocol headers and the
 # pkg-config files of both. xcb and ICE reach the X server through sockets@0's
 # client, which comes with them.
-FROM /demos/tools/Dollyfile-tools-build bfbb7483707086afb8948275f9b68e85f375a9076f2fe687a147eaeea1d2b184
-USE /demos/python/Dollyfile-python 929382033ca4d961078f460d75185d58edaa75668f686b04b53f44bfd85833b0
-USE /demos/tools/Dollyfile-tar 41a8b3eb2eb4e9ab4bf0d8d1708a5859cbf89872b2658344741c27affa220ffb
+FROM /demos/tools/Dollyfile-tools-build 3c416d0813c5baabb63ce16ebbd9abda02d78c2f86dcb2bbb351a19ffcb32139
+USE /demos/python/Dollyfile-python c39225e146dd9f27a77c5b8b534c4d3eec2246b777c435e766dd48495fa3a2c1
+USE /demos/tools/Dollyfile-tar 4df2a7797074d14dc168e125e4b743fa7afdebd695a4f3055ac881ae1dc86ff1
 INSTALL /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
 
 REQUIRES HEADER libc

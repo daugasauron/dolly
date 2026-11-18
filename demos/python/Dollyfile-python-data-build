@@ -18,12 +18,12 @@ REQUIRES HOST upload@0
 #   COPY RECIPE SHA256 /opt/python-data/numpy /
 # README.md lists the roots each library needs beside it. The build tools
 # (Meson, meson-python, Cython, pybind11, setuptools) serve this build alone.
-FROM /Dollyfile-system ede57a1516844ae47fe5aa8dcf693ca90862dd38547e1587f7e163f513079551
-INSTALL /demos/python/Dollyfile-python 929382033ca4d961078f460d75185d58edaa75668f686b04b53f44bfd85833b0
-INSTALL /demos/tools/Dollyfile-meson fbf8520c118b634f0a422081a05694a78936ba915699e95fa010f9e6b7ba73fb
-INSTALL /demos/tools/Dollyfile-freetype cb073fa00533688584684aeca85e8d1a26cd918295fb1c3dff5f2dbabeb3cd80
-INSTALL /demos/tools/Dollyfile-pkgconf 8e2d10a742a5f3dc0a5da7426f3f276c233bf6672cc0a777fa849672d0f1e0b3
-INSTALL /demos/tools/Dollyfile-libjpeg-turbo 04db0d617e53e5ad835e7fee4a3fcba679b74ec9f35beea3f7f4eba947b89880
+FROM /Dollyfile-system 8d54b8fd95bd265381fcacf4d97044d3ad3deb0e969deeed8e4b5e791e71dcb5
+INSTALL /demos/python/Dollyfile-python c39225e146dd9f27a77c5b8b534c4d3eec2246b777c435e766dd48495fa3a2c1
+INSTALL /demos/tools/Dollyfile-meson 1b12743f4d6bbb9cd96b6088dd4b61d4de8915f4df0a52414ae2177726dde8b9
+INSTALL /demos/tools/Dollyfile-freetype fc54578a7e9ebbeac63b73e4ead0c1a7a49a8af8169520e5be3004bdc97ea0ce
+INSTALL /demos/tools/Dollyfile-pkgconf 26fb05d3178c786e45f1d9a6f399dcf78b78949f337e8da3c6591ce74352a7b0
+INSTALL /demos/tools/Dollyfile-libjpeg-turbo 1e61de3e2c532637c8d07ebbc820361b211b8421307492bf35398e96beb6a029
 REQUIRES HEADER freetype2
 REQUIRES HEADER jpeglib
 REQUIRES HEADER zlib
@@ -118,10 +118,8 @@ SLOP cp -R /usr/share/licenses/libjpeg-turbo /usr/share/licenses/brotli /opt/pyt
 # pointer of another signature (af_dummy_hints_apply takes two parameters, the
 # call passes three), which Wasm traps: it links the freetype package's 2.14.3
 # instead, statically (prefer_static), with the libpng and zlib that one reads.
-# Dolly's compiler links no LTO bitcode: Matplotlib's default b_lto is refused.
 SLOP MESON_PACKAGE_CACHE_DIR=/tmp/python-data/packagecache slop /tmp/python-data/install matplotlib 3.10.9 \
-  --config-settings=setup-args=-Db_lto=false --config-settings=setup-args=-Dsystem-freetype=true \
-  --config-settings=setup-args=-Dprefer_static=true
+  --config-settings=setup-args=-Dsystem-freetype=true --config-settings=setup-args=-Dprefer_static=true
 # Its extensions link FreeType with Brotli, libpng and Qhull, whose licences its wheel does not carry.
 SLOP gzip -dc /tmp/python-data/packagecache/qhull-8.0.2.tgz | tar -xf - -C /tmp/python-data
 SLOP mkdir -p /opt/python-data/matplotlib/usr/share/licenses/qhull /opt/python-data/matplotlib/usr/share/licenses/libpng

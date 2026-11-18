@@ -73,6 +73,44 @@ static func planet_at(p: Vector2) -> Vector3:
 	return anchor * chart_dir(p) * RADIUS
 
 
+## The chart's place of a point of the planet (planet_at's inverse).
+static func chart_of(planet: Vector3) -> Vector2:
+	var dir := (anchor.inverse() * planet).normalized()
+	var side := Vector2(dir.x, dir.z)
+	return side.normalized() * acos(clampf(dir.y, -1.0, 1.0)) * RADIUS if side.length() > 1e-9 else Vector2.ZERO
+
+
+## The spires of an old world near the flight (main.gd's tend_spires): x and z in the chart, the
+## height of the foot (y) and how high the spire stands (w).
+static var spires: Array[Vector4] = []
+const SPIRE_CELL := 6000.0
+
+
+## The spires within `reach` of a point of the planet. One stands for a cell in five or six of a lattice
+## of 6,000 units in the planet's axes, at a place in the cell carried down onto the sphere, where
+## that is open land; it is 240 to 360 units high.
+static func spires_near(planet: Vector3, reach: float) -> Array[Vector4]:
+	var found: Array[Vector4] = []
+	var middle := Vector3i((planet / SPIRE_CELL).floor())
+	var cells := int(ceilf(reach / SPIRE_CELL)) + 1
+	for x in range(-cells, cells + 1):
+		for y in range(-cells, cells + 1):
+			for z in range(-cells, cells + 1):
+				var cell := middle + Vector3i(x, y, z)
+				var centre := (Vector3(cell) + Vector3(0.5, 0.5, 0.5)) * SPIRE_CELL
+				if absf(centre.length() - RADIUS) > SPIRE_CELL or centre.distance_to(planet) > reach + SPIRE_CELL or cell_hash3(cell.x + 7, cell.y + 3, cell.z + 11) > 0.18:
+					continue
+				var at := ((Vector3(cell) + Vector3(0.2, 0.2, 0.2) + Vector3(cell_hash3(cell.x, cell.y + 5, cell.z), cell_hash3(cell.x + 9, cell.y, cell.z), cell_hash3(cell.x, cell.y, cell.z + 13)) * 0.6) * SPIRE_CELL).normalized() * RADIUS
+				if at.distance_to(planet) > reach:
+					continue
+				var p := chart_of(at)
+				var foot := height(p)
+				if foot < SEA + 3.0 or town(p, foot) > 0.05:
+					continue
+				found.append(Vector4(p.x, foot, p.y, 240.0 + 120.0 * cell_hash3(cell.x + 2, cell.y + 2, cell.z + 2)))
+	return found
+
+
 static func cell_hash3(x: int, y: int, z: int) -> float:
 	var n := ((((x & MASK) * 1597334673) & MASK) ^ (((y & MASK) * 3812015801) & MASK) ^ (((z & MASK) * 2798796415) & MASK))
 	n = (n * 1597334673) & MASK
@@ -121,21 +159,50 @@ static func slow3(planet: Vector3, size: float, place: Vector3) -> float:
 	return fbm3(planet / size + place, 2)
 
 
-## The slow fields a height is made with, x: the seas' shift, y: the relief, z: the massif. They
-## change little over a hundred units, so the heights around a place share them.
+## The slow fields a height is made with, x: the seas' shift, y: the relief, z: the massif, w: mesa
+## country (terrain.gdshaderinc's mesa_on). They change little over a hundred units, so the heights
+## around a place share them.
 static var slow_place := Vector3(INF, INF, INF)
-static var slow_fields := Vector3.ZERO
+static var slow_fields := Vector4.ZERO
+static var atoll_seas := 0.0 # with_atolls's field of the seas that have them, at the same place
 
 
-static func slow_here(planet: Vector3) -> Vector3:
+static func slow_here(planet: Vector3) -> Vector4:
 	if planet.distance_squared_to(slow_place) > 2500.0:
 		slow_place = planet
 		var continent := fbm3(planet / 210000.0 + Vector3(5.0, 71.0, 23.0), 3)
 		var belt := 1.0 - smoothstep(0.015, 0.06, absf(fbm3(planet / 140000.0 + Vector3(91.0, 17.0, 44.0), 2) - 0.5))
-		slow_fields = Vector3((slow3(planet, 7300.0, Vector3(34.0, 62.0, 15.0)) - 0.5) * 0.9 + (slow3(planet, 2700.0, Vector3(104.0, 42.0, 77.0)) - 0.5) * 0.5 + (smoothstep(0.4, 0.6, continent) - 0.5) * 0.8,
+		slow_fields = Vector4((slow3(planet, 7300.0, Vector3(34.0, 62.0, 15.0)) - 0.5) * 0.9 + (slow3(planet, 2700.0, Vector3(104.0, 42.0, 77.0)) - 0.5) * 0.5 + (smoothstep(0.4, 0.6, continent) - 0.5) * 0.8,
 			lerpf(0.22, 1.0, smoothstep(0.3, 0.5, slow3(planet, 1900.0, Vector3(38.0, 77.0, 53.0)))),
-			smoothstep(0.81, 0.9, slow3(planet, 19000.0, Vector3(8.0, 97.0, 31.0)) + 0.17 * belt))
+			smoothstep(0.81, 0.9, slow3(planet, 19000.0, Vector3(8.0, 97.0, 31.0)) + 0.17 * belt),
+			mesa_on(planet))
+		atoll_seas = smoothstep(0.5, 0.58, slow3(planet, 6300.0, Vector3(57.0, 19.0, 4.0))) * smoothstep(0.48, 0.56, slow3(planet, 19000.0, Vector3(37.0, 14.0, 82.0)))
 	return slow_fields
+
+
+## terrain.gdshaderinc's mesa_on: where mesa country may be (it is where the land is desert).
+static func mesa_on(planet: Vector3) -> float:
+	return smoothstep(0.52, 0.6, slow3(planet, 4700.0, Vector3(23.0, 61.0, 8.0))) * smoothstep(0.44, 0.52, slow3(planet, 19000.0, Vector3(37.0, 14.0, 82.0))) * smoothstep(0.58, 0.5, slow3(planet, 11000.0, Vector3(89.0, 44.0, 26.0)))
+
+
+## terrain.gdshaderinc's desert_of: how much of a desert a climate is.
+static func desert_of(air: Vector2) -> float:
+	return smoothstep(0.55, 0.6, air.x) * smoothstep(0.5, 0.44, air.y)
+
+
+## terrain.gdshaderinc's with_atolls: atolls in the warm open ocean.
+static func with_atolls(planet: Vector3, high: float) -> float:
+	var there := smoothstep(SEA - 8.0, SEA - 20.0, high)
+	if there <= 0.0:
+		return high
+	slow_here(planet)
+	there *= atoll_seas
+	if there <= 0.0:
+		return high
+	var mount := fbm3(planet / 1100.0 + Vector3(12.0, 85.0, 40.0), 2)
+	var reef := 1.0 - smoothstep(0.0, 0.025, absf(mount - 0.68))
+	var islets := fbm3(planet / 45.0 + Vector3(3.0, 30.0, 71.0), 2) if reef > 0.0 else 0.5
+	return lerpf(high, lerpf(high, SEA - 3.5, smoothstep(0.5, 0.68, mount)) + reef * (2.5 + 7.0 * (islets - 0.4)), there)
 
 
 ## terrain.gdshaderinc's terrain_on: the ground's height at a point of the planet.
@@ -150,6 +217,13 @@ static func height_on(planet: Vector3) -> float:
 	var spur := ridge3(q * 2.3 + Vector3(9.0, 77.0, 21.0)) * crest
 	var peaks := crest * 0.6 + spur * 0.3 + ridge3(q * 5.1 + Vector3(3.0, 41.0, 58.0)) * spur * 0.16
 	var high := SEA - 13.0 - 24.0 * smoothstep(-0.05, -0.3, fields.x) + land * (16.0 + 45.0 * massif) + hills * 20.0 * (0.35 + land) + peaks * 125.0 * land * ranges * (fields.y + 1.5 * massif)
+	var mesa := fields.w * land * (1.0 - massif)
+	if mesa > 0.0:
+		mesa *= desert_of(climate_on(planet))
+	if mesa > 0.0:
+		var butte := fbm3(planet / 230.0 + Vector3(64.0, 3.0, 28.0), 3)
+		high = lerpf(high, SEA + 7.0 + hills * 6.0 + (smoothstep(0.5, 0.53, butte) + smoothstep(0.6, 0.63, butte)) * 34.0, mesa)
+	high = with_atolls(planet, high)
 	if high < SEA - 2.5 or high > SEA + 90.0:
 		return high
 	var gate := 1.0 - smoothstep(SEA + 45.0, SEA + 90.0, high)
@@ -182,9 +256,48 @@ static func weather(p: Vector2, drift: Vector3) -> float:
 	return (fbm3(q, 3) - 0.5) * 0.55
 
 
+## What the flight has computed of the chart, which holds until the chart's anchor moves.
+static var grounds := {} # a point of the flight's lattice -> the ground's height there
+static var tops := {} # a lot's corner -> its building's top
+## The tables before these, each let go when the one after it is full: what the flight still
+## looks at is found in it, so no long frame computes a table anew.
+static var grounds_before := {}
+static var tops_before := {}
+
+
+static func forget() -> void:
+	grounds.clear()
+	grounds_before.clear()
+	tops.clear()
+	tops_before.clear()
+	marks.clear()
+	slow_place = Vector3(INF, INF, INF)
+
+
+## The ground's height for the flight, which looks at some thirty places a frame, nearly all of
+## them beside those of the frame before: between the heights at the points of a lattice of 4
+## units, each computed once (a height is some twenty noises). The ground's finest hills are 16
+## units long, so this is within half a unit of it.
+static func ground(p: Vector2) -> float:
+	var q := p / 4.0
+	var x := floori(q.x)
+	var y := floori(q.y)
+	return lerpf(lerpf(ground_at(x, y), ground_at(x + 1, y), q.x - x), lerpf(ground_at(x, y + 1), ground_at(x + 1, y + 1), q.x - x), q.y - y)
+
+
+static func ground_at(x: int, y: int) -> float:
+	var point := Vector2i(x, y)
+	if not grounds.has(point):
+		if grounds.size() >= 8192:
+			grounds_before = grounds
+			grounds = {}
+		grounds[point] = grounds_before[point] if grounds_before.has(point) else height(Vector2(point) * 4.0)
+	return grounds[point]
+
+
 ## The surface a flight stays above: the ground or the sea.
 static func surface(p: Vector2) -> float:
-	return maxf(height(p), SEA)
+	return maxf(ground(p), SEA)
 
 
 const LOT := 16.0
@@ -197,7 +310,11 @@ static func town(p: Vector2, ground: float) -> float:
 
 ## terrain.gdshaderinc's climate. x: warmth, y: moisture.
 static func climate(p: Vector2) -> Vector2:
-	var planet := planet_at(p)
+	return climate_on(planet_at(p))
+
+
+## terrain.gdshaderinc's climate_on: the climate at a point of the planet.
+static func climate_on(planet: Vector3) -> Vector2:
 	var polar := smoothstep(0.7, 0.98, absf(planet.y) / RADIUS)
 	return Vector2(fbm3(planet / 900.0 + Vector3(211.0, 57.0, 3.0), 2) + (slow3(planet, 19000.0, Vector3(37.0, 14.0, 82.0)) - 0.5) * 0.55 + (fbm3(planet / 260000.0 + Vector3(13.0, 49.0, 7.0), 2) - 0.5) * 0.3 - 0.55 * polar,
 		fbm3(planet / 560.0 + Vector3(13.0, 143.0, 71.0), 2) + (slow3(planet, 11000.0, Vector3(89.0, 44.0, 26.0)) - 0.5) * 0.45 + (fbm3(planet / 190000.0 + Vector3(67.0, 3.0, 39.0), 2) - 0.5) * 0.4)
@@ -224,12 +341,12 @@ static func town_kind(p: Vector2, ground: float) -> int:
 ## building_height, city.gdshader's steep lots, and the most a roof of its kind rises), or -INF
 ## where none does.
 static func building_top(corner: Vector2) -> float:
-	var centre := corner + Vector2(LOT, LOT) / 2.0
-	var ground := height(centre)
-	var share := town(centre, ground)
 	var lot := Vector2i((corner / LOT + Vector2(0.5, 0.5)).floor())
 	if posmod(lot.x, 5) == 0 or posmod(lot.y, 6) == 0:
 		return -INF
+	var centre := corner + Vector2(LOT, LOT) / 2.0
+	var ground := height(centre)
+	var share := town(centre, ground)
 	if share < 0.1:
 		# A stilt village's house (terrain.gdshaderinc's stilts_at), with its roof.
 		if ground < SEA - 4.5 or ground > SEA + 1.5 or settled(centre) < 0.6 or cell_hash(int(corner.x) + 13, int(corner.y) + 13) < 0.45:
@@ -343,8 +460,23 @@ static func island(p: Vector2) -> Vector2:
 ## What a flight looks ahead for: the surface, the roof of the building whose lot the place is
 ## in, or the top of the landmark that stands there.
 static func roof(p: Vector2) -> float:
-	var top := maxf(surface(p), building_top((p / LOT).floor() * LOT))
+	return over(p, surface(p))
+
+
+## The highest of a surface of that height at a place, the roof of the building whose lot the
+## place is in, and the top of the landmark that stands there.
+static func over(p: Vector2, under: float) -> float:
+	var lot := Vector2i((p / LOT).floor())
+	if not tops.has(lot):
+		if tops.size() >= 1024:
+			tops_before = tops
+			tops = {}
+		tops[lot] = tops_before[lot] if tops_before.has(lot) else building_top(Vector2(lot) * LOT)
+	var top := maxf(under, tops[lot])
 	var mark := landmark(Vector2i((p / MARK_PLOT).floor()))
 	if not mark.is_empty() and mark[2] != FLOATING and p.distance_to(mark[0]) < mark[5] + 4.0:
 		top = maxf(top, mark[1] + mark[4])
+	for spire in spires:
+		if Vector2(spire.x, spire.z).distance_squared_to(p) < 225.0:
+			top = maxf(top, spire.y + spire.w)
 	return top

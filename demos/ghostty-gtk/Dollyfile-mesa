@@ -8,10 +8,10 @@ REQUIRES HOST threads@0
 # prepare-mesa.sh), for programs the cc package builds: libEGL and the gallium
 # driver it links, static, with the EGL, KHR and GL headers. Mesa is partly
 # C++: a program links it with c++, -lEGL -lgallium_dri -lz -lm -pthread.
-FROM /Dollyfile-system-tools 7b1306fddb4975e68b655f6d0bd6a478f6f02ba877ce033af921969099844d2d
+FROM /Dollyfile-system-tools 1606024fba5919c1fb6c0369ad86cc69f3ecf38099dff75bddb3eccb97da71e5
 INSTALL /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
-USE /demos/tools/Dollyfile-meson fbf8520c118b634f0a422081a05694a78936ba915699e95fa010f9e6b7ba73fb
-USE /demos/tools/Dollyfile-pkgconf 8e2d10a742a5f3dc0a5da7426f3f276c233bf6672cc0a777fa849672d0f1e0b3
+USE /demos/tools/Dollyfile-meson 1b12743f4d6bbb9cd96b6088dd4b61d4de8915f4df0a52414ae2177726dde8b9
+USE /demos/tools/Dollyfile-pkgconf 26fb05d3178c786e45f1d9a6f399dcf78b78949f337e8da3c6591ce74352a7b0
 
 REQUIRES TOOL   ar
 REQUIRES TOOL   c++

@@ -8,7 +8,7 @@ REQUIRES HOST http@0
 # replaces the unix.c and win32.c backends with datagrams through a relay over
 # the HTTP broker, which assigns hosts and owns routing. A static library with
 # its headers and pkg-config file, for programs the cc package builds.
-FROM /Dollyfile-system-tools 7b1306fddb4975e68b655f6d0bd6a478f6f02ba877ce033af921969099844d2d
+FROM /Dollyfile-system-tools 1606024fba5919c1fb6c0369ad86cc69f3ecf38099dff75bddb3eccb97da71e5
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc

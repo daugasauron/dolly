@@ -274,7 +274,7 @@ static void read_text(const dolly_input_event &p_event) {
 	}
 }
 
-static void read_pointer(const dolly_input_event &p_event, Point2i &mouse_position) {
+static void read_pointer(const dolly_input_event &p_event, Point2i &mouse_position, uint64_t p_msec) {
 	static const MouseButton buttons[] = { MouseButton::LEFT, MouseButton::MIDDLE, MouseButton::RIGHT, MouseButton::MB_XBUTTON1, MouseButton::MB_XBUTTON2 };
 	Input *input_state = Input::get_singleton();
 	const Point2i position(p_event.x, p_event.y);
@@ -303,11 +303,12 @@ static void read_pointer(const dolly_input_event &p_event, Point2i &mouse_positi
 	if (event->is_pressed()) {
 		mask.set_flag(mouse_button_to_mask(buttons[button]));
 		// A second press of the same button within 400 ms and 5 pixels is a
-		// double click, as Godot's X11 platform counts one.
+		// double click, as Godot's X11 platform counts one, by the times the
+		// presses came.
 		static MouseButton last_button = MouseButton::NONE;
 		static uint64_t last_press_ms = 0;
 		static Point2i last_press_position;
-		const uint64_t now = OS::get_singleton()->get_ticks_msec();
+		const uint64_t now = p_msec;
 		if (buttons[button] == last_button && now - last_press_ms < 400 &&
 				Vector2(position).distance_to(Vector2(last_press_position)) < 5) {
 			event->set_double_click(true);
@@ -379,7 +380,7 @@ void DisplayServerDolly::mouse_set_mode(DisplayServerEnums::MouseMode p_mode) {
 	}
 }
 
-void DisplayServerDolly::read_event(const dolly_input_event &p_event) {
+void DisplayServerDolly::read_event(const dolly_input_event &p_event, uint64_t p_msec) {
 	switch (p_event.type) {
 		case DOLLY_INPUT_EVENT_KEY:
 			read_key(p_event);
@@ -388,7 +389,7 @@ void DisplayServerDolly::read_event(const dolly_input_event &p_event) {
 			read_text(p_event);
 			break;
 		case DOLLY_INPUT_EVENT_POINTER:
-			read_pointer(p_event, mouse_position);
+			read_pointer(p_event, mouse_position, p_msec);
 			break;
 		case DOLLY_INPUT_EVENT_SCROLL:
 			read_scroll(p_event, mouse_position);
@@ -476,6 +477,16 @@ void DisplayServerDolly::read_touches() {
 				press->set_position(position);
 				press->set_pressed(record.phase == DOLLY_TOUCH_DOWN);
 				press->set_canceled(record.phase == DOLLY_TOUCH_CANCEL);
+				// A second down of the first finger within 400 ms and 5 pixels, by the page's
+				// times of the two, is a double tap, which Godot's mouse of that finger takes
+				// as a double click.
+				if (record.phase == DOLLY_TOUCH_DOWN && index == 0) {
+					const bool second = tapped && record.time - last_tap_ms < 400 && position.distance_to(last_tap_position) < 5;
+					press->set_double_tap(second);
+					tapped = !second;
+					last_tap_ms = record.time;
+					last_tap_position = position;
+				}
 				Input::get_singleton()->parse_input_event(press);
 				finger_down[index] = record.phase == DOLLY_TOUCH_DOWN;
 			}
@@ -491,25 +502,48 @@ void DisplayServerDolly::read_touches() {
 	}
 }
 
-// The next record of the page's input or of the X window.
-int DisplayServerDolly::next_event(dolly_input_event &r_event, double p_timeout_milliseconds) {
-	return x11 ? x11_window_next_event(x11, &r_event, p_timeout_milliseconds) : dolly_input_next_event(input, &r_event, p_timeout_milliseconds);
+// The page's records as they come, each with its time; the main thread reads them at its next
+// process_events. The timeout lets the thread see that reading has ended.
+void DisplayServerDolly::read_records() {
+	while (reading) {
+		dolly_input_event event;
+		if (dolly_input_next_event(input, &event, 100) <= 0) {
+			continue;
+		}
+		std::lock_guard lock(records_mutex);
+		records.push_back({ event, OS::get_singleton()->get_ticks_msec() });
+		records_came.notify_one();
+	}
 }
 
 void DisplayServerDolly::wait_for_event(uint64_t p_usec) {
-	if (!woken) {
-		woken = next_event(woken_by, p_usec / 1000.0) > 0;
+	if (!x11) {
+		std::unique_lock lock(records_mutex);
+		records_came.wait_for(lock, std::chrono::microseconds(p_usec), [this] { return !records.empty(); });
+	} else if (!woken) {
+		woken = x11_window_next_event(x11, &woken_by, p_usec / 1000.0) > 0;
 	}
 }
 
 void DisplayServerDolly::process_events() {
-	if (woken) {
-		woken = false;
-		read_event(woken_by);
-	}
-	dolly_input_event event;
-	while (next_event(event, 0) > 0) {
-		read_event(event);
+	if (!x11) {
+		std::deque<Record> came;
+		{
+			std::lock_guard lock(records_mutex);
+			came.swap(records);
+		}
+		for (const Record &record : came) {
+			read_event(record.event, record.msec);
+		}
+	} else {
+		if (woken) {
+			woken = false;
+			read_event(woken_by, OS::get_singleton()->get_ticks_msec());
+		}
+		dolly_input_event event;
+		while (x11_window_next_event(x11, &event, 0) > 0) {
+			read_event(event, OS::get_singleton()->get_ticks_msec());
+		}
 	}
 	read_touches();
 	Input::get_singleton()->flush_buffered_events();
@@ -588,6 +622,8 @@ DisplayServerDolly::DisplayServerDolly(const String &p_rendering_driver, Display
 		if (dolly_touch_acquire(&touch) != 0) {
 			touch = 0;
 		}
+		reading = true;
+		reader = std::thread(&DisplayServerDolly::read_records, this);
 		error = dolly_display_set_size(display, size.width, size.height, &surface);
 		ERR_FAIL_COND_MSG(error != 0, vformat("Dolly's display at %dx%d: %s.", size.width, size.height, strerror(-error)));
 #ifdef TOOLS_ENABLED
@@ -666,6 +702,10 @@ DisplayServerDolly::~DisplayServerDolly() {
 	}
 	if (terminal >= 0) {
 		close(terminal);
+	}
+	if (reader.joinable()) {
+		reading = false;
+		reader.join();
 	}
 	if (touch) {
 		dolly_touch_release(touch);

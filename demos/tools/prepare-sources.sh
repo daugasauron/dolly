@@ -80,7 +80,7 @@ for library in brotli:LICENSE libjpeg-turbo:LICENSE.md:README.ijg libtiff:LICENS
     gperf:COPYING eigen:COPYING.README:COPYING.MPL2:COPYING.BSD:COPYING.APACHE:COPYING.MINPACK imath:LICENSE.md \
     libdeflate:COPYING openjph:LICENSE robin-map:LICENSE pugixml:LICENSE.md yaml-cpp:LICENSE pystring:LICENSE \
     minizip-ng:LICENSE opencolorio:LICENSE:THIRD-PARTY.md openimageio:LICENSE.md:THIRD-PARTY.md \
-    onetbb:LICENSE.txt:third-party-programs.txt; do
+    onetbb:LICENSE.txt:third-party-programs.txt glslang:LICENSE.txt; do
   library_name="${library%%:*}"
   if has_image "${library_name}"; then
     tool_dir="$(bash scripts/fetch-pinned-source.sh "${library_name//-/_}")"
@@ -103,9 +103,6 @@ if has_image openexr; then
   done
   node scripts/build-source-tar.mjs "${static_dir}/openexr/source.tar.gz" "${tool_inputs[@]}" \
     "${tool_dir}/LICENSE.md" /usr/share/licenses/openexr/LICENSE.md
-fi
-if has_image ccfilter; then
-  copy_static demos/tools/ccfilter.c tools/ccfilter.c
 fi
 if has_image openimageio; then
   copy_static demos/tools/openimageio-dolly.patch openimageio/openimageio-dolly.patch

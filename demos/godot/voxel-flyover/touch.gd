@@ -1,19 +1,28 @@
 extends Control
-## The game's controls on a touchscreen, which show once a finger has touched it. The first touch
-## takes the board. Then the left thumb has a stick, which stands where the thumb comes down on
-## the lower left of the screen: sideways it steers, up it climbs (and keeps climbing, out of the
-## air), down it dives. A finger anywhere else turns the view, two of them moving apart or
-## together zoom, and the ring at the top right gives the board back. Sizes go by the screen's
-## shorter side, so the controls are a thumb's in portrait and in landscape.
+## What is drawn over the game for the hand that flies, and the game's controls on a
+## touchscreen. While the player has the board, a small ring marks where it is headed, a dot in
+## it where the stick is, and a bar at the left how far the throttle is open; while a chain of
+## rings goes on, an arc around the score's ring shows the time left for the next. The first
+## touch of a touchscreen takes the board. Then a thumb on the left third of the screen slides
+## the throttle up and down; a thumb on the right is the stick, pushed from where it went down
+## (a tenth of the screen's shorter side is all the way) and back to the middle when it is
+## lifted; a second finger on the right with it zooms, as the two move apart or together; and the
+## ring with a cross at the top right, which shows once a finger has touched the screen, gives
+## the board back. Sizes go by the screen's shorter side.
 
 var game: Node3D
 var active := false # a finger has touched the screen
-var stick := Vector2.ZERO # the thumb's: x to the right, y down, each between -1 and 1
+var stick := Vector2.ZERO # where the thumb holds the stick
 var stick_finger := -1
-var stick_base := Vector2.ZERO
-var gazes := {} # the fingers that turn the view: index -> where each is
-var pinched := 0.0 # how far apart two of them were
+var stick_from := Vector2.ZERO # where it went down
+var throttle_finger := -1
+var pinch_finger := -1
+var pinched := 0.0 # how far apart the two fingers that zoom were
+var fingers := {} # index -> where each finger is
 var shown := 0.0
+var headed := Vector2.ZERO # where on the screen the board is headed
+var headed_shown := false # the camera sees that way
+var chain_left := 0.0 # the share of a chain's time for its next ring that is left
 var touches := 0 # counted, for the game's report
 
 
@@ -26,98 +35,100 @@ func unit() -> float:
 	return maxf(minf(size.x, size.y), 1.0)
 
 
-## Where the stick rests while no thumb holds it.
-func home() -> Vector2:
-	return Vector2(unit() * 0.24, size.y - unit() * 0.26)
-
-
-func reach() -> float:
-	return unit() * 0.12
-
-
 ## The ring that gives the board back.
 func back() -> Vector2:
 	return Vector2(size.x - unit() * 0.1, unit() * 0.1)
 
 
+## The throttle's bar: its foot, and its length up the screen.
+func bar() -> Array:
+	return [Vector2(unit() * 0.09, size.y - unit() * 0.16), unit() * 0.5] if active else [Vector2(unit() * 0.05, size.y - unit() * 0.2), unit() * 0.22]
+
+
+func holds_stick() -> bool:
+	return stick_finger >= 0
+
+
 func touched(event: InputEventScreenTouch) -> void:
-	var at := event.position
 	if not event.pressed:
-		if event.index == stick_finger:
+		fingers.erase(event.index)
+		if event.index == stick_finger or event.index == pinch_finger:
 			stick_finger = -1
+			pinch_finger = -1
 			stick = Vector2.ZERO
-		gazes.erase(event.index)
-		pinched = 0.0
+		if event.index == throttle_finger:
+			throttle_finger = -1
 		return
 	active = true
 	touches += 1
+	fingers[event.index] = event.position
 	if not game.helm:
 		game.helm = true
-	elif at.distance_to(back()) < unit() * 0.085:
+	elif event.position.distance_to(back()) < unit() * 0.085:
 		game.helm = false
 		stick_finger = -1
+		pinch_finger = -1
+		throttle_finger = -1
 		stick = Vector2.ZERO
-		gazes.clear()
-	elif stick_finger < 0 and at.x < size.x * 0.45 and at.y > size.y * 0.4:
+	elif event.position.x < size.x / 3.0:
+		throttle_finger = event.index
+	elif stick_finger < 0:
 		stick_finger = event.index
-		# The stick stands under the thumb, all of it on the screen.
-		stick_base = at.clamp(Vector2.ONE * reach() * 1.2, size - Vector2.ONE * reach() * 1.2)
-		stick = ((at - stick_base) / reach()).limit_length(1.0)
-	else:
-		gazes[event.index] = at
+		stick_from = event.position
+	elif pinch_finger < 0:
+		# A second finger with the stick's: the two zoom, and the stick is in the middle meanwhile.
+		pinch_finger = event.index
 		pinched = 0.0
+		stick = Vector2.ZERO
 
 
 func dragged(event: InputEventScreenDrag) -> void:
-	if event.index == stick_finger:
-		stick = ((event.position - stick_base) / reach()).limit_length(1.0)
-	elif gazes.has(event.index):
-		gazes[event.index] = event.position
-		if gazes.size() >= 2:
-			var fingers := gazes.values()
-			var apart: float = (fingers[0] as Vector2).distance_to(fingers[1])
-			if pinched > 0.0 and apart > 1.0:
-				game.zoom = clampf(game.zoom * pinched / apart, 0.45, 3.2)
-			pinched = apart
-		else:
-			# As far round for a drag across the screen's shorter side as the mouse turns it for 1,080 pixels.
-			var turn := 0.0035 * 1080.0 / unit()
-			game.look.x += event.relative.x * turn
-			game.look.y = clampf(game.look.y + event.relative.y * turn, -0.5, 1.0)
-
-
-## The stick's push past a small dead middle, as the keys' axes are: x turns, y climbs (up).
-func push() -> Vector2:
-	var pushed := stick.length()
-	if pushed < 0.14:
-		return Vector2.ZERO
-	return stick / pushed * ((pushed - 0.14) / 0.86) * Vector2(1.0, -1.0)
+	if not fingers.has(event.index):
+		return
+	fingers[event.index] = event.position
+	if event.index == throttle_finger:
+		game.throttle = clampf(game.throttle - event.relative.y / bar()[1], 0.0, 1.0)
+	elif pinch_finger >= 0 and (event.index == stick_finger or event.index == pinch_finger):
+		var apart: float = (fingers[stick_finger] as Vector2).distance_to(fingers[pinch_finger])
+		if pinched > 0.0 and apart > 1.0:
+			game.zoom = clampf(game.zoom * pinched / apart, 0.45, 3.2)
+		pinched = apart
+	elif event.index == stick_finger:
+		var pushed := (event.position - stick_from) / (unit() * 0.1)
+		stick = Vector2(pushed.x, -pushed.y).limit_length(1.0)
 
 
 func _process(delta: float) -> void:
-	var wanted := 1.0 if active and game.helm else 0.0
-	if shown != wanted or stick_finger >= 0:
+	var wanted := 1.0 if game.helm else 0.0
+	if shown > 0.0 or wanted > 0.0 or chain_left > 0.0:
 		shown = move_toward(shown, wanted, delta * 3.0)
 		queue_redraw()
 
 
 func _draw() -> void:
+	var wide := maxf(unit() * 0.0035, 1.5)
+	if chain_left > 0.0:
+		# Around the score's ring (main.gd's build_hud).
+		draw_arc(Vector2(52, 58), 25.0, -PI / 2.0, -PI / 2.0 + TAU * chain_left, 48, Color(1.0, 0.72, 0.3, 0.9), 4.0, true)
 	if shown <= 0.0:
 		return
 	var pale := Color(1, 1, 1, 0.34 * shown)
-	var faint := Color(1, 1, 1, 0.12 * shown)
-	var wide := maxf(unit() * 0.006, 2.0)
-	var base := stick_base if stick_finger >= 0 else home()
-	draw_arc(base, reach(), 0.0, TAU, 48, pale, wide, true)
-	draw_circle(base, reach(), faint)
-	# Up and down on the stick are the climb and the dive: two small marks say so.
-	for way: float in [-1.0, 1.0]:
-		var tip := base + Vector2(0, way * reach() * 0.82)
-		draw_polyline(PackedVector2Array([tip + Vector2(-reach() * 0.14, -way * reach() * 0.14), tip, tip + Vector2(reach() * 0.14, -way * reach() * 0.14)]), pale, wide, true)
-	draw_circle(base + stick * reach(), reach() * 0.42, Color(1, 1, 1, (0.5 if stick_finger >= 0 else 0.26) * shown))
-	# The ring that gives the board back: a ring with a cross.
+	var mark := unit() * 0.012
+	if headed_shown:
+		draw_arc(headed, mark, 0.0, TAU, 24, Color(1, 1, 1, 0.5 * shown), wide, true)
+		draw_circle(headed + Vector2(game.stick.x, -game.stick.y) * mark * 2.2, wide * 1.2, Color(1, 1, 1, 0.6 * shown))
+	var foot: Vector2 = bar()[0]
+	var length: float = bar()[1]
+	draw_line(foot, foot - Vector2(0, length), pale, wide * (3.0 if active else 1.5), true)
+	draw_line(foot, foot - Vector2(0, length * game.throttle), Color(1.0, 0.72, 0.3, 0.7 * shown), wide * (3.0 if active else 1.5), true)
+	if not active:
+		return
 	var ring := unit() * 0.042
-	draw_arc(back(), ring, 0.0, TAU, 32, pale, wide, true)
-	draw_circle(back(), ring, faint)
+	draw_arc(back(), ring, 0.0, TAU, 32, pale, wide * 1.7, true)
+	draw_circle(back(), ring, Color(1, 1, 1, 0.12 * shown))
 	for way: float in [-1.0, 1.0]:
-		draw_line(back() + Vector2(-ring, -ring * way) * 0.38, back() + Vector2(ring, ring * way) * 0.38, pale, wide, true)
+		draw_line(back() + Vector2(-ring, -ring * way) * 0.38, back() + Vector2(ring, ring * way) * 0.38, pale, wide * 1.7, true)
+	# The stick: where the thumb went down, or where it waits for one.
+	var base := stick_from if holds_stick() else Vector2(size.x - unit() * 0.26, size.y - unit() * 0.24)
+	draw_arc(base, unit() * 0.1, 0.0, TAU, 40, pale, wide, true)
+	draw_circle(base + Vector2(stick.x, -stick.y) * unit() * 0.1, unit() * 0.035, Color(1, 1, 1, (0.3 if holds_stick() else 0.12) * shown))

@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # The platform as a program sees it: the documents and machine contracts of
 # this release at their repository paths, so their links to each other work.
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
-SOURCE /docs/process-model.md 2c4cf7525ec21a6e8ef08366d0f6153ba5639a4377fe0fbe55b55cb01f167c54 /usr/share/doc/dolly/docs/process-model.md
+SOURCE /docs/process-model.md a47b360d0036e741985bbc4ec6c384392100c13532720a27b02af95dbf94cd0d /usr/share/doc/dolly/docs/process-model.md
 SOURCE /docs/browser-stack.md 175383a5395dc62708fe9e1374ed929f1cf2bd0b7ddd9f53b423de20b6dbe665 /usr/share/doc/dolly/docs/browser-stack.md
 SOURCE /docs/slop.md d49e5a151195ebb4b99c7ed0fac25343064a91f55d79c19df22137d14ff8b9a8 /usr/share/doc/dolly/docs/slop.md
 SOURCE /docs/display.md 086682d5de8cbfa753b6df783d4d09868995273a42e9418443d4013bbe4c5928 /usr/share/doc/dolly/docs/display.md
@@ -23,7 +23,7 @@ SOURCE /abi/dolly-browser-0.wat 7bea6213b5ba9daebb36b0844501406f3ad97a26784621bc
 SOURCE /abi/dolly-host-0.wat 7d1a02e3317086c06ca022e917d6d8537d9a005e9804e5ffdf256dc7d70c8671 /usr/share/doc/dolly/abi/dolly-host-0.wat
 SOURCE /abi/dolly-image-0.wat 0847e61734bd6435ab298d103935137a75f9b6fd30282a1fcc1e801377afd6f8 /usr/share/doc/dolly/abi/dolly-image-0.wat
 SOURCE /abi/dolly-kernel-plugin-0.wat 8ed18bd8b9221ac11e077bba609db2e161b34f90f3ab1adc088a5597bb409d36 /usr/share/doc/dolly/abi/dolly-kernel-plugin-0.wat
-SOURCE /docs/input.md fde2e1ac6194f0fe47e3b827507dcd9de0e8fa282fac9bb13a753369544cad84 /usr/share/doc/dolly/docs/input.md
+SOURCE /docs/input.md e6c20957d5a87c761d30423f334165047914147a3080710a0957fa9bbfff97be /usr/share/doc/dolly/docs/input.md
 SOURCE /abi/dolly-process-0.wat f2e58c46f0267e1cf6a727d6ca7cbdc1b04b8f42fce0659bcf13707a47f4e85a /usr/share/doc/dolly/abi/dolly-process-0.wat
 SOURCE /abi/dolly-process-gate-0.wat 98bba53806de79cc2a5013f31dbbb0ec85b471475c91edcf3fbc51130bd7dfdb /usr/share/doc/dolly/abi/dolly-process-gate-0.wat
 SOURCE /abi/dolly-supervisor-0.wat 578d14d9e42fe26820cfef802bf194df3d33049cacfe642b4f0fcbce0c4930c4 /usr/share/doc/dolly/abi/dolly-supervisor-0.wat

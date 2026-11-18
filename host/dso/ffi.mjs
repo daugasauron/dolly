@@ -141,6 +141,38 @@ function typedWasmFunction(function_, parameters, result) {
   }).exports.closure;
 }
 
+// The thunk Binaryen's cast emulation makes of a function in the table, for a
+// function the loader places in a cast-emulated program's: it takes
+// `parameters` i64s, converts those the function has to its types, calls it and
+// converts its result back (an i32 or the bits of an f32 zero-extended, an f64's
+// bits, 0 for none). One module per type; an instance per function.
+const castThunkModules = new Map();
+export function castThunk(function_, { params, results }, parameters) {
+  if (params.length > parameters || results.length > 1) {
+    throw new TypeError(`a cast-emulated program calls functions of at most ${parameters} parameters and one result`);
+  }
+  const key = `${params}>${results}>${parameters}`;
+  let module = castThunkModules.get(key);
+  if (!module) {
+    const fromI64 = { i32: [0xa7], i64: [], f32: [0xa7, 0xbe], f64: [0xbf] };
+    const toI64 = { i32: [0xad], i64: [], f32: [0xbc, 0xad], f64: [0xbd] };
+    const body = [0, ...params.flatMap((type, index) => {
+      if (!fromI64[type]) throw new TypeError(`unsupported cast-emulated Wasm type ${type}`);
+      return [0x20, ...uleb(index), ...fromI64[type]];
+    }), 0x10, 0, ...(results.length ? toI64[results[0]] ?? [] : [0x42, 0]), 0x0b];
+    if (results.length && !toI64[results[0]]) throw new TypeError(`unsupported cast-emulated Wasm type ${results[0]}`);
+    const bytes = new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+      ...section(1, [2, 0x60, ...uleb(params.length), ...params.map(wasmType), ...uleb(results.length),
+        ...results.map(wasmType), 0x60, ...uleb(parameters), ...Array(parameters).fill(0x7e), 1, 0x7e]),
+      ...section(2, [1, ...wasmName("dolly"), ...wasmName("function"), 0, 0]),
+      ...section(3, [1, 1]),
+      ...section(7, [1, ...wasmName("thunk"), 0, 1]),
+      ...section(10, [1, ...uleb(body.length), ...body])]);
+    castThunkModules.set(key, module = new WebAssembly.Module(bytes));
+  }
+  return new WebAssembly.Instance(module, { dolly: { function: function_ } }).exports.thunk;
+}
+
 // change(operation, values, apply) makes a closure change, apply(): a host
 // using threads@0 makes it in every thread's table (threads.mjs).
 export function createProcessFfi({

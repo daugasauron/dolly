@@ -1,6 +1,6 @@
 # Deep hedger, to confirm: two confidences, and the tight quotes decide the quotes'
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: dh,owner
 
@@ -28,3 +28,53 @@ comes out near the one at which the model's spreads add up to the market's (the 
 measurement put that risk price at 0.12 deviations), and the model's spreads at the money are
 then wider than the market's bands there, so fewer quotes fit. A third: the confidence typed,
 as the stock's cost is. Waits for the owner.
+
+## The owner, 2026-11-17 evening, second answer
+
+On the loss: the owner meant tick size, not contract size: "especially the smallest possible
+tick having gigantic consequences for the wings". On who is paid: "I think in terms of how much
+it costs to get out of a position. In a liquid name you can get out at any time, so the spread
+is mostly to \"be able to hedge quickly enough\" [...] In an illiquid name, it's very expensice
+to get out, so the hedger needs more spread." So a spread that is mostly cost in AAPL is what
+the owner expects. On the hedger: it replicates, the trading cost being inside the miss it
+makes small; the Expected Shortfall and its two confidences are not the owner's (asked again).
+
+## The owner, 2026-11-17 evening, third answer
+
+The hedger's aim, settled: "How much does it cost me to replicate it? The \"replication
+PL\"/\"hedge PL\" is the sum of all trades and their payoffs including transaction costs. So
+yes, it should minimize the difference between the payoff to hedge and the \"replication PL\"."
+No Expected Shortfall, no confidence. Ticks: "Keep vague for now, I just dont want weird errors
+because tick sizeo nthe wings." A sketch of the model that follows is with the owner; no code
+changes before the owner agrees to it.
+
+## The owner, 2026-11-17 evening, fourth answer
+
+To the sketch (spread as replication cost alone, no price of risk): not so. "There is a price
+of risk, but the risk is very much tied to how hard it is to get out of the position. The
+\"price of risk\" is how much you risk loosing before you're able to close out the position, and
+how much that would cost." The hedger's loss need not be the squared miss: "it's just an
+example, my pooint earlier is that ES for example has a side, but MSE is symmetric so it
+doesn't have the drift problem." And the tick is no parameter of the model: "The trader
+doesn't care bout the tick." Asked back: the time it takes to get out, and how bad a case the
+spread has to cover.
+
+## The owner, 2026-11-17 evening, fifth answer
+
+The time to get out is not a typed number: "this is conceptual about what we are actually
+modeling. It's represented by the width of the spreads." The extremes: "no quotes/infinite
+spreads -> worst case for short call is really bad, need to hold it to expiry. The other
+extreme is tight spreads in both underlying and option -> can hedge cheaply the next day."
+
+Put back to the owner: if getting out means paying another dealer the same spread for the same
+job, getting out is never cheaper than carrying on and the loop has no tight answer (the
+owner's "why isn't the spread shrinking?", braut, 2026-07-23). It closes with one thing from
+outside the dealers: who takes the other side, and how soon. Asked: whether that is customer
+flow, and whether each contract's traded volume in the feed may measure it.
+
+## Closed 2026-11-18
+
+Superseded by the owner's conversation, recorded above: no Expected Shortfall and no
+confidence are left in `dh-fit.mojo`. The hedger makes each book's deviation small; a quote is
+the mean replication cost less or plus a charge that today's spreads imply
+(`demos/deep-hedger/THEORY.md`, section 4; tasks dh-36 and dh-37).

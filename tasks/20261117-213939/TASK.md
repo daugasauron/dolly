@@ -6,13 +6,16 @@
 
 ## State (2026-11-18)
 
-Round two on `ws/packages`, merged with `integrate/0.1.8` (`0ae1331a2`). New packages, each with
-its own build from a pinned upstream archive, a licence record in its demo and an amy case:
+Round two on `ws/packages`, merged with `integrate/0.1.8` (`0ae1331a2`, then `29b2adfb1`). New
+packages, each with its own build from a pinned upstream archive, a licence record in its demo and
+an amy case:
 
 - `demos/tools`: `eigen`, `imath`, `libdeflate`, `openjph`, `openexr`, `robin-map`, `pugixml`,
   `yaml-cpp`, `pystring`, `minizip-ng`, `opencolorio`, `openimageio` (with `oiiotool`, `iinfo` and
   its other programs) and `onetbb`, at the releases Blender 5.3 pins (their pins moved there from
-  `demos/blender/build-sources.txt`, which is gone), and `ccfilter` (`ccfilter.c`, from Blender).
+  `demos/blender/build-sources.txt`, which is gone), and `glslang`, which Blender's WebGPU backend
+  brought with the second merge. `ccfilter` was a package until that merge, whose `cc` takes the
+  options it dropped (`465296072`): it is gone, and nothing launches it.
 - `demos/gtk`: `libepoxy`, as GTK built it (Meson, with EGL and GLX dispatch); its `epoxy.pc` requires
   `x11` and `egl`, so it installs `x11-libs` and `mesa` (as `libxkbfile` installs `x11-libs`).
 - `demos/slopyard`: `lua5.5` (`lua5.5`, `luac5.5`, the library and its headers).
@@ -32,7 +35,7 @@ OpenTelemetry's headers from `/usr/include`), `zero-ad-deps`, `xorg-server`, `im
 Dolly's `cc` compiles every unit with atomics and bulk memory and links shared memory
 (`programs/compiler.cpp`), so a library links into a program with or without `-pthread`. Only
 the libraries whose use takes threads are compiled with it and declare `threads@0`: `openexr`
-(C11's `call_once`), `opencolorio`, `openimageio`, `onetbb`, `opentelemetry-cpp`.
+(C11's `call_once`), `opencolorio`, `openimageio`, `onetbb`, `opentelemetry-cpp`, `glslang`.
 
 OpenBLAS is already the `openblas` package (`demos/python`, since `demo/scipy`, 2026-11-04):
 python-data's `openblas` session installs it alone, and passed in tonight's integration round
@@ -65,11 +68,12 @@ a string; the yaml-cpp case parses only.
 
 Built in `work/packages` and tested there, each case alone in Chromium and Firefox (the tools
 demo's, neovim's, slopyard's, mojo's, zero-ad's, x11's, sdl2's and gtk's `amy-cases.json`, their
-new sessions; logs in `work/packages-evidence-1118/runs`): ccfilter, eigen, imath, libdeflate,
+new sessions; logs in `work/packages-evidence-1118/runs`): eigen, imath, libdeflate,
 openjph, openexr, robin-map, pugixml, yaml-cpp, pystring, minizip-ng, opencolorio, openimageio
 (oiiotool and a program over the library), onetbb, lua5.5, utf8proc, tree-sitter, xxhash, enet,
-opentelemetry-cpp, libmd, libxfont2, sdl2-x11, libepoxy. Built over them: `blender-deps` (every
-package's library, Eigen's and robin-map's headers, `oiiotool` and `ccfilter` in it; libepoxy
+opentelemetry-cpp, libmd, libxfont2, sdl2-x11, libepoxy, and after the second merge glslang (a
+fragment shader compiled to SPIR-V). Built over them: `blender-deps` (every
+package's library, Eigen's and robin-map's headers, and `oiiotool` in it; libepoxy
 brings Mesa and X's client libraries, 42 MB of this build-only stage), `gtk-build` (Meson finds
 the epoxy package), `libadwaita`, `xorg-server` (over the libmd and libxfont2 packages),
 `imgui-x11` (over `sdl2-x11`) and `x11-desktop`, where `x11-browser.mjs` passed in Chromium and
@@ -86,7 +90,9 @@ The round builds what these change and runs, besides the source tests: the amy t
 neovim, slopyard, mojo, zero-ad, x11, sdl2 and gtk (new), and `neovim-browser.mjs`,
 `studio-browser.mjs`, `slopyard-browser.mjs`, `mojo-browser.mjs`, `deep-hedger-browser.mjs`,
 `0ad-enet-browser.mjs`, `0ad-multiplayer-browser.mjs`, `x11-browser.mjs`, `godot-x11-browser.mjs`,
-`photocraft-x11-browser.mjs`, `ghostty-gtk-browser.mjs` and `blender-browser.mjs`.
+`photocraft-x11-browser.mjs`, `ghostty-gtk-browser.mjs`, `blender-browser.mjs` and
+`blender-gpu-browser.mjs`. Every package here but glslang was built before the second merge, with
+the `cc` it replaced; `onetbb` and `openimageio` build without `ccfilter` first in the round.
 
 The owner, 2026-11-18 morning, on `20261117-123021-packages-00`'s verdicts:
 

@@ -28,5 +28,6 @@ void fragment() {
 		planet = planet_at((first + mod(floor(UV * texels) - first, texels)) * cell);
 	}
 	// The height is kept around the middle of what it may be: a half float is finer near zero.
-	COLOR = vec4(terrain_on(planet, wide) - HEIGHT_KEPT, climate_on(planet, wide), settled_seen(planet, wide));
+	vec2 air = climate_on(planet, wide);
+	COLOR = vec4(terrain_on(planet, wide, air) - HEIGHT_KEPT, air, settled_seen(planet, wide));
 }

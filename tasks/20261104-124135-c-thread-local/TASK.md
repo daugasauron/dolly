@@ -4,6 +4,28 @@
 - PRIORITY: 110
 - TAGS: compiler,dso,threads,seed
 
+## State (2026-11-18, the compiler batch)
+
+Left out of 0.1.8's compiler round, by finding: the compiler cannot record it without a change to
+LLVM. A non-PIC executable carries no mark of which of its exports are thread-local (wasm-ld
+writes `WASM_DYLINK_EXPORT_INFO`, with the TLS flag, only into a PIC output's `dylink.0`, and a
+library's import info lists weak imports alone: `lld/wasm/SyntheticSections.cpp`), and nothing
+the driver has after the link tells them apart: an export's value is an offset for a
+thread-local and an address for other data, and offsets reach past the 1,024 below which no
+data lies once a program's TLS block is larger. What it could do instead, each weighed against
+"nothing in the catalog needs it":
+- a patch to lld writing that list into an executable's own section: it changes `llvm-build`,
+  so the compiler round that takes it has no fixed point and needs a second (the patch goes
+  with the next LLVM pin);
+- the symbol tables of every object the link loads (`--trace` lists them, archive members
+  included): reading them doubles a large host's link (CPython, Blender, rustc);
+- `--emit-relocs`, whose output's symbol table carries the flag, and the relocations stripped
+  after: relocation sections the size of the code, for every `-rdynamic` link.
+
+The loader's side is small once a list exists: a `GOT.mem` import of a listed export gets
+`__tls_base` of the thread placing the library (each thread's Worker places it) added, which the
+host would export (`rdynamic.exports`).
+
 ## State (2026-11-16, the audit)
 
 Not started. The loader still reaches a host's thread-locals only through the C++ `_ZTW` wrapper

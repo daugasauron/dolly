@@ -269,6 +269,11 @@ int main(void) {
     batch();
   }
 
+  // A shader released in the batch that creates it, before its compilation is known.
+  unsigned released=id();dolly_gpu_shader(&gpu,released,compute_shader);
+  u64(dolly_gpu_record(&gpu,DOLLY_GPU_RELEASE,16),8,released);
+  batch();
+
   // The surface as a view-pass attachment, captured.
   unsigned frame=buffer(NULL,256*64,COPY_DST|MAP_READ);
   p=dolly_gpu_record(&gpu,DOLLY_GPU_BEGIN_VIEW_PASS,104);

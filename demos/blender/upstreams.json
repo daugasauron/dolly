@@ -1,3 +1,3 @@
 [
-{"name": "Blender", "use": "blender, headless with its Python and Cycles, as the blender package; Dolly's patch to it", "licence": "GPL-3.0-or-later", "repository": "https://projects.blender.org/blender/blender", "pins": ["BLENDER"], "sources": ["dist/static/blender/blender.tar.gz"]}
+{"name": "Blender", "use": "blender, its window drawn on gpu@0 and headless with its Python and Cycles, as the blender package; Dolly's patch to it, its GHOST system and its GPU module's WebGPU backend", "licence": "GPL-3.0-or-later", "repository": "https://projects.blender.org/blender/blender", "pins": ["BLENDER"], "sources": ["dist/static/blender/blender.tar.gz"]}
 ]

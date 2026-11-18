@@ -11,9 +11,9 @@ REQUIRES HOST gpu@0
 # the GPU of the image that runs it, and dh-gui, an ImGui program over SDL2.
 # The compilers and the libraries are linked in and needed by no one who
 # installs it.
-FROM /Dollyfile-system-tools 7b1306fddb4975e68b655f6d0bd6a478f6f02ba877ce033af921969099844d2d
-USE /demos/sdl2/Dollyfile-imgui bf4acf381a30c91ea4e9fdf0deffef783a58ba0ced73051e95c7b1e9a2787a5a
-USE /demos/mojo/Dollyfile-mojo 28bb56a1566d4350e5ab3ec289df79d98f20c2b31d508d2376ccf4b45f92fcb0
+FROM /Dollyfile-system-tools 1606024fba5919c1fb6c0369ad86cc69f3ecf38099dff75bddb3eccb97da71e5
+USE /demos/sdl2/Dollyfile-imgui 1533b320e6514e9f794e60d3db730c3cce421853bb90cc26b8bba0874c414a94
+USE /demos/mojo/Dollyfile-mojo 781f0578f0adcbad585190d4e203549e50c4ef526333745419e85dd266d2e08c
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES HEADER sdl2
@@ -25,8 +25,8 @@ REQUIRES TOOL c++
 REQUIRES TOOL mojo
 REQUIRES TOOL rm
 
-SOURCE /dist/static/deep-hedger/dh-gui.cpp 58c8901d9f7bcc1b08339752ee6c1611d002b253a1801ff29abc3b61a530d5af /tmp/deep-hedger/dh-gui.cpp
-SOURCE /dist/static/deep-hedger/dh-fit.mojo f03ab9da0eec476c45d967e1423de1ad6d021bff3c64d5cf710e7d5d20aff458 /tmp/deep-hedger/dh-fit.mojo
+SOURCE /dist/static/deep-hedger/dh-gui.cpp 9fe3d9c5dc8f42bde2b8b17a42eb7899ab00dadd70376b8631b847941aad580d /tmp/deep-hedger/dh-gui.cpp
+SOURCE /dist/static/deep-hedger/dh-fit.mojo 00320fd0601c5d84d2f3af8b40f70ac4f114d68a3a2b7ff16805aad50c2e4eea /tmp/deep-hedger/dh-fit.mojo
 SLOP c++ -O2 -std=c++17 -I/usr/include/imgui -I/usr/include/SDL2 /tmp/deep-hedger/dh-gui.cpp -o /usr/bin/dh-gui -limgui -lSDL2 -lm
 SLOP mojo build -o /usr/bin/dh-fit /tmp/deep-hedger/dh-fit.mojo
 EXPORTS TOOL dh-gui
@@ -42,7 +42,7 @@ FILE /usr/share/man/cat1/dh-gui.1
       dh-fit check CHAIN PATHS  its gradients against finite differences
     
     dh-fit needs gpu@0; curl fetches the chain through http@0.
-COPY /demos/sdl2/Dollyfile-sdl2 1809d16636eb124e08cc9188a7709890dfeb22657ae4ce989987d185b99b5193 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
-COPY /demos/sdl2/Dollyfile-imgui bf4acf381a30c91ea4e9fdf0deffef783a58ba0ced73051e95c7b1e9a2787a5a /usr/share/licenses/imgui /usr/share/licenses/imgui
-COPY /demos/mojo/Dollyfile-mojo 28bb56a1566d4350e5ab3ec289df79d98f20c2b31d508d2376ccf4b45f92fcb0 /usr/share/licenses/mojo /usr/share/licenses/mojo
+COPY /demos/sdl2/Dollyfile-sdl2 d3938a1d871d053e813e0b039fb4bc209ab08cc461e1e80431180616b03b931e /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+COPY /demos/sdl2/Dollyfile-imgui 1533b320e6514e9f794e60d3db730c3cce421853bb90cc26b8bba0874c414a94 /usr/share/licenses/imgui /usr/share/licenses/imgui
+COPY /demos/mojo/Dollyfile-mojo 781f0578f0adcbad585190d4e203549e50c4ef526333745419e85dd266d2e08c /usr/share/licenses/mojo /usr/share/licenses/mojo
 SLOP rm -rf /tmp/deep-hedger

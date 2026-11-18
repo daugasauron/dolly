@@ -1,39 +1,50 @@
 DOLLY 8
 PACKAGE blender
 REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST gpu@0
+REQUIRES HOST clipboard@0
 REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
-# Blender 5.3.0 from upstream's release archive, built headless by its own
-# CMake project inside Dolly: `blender -b` with its Python (the python
-# package's CPython 3.14) and Cycles on the CPU. blender-dolly.patch is three
-# small changes; its head lines say why each.
+# Blender 5.3.0 from upstream's release archive, built by its own CMake
+# project inside Dolly: its window on the page, and `blender -b` with its
+# Python (the python package's CPython 3.14) and Cycles on the CPU.
+# blender-dolly.patch names Dolly's files to the build and adds their enum
+# values; the archive places them (prepare-sources.sh).
 # - blender_lite.cmake, upstream's configuration with every optional library
 #   off, then Cycles and pugixml (OpenImageIO's static library needs it) on.
-# - WITH_HEADLESS: no window system. No OpenGL or Vulkan backend: the GPU
-#   module's dummy backend remains, so EEVEE and Workbench do not render.
+# - WITH_GHOST_DOLLY: the window system is ghost/GHOST_SystemDolly, on
+#   display@0, input@0 and clipboard@0. WITH_WEBGPU_BACKEND: the GPU module
+#   draws through webgpu/ on gpu@0, with the glslang and
+#   spirv-wgsl packages; no OpenGL or Vulkan backend.
 # - Dolly claims no x86 or ARM: Cycles builds its scalar kernel and its own
 #   BVH (Embree off, as in the lite configuration).
 # - PYTHON_LINKFLAGS, by default ELF's -Xlinker -export-dynamic: what
 #   libpython's built-in modules link, and cc --dolly-cast-emulation, since
 #   Blender defines Python methods taking no arguments with one parameter,
-#   which CPython calls with two. Such a program loads no extension module.
+#   which CPython calls with two. Such a program loads only extension modules
+#   linked so too, and is a host of none without -rdynamic.
 # - Brotli for FreeType, which Blender puts on the link line only with its
 #   precompiled libraries.
-# - ccfilter for compiles and the link: see its source.
-FROM /demos/blender/Dollyfile-blender-deps c34e314a838b2d8a02283b95ca79238c2cf1185b91443c292ebda27c431b51fa
-INSTALL /demos/python/Dollyfile-python 929382033ca4d961078f460d75185d58edaa75668f686b04b53f44bfd85833b0
+FROM /demos/blender/Dollyfile-blender-deps 9ad42ac72388394c12fe4b6e04b54f9cb062e1fc3c2afdc0789de7865c5e0425
+INSTALL /demos/python/Dollyfile-python c39225e146dd9f27a77c5b8b534c4d3eec2246b777c435e766dd48495fa3a2c1
+USE /demos/godot/Dollyfile-spirv-wgsl 4d95ade7ab7d86a6ba38e84d6ebf8fe523521175ef7cceb28b86758374905288
+USE /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
+USE /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
+USE /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
+USE /Dollyfile-libdolly-clipboard 99746a8bd9b9eb136098753ccc526ac94a14540e6d26082ae8748eb6e3fa08a6
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL patch
 REQUIRES TOOL python3
 REQUIRES TOOL wasm-opt
-REQUIRES TOOL ccfilter
 REQUIRES TOOL mkdir
 
-SOURCE /dist/static/blender/blender.tar.gz 03f4920b7ce1d4dc0a537b9cd96c18bcff1093525678cee5d55d0c447e21b26f /tmp/blender.tar.gz
+SOURCE /dist/static/blender/blender.tar.gz 5ddc7af7a05d10d42c7ece68fc620dd160b85eaf1482f70a97cf066a57fe039a /tmp/blender.tar.gz
 SLOP gzip -dc /tmp/blender.tar.gz | tar -xf - -C /
 SLOP rm /tmp/blender.tar.gz
 SLOP CWD /tmp/blender/source patch -p1 -i /tmp/blender/blender-dolly.patch
@@ -42,12 +53,11 @@ SLOP time cmake -S /tmp/blender/source -B /tmp/blender/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
   -DCMAKE_C_FLAGS=-pthread -DCMAKE_CXX_FLAGS=-pthread \
-  -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccfilter -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccfilter \
-  -DCMAKE_C_LINKER_LAUNCHER=/usr/bin/ccfilter -DCMAKE_CXX_LINKER_LAUNCHER=/usr/bin/ccfilter \
   "-DPYTHON_LINKFLAGS=--dolly-cast-emulation -lffi -llzma -lbz2 -lsqlite3 -lcurl -L/usr/lib/python3.14/embed -lpyexpat -lHacl_Hash_BLAKE2 -lHacl_Hash_MD5 -lHacl_Hash_SHA1 -lHacl_Hash_SHA2 -lHacl_Hash_SHA3" \
   "-DCMAKE_EXE_LINKER_FLAGS=-lbrotlidec -lbrotlicommon" \
-  -DWITH_HEADLESS=ON -DWITH_GHOST_WAYLAND=OFF -DWITH_GHOST_X11=OFF \
-  -DWITH_OPENGL_BACKEND=OFF -DWITH_VULKAN_BACKEND=OFF \
+  -DWITH_HEADLESS=OFF -DWITH_GHOST_DOLLY=ON -DWITH_GHOST_WAYLAND=OFF -DWITH_GHOST_X11=OFF -DWITH_GHOST_SDL=OFF \
+  -DWITH_OPENGL_BACKEND=OFF -DWITH_VULKAN_BACKEND=OFF -DWITH_WEBGPU_BACKEND=ON \
+  -DWITH_INPUT_NDOF=OFF -DWITH_INPUT_IME=OFF -DWITH_XR_OPENXR=OFF \
   -DWITH_CYCLES=ON -DWITH_TBB=ON -DWITH_PUGIXML=ON -DWITH_ASSERT_RELEASE=OFF \
   -DPYTHON_VERSION=3.14 -DWITH_PYTHON_INSTALL=OFF -DWITH_INSTALL_PORTABLE=OFF \
   -DWITH_LIBS_PRECOMPILED=OFF -DWITH_LINKER_LLD=OFF -DWITH_LINKER_MOLD=OFF -DWITH_COMPILER_CCACHE=OFF \
@@ -78,7 +88,7 @@ FOLDER /usr/share/doc/blender
 SLOP mkdir -p /usr/share/licenses/blender
 SLOP cp /tmp/blender/source/COPYING /usr/share/licenses/blender/COPYING
 SLOP CWD /usr/share/licenses cp -R zlib libpng zstd freetype brotli libjpeg-turbo libtiff expat fmt imath libdeflate \
-  openjph openexr robin-map pugixml yaml-cpp pystring minizip-ng opencolorio openimageio onetbb eigen libepoxy \
+  openjph openexr robin-map pugixml yaml-cpp pystring minizip-ng opencolorio openimageio onetbb eigen libepoxy glslang \
   /usr/share/licenses/blender
 FOLDER /usr/share/licenses/blender
 SLOP blender --help > /usr/share/man/cat1/blender.1

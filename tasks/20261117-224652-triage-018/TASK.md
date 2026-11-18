@@ -31,6 +31,9 @@ Left for the round:
   (`fix/lean-crash`).
 - godot-airtime's Firefox did not launch in 180 s in early-gpu-demos.log (`/snap/bin/firefox`);
   not seen here.
+- Causes 9 and 10 are fixed (d395a46c6, 34d0e192b); the seed changed, so every image but those
+  built in work/triage (system's, default's and emacs's closures, gnu-emacs, transfer, curl and
+  the download and upload clients) is the round's to build.
 
 ## Causes
 
@@ -74,3 +77,28 @@ Left for the round:
    toolchains built on it have its env too. `default.json` runs a `#!/usr/bin/env` script.
 8. **The whole catalog**: lean-browser.mjs (amy has no lean) and "dist registers every image of
    the catalog" need the Lean images.
+9. **A successful SIG_SETMASK sets errno to EINVAL** (`process/signal.c` set_mask), and
+   emacs's build check failed with `file-error ("Failed select" "Invalid argument")` in the
+   round on 0ae1331a2. set_mask walks every number below `_NSIG` and calls musl's sigdelset,
+   which refuses the three musl keeps for itself (32 to 34) with errno EINVAL. Emacs's
+   really_call_select (src/thread.c) restores its mask with pthread_sigmask(SIG_SETMASK) after
+   pselect and before it reads errno: when the child's SIGCHLD interrupts the wait (EINTR),
+   Emacs reads EINVAL. That happens only when the signal lands during the poll, so the check
+   fails by timing: 4, 3 and 2 of 10 runs in Chromium, 1 of 10 in Firefox (work/triage,
+   `build/triage/emacs-check.mjs` on system with the emacs package). It needs no timer, and it
+   does not happen with no timeout (0 of 10). A worker trace of the failing runs shows FD_POLL
+   answered EINTR, the handler's WAIT, write and acknowledgement, then Emacs's error and no further
+   select. `build/triage/mask-probe.c` shows it in both browsers: errno is EINTR before
+   `sigprocmask(SIG_SETMASK, &old, NULL)`, which returns 0, and EINVAL after it; SIG_BLOCK leaves it.
+   set_mask skips the numbers musl reserves (d395a46c6), which changes the seed's
+   libdolly-process.a, and process-signals.c checks errno after a successful SIG_SETMASK. On the
+   seed built again: the recipe's check 0 of 10 failed in Chromium and in Firefox, the no-timer
+   variant 0 of 10 in Chromium, mask-probe.c keeps EINTR in both; demos/emacs's tests and
+   test/process-, threads- and ending-browser.mjs pass in both browsers.
+10. **A process Worker refused its process after waiting 10 s for its configuration**
+   (`page/process-worker.mjs`): "Dolly process configuration was not provided", once in
+   emacs's build in work/triage at a load of about 340. The supervisor posts the configuration
+   as it makes the Worker, so the wait measured only a starved machine's delivery. The Worker
+   waits for it now and fails at once on one it cannot decode (34d0e192b). With the supervisor
+   posting each configuration 12 s late (`build/triage/late-configure.mjs`), the shell and a
+   command start in both browsers; the Worker before the change left no prompt.

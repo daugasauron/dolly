@@ -69,11 +69,11 @@ export function browser(page) {
   const { mount } = page;
   let box, canvas, surface, fitted;
   if (mount) {
-    // Over the terminal: beside a smaller surface, its letterbox is the terminal's background, as
-    // display@0's is.
+    // Over the terminal, in the frame's cell of Dolly's element (page/browser.mjs): beside a smaller
+    // surface, its letterbox is the terminal's background, as display@0's is.
     box = mount.appendChild(document.createElement("div"));
     box.hidden = true;
-    box.style.cssText = "position:absolute;inset:0;overflow:hidden;pointer-events:none;background:var(--dolly-ui-background)";
+    box.style.cssText = "position:relative;grid-area:1/1;overflow:hidden;pointer-events:none;background:var(--dolly-ui-background)";
     canvas = box.appendChild(document.createElement("canvas"));
     canvas.id = "gpu-display";
     canvas.style.position = "absolute";

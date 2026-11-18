@@ -14,7 +14,8 @@ import * as processConstants from "./process-constants.mjs";
 const pageStyle = new CSSStyleSheet();
 pageStyle.replaceSync(`
   .dolly-terminal { position: relative; overflow: hidden; outline: none; caret-color: transparent;
-    display: flex; flex-direction: column;
+    /* One box for the frame, which the display's canvas and gpu@0's share, above input@0's bar. */
+    display: grid; grid-template: minmax(0, 1fr) auto / minmax(0, 1fr);
     /* Dolly's own UI in the embedding's colours (docs/embedding.md), unset Dolly's: the three, the
        terminal's bright black for what is quieter, and mixes of them for raised and sunken parts. */
     --dolly-ui-background: var(--dolly-background, #262626); --dolly-ui-color: var(--dolly-color, #e8e3d7);
@@ -22,9 +23,8 @@ pageStyle.replaceSync(`
     --dolly-ui-raised: color-mix(in srgb, var(--dolly-ui-color) 7%, var(--dolly-ui-background));
     --dolly-ui-sunken: color-mix(in srgb, var(--dolly-ui-background) 66%, black);
     --dolly-ui-alert: #e98773; }
-  .dolly-terminal #display { display: block; width: 100%; flex: 1 1 0; min-height: 0; cursor: text; touch-action: none;
+  .dolly-terminal #display { grid-area: 1 / 1; width: 100%; height: 100%; cursor: text; touch-action: none;
     object-fit: contain; }
-  .dolly-terminal #display[hidden] { display: none; }
   .dolly-terminal #keyboard { position: fixed; left: -10000px; top: 0; width: 1px; height: 1px; opacity: 0; caret-color: transparent; }
   .dolly-terminal #bootstrap-log { position: absolute; inset: 0; z-index: 1; margin: 0; padding: 1rem 1.15rem; overflow: auto;
     white-space: pre-wrap; color: var(--dolly-ui-color); background: var(--dolly-ui-background);
@@ -135,7 +135,7 @@ export async function run(mount, { images, modules, site, http, imageBuilder }, 
       Object.assign(document.createElement("a"), { textContent: text, href, style: "color:var(--dolly-ui-accent);margin-left:1.5ch" }));
     notice.append(`This image has ended: its program ${how}.`, ...links);
     // The notice takes the element's bottom strip; the last frame and the log keep the rest.
-    Object.assign(canvas.style, { flex: "none", height: `calc(100% - ${notice.offsetHeight}px)`, objectFit: "contain",
+    Object.assign(canvas.style, { height: `calc(100% - ${notice.offsetHeight}px)`, objectFit: "contain",
       objectPosition: "left top" });
     bootstrapLog.style.bottom = `${notice.offsetHeight}px`;
     links[0].focus();

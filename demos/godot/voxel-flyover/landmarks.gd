@@ -217,6 +217,26 @@ static func build(found: Array, paint: ShaderMaterial) -> Node3D:
 	return mark
 
 
+## A spire of an old world (main.gd's spires), one unit high, scaled to its height: a slender
+## tower of pale stone on a plinth, three dark balconies up it, and a crystal at its top that
+## glows at night. One mesh, its colours in its vertices.
+static func spire_mesh() -> ArrayMesh:
+	var spire := Node3D.new()
+	var stone := Parts.paint(Color(0.84, 0.81, 0.74), 0.8)
+	var dark := Parts.paint(Color(0.24, 0.26, 0.33), 0.7)
+	Parts.part(spire, cylinder(0.075, 0.11, 8), stone, Vector3(0, 0.025, 0), Vector3.ZERO, Vector3(1, 0.05, 1))
+	Parts.part(spire, cylinder(0.014, 0.045, 12), stone, Vector3(0, 0.49, 0), Vector3.ZERO, Vector3(1, 0.88, 1))
+	for balcony in 3:
+		var wide := 0.05 - 0.01 * balcony
+		Parts.part(spire, cylinder(wide, wide * 0.7, 12), dark, Vector3(0, 0.34 + 0.2 * balcony, 0), Vector3.ZERO, Vector3(1, 0.012, 1))
+	var crystal := Parts.paint(Color(0.55, 0.9, 1.0), 0.3, 1.0)
+	Parts.part(spire, cylinder(0.0, 0.032, 6), crystal, Vector3(0, 0.975, 0), Vector3.ZERO, Vector3(1, 0.05, 1))
+	Parts.part(spire, cylinder(0.032, 0.0, 6), crystal, Vector3(0, 0.935, 0), Vector3.ZERO, Vector3(1, 0.03, 1))
+	var mesh := Parts.bake(spire)
+	spire.free()
+	return mesh
+
+
 ## The tower of a town, by the town's kind.
 static func build_tower(mark: Node3D, town_kind: int, own: float) -> void:
 	var box := BoxMesh.new()

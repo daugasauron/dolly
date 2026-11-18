@@ -9,13 +9,13 @@ REQUIRES HOST threads@0
 # for programs the cc package builds: GL, with EGL and GLX dispatch. It finds
 # the GL functions when it is called. Its pkg-config file requires x11 and
 # egl, so it brings the x11-libs and mesa packages.
-FROM /demos/tools/Dollyfile-tools-build bfbb7483707086afb8948275f9b68e85f375a9076f2fe687a147eaeea1d2b184
-INSTALL /demos/x11/Dollyfile-x11-libs 764d466938d6540119570463f57152fd7e8c87a44765bae5d04631c95919a949
-INSTALL /demos/ghostty-gtk/Dollyfile-mesa 39004d22b17bfdea87fb07ea223f43e8b32330073d62cb3d6d4ebc4038a85163
-USE /demos/tools/Dollyfile-meson fbf8520c118b634f0a422081a05694a78936ba915699e95fa010f9e6b7ba73fb
-USE /demos/tools/Dollyfile-pkgconf 8e2d10a742a5f3dc0a5da7426f3f276c233bf6672cc0a777fa849672d0f1e0b3
-USE /demos/tools/Dollyfile-xz d469de338c35f239e62a272216458e722dfdd7eb2909ed4a35a21d5694f2ad81
-USE /demos/tools/Dollyfile-tar 41a8b3eb2eb4e9ab4bf0d8d1708a5859cbf89872b2658344741c27affa220ffb
+FROM /demos/tools/Dollyfile-tools-build 3c416d0813c5baabb63ce16ebbd9abda02d78c2f86dcb2bbb351a19ffcb32139
+INSTALL /demos/x11/Dollyfile-x11-libs 35717a8ff71126fc72d47fd6e4aa806e834865ad25f185db21013d98176ac100
+INSTALL /demos/ghostty-gtk/Dollyfile-mesa bcc95cf5c5fee6f218d201a12e25605facdb7b7f28bd266b5850f944200e288c
+USE /demos/tools/Dollyfile-meson 1b12743f4d6bbb9cd96b6088dd4b61d4de8915f4df0a52414ae2177726dde8b9
+USE /demos/tools/Dollyfile-pkgconf 26fb05d3178c786e45f1d9a6f399dcf78b78949f337e8da3c6591ce74352a7b0
+USE /demos/tools/Dollyfile-xz 459f0cc5ab2cda8ede96f9c9434f947f97b7e5faef4bfd3543abcb2be3e8e909
+USE /demos/tools/Dollyfile-tar 4df2a7797074d14dc168e125e4b743fa7afdebd695a4f3055ac881ae1dc86ff1
 REQUIRES HEADER egl
 REQUIRES TOOL   cp
 REQUIRES TOOL   meson

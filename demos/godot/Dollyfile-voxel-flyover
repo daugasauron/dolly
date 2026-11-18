@@ -17,9 +17,9 @@ REQUIRES HOST clipboard@0
 # vertex stages raise grids of land to it, out to the horizon and round the planet. Its project
 # (demos/godot/voxel-flyover) is imported and exported here by Godot's editor, and voxel-flyover
 # plays the pack with godot, which installs with it. The project installs too.
-FROM /Dollyfile-system ede57a1516844ae47fe5aa8dcf693ca90862dd38547e1587f7e163f513079551
-INSTALL /demos/godot/Dollyfile-godot 7ddf2bdf713e39f9f35dc01fdf29c7b9b025fa7562761b1afc714ad1f5f42d23
-USE /demos/godot/Dollyfile-godot-editor 146cb3275c26b7259f729481399ce956add36c2c90222f94bd2ffddcfe35a24a
+FROM /Dollyfile-system 8d54b8fd95bd265381fcacf4d97044d3ad3deb0e969deeed8e4b5e791e71dcb5
+INSTALL /demos/godot/Dollyfile-godot 15319d7ee68c12a9161f7691642f862267fc0ed6ffa66b2c75fa5add42e394c1
+USE /demos/godot/Dollyfile-godot-editor a920e25e50ec53eaef77651a5e259bd639c7aa2a138af11ae6bb4e774235ef6a
 
 REQUIRES TOOL cp
 REQUIRES TOOL godot-editor
@@ -27,7 +27,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /dist/static/godot/voxel-flyover.tar 217c7e48e8fb8a596b60e6e9b5285b85a1e8620090847c410074ca5f46c6b791 /tmp/voxel-flyover.tar
+SOURCE /dist/static/godot/voxel-flyover.tar 4bf805b2af75767c34bd359427b2d90385e1cad331218bd649a15feb286f201c /tmp/voxel-flyover.tar
 SLOP CWD / tar -xf /tmp/voxel-flyover.tar
 SLOP mkdir -p /usr/share/voxel-flyover
 SLOP cp -r /usr/src/voxel-flyover /usr/share/voxel-flyover/project
@@ -44,23 +44,25 @@ FILE /usr/share/man/cat1/voxel-flyover.1
     Plays Voxel Flyover on the page: a corgi in a cape and sunglasses on a
     jet surfboard, a pelican on a bicycle pedalling under it for the jets,
     over a planet 600,000 units in radius, through its days and nights. The land runs on to a curved horizon, and far ranges rise
-    over it as the board nears them. It flies itself until Enter or a click
-    takes the board: arrows or WASD steer, climb and dive, T lets the hours
-    run, Escape lets go of the board, Q quits. A click also gives the game
-    the pointer, and the mouse then turns the view; the wheel, or Z and X,
-    zoom. On a touchscreen a touch takes the board: a stick under the left
-    thumb steers, climbs and dives, a finger elsewhere turns the view, two
-    fingers zoom, and the ring at the top right gives the board back. A
-    board that keeps climbing is faster the higher it is: it leaves
+    over it as the board nears them. It flies itself until a click takes
+    the board and gives the game the pointer: the mouse then steers, around
+    and up and down, and the board flies the way it is headed at one speed.
+    A ring flown through gives a boost, which wears off; rings stand in
+    chains that climb, and the next ring of a chain is open for as long as
+    the boost reaches it. The wheel zooms, T lets the hours run, Escape lets
+    go of the board and the pointer, Q quits. On a touchscreen a touch
+    takes the board: a finger's drag steers, two fingers zoom, and the ring
+    at the top right gives the board back. A board that climbs past 420
+    units is faster the higher it is: it leaves
     the clouds under it, the sky goes dark and the stars come out, and from
     some hundred thousand units up the planet is seen whole, with its day
     and night sides, its clouds, its seas' glint, its towns' lights and the
     rim of its air. Diving brings it back down, anywhere on the planet. A
     lap along the ground would take 35 hours. On a weak GPU it draws less,
-    at an even rate. The number on the screen counts the beacons lit. With
+    at an even rate. The number on the screen counts the rings passed. With
     --autopilot it flies by itself for that long and prints its frame rate,
     how even its frames were, the milliseconds a frame took the GPU and the
-    renderer, the beacons it lit, how high it went and what its frame
+    renderer, the rings it passed, how high it went and what its frame
     shows; --day starts at that hour; --tour leaves the planet at that
     second, to the height --top gives (900000), and comes back. It draws
     through WebGPU (gpu@0). Its project is /usr/share/voxel-flyover/project:

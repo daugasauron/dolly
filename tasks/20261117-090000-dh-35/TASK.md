@@ -1,6 +1,6 @@
 # Deep hedger, for the owner: at a pathwise price an option bought is a stock strategy
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 145
 - TAGS: dh,owner
 
@@ -34,3 +34,13 @@ For the owner, since it decides what task dh-06 builds: pathwise prices, and opt
 change nothing; or prices of the day's state, and a market in which they hedge. The demo's
 measurement points to the second: the confidence AAPL's quotes imply leaves no room for the
 risk of a daily stock hedge at the money (task dh-19).
+
+## The owner, 2026-11-17 evening, second answer
+
+Closed: the question does not arise. "there is no such thing as a \"pathwise rule\" [...] At
+any time t in a path, the things that are known to me today are the price of the underlying
+(including spread), and all the option quotes today, induced backwards from yesterday
+*somehow*." So a book that buys an option on a day pays that day's quote, known that day, and
+the option hedges: "if the current law has gigantiv downside tail [...] it might be good on
+average to get put protection on that even though the spread is large." What task dh-06 builds
+is that market; how a day's quotes are made from the next day's is its open design.

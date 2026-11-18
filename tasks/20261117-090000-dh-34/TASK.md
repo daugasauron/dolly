@@ -72,3 +72,9 @@ On `fix/firefox-gpu` (`dd68e8d6a`), in Firefox 159, a still page, nothing compos
   (`758ac2b07`). It passed twice in Chrome 156 and Firefox 159 (`test-2.log`, `test-3.log`: 740
   and 760 iterations in Chrome, 680 in Firefox, the loss to 0.25 or less, 27% of the unhedged
   risk left).
+
+- From the deep hedger's branch, the same night, before the Worker fix was merged there: Firefox
+  also stalled four times at a shell pipeline that reads the fit's output of some megabytes (`cat`,
+  `grep`, `tail`, `cut`; `build/dh-evidence/batch8-test.log` of 22:12), none in Chrome. A pipeline
+  starts processes, so this is likely the same nested-Worker hang. The 0.1.8 round's Firefox run
+  of the deep hedger's test confirms it.

@@ -20,7 +20,7 @@ REQUIRES TOOL   zig
 
 SOURCE /dist/static/default/ghostty.tar              74e6b2f57be127f98828c7efc088a654779c72e331ad998d803fea43a343e884 /tmp/ghostty.tar
 SOURCE /dist/static/default/uucode.tar               be9d52ab9c0f49deb5fd8baa54b4b14f490f8e29e200d044e908d7adad54e3d0 /tmp/uucode.tar
-SOURCE /dist/static/default/ghostty/display.c        6bbea55d7e863e812802ac6e7f2169c95494828f547084ae425733f38405624b /usr/src/dolly/ghostty/display.c
+SOURCE /dist/static/default/ghostty/display.c        a7e79a8cf1eeae5538e673eb66c644e7466a5d9a03bf621d2c32c090be2f1a4b /usr/src/dolly/ghostty/display.c
 SOURCE /dist/static/default/stb_truetype.h           ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/ghostty/stb_truetype.h
 SOURCE /dist/static/default/stb_image.h              594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3 /tmp/ghostty/stb_image.h
 SOURCE /dist/static/default/IosevkaTerm-SemiBold.ttf cb3fd282d86c0e7cc2829f848df5a58973db98c8369a20427a9b3d06727e5aaa /usr/share/fonts/IosevkaTerm-SemiBold.ttf
