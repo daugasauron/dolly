@@ -55,6 +55,24 @@ The interface draws whole (widgets, text, icons, the splash's image), and the
 3D view shows the default scene in Workbench's solid mode, with the selected
 cube's outline, the camera, the light and the navigation gizmo.
 
+On the NVIDIA adapter, with the machine at load 40 (2026-11-18), the 3D view
+first drew 20.9 s after the command in Chrome and 32.1 s in Firefox, most of
+it compiling some 300 shaders (glslang and the translation run in the
+program); Blender's redraw timer gave the whole window 43.7 ms (Firefox
+62.2), the 3D view 2.8 ms (1.4) and its header 2.4 ms (1.0). A full redraw
+sends about 0.7 MB of records, nearly all of it the frame's staged data.
+
+What WebGPU leaves to the backend:
+
+- Blender's GLSL is generated as for Vulkan; NaN, which WGSL cannot spell, is
+  read from a private variable; `texture()` of an integer texture, which WGSL
+  cannot sample, reads the texel at the point; a vertex shader stores its
+  position once, at its end, as the translation negates its y.
+- Normals are 16 bits a component: WebGPU has no signed 10-10-10-2 format.
+- The largest texture's side is reported as a power of two: Firefox grants
+  32,767 on NVIDIA, and Blender's font atlas, as wide as that, addresses its
+  texels by a mask of it.
+
 ## Limits
 
 - In the 3D view, the floor grid draws only towards the horizon, without its
@@ -130,3 +148,10 @@ Test: [`test/blender-browser.mjs`](test/blender-browser.mjs) installs the
 package into `default`, runs a script on the default scene (a mesh added and
 arrayed, a `.blend` saved and loaded) and renders it with Cycles to a PNG
 whose size and pixels it checks, in Chromium (16.3 s) and Firefox (18.1 s).
+
+[`test/blender-gpu-browser.mjs`](test/blender-gpu-browser.mjs) opens the
+window on a hardware adapter (the private X display `DISPLAY` names, under the
+GPU lock), reads its frame back (Firefox under Xvfb shows no WebGPU canvas),
+draws words on the GPU against Blender's font library drawing them on the
+CPU, times the redraws above and presses K, which its script's key map item
+takes to quit.

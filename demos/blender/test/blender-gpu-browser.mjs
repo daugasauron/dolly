@@ -1,7 +1,8 @@
 // Blender's window on gpu@0, on a real adapter, on the private X display DISPLAY names: Chrome on
 // Vulkan, or the installed Firefox (docs/gpu.md). Blender opens its default layout; a script of
-// its own reads the window's frame back (Firefox under Xvfb shows no WebGPU canvas) and says what
-// it drew; the test then presses K, which the script's key map item takes, and Blender quits.
+// its own draws words on the GPU against its font library drawing them on the CPU, reads the
+// window's frame back (Firefox under Xvfb shows no WebGPU canvas) and says what it drew; the test
+// then presses K, which the script's key map item takes, and Blender quits.
 // Usage: [DOLLY_BROWSER=firefox] node demos/blender/test/blender-gpu-browser.mjs
 import assert from "node:assert/strict";
 import { writeFileSync } from "node:fs";
