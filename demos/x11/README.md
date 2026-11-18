@@ -10,6 +10,8 @@ own under a stock window manager.
 - `xorg-server`: Xsdl, the X server in Dolly's display, with xkbcomp and the keyboard descriptions.
 - `pixman`: the pixel library the X server draws with.
 - `libxkbfile`: X.Org's library of XKB keymap files.
+- `libxfont2`: libXfont2, the X server's font library: built-in, PCF, BDF and SNF fonts, with the server's 64-bit protocol types, for servers the `cc` package builds.
+- `libmd`: libmd, the BSD message digests (MD5, SHA-1, SHA-2, SHA-3 and the rest), for programs the `cc` package builds; it brings no compiler.
 - `xkbcomp`: the XKB keymap compiler the X server runs.
 - `xkeyboard-config`: the keyboard descriptions xkbcomp reads, with the evdev rules.
 - `twm`: twm, the Tab Window Manager.
@@ -39,11 +41,11 @@ is back.
   xcb's protocol code is written by xcb-proto's generator in Dolly's Python.
   Static libraries and pkg-config files: `pkg-config --libs xaw7` names what
   to link, sockets@0's client (`-ldolly-sockets`) included.
-- pixman, libxkbfile and xkbcomp are packages, each built by upstream's Meson;
-  xkeyboard-config's package writes its evdev rules with its own generator.
-  [`Dollyfile-xorg-server`](Dollyfile-xorg-server) builds xorg-server 21.1.25
-  by upstream's Meson on them, and libmd's SHA-1 and libXfont2 (built-in
-  fonts, PCF and BDF) for the server alone by a Makefile.
+- pixman, libxkbfile, xkbcomp, libmd and libxfont2 are packages, each built by
+  upstream's Meson or by a Makefile that states what its configure script would
+  find; xkeyboard-config's package writes its evdev rules with its own
+  generator. [`Dollyfile-xorg-server`](Dollyfile-xorg-server) builds
+  xorg-server 21.1.25 by upstream's Meson on them.
 - The server is Xsdl, the kdrive server in an SDL window, which xorg-server
   had until 2009 (commit 52bc6d94, "kdrive: Purge Xsdl"). [`xsdl/sdl.c`](xsdl/sdl.c)
   is that driver ported to SDL 2 and to today's kdrive, and

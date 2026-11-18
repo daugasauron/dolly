@@ -1,0 +1,49 @@
+DOLLY 8
+PACKAGE sdl2-x11
+REQUIRES HOST runtime@0
+REQUIRES HOST sockets@0
+
+# libSDL2 from the sdl2 package's sources, with upstream's X11 video driver in
+# place of Dolly's, so that a program draws as an X client on the server
+# DISPLAY names, over the x11-libs package. Beside the sdl2 package, not on
+# its paths: /usr/lib/sdl2-x11 (with its pkg-config file, CMake package and
+# sdl2-config) and /usr/include/sdl2-x11. Static, as X's libraries are, so
+# CMake's link probes name what libX11 links (pkg-config --static --libs
+# x11). No audio, threads or OpenGL, and no XFixes (clipboard tracking, pointer barriers): SDL
+# declares XFixesSelectSelectionInput to return Status, libXfixes returns
+# void, and WebAssembly traps on the call.
+FROM /demos/cmake/Dollyfile-cmake-build ef925b15c0342d66937cb491e956474f5dbb37d60cb2063e6e7ec91e0cb85d71
+INSTALL /demos/x11/Dollyfile-x11-libs 764d466938d6540119570463f57152fd7e8c87a44765bae5d04631c95919a949
+REQUIRES HEADER libc
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL mkdir
+REQUIRES TOOL cp
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /dist/static/sdl2/source.tar 016b2aa2d0b4b1b3fef1b4c4654d8462456b82d6f87e39feea4c87ed340656bb /tmp/sdl2/source.tar
+SLOP tar -xf /tmp/sdl2/source.tar -C /
+SLOP cmake -S /tmp/sdl2/source -B /tmp/sdl2/build \
+  -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+  -DCMAKE_INSTALL_LIBDIR=lib/sdl2-x11 -DCMAKE_INSTALL_INCLUDEDIR=include/sdl2-x11 -DCMAKE_INSTALL_BINDIR=lib/sdl2-x11/bin \
+  -DCMAKE_INSTALL_DATAROOTDIR=lib/sdl2-x11/share \
+  -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST=OFF -DSDL_TESTS=OFF \
+  -DSDL_AUDIO=OFF -DSDL_HAPTIC=OFF -DSDL_SENSOR=OFF \
+  -DSDL_THREADS=OFF -DSDL_LOADSO=OFF -DSDL_POWER=OFF -DSDL_HIDAPI=OFF \
+  -DSDL_ASSEMBLY=OFF -DSDL_GCC_ATOMICS=ON -DSDL_SYSTEM_ICONV=OFF \
+  -DSDL_OPENGL=OFF -DSDL_OPENGLES=OFF -DSDL_VULKAN=OFF -DSDL_RENDER_METAL=OFF \
+  -DSDL_X11=ON -DSDL_X11_SHARED=OFF -DCMAKE_EXE_LINKER_FLAGS='-lxcb -lXau -ldolly-sockets' \
+  -DSDL_X11_XFIXES=OFF -DSDL_DOLLY_VIDEO=OFF
+SLOP cmake --build /tmp/sdl2/build
+SLOP cmake --install /tmp/sdl2/build
+SLOP mkdir -p /usr/share/licenses/sdl2-x11
+SLOP cp /tmp/sdl2/source/LICENSE.txt /usr/share/licenses/sdl2-x11/LICENSE.txt
+
+EXPORTS LIB    SDL2-x11 /usr/lib/sdl2-x11/libSDL2.a
+EXPORTS HEADER sdl2-x11 /usr/include/sdl2-x11
+FOLDER /usr/lib/sdl2-x11/pkgconfig
+FOLDER /usr/lib/sdl2-x11/cmake
+FILE /usr/lib/sdl2-x11/bin/sdl2-config
+FILE /usr/share/licenses/sdl2-x11/LICENSE.txt
+SLOP rm -rf /tmp/sdl2

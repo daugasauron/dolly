@@ -1,0 +1,60 @@
+DOLLY 8
+PACKAGE libmd
+REQUIRES HOST runtime@0
+
+# libmd, the BSD systems' message digest functions (MD2, MD4, MD5, RIPEMD-160,
+# SHA-1, SHA-2 and SHA-3, with their File, Data and End helpers), from
+# upstream's release archive, unchanged, for programs the cc package builds
+# (the X server's SHA-1). Slop cannot run its configure script: its sources
+# are compiled with configure's two answers here, explicit_bzero and unistd.h.
+FROM /demos/cmake/Dollyfile-cmake-build ef925b15c0342d66937cb491e956474f5dbb37d60cb2063e6e7ec91e0cb85d71
+USE /demos/tools/Dollyfile-xz d469de338c35f239e62a272216458e722dfdd7eb2909ed4a35a21d5694f2ad81
+REQUIRES HEADER libc
+REQUIRES TOOL ar
+REQUIRES TOOL cc
+REQUIRES TOOL cp
+REQUIRES TOOL make
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+REQUIRES TOOL xz
+
+SOURCE /dist/static/x11/libmd-1.3.0.tar.xz fc0f1eb6b6766470326f2c014693809190e67dba84274a6fbae9d4912d066706 /tmp/libmd.tar.xz
+SLOP CWD /tmp xz -dc libmd.tar.xz | tar -xf -
+FILE /tmp/libmd-1.3.0/config.h
+    #define HAVE_EXPLICIT_BZERO 1
+    #define HAVE_UNISTD_H 1
+FILE /tmp/libmd-1.3.0/libmd.mk
+    MD := /tmp/libmd-1.3.0
+    SOURCES := $(filter-out $(MD)/src/helper.c $(MD)/src/bzero.c,$(wildcard $(MD)/src/*.c))
+    /usr/lib/libmd.a: $(patsubst %.c,%.o,$(SOURCES))
+    	ar rcs $@ $^
+    %.o: %.c
+    	cc -O2 -I$(MD) -I$(MD)/include -I$(MD)/src -c $< -o $@
+SLOP make -j4 -f /tmp/libmd-1.3.0/libmd.mk
+SLOP cp /tmp/libmd-1.3.0/include/md2.h /tmp/libmd-1.3.0/include/md4.h /tmp/libmd-1.3.0/include/md5.h \
+  /tmp/libmd-1.3.0/include/rmd160.h /tmp/libmd-1.3.0/include/ripemd.h /tmp/libmd-1.3.0/include/sha.h \
+  /tmp/libmd-1.3.0/include/sha1.h /tmp/libmd-1.3.0/include/sha2.h /tmp/libmd-1.3.0/include/sha256.h \
+  /tmp/libmd-1.3.0/include/sha3.h /tmp/libmd-1.3.0/include/sha512.h /usr/include
+SLOP mkdir -p /usr/share/licenses/libmd
+SLOP cp /tmp/libmd-1.3.0/COPYING /usr/share/licenses/libmd/COPYING
+
+EXPORTS LIB    md     /usr/lib/libmd.a
+EXPORTS HEADER md5    /usr/include/md5.h
+EXPORTS HEADER sha1   /usr/include/sha1.h
+EXPORTS HEADER sha2   /usr/include/sha2.h
+EXPORTS HEADER sha3   /usr/include/sha3.h
+FILE /usr/include/md2.h
+FILE /usr/include/md4.h
+FILE /usr/include/rmd160.h
+FILE /usr/include/ripemd.h
+FILE /usr/include/sha.h
+FILE /usr/include/sha256.h
+FILE /usr/include/sha512.h
+FILE /usr/lib/pkgconfig/libmd.pc
+    Name: libmd
+    Description: Message Digest functions from BSD systems
+    Version: 1.3.0
+    Libs: -lmd
+FILE /usr/share/licenses/libmd/COPYING
+SLOP rm -rf /tmp/libmd-1.3.0 /tmp/libmd.tar.xz

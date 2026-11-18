@@ -9,6 +9,24 @@
       "status": 0
     },
     { "script": "amy install cc", "status": 0 },
-    { "script": "printf '%s\\n' '#include <x11-window.h>' '#include <errno.h>' 'int main(void) { return x11_window_open(\"amy\", 64, 48) != NULL || errno != ENOENT; }' > /tmp/amy-x11.c && cc -O0 /tmp/amy-x11.c -lx11-window -lX11 -lxcb -lXau -ldolly-sockets -o /tmp/amy-x11 && /tmp/amy-x11", "status": 0 }
+    { "script": "printf '%s\\n' '#include <x11-window.h>' '#include <errno.h>' 'int main(void) { return x11_window_open(\"amy\", 64, 48) != NULL || errno != ENOENT; }' > /tmp/amy-x11.c && cc -O0 /tmp/amy-x11.c -lx11-window -lX11 -lxcb -lXau -ldolly-sockets -o /tmp/amy-x11 && /tmp/amy-x11", "status": 0 },
+    {
+      "fresh": true,
+      "why": "The MD5, SHA-1 and SHA-256 of abc, by the BSD functions that return them as text.",
+      "script": "amy install libmd",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <md5.h>' '#include <sha1.h>' '#include <sha2.h>' '#include <stdlib.h>' '#include <string.h>' 'int main(void) {' '  char *md5 = MD5Data((const unsigned char *)\"abc\", 3, NULL);' '  char *sha1 = SHA1Data((const unsigned char *)\"abc\", 3, NULL);' '  char *sha256 = SHA256Data((const unsigned char *)\"abc\", 3, NULL);' '  int ok = !strcmp(md5, \"900150983cd24fb0d6963f7d28e17f72\") && !strcmp(sha1, \"a9993e364706816aba3e25717850c26c9cd0d89d\") &&' '      !strncmp(sha256, \"ba7816bf8f01cfea414140de5dae2223\", 32);' '  free(md5);' '  free(sha1);' '  free(sha256);' '  return ok ? 0 : 1;' '}' > /tmp/amy-libmd.c && cc $(pkg-config --cflags libmd) /tmp/amy-libmd.c $(pkg-config --libs libmd) -o /tmp/amy-libmd && /tmp/amy-libmd", "status": 0 },
+    {
+      "fresh": true,
+      "why": "A program links the X server's font library with the server's protocol types; X.Org's headers come with it.",
+      "script": "amy install libxfont2",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <X11/fonts/fontstruct.h>' '#include <X11/fonts/libxfont2.h>' 'int main(void) {' '  xfont2_init_glyph_caching();' '  int first = xfont2_allocate_font_private_index();' '  int second = xfont2_allocate_font_private_index();' '  return xfont2_parse_glyph_caching_mode(\"all\") && second == first + 1 ? 0 : 1;' '}' > /tmp/amy-libxfont2.c && cc -D_XSERVER64 $(pkg-config --cflags xfont2) /tmp/amy-libxfont2.c $(pkg-config --libs xfont2) -o /tmp/amy-libxfont2 && /tmp/amy-libxfont2", "status": 0 }
   ]
 }

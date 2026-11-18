@@ -40,11 +40,11 @@ pixman pixman pixman-0.46.4.tar.gz
 libxkbfile libxkbfile libxkbfile-1.2.0.tar.xz
 xkbcomp xkbcomp xkbcomp-1.5.0.tar.gz
 xkeyboard-config xkeyboard_config xkeyboard-config-2.48.tar.xz
+libmd libmd libmd-1.3.0.tar.xz
+libxfont2 libxfont2 libXfont2-2.0.9.tar.gz
 ARCHIVES
 if has_image xorg-server; then
   stage_x11 <<'ARCHIVES'
-libmd libmd-1.3.0.tar.xz
-libxfont2 libXfont2-2.0.9.tar.gz
 xorg_server xorg-server-21.1.25.tar.gz
 ARCHIVES
   # Xsdl, which the patches add to the server's build, and Dolly's patch.

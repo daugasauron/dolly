@@ -37,6 +37,15 @@
     },
     { "script": "amy install cc", "status": 0 },
     { "script": "amy install pkgconf", "status": 0 },
-    { "script": "mkdir /tmp/amy-image && cd /tmp/amy-image && printf '%s\\n' '#include <SDL_image.h>' 'int main(void) { SDL_Surface *made = SDL_CreateRGBSurfaceWithFormat(0, 8, 8, 32, SDL_PIXELFORMAT_RGBA32); SDL_FillRect(made, NULL, SDL_MapRGBA(made->format, 200, 100, 50, 255)); if (IMG_SavePNG(made, \"made.png\") != 0) return 2; SDL_Surface *read = SDL_ConvertSurfaceFormat(IMG_Load(\"made.png\"), SDL_PIXELFORMAT_RGBA32, 0); return read == NULL || read->w != 8 || ((Uint8 *)read->pixels)[0] != 200 || ((Uint8 *)read->pixels)[2] != 50; }' > image.c && cc -O0 image.c $(pkg-config --cflags --static --libs SDL2_image) -o image && ./image", "status": 0 }
+    { "script": "mkdir /tmp/amy-image && cd /tmp/amy-image && printf '%s\\n' '#include <SDL_image.h>' 'int main(void) { SDL_Surface *made = SDL_CreateRGBSurfaceWithFormat(0, 8, 8, 32, SDL_PIXELFORMAT_RGBA32); SDL_FillRect(made, NULL, SDL_MapRGBA(made->format, 200, 100, 50, 255)); if (IMG_SavePNG(made, \"made.png\") != 0) return 2; SDL_Surface *read = SDL_ConvertSurfaceFormat(IMG_Load(\"made.png\"), SDL_PIXELFORMAT_RGBA32, 0); return read == NULL || read->w != 8 || ((Uint8 *)read->pixels)[0] != 200 || ((Uint8 *)read->pixels)[2] != 50; }' > image.c && cc -O0 image.c $(pkg-config --cflags --static --libs SDL2_image) -o image && ./image", "status": 0 },
+    {
+      "fresh": true,
+      "why": "SDL2 with its X11 video driver, which fails to start where DISPLAY names no server.",
+      "script": "amy install sdl2-x11",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <SDL.h>' '#include <string.h>' 'int main(int argc, char **argv) {' '  (void)argc;' '  (void)argv;' '  int x11 = 0;' '  for (int i = 0; i < SDL_GetNumVideoDrivers(); i++) x11 |= !strcmp(SDL_GetVideoDriver(i), \"x11\");' '  return x11 && SDL_VideoInit(\"x11\") < 0 ? 0 : 1;' '}' > /tmp/amy-sdl2-x11.c && cc $(PKG_CONFIG_PATH=/usr/lib/sdl2-x11/pkgconfig pkg-config --cflags sdl2) /tmp/amy-sdl2-x11.c -L/usr/lib/sdl2-x11 -lSDL2 -lXcursor -lXrandr -lXi -lXfixes -lXrender -lXext -lX11 -lxcb -lXau -ldolly-sockets -lm -o /tmp/amy-sdl2-x11 && /tmp/amy-sdl2-x11", "status": 0 }
   ]
 }

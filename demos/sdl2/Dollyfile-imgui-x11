@@ -3,49 +3,27 @@ PACKAGE imgui-x11
 REQUIRES HOST runtime@0
 REQUIRES HOST sockets@0
 
-# Dear ImGui's SDL2 example as an X client: SDL2 from the sdl2 package's
-# sources, configured where X's libraries are, with upstream's X11 video
-# driver in place of Dolly's, so it draws on the server DISPLAY names. ImGui
-# and the example are the imgui package's sources, unchanged.
+# Dear ImGui's SDL2 example as an X client, over the sdl2-x11 package: SDL2
+# with upstream's X11 video driver in place of Dolly's, so it draws on the
+# server DISPLAY names. ImGui and the example are the imgui package's
+# sources, unchanged.
 FROM /demos/x11/Dollyfile-x11-build 27339c66adb04614ac562bf1ea80a8d54473206c133e3582f062399d118ab81a
+USE /demos/sdl2/Dollyfile-sdl2-x11 7e280cac974d8b6cb8c10d5d215db2d586e08b5002027b1f39c7777411200864
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES TOOL c++
-REQUIRES TOOL cmake
-REQUIRES TOOL make
 REQUIRES TOOL mkdir
 REQUIRES TOOL cp
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /dist/static/sdl2/source.tar 016b2aa2d0b4b1b3fef1b4c4654d8462456b82d6f87e39feea4c87ed340656bb /tmp/sdl2/source.tar
-SLOP tar -xf /tmp/sdl2/source.tar -C /
-# As the sdl2 package configures it, with X's libraries. They are static, so
-# CMake's link probes name what libX11 links (pkg-config --static --libs x11).
-# Without XFixes (clipboard tracking, pointer barriers): SDL declares
-# XFixesSelectSelectionInput to return Status, libXfixes returns void, and
-# WebAssembly traps on the call.
-SLOP cmake -S /tmp/sdl2/source -B /tmp/sdl2/build \
-  -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
-  -DCMAKE_INSTALL_PREFIX=/tmp/sdl2/install -DCMAKE_INSTALL_LIBDIR=lib \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST=OFF -DSDL_TESTS=OFF \
-  -DSDL_AUDIO=OFF -DSDL_HAPTIC=OFF -DSDL_SENSOR=OFF \
-  -DSDL_THREADS=OFF -DSDL_LOADSO=OFF -DSDL_POWER=OFF -DSDL_HIDAPI=OFF \
-  -DSDL_ASSEMBLY=OFF -DSDL_GCC_ATOMICS=ON -DSDL_SYSTEM_ICONV=OFF \
-  -DSDL_OPENGL=OFF -DSDL_OPENGLES=OFF -DSDL_VULKAN=OFF -DSDL_RENDER_METAL=OFF \
-  -DSDL_X11=ON -DSDL_X11_SHARED=OFF -DCMAKE_EXE_LINKER_FLAGS='-lxcb -lXau -ldolly-sockets' \
-  -DSDL_X11_XFIXES=OFF -DSDL_DOLLY_VIDEO=OFF
-SLOP cmake --build /tmp/sdl2/build
-SLOP cmake --install /tmp/sdl2/build
-
 SOURCE /dist/static/imgui/source.tar b2e714273ba9e28e383dcfcde11630181c5aff0dbd196c4efe4d99b0b71186f2 /tmp/imgui.tar
 SLOP tar -xf /tmp/imgui.tar -C /
 SLOP mkdir -p /usr/lib/imgui-x11
-SLOP CWD /tmp/imgui/source c++ -O2 -I. -Ibackends -I/tmp/sdl2/install/include/SDL2 \
+SLOP CWD /tmp/imgui/source c++ -O2 -I. -Ibackends -I/usr/include/sdl2-x11/SDL2 \
   imgui.cpp imgui_draw.cpp imgui_tables.cpp imgui_widgets.cpp imgui_demo.cpp \
   backends/imgui_impl_sdl2.cpp backends/imgui_impl_sdlrenderer2.cpp examples/example_sdl2_sdlrenderer2/main.cpp \
-  -L/tmp/sdl2/install/lib -lSDL2 -lXcursor -lXrandr -lXi -lXfixes -lXrender -lXext -lX11 -lxcb -lXau -ldolly-sockets -lm \
+  -L/usr/lib/sdl2-x11 -lSDL2 -lXcursor -lXrandr -lXi -lXfixes -lXrender -lXext -lX11 -lxcb -lXau -ldolly-sockets -lm \
   -o /usr/lib/imgui-x11/imgui-x11
 FILE /usr/lib/imgui-x11/imgui-x11
 # Upstream's example asks for an accelerated renderer; SDL's software one is
@@ -55,9 +33,9 @@ FILE /usr/bin/imgui-x11
     export SDL_RENDER_DRIVER="${SDL_RENDER_DRIVER:-software}"
     exec /usr/lib/imgui-x11/imgui-x11 "$@"
 SLOP mkdir -p /usr/share/licenses/imgui-x11
-SLOP cp /tmp/sdl2/source/LICENSE.txt /usr/share/licenses/imgui-x11/SDL2-LICENSE.txt
+SLOP cp /usr/share/licenses/sdl2-x11/LICENSE.txt /usr/share/licenses/imgui-x11/SDL2-LICENSE.txt
 SLOP cp /usr/share/licenses/imgui/LICENSE.txt /usr/share/licenses/imgui-x11/imgui-LICENSE.txt
-SLOP rm -rf /tmp/sdl2 /tmp/imgui /tmp/imgui.tar
+SLOP rm -rf /tmp/imgui /tmp/imgui.tar
 
 EXPORTS TOOL imgui-x11
 FILE /usr/share/licenses/imgui-x11/SDL2-LICENSE.txt
