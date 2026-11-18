@@ -18,7 +18,9 @@ and on 2026-11-17 at 21:00, on v0.1.7:
 
 ## State (2026-11-17)
 
-Fixed on `fix/paste-touch` for 0.1.8. Left: the owner's laptop and phone.
+Fixed on `fix/paste-touch`, and for 0.1.8 on `fix/paste-touch-018` (integrate/0.1.8 with it
+ported: there gpu@0's box, which fits its canvas to the frame, takes the frame's cell). Left: the
+owner's laptop and phone.
 
 **Paste.** The rule of 2026-11-11 (`fix/npm-feedback`, in v0.1.6 and v0.1.7) showed Paste where
 `not (any-pointer: fine)` matches. That holds where the browser reports the touchpad beside the
@@ -54,7 +56,8 @@ five clicks on the pixels under them (the hex field's gave the text cursor); on 
 that size the first tap brings the bar, the window is fitted above it and taps land on the
 pixels under them; on the Pixel 7 taps on gpu@0 and display@0 windows too.
 
-Evidence (Chrome 156, Firefox 159; gpu@0 on the NVIDIA adapter):
+Evidence (Chrome 156, Firefox 159; gpu@0 on the NVIDIA adapter), on `fix/paste-touch` and again
+on `fix/paste-touch-018` (2026-11-18):
 - `test/touch-browser.mjs` passes in both: on a coarse pointer alone (`hasTouch`, and the
   Pixel 7) no Paste before a finger has lifted, then Paste, which reads the clipboard, and none
   once the mouse has clicked; on both laptops none from the load through the shell, a finger,
