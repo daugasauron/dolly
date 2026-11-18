@@ -6,7 +6,6 @@ if has_image blender-deps; then
   # Each library's source, and its licence files where the blender package keeps them.
   blender_licences=/usr/share/licenses/blender
   node scripts/build-source-tar.mjs "${static_dir}/blender/deps.tar.gz" \
-    demos/blender/ccfilter.c /tmp/blender-deps/ccfilter.c \
     demos/blender/openimageio-dolly.patch /tmp/blender-deps/openimageio-dolly.patch \
     "${blender_dir}/brotli-1.0.10" /tmp/blender-deps/brotli \
     "${blender_dir}/brotli-1.0.10/LICENSE" "${blender_licences}/brotli/LICENSE" \

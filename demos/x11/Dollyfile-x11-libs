@@ -8,7 +8,7 @@ REQUIRES HOST sockets@0
 # extension libraries and the Athena toolkit's stack, static, with their
 # headers, X.Org's protocol headers and the pkg-config files of both. xcb and
 # ICE reach the X server through sockets@0's client, which comes with them.
-FROM /demos/x11/Dollyfile-x11-build 679b6910b5af3a3787dac89b593c005c7eb2c0b5d05c824a13c1a3b2e5d1062a
+FROM /demos/x11/Dollyfile-x11-build d4189a4ee6d644e3ce1cf8ff88eabaeca69b83becd69bd62980cf16b80360399
 INSTALL /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
 
 EXPORTS HEADER x11 /usr/include/X11

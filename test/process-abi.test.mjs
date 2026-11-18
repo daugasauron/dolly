@@ -3,9 +3,10 @@ import { readFile, mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { parseWasmInterface, appendCustomSection } from "../page/wasm-interface.mjs";
+import { appendCustomSection, DOLLY_EXPORT_TABLE, exportFunctionsByTable, exportIndex, findExport, parseWasmInterface } from "../page/wasm-interface.mjs";
 import { validateProcessInterface } from "../page/process-abi.mjs";
 import { validateDsoInterface, validateDsoHost, requireDsoType } from "../host/dso/interface.mjs";
+import { castThunk } from "../host/dso/ffi.mjs";
 import { validateProcess } from "../scripts/dolly-abi.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
 import { DOLLY_ERRNO } from "../page/process-constants.mjs";
@@ -60,6 +61,43 @@ test("a table of nothing but Binaryen's cast-emulation thunks marks a cast-emula
     ...section(10, [1, 4, 0, 0x42, 0, 0x0b])]);
   new WebAssembly.Module(bytes);
   assert.equal(parseWasmInterface(bytes).castEmulationParameters, 16);
+});
+
+test("dso@0's cast-emulation thunk converts as Binaryen's do", () => {
+  const bits = new DataView(new ArrayBuffer(8));
+  const f32 = value => (bits.setFloat32(0, value, true), BigInt(bits.getUint32(0, true)));
+  const f64 = value => (bits.setFloat64(0, value, true), bits.getBigUint64(0, true));
+  const thunk = castThunk((count, scale, offset, wide) => count * scale + offset + Number(wide),
+    { params: ["i32", "f32", "f64", "i64"], results: ["f32"] }, 16);
+  const result = thunk(BigInt(0xffffffff) << 32n | 3n, f32(1.5), f64(0.25), 2n, ...Array(12).fill(99n));
+  bits.setUint32(0, Number(result), true);
+  assert.equal(bits.getFloat32(0, true), 6.75);
+  assert.equal(castThunk(() => {}, { params: [], results: [] }, 16)(...Array(16).fill(0n)), 0n);
+  assert.throws(() => castThunk(() => {}, { params: Array(17).fill("i32"), results: [] }, 16), /at most 16 parameters/);
+});
+
+test("function exports move into an exported table, which dso@0 reads by name", () => {
+  const section = (id, bytes) => [id, bytes.length, ...bytes];
+  const name = text => [text.length, ...new TextEncoder().encode(text)];
+  // Three functions returning 1, 2 and 3, exported as _start, f and g; with a
+  // table and an element segment of its own, or with neither.
+  const program = withTable => new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0,
+    ...section(1, [1, 0x60, 0, 1, 0x7f]), ...section(3, [3, 0, 0, 0]),
+    ...withTable ? section(4, [1, 0x70, 0, 1]) : [],
+    ...section(7, [3, ...name("_start"), 0, 0, ...name("f"), 0, 1, ...name("g"), 0, 2]),
+    ...withTable ? section(9, [1, 0, 0x41, 0, 0x0b, 1, 2]) : [],
+    ...section(10, [3, 4, 0, 0x41, 1, 0x0b, 4, 0, 0x41, 2, 0x0b, 4, 0, 0x41, 3, 0x0b])]);
+  for (const withTable of [false, true]) {
+    const bytes = program(withTable), parsed = parseWasmInterface(bytes);
+    const { bytes: moved, slots } = exportFunctionsByTable(bytes, parsed, new Set(["_start"]));
+    const { exports } = new WebAssembly.Instance(new WebAssembly.Module(moved));
+    assert.deepEqual(Object.keys(exports), ["_start", DOLLY_EXPORT_TABLE]);
+    assert.equal(exports._start(), 1);
+    const index = exportIndex(parsed.exports, slots);
+    assert.deepEqual([findExport(index, "f").slot, findExport(index, "_start").slot, findExport(index, "h")], [0, -1, undefined]);
+    assert.deepEqual(["f", "g"].map(name => exports[DOLLY_EXPORT_TABLE].get(findExport(index, name).slot)()), [2, 3]);
+    assert.equal(exportFunctionsByTable(bytes, parsed, new Set(["_start", "f", "g"])), null);
+  }
 });
 
 test("a useful freestanding executable needs only the canonical process imports and _start", async () => {

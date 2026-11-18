@@ -36,7 +36,12 @@ int main(int argc, char **argv) {
     /* A program that loads Rust libraries, as rustc loads procedural macros,
      * linked without threads: rustc compiles on one thread (toolchain/rust.patch).
      * Rust binds the dl* names themselves, and std inside a loaded library
-     * imports these from its host. */
+     * imports these from its host. A library imports nothing else of the
+     * program's own (a procedural macro talks to rustc through its bridge's
+     * pointers), so of those the program exports none: cc -rdynamic still
+     * exports the runtime it shares, libc and the allocator. rustc's 254,215
+     * functions exceeded wasmtime's limit on a module's exports. */
+    args[count++] = "-Wl,--no-export-dynamic";
     args[count++] = "-Wl,--wrap=dlopen,--wrap=dlsym,--wrap=dlerror,--wrap=dlclose";
     args[count++] = "-Wl,--export=emscripten_futex_wait,--export=emscripten_futex_wake,--export=posix_spawnp,"
                     "--export=fork,--export=_exit,--export=setgroups,--export=chroot,--export=__trap";

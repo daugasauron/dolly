@@ -4,6 +4,29 @@
 - PRIORITY: 180
 - TAGS: performance,llvm,kernel,iteration
 
+## State (2026-11-18, the compiler batch)
+
+cc's part is done on `fix/compiler-batch`, for 0.1.8's compiler round; Zig's is left.
+
+- **cc**, without a patch to LLVM (which would change `llvm-build`, and so the compiler round's
+  fixed point): the driver gives Clang an output backend of its own (`MemoryOutputBackend` in
+  `programs/compiler.cpp`), whose files are streams into memory, as Clang uses for a stream that
+  cannot seek, each written to the file once when Clang keeps it. The object's bytes are the
+  same: `llvm-cc`'s recipe compiles its sample with the seed compiler and this one and compares.
+- Measured, `cc -O2 -c big.c` in `system` (an `awk`-generated file of 4,000 functions, each
+  calling the one before and reading a static array: `build/agent/count-probe.mjs` of
+  `work/compiler`, with a count by operation in the supervisor's handler, not committed). The
+  compiler process, before: 79,950 `FD_SEEK` and 40,357 `FD_WRITE` in Chromium and in Firefox,
+  11.3 to 16.9 s in Chromium and 15.1 to 20.1 s in Firefox (the machine at a load of 16 to 29);
+  after, with the compiler `llvm-cc` linked from this driver (in its image in Chromium, in
+  `system` on the seed it makes in Firefox): 2 `FD_SEEK` and 95 `FD_WRITE` (the object's
+  1,536,937 bytes, the same size as before, in the packets a write is split into), 9.0 to
+  11.4 s in Chromium and 10.1 to 15.5 s in Firefox.
+- **Zig** is left: its LLVM backend writes through Zig's own `raw_fd_ostream`
+  (`ZigLLVMTargetMachineEmitToFile` in `src/zig_llvm.cpp`), so its part is a patch to Zig's
+  source (or to LLVM 22's `raw_fd_ostream`), and a `zig-llvm-build` to prove it, a heavy chain
+  this batch does not build.
+
 ## State (2026-11-16, the audit)
 
 Not started. No patch in `demos/llvm/`, `demos/zig/` or `config/` touches `pwrite_impl` or
