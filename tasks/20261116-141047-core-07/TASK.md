@@ -24,9 +24,10 @@ Which ports read `DISPLAY` in the guest, and what they do now:
 - Blender (`GHOST_SystemDolly`, its X11 and Wayland systems off) and Wine (`winedolly.drv`) read
   no `DISPLAY`. The terminal (Ghostty's `libdisplay.so`) is display@0's `DOLLY_DISPLAY_LIBRARY`.
 
-Left for the round's suites and gpu stage: the display, terminal and default suites in both
-browsers, and Godot and PhotoCraft on x11-desktop (`demos/godot/test/godot-x11-browser.mjs`,
-`demos/photocraft/test/photocraft-x11-browser.mjs`).
+The round's suites stage passed the display, terminal and default suites in Chrome and Firefox.
+Left for its gpu stage (a hardware adapter on its X display): Godot and PhotoCraft on
+x11-desktop (`demos/godot/test/godot-x11-browser.mjs`,
+`demos/photocraft/test/photocraft-x11-browser.mjs`); when both pass, this closes.
 
 ## The change (2026-11-17)
 
