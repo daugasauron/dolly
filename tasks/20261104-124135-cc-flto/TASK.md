@@ -19,7 +19,9 @@ Proved: `llvm-cc` built with the driver (its recipe's check: the seed's and this
 its sample to the same bytes), and in that image (Chromium) the case added to
 `test/cases/cpp.json` passes: a unit compiled with `-flto` is bitcode, an archive of it links
 with an ordinary object and runs, and `-flto=thin` compiles and links two units in one command.
-With the seed compiler it fails (status 64, the option refused).
+With the seed compiler it fails (status 64, the option refused). On the seed this compiler
+makes (`system` and the rest rebuilt in `work/compiler`), `test/cpp-browser.mjs` passes in
+Chromium and Firefox.
 
 The round confirms: `test/cpp-browser.mjs` on the pinned compiler, `python-data-build` building
 Matplotlib with LTO and `demos/python`'s tests, and the fixed point.

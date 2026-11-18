@@ -41,7 +41,8 @@ a table and element section of its own) natively.
 Proved on 0.1.8's integration images (the change is the runtime's alone): `test/process-`,
 `threads-`, `dso-` and `process-memory-browser.mjs` pass in Chromium and Firefox (dso's first
 Firefox run failed at `process-signals.c`'s check that git removed its `index.lock` after a
-signal, a timing check of git's, and passed when run again). `measureUserAgentSpecificMemory`
+signal, a timing check of git's, and passed when run again), and again, all in both browsers,
+on the seed the batch's compiler makes. `measureUserAgentSpecificMemory`
 does not attribute a process Worker (a Worker's Worker), so it could not compare rustc's.
 Not measured here: lean-std's own peak (the Lean images are not in this tree); the round's
 lean-std build confirms it.

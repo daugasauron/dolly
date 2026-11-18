@@ -25,6 +25,9 @@ the page is resized 40 times between 1280 by 720 and 1180 by 680, the painted fr
 in Chromium and 18 in Firefox were the terminal's size; with the change (its runtime and images
 rebuilt), none in either: all 320 were the lease's.
 
+On that seed `test/display-`, `display-cursor-`, `terminal-`, `pager-`, `touch-`, `theme-`,
+`indicators-` and `process-browser.mjs` pass in Chromium and Firefox.
+
 The round confirms: the runtime and every image with the plugin rebuilt
 (`ghostty-build`, `display` and above), `test/display-browser.mjs` and the GPU and display
 tests, and `demos/fingers/test/fingers-browser.mjs` (on `fix/paste-touch-018`) with its wait for
