@@ -35,7 +35,14 @@ Built and run in Dolly on the branch's own images (`feature/blender-anim`):
   identical links are already one instanced draw, measured with a MultiMesh in their place: 295).
 - `blender-flyover` (`demos/godot/Dollyfile-blender-flyover`): Blender opens on the Scripting
   workspace with `flyer.py`, then makes the flyer; Run Script writes the file the game reads. The
-  video's steps are in `demos/godot/README.md` ("The flyer in Blender").
+  video's steps are in `demos/godot/README.md` ("The flyer in Blender"). Run by keys and the
+  pointer on a hardware adapter (`build/flyover-steps.mjs` in the tree, not kept): the window drew
+  31 to 39 s after the page opened; CAPE set to blue and Alt+P turned the cape blue in the 3D
+  view and rewrote `flyer.glb`; Ctrl+Q left the shell, where `voxel-flyover` flew the corgi in a
+  blue cape (Chrome, its frame; Firefox under Xvfb shows no WebGPU canvas, so there the new file
+  and the game's report: 54.4 fps, no error).
+- `blender-gpu-browser.mjs` and `blender-browser.mjs` pass in both browsers on the `-rdynamic`
+  Blender with NumPy.
 
 Left: the round that builds the catalog's images (godot and every game on it, blender,
 voxel-flyover, the applications), then the video.
