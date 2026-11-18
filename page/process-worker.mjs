@@ -308,6 +308,38 @@ function call(operation, requestAddressValue, requestSizeValue,
   return result;
 }
 
+// What ended the program. Wasm unwinds in one phase, so a C++ throw that no
+// frame catches leaves the program instead of reaching std::terminate (whose
+// message Dolly's libc++abi leaves out anyway). Its C++ type and a
+// std::exception's what() are read through the program's own runtime, by the
+// Itanium ABI, where it exports what that takes, as an executable linked
+// -rdynamic does.
+function failureMessage(error) {
+  if (!(error instanceof WebAssembly.Exception)) return error instanceof Error ? error.message : String(error);
+  let detail = "";
+  try {
+    const { __cpp_exception: tag, __cxa_begin_catch: beginCatch, __cxa_current_exception_type: currentType,
+      __cxa_current_primary_exception: currentException, _ZTISt9exception: exceptionInfo,
+      _ZTVN10__cxxabiv120__si_class_type_infoE: singleBaseInfo, __indirect_function_table: table } = instance.exports;
+    if (error.is(tag)) {
+      const word = address => new DataView(memory.buffer).getBigUint64(Number(address), true);
+      const string = address => {
+        const bytes = new Uint8Array(memory.buffer, Number(address), Math.min(512, memory.buffer.byteLength - Number(address)));
+        return new TextDecoder().decode(bytes.slice(0, bytes.indexOf(0)));
+      };
+      beginCatch(error.getArg(tag, 0));
+      const thrown = currentException(), type = currentType();
+      // A type_info: its vtable pointer, its name, and for a class of one base, that base's.
+      detail = `: C++ ${string(word(type + 8n))}`;
+      let base = type;
+      while (base !== exceptionInfo.value && word(base) === singleBaseInfo.value + 16n) base = word(base + 16n);
+      // A std::exception at the object's start: what() is its third virtual function.
+      if (base === exceptionInfo.value) detail += `: ${string(table.get(word(word(thrown) + 16n))(thrown))}`;
+    }
+  } catch { /* The program exports less: what was read stays. */ }
+  return `an exception the program threw and none of its frames caught${detail}`;
+}
+
 try {
   memory = await processMemory();
   // The start word is 1 from here, unless the supervisor has just set 2.
@@ -360,7 +392,7 @@ try {
     supervisor.postMessage({
       type: "failed",
       pid: configuration.pid, tid: configuration.tid,
-      message: error instanceof Error ? error.message : String(error),
+      message: failureMessage(error),
       stack: error instanceof Error ? error.stack ?? "" : "",
     });
   }
