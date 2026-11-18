@@ -9,18 +9,18 @@ REQUIRES HOST gpu@0
 REQUIRES HOST touch@0
 
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix c67f734780c8ee1d6294e903694f1ca0604308013a00ed3439a1a69b5218a854
-INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
-COPY /demos/xonotic/Dollyfile-xonotic-build 1d483c65826d0030bd9a5911a7bdfa80941ffcbfcd866e25f5d1a9bffd5cc6c3 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
-INSTALL /demos/xonotic/Dollyfile-xonotic-shaders fce5a152d633b37d7b8e4ec630b7cc78a91531814133075608395df3dc6a7767
-COPY /demos/xonotic/Dollyfile-xonotic-build 1d483c65826d0030bd9a5911a7bdfa80941ffcbfcd866e25f5d1a9bffd5cc6c3 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
-COPY /demos/sdl2/Dollyfile-sdl2 1809d16636eb124e08cc9188a7709890dfeb22657ae4ce989987d185b99b5193 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+INSTALL /Dollyfile-posix c24b7cb8dfc057769bc7f644f68c2922514adb89272756d8ed793c0318d5f3d5
+INSTALL /Dollyfile-display cc98bc6edc0e5dea2bfb79e3095ea1fb6744e28282d28cec6c2e013cf6435992
+COPY /demos/xonotic/Dollyfile-xonotic-build 9c7b0019ef61b3ee3d3fa461c7fa21027c32a10924b3c2aa68ecfa8090971a29 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+INSTALL /demos/xonotic/Dollyfile-xonotic-shaders 9454af6606dc649b31fda54d6ebb41875d7714e8f06be35ab2d9983d527f2577
+COPY /demos/xonotic/Dollyfile-xonotic-build 9c7b0019ef61b3ee3d3fa461c7fa21027c32a10924b3c2aa68ecfa8090971a29 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY /demos/sdl2/Dollyfile-sdl2 d3938a1d871d053e813e0b039fb4bc209ab08cc461e1e80431180616b03b931e /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
-COPY /demos/xonotic/Dollyfile-xonotic-build 1d483c65826d0030bd9a5911a7bdfa80941ffcbfcd866e25f5d1a9bffd5cc6c3 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
-COPY /demos/tools/Dollyfile-freetype ec16b9ddb1c4a31ad83204654c0669da661ae0f551e98271e39b06b7174dc89a /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY /demos/tools/Dollyfile-libpng f9220787128996320c6fa8b6f98a3d61945c69bcba9fbe41eb1b48f699ae3e16 /usr/share/licenses/libpng /usr/share/licenses/libpng
-COPY /demos/xonotic/Dollyfile-libogg 317950ae7f25a2cc797e06a596cfaeca5300c65431f43156ab7d32d9d81fede0 /usr/share/licenses/libogg /usr/share/licenses/libogg
-COPY /demos/xonotic/Dollyfile-libvorbis f1badf5a8e6b36551ace0ef618613d5ebc4568813231c82145e1c523110db37a /usr/share/licenses/libvorbis /usr/share/licenses/libvorbis
+COPY /demos/xonotic/Dollyfile-xonotic-build 9c7b0019ef61b3ee3d3fa461c7fa21027c32a10924b3c2aa68ecfa8090971a29 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
+COPY /demos/tools/Dollyfile-freetype 6cd7e2aef784c105687e302d32cfa41956c3b56a24feed03008f936ca357e3d8 /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /demos/tools/Dollyfile-libpng b30b694311392c7242c13b8d263d86fa14806f27657ed493bdf5d5a487850b6d /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY /demos/xonotic/Dollyfile-libogg 70aa527e685f2defe24fdb45da886530b7d8e8e919fefedf15d12192cb90de7f /usr/share/licenses/libogg /usr/share/licenses/libogg
+COPY /demos/xonotic/Dollyfile-libvorbis c17b8150063f7666f0b60dd3ba4d4caf145ced9d499405fb5901300525a41dd0 /usr/share/licenses/libvorbis /usr/share/licenses/libvorbis
 # Dolly's notices for this image: the IJG sentence, the fonts' terms and the
 # Bitstream Vera glyph sheet (the release carries no notice for it).
 FILE /usr/share/licenses/xonotic/NOTICE

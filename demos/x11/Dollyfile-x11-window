@@ -9,8 +9,8 @@ REQUIRES HOST sockets@0
 # names them. Godot and PhotoCraft draw their X windows through it. A static
 # library over Xlib: a program links it with -lX11 -lxcb -lXau -ldolly-sockets,
 # which come with it, as do the input header its own includes.
-FROM /demos/x11/Dollyfile-x11-build 679b6910b5af3a3787dac89b593c005c7eb2c0b5d05c824a13c1a3b2e5d1062a
-INSTALL /demos/x11/Dollyfile-x11-libs a14d4948f527c882c81c8b7f1784e9b09da663a2e41e919e78d7e6f5b47a252e
+FROM /demos/x11/Dollyfile-x11-build d4189a4ee6d644e3ce1cf8ff88eabaeca69b83becd69bd62980cf16b80360399
+INSTALL /demos/x11/Dollyfile-x11-libs 50f4c484aee92ce6f408959cdd8a8c024d11b6b5c6dba99336249f62030a1f48
 USE /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
 INSTALL /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
 REQUIRES HEADER libc

@@ -44,7 +44,7 @@ REQUIRES LIB lzma
 REQUIRES LIB bz2
 REQUIRES LIB sqlite3
 
-SOURCE /dist/static/blender/deps.tar.gz b5d97a8451e787f78573bab5fbc9220fb87835d8f4d9dc78db1f556be56dc393 /tmp/blender-deps.tar.gz
+SOURCE /dist/static/blender/deps.tar.gz 1d7ba5f8786eac08b971b59a731a292d27647347f8a889c2521b5f90ab07a2a3 /tmp/blender-deps.tar.gz
 SLOP gzip -dc /tmp/blender-deps.tar.gz | tar -xf - -C /
 SLOP rm /tmp/blender-deps.tar.gz
 

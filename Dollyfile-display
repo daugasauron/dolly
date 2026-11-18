@@ -3,14 +3,14 @@ PACKAGE display
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 
-COPY /Dollyfile-ghostty-build 97c87e27c73c6a41179359bd6e6a6c6e57ba0bce10623d1b79c0a956dc993675 /usr/lib/libdisplay.so /usr/lib/libdisplay.so
-COPY /Dollyfile-ghostty-build 97c87e27c73c6a41179359bd6e6a6c6e57ba0bce10623d1b79c0a956dc993675 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
-COPY /Dollyfile-ghostty-build 97c87e27c73c6a41179359bd6e6a6c6e57ba0bce10623d1b79c0a956dc993675 /usr/share/licenses/ghostty /usr/share/licenses/ghostty
-COPY /Dollyfile-ghostty-build 97c87e27c73c6a41179359bd6e6a6c6e57ba0bce10623d1b79c0a956dc993675 /usr/share/licenses/uucode /usr/share/licenses/uucode
-COPY /Dollyfile-ghostty-build 97c87e27c73c6a41179359bd6e6a6c6e57ba0bce10623d1b79c0a956dc993675 /usr/share/fonts/DroidSansFallback.ttf /usr/share/fonts/DroidSansFallback.ttf
-COPY /Dollyfile-ghostty-build 97c87e27c73c6a41179359bd6e6a6c6e57ba0bce10623d1b79c0a956dc993675 /usr/share/fonts/NotoEmoji-Regular.ttf /usr/share/fonts/NotoEmoji-Regular.ttf
-COPY /Dollyfile-ghostty-build 97c87e27c73c6a41179359bd6e6a6c6e57ba0bce10623d1b79c0a956dc993675 /usr/share/licenses/droid-fonts /usr/share/licenses/droid-fonts
-COPY /Dollyfile-ghostty-build 97c87e27c73c6a41179359bd6e6a6c6e57ba0bce10623d1b79c0a956dc993675 /usr/share/licenses/noto-emoji /usr/share/licenses/noto-emoji
+COPY /Dollyfile-ghostty-build a177d01414f6901bc113ac43a6164bfe447ce8bc371c723369c0b94ee9213e34 /usr/lib/libdisplay.so /usr/lib/libdisplay.so
+COPY /Dollyfile-ghostty-build a177d01414f6901bc113ac43a6164bfe447ce8bc371c723369c0b94ee9213e34 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+COPY /Dollyfile-ghostty-build a177d01414f6901bc113ac43a6164bfe447ce8bc371c723369c0b94ee9213e34 /usr/share/licenses/ghostty /usr/share/licenses/ghostty
+COPY /Dollyfile-ghostty-build a177d01414f6901bc113ac43a6164bfe447ce8bc371c723369c0b94ee9213e34 /usr/share/licenses/uucode /usr/share/licenses/uucode
+COPY /Dollyfile-ghostty-build a177d01414f6901bc113ac43a6164bfe447ce8bc371c723369c0b94ee9213e34 /usr/share/fonts/DroidSansFallback.ttf /usr/share/fonts/DroidSansFallback.ttf
+COPY /Dollyfile-ghostty-build a177d01414f6901bc113ac43a6164bfe447ce8bc371c723369c0b94ee9213e34 /usr/share/fonts/NotoEmoji-Regular.ttf /usr/share/fonts/NotoEmoji-Regular.ttf
+COPY /Dollyfile-ghostty-build a177d01414f6901bc113ac43a6164bfe447ce8bc371c723369c0b94ee9213e34 /usr/share/licenses/droid-fonts /usr/share/licenses/droid-fonts
+COPY /Dollyfile-ghostty-build a177d01414f6901bc113ac43a6164bfe447ce8bc371c723369c0b94ee9213e34 /usr/share/licenses/noto-emoji /usr/share/licenses/noto-emoji
 # The terminal as termcap describes it, for programs that link a termcap
 # library (less, Emacs): TERM is xterm-256color.
 FILE /etc/termcap

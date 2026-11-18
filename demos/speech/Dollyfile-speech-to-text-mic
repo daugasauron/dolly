@@ -8,9 +8,9 @@ REQUIRES HOST microphone@0
 REQUIRES HOST threads@0
 
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix c67f734780c8ee1d6294e903694f1ca0604308013a00ed3439a1a69b5218a854
-INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
-INSTALL /demos/speech/Dollyfile-speech-to-text 6bb9d6f2bc553426d01737e0ced49bb38ba3022c24167ef6b82cb43bdeaac6f3
+INSTALL /Dollyfile-posix c24b7cb8dfc057769bc7f644f68c2922514adb89272756d8ed793c0318d5f3d5
+INSTALL /Dollyfile-display cc98bc6edc0e5dea2bfb79e3095ea1fb6744e28282d28cec6c2e013cf6435992
+INSTALL /demos/speech/Dollyfile-speech-to-text 8da7f0fe5897b3bc8c2dcb1dc152cce54f42ad04581bb8ac85c9d978db67252c
 
 FILE /etc/dolly/init.slop
     /bin/foreground -i /usr/bin/speech-to-text

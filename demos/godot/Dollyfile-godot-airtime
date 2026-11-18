@@ -14,11 +14,11 @@ REQUIRES HOST clipboard@0
 # Airtime: Foundry in Godot on the page, with Godot's editor beside it: the game starts at once;
 # Q quits to a shell where the editor opens the game's project, a copy in the home directory.
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix c67f734780c8ee1d6294e903694f1ca0604308013a00ed3439a1a69b5218a854
-INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
-INSTALL /demos/godot/Dollyfile-airtime-godot db3d7ddc3d48d9c735ff25743a4e3eb645c09550255ff4a92597558f42cb2063
-INSTALL /demos/godot/Dollyfile-godot-editor 38dad70910ea957bb622c200c6532f8ce3a75baec1f8256b082210c5e4af4b15
-COPY /demos/godot/Dollyfile-airtime-godot db3d7ddc3d48d9c735ff25743a4e3eb645c09550255ff4a92597558f42cb2063 /usr/share/airtime-godot/project /home/dolly/airtime
+INSTALL /Dollyfile-posix c24b7cb8dfc057769bc7f644f68c2922514adb89272756d8ed793c0318d5f3d5
+INSTALL /Dollyfile-display cc98bc6edc0e5dea2bfb79e3095ea1fb6744e28282d28cec6c2e013cf6435992
+INSTALL /demos/godot/Dollyfile-airtime-godot c91de53c9c8c6710f1461d66b13789c077b25a0d0c08ba9b90b99686d00d6f34
+INSTALL /demos/godot/Dollyfile-godot-editor a49aed8029fde594166bc679028fdd468b0d2d04d30215d6cacc645d3cf40657
+COPY /demos/godot/Dollyfile-airtime-godot c91de53c9c8c6710f1461d66b13789c077b25a0d0c08ba9b90b99686d00d6f34 /usr/share/airtime-godot/project /home/dolly/airtime
 REQUIRES TOOL airtime-godot
 REQUIRES TOOL godot-editor
 
