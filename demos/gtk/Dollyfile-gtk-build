@@ -16,15 +16,15 @@ REQUIRES HOST threads@0
 # extension libraries GTK's X11 backend links. Static libraries in /usr/lib,
 # as a GTK program links them; GLib's pkg-config file has cc cast-emulate
 # every GObject program, those these builds run among them.
-FROM /demos/x11/Dollyfile-x11-build e85a2e7d452e4912c2c730c44479b8f560b440022b269e1b10446add8cddaae2
-INSTALL /demos/tools/Dollyfile-meson 4c1605d54a6e0a0349b9514fd8a083a4bcb1e918463e212bdeea58a6d20729c4
+FROM /demos/x11/Dollyfile-x11-build 679b6910b5af3a3787dac89b593c005c7eb2c0b5d05c824a13c1a3b2e5d1062a
+INSTALL /demos/tools/Dollyfile-meson ddd7067d156b1ebd8a6b6b9ba9e0feb06fbb3f5e039d3864461059d0e71a2c5b
 INSTALL /demos/tools/Dollyfile-pkgconf 8e2d10a742a5f3dc0a5da7426f3f276c233bf6672cc0a777fa849672d0f1e0b3
 INSTALL /demos/tools/Dollyfile-libpng f9220787128996320c6fa8b6f98a3d61945c69bcba9fbe41eb1b48f699ae3e16
 INSTALL /demos/tools/Dollyfile-freetype ec16b9ddb1c4a31ad83204654c0669da661ae0f551e98271e39b06b7174dc89a
-INSTALL /demos/x11/Dollyfile-pixman b54d550fc3e715580dff6ec07030fa2a6d6a0ea78ce1178a4b2e8485f75e587b
+INSTALL /demos/x11/Dollyfile-pixman 69abab72a5dd3703086795c8b919add984c18a855c15d4f6a0b5bb16433dae4f
 INSTALL /demos/tools/Dollyfile-tar 41a8b3eb2eb4e9ab4bf0d8d1708a5859cbf89872b2658344741c27affa220ffb
 INSTALL /demos/tools/Dollyfile-binaryen 62d42b20ce549007859d3d4c69dd57b1f33a097c9e59a7cb9d39cc44afe3742e
-INSTALL /demos/gtk/Dollyfile-glib 129262054c8489313d56fbc9d5b5a973315bae1508936ac0883cf55b8d6aa4a2
+INSTALL /demos/gtk/Dollyfile-glib a6c245ca781a3ba04725fdd97cc5e4d50481b89c78f02d18b5c16ea93d73ae58
 
 REQUIRES HEADER glib
 REQUIRES HEADER zlib

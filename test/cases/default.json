@@ -5,6 +5,11 @@
     { "script": "test \"$(slop -c 'echo nested')\" = nested", "status": 0 },
     { "script": "mkdir /tmp/made && echo kept > /tmp/made/file && test \"$(grep -c kept /tmp/made/file | sed 's/1/one/')\" = one", "status": 0 },
     {
+      "why": "Upstream scripts start #!/usr/bin/env, and a file a process writes is executable.",
+      "script": "printf '#!/usr/bin/env slop\\necho by-env\\n' > by-env && test \"$(./by-env)\" = by-env",
+      "status": 0
+    },
+    {
       "why": "amy is in the image and the index lists cc; no HTTP client is: curl is a package, which brings http@0.",
       "script": "! command -v curl && amy list | grep -q '^cc ' && amy list | grep -q '^curl  *- '",
       "status": 0

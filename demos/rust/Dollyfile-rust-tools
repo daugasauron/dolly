@@ -11,9 +11,9 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /Dollyfile-system d114f508562868a2209ab755b4fe14322f1d326d6aab23639cfeff39df4d3605
+FROM /Dollyfile-system ede57a1516844ae47fe5aa8dcf693ca90862dd38547e1587f7e163f513079551
 INSTALL /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
-INSTALL /demos/rust/Dollyfile-cargo d914182c465cee55c5e49523a966e41fc3f9af581f60bf8ee5d41c0141ed7fd5
+INSTALL /demos/rust/Dollyfile-cargo d9b69b39017b7dc258fb066ecb3d0861386007268139c4434123c1ebbe1ca4c1
 # Cargo fetches a Git dependency with git, whose HTTP helpers are git-http's.
 INSTALL /Dollyfile-git-http fe182caf88022592ea0a2dda7a7e9fd53a31f46d92d2ffa37e97a12782ded615
 
