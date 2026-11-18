@@ -214,6 +214,7 @@ var birds: Array[Vector3] = []
 
 var helm := false # the player's, after a click or a touch
 var captured := false # the pointer, which the page gives the game at a click
+var rearm_at := INF # after L, when the pointer is asked for again, to be captured at the next click
 var look := Vector2.ZERO # where the mouse has turned the view: around the flyer, and over it
 var looked := Vector2.ZERO # the view on its way there
 var moved_since := false # the mouse has moved since the pointer was captured
@@ -1304,11 +1305,13 @@ func _input(event: InputEvent) -> void:
 		KEY_ENTER, KEY_KP_ENTER:
 			helm = true
 		KEY_L:
-			# L lets go of the board and gives the pointer back: it is asked to be free, and to be
-			# captured again at the next click, which takes the board again (hold_pointer).
+			# L lets go of the board and gives the pointer back: it is asked to be free, and a moment
+			# later to be captured again at the next click, which takes the board again (hold_pointer).
+			# Asked for both in one frame, the page may see only the second (it reads the game's
+			# request as it changes, by a Worker that may wake after both): the pointer stayed held.
 			helm = false
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			rearm_at = elapsed + 0.3
 		KEY_Q:
 			print("FLYOVER flown %d clouds %d score %d helm %d high %d heading %d pitch %d view %d %d speed %d zoom %.2f touches %d" % [int(flown), passes, points, int(helm), int(flyer.position.y + lowered), int(rad_to_deg(heading)), int(rad_to_deg(pitch)), int(rad_to_deg(looked.x)), int(rad_to_deg(looked.y)), int(speed), zoom, touch.touches])
 			leave()
@@ -1319,6 +1322,9 @@ func _input(event: InputEvent) -> void:
 ## The pointer comes with a click on the page, which takes the board too. It goes at L, or when
 ## the browser ends the capture by itself (at its Escape): either way the board is let go.
 func hold_pointer() -> void:
+	if elapsed > rearm_at:
+		rearm_at = INF
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	var now := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	if now == captured:
 		return
