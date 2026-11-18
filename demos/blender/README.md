@@ -25,6 +25,13 @@ blender -b --python script.py -- arguments
 - Python is the `python` package's CPython 3.14 (Blender asks for 3.13 at
   least), linked into the program; `bpy`, `mathutils`, `bmesh` and the rest
   are built in. `sys.platform` is `"dolly"`.
+- NumPy 2.5.4 is Blender's own, as in upstream's releases, in
+  `/usr/share/blender/5.3/scripts/modules`, which Blender's Python searches
+  before `python`'s `site-packages`: its extension modules are linked through
+  the same cast emulation as the program (below), so the `numpy` package
+  beside it serves `python` alone. With it the glTF 2.0 add-on imports and
+  exports scenes with their animations. All 13 bundled add-ons load, as in
+  upstream's Linux build.
 - Cycles renders with its scalar kernel and its own BVH, on as many threads
   as `-t` says (four by default, through oneTBB; `threads@0`). The default
   scene at 1920 by 1080 and 64 samples took 14.4 s on four threads and 50.7 s
@@ -85,14 +92,13 @@ What WebGPU leaves to the backend:
   shaders read a texel buffer, which WebGPU lacks); EEVEE is not tried.
 - Where the browser grants no WebGPU, Blender says it found no GPU backend
   and quits; `blender -b` works everywhere.
-- It is linked through cast emulation (below), so it loads no Python extension
-  module: `import numpy` inside Blender fails, and with it the add-ons that
-  need NumPy (glTF), and `import ctypes` fails with `MemoryError`, as such a
-  program gets no closures. What lifts this is in the
-  [task](../../tasks/20261116-230506-blender-2/TASK.md).
+- It is linked through cast emulation (below), so it loads only Python
+  extension modules linked so too: its own NumPy, not the `numpy` package's
+  or one pip builds.
 - Left out, each by upstream's option: OSL, Embree, the denoiser, path
   guiding, volumes (OpenVDB), USD, Alembic, sound and video, the fluid and
-  rigid-body solvers, translations (upstream's `blender_lite.cmake`).
+  rigid-body solvers, translations, glTF's Draco and meshoptimizer compression
+  (upstream's `blender_lite.cmake`).
 - A driver expression's division by zero gives an infinity instead of an
   error: WebAssembly has no floating-point exception flags.
 
@@ -112,7 +118,10 @@ jobs. What the platform decided:
 - **Function pointer casts.** Blender defines hundreds of Python methods that
   take no arguments with one parameter; CPython calls them with two, which
   WebAssembly traps on. The program is linked with `cc --dolly-cast-emulation`
-  ([process model](../../docs/process-model.md)).
+  and `-rdynamic`, a host of extension modules linked with the same emulation
+  ([process model](../../docs/process-model.md), `dso@0`): the recipe builds
+  NumPy with pip and Meson as the `numpy` package does, with
+  `LDFLAGS=--dolly-cast-emulation`, before it builds Blender.
 - **libpython for a program that embeds it.** CPython builds its HACL archives
   and its own expat beside `libpython3.14.a` and installs neither: the
   `python` package keeps them, in `/usr/lib/python3.14/embed`. That expat and
@@ -142,12 +151,16 @@ copied into `/usr/share/licenses/blender`, Blender's own notices are in
 In Chrome on a machine busy with other builds (2026-11-17), `blender` built in
 4,562 s, of which `make -j4` took 4,356 s for 2,838 units; the build's
 Node and Chrome peaked at 6,590 MiB, the kernel held 1,976 MiB at the end.
-The program is 124 MB, its data 68 MB, the package 177 MB.
+The program is 142 MB (124 MB before `-rdynamic` kept every symbol), its
+data 90 MB, NumPy's 22 MB of it, the package's snapshot 238 MB (2026-11-19).
 
 Test: [`test/blender-browser.mjs`](test/blender-browser.mjs) installs the
 package into `default`, runs a script on the default scene (a mesh added and
 arrayed, a `.blend` saved and loaded) and renders it with Cycles to a PNG
-whose size and pixels it checks, in Chromium (16.3 s) and Firefox (18.1 s).
+whose size and pixels it checks; with NumPy and the glTF add-on it exports the
+cube rising over 25 frames and imports it back, risen at the last, and it
+enables each bundled add-on. It passed in Chromium (30.9 s) and Firefox
+(39.7 s) on 2026-11-19.
 
 [`test/blender-gpu-browser.mjs`](test/blender-gpu-browser.mjs) opens the
 window on a hardware adapter (the private X display `DISPLAY` names, under the
