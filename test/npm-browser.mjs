@@ -21,7 +21,8 @@
 //   is there, and the page isolates itself. Pi starts with the extension, the skills
 //   (the template's and one of the project's own with a script), the instructions, the
 //   tools (the template's, the packages' and a C program the recipe compiles), the
-//   workspace and the user's theme, and a policy that refuses another origin; Neovim
+//   workspace and the user's theme; the page admits the requests the recipe's HTTP rows
+//   declare, one of them the test's, and refuses another path, method and host; Neovim
 //   edits a file; Python draws a figure with NumPy and Matplotlib; Save keeps a session
 //   the page opens again from its address. A change to the page alone is built again
 //   without building the image.
@@ -381,6 +382,17 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
   const [isolated, plain, dataServer, dataSite] = await Promise.all([serve(true), serve(false), serve(true, dataApp),
     serve(true, join(dataApp, "my-data"))]);
   servers.push(isolated, plain, dataServer, dataSite);
+  // A host one path of which the project's recipe declares: it answers with CORS headers, as a
+  // public API does, and says what it was asked.
+  const declaredRequests = [];
+  const declaredHost = await listen(createServer((request, response) => {
+    declaredRequests.push(`${request.method} ${request.url}`);
+    response.writeHead(200, { "access-control-allow-origin": "*", "content-type": "text/plain" }).end(`${request.method} ${request.url}\n`);
+  }));
+  servers.push(declaredHost);
+  const rows = await readFile(join(piApp, "Dollyfile-my-pi"), "utf8"), lastRow = rows.lastIndexOf("\nHTTP ");
+  const rowEnd = rows.indexOf("\n", lastRow + 1);
+  await writeFile(join(piApp, "Dollyfile-my-pi"), `${rows.slice(0, rowEnd)}\nHTTP GET ${origin(declaredHost)}/declared/*${rows.slice(rowEnd)}`);
   const booted = async (tab, url, started = /dolly:[^\n]*\$\s*$/) => {
     const errors = [];
     tab.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
@@ -474,20 +486,18 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
       await rm(clone, { recursive: true, force: true });
       piPage ??= await startSite();
       const pi = await newPage();
-      await booted(pi, piPage, /not shown\):/);
+      // Pi starts as it does anywhere, asking for no key.
+      await booted(pi, piPage, /Bash is not installed/);
       assert.equal(await pi.evaluate(() => crossOriginIsolated), true);
-      await pi.keyboard.type("sk-or-test");
-      await pi.keyboard.press("Enter");
-      await shows(pi, /Bash is not installed/, "Pi");
-      assert.match(await pi.evaluate(() => window.dolly.visibleTerminalText()), /changelog[^\n]*line-count[\s\S]*hello\.js/);
+      assert.match(await pi.evaluate(() => window.dolly.visibleTerminalText()), /line-count[^\n]*sandbox[\s\S]*network\.js/);
       // Enter takes the command menu's choice, so it waits for the menu to offer this one.
-      await pi.keyboard.type("/hello");
-      await shows(pi, /Say hello/, "the menu");
+      await pi.keyboard.type("/network");
+      await shows(pi, /List the requests/, "the menu");
       await pi.keyboard.press("Enter");
-      await shows(pi, /Hello, world, from my-pi!/, "/hello");
+      await shows(pi, /HTTP POST https:\/\/openrouter\.ai\/api\/v1\/chat\/completions authorization/, "/network");
       assert.deepEqual((await pi.evaluate(() => window.dolly.hostModules)).sort(), declaredByRecipe);
       // Ctrl+D leaves Pi for the shell: the instructions, the tools, Git, Python with NumPy and
-      // Matplotlib and the workspace are there, and the policy refuses what it does not name.
+      // Matplotlib and the workspace are there, and the page admits what the recipe declares alone.
       await pi.keyboard.press("Control+d");
       await shows(pi, /Pi exited; this is a Slop shell\.[\s\S]*\ndolly:[^\n]*\$\s*$/, "the shell");
       const shell = command => within(pi.evaluate(command => window.dolly.submit(command), command), 120, command);
@@ -515,17 +525,18 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
       assert.equal(await shell(String.raw`python -c 'import numpy, matplotlib.pyplot as plot; plot.plot(numpy.arange(4) ** 2); ` +
         String.raw`plot.savefig("/tmp/squares.png"); assert open("/tmp/squares.png", "rb").read(4) == b"\x89PNG"'`), 0);
       assert.equal(await shell("grep -q 'deepest trench' '/workspace/notes/deep sea.txt' && test -f /workspace/README.md"), 0);
-      assert.notEqual(await shell("curl -fsS https://example.com > /dev/null"), 0);
+      const declaredAt = `${origin(declaredHost)}/declared/a`;
+      assert.equal(await shell(`test "$(curl -fsS ${declaredAt})" = 'GET /declared/a'`), 0, "the declared request");
+      for (const [command, what] of [[`${origin(declaredHost)}/other`, "another path"], [`-X POST --data x ${declaredAt}`, "another method"],
+        ["https://example.com", "another host"]]) assert.equal(await shell(`curl -fsS ${command} > /dev/null`), 9, what);
+      assert.deepEqual(declaredRequests.splice(0), ["GET /declared/a"]);
       // Save names the session in the address; a reload there opens it as it was, the
       // workspace edit kept rather than the page's files written over it.
       assert.equal(await shell("echo 'kept by the save' >> /workspace/README.md"), 0);
       assert.equal(await within(pi.evaluate(() => window.dolly.saveSession("kept")), 60, "the save"), "kept");
       const savedAt = new URL(pi.url());
       assert.equal(savedAt.searchParams.get("session"), "kept");
-      await booted(pi, savedAt.href, /not shown\):/);
-      await pi.keyboard.type("sk-or-test");
-      await pi.keyboard.press("Enter");
-      await shows(pi, /Bash is not installed/, "Pi, restored");
+      await booted(pi, savedAt.href, /Bash is not installed/);
       await pi.keyboard.press("Control+d");
       await shows(pi, /Pi exited; this is a Slop shell\.[\s\S]*\ndolly:[^\n]*\$\s*$/, "the restored shell");
       assert.equal(await shell("grep -q 'kept by the save' /workspace/README.md"), 0);
