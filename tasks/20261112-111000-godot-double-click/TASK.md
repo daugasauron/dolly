@@ -1,6 +1,6 @@
 # Godot in Dolly takes no double click: the editor's FileSystem dock opens nothing
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 260
 - TAGS: godot,input,bug,0.1.8
 
@@ -11,10 +11,17 @@ clicks 90 ms apart, Chrome) selects the file and does not open it; Enter opens i
 setting `double_click`, which the dock (and every Godot control that acts on a double click)
 reads.
 
-## State (2026-11-17)
+## Closed (2026-11-18)
 
-On `fix/paste-touch`, written and not built: the next round builds Godot with it. Left: that
-build, then `demos/godot/test/godot-editor-browser.mjs` in Chrome and Firefox.
+On `fix/paste-touch-018` (integrate/0.1.8 with `fix/paste-touch` ported), godot and godot-editor
+built in `work/paste-port` with the change below: `demos/godot/test/godot-editor-browser.mjs`
+passed in Chrome and Firefox, 6 runs of each, the 3 counted opening `main.gd` at the first double
+click. Just after its 2D view the editor may take neither click, as after its first draw: before
+the test repeated the double click, as it repeats its click on the 2D tab, 3 of 10 browser runs
+failed so on a loaded machine (the frames kept showed nothing selected). Its fingers on `touch@0`, where it holds that, are Godot's screen
+touches: a second down of the first within 400 ms and 5 pixels, by the page's times of the two, is
+a double tap, which Godot's mouse of that finger takes as a double click (built, not exercised by a
+test).
 
 v0.1.6's change (`read_pointer` marks a second press of the same button within 400 ms and 5
 pixels `double_click`) times each press when the main thread reads it, once a frame. Where the
@@ -37,10 +44,9 @@ v0.1.7's godot-editor, headless, a project of four files, the clicks 90 ms apart
 So a thread of the platform's own now waits for the page's records and stamps each with the time
 it came; the main thread reads them at its next `process_events` and `read_pointer` times the
 presses by those stamps (`demos/godot/platform/display_server_dolly.cpp`, `.h`). An X window's
-records stay the main thread's, as Xlib's connection is. Checked with g++'s `-fsyntax-only`
-(gnu++17) against Godot 4.7.2's headers; Dolly's clang has not compiled it.
-`godot-editor-browser.mjs` now double-clicks `main.gd` after the 2D tab and waits for the script
-editor: it fails on v0.1.7 for the reason above.
+records stay the main thread's, as Xlib's connection is. `godot-editor-browser.mjs` double-clicks
+`main.gd` after the 2D tab and waits for the script editor: it fails on v0.1.7 for the reason
+above.
 
 Done when a double click on a file in the FileSystem dock opens it in Chrome and Firefox, after the
 editor has stood idle, in `demos/godot/test/godot-editor-browser.mjs`.

@@ -86,13 +86,22 @@ for (const browser of browsers) {
     }
     // A double click on main.gd in the FileSystem dock, two clicks 90 ms apart as a hand's, opens
     // it in the script editor, whose page is dark grey there. The editor draws a frame a second
-    // here: where one comes between the presses, they are timed by when they came.
+    // here: where one comes between the presses, they are timed by when they came. Just after
+    // the 2D view it may take neither click, as after its first draw, so the double click repeats.
     const script = await framePoint(page, 64, 505);
-    for (const pause of [90, 0]) {
-      await page.mouse.click(...script);
-      await new Promise(resolve => setTimeout(resolve, pause));
+    for (let attempt = 1; ; attempt++) {
+      for (const pause of [90, 0]) {
+        await page.mouse.click(...script);
+        await new Promise(resolve => setTimeout(resolve, pause));
+      }
+      try {
+        await waitForDisplay(page, () => [...displaySnapshot.getContext("2d").getImageData(700, 450, 1, 1).data].slice(0, 3).join() === "26,26,26",
+          undefined, { timeout: 10_000 });
+        break;
+      } catch (error) {
+        if (attempt === 3) throw error;
+      }
     }
-    await waitForDisplay(page, () => [...displaySnapshot.getContext("2d").getImageData(700, 450, 1, 1).data].slice(0, 3).join() === "26,26,26");
     // The editor's Ctrl+C is Copy (it clears ISIG while it has the page); Ctrl+Q quits it. One
     // pressed at once after the click is not taken, so it repeats.
     while (await page.evaluate(() => __dolly.transport.graphicsActive())) {
