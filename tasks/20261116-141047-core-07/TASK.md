@@ -6,7 +6,29 @@
 
 From the core audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at `b09b1e243`).
 
-## State (2026-11-17)
+## State (2026-11-19)
+
+The change below is in the 0.1.8 integration (`ws/modules`), and the round `dolly-round-018k`
+(`work/integrate-018`, 8d666a4e4) built the catalog with it. In that round's images, `default`'s
+`/etc/dolly/environment` holds `DOLLY_DISPLAY_LIBRARY=/usr/lib/libdisplay.so` and no `DISPLAY`
+(the released one, `work/round1113`, held `DISPLAY=/usr/lib/libdisplay.so`); no recipe of the
+catalog exports `DISPLAY`. `test/zig-sdk.artifacts.mjs` now checks that `default`'s environment
+holds no `DISPLAY` (it fails on the released image).
+
+Which ports read `DISPLAY` in the guest, and what they do now:
+- `x11_window_display()` (`demos/x11/x11-window/`): Godot's and PhotoCraft's platforms open the
+  page's canvas without `DISPLAY` and an X window where x11-desktop exports `DISPLAY=:0`.
+- SDL2's X11 driver (`sdl2-x11`, `imgui-x11`) and GTK's X11 backend (`gtk`, `ghostty-gtk`): X
+  clients run on x11-desktop's `:0`; elsewhere `XOpenDisplay(NULL)` fails as it did with the
+  library's path.
+- Blender (`GHOST_SystemDolly`, its X11 and Wayland systems off) and Wine (`winedolly.drv`) read
+  no `DISPLAY`. The terminal (Ghostty's `libdisplay.so`) is display@0's `DOLLY_DISPLAY_LIBRARY`.
+
+Left for the round's suites and gpu stage: the display, terminal and default suites in both
+browsers, and Godot and PhotoCraft on x11-desktop (`demos/godot/test/godot-x11-browser.mjs`,
+`demos/photocraft/test/photocraft-x11-browser.mjs`).
+
+## The change (2026-11-17)
 
 Done on `ws/modules`: display@0's kernel side reads the library's path from
 `DOLLY_DISPLAY_LIBRARY` (`host/display/kernel.c`, the contract's comment and `display.h`'s,
