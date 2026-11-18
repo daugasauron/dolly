@@ -20,7 +20,7 @@ again from the published packages (`build/video/` of the branch's tree, `retake.
 seed. Close after both.
 
 The video, from this branch's packages (`scripts/package-npm.mjs`, served by a registry on
-127.0.0.1): `build/video/npm-pi-agent.mp4` of `work/npm-policy` (3:00, take 2; `build/video/README.md`
+127.0.0.1): `build/video/npm-pi-agent.mp4` of `work/npm-policy` (2:50, take 4; `build/video/README.md`
 there says what it shows and how it was made). The key never shows: the page's upload dialog brings
 `~/.openrouter` in, and Pi's `/login` reads it with `!cat FILE`.
 
@@ -69,8 +69,13 @@ same theme and colors as other stuff."
   the refusals are at the top right, the status above; Save's button and the GPU adapter's at the bottom
   right; the download offers and the microphone's at the bottom left; host modules get the column by
   `indicators.corner(name)`. The refusals are one of the indicators, which they hold shown while a
-  notice is open (Ctrl+Shift+F still hides them); Close and Close all as before. Screenshots before
-  and after, Chrome and Firefox: `build/video/indicators-{before,after}-{chromium,firefox}.png`.
+  notice is open (Ctrl+Shift+F still hides them); Close and Close all as before. The notes take the
+  popups' font, `--dolly-html-font` (an embedding's page font was serif on npm's page). Screenshots
+  before and after, Chrome and Firefox: `build/video/indicators-{before,after}-{chromium,firefox}.png`.
+- Checked: `http-refusals` (now also its place), `indicators`, `embedding`, `upload`, `display`,
+  `csp`, `microphone` and `gpu-indicator` browser tests in Chrome and Firefox; `test:source`.
+- The video again (take 4, 2:50): no Save element at any moment of the take (the page watched for
+  one), the refusals at the top right in the notes' look.
 
 ## Design, as decided
 
