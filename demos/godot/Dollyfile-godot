@@ -18,15 +18,15 @@ REQUIRES HOST clipboard@0
 # browser grants WebGPU, and its Compatibility renderer on Mesa's OpenGL (EGL
 # and softpipe, linked in from mesa-build) where it does not, with its sound on
 # audio@0. It plays on the page or runs a project with --headless.
-FROM /demos/ghostty-gtk/Dollyfile-mesa-build c70d712e886208962ae23390afa457bca8e34f60c1f726fb559b0f39afd45cb3
-USE /demos/tools/Dollyfile-scons 1792c6e1f20415992e01afdf196e0b19292b17cc97b5dc44becfeb5685476b25
+FROM /demos/ghostty-gtk/Dollyfile-mesa-build 12433bfacfca570f6ab4a5cafd8018a53df5787ebcec402e73f7c916bc7ba569
+USE /demos/tools/Dollyfile-scons 33bc7a46d2ac03d9d0da23c56ff506a184bfb195c36b386993fce486cb90e747
 USE /Dollyfile-mandoc 4c46a3289002905fd4050b575a26c09d8ecd403d4848ba020f10ea4360bf5d69
 USE /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
 USE /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
-USE /demos/godot/Dollyfile-spirv-wgsl 721ac7c52c7ff664a5a022385d9cc02756ced165466169dda9e8c167a2a0951e
+USE /demos/godot/Dollyfile-spirv-wgsl 3eeafa3504a763202ea34848dfb605e314b225f6ec4beb1c40690312a6752187
 USE /Dollyfile-libdolly-audio a4064796256e039400d5ea30faae6dfeccb9c09d62a8b6dd09daebc16fbf1f7f
 USE /Dollyfile-libdolly-clipboard 99746a8bd9b9eb136098753ccc526ac94a14540e6d26082ae8748eb6e3fa08a6
-USE /demos/x11/Dollyfile-x11-window 0b4f9e3598fb8d495df7ecf2432faf2482963f027b1cdcafc1f969e7c2ddb116
+USE /demos/x11/Dollyfile-x11-window a20ee1a4671acf70461c178dc46f19cd47631ab2048b529a5a06e6ba3a291501
 USE /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
 USE /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
 USE /Dollyfile-libdolly-touch e575ebfcfdeb0bd32c82b34d59b0a25b627a1189a5a5ebdcc930073fe86594f0

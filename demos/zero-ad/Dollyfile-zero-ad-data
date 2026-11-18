@@ -7,9 +7,9 @@ REQUIRES HOST runtime@0
 # the SPIR-V shaders translated to WGSL, the content in archives below the
 # site's 25 MiB file limit, and the scripts and maps of a game without graphics.
 FROM /Dollyfile-system-tools 7b1306fddb4975e68b655f6d0bd6a478f6f02ba877ce033af921969099844d2d
-USE /demos/python/Dollyfile-python 964cd2681453dbb4da3f00eb1feadf7d873b33764e83b668111de230df6f6639
+USE /demos/python/Dollyfile-python cf63b4b3751fb8512eef3e24eb87135fd7d294c25556fcd986fb5ff22fc65fcd
 USE /demos/tools/Dollyfile-xz d469de338c35f239e62a272216458e722dfdd7eb2909ed4a35a21d5694f2ad81
-USE /demos/rust/Dollyfile-naga cea75f7724709891c8ab0ddc023f31dfb8cbdf8026a130c22415e62539508f3a
+USE /demos/rust/Dollyfile-naga 1d06099458d983f03d38bd38c42da2b4fcfd68c8669871acc3329d0cafdf5380
 REQUIRES TOOL python3
 REQUIRES TOOL xz
 REQUIRES TOOL naga

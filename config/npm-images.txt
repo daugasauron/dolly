@@ -21,7 +21,9 @@ ripgrep
 fd
 python-data
 cc
+make
 git
+vi
 libffi
 python
 numpy

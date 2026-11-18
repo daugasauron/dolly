@@ -6,7 +6,7 @@ REQUIRES HOST http@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
-FROM /Dollyfile-system d114f508562868a2209ab755b4fe14322f1d326d6aab23639cfeff39df4d3605
+FROM /Dollyfile-system ede57a1516844ae47fe5aa8dcf693ca90862dd38547e1587f7e163f513079551
 USE /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6e458431e
 USE /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
 USE /demos/tools/Dollyfile-sqlite 926ac562e54fc44fab836444bf00e6ce3792915c3bcfea5d31f81b4eae682dd6
@@ -37,7 +37,7 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   touch
 
-INSTALL /demos/python/Dollyfile-libffi 73042854492adcdff039933b0b788a0379dd69c31d0dad20db31fb5e542c4dc1
+INSTALL /demos/python/Dollyfile-libffi 634561d81a70fee879874146fcf590ae2e8d575aabcfe7401cf87889f4057e73
 # python links the three USEd libraries statically and carries their licences.
 FILE /usr/share/licenses/sqlite/blessing
 FILE /usr/share/licenses/bzip2/LICENSE
