@@ -144,6 +144,10 @@ The kernel keeps its text, 256 KiB at most.
 - C SDK: `<dolly/clipboard.h>` and `libdolly-clipboard.a`, from the
   `libdolly-clipboard` package; calling it stamps `clipboard@0` into the
   executable.
+- `clip`, the `clip` package's command, copies its standard input to the
+  clipboard: the end of a pipeline, or tmux's copy mode
+  (`bind -T copy-mode-vi y send -X copy-pipe-and-cancel clip`), whose job
+  descends from the foreground command when that started tmux's server.
 
 ## Images without one of the two
 

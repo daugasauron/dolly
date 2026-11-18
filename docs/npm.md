@@ -81,6 +81,7 @@ npx dolly-build add my-pi jq sqlite
 | `cc` | The C and C++ compiler, with `ld`, `ar`, Make and the headers |
 | `jq`, `sqlite`, `less` | `jq`, `sqlite3` and the pager |
 | `tmux` | The terminal multiplexer; the recipe then declares `pty@0` and `sockets@0`, which `add` writes |
+| `clip` | `clip`, which copies its standard input to the page's clipboard (`clipboard@0`) |
 | Pi's own, which `init` always installs | `core` (the shell `slop` and its commands), `posix` (grep, sed, awk, find and the others), `curl`, `display` (the terminal), `dollyfile` (the recipe engine) and `pi-dolly` (Pi, its JavaScript runtime, ripgrep, fd, the `download` and `upload` commands, and Pi's Dolly skill and tools, among them `download` and `upload`, which hand the user a file and ask the user for one) |
 
 `npx dolly-build init` with a name that is no package lists them all. A program
@@ -141,11 +142,12 @@ HTTP GET https://api.github.com/repos/OWNER/* authorization
   any host.
 - A row is part of the recipe: changing one builds the image again.
 - Pi's other providers do not answer a page: Baseten, Fireworks, NVIDIA,
-  OpenCode, Z.ai, MiniMax and Kimi's and Qwen's coding plans send no CORS
-  headers a browser accepts ([CORS and relays](http.md#cors-and-relays)), and
-  Azure, Cloudflare, Vertex AI and Bedrock answer at an address of your
-  account, which is a row of your own. A sign-in with a subscription (OAuth)
-  works only where the provider's sign-in host answers a page too.
+  OpenCode, Z.ai and Kimi's and Qwen's coding plans send no CORS headers
+  ([CORS and relays](http.md#cors-and-relays)), MiniMax's do not admit the
+  header Pi's key goes in, and GitHub Copilot's sign-in is github.com's, which
+  sends none. Azure, Cloudflare, Vertex AI and Bedrock answer at an address of
+  your account, which is a row of your own. A sign-in with a subscription
+  (OAuth) works only where the provider's sign-in host answers a page too.
 - The key is Pi's: `/login` keeps it in `~/.pi/agent/auth.json` in the
   sandbox, and a save keeps that. It is in no file of the site. Pi shows a key
   as it is typed; a value such as `!cat FILE` makes Pi read it from a file
@@ -155,7 +157,25 @@ HTTP GET https://api.github.com/repos/OWNER/* authorization
 
 `/etc/dolly/init.slop`, a `FILE` row of the recipe, is what the sandbox runs,
 one Slop command a line: Pi, then a shell when Pi exits. Another program is
-another first line and a build.
+another first line and a build. With `npx dolly-build add my-pi tmux nvim`,
+tmux with Pi in its first window and Neovim in its second, under a
+configuration of your own:
+
+```text
+FILE /home/dolly/.tmux.conf
+    set -g base-index 1
+    bind -n M-1 select-window -t 1
+    bind -n M-2 select-window -t 2
+
+FILE /etc/dolly/init.slop
+    /bin/foreground -i /usr/bin/tmux new-session -n pi 'pi --offline' \; new-window -n nvim nvim \; select-window -t 1
+    printf '\nPi exited; this is a Slop shell.\n'
+    /bin/foreground -i /bin/slop
+```
+
+Alt+1 and Alt+2 reach tmux in Chrome and Firefox. With the `clip` package,
+`bind -T copy-mode-vi y send -X copy-pipe-and-cancel clip` copies tmux's
+selection to the page's clipboard, and from there to the browser's.
 
 ## Build
 
