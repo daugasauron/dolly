@@ -63,6 +63,7 @@ export function boot(mount, { images, image, modules, site, http = {}, files = {
     if (!definition || typeof files !== "object" || files === null) throw new Error("invalid Dolly boot options");
     if (definition.entry === null) throw new Error(`${image} has no ENTRY; it only builds`);
     return { image: definition.image, label: selected?.label ?? "PRECOMPILED SYSTEM", configuration: selected?.configuration,
+      declared: definition.httpPolicy,
       required: [...new Set([...definition.hostRequirements, ...selected ? [selected.module] : []])],
       start: () => ({ message: { files: selected ? {} : files }, transfers: [] }) };
   });
@@ -76,6 +77,8 @@ export function boot(mount, { images, image, modules, site, http = {}, files = {
 //   enables (by default the required ones), which a build alone may set;
 // - configuration, inherited: the modules' configuration, and what the page's
 //   network inherits from the tab that opened this one (network.mjs);
+// - declared: the HTTP policy the image's recipe declares, which narrows the
+//   page's network (network.mjs), or null;
 // - worker: the runtime Worker's URL, by default dist/dolly-runtime-worker.mjs (runtime-worker.mjs bundled);
 // - start(host, report, network): before the Worker starts, the fields it adds
 //   to the configure message ({ message, transfers }), or null once an image
@@ -173,7 +176,7 @@ export async function run(mount, { images, modules, site, http, imageBuilder }, 
     runtimeWorker.postMessage({ type: "prepare", images: imageBase.href, modules: registry.urls,
       hostModules: selected.enabled ?? selected.required });
     appendBootstrap(`DOLLY / ${image.toUpperCase()} / ${selected.label}\n\n`);
-    const network = pageNetwork({ embedding: http, inherited: selected.inherited, applicationBase: imageBase, mount, keyboard });
+    const network = pageNetwork({ embedding: http, inherited: selected.inherited, declared: selected.declared, applicationBase: imageBase, mount, keyboard });
     serveNetworkFetches(network, runtimeWorker);
     host = await registry.createHost("browser", selected.enabled ?? selected.required, {
       send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),

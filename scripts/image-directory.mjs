@@ -11,7 +11,8 @@ import { recipesDigest } from "../page/image-inputs.mjs";
 // write them here.
 
 // An image's catalog record: its recipe, at FILENAME in the directory, and the
-// recipe graph it roots.
+// recipe graph it roots, with the HTTP policy the recipe declares, which the page
+// applies (page/network.mjs).
 export function catalogRecord({ image, filename, source, parsed }, graph) {
   return {
     image,
@@ -23,6 +24,7 @@ export function catalogRecord({ image, filename, source, parsed }, graph) {
     recipesSha256: recipesDigest(recipeRecords(graph)),
     artifacts: graph.artifacts,
     hostRequirements: graph.root.hostRequirements,
+    ...parsed.httpPolicy && { httpPolicy: parsed.httpPolicy },
   };
 }
 

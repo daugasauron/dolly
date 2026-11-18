@@ -1,7 +1,7 @@
 // Pi in place of a web frontend (docs/agent-frontend.md): an image the page
 // builds on pi-runtime with a system prompt, a skill for an orders API and an
-// entry that asks for the user's token, under a policy that admits that API and
-// the model's provider alone. A scripted model on an origin of its own makes the
+// entry that asks for the user's token, whose HTTP rows declare that API and the
+// model's provider alone. A scripted model on an origin of its own makes the
 // calls a model would. Usage: node demos/pi/test/frontend-browser.mjs
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
@@ -71,11 +71,12 @@ const provider = createServer(async (request, response) => {
 });
 const llm = await listen(provider);
 
-// The deployer's recipe: Pi's prompt and skill, the provider, and an entry that
-// reads the user's token and the model's key without showing them.
+// The deployer's recipe: the requests the agent may make, Pi's prompt and skill, the
+// provider, and an entry that reads the user's token and the model's key without showing them.
 const base = catalog.images.find(({ image }) => image === "pi-runtime");
 const file = (path, text) => [`FILE ${path}`, ...text.trim().split("\n").map(line => `    ${line}`)];
 const recipe = ["DOLLY 8", "APPLICATION orders-agent", ...base.hostRequirements.map(module => `REQUIRES HOST ${module}`),
+  `HTTP GET POST ${api}/api/* authorization`, `HTTP POST ${llm}/v1/chat/completions authorization`,
   `FROM ${siteReference(base.dollyfile)} ${base.sha256}`,
   ...file("/home/dolly/.pi/agent/SYSTEM.md", `
 You are the order desk assistant of a small shop. Staff ask you about orders
@@ -102,11 +103,7 @@ secretenv ORDERS_TOKEN 'Orders token (not shown): ' secretenv SHOP_LLM_KEY 'Mode
 
 for (const browser of browsers) await demoTest("pi frontend", { image: "pi-runtime", timeout: 300_000, browser }, async ({ server, open }) => {
   pageOrigin = server.origin;
-  const policy = { rules: [
-    { origin: api, pathPrefix: "/api/", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },
-    { origin: llm, path: "/v1/chat/completions", methods: ["POST"], credentialHeaders: ["authorization"] },
-  ] };
-  const { page, input, text, run, prompt, waitText } = await open({ policy, path: "/custom/rebuild/", prompt: /Orders token \(not shown\):/,
+  const { page, input, text, run, prompt, waitText } = await open({ path: "/custom/rebuild/", prompt: /Orders token \(not shown\):/,
     setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) });
   const screens = [];
   const watch = async pattern => screens.push(await waitText(pattern, 120_000));
@@ -127,7 +124,7 @@ for (const browser of browsers) await demoTest("pi frontend", { image: "pi-runti
     && !shown(turn.system)), "each model request carries the key, the prompt and the skill, and no token");
   assert.match(turns.at(-1).results.at(-1), /curl: \(9\) Browser HTTP policy denied the request/);
 
-  // The secrets leave with Pi; the policy holds for every program.
+  // The secrets leave with Pi; the recipe's rows hold for every program.
   await input("\x04");
   await prompt(/dolly:[^\n]*\$\s*$/);
   await run('test -z "$ORDERS_TOKEN" && test -z "$SHOP_LLM_KEY"');

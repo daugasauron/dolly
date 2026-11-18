@@ -73,6 +73,7 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `make`: GNU `make` alone, for rules that compile nothing; `cc` brings it too.
 - `zig`: `zig` with its standard library, and the `cc` package: it emits C (`-ofmt=c`) that `cc` compiles.
 - `transfer`: `download` and `upload`, the page's file exchange.
+- `clip`: `clip`, which copies its standard input to the page's clipboard: the end of a pipeline, or tmux's `copy-pipe`.
 - `html`: `html`, which shows the user an HTML page or form in a popup and prints what they submit, and the `html@0` module's header and client library.
 - `libdolly-gpu`: the `gpu@0` module's header and client library, for programs the `cc` package builds.
 - `libdolly-audio`: the `audio@0` module's header and client library, for programs the `cc` package builds.

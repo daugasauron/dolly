@@ -7,6 +7,8 @@ if has_image dollyfile-studio; then
     demos/studio/build.mjs /usr/share/dollyfile-studio/build.mjs \
     site/dollyfile-view.mjs /usr/share/dollyfile-studio/site/dollyfile-view.mjs \
     page/image-names.mjs /usr/share/dollyfile-studio/page/image-names.mjs \
+    page/http-policy.mjs /usr/share/dollyfile-studio/page/http-policy.mjs \
+    page/process-constants.mjs /usr/share/dollyfile-studio/page/process-constants.mjs \
     host/requirements.mjs /usr/share/dollyfile-studio/host/requirements.mjs \
     host/abi.mjs /usr/share/dollyfile-studio/host/abi.mjs \
     host/runtime/abi.mjs /usr/share/dollyfile-studio/host/runtime/abi.mjs \
