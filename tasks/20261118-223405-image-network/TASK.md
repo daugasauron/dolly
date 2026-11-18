@@ -11,7 +11,35 @@ specific extensions/skills", nothing special for OpenRouter; and the video's ima
 the owner's `~/.tmux.conf`, Pi in window 1 and Neovim in window 2. Brief:
 `work/briefs-2026-11-18/npm-policy.md`. Branch `feature/npm-policy`.
 
-## State (2026-11-18): design, code, unit tests and docs done; browser tests and the video wait for images
+## State (2026-11-18, 23:50): design, code, docs and the browser checks below done; npm's flow test and the video running
+
+Measured on this tree's images (the round's pass 1 linked, and `clip`, `dolly-docs`, `pi-dolly`,
+`pi-minimal`, `tmux`, `nvim`, `default`, `jq`, `less`, `seaborn` and `python-data` built here):
+
+- `test/image-network-browser.mjs` passes in Chrome 156 and Firefox (Playwright's): the declared
+  request answers; another path, method and host and a declared path the embedding does not admit
+  are refused (curl 9) and never reach the server; a save whose record says its tab inherited no
+  policy, opened where the page admits everything, keeps the rows. With `declared` taken out of
+  `site/site.mjs` it fails at "another path".
+- `test/http-refusals-browser.mjs` passes in Chrome and Firefox, `test/custom-session-browser.mjs` in
+  Chrome; `demos/pi/test/frontend-browser.mjs`, whose orders API and model are now the recipe's
+  HTTP rows in place of a route's policy, in Chrome and Firefox.
+- `test/npm-browser.mjs` (packed from this tree, `DOLLY_NPM_PACKS`, offline) passes in Chrome: Pi starts
+  plain with the `sandbox` skill and the `/network` extension, which lists the rows; a row the test
+  adds answers at its path, and another path, method and host are refused (curl 9); the build's
+  summary lists the rows; the `python-data` project's site, whose recipe has none, refuses a request.
+- `build/video/alt-keys.mjs` (headed, keys through the X server's XTEST, two tabs open): Alt+1 and
+  Alt+2 reach a program as ESC 1 and ESC 2 in Chrome 156 and Firefox 155, and the tab stays.
+- `build/video/tmux-trial.mjs` (the video's sandbox on the site's custom route, headed, X keys), in
+  Chrome and Firefox: tmux starts with Pi in window 1 and Neovim in window 2; Alt+2 and Alt+1 switch
+  them; tmux's `y` in copy mode copies through `clip` to the browser's clipboard (Chrome read back
+  `copied-by-tmux\n`; Firefox's page marked the copy `copied`). In Chrome with the key of
+  `~/.openrouter`, brought in by the page's upload dialog: Pi's `/login openrouter` (API key, the key
+  `!cat FILE`) signs in; its default model (moonshotai/kimi-k2.6) answers through
+  `POST /api/v1/chat/completions` and fetches the declared README path, while its probes of other
+  hosts are refused with the page's notices; `anthropic/claude-haiku-4.5` answers through
+  `POST /api/v1/messages?beta=true` with `x-api-key` alone, so OpenRouter's Claude models need no
+  `models.json` entry.
 
 ## Design, as decided
 
