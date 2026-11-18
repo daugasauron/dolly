@@ -14,8 +14,8 @@ REQUIRES HOST clipboard@0
 # projects' release: Godot's editor imports its assets and exports its pack
 # here, and dodge-the-creeps plays the pack with godot, which installs with it.
 FROM /Dollyfile-system 8d54b8fd95bd265381fcacf4d97044d3ad3deb0e969deeed8e4b5e791e71dcb5
-INSTALL /demos/godot/Dollyfile-godot 15319d7ee68c12a9161f7691642f862267fc0ed6ffa66b2c75fa5add42e394c1
-USE /demos/godot/Dollyfile-godot-editor a920e25e50ec53eaef77651a5e259bd639c7aa2a138af11ae6bb4e774235ef6a
+INSTALL /demos/godot/Dollyfile-godot 238c4d82981a7df3f7f2acb427baf949014c372b39b7dedab27dc156eca3d786
+USE /demos/godot/Dollyfile-godot-editor 41a3f6f8e56c4de02b5a9498ffd4be8bf8ac37780d7215b9e1a15e72af4c7a5e
 USE /demos/tools/Dollyfile-unzip 9e5879c496bf641d5bcf962ff725b582cf24fd9ea50a1c6b2104a7bc7a7c0edb
 
 REQUIRES TOOL cp
