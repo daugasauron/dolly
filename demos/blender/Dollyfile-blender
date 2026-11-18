@@ -44,7 +44,7 @@ REQUIRES TOOL python3
 REQUIRES TOOL wasm-opt
 REQUIRES TOOL ccfilter
 
-SOURCE /dist/static/blender/blender.tar.gz 0d6414a7dc7a343dba75d02e197f4bb79365c644d17010c1c2a40a0bb6be3dc0 /tmp/blender.tar.gz
+SOURCE /dist/static/blender/blender.tar.gz 5ddc7af7a05d10d42c7ece68fc620dd160b85eaf1482f70a97cf066a57fe039a /tmp/blender.tar.gz
 SLOP gzip -dc /tmp/blender.tar.gz | tar -xf - -C /
 SLOP rm /tmp/blender.tar.gz
 SLOP CWD /tmp/blender/source patch -p1 -i /tmp/blender/blender-dolly.patch
