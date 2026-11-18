@@ -30,9 +30,9 @@ REQUIRES HOST threads@0
 #   linked so too, and is a host of none without -rdynamic.
 # - Brotli for FreeType, which Blender puts on the link line only with its
 #   precompiled libraries.
-FROM /demos/blender/Dollyfile-blender-deps 4ee5397cbb46fa0268058fa7967a8a3fe292118b04683055838428a2dfd9ca9e
+FROM /demos/blender/Dollyfile-blender-deps 370445b077bd8b70ab0cbd93e254b32e13825637d96f5b298944cc2de6101bcc
 INSTALL /demos/python/Dollyfile-python b67e91c0799a7d53057d277c506a28ef912f95597caf298b621c263593e9f88b
-USE /demos/godot/Dollyfile-spirv-wgsl 721ac7c52c7ff664a5a022385d9cc02756ced165466169dda9e8c167a2a0951e
+USE /demos/godot/Dollyfile-spirv-wgsl 066737c06839e6e3f0625903e9d299d3d4f9f5a867d62817b81f672b7685c867
 USE /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
 USE /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
 USE /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3

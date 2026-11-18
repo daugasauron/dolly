@@ -14,9 +14,9 @@ REQUIRES HOST threads@0
 # Blender's window on the page at once, drawn on gpu@0 where the browser
 # grants WebGPU; quitting it leaves a shell, where `blender` opens it again.
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix 05628fd9859d6aa86359accd20db6cf32c0b1469e573da158734ce7a2caab0bf
-INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
-INSTALL /demos/blender/Dollyfile-blender bb235a45b9e06cacc6c86b43ef88e558eca7f10e1d1a5f105d151121dbf782f1
+INSTALL /Dollyfile-posix c24b7cb8dfc057769bc7f644f68c2922514adb89272756d8ed793c0318d5f3d5
+INSTALL /Dollyfile-display cc98bc6edc0e5dea2bfb79e3095ea1fb6744e28282d28cec6c2e013cf6435992
+INSTALL /demos/blender/Dollyfile-blender 9136eaef82fb0394c1c6fa0b663c8bc2f3505ac47bc8b6d26a95f7dad25e95e4
 REQUIRES TOOL blender
 
 FILE /etc/dolly/init.slop
