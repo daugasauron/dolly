@@ -36,7 +36,7 @@ static void show(int contract) {
   for (int row : shown_rows) fprintf(file, "%d ", row);
   fclose(file);
 }
-enum { MAX_DAYS = 64, MAX_EXPIRIES = 8, STRIKES_PER_SIDE = 13, KERNELS = 49 };
+enum { MAX_DAYS = 64, MAX_EXPIRIES = 8, STRIKES_PER_SIDE = 13, KERNELS = 49, INPUTS = 7, HIDDEN = 16 };
 
 struct Contract {
   int expiry;          // index into expiries
@@ -73,6 +73,9 @@ struct State {
   double closure_floor[3] = {}, closure_miss[3] = {};
   std::vector<double> closure_numbers[3];
   double keep = 0, swing = 0, lean = 0;  // the volatility state's numbers, as fitted
+  // dh-fit's "DH net" lines: by group (the hedger's network, the law's logits, the volatility state's numbers),
+  // the values, then Adam's first and second moments of their gradients.
+  std::vector<double> net[3][3];
   double spot = 0;
   long quoted = 0;      // epoch seconds of the newest quote
   int iteration = 0;
@@ -284,6 +287,8 @@ static void read_fit(FILE *output, std::string &pending, State &staged) {
       staged.iteration = index, staged.losses.push_back((float)loss), staged.inside.push_back((float)named(line, " inside ")), staged.seconds = seconds, staged.residuals.clear(),
       staged.keep = named(line, " keep "), staged.swing = named(line, " swing "), staged.lean = named(line, " lean ");
     else if (name == "residual" && numbers.size() > 2) staged.residuals.emplace_back(numbers.begin(), numbers.end());
+    else if (name == "net" && numbers.size() > 2 && numbers[0] >= 0 && numbers[0] < 3 && numbers[1] >= 0 && numbers[1] < 3)
+      staged.net[(int)numbers[0]][(int)numbers[1]].assign(numbers.begin() + 2, numbers.end());
     else if (name == "closure" && numbers.size() == 3 * (2 + staged.expiries.size()))
       for (size_t n = 0, at = 0; n < 3; n++, at += 2 + staged.expiries.size()) {
         staged.closure_floor[n] = numbers[at], staged.closure_miss[n] = numbers[at + 1];
@@ -701,6 +706,115 @@ static void contracts_tab() {
   ImGui::EndTable();
 }
 
+// ---- the Network tab: the parameters and Adam's moments as coloured cells ----
+
+// Blue below zero, orange above, dark at zero; `share` is the value over the grid's scale.
+static ImU32 cell_colour(double share) {
+  float t = (float)std::min(1.0, fabs(share));
+  const float dark[3] = {22, 22, 22}, low[3] = {64, 156, 255}, high[3] = {255, 138, 48};
+  const float *to = share < 0 ? low : high;
+  return IM_COL32(dark[0] + (to[0] - dark[0]) * t, dark[1] + (to[1] - dark[1]) * t, dark[2] + (to[2] - dark[2]) * t, 255);
+}
+
+// One block of cells: rows by columns, the value of (row, column) at values[first + row * row_step + column * column_step].
+struct Block {
+  const char *name;
+  int rows, columns, first, row_step, column_step;
+};
+
+// A grid of blocks side by side, on one scale, with the scale under it: the size 98 in 100 of its values are
+// within, so that one large number does not darken the rest; the few beyond it show at full colour.
+// `raw`, when given, is the number behind each cell where the cell shows another reading of it.
+static void grid(const char *title, const std::vector<double> &values, const std::vector<Block> &blocks, ImVec2 size, bool square, const std::vector<double> *raw = nullptr) {
+  ImVec2 origin = ImGui::GetCursorScreenPos();
+  ImDrawList *draw = ImGui::GetWindowDrawList();
+  ImGui::InvisibleButton(title, size);
+  draw->AddRect(origin, ImVec2(origin.x + size.x, origin.y + size.y), frame_colour);
+  draw->AddText(ImVec2(origin.x + 6, origin.y + 3), text_colour, title);
+  if (values.empty()) return;
+  std::vector<double> sizes;
+  for (double value : values) sizes.push_back(fabs(value));
+  std::sort(sizes.begin(), sizes.end());
+  double scale = sizes[(sizes.size() - 1) * 98 / 100];
+  if (scale == 0) scale = sizes.back();
+  if (scale == 0) return;
+  int rows = 0, columns = 0;
+  for (const Block &block : blocks) rows = std::max(rows, block.rows), columns += block.columns;
+  const float gap = 6, top = 36, bottom = 22;
+  float cell_w = (size.x - 12 - gap * (blocks.size() - 1)) / columns, cell_h = (size.y - top - bottom) / rows;
+  if (square) cell_w = cell_h = std::min(cell_w, cell_h);
+  float x = origin.x + 6;
+  ImVec2 mouse = ImGui::GetMousePos();
+  for (const Block &block : blocks) {
+    if (ImGui::CalcTextSize(block.name).x <= block.columns * cell_w + gap) draw->AddText(ImVec2(x, origin.y + 19), text_colour, block.name);
+    for (int row = 0; row < block.rows; row++)
+      for (int column = 0; column < block.columns; column++) {
+        size_t at = (size_t)(block.first + row * block.row_step + column * block.column_step);
+        if (at >= values.size()) continue;
+        ImVec2 a(x + column * cell_w, origin.y + top + row * cell_h), b(a.x + cell_w, a.y + cell_h);
+        draw->AddRectFilled(a, ImVec2(b.x - (cell_w > 3 ? 1 : 0), b.y - (cell_h > 3 ? 1 : 0)), cell_colour(values[at] / scale));
+        if (mouse.x >= a.x && mouse.x < b.x && mouse.y >= a.y && mouse.y < b.y) {
+          if (raw && at < raw->size()) ImGui::SetTooltip("%s, row %d, column %d: %.4g (logit %.4g)", block.name, row, column, values[at], (*raw)[at]);
+          else ImGui::SetTooltip("%s, row %d, column %d: %.4g", block.name, row, column, values[at]);
+        }
+      }
+    x += block.columns * cell_w + gap;
+  }
+  // The scale: the colours from minus it to plus it.
+  float y = origin.y + size.y - bottom + 5;
+  for (int step = 0; step < 40; step++)
+    draw->AddRectFilled(ImVec2(origin.x + 70 + step * 4, y), ImVec2(origin.x + 74 + step * 4, y + 12), cell_colour(step / 19.5 - 1));
+  char label[32];
+  snprintf(label, sizeof label, "%.2g", -scale);
+  draw->AddText(ImVec2(origin.x + 6, y - 2), text_colour, label);
+  snprintf(label, sizeof label, "%+.2g", scale);
+  draw->AddText(ImVec2(origin.x + 236, y - 2), text_colour, label);
+}
+
+static void network_tab() {
+  if (state.net[0][0].empty()) {
+    ImGui::TextUnformatted("The network is shown once the fit has reported.");
+    return;
+  }
+  ImGui::TextWrapped("%s", "What the fit holds at its last report, a cell a number: its value, Adam's mean of its gradient (first moment), the root of Adam's mean of the gradient's "
+                         "square (second moment), and their ratio, which times the learning rate is the step Adam takes. Each grid has its own scale, under it: 98 in 100 of its numbers are within it. Point at a cell for its number. "
+                     "The hedger's rows are the units of a hidden layer: their weights from the seven inputs, their offsets (b), the second layer's weights from the first, its offsets, "
+                     "and each unit's weight in the position with the position's offset. The law's values are its logits read as probabilities: an interval's kernels sum to one; "
+                     "the moments and the step are the logits'.");
+  // The hedger: 7 inputs -> 16 -> 16 -> 1. A row is a unit of a hidden layer; dh-fit's order (W1, b1, W2, b2, W3, b3).
+  const int W2 = HIDDEN * INPUTS + HIDDEN, W3 = W2 + HIDDEN * HIDDEN + HIDDEN;
+  const std::vector<Block> hedger = {{"in", HIDDEN, INPUTS, 0, INPUTS, 1}, {"b", HIDDEN, 1, HIDDEN * INPUTS, 1, 0}, {"hidden", HIDDEN, HIDDEN, W2, HIDDEN, 1},
+                                     {"b", HIDDEN, 1, W2 + HIDDEN * HIDDEN, 1, 0}, {"o", HIDDEN, 1, W3, 1, 0}, {"b", 1, 1, W3 + HIDDEN, 0, 0}};
+  const std::vector<Block> law = {{"a row an interval, a column a kernel", (int)state.expiries.size(), KERNELS, 0, KERNELS, 1}};
+  const std::vector<Block> vol = {{"keep, swing, lean", 1, 3, 0, 0, 1}};
+  ImVec2 available = ImGui::GetContentRegionAvail();
+  float width = (available.x - 24) / 4, law_height = 62 + 14.0f * state.expiries.size();
+  float hedger_height = std::max(160.0f, std::min(available.y - law_height - 76 - 110, (width - 42) / (float)(INPUTS + HIDDEN + 4) * (float)HIDDEN + 58));
+  const char *groups[3] = {"hedger", "law's weights", "volatility state"};
+  // The law's values are shown as what they mean: each interval's logits as its kernels' probabilities.
+  std::vector<double> probability(state.net[1][0].size());
+  for (size_t row = 0; row + KERNELS <= probability.size(); row += KERNELS) {
+    double largest = *std::max_element(state.net[1][0].begin() + row, state.net[1][0].begin() + row + KERNELS), sum = 0;
+    for (int k = 0; k < KERNELS; k++) sum += probability[row + k] = exp(state.net[1][0][row + k] - largest);
+    for (int k = 0; k < KERNELS; k++) probability[row + k] /= sum;
+  }
+  const std::vector<Block> *blocks[3] = {&hedger, &law, &vol};
+  float heights[3] = {hedger_height, law_height, 76};
+  for (int group = 0; group < 3; group++) {
+    const std::vector<double> &value = state.net[group][0], &first = state.net[group][1], &second = state.net[group][2];
+    std::vector<double> root(second.size()), step(second.size());
+    for (size_t i = 0; i < second.size() && i < first.size(); i++) root[i] = sqrt(second[i]), step[i] = first[i] / (root[i] + 1e-8);
+    const std::vector<double> *shown[4] = {group == 1 ? &probability : &value, &first, &root, &step};
+    const char *names[4] = {group == 1 ? "probability of each kernel" : "value", "first moment", "root of second moment", "step, over the learning rate"};
+    for (int kind = 0; kind < 4; kind++) {
+      char title[96];
+      snprintf(title, sizeof title, "%s: %s", groups[group], names[kind]);
+      if (kind) ImGui::SameLine(0, 8);
+      grid(title, *shown[kind], *blocks[group], ImVec2(width, heights[group]), group == 0, group == 1 && kind == 0 ? &value : nullptr);
+    }
+  }
+}
+
 static void fit_tab() {
   if (ImGui::BeginTable("fit", 13, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
     for (const char *name : {"expiry", "days", "forward, quotes", "forward, model", "discount", "contracts", "in band", "market spread", "model spread", "hedge cost",
@@ -947,6 +1061,7 @@ int main(int, char **) {
       if (ImGui::BeginTabItem("Hedge")) hedge_tab(), ImGui::EndTabItem();
       if (ImGui::BeginTabItem("Quotes")) contracts_tab(), ImGui::EndTabItem();
       if (ImGui::BeginTabItem("Fit")) fit_tab(), ImGui::EndTabItem();
+      if (ImGui::BeginTabItem("Network")) network_tab(), ImGui::EndTabItem();
       ImGui::EndTabBar();
     }
     ImGui::End();

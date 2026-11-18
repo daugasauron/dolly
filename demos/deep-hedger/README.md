@@ -51,6 +51,16 @@ until stopped, on fresh paths every iteration. **Quit** leaves the shell.
   hedger leaves as a share of not hedging, the days its spreads pay for and
   its number under the nearest closure; and by iteration the loss and the
   share of the middles in band.
+- **Network**: what the fit holds at its last report, a cell a number, blue
+  below zero and orange above: the hedger's weights and offsets by layer,
+  the law's weights by interval and kernel (as the probabilities its logits
+  give, an interval's summing to one: the logits themselves are large and
+  negative away from the middle, and a grid of them is one colour; the logit
+  is under the pointer), and the volatility state's three numbers; and beside each value Adam's mean of its gradient, the root of
+  Adam's mean of the gradient's square, and their ratio, which times the
+  learning rate is the step Adam takes. Each grid has its own scale, shown
+  under it; the number of a cell is under the pointer. `dh-fit` writes these
+  numbers with each report (three `DH net` lines for each of the three).
 
 The line under the buttons is the fit's state: the iteration, the share of
 the model's bids and asks inside the market's bands, the loss and whether it

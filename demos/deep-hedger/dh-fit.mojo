@@ -816,6 +816,22 @@ struct Adam(Movable):
                 self.rate * (self.first[i] / first_scale) / (sqrt(self.second[i] / second_scale) + 1e-8)
             )
 
+    def report(self, group: Int, values: List[Float32]):
+        """Three lines of a report for dh-gui's Network tab: a group's values, and
+        Adam's two moments of their gradients without their start-up bias."""
+        var first_scale = 1 - 0.9 ** Float64(self.steps)
+        var second_scale = 1 - 0.999 ** Float64(self.steps)
+        var value_line = String("DH net ") + String(group) + " 0"
+        var first_line = String("DH net ") + String(group) + " 1"
+        var second_line = String("DH net ") + String(group) + " 2"
+        for i in range(len(values)):
+            value_line += " " + String(values[i])
+            first_line += " " + String(self.first[i] / first_scale)
+            second_line += " " + String(self.second[i] / second_scale)
+        print(value_line)
+        print(first_line)
+        print(second_line)
+
 
 def noise(mut state: UInt64) -> Float32:
     """A standard normal number, for the hedger's first weights."""
@@ -1629,6 +1645,9 @@ def fit(mut model: Model, mut chain: Chain, path: String, seed: UInt64, iteratio
                         )
                         line += " " + String(position)
                     print(line)
+            training.hedger.report(0, model.phi)
+            training.generator.report(1, model.logits)
+            training.state.report(2, model.state)
             print("DH end", iteration, flush=True)
             window_loss = 0
 
