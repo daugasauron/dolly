@@ -14,9 +14,28 @@ the AMD GPU.
 
 ## State (2026-11-18)
 
-In progress on `feature/planet`: the flight model, the controls (mouse, keys, touch), the courses
-of rings and the chain are written and run headless; the GPU measurement, the image and the
-browser tests are next.
+On `feature/planet` (`7020f7a96` and after): the flight model, the controls (mouse, keys, touch),
+the courses of rings and the chain; the image is built and served on 9049. Measured under the
+day's load (below); the night's quiet-machine numbers were not reproducible today.
+
+Tests on the image (NVIDIA, `build/planet/t.sh`): the touch test passes in Chrome (09:16, 10:08)
+and Firefox (10:29); the flyover test passes in Firefox (11:06: the mouse raised the nose 23°, the
+morning flight 58.4 frames a second, 11 rings along their courses, 3 against from `--ring -1`,
+the tour to 262,813 at 58.7) and in Chrome (11:09: 28°, 59.7, 11 and 3, the tour at 59.9; and
+09:11, 10:54). On the way it failed on:
+the morning frame's colours (65 after a climbing chain, looking down through haze; the threshold
+is now the tour's 60); in Firefox its own 15-minute deadline with five game starts under load 34
+(now four starts, 20 minutes: the morning flight carries the "along" check); and in Firefox the
+mouse: the nose rose 5 or 6° and the board rolled 29 to 93° right.
+
+Firefox's mouse, found with a copy of the game that prints every motion (`mkmouse.py`,
+`keys-mouse.mjs`, the test's own moves): after the capture, Firefox's first motion, which comes
+with the first real move a second later, is a jump of (320, 115) pixels, then the moves follow
+(-88, -88, -40: 216 of the 240). Chrome's first motion is the first move, (0, -16). The night
+left the motions of the first 0.25 s after a capture, which this jump comes after; it was a turn
+of 46° in the night's steering (the test only looked at the pitch, whose spread in Firefox it
+called unexplained) and a roll past the vertical now. The game now leaves the first motion after
+each capture, whenever it comes.
 
 ## Why the rings "only worked from one side"
 
@@ -47,7 +66,11 @@ further up and looped (the weight across the way is only g cos(climb)): replaced
 
 Controls (the arcade scheme of PC flight games, mouse and keys): the mouse moves a stick (150 px
 is all of it, springing back to the middle in 0.3 s), up for nose up and right for roll right, the
-nose following the hand as the night's steering did; arrows push the stick; A/D rudder; W/S
+nose following the hand as the night's steering did. A push past the stick's travel (to twice
+it) is flown off at full stick, so N pixels turn the board by the same angle however the page
+delivers them (0.0024 rad a pixel in pitch, 0.0052 in roll): with a plain spring, Firefox's
+uneven delivery of a captured pointer's motion saturated the stick and the test's 240 px raised
+the nose 5° where Chrome's raised it 33°. Arrows push the stick while held; A/D rudder; W/S
 throttle (0.5 a second); wheel zoom; Escape lets go; Q quits. Touch: a thumb on the left third
 slides the throttle; a thumb on the right is a stick from where it went down (a tenth of the
 shorter side is all of it); a second finger on the right zooms with it; the ring at the top right
@@ -129,3 +152,45 @@ the other:
 The old game computed a whole chain in one frame as a plot came near (16 ms); a course is laid a
 ring a frame. The new flight also flies a third further in the minute (the corgi at 36 when it
 makes for rings), and its look ahead covers that much more ground.
+
+On the GPU (the night's method: `build/planet/measure.mjs` through `m.sh`, the browser on CPUs
+6, 7, 14 and 15, the private Xvfb, under the GPU lock; the morning flight, `--autopilot 60 --day
+9`; HEAD's game of before today from `build/planet/old`, the new from a copy of the tree), each
+pair one run after the other. The reserved CPUs were not free today: the owner's Firefox and
+others' Chromes ran on them.
+
+| | busy (reserved, all) | frames a second | the game's frames: median, p95, p99, longest | GPU ms | rings |
+| --- | --- | --- | --- | --- | --- |
+| NVIDIA, Chrome, old (08:29) | 97, 96% | 37.9 | 24.8, 50.2, 66.0, 109.5 | 8.2 | 2 |
+| new (08:32) | 96, 95% | 34.0 | 26.9, 57.0, 75.8, 130.0 | 7.0 | 23, chain of 12 |
+| AMD 13c0, Chrome, old (09:28) | 69, 73% | 29.6 | 33.4, 40.9, 46.7, 93.2 | 20.0 | 2 |
+| new (09:30) | 91, 90% | 21.6 | 37.5, 97.1, 136.3, 363.2 | 17.8 | 20 |
+| AMD, Chrome, new (09:34) | 98, 98% | 19.4 | 46.6, 102.7, 138.9, 194.0 | 17.7 | 20 |
+| old (09:38) | 97, 97% | 20.1 | 44.6, 98.8, 143.1, 289.3 | 20.2 | 2 |
+| AMD, Chrome, held at 330, new (09:43) | 97, 97% | 21.8 | 43.0, 82.2, 117.4, 177.9 | 19.7 | 0 |
+| old (09:47) | 98, 98% | 18.2 | 48.4, 115.3, 158.8, 433.0 | 19.7 | 0 |
+| NVIDIA, Firefox, old (09:20) | 82, 84% | 58.5 | 16.9, 22.9, 29.5, 77.6 | 8.6 | 2 |
+| new (09:51) | 99, 99% | 28.9 | 29.7, 73.7, 104.6, 255.0 | 7.4 | 23 |
+
+The AMD pair of 09:28 looked like a fall from 30 to 21.6; run again under the same load the two
+games are alike (19.4 and 20.1; held at 330 units 21.8 and 18.2): it was the load changing
+between the runs. The new game's first Firefox run hung in the harness (the shell's `curl` of
+the project, six minutes, stopped) and its second ran under the busiest minute of the day.
+
+At 10:35 the load fell to 11 to 18 (the reserved CPUs 46 to 72% busy), and the pairs were run
+again in one turn of the lock (the new game with the exact mouse push and the cheaper laying):
+
+| | busy (reserved, all) | frames a second | the game's frames: median, p95, p99, longest | GPU ms | rings |
+| --- | --- | --- | --- | --- | --- |
+| NVIDIA, Chrome, old (10:35) | 71, 90% | 53.4 | 17.5, 34.0, 39.3, 75.9 | 8.2 | 2 |
+| new (10:37) | 72, 91% | 52.3 | 18.0, 34.6, 40.3, 112.0 | 7.1 | 23, chain of 12 |
+| AMD 13c0, Chrome, old (10:39) | 62, 89% | 29.4 | 33.5, 42.5, 51.1, 146.1 | 20.1 | 2 |
+| new (10:42) | 46, 63% | 29.7 | 33.4, 37.4, 41.6, 73.2 | 16.2 | 23 |
+| NVIDIA, Firefox, new (10:52) | 66, 88% | 58.5 | 16.8, 22.5, 29.9, 117.3 | 7.5 | 23 |
+
+(Firefox's old run of 10:44 did not start Godot on the two cores, the night's open
+`godot-firefox-start`; its run of 09:20 at 82% busy gave 58.5, 16.9, 22.9, 29.5, 77.6.) So the new
+game keeps the old one's rates: on the NVIDIA card in Chrome the same within a frame a second at
+this load, an even 30 on the AMD GPU, and 58.5 in Firefox. The flyover test in Chrome (10:54)
+drew 58.9 frames a second in its morning flight (median 15.5, p95 30.7, p99 35.5) and 59.9
+leaving the planet.

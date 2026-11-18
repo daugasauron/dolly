@@ -202,9 +202,11 @@ var lit := {} # the rings passed in this chart: plot, and the ring's place in it
 var helm := false # the player's, after a click or a touch
 var captured := false # the pointer, which the page gives the game at a click
 var steer := Vector2.ZERO # the way the mouse has gone since the last frame, in pixels
-var steers_from := 0.0 # the mouse steers from then on, a moment after its capture
+var moved_since := false # the mouse has moved since the pointer was captured
 var attitude := Basis(Vector3.UP, -PI / 2.0) # the board's axes: its nose is -z, east at the start
 var stick := Vector2.ZERO # x rolls to the right, y pitches the nose up; within a circle of 1
+var pushed := Vector2.ZERO # the mouse's push on the stick, not yet flown off (steer_by_hand)
+var keyed := Vector2.ZERO # the arrows' push on it
 var rudder := 0.0 # yaws the nose to the right
 var throttle := 0.36 # of the thrust: the cruise's in level flight
 var pitch := 0.0 # of the nose: up from level, in radians
@@ -1241,10 +1243,12 @@ func show_helm() -> void:
 func _input(event: InputEvent) -> void:
 	if autopilot_seconds > 0.0:
 		return
-	# A browser may report the pointer's way to where it was captured as its first motion: the
-	# first moments' are left.
-	if event is InputEventMouseMotion and captured and elapsed > steers_from:
-		steer += (event as InputEventMouseMotion).relative
+	# A browser may report the pointer's way to where it was captured as its first motion, when
+	# the mouse next moves (Firefox, 2026-11-18: 320 and 115 pixels for a move of 8 up): it is left.
+	if event is InputEventMouseMotion and captured:
+		if moved_since:
+			steer += (event as InputEventMouseMotion).relative
+		moved_since = true
 	if event is InputEventScreenTouch:
 		touch.touched(event)
 		if helm != helm_shown:
@@ -1276,7 +1280,7 @@ func hold_pointer() -> void:
 	if now == captured:
 		return
 	captured = now
-	steers_from = elapsed + 0.25
+	moved_since = false
 	helm = captured
 	show_helm()
 
@@ -1531,15 +1535,19 @@ func handle(delta: float) -> void:
 		attitude = attitude * Basis(Vector3.RIGHT, -(12.0 - speed) / 12.0 * 1.5 * delta)
 
 
-## The player's hand. The mouse pushes the stick, which springs back to the middle, and so do the
-## arrows; a thumb on a touchscreen holds it where it is, and sets the throttle (touch.gd). A and
-## D are the rudder, W and S open and close the throttle.
+## The player's hand. The mouse pushes the stick, which springs back to the middle: a push past
+## its travel (up to twice that) is flown off at the stick's full, so a move of the mouse turns
+## the board by as much however the page gives it, in one motion or many. The arrows push the
+## stick too, while they are held; a thumb on a touchscreen holds it where it is, and sets the
+## throttle (touch.gd). A and D are the rudder, W and S open and close the throttle.
 func steer_by_hand(delta: float) -> void:
 	if touch.holds_stick():
 		stick = touch.stick
 	else:
-		var keys := Vector2(key_axis(KEY_LEFT, KEY_RIGHT), key_axis(KEY_DOWN, KEY_UP))
-		stick = (stick + Vector2(steer.x, -steer.y) / STICK_PIXELS + keys * delta * 5.0).limit_length(1.0) * exp(-delta / STICK_BACK)
+		pushed = (pushed + Vector2(steer.x, -steer.y) / STICK_PIXELS).limit_length(2.0)
+		keyed = keyed.move_toward(Vector2(key_axis(KEY_LEFT, KEY_RIGHT), key_axis(KEY_DOWN, KEY_UP)), delta * 5.0)
+		stick = (pushed.limit_length(1.0) + keyed).limit_length(1.0)
+		pushed -= pushed.limit_length(1.0) * minf(delta / STICK_BACK, 1.0)
 	rudder = lerpf(rudder, key_axis(KEY_A, KEY_D), 1.0 - exp(-delta * 6.0))
 	throttle = clampf(throttle + key_axis(KEY_S, KEY_W) * delta * 0.5, 0.0, 1.0)
 

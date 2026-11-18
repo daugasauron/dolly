@@ -226,8 +226,10 @@ pelican pedals as fast as the throttle is open, and the flames are as long.
 
 The controls are those of an arcade flight game played with a mouse and keys. The mouse moves
 the stick, up to raise the nose and right to roll right, so the nose follows the hand: 150 pixels
-push it all the way, and it springs back to the middle (to 1/e in 0.3 s). The arrow keys push it
-too; A and D are the rudder; W and S open and close the throttle, by half of it a second; the
+push it all the way, and it springs back to the middle (to 1/e in 0.3 s); a push past its travel,
+up to twice that, is flown off at the stick's full, so a move of the mouse turns the board by as
+much however the page delivers it (0.0024 radians a pixel in pitch, 0.0052 in roll). The arrow
+keys push it too, while they are held; A and D are the rudder; W and S open and close the throttle, by half of it a second; the
 wheel zooms; Escape lets go of the board and gives the pointer back; Q quits. The keys show when
 the board is taken and fade after nine seconds. While the player has the board a small ring
 marks where it is headed, a dot in it shows the stick, and a bar at the lower left the throttle
@@ -381,7 +383,8 @@ the pelican's. It aims the board as a hand would (`aim_at`): it pitches and yaws
 way it wants, rolls the wings to lay that way over the board's top, or level once it is nearly
 ahead, and opens the throttle for the speed it wants; it makes for the rings and chains them.
 The click also gives the game the pointer (the page captures it at a person's click alone), and
-the mouse then flies the board. The player's camera looks the way the board is headed, from
+the mouse then flies the board; its first motion after the capture is left, since Firefox reports
+a jump there. The player's camera looks the way the board is headed, from
 behind and over the flyer, so what the board will reach is in the middle of the screen, over the
 corgi's ears. The numbers on the screen are the score's: the points, the chain's rings, and what
 a ring added. On a touchscreen nothing needs a key: the first touch takes the board; then a thumb
