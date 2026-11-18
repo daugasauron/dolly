@@ -48,4 +48,43 @@ Protocol (`work/dh-evidence/bt-*.py`, this machine):
 
 ## Findings
 
-(none yet)
+### A harness error, found and fixed (2026-11-18 evening)
+
+The first 95 fits kept their last training step, and the law still moved from step to step
+there: on fresh paths the model's values sat under the market's (20% of the out-of-the-money
+contracts in band where the training's window said 73%), so the model "picked" the sale of
+nearly every out-of-the-money contract and the P&L was the premium for being short options.
+The picks did no better than the contracts not picked. Those fits were thrown away. The fit
+(`make-bt.py`) now lets its two learning rates fall to a fiftieth over its second half, and
+values every book on 131,072 fresh paths; it prints the share of middles in band on them.
+
+### 2020-09 to 2022-12, seed 1 (96 days; the period for choosing the rule)
+
+- The law fits within 1.5 deviations of the forward and is thin beyond: the model's middle sits
+  inside the band out to 1.5 deviations (median place -0.7 to +0.1 half spreads) and 1.7 to 3.4
+  half spreads under the market's mid beyond. 74% of all middles in band on fresh paths, 59% out
+  of the money.
+- Single contracts picked where the quote is on the wrong side of the model's value: 1847 picks,
+  87% of them sales; +10.0 bp a day with the model's hedge (t 3.9), and on the selling side no
+  better than the contracts not picked (-4.5 bp a day, t -0.7). The profit is the premium for
+  selling options, which every out-of-the-money sale earned in that period (+15 bp a day).
+- The model's hedge against a Black delta with the same one-day lag, same trades: -0.3 bp a day
+  (t -0.3), the same deviation of a trade's P&L (64 against 61 bp). Without the lag the Black
+  delta leaves 37 bp: the lag costs more than the hedger adds.
+- Does the model's middle say which contracts are rich (`bt-fm.py`, liquid out-of-the-money
+  contracts, beside moneyness, days and side)? Slope +0.63 (t 1.1; a Black delta's P&L 1.8).
+  The richest fifth sold against the cheapest bought: +0.09 deviations at the mid (t 1.8),
+  +0.05 at bid and ask (t 1.0).
+- The best deal under the law (`bt-deal.py`: the holdings of out-of-the-money books with the
+  most mean profit per deviation, scaled to a model deviation of 10 bp): seen on 75 days, +2.06
+  bp a trade realised at a deviation of 3.8 (t 4.5), +1.28 entered a day late, unrelated to the
+  premium of selling everything (correlation 0.06). It is the sale of options 1.5 to 5
+  deviations out at a median price of 13 cents, where the law is thin: without its three
+  best-liked holdings a day it makes nothing (-0.3). Not a finding until the law fits there;
+  a deal among the liquid contracts within 1.5 deviations is fitted from here on.
+- A short straddle hedged with the chain's other contracts as the law chooses them (bought at
+  the ask, sold at the bid, held): the deviation of its realised P&L across days is 46 to 81 bp
+  for the five expiries, against 130 to 188 with a Black delta alone and 108 to 200 with a
+  Black vega hedge in the next expiry's straddle; the hedge's spreads cost 5 to 12 bp.
+
+Seed 2 and 2023-01 to 2025-11 are being fitted.
