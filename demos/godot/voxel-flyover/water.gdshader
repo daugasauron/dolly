@@ -50,9 +50,8 @@ void fragment() {
 	float here = ripples(p, wide);
 	float calm = 1.0 / (1.0 + length(VERTEX) * 0.01);
 	vec2 slope = vec2(ripples(p + vec2(0.4, 0.0), wide) - here, ripples(p + vec2(0.0, 0.4), wide) - here) * 0.9 * calm;
-	// The swell rolls where the sea is deep, and is seen from farther than the ripples are; from 7,000
-	// units up, where the far grids' level sea takes over from this one (main.gd), it is not seen.
-	float open = smoothstep(2.0, 10.0, depth) * (1.0 - smoothstep(8.0, 30.0, wide)) * (1.0 - smoothstep(4000.0, 7000.0, eye.y));
+	// The swell rolls where the sea is deep, and is seen from farther than the ripples are.
+	float open = smoothstep(2.0, 10.0, depth) * (1.0 - smoothstep(8.0, 30.0, wide));
 	float crest = open > 0.0 ? swell(p) : 0.0;
 	if (open > 0.0) {
 		slope += vec2(swell(p + vec2(1.5, 0.0)) - crest, swell(p + vec2(0.0, 1.5)) - crest) * 0.22 * open;
@@ -105,10 +104,22 @@ void fragment() {
 	float shore_foam = foam * (1.0 - smoothstep(0.0, 0.3, horses));
 	float sparks = smoothstep(0.75, 0.95, noise(p * 0.9 + vec2(clock * 0.4, -clock * 0.3))) * (1.0 - smoothstep(0.3, 1.2, wide)) * exp(-depth * 0.08);
 	vec3 emission = vec3(0.1, 0.7, 0.9) * shore_foam * here * night * 0.9 * (1.0 - floe) + vec3(0.05, 0.9, 0.75) * alight * (3.0 * shore_foam + 1.5 * sparks + 0.5 * exp(-depth * 0.25)) + vec3(1.0, 0.55, 0.16) * pulse_light(p) * (0.4 + 0.8 * night);
+	vec3 up_seen = normalize((VIEW_MATRIX * vec4(lift_way(p, vec3(0.0, 1.0, 0.0)), 0.0)).xyz);
+	// From 5,000 units up the near sea becomes the far grids' sea, which takes over from it in grid
+	// 2's square at 7,200 (main.gd): level, without its foam, its colour, ice and gloss as
+	// land.gdshader's, so nothing changes when the one gives way to the other.
+	float far_look = smoothstep(5000.0, 7000.0, eye.y);
+	if (far_look > 0.0) {
+		float ice = max(winter * smoothstep(0.52, 0.42, warmth) * 0.5, smoothstep(0.16, 0.06, warmth));
+		vec3 far_sea = mix(mix(over_sand, over_deep, 1.0 - exp(-depth * mix(0.2, 0.13, tropic))), vec3(0.6, 0.7, 0.82), ice) * cloud_shade(world_position);
+		ALBEDO = mix(ALBEDO, far_sea, far_look);
+		ROUGHNESS = mix(ROUGHNESS, mix(0.34, 0.55, ice), far_look);
+		emission = mix(emission, vec3(1.0, 0.55, 0.16) * pulse_light(p) * (0.4 + 0.8 * night), far_look);
+		NORMAL = normalize(mix(NORMAL, up_seen, far_look));
+	}
 	vec3 albedo = ALBEDO;
 	float roughness = ROUGHNESS;
 	float specular = SPECULAR;
-	vec3 up_seen = normalize((VIEW_MATRIX * vec4(lift_way(p, vec3(0.0, 1.0, 0.0)), 0.0)).xyz);
 	float level = from_above(world_position, wide, up_seen, VIEW, albedo, emission, roughness, specular);
 	ALBEDO = albedo;
 	EMISSION = emission;
