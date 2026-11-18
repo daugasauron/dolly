@@ -76,6 +76,11 @@ same theme and colors as other stuff."
   `csp`, `microphone` and `gpu-indicator` browser tests in Chrome and Firefox; `test:source`.
 - The video again (take 4, 2:50): no Save element at any moment of the take (the page watched for
   one), the refusals at the top right in the notes' look.
+- Round 018k's suites failed on `clip`, a core package their checks did not name (`b095b55d6`):
+  `test/dolly.artifacts.mjs` now maps it to `/usr/bin/clip`, and `test/clipboard-browser.mjs`
+  installs it and copies a typed pipeline's text to the browser's clipboard with it, which
+  `test/amy-browser.mjs` names. Both browser tests pass in Chrome and Firefox; the sealed-snapshot
+  test passes over the 85 images this tree holds.
 
 ## Design, as decided
 
