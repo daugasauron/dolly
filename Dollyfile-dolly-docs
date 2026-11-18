@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # The platform as a program sees it: the documents and machine contracts of
 # this release at their repository paths, so their links to each other work.
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
-SOURCE /docs/process-model.md a47b360d0036e741985bbc4ec6c384392100c13532720a27b02af95dbf94cd0d /usr/share/doc/dolly/docs/process-model.md
+SOURCE /docs/process-model.md 3ddc4cc580e6dd947dc4f124915b6a8fefa8c37f563357909b41f31dfa1a0456 /usr/share/doc/dolly/docs/process-model.md
 SOURCE /docs/browser-stack.md 175383a5395dc62708fe9e1374ed929f1cf2bd0b7ddd9f53b423de20b6dbe665 /usr/share/doc/dolly/docs/browser-stack.md
 SOURCE /docs/slop.md d49e5a151195ebb4b99c7ed0fac25343064a91f55d79c19df22137d14ff8b9a8 /usr/share/doc/dolly/docs/slop.md
 SOURCE /docs/display.md 086682d5de8cbfa753b6df783d4d09868995273a42e9418443d4013bbe4c5928 /usr/share/doc/dolly/docs/display.md

@@ -23,11 +23,11 @@ REQUIRES HOST threads@0
 #   spirv-wgsl packages; no OpenGL or Vulkan backend.
 # - Dolly claims no x86 or ARM: Cycles builds its scalar kernel and its own
 #   BVH (Embree off, as in the lite configuration).
-# - PYTHON_LINKFLAGS, by default ELF's -Xlinker -export-dynamic: what
-#   libpython's built-in modules link, and cc --dolly-cast-emulation, since
-#   Blender defines Python methods taking no arguments with one parameter,
-#   which CPython calls with two. Such a program loads only extension modules
-#   linked so too, and is a host of none without -rdynamic.
+# - PYTHON_LINKFLAGS, by default ELF's -Xlinker -export-dynamic: -rdynamic,
+#   what libpython's built-in modules link, and cc --dolly-cast-emulation,
+#   since Blender defines Python methods taking no arguments with one
+#   parameter, which CPython calls with two. Such a program loads only
+#   extension modules linked so too: Blender's NumPy (below).
 # - Brotli for FreeType, which Blender puts on the link line only with its
 #   precompiled libraries.
 FROM /demos/blender/Dollyfile-blender-deps 9ad42ac72388394c12fe4b6e04b54f9cb062e1fc3c2afdc0789de7865c5e0425
@@ -40,9 +40,27 @@ USE /Dollyfile-libdolly-clipboard 99746a8bd9b9eb136098753ccc526ac94a14540e6d2608
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL patch
+REQUIRES TOOL pip
 REQUIRES TOOL python3
 REQUIRES TOOL wasm-opt
 REQUIRES TOOL mkdir
+
+# NumPy, which the glTF add-on and others import, as Blender's own releases
+# carry it: built as the numpy package's (demos/python) and linked with cc
+# --dolly-cast-emulation, into Blender's scripts/modules, which its Python
+# searches before python's site-packages, where the numpy package serves python.
+USE /demos/tools/Dollyfile-meson 1b12743f4d6bbb9cd96b6088dd4b61d4de8915f4df0a52414ae2177726dde8b9
+SOURCE /dist/static/python-data/numpy-2.5.4.tar.gz 9a94cf751c9ad8ebaa835bcd3d40dacf8534ad086b88c38029b65123c7999d2a /tmp/numpy/numpy-2.5.4.tar.gz
+SOURCE /dist/static/python-data/meson_python-0.22.1-py3-none-any.whl 258fde948cf45aab5df23fcc9e17a9050ee73d4e1002fe6cf86519f61c414778 /tmp/numpy/meson_python-0.22.1-py3-none-any.whl
+SOURCE /dist/static/python-data/cython-3.3.1-py3-none-any.whl 61abc7feedd20dac6c4ff7ab3a30e17136a067b242ab9253e2b4a6d9a72c2b61 /tmp/numpy/cython-3.3.1-py3-none-any.whl
+SOURCE /dist/static/python-data/pyproject_metadata-0.12.1-py3-none-any.whl f7162d580a96386a8eb096da06215f981f547d1490f03055ef99e323bc2da427 /tmp/numpy/pyproject_metadata-0.12.1-py3-none-any.whl
+SOURCE /dist/static/python-data/packaging-26.3-py3-none-any.whl d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c /tmp/numpy/packaging-26.3-py3-none-any.whl
+SLOP pip install --no-index --no-deps --no-compile --find-links /tmp/numpy meson-python cython pyproject-metadata packaging
+SLOP LDFLAGS=--dolly-cast-emulation pip install --no-index --no-build-isolation --no-deps --no-compile --no-cache-dir \
+  --root /tmp/numpy/root /tmp/numpy/numpy-2.5.4.tar.gz
+SLOP mkdir -p /usr/share/blender/5.3/scripts/modules
+SLOP CWD /tmp/numpy/root/usr/lib/python3.14/site-packages cp -R numpy numpy-2.5.4.dist-info /usr/share/blender/5.3/scripts/modules
+SLOP rm -rf /tmp/numpy
 
 SOURCE /dist/static/blender/blender.tar.gz 5ddc7af7a05d10d42c7ece68fc620dd160b85eaf1482f70a97cf066a57fe039a /tmp/blender.tar.gz
 SLOP gzip -dc /tmp/blender.tar.gz | tar -xf - -C /
@@ -53,7 +71,7 @@ SLOP time cmake -S /tmp/blender/source -B /tmp/blender/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
   -DCMAKE_C_FLAGS=-pthread -DCMAKE_CXX_FLAGS=-pthread \
-  "-DPYTHON_LINKFLAGS=--dolly-cast-emulation -lffi -llzma -lbz2 -lsqlite3 -lcurl -L/usr/lib/python3.14/embed -lpyexpat -lHacl_Hash_BLAKE2 -lHacl_Hash_MD5 -lHacl_Hash_SHA1 -lHacl_Hash_SHA2 -lHacl_Hash_SHA3" \
+  "-DPYTHON_LINKFLAGS=-rdynamic --dolly-cast-emulation -lffi -llzma -lbz2 -lsqlite3 -lcurl -L/usr/lib/python3.14/embed -lpyexpat -lHacl_Hash_BLAKE2 -lHacl_Hash_MD5 -lHacl_Hash_SHA1 -lHacl_Hash_SHA2 -lHacl_Hash_SHA3" \
   "-DCMAKE_EXE_LINKER_FLAGS=-lbrotlidec -lbrotlicommon" \
   -DWITH_HEADLESS=OFF -DWITH_GHOST_DOLLY=ON -DWITH_GHOST_WAYLAND=OFF -DWITH_GHOST_X11=OFF -DWITH_GHOST_SDL=OFF \
   -DWITH_OPENGL_BACKEND=OFF -DWITH_VULKAN_BACKEND=OFF -DWITH_WEBGPU_BACKEND=ON \
@@ -65,9 +83,9 @@ SLOP time cmake -S /tmp/blender/source -B /tmp/blender/build \
 SLOP time make -C /tmp/blender/build -j4
 SLOP cmake --install /tmp/blender/build
 
-# Its Python, the default scene, and that scene rendered by Cycles to a PNG.
-SLOP CWD /tmp test "$(blender -b --python-expr 'import bpy, sys; print("check", bpy.app.version_string, sys.platform, [o.name for o in bpy.data.objects])' | grep check)" = \
-  "check 5.3.0 dolly ['Camera', 'Cube', 'Light']"
+# Its Python with NumPy, the default scene, and that scene rendered by Cycles to a PNG.
+SLOP CWD /tmp test "$(blender -b --python-expr 'import bpy, sys, numpy; print("check", bpy.app.version_string, sys.platform, numpy.__version__, [o.name for o in bpy.data.objects])' | grep check)" = \
+  "check 5.3.0 dolly 2.5.4 ['Camera', 'Cube', 'Light']"
 FILE /tmp/blender/render.py
     import bpy
     scene = bpy.context.scene
