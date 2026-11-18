@@ -36,7 +36,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
-SOURCE /dist/static/zero-ad-build/deps.tar.gz 18922d6461ca5e99d0c62930aae4c3f7f65f5c19d20fe98a711e225e9e8c3048 /tmp/zad/deps.tar.gz
+SOURCE /dist/static/zero-ad-build/deps.tar.gz b13d056455b3e0686aec5cc804fea002951bfd593aa9a4a79df08efe23b20c0a /tmp/zad/deps.tar.gz
 SLOP gzip -dc /tmp/zad/deps.tar.gz | tar -xf - -C /
 # Licences of the libraries the engine links; zero-ad copies them.
 FOLDER /usr/share/licenses

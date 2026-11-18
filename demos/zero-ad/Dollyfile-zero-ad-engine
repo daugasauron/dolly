@@ -13,7 +13,7 @@ REQUIRES HOST threads@0
 
 # Build-only: the 0 A.D. engine (pyrogenesis), built by the Makefiles premake
 # generates from upstream's scripts, with Dolly's c++.
-FROM /demos/zero-ad/Dollyfile-zero-ad-deps 92c500eb429524fe8b2325a1b4db7224353e9b028ecfbec72fb0633a9911613a
+FROM /demos/zero-ad/Dollyfile-zero-ad-deps c5c30d2ee9d5199fcf59b274e592571da98b6173552b03f2fa10b931df2994ed
 INSTALL /demos/zero-ad/Dollyfile-premake 5316e026cd4164b3793fdfa9e5074f781d6d154b0a4c0600cf3930f86b0698a1
 INSTALL /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
 INSTALL /Dollyfile-libdolly-audio a4064796256e039400d5ea30faae6dfeccb9c09d62a8b6dd09daebc16fbf1f7f
