@@ -411,6 +411,28 @@
      case GPU_BACKEND_ANY:
        break;
    }
+--- a/source/blender/windowmanager/intern/wm.cc
++++ b/source/blender/windowmanager/intern/wm.cc
+@@ -39,6 +39,8 @@
+ #include "BKE_screen.hh"
+ #include "BKE_workspace.hh"
+ 
++#include "GPU_context.hh"
++
+ #include "PRF_profile.hh"
+ 
+ #include "WM_api.hh"
+@@ -519,6 +521,10 @@
+ 
+     /* Initialize GPU backend for GHOST before opening windows. */
+     WM_init_gpu_backend();
++    if (GPU_backend_type_selection_get() == GPU_BACKEND_NONE) {
++      fprintf(stderr, "Blender found no GPU backend to draw its window; -b runs without one.\n");
++      exit(EXIT_FAILURE);
++    }
+ 
+     /* Case: no open windows at all, for old file reads. */
+     wm_window_ghostwindows_ensure(wm);
 --- a/source/blender/windowmanager/intern/wm_window.cc
 +++ b/source/blender/windowmanager/intern/wm_window.cc
 @@ -2436,6 +2436,8 @@

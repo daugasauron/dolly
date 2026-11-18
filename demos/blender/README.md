@@ -34,11 +34,34 @@ blender -b --python script.py -- arguments
 - Images are written as PNG, JPEG, TIFF and OpenEXR (OpenImageIO), with
   OpenColorIO's colour management.
 
+## The window
+
+`blender` without `-b` opens Blender's window on the page, where the browser
+grants WebGPU; `blender-ui` opens it at once. Two parts of the port draw it:
+
+- **A GHOST system for Dolly** ([`ghost/`](ghost)): one window at a time fills
+  the page (`display@0`); keys, text, the pointer, the wheel and focus are
+  `input@0`'s records as GHOST's events (letters by the layout's key, the rest
+  by the key's place); the clipboard is `clipboard@0`'s; Blender's standard
+  cursors are the page's CSS ones.
+- **A WebGPU backend of Blender's GPU module** ([`webgpu/`](webgpu)), on
+  `gpu@0`, as the Godot port's renderer is: Blender's GLSL, generated as its
+  Vulkan backend writes it, is compiled to SPIR-V by glslang and translated to
+  WGSL by `spirv-wgsl`; textures, buffers, pipelines and passes are `gpu@0`'s
+  explicit records, every object counted in its quota. Frames are drawn into a
+  texture of the window's own and drawn upright onto the page's surface.
+
+The interface draws whole (widgets, text, icons, the splash's image), and the
+3D view shows the default scene in Workbench's solid mode, with the selected
+cube's outline, the camera, the light and the navigation gizmo.
+
 ## Limits
 
-- No interface: the program is built with `WITH_HEADLESS` and neither an
-  OpenGL nor a Vulkan backend, so EEVEE and Workbench, which draw on a GPU, do
-  not render. Cycles on the CPU is the renderer.
+- In the 3D view, the floor grid draws only towards the horizon, without its
+  axes; curves, point clouds, Grease Pencil and Gaussian splats do not draw
+  (their shaders read a texel buffer, which WebGPU lacks); EEVEE is not tried.
+- Where the browser grants no WebGPU, Blender says it found no GPU backend
+  and quits; `blender -b` works everywhere.
 - It is linked through cast emulation (below), so it loads no Python extension
   module: `import numpy` inside Blender fails, and with it the add-ons that
   need NumPy (glTF), and `import ctypes` fails with `MemoryError`, as such a

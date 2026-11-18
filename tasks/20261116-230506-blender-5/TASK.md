@@ -36,6 +36,16 @@ the surface's pass is its own small submission (a batch continued in a second pa
 show the canvas between them, which destroys its texture). Left visible: the floor grid draws only
 towards the horizon, without its axes.
 
+12:00, the same on the NVIDIA adapter in Chrome (`nvidia blackwell`). Then (SwiftShader): the
+polyline and armature shaders translate (Blender's shader preprocessor spells NaN out as
+`uintBitsToFloat(0x7FC00000u)`, which the source now reads from a private variable), and the
+selected cube has its outline: `texture()`/`textureLod()` of an integer 2D sampler, which WGSL
+cannot sample, read the texel at the point, and a vertex shader writes its position into a
+variable stored once at its end (spirv-wgsl negates y on each store to the position, and the
+grid's and outlines' lines read their position back). 13 shaders do not translate, all for
+curves, point clouds, Grease Pencil or Gaussian splats: their `samplerBuffer` is a texel buffer,
+which WebGPU lacks (a storage buffer read by index would replace it).
+
 Found in Dolly's provider, fixed with the port:
 - A shader or pipeline released in the batch that creates it, before its compilation is known,
   failed the batch (`resource.value` was still null); `gpu-explicit.c` releases one so.
