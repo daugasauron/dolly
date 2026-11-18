@@ -65,6 +65,9 @@ static int listed(const char *text) {
   return count;
 }
 
+/* The children the orphans and adopting modes leave running. */
+static int abandoned(void) { return listed(" foreground-exit") + listed(" adopted"); }
+
 static int read_byte(int descriptor, char expected) {
   struct pollfd ready = {descriptor, POLLIN, 0};
   if (poll(&ready, 1, 5000) != 1) return 0;
@@ -400,9 +403,10 @@ int main(int argc, char **argv) {
   CHECK(fscanf(adopted, "%*d %*d %*d %*d %d %d", &first_parent, &last_parent) == 2 &&
         first_parent == parent && last_parent == 0);
   CHECK(fclose(adopted) == 0 && waitpid(parent, &status, 0) == parent && WIFEXITED(status) && WEXITSTATUS(status) == 0);
-  // The children they abandoned live on, and are reaped when they end.
-  for (int tenth = 0; tenth < 100 && listed(" foreground-exit") != 0; ++tenth) usleep(100000);
-  CHECK(listed(" foreground-exit") == 0);
+  // The children they abandoned live on, and are reaped when they end: the
+  // adopted one too, which may still be ending once its line is read.
+  for (int tenth = 0; tenth < 100 && abandoned() != 0; ++tenth) usleep(100000);
+  CHECK(abandoned() == 0);
   // No more than RLIMIT_NPROC processes exist: the ones /proc/processes lists
   // and the exited ones nobody has waited for. A spawn past them is EAGAIN,
   // from the kernel's table when the others have exited unwaited and from the
