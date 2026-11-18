@@ -562,7 +562,10 @@ void WGPUContext::present()
     GPUSamplerState nearest = GPUSamplerState::default_sampler();
     present_group_ = group(blit_.layout, frame.sampled_view(), wgpu_sampler(nearest, true));
   }
-  passes_end();
+  /* The frame's drawing is submitted first, so that the surface's pass and its SUBMIT are one
+   * small batch: a batch continued in another packet lets the page show the canvas in between,
+   * which expires its texture. */
+  device.submit();
   uint8_t *p = device.command(DOLLY_GPU_BEGIN_VIEW_PASS, 64 + 40);
   wgpu_put32(p, 16, 1);
   wgpu_put32(p, 20, width_);

@@ -1,9 +1,10 @@
 # Blender
 
-Blender 5.3.0 from upstream's release archive, built headless inside Dolly by
-its own CMake project, as the `blender` package: `blender -b` with its Python
-and Cycles on the CPU. The plan beyond it (the interface, a WebGPU backend for
-Blender's GPU module) is in the tasks tagged `blender`.
+Blender 5.3.0 from upstream's release archive, built inside Dolly by its own
+CMake project, as the `blender` package: its window on the page, drawn by a
+WebGPU backend of Blender's GPU module on `gpu@0`, and `blender -b` with its
+Python and Cycles on the CPU. The stages and what is left are in the tasks
+tagged `blender`.
 
 ## Images
 

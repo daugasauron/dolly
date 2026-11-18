@@ -94,9 +94,12 @@ static std::string glsl_patch(const char *stage_define)
   ss << "#define GPU_PROVOKING_VERTEX_LAST\n";
   ss << stage_define;
   GeneratedSourceList sources{GeneratedSource{"gpu_shader_glsl_extension.glsl", {}, ss.str()}};
-  return fmt::to_string(
-      fmt::join(gpu_shader_dependency_get_resolved_source("gpu_shader_compat_glsl.glsl", sources),
-                ""));
+  /* WGSL has no NaN constant: NaN is read from a private variable, which nothing folds. */
+  return fmt::to_string(fmt::join(
+             gpu_shader_dependency_get_resolved_source("gpu_shader_compat_glsl.glsl", sources),
+             "")) +
+         "\nuint dolly_nan_bits = 0x7FC00000u;\n#undef NAN_FLT\n"
+         "#define NAN_FLT uintBitsToFloat(dolly_nan_bits)\n";
 }
 
 /** \} */
@@ -1168,6 +1171,8 @@ bool WGPUShader::translate(const ShaderCreateInfo & /*info*/)
       continue;
     }
     uint8_t *p = device.create(DOLLY_GPU_CREATE_SHADER, 24 + uint32_t(wgsl[stage].size()), modules_[stage]);
+    CLOG_DEBUG(&LOG, "shader \"%s\" stage %d: module %llu, %zu bytes of WGSL", name, int(stage),
+               (unsigned long long)modules_[stage], wgsl[stage].size());
     wgpu_put32(p, 16, uint32_t(wgsl[stage].size()));
     memcpy(p + 24, wgsl[stage].data(), wgsl[stage].size());
   }

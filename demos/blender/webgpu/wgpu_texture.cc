@@ -172,6 +172,51 @@ bool wgpu_format_is_renderable(uint32_t gpu_format)
          !(gpu_format == 10 || gpu_format == 16 || gpu_format == 25 || gpu_format >= 57);
 }
 
+/* WebGPU's storage texture formats: the core's, and with texture-formats-tier1 the 8- and 16-bit
+ * one- and two-channel formats, the normalized 16-bit and the packed ones. */
+static bool wgpu_format_is_storable(uint32_t gpu_format)
+{
+  switch (gpu_format) {
+    case 1:
+    case 19:
+    case 20:
+    case 21:
+    case 25:
+    case 26:
+    case 27:
+    case 34:
+    case 35:
+    case 36:
+    case 37:
+    case 38:
+    case 39:
+    case 40:
+    case 41:
+    case 42:
+      return true;
+    case 3:
+    case 4:
+    case 10:
+    case 11:
+    case 12:
+    case 13:
+    case 14:
+    case 15:
+    case 16:
+    case 17:
+    case 18:
+    case 22:
+    case 23:
+    case 24:
+    case 31:
+    case 32:
+    case 33:
+      return wgpu_device().has_feature(WGPU_FEATURE_TIER1);
+    default:
+      return gpu_format >= 57 && gpu_format <= 62 && wgpu_device().has_feature(WGPU_FEATURE_TIER1);
+  }
+}
+
 bool wgpu_format_is_integer(uint32_t gpu_format)
 {
   switch (gpu_format) {
@@ -406,9 +451,7 @@ bool WGPUTexture::init_internal()
   if (renderable_) {
     usage |= WGPU_TEXTURE_ATTACHMENT;
   }
-  if ((gpu_image_usage_flags_ & GPU_TEXTURE_USAGE_SHADER_WRITE) && !(format_flag_ & GPU_FORMAT_SRGB) &&
-      !(format_flag_ & GPU_FORMAT_DEPTH))
-  {
+  if ((gpu_image_usage_flags_ & GPU_TEXTURE_USAGE_SHADER_WRITE) && wgpu_format_is_storable(gpu_format_)) {
     usage |= WGPU_TEXTURE_STORAGE;
   }
   WGPUDevice &device = wgpu_device();
@@ -471,7 +514,8 @@ uint64_t WGPUTexture::view(uint32_t dimension,
   uint64_t handle;
   uint8_t *p = device.create(DOLLY_GPU_CREATE_VIEW, 56, handle);
   wgpu_put64(p, 16, this->handle());
-  wgpu_put32(p, 24, format);
+  /* A view of one aspect takes that aspect's format, which WebGPU derives. */
+  wgpu_put32(p, 24, (aspect != 0 || format == gpu_format_) ? 0 : format);
   wgpu_put32(p, 28, dimension);
   wgpu_put32(p, 32, aspect);
   wgpu_put32(p, 36, uint32_t(mip));

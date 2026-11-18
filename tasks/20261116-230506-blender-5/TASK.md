@@ -10,10 +10,38 @@ module). Stage 4, the window system, is
 
 ## State (2026-11-18)
 
-Planned (below), not coded. The owner (2026-11-18): "Yes go directly to hardware accelerated for
-blender. Do it in the same way as godot, and learn from that." So stage 4's OpenGL interface on
-softpipe is skipped: its GHOST system (window, input, clipboard, event loop) is built for this
-backend, on branch `port/blender-ui` (`work/blender-ui`).
+The owner (2026-11-18): "Yes go directly to hardware accelerated for blender. Do it in the same
+way as godot, and learn from that." So stage 4's OpenGL interface on softpipe is skipped: its
+GHOST system (window, input, clipboard, event loop) is built for this backend, on branch
+`port/blender-ui` (`work/blender-ui`).
+
+Written and compiling (`demos/blender/webgpu`, 4,300 lines with the GLSL generation taken from
+`vk_shader.cc`): every class of the plan's table, the backend's own WGSL for present, scissored
+clears and mipmaps. Blender links with it (118 MB) and opens its window on gpu@0. First run, in
+headless Chrome's SwiftShader (09:00): the device was lost in the first batches ("Device was
+destroyed", a shader module's compilation dropped), the window stayed black, and Blender could
+not be interrupted (GHOST had cleared ISIG, now left as it is). Second run (10:20): Blender's
+startup compiles 300 shaders and sends nine frames, 0.7 MB of records each, in 0.1 s, then
+quits on its timer; two shaders do not translate: the polyline's (a NaN constant, which WGSL
+cannot spell: NaN now comes from a private variable) and the Gaussian splats' overlay
+(`samplerBuffer`, a texel buffer WebGPU lacks). Normals are 16-bit (`use_hq_normals_workaround`):
+WebGPU has no signed 10-10-10-2 vertex format.
+
+11:20, SwiftShader on Xvfb (headless Chrome's `--disable-gpu` has no backing for a WebGPU canvas
+and loses the device at the first frame): the whole interface draws, with its text, icons, the
+splash's image, the outliner and properties, and the 3D view draws the default cube in Workbench's
+solid mode with the camera, light and navigation gizmo. Fixed for it: a view of one aspect of a
+depth-stencil texture takes the aspect's format; storage usage only for WebGPU's storage formats;
+the surface's pass is its own small submission (a batch continued in a second packet lets the page
+show the canvas between them, which destroys its texture). Left visible: the floor grid draws only
+towards the horizon, without its axes.
+
+Found in Dolly's provider, fixed with the port:
+- A shader or pipeline released in the batch that creates it, before its compilation is known,
+  failed the batch (`resource.value` was still null); `gpu-explicit.c` releases one so.
+- After a device loss, a batch waiting for a frame slot (`queueFull`, three frames unshown)
+  waited forever: the page stops counting animation frames for an inactive surface. The loss
+  now lets those frames go.
 
 ## What Godot's port teaches (2026-11-18)
 

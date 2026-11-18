@@ -206,6 +206,12 @@ bool WGPUDevice::submit()
   if (end_passes) {
     end_passes();
   }
+  CLOG_DEBUG(&LOG,
+             "submission %llu: %zu bytes of objects, %zu of commands, %zu of releases",
+             (unsigned long long)submission_,
+             objects_.size(),
+             commands_.size(),
+             releases_.size());
   bool ok = send_list(objects_);
   objects_.clear();
   if (!commands_.empty()) {
@@ -330,6 +336,8 @@ void WGPUBackend::capabilities_init()
   GCaps.srgb_write_direct_support = true;
   GCaps.srgb_write_view_support = false;
   GCaps.texture_pool_workaround = true;
+  /* WebGPU has no signed 10-10-10-2 vertex format: normals are 16-bit. */
+  GCaps.use_hq_normals_workaround = true;
   /* Shaders are compiled where they are asked for: the device's records are the main thread's. */
   GCaps.use_main_context_workaround = true;
   GCaps.max_parallel_compilations = 0;
