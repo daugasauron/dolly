@@ -88,7 +88,9 @@ void sky() {
 	// camera's column thinned by its height, or for a ray that dips toward the planet the whole
 	// passage around its nearest point less what lies behind the camera.
 	// The moon has no air: its sky is black by day, and nothing in it is the air's.
-	float air = on_moon ? 0.0 : 1.0;
+	// Nor, as the far grids go (near_shown), has the planet seen from far over it: there the sky draws it, as
+	// it does from the moon.
+	float air = on_moon ? 0.0 : 1.0 - near_shown;
 	float thinned = exp(-max(eye_height, 0.0) / AIR) * air;
 	float grazing = sqrt(1.5708 * from_middle / AIR);
 	float thick = thinned * grazing / (grazing * abs(EYEDIR.y) + 1.0);
@@ -134,19 +136,22 @@ void sky() {
 	colour += sun * smoothstep(disc, disc + 0.0004, toward) * 14.0 * behind;
 	float dark = max(1.0 - smoothstep(-0.3, -0.06, sun_height), 1.0 - air_seen);
 	if (!AT_CUBEMAP_PASS && dark * behind > 0.0 && up > 0.0) {
-		vec3 cell = floor(EYEDIR * 300.0);
+		// The stars are fixed in the worlds' axes, not the chart's: they stay where they are when the
+		// flight crosses to the other world, whose chart's axes are others.
+		vec3 star_way = sky_axes * EYEDIR;
+		vec3 cell = floor(star_way * 300.0);
 		float star = step(0.9965, star_hash(cell)) * star_hash(cell + 7.0);
 		colour += vec3(0.9, 0.93, 1.0) * star * dark * smoothstep(0.0, 0.25, up) * (3.0 + 2.0 * sin(clock * 3.0 + star * 90.0));
 		// A river of stars across the sky: a band of faint light with dark lanes in it, and
 		// in it many more and fainter stars.
 		vec3 pole = normalize(vec3(0.55, 0.45, -0.7));
 		vec3 across = normalize(cross(pole, vec3(0.0, 1.0, 0.0)));
-		float off_band = dot(EYEDIR, pole);
+		float off_band = dot(star_way, pole);
 		float band = exp(-off_band * off_band * 22.0) * smoothstep(0.0, 0.25, up) * dark;
-		vec2 along = vec2(atan(dot(EYEDIR, cross(pole, across)), dot(EYEDIR, across) + 0.0001) * 4.0, off_band * 9.0);
+		vec2 along = vec2(atan(dot(star_way, cross(pole, across)), dot(star_way, across) + 0.0001) * 4.0, off_band * 9.0);
 		float lanes = smoothstep(0.25, 0.7, noise(along * 1.7 + 3.0) * 0.6 + noise(along * 4.3) * 0.4);
 		colour += mix(vec3(0.05, 0.07, 0.16), vec3(0.16, 0.12, 0.2), noise(along + 20.0)) * band * lanes * 0.55;
-		vec3 fine = floor(EYEDIR * 520.0);
+		vec3 fine = floor(star_way * 520.0);
 		colour += vec3(0.85, 0.9, 1.0) * step(1.0 - 0.02 * band * lanes, star_hash(fine)) * star_hash(fine + 3.0) * 1.6;
 		// A shooting star every six seconds: a point that crosses a part of the sky in a second,
 		// with what it has just crossed still alight behind it.
@@ -156,7 +161,7 @@ void sky() {
 		vec3 way = normalize(cross(from, vec3(0.3, 1.0, 0.2)));
 		for (int trail = 0; trail < 4; trail++) {
 			vec3 head = normalize(from + way * (since - float(trail) * 0.035) * 0.5);
-			colour += vec3(0.9, 0.95, 1.0) * dark * exp(-(1.0 - dot(EYEDIR, head)) * 90000.0) * sin(clamp(since, 0.0, 1.0) * 3.1416) * (3.0 - float(trail) * 0.7);
+			colour += vec3(0.9, 0.95, 1.0) * dark * exp(-(1.0 - dot(star_way, head)) * 90000.0) * sin(clamp(since, 0.0, 1.0) * 3.1416) * (3.0 - float(trail) * 0.7);
 		}
 		// Curtains of aurora in the north.
 		vec2 plane = EYEDIR.xz / (up + 0.25);

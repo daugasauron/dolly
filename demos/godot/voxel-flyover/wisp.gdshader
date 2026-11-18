@@ -32,21 +32,25 @@ void vertex() {
 	float wide = length(MODEL_MATRIX[0].xyz);
 	// A small puff is a quarter of the cloud through.
 	float big = UV2.x > 0.5 ? 0.25 : 1.0;
-	// The puffs boil: the ball bulges in lobes that rise through it, with smaller ones on them.
-	vec3 seed = vec3(middle.x * 0.013 + UV2.y * 7.0, -clock * 0.35, middle.z * 0.013);
-	float boil = noise3(VERTEX * 1.4 + seed) * 0.5 + noise3(VERTEX * 3.6 + seed * 1.7) * 0.3 + noise3(VERTEX * 7.5 - seed) * 0.2;
-	vec3 at = VERTEX * big * (0.6 + 0.95 * boil);
-	if (UV2.x > 0.5) {
-		// On a tilted round half again as wide as the cloud.
-		float round = clock * 0.7 + UV2.y * 2.0944;
-		at += vec3(cos(round), 0.3 * sin(round + UV2.y * 1.7), sin(round)) * 1.55;
-	}
 	inside = VERTEX * big;
 	// A cloud that is not there has no size; one comes and goes by degrees. Far off, past 250
-	// times its radius, it fades out of sight, so none comes at once.
+	// times its radius, it fades out of sight, so none comes at once. One of no size is a point,
+	// and its puffs are not worked out.
 	vec3 drawn = lift(middle);
 	float far = length((VIEW_MATRIX * vec4(drawn, 1.0)).xyz) / wide;
 	float size = smoothstep(0.0, 0.3, glow) * (1.0 - smoothstep(250.0, 300.0, far));
+	vec3 at = vec3(0.0);
+	if (size > 0.0) {
+		// The puffs boil: the ball bulges in lobes that rise through it, with smaller ones on them.
+		vec3 seed = vec3(middle.x * 0.013 + UV2.y * 7.0, -clock * 0.35, middle.z * 0.013);
+		float boil = noise3(VERTEX * 1.4 + seed) * 0.5 + noise3(VERTEX * 3.6 + seed * 1.7) * 0.3 + noise3(VERTEX * 7.5 - seed) * 0.2;
+		at = VERTEX * big * (0.6 + 0.95 * boil);
+		if (UV2.x > 0.5) {
+			// On a tilted round half again as wide as the cloud.
+			float round = clock * 0.7 + UV2.y * 2.0944;
+			at += vec3(cos(round), 0.3 * sin(round + UV2.y * 1.7), sin(round)) * 1.55;
+		}
+	}
 	VERTEX = (VIEW_MATRIX * vec4(drawn + at * wide * size, 1.0)).xyz;
 	// Lit as a soft ball: the lobes do not darken its sides.
 	NORMAL = normalize((VIEW_MATRIX * vec4(normalize(inside), 0.0)).xyz);

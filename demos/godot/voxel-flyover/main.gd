@@ -771,7 +771,8 @@ func cross_bodies() -> void:
 	seen = (turned * seen).orthonormalized()
 	board_turn = (turned.get_rotation_quaternion() * board_turn).normalized()
 	trail = flyer.position + turned * (trail - old)
-	wake.fill(flyer.position)
+	for place in wake.size():
+		wake[place] = flyer.position + turned * (wake[place] - old)
 	flock_at = flyer.position
 	for chart in charts:
 		chart.set_shader_parameter("anchor_frame", Terrain.anchor)
@@ -797,8 +798,9 @@ func cross_bodies() -> void:
 
 
 ## The worlds in the sky (sky.gdshader): the other one always, and the one the flight is near once
-## it is so high over it that the far grids, which draw it, go by degrees (from two thirds of its
-## radius to nine tenths): the sky draws it behind them meanwhile, as they draw it from nearer.
+## it is so high over it that the far grids, which draw it, go by degrees (from four fifths of its
+## radius to nineteen twentieths, over where grid 5 shows again on the way down): the sky draws it
+## behind them meanwhile, as they draw it from nearer.
 func set_bodies() -> void:
 	var here := Vector2(flyer.position.x, flyer.position.z)
 	var alt := flyer.position.y + lowered
@@ -808,7 +810,7 @@ func set_bodies() -> void:
 	var far_middle := Vector3.ZERO if on_moon else moon_at
 	var to_far := sky_axes.transposed() * (far_middle - at)
 	var to_near := sky_axes.transposed() * (near_middle - at)
-	var near_shown := smoothstep(0.67, 0.93, alt / Terrain.radius)
+	var near_shown := smoothstep(0.8, 0.95, alt / Terrain.radius)
 	sky_material.set_shader_parameter("sky_axes", sky_axes)
 	sky_material.set_shader_parameter("far_way", to_far.normalized())
 	sky_material.set_shader_parameter("far_distance", to_far.length())
@@ -1564,8 +1566,11 @@ func fly(delta: float) -> void:
 		var middle := Vector2(snappedf(flyer.position.x, step), snappedf(flyer.position.z, step))
 		# A grid with a texture of its own is not drawn once the flyer is 300 of its cells high:
 		# by then it shows the coarser grid's ground (ground.gdshaderinc), which that grid then
-		# draws itself, its square filled. Its ground is drawn anew when it is next seen.
+		# draws itself, its square filled. Its ground is drawn anew when it is next seen, and it is
+		# seen from the frame after, once that drawing shows (after a crossing to the other world, the
+		# texture it kept is that world's).
 		var shown := ring >= OWN or high < 300.0 * cell
+		var waking := ring < OWN and shown and stale[ring] and not lands[ring].visible
 		if lands[ring].position.x != middle.x or lands[ring].position.z != middle.y or stale[ring]:
 			stale[ring] = not shown
 			lands[ring].position = Vector3(middle.x, 0.0, middle.y)
@@ -1576,7 +1581,7 @@ func fly(delta: float) -> void:
 			if ring + 1 < RINGS.size():
 				(lands[ring + 1].material_override as ShaderMaterial).set_shader_parameter("middle", middle)
 		if ring < OWN:
-			lands[ring].visible = shown
+			lands[ring].visible = shown and not waking
 			(lands[ring + 1].material_override as ShaderMaterial).set_shader_parameter("hole", RINGS[ring][0] * cell / 2.0 if lands[ring].visible else 0.0)
 	# The chart, and the flyer in it, for every vertex stage (terrain.gdshaderinc's lift).
 	var over_ground := Vector2(flyer.position.x, flyer.position.z)
@@ -1624,6 +1629,14 @@ func axes() -> Basis:
 ## world's up by degrees, not at once.
 func turning_over() -> bool:
 	return elapsed < crossed_at + 3.0
+
+
+## How far toward the crossing to the other world the board is: its height over this one's ground,
+## a share of its heights over both: 0 on this ground, a half where it crosses (cross_bodies).
+func crossing_share() -> float:
+	var alt := flyer.position.y + lowered
+	var other := universe_at(Vector2(flyer.position.x, flyer.position.z), alt).distance_to(Vector3.ZERO if on_moon else moon_at) - (Terrain.PLANET_RADIUS if on_moon else Terrain.MOON_RADIUS)
+	return alt / maxf(alt + other, 1.0)
 
 
 ## The corgi flies itself: a wandering course at a steady height over the ground ahead, by way
@@ -2162,8 +2175,8 @@ func tend_wisps() -> void:
 	# The burst of light that leaves a cloud flown through.
 	var bursting := elapsed - burst_at
 	burst.visible = bursting < 1.6
-	burst.scale = Vector3.ONE * burst_wide * (1.2 + 4.0 * (1.0 - exp(-bursting * 2.2)))
-	(burst.material_override as StandardMaterial3D).albedo_color.a = 0.7 * (1.0 - smoothstep(0.2, 1.6, bursting))
+	burst.scale = Vector3.ONE * burst_wide * (1.2 + 3.0 * (1.0 - exp(-bursting * 2.2)))
+	(burst.material_override as StandardMaterial3D).albedo_color.a = 0.35 * (1.0 - smoothstep(0.2, 1.6, bursting))
 	# The shaders run rings of light out over the ground from the last eight clouds flown
 	# through, every nine seconds each. They fade with a cloud's distance from the flyer, so
 	# none comes or goes at once, and with the flyer's height.
@@ -2323,9 +2336,11 @@ func follow(delta: float) -> void:
 	# From high up the camera looks down: the planet's rim lies under eye level by the dip of
 	# the horizon. Most of the dip is added to the view's pitch, and from space more than
 	# that, toward straight down: the flyer is then seen over the planet, which is near the
-	# view's middle and round in it (a sphere at a wide view's edge is drawn out).
+	# view's middle and round in it (a sphere at a wide view's edge is drawn out). Toward the
+	# crossing to the other world (cross_bodies) it looks down less, and there not at all:
+	# neither world draws it down there, so it does not turn from the one to the other.
 	var dip := acos(Terrain.radius / (Terrain.radius + maxf(flyer.position.y + lowered, 0.0)))
-	var down := smoothstep(0.03, 0.9, dip)
+	var down := smoothstep(0.03, 0.9, dip) * (1.0 - smoothstep(0.35, 0.5, crossing_share()))
 	var seen_heading := atan2(-seen.z.x, seen.z.z)
 	var frame := Basis(Vector3(cos(seen_heading), 0.0, sin(seen_heading)), -dip * 0.9 * down - (PI / 2.0 - dip) * 0.6 * down * down) * seen
 	var place := trail + frame * view * zoomed
@@ -2442,6 +2457,13 @@ func set_day() -> void:
 	var height := to_sun.y
 	var dip := acos(Terrain.radius / (Terrain.radius + maxf(flyer.position.y + lowered, 0.0)))
 	var seen := sin(minf(asin(clampf(height, -1.0, 1.0)) + dip, PI / 2.0))
+	# The other world hides the sun too where it stands before it, by degrees at its rim.
+	var from := universe_at(here, maxf(flyer.position.y + lowered, 0.0))
+	var to_other := (Vector3.ZERO if on_moon else moon_at) - from
+	var along := to_other.dot(sun_of_planet)
+	if along > 0.0:
+		var other_radius := Terrain.PLANET_RADIUS if on_moon else Terrain.MOON_RADIUS
+		seen = lerpf(seen, -0.1, smoothstep(other_radius * 1.02, other_radius * 0.98, (to_other - sun_of_planet * along).length()))
 	var out_of_air := 1.0 if on_moon else 1.0 - exp(-maxf(flyer.position.y + lowered, 0.0) / AIR)
 	var sunlight := smoothstep(-0.04, 0.12, seen)
 	var low_sun := smoothstep(-0.25, 0.0, height) * (1.0 - smoothstep(0.05, 0.45, height))

@@ -361,7 +361,8 @@ with detail its points cannot hold, and a range that rises over the horizon gain
 it nears. A grid's own detail gives way to the coarser grid's by the distance from the flyer, and by the flyer's height: 300 of its cells up a grid shows the next one's
 ground and is no longer drawn. Far grids draw the sea themselves, level, with its glint. The near
 sea, a plane 8,000 units across that follows the flyer, stands in for the first three grids, which
-draw none: it is shown while grid 2 is (to 7,200 units up), it takes the far sea's blue from out
+draw none: it is shown while grid 2 is (to 7,200 units up, its swell going from 4,000, so it is as
+level as the far grids' sea there), it takes the far sea's blue from out
 of the air and its polar ice, and its depth, foam and ice come from the ground the grids read, to
 some 2,300 units from the flyer, and past that from grid 3's, which reaches 9,000. (Until
 2026-11-18 it read the near grids' textures to its rim, where they wrap around the chart: the far
@@ -407,11 +408,14 @@ The board flies to it as it leaves the planet, faster the higher it is over the 
 Once it is nearer the moon's ground than the planet's (`cross_bodies`), the flight is near the
 moon: the moon's chart takes it, with its anchor under the board, the grids draw the moon's ground,
 and the planet is in the sky; the way back is the same. Nothing seen moves at the crossing: it
-comes far from both, some 600,000 units over each, where both are drawn by the sky (from two thirds
+comes far from both, some 600,000 units over each, where both are drawn by the sky (from four fifths
 of a world's radius over it its far grids go pixel by pixel to the sky's drawing of it,
 `set_bodies`), and what the flight carries (the way the board flies, the camera, the board as it
 is seen) is turned from the old chart's axes into the new one's. Its up is the other way there, so
-the board and the camera turn over to it by degrees in the three seconds after.
+the board and the camera turn over to it by degrees in the three seconds after. Toward the crossing
+the camera looks down at the world it is near less, and there not at all; the stars are fixed in
+the worlds' axes, not the chart's; the far world hides the sun where it stands before it; and a
+grid seen again after a crossing shows from the frame after its ground is drawn anew.
 `voxel-flyover -- --autopilot SECONDS --moon SECOND` flies by itself to the moon, down to fly low
 over its ground for fifteen seconds, and back to the planet's.
 

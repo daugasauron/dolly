@@ -36,8 +36,22 @@ Done when, each in Chrome and Firefox on the GPU, committed in this order:
    (the drag raised the nose 30 degrees, the board climbed to 201). Firefox: the flyover test failed
    on the test, Firefox refusing the mouse's move to 450 pixels over the page (900 up from the
    middle); the pull now goes from the display's foot to its top, in step 3's round.
-3. The moon: committed with its image's source; its round (both browsers, all of the above and the
-   voyage) running.
+3. The moon: `dbfea5307`. Chrome: the flyover test passed (pitch 85, the morning's cloud, a chain
+   of six to 229,049, the moon: two crossings, 80 units over its ground, 21 over the planet's after,
+   the tour to 264,720 units) and the touch test (the drag raised the nose 31 degrees, the board
+   climbed to 201). Firefox: the flyover test passed (pitch 85, the morning's cloud, a chain of six
+   to 225,522, the moon: two crossings, 70 over its ground, 21 over the planet's after, 55.9 frames a
+   second in the morning, the tour to 264,789), so steps 1 and 2 hold in Firefox too; the touch test
+   timed out before the game's 120th frame (Firefox's start-up stall, as on 2026-11-18). The GPU's
+   lock was held by another agent's loops 15 to 40 minutes at a time.
+   Recorded at a fixed 60 steps a second with every frame read back (`t-moon1`), the voyage had a
+   one-frame jump at each crossing (44 and 28 tiles of 8 by 8 in a frame): the camera turned from
+   looking down at the one world to the other, the stars (laid in the chart's axes) jumped, and
+   the wake began anew. Fixed after the commit (`t-moon2`, `t-moon3`: no jump at either crossing;
+   the turn-over is a glide of three seconds). One jump is left 3 s after the second crossing (21
+   tiles at 43.6 s), on the way down through some 7,000 units, where the near sea takes over from
+   the far grids' level sea in the sun's glare: its swell now fades from 4,000 units up; to be
+   recorded again.
 
 ## 3. The moon
 
@@ -57,8 +71,8 @@ there is no sea, fog, rain, cloud, life, chain, spire or landmark.
 The crossing (`cross_bodies`): once the board is nearer the other world's ground than this one's,
 the other world's chart takes the flight, its anchor under the board, its axes the old ones laid on
 the new up; the way the board flies, the camera and the board as seen are turned into the new
-axes. It comes some 600,000 units over each world, where both are the sky's drawings: from two
-thirds of a world's radius over it its far grids go pixel by pixel to the sky's drawing of it
+axes. It comes some 600,000 units over each world, where both are the sky's drawings: from four
+fifths of a world's radius over it its far grids go pixel by pixel to the sky's drawing of it
 (`set_bodies`, land.gdshader's `solid`). The new up is the other way, so
 the board and the camera turn to the new axes by degrees in the three seconds after the crossing.
 
