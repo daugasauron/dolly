@@ -6,7 +6,7 @@
  */
 import { DOLLY_PROCESS_ABI_DIGEST } from "../../page/generated.mjs";
 import { DOLLY_ERRNO } from "./abi.mjs";
-import { parseWasmInterface, Reader } from "../../page/wasm-interface.mjs";
+import { exportType, parseWasmInterface, Reader } from "../../page/wasm-interface.mjs";
 import { executableHostRequirements, checkHostAbi } from "../requirements.mjs";
 import { DOLLY_DSO_CLOSE, DOLLY_DSO_ERROR_CAPACITY, DOLLY_DSO_GLOBAL, DOLLY_DSO_LIMIT, DOLLY_DSO_OPEN,
   DOLLY_DSO_SYMBOL, DOLLY_DSO_THREADS_SIZE, DOLLY_DSO_WAIT, DOLLY_FFI_CALL, DOLLY_FFI_CLOSURE_FREE,
@@ -114,6 +114,22 @@ function typedSymbols(exports, values, memoryBase = 0n) {
     }
     return [entry.name, { type: entry.type, value }];
   }));
+}
+
+// The process's own symbols, as typedSymbols gives a library's, each made when
+// first asked for: an executable linked -rdynamic exports thousands, which a
+// map of them all held in each of its Workers (page/wasm-interface.mjs exportIndex).
+function processExports(index, values) {
+  const symbols = new Map();
+  return {
+    get(name) {
+      if (!symbols.has(name)) {
+        const type = exportType(index, name);
+        symbols.set(name, type && { type, value: values[name] });
+      }
+      return symbols.get(name);
+    },
+  };
 }
 
 function globalSymbol(name) {
@@ -517,7 +533,7 @@ export function serve(context) {
   configuration = context;
   instance = context.instance;
   processTable = instance.exports.__indirect_function_table;
-  processSymbols = typedSymbols(configuration.processInterface.exports, instance.exports);
+  processSymbols = processExports(configuration.processInterface.exports, instance.exports);
   // In a program using threads@0 every thread's Worker has a table of its
   // own: a call reads the same entry in each, and a host of libraries places
   // what it adds in every one (threads.mjs).
