@@ -4,6 +4,7 @@
 // it drew; the test then presses K, which the script's key map item takes, and Blender quits.
 // Usage: [DOLLY_BROWSER=firefox] node demos/blender/test/blender-gpu-browser.mjs
 import assert from "node:assert/strict";
+import { writeFileSync } from "node:fs";
 import { chromium } from "playwright-core";
 import { composed, launchInstalledFirefox } from "../../../test/browser.mjs";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
@@ -13,8 +14,9 @@ import { writeCommand } from "../../browser.mjs";
 // The window's frame once the layout has drawn: its size, the share of the interface's greys and
 // of light pixels (text, icons), and the backend; the wall clock of the 3D view's first draw;
 // redraws of the window, the 3D view and a header (what a hover redraws), each timed by
-// Blender's redraw timer; then a key map item on K, which quits.
-const check = `import array, bpy, gpu, time
+// Blender's redraw timer; then a key map item on K, which quits. Blender quits by itself after
+// four minutes (its Python takes the terminal's interrupt).
+const check = `import array, bpy, gpu, time, traceback
 
 class DOLLY_OT_key(bpy.types.Operator):
     bl_idname = "wm.dolly_key"
@@ -66,10 +68,17 @@ def frame():
     print("REDRAW window", redraw('DRAW_WIN_SWAP'), "view3d", redraw('DRAW', view),
           "header", redraw('DRAW', view, 'HEADER'), flush=True)
     print("READY", flush=True)
+
+def checked():
+    try:
+        frame()
+    except Exception:
+        print("ERROR", traceback.format_exc(), flush=True)
     keymap = bpy.context.window_manager.keyconfigs.addon.keymaps.new(name="Window", space_type="EMPTY")
     keymap.keymap_items.new("wm.dolly_key", "K", "PRESS")
 
-bpy.app.timers.register(lambda: frame() and None, first_interval=3.0)
+bpy.app.timers.register(lambda: checked() and None, first_interval=3.0)
+bpy.app.timers.register(lambda: bpy.ops.wm.quit_blender() and None, first_interval=240.0)
 `;
 
 for (const name of browsers) {
@@ -95,25 +104,22 @@ for (const name of browsers) {
     const submitted = Date.now() / 1000;
     const blender = page.evaluate(text => __dolly.submit(text), "blender --python /tmp/check.py > /tmp/blender.out 2>&1");
     await page.waitForFunction(() => __dolly.gpu?.active, null, { polling: 200, timeout: 300_000 });
-    // The script reads the frame, then takes K: pressed until Blender quits, or interrupted
-    // after four minutes. Chrome's page is kept as it shows the window (Firefox under Xvfb
-    // shows no WebGPU canvas).
-    let quit = false;
+    // The script reads the frame, then takes K: pressed, after Escape for the splash screen,
+    // until Blender quits. Chrome's page is kept as it last showed the window (Firefox under
+    // Xvfb shows no WebGPU canvas).
+    let quit = false, shown = null;
     void blender.then(() => { quit = true; });
-    const started = performance.now();
-    for (let shot = false; !quit; ) {
+    const showing = () => page.evaluate(() => __dolly.gpu?.active === true);
+    while (!quit) {
+      await page.keyboard.press("Escape");
       await page.keyboard.press("k");
       await new Promise(resolve => setTimeout(resolve, 2000));
-      if (!shot && name === "chromium" && performance.now() - started > 20_000) {
-        shot = true;
-        await page.screenshot({ path: new URL("../../../build/blender-gpu-chromium.png", import.meta.url).pathname });
-      }
-      if (performance.now() - started > 240_000) {
-        await page.evaluate(() => __dolly.terminal.interruptForeground());
-        await blender;
-        break;
+      if (name === "chromium" && await showing()) {
+        const shot = await page.screenshot();
+        if (await showing()) shown = shot;
       }
     }
+    if (shown) writeFileSync(new URL("../../../build/blender-gpu-chromium.png", import.meta.url), shown);
     const status = await blender;
     await run("clear; grep -v '^$' /tmp/blender.out | tail -n 20");
     const log = await page.evaluate(() => __dolly.visibleTerminalText());
