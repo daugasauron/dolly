@@ -23,7 +23,7 @@ Done when, each in Chrome and Firefox on the GPU, committed in this order:
 3. the moon is a second world to fly to from orbit, over or onto, and back, as smooth as the way to
    orbit.
 
-## State (2026-11-18)
+## State (2026-11-19)
 
 1. The controls: `1e9e49edd`. Chrome: the flyover test's mouse checks passed (L gave the pointer
    back, the second capture worked, the nose stood at 80 to 86 degrees) and its old ring check
@@ -47,11 +47,18 @@ Done when, each in Chrome and Firefox on the GPU, committed in this order:
    Recorded at a fixed 60 steps a second with every frame read back (`t-moon1`), the voyage had a
    one-frame jump at each crossing (44 and 28 tiles of 8 by 8 in a frame): the camera turned from
    looking down at the one world to the other, the stars (laid in the chart's axes) jumped, and
-   the wake began anew. Fixed after the commit (`t-moon2`, `t-moon3`: no jump at either crossing;
-   the turn-over is a glide of three seconds). One jump is left 3 s after the second crossing (21
-   tiles at 43.6 s), on the way down through some 7,000 units, where the near sea takes over from
-   the far grids' level sea in the sun's glare: its swell now fades from 4,000 units up; to be
-   recorded again.
+   the wake began anew. Fixed in `6ce81804e` (`t-moon2` to `t-moon4`: no jump at either crossing;
+   the turn-over is a glide of three seconds), whose four tests pass in Chrome and Firefox (the
+   flyover test in Firefox: pitch 85, a chain of six to 228,500, two crossings, 79 over the moon's
+   ground and 20 over the planet's, the morning at 58.8 frames a second; the touch test: the board
+   climbed to 202, the nose up 31 degrees). One jump was left 3 s after the second crossing (21
+   tiles at 43.6 s): a copy of the game that prints its switches by frame (`mktour.py`) showed it
+   is the near sea coming back with grid 2 at 7,200 units, where it takes over from grid 3's
+   level sea (shown only while grid 2 is since `e200d5a1a`; that night's recorded climb went to
+   3,400 units only). From 5,000 units up the near sea now takes the far sea's look, level,
+   without foam, with land.gdshader's colour, ice and gloss: recorded again (`t-moon6`), the jump
+   is gone; the frames that remain with a few tiles over the others (2 or 3, in five frames) are in
+   the turn-over's glide and in the corgi's turn off the moon.
 
 ## 3. The moon
 
@@ -115,4 +122,27 @@ the mouse does (touch.gd of `71a4f4247`, with the chain's arc). Firefox's first 
 capture is still left (`moved_since`). L lets go of the board and gives the pointer back; the
 browser's own end of a capture (its Escape) does the same through `hold_pointer`, and the game binds
 no Escape. The tests: the flyover test captures, gives the pointer back with L, captures again,
-and pulls 900 pixels, which must leave the nose at 80 to 86 degrees; the touch test of `71a4f4247`.
+and pulls the mouse from the display's foot to its top (Firefox refuses a move out of the page),
+which must leave the nose at 80 to 86 degrees; the touch test of `71a4f4247`.
+
+## Frame times, before and after
+
+Measured back to back with `m.sh` (Chrome on the NVIDIA card, the browser on CPUs 6, 7, 14 and
+15, the private Xvfb, the GPU lock for each run), the night's starting game (`e200d5a1a`) and the
+night's (`build/planet/pairs4.sh`). The machine was loaded (load 24 to 26, the reserved CPUs 84 to
+99% busy), so the rates follow the load more than the game. The two games fly different ways: the
+old corgi chained the rings along the coast, the new one makes for the first clouds of chains.
+
+| | frames a second | the game's frames: median, p95, p99, longest (ms) | over 2x the median | GPU ms | reserved CPUs busy |
+| --- | --- | --- | --- | --- | --- |
+| morning flight (60 s), before | 32.7 | 28.9, 55.0, 70.2, 133.5 | 75 (4.2%) | 7.0 | 99% |
+| morning flight, after | 42.0 | 22.3, 43.9, 54.6, 175.9 | 106 (4.5%) | 9.1 | 97% |
+| tour (175 s), before | 39.0 | 23.4, 45.3, 57.2, 157.5 | 272 (4.1%) | 7.8 | 99% |
+| tour, after | 55.1 | 16.6, 32.3, 38.4, 81.1 | 381 (4.0%) | 8.0 | 84% |
+
+The GPU's 9.1 ms on the morning flight was measured before the clouds that are not there skipped
+their puffs' noise; measured again after it (`n5`): 53.3 frames a second, 9.1 ms of GPU, the
+frames' median 16.5, p95 34.0, p99 38.4, longest 265.2, 204 over 2x (6.7%), the reserved CPUs 79%
+busy. So the GPU's time is the new flight's way, not the clouds' or the moon's: the tests' 30-second
+morning flight, the same flight in each round, took 7.8 ms of GPU in step 2's round (Chrome), 7.9
+in step 3's, and 7.8 with the fixes.

@@ -361,8 +361,9 @@ with detail its points cannot hold, and a range that rises over the horizon gain
 it nears. A grid's own detail gives way to the coarser grid's by the distance from the flyer, and by the flyer's height: 300 of its cells up a grid shows the next one's
 ground and is no longer drawn. Far grids draw the sea themselves, level, with its glint. The near
 sea, a plane 8,000 units across that follows the flyer, stands in for the first three grids, which
-draw none: it is shown while grid 2 is (to 7,200 units up, its swell going from 4,000, so it is as
-level as the far grids' sea there), it takes the far sea's blue from out
+draw none: it is shown while grid 2 is (to 7,200 units up; from 5,000 it takes the far grids' sea's
+look, level and without foam, so nothing changes where it gives way to them), it takes the far
+sea's blue from out
 of the air and its polar ice, and its depth, foam and ice come from the ground the grids read, to
 some 2,300 units from the flyer, and past that from grid 3's, which reaches 9,000. (Until
 2026-11-18 it read the near grids' textures to its rim, where they wrap around the chart: the far
