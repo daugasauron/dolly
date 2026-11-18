@@ -14,11 +14,25 @@ the AMD GPU.
 
 ## State (2026-11-18)
 
-On `feature/planet` (`7020f7a96` and after): the flight model, the controls (mouse, keys, touch),
-the courses of rings and the chain; the image is built and served on 9049. Measured under the
-day's load (below); the night's quiet-machine numbers were not reproducible today.
+Done on `feature/planet` (`7020f7a96`, `346f0cbad`): the flight model, the controls (mouse, keys,
+touch), the courses of rings and the chain; the image is built and served on 9049; the game's
+tests pass in Chrome and Firefox; the rates are the old game's (below).
 
-Tests on the image (NVIDIA, `build/planet/t.sh`): the touch test passes in Chrome (09:16, 10:08)
+Left:
+
+- A person has not flown it. How hard a chain is, is the owner's to say; the knobs are
+  `CHAIN_TIME` (3 s, less 0.1 a ring to 2), `RING_BOOST`, the slaloms' 80 units and ±8, the
+  rates in `handle` and `STICK_PIXELS`. The mouse raises the nose when pushed up (the nose follows
+  the hand, as the night's steering did); a stick's inverted pitch is not offered.
+- The AMD GPU in Firefox was not measured today: neither the old game nor the new started Godot
+  on the two reserved cores (11:15, 11:23; the night's `godot-firefox-start`).
+- The demos page's video and poster still show the night's flight; no take was recorded.
+- The owner's phone, as before.
+- The integrator (11:20): GPU runs take the lock each, not a session of them (`chain.sh` held it
+  for several runs while another agent waited); `chain.sh` now says so.
+
+Tests on the image (NVIDIA, `build/planet/t.sh`): the touch test passes in Chrome (09:16, 10:08, and
+11:26 on the last image, its phone screenshot showing the throttle bar, the stick and the score)
 and Firefox (10:29); the flyover test passes in Firefox (11:06: the mouse raised the nose 23°, the
 morning flight 58.4 frames a second, 11 rings along their courses, 3 against from `--ring -1`,
 the tour to 262,813 at 58.7) and in Chrome (11:09: 28°, 59.7, 11 and 3, the tour at 59.9; and
