@@ -303,7 +303,13 @@ bool WGPUBackend::is_supported()
 void WGPUBackend::capabilities_init()
 {
   const uint64_t *l = device.limits;
-  GCaps.max_texture_size = int(l[WGPU_LIMIT_TEXTURE_2D]);
+  /* A power of two, as OpenGL's and Vulkan's drivers give and Blender takes it (its font atlas is
+   * that wide and addresses texels by a mask and a shift); Firefox on NVIDIA grants 32,767. */
+  uint64_t side = 1;
+  while (side * 2 <= l[WGPU_LIMIT_TEXTURE_2D]) {
+    side *= 2;
+  }
+  GCaps.max_texture_size = int(side);
   GCaps.max_texture_3d_size = int(l[WGPU_LIMIT_TEXTURE_3D]);
   GCaps.max_texture_layers = int(l[WGPU_LIMIT_ARRAY_LAYERS]);
   GCaps.max_buffer_texture_size = 0;

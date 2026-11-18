@@ -69,7 +69,48 @@ def frame():
           "header", redraw('DRAW', view, 'HEADER'), flush=True)
     print("READY", flush=True)
 
+def text():
+    """Words drawn on the GPU against the same words drawn by Blender's font library on the
+    CPU into an image: the share of the CPU's lit pixels the GPU also lit, and of the GPU's."""
+    import blf, imbuf
+    from mathutils import Matrix
+    w, h, words = 200, 40, "Dolly 0123 Blender"
+    blf.size(0, 20)
+    offscreen = gpu.types.GPUOffScreen(w, h)
+    with offscreen.bind():
+        framebuffer = gpu.state.active_framebuffer_get()
+        framebuffer.clear(color=(0.0, 0.0, 0.0, 1.0))
+        with gpu.matrix.push_pop(), gpu.matrix.push_pop_projection():
+            gpu.matrix.load_identity()
+            gpu.matrix.load_projection_matrix(
+                Matrix.Diagonal((2 / w, 2 / h, 1, 1)) @ Matrix.Translation((-w / 2, -h / 2, 0)))
+            blf.color(0, 1, 1, 1, 1)
+            blf.position(0, 4, 12, 0)
+            blf.draw(0, words)
+        drawn = framebuffer.read_color(0, 0, w, h, 4, 0, 'UBYTE')
+    offscreen.free()
+    image = imbuf.new((w, h))
+    with blf.bind_imbuf(0, image):
+        blf.color(0, 1, 1, 1, 1)
+        blf.position(0, 4, 12, 0)
+        blf.draw_buffer(0, words)
+    imbuf.write(image, filepath="/tmp/text.png")
+    reference = bpy.data.images.load("/tmp/text.png").pixels[:]
+    on_gpu = on_cpu = both = 0
+    for y in range(h):
+        for x in range(w):
+            g = drawn[y][x][0] > 127
+            c = reference[4 * (y * w + x)] * reference[4 * (y * w + x) + 3] > 0.5
+            on_gpu += g
+            on_cpu += c
+            both += g and c
+    print("TEXT", on_cpu, round(both / max(on_cpu, 1), 3), round(both / max(on_gpu, 1), 3), flush=True)
+
 def checked():
+    try:
+        text()
+    except Exception:
+        print("ERROR", traceback.format_exc(), flush=True)
     try:
         frame()
     except Exception:
@@ -124,13 +165,16 @@ for (const name of browsers) {
     await run("clear; grep -v '^$' /tmp/blender.out | tail -n 20");
     const log = await page.evaluate(() => __dolly.visibleTerminalText());
     assert.equal(status, 0, `Blender ended with ${status}:\n${log}`);
-    await run("clear; grep -E '^(BACKEND|FRAME|FIRSTDRAW|REDRAW|READY|KEY)' /tmp/blender.out");
+    await run("clear; grep -E '^(BACKEND|TEXT|FRAME|FIRSTDRAW|REDRAW|READY|KEY)' /tmp/blender.out");
     const output = await page.evaluate(() => __dolly.visibleTerminalText());
     assert.match(output, /^BACKEND WEBGPU$/m);
     const [, width, height, grey, light] = output.match(/^FRAME (\d+) (\d+) ([\d.]+) ([\d.]+)$/m) ?? [];
     assert.ok(Number(width) >= 640 && Number(height) >= 400, `the window's frame is ${width} by ${height}`);
     assert.ok(Number(grey) > 0.5, `the interface's greys cover ${grey} of the frame`);
     assert.ok(Number(light) > 0.001, `text and icons cover ${light} of the frame`);
+    const [, lit, found, extra] = output.match(/^TEXT (\d+) ([\d.]+) ([\d.]+)$/m) ?? [];
+    assert.ok(Number(lit) > 200 && Number(found) > 0.95 && Number(extra) > 0.95,
+      `text drawn on the GPU against Blender's drawing on the CPU: ${lit} pixels, ${found} found, ${extra} of the GPU's`);
     assert.match(output, /^KEY$/m, "Blender took the key");
     const firstDraw = Number(output.match(/^FIRSTDRAW ([\d.]+)$/m)?.[1]) - submitted;
     assert.equal(await page.evaluate(() => __dolly.gpu.isFallbackAdapter), false);

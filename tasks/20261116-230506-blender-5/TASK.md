@@ -42,7 +42,14 @@ polyline and armature shaders translate (Blender's shader preprocessor spells Na
 selected cube has its outline: `texture()`/`textureLod()` of an integer 2D sampler, which WGSL
 cannot sample, read the texel at the point, and a vertex shader writes its position into a
 variable stored once at its end (spirv-wgsl negates y on each store to the position, and the
-grid's and outlines' lines read their position back). 13 shaders do not translate, all for
+grid's and outlines' lines read their position back). The owner, on 9052 (16:00): "Somethign is
+wrong with the font rendering in blender-ui in firefox. Chrome works fine." Firefox on the NVIDIA
+adapter grants `maxTextureDimension2D` 32,767; Blender's font atlas is `GPU_max_texture_size()`
+wide and reads its texels by a mask and a shift of that width, so every odd texel was read as its
+even neighbour. The backend now reports the largest power of two in the limit, and the GPU test
+draws words on the GPU against Blender's font library drawing them on the CPU (Firefox matched
+0.86 to 0.91 of the lit pixels before; Chrome, SwiftShader and Firefox on lavapipe match
+exactly). 13 shaders do not translate, all for
 curves, point clouds, Grease Pencil or Gaussian splats: their `samplerBuffer` is a texel buffer,
 which WebGPU lacks (a storage buffer read by index would replace it).
 
