@@ -177,6 +177,8 @@ var chains := {} # plot -> its course of rings (course_step), for the plots arou
 var laying := {} # the course being laid, a ring a frame
 var near_first: Array[Vector2i] = [] # the 25 plots around the flyer's, the nearest first
 var hoops := MultiMesh.new() # every ring of `chains`
+var spires := MultiMeshInstance3D.new() # the spires of an old world near the flight (terrain.gd's)
+var spires_from := Vector2.INF # where the flyer was when they were placed
 var laid := PackedFloat32Array() # its instances, 20 numbers each (lay_rings)
 var hoop_of := {} # a ring (plot, and its place in the course as z) -> its instance of `hoops`
 var burst := MeshInstance3D.new() # the ring of light that leaves a ring as it is passed
@@ -203,6 +205,8 @@ var helm := false # the player's, after a click or a touch
 var captured := false # the pointer, which the page gives the game at a click
 var steer := Vector2.ZERO # the way the mouse has gone since the last frame, in pixels
 var moved_since := false # the mouse has moved since the pointer was captured
+var had_helm := false # the player had the board a frame ago
+var levels_until := 0.0 # the board just taken levels its wings until then (steer_by_hand)
 var attitude := Basis(Vector3.UP, -PI / 2.0) # the board's axes: its nose is -z, east at the start
 var stick := Vector2.ZERO # x rolls to the right, y pitches the nose up; within a circle of 1
 var pushed := Vector2.ZERO # the mouse's push on the stick, not yet flown off (steer_by_hand)
@@ -364,11 +368,14 @@ func _ready() -> void:
 	water.mesh = plane
 	water.custom_aabb = AABB(Vector3.ONE * -1e5, Vector3.ONE * 2e5)
 	water.material_override = reads_ground(preload("res://water.gdshader"), 1)
+	(water.material_override as ShaderMaterial).set_shader_parameter("ground_far", grounds[3].get_texture())
+	(water.material_override as ShaderMaterial).set_shader_parameter("cell_far", RINGS[3][1])
 	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(water)
 	build_pod()
 	build_flyer()
 	build_rings()
+	build_spires()
 	camera.far = 3.0e6
 	camera.fov = fov_led
 	camera.near = 0.3
@@ -1321,6 +1328,9 @@ func _process(delta: float) -> void:
 		tend_landmarks()
 	else:
 		let_go()
+	# The spires are seen from higher up, and go by degrees from 25,000 to 40,000 units (spire.gdshader).
+	if flyer.position.y + lowered < 40000.0:
+		tend_spires()
 	ground_life.visible = flyer.position.y + lowered < (9000.0 if ground_life.visible else 8000.0)
 	flock.visible = flyer.position.y + lowered < (2600.0 if flock.visible else 2000.0)
 	follow(delta)
@@ -1392,6 +1402,9 @@ func fly(delta: float) -> void:
 		one.position = Vector3(at.x, Terrain.SEA - 1.6 + 3.4 * sin(phase) * pod_out - 4.0 * (1.0 - pod_out), at.z)
 		one.rotation = Vector3(cos(phase) * 0.7, -heading, 0)
 	fly_flock(delta, forward)
+	if helm and not had_helm:
+		levels_until = elapsed + 1.0
+	had_helm = helm
 	if helm:
 		steer_by_hand(delta)
 	else:
@@ -1496,6 +1509,9 @@ func fly(delta: float) -> void:
 	tell("flyer", Vector2(flyer.position.x, flyer.position.z))
 	tell("flyer_at", flyer.position + Vector3(0.0, lowered, 0.0))
 	water.position = Vector3(flyer.position.x, Terrain.SEA - 0.2, flyer.position.z)
+	# The near sea stands in for grid 2, which draws no sea; once grid 2 is hidden (7,200 units up)
+	# its texture is not drawn any more, and grid 3, which fills its square, draws the sea itself.
+	water.visible = lands[2].visible
 
 
 ## The heading and the pitch of the board's nose.
@@ -1548,6 +1564,10 @@ func steer_by_hand(delta: float) -> void:
 		keyed = keyed.move_toward(Vector2(key_axis(KEY_LEFT, KEY_RIGHT), key_axis(KEY_DOWN, KEY_UP)), delta * 5.0)
 		stick = (pushed.limit_length(1.0) + keyed).limit_length(1.0)
 		pushed -= pushed.limit_length(1.0) * minf(delta / STICK_BACK, 1.0)
+	# The board taken from the corgi flying itself, perhaps in a steep bank, levels its wings in its
+	# first second in the hand, unless the hand rolls it.
+	if elapsed < levels_until and absf(stick.x) < 0.2:
+		stick.x = clampf(stick.x + attitude.x.y * 2.0, -1.0, 1.0)
 	rudder = lerpf(rudder, key_axis(KEY_A, KEY_D), 1.0 - exp(-delta * 6.0))
 	throttle = clampf(throttle + key_axis(KEY_S, KEY_W) * delta * 0.5, 0.0, 1.0)
 
@@ -1678,6 +1698,7 @@ func move_anchor() -> void:
 	glints.clear()
 	let_go()
 	stale.fill(true)
+	spires_from = Vector2.INF
 	anchors += 1
 
 
@@ -1925,6 +1946,39 @@ static func hang(place: Vector2, along: Vector3, wide: float) -> float:
 	for side: Vector2 in [place + beside, place - beside]:
 		top = maxf(top, Terrain.over(side, maxf(Terrain.height(side), Terrain.SEA)))
 	return maxf(top + 6.0 + wide, surface + 15.0)
+
+
+## The spires of an old world: one mesh (landmarks.gd's spire_mesh) for all of them, placed where
+## terrain.gd finds them and carried onto the sphere by their shader, so they are seen from far
+## off and from high up, not with what lives near the ground.
+func build_spires() -> void:
+	spires.multimesh = MultiMesh.new()
+	spires.multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	spires.multimesh.mesh = Landmarks.spire_mesh()
+	var stone := ShaderMaterial.new()
+	stone.shader = preload("res://spire.gdshader")
+	materials.append(stone)
+	spires.material_override = stone
+	spires.custom_aabb = AABB(Vector3.ONE * -1e6, Vector3.ONE * 2e6)
+	add_child(spires)
+
+
+## Keeps the spires within 24,000 units of the flight: placed anew every 1,500 units flown, and at
+## once when the chart's anchor has moved, so each stays where it stands on the planet. Their
+## instances are written whole, as the rings' are.
+func tend_spires() -> void:
+	var here := Vector2(flyer.position.x, flyer.position.z)
+	if here.distance_to(spires_from) < 1500.0:
+		return
+	spires_from = here
+	Terrain.spires = Terrain.spires_near(Terrain.planet_at(here), 24000.0)
+	var placed := PackedFloat32Array()
+	for spire in Terrain.spires:
+		var turned := Basis(Vector3.UP, spire.x * 0.01).scaled(Vector3.ONE * spire.w)
+		placed.append_array([turned.x.x, turned.y.x, turned.z.x, spire.x, turned.x.y, turned.y.y, turned.z.y, spire.y, turned.x.z, turned.y.z, turned.z.z, spire.z])
+	spires.multimesh.instance_count = Terrain.spires.size()
+	if not placed.is_empty():
+		spires.multimesh.buffer = placed
 
 
 ## The rings: a hoop of glass with three motes that circle it, drawn as one mesh for all of

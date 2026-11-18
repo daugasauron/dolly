@@ -44,7 +44,7 @@ for (const name of browsers) {
     await new Promise(resolve => setTimeout(resolve, 1000));
     await page.mouse.move(x, y - 240, { steps: 30 });
     await page.keyboard.down("w");
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise(resolve => setTimeout(resolve, 2000));
     await page.keyboard.up("w");
     await page.keyboard.press("q");
     await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
@@ -52,8 +52,8 @@ for (const name of browsers) {
     const [, helm, pitch, throttle] = flight.match(/^FLYOVER flown \d+ rings \d+ score \d+ helm (\d) high -?\d+ heading -?\d+ pitch (-?\d+) bank -?\d+ speed \d+ throttle ([\d.]+) zoom [\d.]+ touches \d+$/m) ?? [];
     // A pixel of the motion the page is given pitches the nose 0.0024 radians, so 240 pixels raise it some 33 degrees
     // from the few the corgi flew at when the board was taken. Firefox gives the moves (2026-11-18: 216 of the 240) after
-    // a jump that the game leaves (320 and 115 pixels for the first move of 8). The throttle opens from where the corgi
-    // had it by half of all of it a second.
+    // a jump that the game leaves (320 and 115 pixels for the first move of 8). The throttle opens by half of all of it a
+    // second, so two seconds open it whole from where the corgi had it (2026-11-18 in Firefox: 0.14).
     assert.ok(helm === "1" && Number(pitch) >= 8 && Number(pitch) <= 80 && Number(throttle) >= 0.9, `the captured mouse and the keys fly the board: ${flight}`);
     assert.equal(await page.evaluate(() => document.pointerLockElement), null, "the pointer is the page's again once the game has quit");
     const run = async command => assert.equal(await page.evaluate(text => __dolly.submit(text), command), 0, command);

@@ -151,9 +151,12 @@ the sun's fire after the ground has lost it. The open sea has a swell whose cres
 in a gust, surf rolls in lines over the shallows, light dances on their bed, and the sea is
 turquoise in the hot countries and grey-green in the cold ones.
 
-The desert's sand lies in rippled dunes, its veins are lava, and at night a shooting star crosses
-every six seconds. Between the desert and the meadows lies savanna, grass with a few flat-headed
-trees, gold for most of the year and green in spring and after rain. Low wet ground by the sea
+The desert's sand lies in rippled dunes, its veins are lava, its rock is sandstone in red and
+paler bands, and at night a shooting star crosses
+every six seconds. In the desert's low level basins the ground is a white crust of salt cracked
+into plates, glossy after rain. Between the desert and the meadows lies savanna, grass with a few flat-headed
+trees, gold for most of the year and green in spring and after rain. In warm dry farm country a
+field in three is flowers in rows in spring and summer: lavender, sunflowers or poppies. Low wet ground by the sea
 is marsh, with few trees and pools that mirror the sky. In winter the pools and the seas of the
 cold lands carry ice ([`water.gdshader`](voxel-flyover/water.gdshader)), and a town's lamps are
 each lot's own colour. A shower leaves the ground wet behind it for three quarters of a minute.
@@ -163,7 +166,7 @@ longer (the difference of the ground's two textures).
 
 The world is large by slow fields (`slow` in
 [`terrain.gdshaderinc`](voxel-flyover/terrain.gdshaderinc)): two octaves of noise each, of 1.9,
-2.7, 5.1, 7.3, 11, 19 and 53 thousand units, each turned and placed by itself, so their
+2.7, 4.7, 5.1, 6.3, 7.3, 11, 19 and 53 thousand units, each turned and placed by itself, so their
 combinations do not come round again. Oceans and continents of 7.3 thousand units and lands of
 2.7 thousand shift the coasts of 520, so an ocean has islands only; the relief of a region makes
 its ranges low or high; a massif, rare, raises its peaks to two and a half times
@@ -173,7 +176,15 @@ their springs in the hills; warmth and
 moisture have countries of 19 and 11 thousand units; and a realm of wonders, a tenth of the
 world at 53 thousand (the nearest fourteen thousand north of the start), has a sea alight at
 night, groves that mostly glow and bright veins. The ground's textures also carry the realm, and
-keep heights around 110 so the half floats stay fine on a massif.
+keep heights around 110 so the half floats stay fine on a massif. Where a field of 4.7 thousand
+units is high in a hot dry region the land is mesa country (`mesa_on`): a level desert floor out
+of which mesas and buttes stand, flat tops in one tier or two over cliffs some 34 units high,
+which the rivers cut into canyons (11.5% of the land within 40,000 units of the start; the nearest
+2,000 units from it). In the warm open ocean, where a field of 6.3 thousand units is high, the deep
+floor rises in seamounts, and around their peaks the contour of a noise of 1,100 units is a reef
+that breaks the surface in sandy islets around a shallow turquoise lagoon (`with_atolls`; an atoll
+is a contour, not a shape put on a lattice, so none is cut where a lattice's cells meet on the
+sphere). terrain.gd computes both, so the board flies over the buttes and the islets.
 
 Towns stand on some low plains ([`city.gdshader`](voxel-flyover/city.gdshader)), of eight kinds by
 their climate, their ground and the culture of their region (`town_kind`): a city of towers (three in ten end in a point of green copper or slate) on
@@ -196,15 +207,22 @@ a lighthouse with turning beams, a windmill among fields, the tower of a town's 
 stone in the desert, giant mushrooms that glow in a marsh, a ring of standing stones, crystals in
 the mountains, a gate on open ground, a wreck on a shore, a keep with its fallen wall on a hill,
 a stepped mound in the hot wet lands, a tree far older than its wood, a cinder cone that smokes in the dry lands, an island that floats in the board's way, which passes over or under it. The forms
-take after kinds of building found in many places; none copies a building. Life is met by place
-too, each a grid whose shader places its cell's own: sailing boats
+take after kinds of building found in many places; none copies a building. Rarer and seen from far
+off, the spires of an old world stand on open land ([`spire.gdshader`](voxel-flyover/spire.gdshader),
+`spires_near`): slender towers of pale stone 240 to 360 units high, over everything else, with
+three balconies and a crystal at the top that glows at night; one for a cell in five or six of a
+lattice of 6,000 units in the planet's own axes, so each stays where it stands when the chart's anchor
+moves. They grow out of nothing from 24,000 units off and sink back from 25,000 to 40,000 units up,
+are placed anew every 1,500 units flown, and are among what the flight looks ahead for. Life is
+met by place too, each a grid whose shader places its cell's own: sailing boats
 ([`afloat.gdshader`](voxel-flyover/afloat.gdshader)), gulls over the coasts and wedges of geese in
 spring and autumn ([`wings.gdshader`](voxel-flyover/wings.gdshader)), balloons
 ([`aloft.gdshader`](voxel-flyover/aloft.gdshader)), whales that blow
 ([`whale.gdshader`](voxel-flyover/whale.gdshader)), herds on the open land
 ([`herd.gdshader`](voxel-flyover/herd.gdshader)), dolphins that come up and leap beside a board
 that skims the sea, fireflies over the warm wet land at night
-([`fireflies.gdshader`](voxel-flyover/fireflies.gdshader)), and at night fireworks over the towns
+([`fireflies.gdshader`](voxel-flyover/fireflies.gdshader)), and at night fireworks over the towns, and over
+the towns of red posts and upturned eaves sky lanterns that rise all night and drift with the wind
 ([`fireworks.gdshader`](voxel-flyover/fireworks.gdshader)). A house that is not a city's tower
 stands a little off its lot's middle at an angle of its own, so a village is not a grid.
 Trees stand in woods with glades between them (patches cut from the climate's two fields, which
@@ -229,7 +247,8 @@ the stick, up to raise the nose and right to roll right, so the nose follows the
 push it all the way, and it springs back to the middle (to 1/e in 0.3 s); a push past its travel,
 up to twice that, is flown off at the stick's full, so a move of the mouse turns the board by as
 much however the page delivers it (0.0024 radians a pixel in pitch, 0.0052 in roll). The arrow
-keys push it too, while they are held; A and D are the rudder; W and S open and close the throttle, by half of it a second; the
+keys push it too, while they are held; A and D are the rudder; W and S open and close the throttle, by half of it a second; a
+board taken from the corgi in a bank levels its wings in its first second in the hand, unless the hand rolls it; the
 wheel zooms; Escape lets go of the board and gives the pointer back; Q quits. The keys show when
 the board is taken and fade after nine seconds. While the player has the board a small ring
 marks where it is headed, a dot in it shows the stick, and a bar at the lower left the throttle
@@ -348,7 +367,15 @@ at the start ([`ground.gdshader`](voxel-flyover/ground.gdshader)'s `whole`). A g
 coarsely is the mean of what is finer than it is read (`fbm3_seen`): far ground does not sparkle
 with detail its points cannot hold, and a range that rises over the horizon gains its spurs as
 it nears. A grid's own detail gives way to the coarser grid's by the distance from the flyer, and by the flyer's height: 300 of its cells up a grid shows the next one's
-ground and is no longer drawn. Far grids draw the sea themselves, level, with its glint.
+ground and is no longer drawn. Far grids draw the sea themselves, level, with its glint. The near
+sea, a plane 8,000 units across that follows the flyer, stands in for the first three grids, which
+draw none: it is shown while grid 2 is (to 7,200 units up), it takes the far sea's blue from out
+of the air and its polar ice, and its depth, foam and ice come from the ground the grids read, to
+some 2,300 units from the flyer, and past that from grid 3's, which reaches 9,000. (Until
+2026-11-18 it read the near grids' textures to its rim, where they wrap around the chart: the far
+sea had the depth of other places, white patches of foam and ice with straight edges, which
+changed as grid 2 stepped and showed as lines in a recorded tour; and over 7,200 units it read
+a texture no longer drawn.)
 
 A board that climbs past 420 units is faster the higher it is (twice as fast every 110 units
 over 420, in every direction): the one place its speed changes by its

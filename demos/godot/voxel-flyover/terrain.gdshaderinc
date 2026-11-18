@@ -237,6 +237,34 @@ float massif_on(vec3 planet, float belt) {
 	return smoothstep(0.81, 0.9, slow3(planet, 19000.0, vec3(8.0, 97.0, 31.0)) + 0.17 * belt);
 }
 
+// Where mesa country may be: a field of 4.7 thousand units is high in a region that is warm (the
+// warmth's 19 thousand) and dry (the moisture's 11 thousand). It is, where the land is desert
+// (terrain_on, with the climate the place has).
+float mesa_on(vec3 planet) {
+	return smoothstep(0.52, 0.6, slow3(planet, 4700.0, vec3(23.0, 61.0, 8.0))) * smoothstep(0.44, 0.52, slow3(planet, 19000.0, vec3(37.0, 14.0, 82.0))) * smoothstep(0.58, 0.5, slow3(planet, 11000.0, vec3(89.0, 44.0, 26.0)));
+}
+
+// How much of a desert a climate is (land.gdshader's sand).
+float desert_of(vec2 air) {
+	return smoothstep(0.55, 0.6, air.x) * smoothstep(0.5, 0.44, air.y);
+}
+
+// Atolls in the warm open ocean: where a slow field of 6.3 thousand units is high, the deep sea's
+// floor rises in seamounts, and the contour of a noise of 1,100 units around its peaks is a reef
+// that breaks the surface in sandy islets, around a shallow lagoon. A height under the deep sea
+// comes up to them; elsewhere it is as it was.
+float with_atolls(vec3 planet, float height, float wide) {
+	float there = smoothstep(SEA - 8.0, SEA - 20.0, height);
+	there *= there > 0.0 ? smoothstep(0.5, 0.58, slow3(planet, 6300.0, vec3(57.0, 19.0, 4.0))) * smoothstep(0.48, 0.56, slow3(planet, 19000.0, vec3(37.0, 14.0, 82.0))) : 0.0;
+	if (there <= 0.0) {
+		return height;
+	}
+	float mount = fbm3_seen(planet / 1100.0 + vec3(12.0, 85.0, 40.0), 2, wide / 1100.0);
+	float reef = 1.0 - smoothstep(0.0, 0.025, abs(mount - 0.68));
+	float islets = reef > 0.0 ? fbm3_seen(planet / 45.0 + vec3(3.0, 30.0, 71.0), 2, wide / 45.0) : 0.5;
+	return mix(height, mix(height, SEA - 3.5, smoothstep(0.5, 0.68, mount)) + reef * (2.5 + 7.0 * (islets - 0.4)), there);
+}
+
 // How much of a realm of wonders a place is: a rare kind of world, 53 thousand units a field,
 // where most groves glow at night, the ground's veins are bright, the surf is alight and
 // mushrooms, crystals and floating islands are many.
@@ -262,7 +290,7 @@ float river_on(vec3 planet) {
 // sea's level run in valleys through the low land, widen into lakes in some stretches, and
 // narrow to their springs in the hills. terrain.gd computes the same.
 // The ground is read every `wide` units (a grid's cell, the planet's texel; 0 for the ground itself).
-float terrain_on(vec3 planet, float wide) {
+float terrain_on(vec3 planet, float wide, vec2 air) {
 	vec2 globe = planet_fields(planet);
 	float shift = (slow3_seen(planet, 7300.0, vec3(34.0, 62.0, 15.0), wide) - 0.5) * 0.9 + (slow3_seen(planet, 2700.0, vec3(104.0, 42.0, 77.0), wide) - 0.5) * 0.5 + (smoothstep(0.4, 0.6, globe.x) - 0.5) * 0.8;
 	float relief = mix(0.22, 1.0, smoothstep(0.3, 0.5, slow3_seen(planet, 1900.0, vec3(38.0, 77.0, 53.0), wide)));
@@ -275,6 +303,15 @@ float terrain_on(vec3 planet, float wide) {
 	float spur = ridge3_seen(q * 2.3 + vec3(9.0, 77.0, 21.0), wide / 113.0) * crest;
 	float peaks = crest * 0.6 + spur * 0.3 + ridge3_seen(q * 5.1 + vec3(3.0, 41.0, 58.0), wide / 51.0) * spur * 0.16;
 	float height = SEA - 13.0 - 24.0 * smoothstep(-0.05, -0.3, shift) + land * (16.0 + 45.0 * massif) + hills * 20.0 * (0.35 + land) + peaks * 125.0 * land * ranges * (relief + 1.5 * massif);
+	// In mesa country the land is a level desert floor, out of which mesas and buttes stand, flat
+	// tops in one tier or two over cliffs; the rivers cut canyons through them.
+	float mesa = land * (1.0 - massif) * desert_of(air);
+	mesa *= mesa > 0.0 ? mesa_on(planet) : 0.0;
+	if (mesa > 0.0) {
+		float butte = fbm3_seen(planet / 230.0 + vec3(64.0, 3.0, 28.0), 3, wide / 230.0);
+		height = mix(height, SEA + 7.0 + hills * 6.0 + (smoothstep(0.5, 0.53, butte) + smoothstep(0.6, 0.63, butte)) * 34.0, mesa);
+	}
+	height = with_atolls(planet, height, wide);
 	// A river is some tens of units wide: a ground read more coarsely has none.
 	float gate = (1.0 - smoothstep(SEA + 45.0, SEA + 90.0, height)) * step(SEA - 2.5, height) * (1.0 - smoothstep(30.0, 150.0, wide));
 	if (gate > 0.0) {
@@ -317,7 +354,7 @@ float culture_on(vec3 planet) {
 
 // The same fields at a chart's place.
 float terrain_height(vec2 p) {
-	return terrain_on(planet_at(p), 0.0);
+	return terrain_on(planet_at(p), 0.0, climate_on(planet_at(p), 0.0));
 }
 
 vec2 climate(vec2 p) {

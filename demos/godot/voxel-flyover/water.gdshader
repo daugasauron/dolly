@@ -9,6 +9,8 @@ shader_type spatial;
 uniform vec3 shallow : source_color = vec3(0.05, 0.5, 0.48);
 uniform vec3 deep : source_color = vec3(0.004, 0.035, 0.1);
 uniform vec3 skims; // the flyer low over the sea: its place (xy) and how low, between 0 and 1 (z)
+uniform sampler2D ground_far : filter_linear, repeat_enable; // grid 3's ground, for the sea past the nearer grids'
+uniform float cell_far = 96.0;
 
 varying vec3 world_position;
 
@@ -33,7 +35,16 @@ void vertex() {
 
 void fragment() {
 	vec2 p = world_position.xz;
-	vec4 ground_under = ground_here(p);
+	// The sea reaches 4,000 units from the flyer, the ground its grids read (ground.gdshaderinc)
+	// some 2,300: past that, grid 3's, which reaches 9,000. (It read the wrapped textures there:
+	// the depth of other places, white patches of foam and ice on the far sea that changed as grid 2
+	// stepped.)
+	vec2 off = abs(p - flyer);
+	float past = smoothstep(1900.0, 2150.0, max(off.x, off.y));
+	vec4 ground_under = past < 1.0 ? ground_here(p) : vec4(0.0);
+	if (past > 0.0) {
+		ground_under = mix(ground_under, ground_in(ground_far, p, cell_far), past);
+	}
 	float depth = max(SEA - ground_under.x, 0.0);
 	float wide = max(length(dFdx(p)), length(dFdy(p)));
 	float here = ripples(p, wide);
@@ -64,7 +75,8 @@ void fragment() {
 	float warmth = ground_under.y;
 	float cold = winter * smoothstep(0.52, 0.42, warmth) * (1.0 - ring_warmth(p));
 	vec2 adrift = p - vec2(0.93, 0.36) * clock * 0.6;
-	float floe = cold > 0.0 ? cold * smoothstep(0.47, 0.5 + wide * 0.02, fbm_seen(adrift / 26.0 + vec2(7.0, 51.0), 3, wide / 26.0)) : 0.0;
+	// The polar seas are ice all year, as the far grids draw them.
+	float floe = min((cold > 0.0 ? cold * smoothstep(0.47, 0.5 + wide * 0.02, fbm_seen(adrift / 26.0 + vec2(7.0, 51.0), 3, wide / 26.0)) : 0.0) + smoothstep(0.16, 0.06, warmth) * (1.0 - ring_warmth(p)), 1.0);
 	NORMAL = normalize(mix(NORMAL, (VIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz, floe));
 	// The sea takes its colour from its country: clear and turquoise over pale sand in the hot
 	// ones, grey-green in the cold ones. Light dances on the bed of the shallows.
@@ -72,6 +84,9 @@ void fragment() {
 	float polar = smoothstep(0.45, 0.3, warmth);
 	vec3 over_sand = mix(mix(shallow, vec3(0.01, 0.34, 0.3), tropic), vec3(0.012, 0.07, 0.07), polar);
 	vec3 over_deep = mix(mix(deep, vec3(0.0, 0.006, 0.03), tropic), vec3(0.002, 0.004, 0.006), polar);
+	// From out of the air the deep sea is the blue the air gives it, as the far grids draw it
+	// (land.gdshader): the near sea is not a darker square under a high flight.
+	over_deep = mix(over_deep, vec3(0.004, 0.03, 0.12), (1.0 - exp(-max(eye.y, 0.0) / AIR)) * (1.0 - polar));
 	if (depth < 4.0 && wide < 0.5) {
 		vec2 net = p * 0.55;
 		float lines = 1.0 - abs(noise(net + vec2(clock * 0.35, 0.0)) - noise(net.yx * 1.1 - vec2(0.0, clock * 0.3) + 9.0)) * 5.0;
