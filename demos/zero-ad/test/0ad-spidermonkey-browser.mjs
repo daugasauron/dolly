@@ -23,7 +23,7 @@ try {
     await page.locator("#bootstrap-log").textContent());
   await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
   const submit = command => page.evaluate(text => __dolly.submit(text), command);
-  assert.equal(await submit(`curl -fsS ${server.origin}/fixture/spidermonkey.wasm -o /tmp/spidermonkey`), 0);
+  assert.equal(await submit(`amy install curl && curl -fsS ${server.origin}/fixture/spidermonkey.wasm -o /tmp/spidermonkey`), 0);
   for (let run = 0; run < 2; run++) {
     const started = performance.now();
     assert.equal(await submit("/tmp/spidermonkey"), 0);

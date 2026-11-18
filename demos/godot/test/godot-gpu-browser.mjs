@@ -183,7 +183,7 @@ for (const name of browsers) {
     page.on("pageerror", error => errors.push(error.message));
     // WebGPU's validation errors reach the page's console after their batch is answered.
     page.on("console", message => { if (message.text().startsWith("Dolly GPU:")) errors.push(message.text()); });
-    const image = await composed(["gpu", "audio", "display", "input", "threads", "sockets", "clipboard"], ["godot", "godot-editor", "truck-town", "lantern-drift", "airtime-godot"], { base: "system" });
+    const image = await composed(["gpu", "audio", "display", "input", "threads", "sockets", "clipboard", "touch"], ["godot", "godot-editor", "truck-town", "lantern-drift", "airtime-godot"], { base: "system" });
     await image.setup(page);
     await page.goto(server.origin + image.path);
     await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null, { timeout: 300_000 });

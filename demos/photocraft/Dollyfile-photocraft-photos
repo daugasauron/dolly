@@ -14,9 +14,9 @@ REQUIRES HOST sockets@0
 # PhotoCraft on the page with Hokusai's Great Wave open; quitting it leaves a shell where
 # photocraft opens pictures again and photocraft-cli works on them without a window.
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix 05628fd9859d6aa86359accd20db6cf32c0b1469e573da158734ce7a2caab0bf
+INSTALL /Dollyfile-posix c67f734780c8ee1d6294e903694f1ca0604308013a00ed3439a1a69b5218a854
 INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
-INSTALL /demos/photocraft/Dollyfile-photocraft 7b110cbd7aa0bddaaeab43492a9ad13b603c0fd9fa6ab346c5903f43a32e69b8
+INSTALL /demos/photocraft/Dollyfile-photocraft f84ad922bc4a629c261a0eb267cadba4be3d6ca834c486c8d2d120d1fbb95806
 REQUIRES TOOL photocraft
 SLOP mkdir -p /home/dolly/Pictures && cp /usr/share/photocraft/pictures/great-wave.jpg /home/dolly/Pictures/
 FILE /home/dolly/Pictures/great-wave.jpg

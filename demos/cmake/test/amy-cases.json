@@ -8,7 +8,7 @@
       "script": "amy install cmake",
       "status": 0
     },
-    { "script": "mkdir /tmp/amy-cmake && cd /tmp/amy-cmake && printf 'int main(void) { return 0; }\\n' > main.c && printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(probe C)' 'add_executable(probe main.c)' > CMakeLists.txt && cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/probe", "status": 0 },
+    { "script": "printf 'int main(void) { return 0; }\\n' > main.c && printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(probe C)' 'add_executable(probe main.c)' > CMakeLists.txt && cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/probe", "status": 0 },
     {
       "why": "CMake finds the packages of SDL2 and SDL_image installed beside it.",
       "script": "amy install sdl2-image",

@@ -13,12 +13,12 @@ REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix 05628fd9859d6aa86359accd20db6cf32c0b1469e573da158734ce7a2caab0bf
+INSTALL /Dollyfile-posix c67f734780c8ee1d6294e903694f1ca0604308013a00ed3439a1a69b5218a854
 INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
 # download and upload, which the game runs to export and import designs (transfer).
 INSTALL /Dollyfile-transfer 06c7f7e4b4d53f6ef7d342f48293d1e61af6e9a330d4d857b597f26471ce8c07
-INSTALL /demos/pi/Dollyfile-pi-dolly 88bd75464c8253ce58a7f3ddda48ac0ae217c778de3f2902f19d795570251c26
-INSTALL /demos/slopyard/Dollyfile-slopyard-game 891ab1d800b68c1b882ece4e3bfce475b437e56aabc6e1005db9466145720059
+INSTALL /demos/pi/Dollyfile-pi-dolly 2be960f4d077bb7d439fa38aea21190e25fbdd967562239489effd2da7aacbb5
+INSTALL /demos/slopyard/Dollyfile-slopyard-game 9ca232adb7e3ea6f2be206849bdd0824d091a9dd4b26cf7587d47c5ebf07e048
 
 FILE /etc/dolly/init.slop
     /bin/foreground /usr/bin/slopyard

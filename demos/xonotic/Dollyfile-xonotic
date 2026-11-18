@@ -9,11 +9,11 @@ REQUIRES HOST gpu@0
 REQUIRES HOST touch@0
 
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix 05628fd9859d6aa86359accd20db6cf32c0b1469e573da158734ce7a2caab0bf
+INSTALL /Dollyfile-posix c67f734780c8ee1d6294e903694f1ca0604308013a00ed3439a1a69b5218a854
 INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
-COPY /demos/xonotic/Dollyfile-xonotic-build 11da912d196e73ee2d2b18dc28bcd566ea0a4a4bff0ee9fcc4d7d7de4de4f36f /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
-INSTALL /demos/xonotic/Dollyfile-xonotic-shaders 576b2f1412927f63dd1fe65f9b42ffd9559ff6c1be0aee2eba42ded53408cc23
-COPY /demos/xonotic/Dollyfile-xonotic-build 11da912d196e73ee2d2b18dc28bcd566ea0a4a4bff0ee9fcc4d7d7de4de4f36f /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY /demos/xonotic/Dollyfile-xonotic-build 393f12fb1f02afb302908b7da0b89dad22547d8b2a867880d80fe7d59aa7bee0 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+INSTALL /demos/xonotic/Dollyfile-xonotic-shaders d12a4e0afbaae88a5eb51be0e2f15d253788ea37c0466af2ea8cb319516ea52b
+COPY /demos/xonotic/Dollyfile-xonotic-build 393f12fb1f02afb302908b7da0b89dad22547d8b2a867880d80fe7d59aa7bee0 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
 COPY /demos/sdl2/Dollyfile-sdl2 1809d16636eb124e08cc9188a7709890dfeb22657ae4ce989987d185b99b5193 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
 COPY /demos/tools/Dollyfile-libjpeg-turbo 04db0d617e53e5ad835e7fee4a3fcba679b74ec9f35beea3f7f4eba947b89880 /usr/share/licenses/libjpeg-turbo /usr/share/licenses/libjpeg-turbo

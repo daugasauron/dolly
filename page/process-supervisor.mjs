@@ -1,7 +1,7 @@
 import { DOLLY_PROCESS_ABI_DIGEST } from "./generated.mjs";
 import { DOLLY_ERRNO } from "./process-constants.mjs";
 import { callFields, callFieldsOffset, controlBytes, controlWord } from "./process-control.mjs";
-import { parseWasmInterface } from "./wasm-interface.mjs";
+import { exportIndex, parseWasmInterface } from "./wasm-interface.mjs";
 import { validateProcessInterface } from "./process-abi.mjs";
 import { executableHostRequirements, checkHostAbi } from "../host/requirements.mjs";
 import {
@@ -461,7 +461,7 @@ export class DollyProcessSupervisor {
       threaded = this.threadHost?.threaded(parsed, requirements) ?? false;
       largeStack = parsed.customSections.includes("dolly.process.stack");
       module = byteLength >= heldModuleBytes ? await compileHeld(bytes, this.pageWorker) : await WebAssembly.compile(bytes);
-      processInterface = { imports: parsed.imports, exports: parsed.exports,
+      processInterface = { imports: parsed.imports, exports: exportIndex(parsed.exports),
         castEmulationParameters: parsed.castEmulationParameters };
       prepared = true;
     } finally {

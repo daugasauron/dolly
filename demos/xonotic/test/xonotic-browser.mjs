@@ -1,7 +1,8 @@
 // The dedicated server built in the xonotic-build image runs Xonotic's own
 // server benchmark (serverbench.cfg: bots only, benchmark clock) to the end of
-// the match, from the release's pk3 archives fetched into the shared
-// filesystem; then the client draws its menu and a live match, which it records
+// the match, from the release's pk3 archives, which curl (composed onto the
+// image) fetches into the shared filesystem; then the client draws its menu and a
+// live match, which it records
 // and replays as a timedemo, and a SIGKILL ends it with the shell intact.
 // Usage: node demos/xonotic/test/xonotic-browser.mjs
 // With DISPLAY, Chrome runs in a window with the GPU's adapter and the client
@@ -11,6 +12,7 @@
 import assert from "node:assert/strict";
 import { browsers } from "../../browsers.mjs";
 import { delay, demoTest, heardAudio, meterAudio, snapshotDisplay } from "../../browser.mjs";
+import { composed } from "../../../test/browser.mjs";
 
 const archives = ["xonotic-20230620-data.pk3", "xonotic-20230620-maps.pk3"];
 const fonts = ["font-xolonium-20230620.pk3", "font-unifont-20230620.pk3"];
@@ -67,7 +69,7 @@ for (const browser of browsers) await demoTest("xonotic", { image: "xonotic-buil
   server: { fixtures } }, async ({ server, open }) => {
   const { page, run, start, text } = await open({ policy: { rules: [
     { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"], maxResponseBytes: 1024 * 1024 * 1024 }] },
-    setup: page => page.addInitScript(meterAudio) });
+    ...await composed(["http"], ["curl"], { base: "xonotic-build", setup: page => page.addInitScript(meterAudio) }) });
   // The client's sound plays through audio@0, which may wait for a user interaction.
   await page.mouse.click(10, 10);
   await run(`mkdir -p ${basedir}/data && cd ${basedir}/data && ` +

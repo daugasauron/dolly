@@ -9,7 +9,7 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix 05628fd9859d6aa86359accd20db6cf32c0b1469e573da158734ce7a2caab0bf
+INSTALL /Dollyfile-posix c67f734780c8ee1d6294e903694f1ca0604308013a00ed3439a1a69b5218a854
 INSTALL /Dollyfile-display 92fa47fba681122d18eec549b498ccfdc00477b619685d046643846f3b8df646
 COPY /demos/wine/Dollyfile-wine-build 904c749eb69a02f5d7a0e729a753499faccc18203010fa225024bd5d4692886c /usr/bin/wine /usr/bin/wine
 COPY /demos/wine/Dollyfile-wine-build 904c749eb69a02f5d7a0e729a753499faccc18203010fa225024bd5d4692886c /usr/share/wine /usr/share/wine

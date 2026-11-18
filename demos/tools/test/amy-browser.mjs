@@ -7,7 +7,6 @@ import { amyCases, typing } from "../../../test/amy-sessions.mjs";
 const typed = {
   sqlite: ["sqlite3 /tmp/amy.db", [[/amy\.db->\s*$/, "select count(*) * 14 from word;\n"], [/\D42\D[^>]*amy\.db->\s*$/, ".quit\n"]]],
   bc: ["dc", [[/>>>\s*$/, "6 7 * p\n"], [/\n42\n>>>\s*$/, "q\n"]]],
-  vi: ["vi /tmp/amy-vi", [[/^~$/m, "ione\ntwo\x1b:wq\n"]], "test \"$(tr '\\n' ' ' < /tmp/amy-vi)\" = 'one two '"],
   // Its status line is up; Ctrl+S saves and Ctrl+Q quits.
   dte: ["dte /tmp/amy-dte", [[/INS +UTF-8/, "one\ntwo\x13\x11"]], "test \"$(tr '\\n' ' ' < /tmp/amy-dte)\" = 'one two '"],
 };

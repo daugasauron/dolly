@@ -27,6 +27,7 @@ const display = new Map([
   ["deep-hedger/test/deep-hedger-browser.mjs", both],
   ["godot/test/godot-airtime-browser.mjs", both],
   ["godot/test/godot-flyover-browser.mjs", both],
+  ["godot/test/godot-flyover-touch-browser.mjs", both],
   ["godot/test/godot-gpu-browser.mjs", both],
   ["godot/test/godot-projects-browser.mjs", both],
   ["godot/test/godot-x11-browser.mjs", both],

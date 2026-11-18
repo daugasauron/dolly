@@ -19,16 +19,16 @@ REQUIRES HOST clipboard@0
 # and softpipe, the mesa package's, linked in) where it does not, with its
 # sound on audio@0. It plays on the page or runs a project with --headless.
 FROM /Dollyfile-system-tools 7b1306fddb4975e68b655f6d0bd6a478f6f02ba877ce033af921969099844d2d
-USE /demos/ghostty-gtk/Dollyfile-mesa 60b5a0eda8e23e978c6ff085f3362559193449f3f0d77b46040080a1490e026e
-USE /demos/x11/Dollyfile-x11-libs c060e432a0f5575e803b420a7ef5dce0cebafc5b77d6f827f08ef9d5157db783
-USE /demos/tools/Dollyfile-scons fc3577c40457ac66f7f235d1a0cc8b96ac183f41e60aebe02706577e67cca437
+USE /demos/ghostty-gtk/Dollyfile-mesa 39004d22b17bfdea87fb07ea223f43e8b32330073d62cb3d6d4ebc4038a85163
+USE /demos/x11/Dollyfile-x11-libs 764d466938d6540119570463f57152fd7e8c87a44765bae5d04631c95919a949
+USE /demos/tools/Dollyfile-scons 59fe95643fa5e8de888b336aaaf225fe94f68947f283eabc5cd229c6ba29f390
 USE /Dollyfile-mandoc 4c46a3289002905fd4050b575a26c09d8ecd403d4848ba020f10ea4360bf5d69
 USE /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
 USE /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
-USE /demos/godot/Dollyfile-spirv-wgsl e84968033071289854192001e6c9908b04cece37e0b9476ca587adaa8aa13de8
+USE /demos/godot/Dollyfile-spirv-wgsl 15b32ebe652debd8de4a7e6ffe96f748a68b15fdf360b226f4c2b91d454d9d1a
 USE /Dollyfile-libdolly-audio a4064796256e039400d5ea30faae6dfeccb9c09d62a8b6dd09daebc16fbf1f7f
 USE /Dollyfile-libdolly-clipboard 99746a8bd9b9eb136098753ccc526ac94a14540e6d26082ae8748eb6e3fa08a6
-USE /demos/x11/Dollyfile-x11-window f7cf2429c76e427ac1436e23e37fa2c36317216302e38495695d17ea30b1f4aa
+USE /demos/x11/Dollyfile-x11-window fc7ae09d80441b5f08c989c09c73da48f0c234a473ab413a3a8e01ca7b56666f
 USE /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
 USE /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
 USE /Dollyfile-libdolly-touch e575ebfcfdeb0bd32c82b34d59b0a25b627a1189a5a5ebdcc930073fe86594f0

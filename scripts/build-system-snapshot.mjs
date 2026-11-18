@@ -80,10 +80,15 @@ async function treeMemory(root) {
   return total;
 }
 
-// Each concurrent builder needs its own Chrome profile; the port follows it.
+// Each concurrent builder needs its own Chrome profile; the port follows it. The
+// profile holds only the build in progress: what a build page stores (its inputs
+// decoded, the image it built) would otherwise pile up over a round, so it is
+// emptied before and after each build.
 function runSnapshotBuild(image, output, builder) {
-  return new Promise((resolveBuild, reject) => {
-    const env = { ...process.env, DOLLY_BROWSER_PROFILE: resolve(projectDir, `.cache/snapshot-browser-profile-${builder}`) };
+  const profile = resolve(projectDir, `.cache/snapshot-browser-profile-${builder}`);
+  const empty = () => rm(profile, { recursive: true, force: true });
+  return empty().then(() => new Promise((resolveBuild, reject) => {
+    const env = { ...process.env, DOLLY_BROWSER_PROFILE: profile };
     const child = spawn(process.execPath, [resolve(projectDir, "scripts/build-snapshot-browser.mjs"), image, output], {
       cwd: projectDir, env, stdio: ["ignore", "pipe", "pipe"],
     });
@@ -105,7 +110,7 @@ function runSnapshotBuild(image, output, builder) {
         `Dolly ${image} snapshot browser exited with ${signal ? `signal ${signal}` : `status ${status}`}`,
       ));
     });
-  });
+  })).finally(empty);
 }
 
 function verifyImage(image, parsed) {

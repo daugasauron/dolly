@@ -11,8 +11,10 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /Dollyfile-system d114f508562868a2209ab755b4fe14322f1d326d6aab23639cfeff39df4d3605
+FROM /Dollyfile-system ede57a1516844ae47fe5aa8dcf693ca90862dd38547e1587f7e163f513079551
 INSTALL /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
-INSTALL /demos/rust/Dollyfile-cargo 573680df4ea06d80f8479e629a5ab02fee9ded38d020b6dd8cd497371df339e3
+INSTALL /demos/rust/Dollyfile-cargo 526175888feecc0a092465fba065469086ec319b6df5b912696c5ed304d723e4
+# Cargo fetches a Git dependency with git, whose HTTP helpers are git-http's.
+INSTALL /Dollyfile-git-http fe182caf88022592ea0a2dda7a7e9fd53a31f46d92d2ffa37e97a12782ded615
 
 ENTRY /bin/foreground -i /bin/slop

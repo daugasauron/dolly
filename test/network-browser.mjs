@@ -119,6 +119,7 @@ await browserTest("network", { image: "system", server: { fixtures, handle } }, 
     await run(`curl -fsS ${server.origin}/fixture/libcurl-contract.c -o /tmp/libcurl-contract.c`);
     await run(`cc -O0 /tmp/libcurl-contract.c -lcurl -o /tmp/libcurl-contract && timeout 20 /tmp/libcurl-contract ${server.origin}/fixture/libcurl-contract`);
     assert.deepEqual(contractRequests, [
+      { authorization: null, body: "" },
       { authorization: null, body: "payload" },
       { authorization: "Basic dXNlcjpwYXNz", body: "payload" },
       { authorization: null, body: "abc" },

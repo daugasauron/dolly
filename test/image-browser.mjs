@@ -12,7 +12,8 @@ import systemMetadata from "../dist/dolly-system-system-snapshot.json" with { ty
 const [system, tools] = ["system", "system-tools"].map(name => catalog.images.find(({ image }) => image === name));
 const packs = metadata => metadata.packs.map(({ sha256 }) => `/dist/packs/${sha256}.snapshot.gz`).sort();
 // Building system reads each image its recipe names, every one's packs: a pack
-// two of them hold is downloaded once and then read from the pack store.
+// two of them hold is downloaded once and then read from the pack store, which
+// keeps none of them once the image cache holds those images.
 const inputMetadata = await Promise.all(system.artifacts.map(async ({ image }) =>
   (await import(`../dist/dolly-${image}-system-snapshot.json`, { with: { type: "json" } })).default));
 const systemPacks = packs(systemMetadata), buildPacks = [...new Set(packs({ packs: inputMetadata.flatMap(metadata => metadata.packs) }))];
@@ -133,14 +134,17 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
       cachedBase: (await (await import("/site/image-artifact.mjs")).loadImageArtifactDescriptor(sha256, inputs))?.file,
       downloads: performance.getEntriesByType("resource").map(entry => new URL(entry.name).pathname)
         .filter(path => /\/dist\/packs\/|\.snapshot$/.test(path)).sort(),
+      keptPacks: await Array.fromAsync((await (await (await navigator.storage.getDirectory())
+        .getDirectoryHandle("dolly-packs")).getDirectoryHandle("packs")).keys()),
     }), { sha256: system.sha256, inputs: systemMetadata.inputs });
   };
-  // A fresh tab reads the published base's packs only; a second build reads its
-  // cached payload only and is byte-identical; an edited command changes the image.
+  // A fresh tab reads the published base's packs only and keeps the base once,
+  // in the image cache, none of its packs; a second build reads its cached
+  // payload only and is byte-identical; an edited command changes the image.
   const published = await boot(page, "iteration-one");
-  assert.deepEqual([published.payloadReads, published.downloads], [[], systemPacks]);
+  assert.deepEqual([published.payloadReads, published.downloads, published.keptPacks], [[], systemPacks, []]);
   const cached = await boot(page, "iteration-one");
-  assert.deepEqual([cached.payloadReads, cached.downloads], [[cached.cachedBase], []]);
+  assert.deepEqual([cached.payloadReads, cached.downloads, cached.keptPacks], [[cached.cachedBase], [], []]);
   assert.match(cached.cachedBase, /^[0-9a-f-]{36}$/);
   assert.equal(cached.digest, published.digest);
   await page.evaluate(source => sessionStorage.setItem("dolly-custom-source", source), iterationRecipe(system, "iteration-two"));
@@ -280,6 +284,6 @@ await browserTest("image", { image: "system", server: { fixtures, handle }, time
   try {
     const built = await boot(missing, "iteration-one", "/dist/static/session-recovery/");
     assert.ok(server.requests.has("/dist/dolly-system-system-snapshot.json"));
-    assert.deepEqual([built.payloadReads, built.downloads], [[], buildPacks]);
+    assert.deepEqual([built.payloadReads, built.downloads, built.keptPacks], [[], buildPacks, []]);
   } finally { hideSystemMetadata = false; }
 });

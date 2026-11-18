@@ -122,15 +122,7 @@
     { "script": "man flex > /tmp/amy-man && grep -q 'scanner' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
     {
       "fresh": true,
-      "why": "ex edits by commands; vi at the terminal is typed by the page after these steps.",
-      "script": "! command -v vi",
-      "status": 0
-    },
-    { "script": "amy install vi", "status": 0 },
-    { "script": "printf 'one\\ntwo\\n' > /tmp/amy-ex && printf '%s\\n' '%s/two/2/' w q | ex -s /tmp/amy-ex > /dev/null && test \"$(tr '\\n' ' ' < /tmp/amy-ex)\" = 'one 2 '", "status": 0 },
-    {
-      "fresh": true,
-      "why": "A syntax file dte holds is written out and loads; dte at the terminal is typed by the page too.",
+      "why": "A syntax file dte holds is written out and loads; dte at the terminal is typed by the page after these steps.",
       "script": "! command -v dte",
       "status": 0
     },

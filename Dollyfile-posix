@@ -64,6 +64,8 @@ EXPORTS TOOL command
 EXPORTS TOOL xargs
 EXPORTS TOOL find
 EXPORTS TOOL env
+# And its link, which upstream scripts name in #!/usr/bin/env (system-tools).
+FILE /usr/bin/env
 EXPORTS TOOL time
 EXPORTS TOOL timeout
 EXPORTS TOOL realpath

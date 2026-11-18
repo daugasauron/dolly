@@ -6,11 +6,11 @@ REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
 # Cargo as rust-build built it.
-COPY /demos/rust/Dollyfile-rust-build 13b4f6f4466d88dbe147c8e20a41e811ae6f77b0cf62edc98c6e657325cc4467 /usr/bin/cargo /usr/bin/cargo
-COPY /demos/rust/Dollyfile-rust-build 13b4f6f4466d88dbe147c8e20a41e811ae6f77b0cf62edc98c6e657325cc4467 /usr/share/licenses/cargo /usr/share/licenses/cargo
-COPY /demos/rust/Dollyfile-rust-build 13b4f6f4466d88dbe147c8e20a41e811ae6f77b0cf62edc98c6e657325cc4467 /usr/share/dolly/builds/cargo.lock /usr/share/dolly/builds/cargo.lock
+COPY /demos/rust/Dollyfile-rust-build 8fdd298ba770fb739ff6f50921fd5e825a27b9ccf32e290b132d0e1c9a8ed32d /usr/bin/cargo /usr/bin/cargo
+COPY /demos/rust/Dollyfile-rust-build 8fdd298ba770fb739ff6f50921fd5e825a27b9ccf32e290b132d0e1c9a8ed32d /usr/share/licenses/cargo /usr/share/licenses/cargo
+COPY /demos/rust/Dollyfile-rust-build 8fdd298ba770fb739ff6f50921fd5e825a27b9ccf32e290b132d0e1c9a8ed32d /usr/share/dolly/builds/cargo.lock /usr/share/dolly/builds/cargo.lock
 # Cargo runs rustc: the package brings the compiler it was built with.
-INSTALL /demos/rust/Dollyfile-rust bc78ffd95f984163d8012676fdd289ab9131ca735944ec5d92a1ddb601ceeeec
+INSTALL /demos/rust/Dollyfile-rust ee5c25689c2ebca01694f6ee1c05001da27167a558410536dcd9fe6bd52f32ff
 # The cc crate's default flags name a target; Dolly's cc has one.
 EXPORTS ENV CRATE_CC_NO_DEFAULTS 1
 # A Git dependency is fetched by git, which reaches HTTP hosts through the
@@ -33,6 +33,6 @@ FILE /usr/share/man/cat1/cargo.1
     so a project's crates are vendored: amy install vendor-crates, then
     vendor-crates in the project and cargo build --offline. A crate that uses
     libc needs the SDK's copy, which vendor-crates patches in. A Git dependency
-    is fetched by git (amy install git), from a host that sends CORS headers.
+    is fetched by git (amy install git git-http), from a host that sends CORS headers.
     There is no cargo search, publish or login.
     Upstream's book: https://doc.rust-lang.org/cargo/

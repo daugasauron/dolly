@@ -85,11 +85,11 @@ const pin = name => {
   const { dollyfile, sha256 } = catalog.images.find(definition => definition.image === name);
   return `${siteReference(dollyfile)} ${sha256}`;
 };
-// llvm-cc with the terminal display, the runtime package and threads.
+// llvm-cc with the terminal display, the runtime package, curl and threads.
 const hosts = [...new Set([...catalog.images.find(({ image }) => image === "llvm-cc").hostRequirements, "threads@0"])].sort();
 const recipe = ["DOLLY 8", "APPLICATION llvm-runtimes-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin("llvm-cc")}`,
   ...["/usr/lib/libdisplay.so", "/usr/share/fonts/IosevkaTerm-SemiBold.ttf"].map(path => `COPY ${pin("ghostty-build")} ${path} ${path}`),
-  `INSTALL ${pin("llvm-runtimes")}`, "EXPORTS LIB display /usr/lib/libdisplay.so", "EXPORTS ENV DOLLY_DISPLAY_LIBRARY /usr/lib/libdisplay.so",
+  `INSTALL ${pin("llvm-runtimes")}`, `INSTALL ${pin("curl")}`, "EXPORTS LIB display /usr/lib/libdisplay.so", "EXPORTS ENV DOLLY_DISPLAY_LIBRARY /usr/lib/libdisplay.so",
   "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
 const built = "-L/usr/lib/llvm-runtimes";
 const shipped = "'/usr/lib/(libclang_rt|dolly/process/.*lib(c\\+\\+|c\\+\\+abi|unwind|clang_rt\\.builtins)-)'";
