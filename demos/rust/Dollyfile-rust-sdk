@@ -23,7 +23,7 @@ REQUIRES TOOL mkdir
 
 # The seed: rustc and its standard library as the previous round's rust-build
 # built them, and its Cargo. The linker adapter is compiled inside Dolly.
-SOURCE /dist/static/rust/rust-seed.tar.gz 18c79adcffc8ba2de63172cedc812873b04b776524f6450e95699862213722b8 /tmp/rust-seed.tar.gz
+SOURCE /dist/static/rust/rust-seed.tar.gz 70be972668adaf992b8b162ed90884dd2acfc2ed06ec7897eb2b9ad33e076024 /tmp/rust-seed.tar.gz
 SLOP gzip -dc /tmp/rust-seed.tar.gz | tar -xf - -C /
 SOURCE /dist/static/rust/rustc.sh 03589f0b44268b0bb22c1d5db37aa58cd882a8d2dae81902a23ab2385c3dde6e /opt/rust-sdk/bin/rustc
 SOURCE /dist/static/rust/rust-linker.c aba3b92e9de04bd9b9457669b7621d6afbe1779c77c65477b32a3e167a7f5319 /tmp/rust-linker.c
