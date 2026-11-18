@@ -268,6 +268,7 @@ const elsewhere = {
   "libdolly-sockets": "sockets-browser.mjs",
   "libdolly-touch": "touch-browser.mjs",
   "libdolly-clipboard": "clipboard-browser.mjs",
+  clip: "clipboard-browser.mjs",
   "stack-wrap": "stack-browser.mjs",
   "libdolly-display": "system installs it",
   "libdolly-input": "system installs it",

@@ -3,7 +3,8 @@
 // user pasted from there, which reaches it as the chord's keys, not as typed
 // text. A copy made with no key press or click moments before stays in Dolly.
 // A process beside the foreground program is refused; a descendant takes the
-// clipboard over and its holder has it back.
+// clipboard over and its holder has it back. The clip package's command copies
+// the end of a pipeline typed at the shell, the Enter its user's act.
 // Usage: node test/clipboard-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { browserTest, workbench } from "./browser.mjs";
@@ -11,8 +12,8 @@ import { browserTest, workbench } from "./browser.mjs";
 const fixtures = { "clipboard.c": "test/fixtures/clipboard.c" };
 
 await browserTest("clipboard", { image: "system", server: { fixtures }, timeout: 300_000 }, async ({ name, server, open }) => {
-  const image = await workbench(["clipboard"], ["libdolly-clipboard"]);
-  const { page, submit, text, waitForText } = await open({ ...image,
+  const image = await workbench(["clipboard"], ["libdolly-clipboard", "clip"]);
+  const { page, submit, text, waitForText, result } = await open({ ...image,
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
     async setup(page) {
       await image.setup(page);
@@ -48,4 +49,9 @@ await browserTest("clipboard", { image: "system", server: { fixtures }, timeout:
   await run("/tmp/clipboard unprompted UNPROMPTED-COPY");
   await page.waitForFunction(() => document.documentElement.dataset.clipboardCopy === "inactive");
   assert.equal(await browserClipboard(), "PASTED-FROM-THE-BROWSER");
+
+  await copied();
+  assert.equal(await result(() => page.keyboard.type("printf CLIPPED | clip\n")), 0, await text());
+  await page.waitForFunction(() => document.documentElement.dataset.clipboardCopy === "copied");
+  assert.equal(await browserClipboard(), "CLIPPED");
 });
