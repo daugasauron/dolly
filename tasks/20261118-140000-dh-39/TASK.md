@@ -87,4 +87,42 @@ values every book on 131,072 fresh paths; it prints the share of middles in band
   for the five expiries, against 130 to 188 with a Black delta alone and 108 to 200 with a
   Black vega hedge in the next expiry's straddle; the hedge's spreads cost 5 to 12 bp.
 
-Seed 2 and 2023-01 to 2025-11 are being fitted.
+### 2020-09 to 2022-12, seed 2 beside seed 1 (2026-11-19)
+
+| | Seed 1 | Seed 2 |
+|---|---|---|
+| Middles in band on fresh paths, all / out of the money | 74% / 59% | 76% / 61% |
+| Single picks, the model's hedge, bp a day | +10.0 (t 3.9), 13% buys | +4.4 (t 1.5), 24% buys |
+| Sales picked less sales not picked | -4.5 (t -0.7) | -7.1 (t -1.1) |
+| Buys picked less buys not picked | +15.0 (t 2.7) | +11.8 (t 2.3) |
+| The model's hedge less a Black delta with the same lag | -0.3 (t -0.3) | -0.2 (t -0.2) |
+| Richest fifth sold less cheapest bought, at the mid / at the quotes, deviations | +0.09 (t 1.8) / +0.05 (t 1.0) | +0.08 (t 1.8) / +0.04 (t 0.9) |
+| Best deal among all out-of-the-money contracts, bp a trade | +2.06 (t 4.5) on 75 days | +1.93 (t 4.8) on 83 days |
+| The same entered a day late / less 65 cents a contract | +1.28 / +1.81 | +1.35 / +1.69 |
+| Short straddle with the law's option hedge, deviation by expiry, bp | 46 to 81 | 47 to 84 |
+
+- What depends on the seed: the single picks' P&L (it is the mix of sides, and so how much of
+  the short-option premium a seed's picks carry). What does not: that picked sales are no better
+  than the rest, the weak ordering by richness, the hedger against a lagged Black delta, the
+  best deal (the two seeds agree on whether there is one on 85% of the days; their holdings'
+  cosine is 0.87 and their realised P&L correlate 0.61), and the straddle's option hedge.
+- The best deal among the liquid contracts only (seed 2): +1.92 bp (t 5.2), +1.42 a day late.
+  It is still the sale of wings.
+- **The best deal among liquid contracts within 1.5 deviations, where the law fits (seed 2):
+  seen on 49 of 96 days, +0.19 bp a trade (t 0.25).** Where the model is calibrated it finds
+  nothing that pays.
+
+### The rules, fixed here for 2023-01 to 2025-11 (scored once, both seeds)
+
+1. The best deal among all out-of-the-money contracts, among the liquid ones, and among the
+   liquid ones within 1.5 deviations: realised with the model's hedge, a day late, and less 65
+   cents a contract; what is left beside the premium of selling every contract; seeds beside
+   each other.
+2. Single picks (out of the money, the quote on the wrong side of the model's value), and
+   picks less the rest of their side.
+3. The richest fifth sold against the cheapest bought among liquid contracts, at the quotes.
+4. A short straddle by expiry with the law's option hedge (price 0.2), a Black delta, a Black
+   vega hedge: deviation and mean.
+
+What the first period makes likely: 1 pays in the wings and not within 1.5 deviations; 2 and 3
+do not pay; 4 holds.
