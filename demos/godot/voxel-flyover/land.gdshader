@@ -2,7 +2,7 @@
 // (ground.gdshader). The fragment stage takes the slope from the same heights and dresses the
 // ground by it: meadow, heath or desert by the climate, bare rock where it is steep, snow where
 // it is high and lies, sand by the sea. Veins of crystal glow at night, the clouds lay their
-// shade, and rings of light run out from lit beacons, around which the snow melts. Low wet
+// shade, and light runs out from under the rings the flyer has passed, where the snow melts. Low wet
 // plains are marsh, with pools that mirror the sky and freeze in winter.
 shader_type spatial;
 #include "res://terrain.gdshaderinc"
@@ -56,10 +56,10 @@ void fragment() {
 	float moisture = here.z + (grain - 0.5) * 0.04 - relief * 0.012;
 	float steep = 1.0 - normal.y;
 	// Winter brings the snow down the slopes, and rain the wet (or in winter more snow).
-	// A shower leaves the ground wet behind it for a while. A lit beacon warms the ground
-	// around it: the snow draws back up the slope there, and more flowers stand.
+	// A shower leaves the ground wet behind it for a while. A passed ring warms the ground
+	// under it: the snow draws back up the slope there, and more flowers stand.
 	float wet = far_off < 1.0 ? max(rain_on(p), 0.7 * rained_on(p)) * (1.0 - far_off) : 0.0;
-	float warmed = beacon_warmth(p);
+	float warmed = ring_warmth(p);
 	// In the cold of the poles the snow lies down to the sea all year: the planet's caps.
 	float snowline = SEA + 78.0 - (0.5 - warmth) * 70.0 - winter * (52.0 + 14.0 * wet) + 70.0 * warmed + relief * 2.5 - 260.0 * smoothstep(0.2, 0.0, warmth);
 
@@ -75,6 +75,25 @@ void fragment() {
 	// in spring and where it has rained.
 	vec3 grass = mix(mix(vec3(0.5, 0.36, 0.1), vec3(0.62, 0.5, 0.18), blotch), vec3(0.2, 0.34, 0.07), clamp(0.7 * spring + 0.6 * wet, 0.0, 1.0));
 	colour = mix(colour, grass, smoothstep(0.49, 0.54, warmth) * smoothstep(0.44, 0.5, moisture) * smoothstep(0.6, 0.54, moisture));
+	// Salt flats: in the desert's low level basins (the mesas' floor among them) the ground is a
+	// white crust of salt, cracked in plates, glossy after rain.
+	float salt = sandy * smoothstep(SEA + 13.0, SEA + 6.0, height) * smoothstep(0.035, 0.012, 1.0 - normal.y) * smoothstep(0.42, 0.52, noise(p / 700.0 + vec2(31.0, 7.0)));
+	if (salt > 0.0) {
+		vec2 cells = p / 7.0;
+		vec2 base = floor(cells);
+		float first = 9.0;
+		float second = 9.0;
+		for (int i = -1; i <= 1; i++) {
+			for (int j = -1; j <= 1; j++) {
+				vec2 cell_at = base + vec2(float(i), float(j));
+				float apart = distance(cells, cell_at + vec2(hash(cell_at + 5.0), hash(cell_at + 9.0)));
+				second = apart < first ? first : min(second, apart);
+				first = min(first, apart);
+			}
+		}
+		float crack = (1.0 - smoothstep(0.02, 0.06 + wide / 7.0, second - first)) * (1.0 - smoothstep(1.0, 3.0, wide));
+		colour = mix(colour, mix(vec3(0.82, 0.8, 0.76), vec3(0.42, 0.37, 0.32), crack) * (0.95 + 0.1 * grain), salt);
+	}
 	// The ground cover is mottled, and flowers dot it near by.
 	colour *= mix(0.95, 1.5, smoothstep(SEA, SEA + 45.0, height)) * (0.9 + 0.2 * grain) * (0.72 + 0.56 * fbm_seen(p / 17.0 + vec2(5.0, 90.0), 3, wide / 17.0));
 	vec2 bloom = floor(p * 2.5);
@@ -83,6 +102,11 @@ void fragment() {
 	// Rock shows where the ground is steep and toward the snow, in strata.
 	float strata = 1.0 - 0.22 * near * (0.5 + 0.5 * sin(here.x * 1.3 + blotch * 7.0));
 	vec3 rock = mix(vec3(0.09, 0.075, 0.08), vec3(0.24, 0.18, 0.13), grain * 0.5 + 0.5 * blotch) * strata;
+	// In the desert the rock is sandstone, in red and paler bands by the height: the cliffs of the
+	// mesas and the canyons. Bands finer than a pixel are their mean.
+	float band = here.x * 0.57 + blotch * 2.0;
+	float banded = mix(0.5, 0.5 + 0.5 * sin(band), 1.0 - smoothstep(0.08, 0.2, fwidth(band) / 6.2832));
+	rock = mix(rock, mix(vec3(0.4, 0.11, 0.045), vec3(0.62, 0.33, 0.15), banded) * (0.85 + 0.3 * grain), sandy);
 	float bare = max(smoothstep(0.1, 0.22, steep + (grain - 0.5) * 0.06), smoothstep(snowline - 26.0, snowline - 12.0, height));
 	colour = mix(colour, rock, bare);
 	float snow = smoothstep(snowline - 3.0, snowline + 3.0, height) * smoothstep(0.42, 0.2, steep);
@@ -103,6 +127,12 @@ void fragment() {
 	float hedge = smoothstep(0.44, 0.47 + wide / 34.0, max(to_hedge.x, to_hedge.y)) * near;
 	float rows = 0.5 + 0.5 * sin((crop > 0.5 ? p.x : p.y) * 2.2) * (1.0 - smoothstep(0.3, 1.0, wide));
 	vec3 crops = mix(mix(vec3(0.16, 0.36, 0.08), vec3(0.3, 0.42, 0.1), crop), mix(vec3(0.62, 0.5, 0.16), vec3(0.45, 0.33, 0.14), autumn), smoothstep(0.3, 0.75, fract(crop * 7.0) + autumn - spring));
+	// In the warm dry countries a field in three is flowers in rows in spring and summer: lavender,
+	// sunflowers or poppies. Far off they are their mean, by degrees.
+	float sown = hash(floor(in_field) + 77.0);
+	float flowery = smoothstep(0.5, 0.56, warmth) * smoothstep(0.58, 0.5, moisture) * step(0.66, fract(sown * 13.0)) * (1.0 - autumn) * (1.0 - winter) * (1.0 - smoothstep(20.0, 60.0, wide));
+	vec3 blossom = fract(sown * 29.0) < 0.5 ? vec3(0.3, 0.16, 0.55) : fract(sown * 29.0) < 0.8 ? vec3(0.85, 0.62, 0.04) : vec3(0.72, 0.07, 0.04);
+	crops = mix(crops, blossom * (0.7 + 0.6 * rows), flowery);
 	colour = mix(colour, mix(crops * (0.85 + 0.3 * rows), vec3(0.03, 0.12, 0.05), hedge), farmed);
 	// Where the farmed land is warm, wet and sloping it is terraced: level steps of 2.5 units
 	// that follow the slope's contours behind low walls, flooded in spring so that they mirror
@@ -196,7 +226,7 @@ void fragment() {
 	// From orbit a settled region's towns are one glow at night, on its low land.
 	float glow_far = far_off * smoothstep(0.6, 0.74, peopled) * low * (1.0 - snow) * 0.9 * mix(smoothstep(0.5, 0.75, noise3(planet / 1800.0 + vec3(5.0, 81.0, 33.0))), 0.25, smoothstep(900.0, 2700.0, wide));
 	EMISSION = lamps * (town * street + glow_far) * night_here * (0.5 + 0.5 * winter) + lit_crowns + vein_colour * vein * run * (0.02 + 0.5 * sandy + 1.7 * night_here) + vec3(1.0, 0.5, 0.12) * pulse_light(p) * (1.0 + 1.8 * night_here) * (0.6 + 0.6 * grain);
-	ROUGHNESS = mix(mix(mix(0.9, 0.7, bare), 0.3, max(max(max(vein * night_here, snow * 0.6), sand * 0.5), wet * 0.8)), mix(0.05, 0.35, winter), max(pool, flooded));
+	ROUGHNESS = mix(mix(mix(0.9, 0.7, bare), 0.3, max(max(max(max(vein * night_here, snow * 0.6), sand * 0.5), wet * 0.8), salt * (0.3 + 0.7 * wet))), mix(0.05, 0.35, winter), max(pool, flooded));
 	SPECULAR = 0.35;
 	vec3 facing = normalize(mix(normal + vec3(tilt.x, 0.0, tilt.y), vec3(0.0, 1.0, 0.0), pool));
 	if (seas && here.x < SEA) {
