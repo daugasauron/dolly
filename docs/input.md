@@ -40,7 +40,9 @@ flowchart LR
 - `dolly_input_acquire` gives the foreground process or a descendant the
   lease, one at a time. It then reads every record with
   `dolly_input_next_event`, and the terminal reads none. The page sends it
-  every button, pointer presence and a paste as text records.
+  every button, pointer presence and a paste as text records, and a
+  `SURFACE` record with the canvas's size in device pixels whenever the page
+  resizes the canvas.
 - A descendant of the lessee takes the lease over it, as the display lease
   does: the lessee's reads wait as if no record came, and when the
   descendant's lease ends it reads again, a focus record first. Records

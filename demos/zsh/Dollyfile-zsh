@@ -7,9 +7,9 @@ REQUIRES HOST runtime@0
 # (prepare-zsh.sh); Dolly compiles every object and links in the modules
 # zsh links statically, through Binaryen's cast emulation: zsh calls its
 # hooks, builtins and callbacks through pointers of a common type.
-FROM /demos/tools/Dollyfile-tools-build 3c416d0813c5baabb63ce16ebbd9abda02d78c2f86dcb2bbb351a19ffcb32139
-USE /demos/tmux/Dollyfile-libterminfo 2890e5d58c42763cb637c36f3d3231668c7a356f8608196a133c4b1319bc3baf
-USE /demos/tools/Dollyfile-binaryen e798ba99ca24562c5bd6b48891798995a83243a3294b6842dc4fda530dba5b34
+FROM /demos/tools/Dollyfile-tools-build f848aebbca736e17aa72bca3fb0387176bf8695f829e6c49d1664a4ed6b7868d
+USE /demos/tmux/Dollyfile-libterminfo a4b157eb1b18f3a515322657decddb3bb0a453d55d797188645bf81afc4afbdb
+USE /demos/tools/Dollyfile-binaryen c2aed2b9b7b56e03f139b58f6c295403d5ccab0d072d8f7bbcbe6bb0c9a8217b
 
 REQUIRES HEADER libc
 REQUIRES HEADER termcap

@@ -153,7 +153,27 @@ WGPUContext::~WGPUContext()
 void WGPUContext::activate()
 {
   is_active_ = true;
-  /* The window's frame: a texture the size of the page's surface, presented upright. */
+  /* The window's frame: a texture the size of the page's surface, presented upright, made again
+   * when the window follows the page to another size. */
+  uint32_t width = width_, height = height_;
+  if (ghost_context_ && width_) {
+    ghost_context_->getWebGPUSurfaceSize(width, height);
+  }
+  if (back_buffer_ && (width != width_ || height != height_)) {
+    passes_end();
+    back_left->attachment_remove(GPU_FB_COLOR_ATTACHMENT0);
+    front_left->attachment_remove(GPU_FB_COLOR_ATTACHMENT0);
+    GPU_texture_free(back_buffer_);
+    back_buffer_ = nullptr;
+    if (present_group_) {
+      WGPUDevice &device = wgpu_device();
+      std::lock_guard lock(device.mutex);
+      device.release(present_group_);
+      present_group_ = 0;
+    }
+  }
+  width_ = width;
+  height_ = height;
   if (width_ && back_buffer_ == nullptr) {
     back_buffer_ = GPU_texture_create_2d("back_left",
                                                 int(width_),

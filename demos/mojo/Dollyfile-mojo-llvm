@@ -12,10 +12,10 @@ REQUIRES HOST threads@0
 # links, at the revision Mojo pins, compiled inside Dolly by its own cc and
 # c++, over the zstd package: LLVM's Support compresses with Zstandard, and
 # Mojo's precompiled packages are compressed.
-FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+FROM /demos/cmake/Dollyfile-cmake-build ec172ae8a3b79bf8dcf9ea2b9c070699dcf05b337ea738e2b6657bb1d0fb7004
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL /demos/python/Dollyfile-python c39225e146dd9f27a77c5b8b534c4d3eec2246b777c435e766dd48495fa3a2c1
-INSTALL /demos/tools/Dollyfile-zstd 3fa6d4f97ba9831868c4690894f20ee31c17dd6648be30f00d5cab2868106b65
+INSTALL /demos/python/Dollyfile-python caf80d3cd27594e1ed0bc4bbd8d586359be411b6f5328e5d3fe89c4a6951576f
+INSTALL /demos/tools/Dollyfile-zstd a139fc9b0d1a31f41803cc986d6e96456ed6d4ee683d7fe259df24a6b2f3a62b
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python

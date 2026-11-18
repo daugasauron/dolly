@@ -8,12 +8,12 @@ REQUIRES HOST threads@0
 # pystring, minizip-ng and Imath packages, for programs the cc package builds:
 # its library, without its programs, Python, GPU tests or SIMD. Compiled with
 # -pthread: a program links it so, on threads@0.
-FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
-INSTALL /demos/tools/Dollyfile-expat b178823faa8bd56e6c52c62f947712b676649d0cdc3b1f6a1ef9fe0cf3551a9d
-INSTALL /demos/tools/Dollyfile-yaml-cpp dd07e204068346fdda0169ef43f9d8507c117b151d7f68314c74a129a2367264
-INSTALL /demos/tools/Dollyfile-pystring 624014a3070f0f2f3deb644e789a9d0b59acda92a80b6ecd24557cccbb66f907
-INSTALL /demos/tools/Dollyfile-minizip-ng a01244e013a1f0da270c29bb61db3fbf9ccfc240d181ec0492686c3f7caf17e8
-INSTALL /demos/tools/Dollyfile-imath a3569353a9d737851791da0ca7fb197fe58a1728b627e30bc309c4833a564d3b
+FROM /demos/cmake/Dollyfile-cmake-build ec172ae8a3b79bf8dcf9ea2b9c070699dcf05b337ea738e2b6657bb1d0fb7004
+INSTALL /demos/tools/Dollyfile-expat bf3ca3446b50262dfd379d7c41b8fe564f8220cb7b18adc7e1c99ea60d91c24b
+INSTALL /demos/tools/Dollyfile-yaml-cpp 9fe3e228a69f7039db6353cbe3c5239583f3d8839e8dbf0e5bfff7fd0114c9dc
+INSTALL /demos/tools/Dollyfile-pystring 3759273459441408246a38262ebd8c88c2db88e9b3bae1ee462a0db0efb01a63
+INSTALL /demos/tools/Dollyfile-minizip-ng baaddc0c90736dfd44137f2a09a5493473161e4fc85064933ec2765ff94f35c5
+INSTALL /demos/tools/Dollyfile-imath 16ed3e4e2900195d8f2ea5c291c0069f1544bee6db0b91370f80d0fc4d5caf2c
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES LIB expat

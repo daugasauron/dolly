@@ -5,11 +5,11 @@ REQUIRES HOST dso@0
 
 # Neovim and its grammars over the utf8proc and tree-sitter packages; Lua,
 # LPeg and luv come from the lua package. All are linked in.
-FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
-USE /demos/neovim/Dollyfile-lua 684eb5ea48612e3953217cb4132d5792b9992de0c88da99d9944da2b18cb5651
-USE /demos/neovim/Dollyfile-utf8proc b2dff402a3209aa502f1cf49338c86d11d78a2c3f62ba5fe1e167a511ac276d8
-USE /demos/neovim/Dollyfile-tree-sitter 588b9536662bd5ab3ecee068052e1e7f50c962c8a62358540e4dce96cea14d1b
-USE /Dollyfile-mandoc 483a559eb568966844e5ef06ca4b9fd848a5b7ae1ff12bdfd9605123c34dcfb9
+FROM /demos/cmake/Dollyfile-cmake-build ec172ae8a3b79bf8dcf9ea2b9c070699dcf05b337ea738e2b6657bb1d0fb7004
+USE /demos/neovim/Dollyfile-lua 78ede9c5ee4267b7738bbdcb78b9b38d6f99a39b2e812cfb62c5d11491563163
+USE /demos/neovim/Dollyfile-utf8proc c6870f698bf67244fa8f08360164ceee03cdccd5b09a7f872386bec994077902
+USE /demos/neovim/Dollyfile-tree-sitter 0fdce9177a672703a71f9112c62971d50bb10c9eb6d49bd083aaf2c9669a1f04
+USE /Dollyfile-mandoc dbd78781612d0a1e380901d92439cdfa17a919ed6b7f7c316152117382aabdfe
 REQUIRES TOOL uname
 REQUIRES LIB utf8proc
 REQUIRES LIB tree-sitter

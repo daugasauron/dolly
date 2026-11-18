@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # pugixml, the C++ XML parser with XPath (OpenImageIO's), from upstream's
 # release archive, unchanged, built by its CMake project, for programs the cc
 # package builds.
-FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+FROM /demos/cmake/Dollyfile-cmake-build ec172ae8a3b79bf8dcf9ea2b9c070699dcf05b337ea738e2b6657bb1d0fb7004
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES TOOL cmake

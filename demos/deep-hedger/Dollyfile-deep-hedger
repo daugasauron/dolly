@@ -11,10 +11,10 @@ REQUIRES HOST http@0
 # The shell, its tools and the terminal, curl for the option chain, and the
 # deep hedger in front of them: its fit runs on WebGPU.
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix c24b7cb8dfc057769bc7f644f68c2922514adb89272756d8ed793c0318d5f3d5
-INSTALL /Dollyfile-display cc98bc6edc0e5dea2bfb79e3095ea1fb6744e28282d28cec6c2e013cf6435992
+INSTALL /Dollyfile-posix bd721815ffc3d3b9d887f57c3260749cb1db05ed2fe3f46a38b37e00ee66391b
+INSTALL /Dollyfile-display a03812d93e51c6338e43063f954fb9492ee0535f94a39e5c377d504a3d9eedb8
 INSTALL /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6e458431e
-INSTALL /demos/deep-hedger/Dollyfile-deep-hedger-build 179f8ce885c0ee4f39409c7c71556bcd19e392d9f6677c7f1ef05b2ee4297185
+INSTALL /demos/deep-hedger/Dollyfile-deep-hedger-build f9c4920ec6f17a6c571f02301b8741e27aaf810db67842a57facbfae21a5cf2d
 FILE /etc/dolly/init.slop
     /usr/bin/dh-gui
     printf '\nDolly: dh-gui has ended; this is the recovery Slop shell. dh-gui starts it again.\n'

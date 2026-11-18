@@ -305,6 +305,11 @@ static void DollyPumpEvents(_THIS)
         case DOLLY_INPUT_EVENT_POINTER_PRESENCE:
             SDL_SetMouseFocus(event.action ? video->window : NULL);
             break;
+        case DOLLY_INPUT_EVENT_SURFACE:
+            /* The page resized the canvas: a resizable window follows it. */
+            if (SDL_GetWindowFlags(video->window) & SDL_WINDOW_RESIZABLE)
+                SDL_SendWindowEvent(video->window, SDL_WINDOWEVENT_RESIZED, event.x, event.y);
+            break;
         default:
             break;
         }

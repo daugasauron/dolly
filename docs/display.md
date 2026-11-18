@@ -116,8 +116,10 @@ package (input's from `libdolly-input`):
   is shown again. Four leases nest at most.
 - The lease starts at the terminal's frame size; a program picks its own with
   `dolly_display_set_size` and the page fits the frame in the canvas at its own
-  shape, centred, and gives pointer positions in the frame's pixels. It is
-  not told when the page's surface changes.
+  shape, centred, and gives pointer positions in the frame's pixels. When the
+  page resizes the canvas, a program holding the input lease reads a `SURFACE`
+  record with its size in device pixels, the size to follow, as a desktop's
+  window follows its frame; one that only draws is not told.
 - A program that also reads keys or the pointer takes the
   [input lease](input.md) beside this one. One that only draws leaves keys
   with the terminal and reads them from its standard input.

@@ -9,19 +9,19 @@ REQUIRES HOST gpu@0
 REQUIRES HOST touch@0
 
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix c24b7cb8dfc057769bc7f644f68c2922514adb89272756d8ed793c0318d5f3d5
-INSTALL /Dollyfile-display cc98bc6edc0e5dea2bfb79e3095ea1fb6744e28282d28cec6c2e013cf6435992
-COPY /demos/xonotic/Dollyfile-xonotic-build 1d9fa4064edc65b0b2f0f4ea7126573cca4ebd95f2ac1af381cbcbd18bfc5d7d /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
-INSTALL /demos/xonotic/Dollyfile-xonotic-shaders 63eb40c711b76934b0a25bd04e8ef802d4af5ec554a2f7c32365d955aae73ec6
-COPY /demos/xonotic/Dollyfile-xonotic-build 1d9fa4064edc65b0b2f0f4ea7126573cca4ebd95f2ac1af381cbcbd18bfc5d7d /usr/share/licenses/xonotic /usr/share/licenses/xonotic
-COPY /demos/sdl2/Dollyfile-sdl2 d3938a1d871d053e813e0b039fb4bc209ab08cc461e1e80431180616b03b931e /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+INSTALL /Dollyfile-posix bd721815ffc3d3b9d887f57c3260749cb1db05ed2fe3f46a38b37e00ee66391b
+INSTALL /Dollyfile-display a03812d93e51c6338e43063f954fb9492ee0535f94a39e5c377d504a3d9eedb8
+COPY /demos/xonotic/Dollyfile-xonotic-build 4da6ba0a675c7c64ea0072e9558229bf700b213ad0684c33f642f17cad2f538e /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+INSTALL /demos/xonotic/Dollyfile-xonotic-shaders bf331b862fbaa3d50723ead3c249192eaf7c6dc50a9f34f74af720a732252631
+COPY /demos/xonotic/Dollyfile-xonotic-build 4da6ba0a675c7c64ea0072e9558229bf700b213ad0684c33f642f17cad2f538e /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY /demos/sdl2/Dollyfile-sdl2 d2348c23eb7966bbf28440f94df9c615917889681f121f8ed3e3d19e05a97a06 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
-COPY /demos/tools/Dollyfile-libjpeg-turbo 1e61de3e2c532637c8d07ebbc820361b211b8421307492bf35398e96beb6a029 /usr/share/licenses/libjpeg-turbo /usr/share/licenses/libjpeg-turbo
-COPY /demos/tools/Dollyfile-freetype fc54578a7e9ebbeac63b73e4ead0c1a7a49a8af8169520e5be3004bdc97ea0ce /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY /demos/tools/Dollyfile-brotli c515a521e9dd408498fba9bbf9d262b7b625744f5b032b610190f683fbabd25e /usr/share/licenses/brotli /usr/share/licenses/brotli
-COPY /demos/tools/Dollyfile-libpng b30b694311392c7242c13b8d263d86fa14806f27657ed493bdf5d5a487850b6d /usr/share/licenses/libpng /usr/share/licenses/libpng
-COPY /demos/xonotic/Dollyfile-libogg 70aa527e685f2defe24fdb45da886530b7d8e8e919fefedf15d12192cb90de7f /usr/share/licenses/libogg /usr/share/licenses/libogg
-COPY /demos/xonotic/Dollyfile-libvorbis c17b8150063f7666f0b60dd3ba4d4caf145ced9d499405fb5901300525a41dd0 /usr/share/licenses/libvorbis /usr/share/licenses/libvorbis
+COPY /demos/tools/Dollyfile-libjpeg-turbo 537d4ec44d628942007432cc593d2dbe7e2afcbef65d0d4f94b4dd6dc06eb694 /usr/share/licenses/libjpeg-turbo /usr/share/licenses/libjpeg-turbo
+COPY /demos/tools/Dollyfile-freetype 0a09133179a4a88a258e34af41b7e89c650fdba41a7c12e0c8d3d1c125f9a026 /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /demos/tools/Dollyfile-brotli 0ca72e263c99afcd0a564f1ab0e79a1e334bb067a871561c42eb106e78053199 /usr/share/licenses/brotli /usr/share/licenses/brotli
+COPY /demos/tools/Dollyfile-libpng 1819c51ce77b670220ddd0297212c2ce3c7575fda5712173cc65642656f194ac /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY /demos/xonotic/Dollyfile-libogg 1bd1956fb24b5121b7247dd2d3db7496d22187d1b8ec41492f86a3fe0537af0a /usr/share/licenses/libogg /usr/share/licenses/libogg
+COPY /demos/xonotic/Dollyfile-libvorbis 1db7af23dd6b43fe3d3d931f6cc1b81d316ff428715d88a26905694116747013 /usr/share/licenses/libvorbis /usr/share/licenses/libvorbis
 # Dolly's notices for this image: the IJG sentence, the fonts' terms and the
 # Bitstream Vera glyph sheet (the release carries no notice for it).
 FILE /usr/share/licenses/xonotic/NOTICE
