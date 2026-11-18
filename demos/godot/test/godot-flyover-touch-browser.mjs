@@ -61,7 +61,7 @@ for (const name of browsers) {
       await page.keyboard.press("q");
       await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
       const report = await page.evaluate(() => __dolly.visibleTerminalText());
-      const [, helm, high, pitch, zoom, touches] = report.match(/^FLYOVER flown \d+ rings \d+ score \d+ helm (\d) high (-?\d+) heading -?\d+ pitch (-?\d+) speed \d+ zoom ([\d.]+) touches (\d+)$/m) ?? [];
+      const [, helm, high, pitch, zoom, touches] = report.match(/^FLYOVER flown \d+ clouds \d+ score \d+ helm (\d) high (-?\d+) heading -?\d+ pitch (-?\d+) speed \d+ zoom ([\d.]+) touches (\d+)$/m) ?? [];
       assert.deepEqual(errors, []);
       await context.close();
       return { helm: Number(helm), high: Number(high), pitch: Number(pitch), zoom: Number(zoom), touches: Number(touches), report };

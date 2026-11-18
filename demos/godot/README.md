@@ -65,7 +65,7 @@ the slope from the same texture and dresses the ground by it
 [`ground.gdshaderinc`](voxel-flyover/ground.gdshaderinc)): meadow, heath or desert by the climate,
 mottled and dotted with flowers, bare rock in strata where it is steep, snow where it is high and
 lies, sand by the sea, veins of crystal that glow at night with a light that runs along them, and
-the light that runs out over land and sea from under each ring the flyer has passed. A tree stands in
+the light that runs out over land and sea from under each cloud the flyer has flown through. A tree stands in
 a plot of 4 units where the climate has one and the ground is not steep
 ([`flora.gdshaderinc`](voxel-flyover/flora.gdshaderinc),
 [`trees.gdshader`](voxel-flyover/trees.gdshader)): a trunk and a ball, which the vertex stage
@@ -86,10 +86,10 @@ to 420, and eight triangles to 690. Where two rings overlap, one's trees thin ou
 the other's fill in, both asking the same number of the pixel, and past the last ring the land's
 shader paints the same crowns on the ground they stand on, round over their plots' edges, and
 further still the colour of the climate's share of them. The land's grids blend their heights by
-the distance from the flyer, which moves smoothly while the grids step, and a chain of rings
-grows out of nothing as the flight comes from 600 units to 520 of its foot. A ring takes its
-glow and its amber by degrees, the ring of light that bursts from it grows out of nothing and
-is gone before the next sets off, and the light a passed ring sends over the ground fades with
+the distance from the flyer, which moves smoothly while the grids step, and a cloud
+grows out of nothing as it comes and fades out of sight past 250 times its radius. A cloud takes its
+glow and its ghost's amber by degrees, the light that bursts from it grows out of nothing and
+is gone before the next sets off, and the light a cloud flown through sends over the ground fades with
 its distance from the flyer. A tree thins out before the camera, which may fly through it. The camera follows a point that follows the next of its views, so it
 neither sets off nor arrives at once, and the ground lifts it by degrees before it is reached.
 
@@ -160,7 +160,7 @@ field in three is flowers in rows in spring and summer: lavender, sunflowers or 
 is marsh, with few trees and pools that mirror the sky. In winter the pools and the seas of the
 cold lands carry ice ([`water.gdshader`](voxel-flyover/water.gdshader)), and a town's lamps are
 each lot's own colour. A shower leaves the ground wet behind it for three quarters of a minute.
-A passed ring warms the ground some 90 units around the place under it: the snow and the ice draw back there and
+A cloud flown through warms the ground some 90 units around the place under it: the snow and the ice draw back there and
 more flowers stand. A hollow of the ground is wetter and darker than a spur and keeps its snow
 longer (the difference of the ground's two textures).
 
@@ -235,7 +235,7 @@ The board has one speed, 30 units a second, whatever it does: the mouse turns it
 around and up and down, as it turns the view of a game played on foot, 0.0025 radians a pixel
 of the motion the page gives (`fly` in [`main.gd`](voxel-flyover/main.gd)), and no key steers or
 gives speed. Its nose goes up or down to 86 degrees, almost straight, and nothing turns it back
-or levels it: the board flies where it was turned. Only a ring gives more speed (below), which
+or levels it: the board flies where it was turned. Only a cloud gives more speed (below), which
 wears off (to 1/e in two and a half seconds). The pelican pedals as fast as the board flies.
 
 Firefox reports the pointer's way to where it was captured as the first motion after the
@@ -255,33 +255,34 @@ flock of birds ([`bird.gdshader`](voxel-flyover/bird.gdshader)) falls in behind 
 passes; in rain or snow the birds close up and fly low. The flyer's wash bends the crowns it
 passes low over.
 
-Rings lie in courses where the flying is good (`course_start`, `course_step`,
-[`ring.gdshader`](voxel-flyover/ring.gdshader)): nine plots of 300 units in ten have one, laid a
-ring a frame as the plots come near, of the kind its place has. Along an avenue of a town the
-rings run between the houses, 60 units apart, every other one a little higher, and the last
-rises over the roofs. A slalom's rings stand 75 units apart, low and to either side of its way:
-along a coast's line, low over the open sea (every third ring higher), along a valley's lowest
-ground between hills or mountains, or over open fields. On open land a course may instead climb,
-85 units from ring to ring, up a way that steepens from 15 to 34 degrees and round a bend that
-tightens, each ring narrower, from 6.5 units of radius to 5. A ring hangs clear of what stands
-under it and beside it, 13 units over the ground at the least. Around the start 361 of 400 plots
-have a course: 135 along a coast, 72 climbs, 71 valleys or fields, 43 streets and 40 over the
-open sea, 2,747 rings.
+The rewards are small round clouds to fly through, in chains that climb out of the air
+(`chain_start`, `chain_step`, [`wisp.gdshader`](voxel-flyover/wisp.gdshader)). Seven plots of
+1,200 units in ten have a chain of six, laid a cloud a frame as the plots come near. Its first
+cloud hangs 40 to 200 units over what stands under it, 7 units of radius. Each next is where a
+board that flies straight on from the cloud before, at the boost a chain of so many has earned,
+arrives in 3.5 seconds (the last in up to 5.5, over the air), up a way that steepens from 30-45
+degrees by 5 degrees a cloud and bends by 20 to 46 degrees at each. A cloud flown through gives
+the board 20 units a second of speed over the cruise, which wears off (to 1/e in 2.5 s), and
+each next of a chain, flown through within 6 seconds of the one before, doubles it: 40, 80, 160,
+320, 640. Since the board is also faster the higher it is, a chain climbs ever faster: its fifth
+cloud is 2,200 to 31,000 units up (6,200 the median), and its sixth at 60,000, over the air (of 400
+plots around the start, 285 have a chain; a chain takes 2 ms to lay, a cloud a frame). A cloud's radius
+grows with the height as the board's speed does, so each is as easy to hit at its own height.
 
-Every ring counts, flown through from either side, once: a passed ring is a faint amber until its
-course is left behind. Chaining them is the game's skill. A ring passed within 3 seconds of the
-one before goes on the chain (0.1 s less for each ring of the chain, to 2); it counts as many
-points as the chain has rings, so a chain of six is worth 21 where six rings apart are worth 6,
-and it gives the board 26 units a second of speed and 1.5 more for each ring of the chain before
-it. The next ring of the course, the way it is flown, beats, faster as the chain's time runs out.
-The score swells, what the ring added rises from the middle of the screen and fades, the chain
+Only a chain's first cloud is always there, and a single one is worth taking: it counts a point
+and gives the boost. Flown through, the chain's next cloud grows out of nothing and beats, faster
+as the chain's time runs out, and the one after it shows faintly, so the way the chain goes is
+seen; a chain let lapse starts again at a first cloud. Each counts as many points as the chain
+has clouds, so a chain of six is worth 21. A chain takes a hand that turns the board at each
+cloud, at once and well: flown straight on, the next is missed; a pilot that moves the mouse up
+to 40 pixels a frame toward each (`build/planet/probe.gd`'s `--pilot`) flies chains of six. The
+score swells, what the cloud added rises from the middle of the screen and fades, the chain
 shows under the score with its time left in an arc around the score's ring, and a note rises
-with it. Speed is what a chain needs, and the ring after a ring comes sooner: a slalom flown fast
-needs a quick hand at each ring, and a street a steady one under the roofs. A ring is a six-sided hoop of
-pull at each ring, and a street a steady hand under the roofs. A ring is a six-sided hoop of
-glass with three motes circling it, in its course's colour; all of them are instances of one
-mesh, placed and lit by its shader, so they cost the renderer one thing to draw, and each grows
-out of nothing as the flight comes from 760 units to 640 of it.
+with it. A cloud is a ball whose puffs boil, a pearly sheen at its rim that runs through the
+colours, a light at its heart in the colour of its place in the chain, and three small puffs
+that circle it; spent, it is a faint amber ghost. All of them are instances of one mesh, placed,
+grown and lit by its shader, which carries each onto the sphere, so they cost the renderer one
+thing to draw.
 
 The board flies up to 420 units, over the low clouds and under the high layer. At sunrise and
 sunset the sky is in bands (fire at the horizon on the sun's side, rose over it, violet higher,
@@ -393,7 +394,7 @@ whose anchor is near, anywhere on the planet.
 `--high HEIGHT` starts at a height and keeps it.
 
 [`terrain.gd`](voxel-flyover/terrain.gd) computes the world's function for the flight, with the
-same integer hash, so the board clears the ground the GPU draws and its rings hang clear of it. The flight looks at the ground at some thirty places a frame, nearly all beside those of
+same integer hash, so the board clears the ground the GPU draws and its clouds hang clear of it. The flight looks at the ground at some thirty places a frame, nearly all beside those of
 the frame before: it takes the height between the points of a lattice of 4 units, each computed
 once, and a lot's building once (`ground`, `tops`), which is 0.9 ms of script a frame where
 computing each place took 7, and a frame of 35 to 58 ms each time the look ahead came to a new lot. The corgi flies itself until a click takes the board, and until then the camera glides between five views of it, one of them
@@ -583,11 +584,13 @@ Both games passed in both browsers on 2026-11-13, the editor's log without an er
 
 [`test/godot-flyover-browser.mjs`](test/godot-flyover-browser.mjs) opens `godot-voxel-flyover` from
 the front page's list of applications, on a hardware adapter, in Chrome and Firefox: the game
-draws on `gpu@0`, a click captures the pointer, L gives it back, a click captures it again, and 900 pixels of the mouse raise the board's
-nose to its limit, almost straight up, Q leaves the shell, and a flight by itself through a morning passes a ring and
-reports even frames and a frame with the sky along its top; it then leaves the planet by itself and
-reports a height of over 150,000 units, a chart whose anchor moved on the way, and a frame with
-the planet's colours.
+draws on `gpu@0`, a click captures the pointer, L gives it back, a click captures it again, and
+900 pixels of the mouse raise the board's nose to its limit, almost straight up; Q leaves the
+shell. A flight by itself through a morning, from before a chain's first cloud, flies through it
+and reports even frames and a frame with the sky along its top; one that flies on through the
+chain as a quick hand would chains five clouds or six and is over the air; and one that leaves the
+planet by itself reports a height of over 150,000 units, a chart whose anchor moved on the way,
+and a frame with the planet's colours.
 [`test/godot-flyover-touch-browser.mjs`](test/godot-flyover-touch-browser.mjs) plays it with
 fingers alone on a phone's screen (Chrome's touch events, Firefox's touch PointerEvents): held
 sideways, a tap takes the board, a finger's drag up the screen raises its nose and it climbs,

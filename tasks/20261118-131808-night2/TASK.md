@@ -25,8 +25,37 @@ Done when, each in Chrome and Firefox on the GPU, committed in this order:
 
 ## State (2026-11-18)
 
-1. The controls: done in the source, its tests running.
-2. and 3. To do.
+1. The controls: `1e9e49edd`. Chrome: the flyover test's mouse checks passed (L gave the pointer
+   back, the second capture worked, the nose stood at 80 to 86 degrees) and its old ring check
+   failed (the corgi of before passed the fighter's rings against their courses), which step 2
+   replaces; the touch test passed (the drag raised the nose 26 degrees, the board climbed to
+   190, the pinch zoomed, the ring gave the board back). Firefox: through step 2's round, which
+   runs the same checks on the same controls.
+2. The clouds: in the source and committed, its tests running.
+3. The moon: to do.
+
+## 2. Clouds that chain out of the air
+
+The rings, their courses and `ring.gdshader` are gone. Seven plots of 1,200 units in ten have a
+chain of six clouds (`chain_start`, `chain_step`, laid a cloud a frame): the first 40 to 200 units
+over what stands under it; each next where a board flying straight on from the cloud before at the
+boost of a chain of so many arrives in 3.5 s (the last in up to 4.5, over 55,000 units), up a way
+that steepens from 30-45 degrees by 5 a cloud and bends by 35 to 80 degrees. The boost is 20 for
+a single cloud and doubles with each next of a chain flown within 5 s (40, 80, 160, 320, 640);
+with the board's speed by its height, a chain's fifth cloud is 2,200 to 31,000 units up (6,200
+the median) and its sixth at 60,000. A cloud's radius is 7 units times that speed's factor. Only
+the first cloud of a chain is always there; the next of a chain going on grows out of nothing and
+beats, the one after shows faintly, and an arrow at the screen's edge points to the next while it
+is off the screen. The chain being flown is carried through a move of the chart's anchor.
+
+Measured headless (the probe's `--survey 20`, `--pilot`): of 400 plots around the start 285 have a
+chain; one takes 1.9 ms to lay (median), 6.3 at most, a cloud a frame. The corgi with `--chain 1`
+chains six and reaches 232,000 units. A hand that moves the mouse up to 40 pixels a frame chains
+six: the clouds at 3.8, 7.3, 10.8, 14.3, 17.8 and 19.1 s, at 141, 209, 318, 528, 4,996 and 58,132
+units, boosts 20 to 640. So does one of 12 pixels a frame, and one that sees each next cloud 0.6 s
+late: a chain takes a hand that finds each next cloud and steers to it within the chain's time,
+not a fast one, and nothing done after the first misses the second. The plain corgi from before a
+chain (`--cloud 1`) flies through its first cloud.
 
 ## 1. The controls of before
 
