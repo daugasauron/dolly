@@ -598,15 +598,8 @@ static int set_layout(uint32_t width_css, uint32_t height_css,
   framebuffer_height = (uint32_t)height;
   framebuffer_stride = framebuffer_width * 4;
   if ((uint64_t)framebuffer_stride * framebuffer_height > frame_capacity) return -1;
-  // Geometry belongs to the shared display surface, even while terminal frame
-  // publication is suspended by a graphics lease. The sequence is advanced
-  // only after a renderer has filled and presented a complete buffer.
-  __c11_atomic_store(&mailbox->frame_width, framebuffer_width,
-                     __ATOMIC_RELAXED);
-  __c11_atomic_store(&mailbox->frame_height, framebuffer_height,
-                     __ATOMIC_RELAXED);
-  __c11_atomic_store(&mailbox->frame_stride, framebuffer_stride,
-                     __ATOMIC_RELAXED);
+  // The mailbox's frame geometry describes the frame on screen, which may be a
+  // graphics lease's: render_frame publishes this one with the terminal's frame.
 
   padding_x = (12u * device_scale_milli + 500) / 1000;
   padding_y = (10u * device_scale_milli + 500) / 1000;

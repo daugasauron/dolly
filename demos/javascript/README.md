@@ -94,9 +94,8 @@ the npm registry what `npm install --global --ignore-scripts` does
 ## Limits
 
 - `qjs` is upstream's command and has none of what follows `janis` here: its
-  modules are upstream's `std`, `os` and `bjson` (`--std`). Built with
-  upstream's switch for a target without threads, it has no `os.Worker`,
-  `os.exec` fails (nothing forks) and `os.platform` is `js`.
+  modules are upstream's `std`, `os` and `bjson` (`--std`), `os.Worker`
+  among them, and `os.exec` fails (nothing forks).
 - No npm client (`janis-install` installs from the registry), native addons, worker threads (constructing a `Worker` fails
   with `ENOSYS`) or nested WebAssembly. Requiring an ES module fails with
   `ERR_REQUIRE_ESM`.

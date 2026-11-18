@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE pcre2
 REQUIRES HOST runtime@0
 
@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # Makefile below from its generic configuration, as projects that vendor it
 # do: Unicode properties, no JIT (a Dolly program generates no code). GLib's
 # regular expressions are PCRE2's.
-FROM /v0.1.6/demos/tools/Dollyfile-tools-build f0a23271701bb566fdd11375946b1a4159d15510005f66c9781cf5a2f411eb5c
+FROM /demos/tools/Dollyfile-tools-build 3c416d0813c5baabb63ce16ebbd9abda02d78c2f86dcb2bbb351a19ffcb32139
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -18,7 +18,7 @@ REQUIRES TOOL   make
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.6/dist/static/gtk/pcre2-10.49.tar.gz 929f0b20e62879252a15886b06c89f1edef61a363cbd5826fb041080a5e557ae /tmp/pcre2.tar.gz
+SOURCE /dist/static/gtk/pcre2-10.49.tar.gz 929f0b20e62879252a15886b06c89f1edef61a363cbd5826fb041080a5e557ae /tmp/pcre2.tar.gz
 SLOP CWD /tmp gzip -dc pcre2.tar.gz | tar -xf -
 FILE /tmp/pcre2.mk
     .RECIPEPREFIX := >

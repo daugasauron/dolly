@@ -1,4 +1,5 @@
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+const encoder = new TextEncoder();
 const valueTypes = new Map([
   [0x7f, "i32"],
   [0x7e, "i64"],
@@ -332,7 +333,7 @@ export function parseWasmInterface(input, label = "WebAssembly binary") {
     const collection = collections[externalKind];
     const type = collection?.[index];
     if (!type) reader.fail(`export ${name} references unknown ${kindNames[externalKind] ?? externalKind} ${index}`);
-    return { name, type };
+    return externalKind === 0 ? { name, type, function: index } : { name, type };
   });
 
   const tableFunctions = tableFunctionIndices.map(index =>
@@ -346,6 +347,158 @@ export function parseWasmInterface(input, label = "WebAssembly binary") {
     customSections,
     customSectionData,
   };
+}
+
+// EXPORTS (parseWasmInterface's) as every Worker of a process looks them up by
+// name: the names sorted in one shared buffer, each with the index of its type
+// among the distinct types. As objects, each Worker held a copy of them all,
+// and dso@0 a map of them, in the 4 GiB heap all of a tab's Workers share:
+// lean's 234,338 exports cost each of its Workers 67 MiB of it so. SLOTS gives
+// the exports moved into a table (exportFunctionsByTable) their entries, THUNKS
+// a cast-emulated program's functions their thunks' (castThunkTargets).
+export function exportIndex(exports, slots = new Map(), thunks = new Map()) {
+  const sorted = [...exports].sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
+  const encoded = sorted.map(({ name }) => encoder.encode(name));
+  const names = new Uint8Array(new SharedArrayBuffer(encoded.reduce((size, name) => size + name.length, 0)));
+  const offsets = new Uint32Array(new SharedArrayBuffer(4 * (sorted.length + 1)));
+  const typeIndices = new Uint32Array(new SharedArrayBuffer(4 * sorted.length));
+  const tableSlots = new Int32Array(new SharedArrayBuffer(4 * sorted.length));
+  const thunkSlots = new Int32Array(new SharedArrayBuffer(4 * sorted.length));
+  // Exports of one function type share its object; each global has its own.
+  const types = [], byObject = new Map(), byText = new Map();
+  sorted.forEach(({ name, type, function: function_ }, index) => {
+    names.set(encoded[index], offsets[index]);
+    offsets[index + 1] = offsets[index] + encoded[index].length;
+    if (!byObject.has(type)) {
+      const text = JSON.stringify(type, (_, value) => typeof value === "bigint" ? `${value}n` : value);
+      if (!byText.has(text)) byText.set(text, types.push(type) - 1);
+      byObject.set(type, byText.get(text));
+    }
+    typeIndices[index] = byObject.get(type);
+    tableSlots[index] = slots.get(name) ?? -1;
+    thunkSlots[index] = Number(thunks.get(function_) ?? -1);
+  });
+  return { names, offsets, typeIndices, tableSlots, thunkSlots, types };
+}
+
+// Export NAME in INDEX (exportIndex): its type, its entry in the table of moved
+// exports and its thunk's in table 0, each or -1; undefined when there is none.
+export function findExport({ names, offsets, typeIndices, tableSlots, thunkSlots, types }, name) {
+  for (let low = 0, high = typeIndices.length; low < high;) {
+    const middle = (low + high) >>> 1, found = decoder.decode(names.slice(offsets[middle], offsets[middle + 1]));
+    if (found === name) return { type: types[typeIndices[middle]], slot: tableSlots[middle], thunk: thunkSlots[middle] };
+    if (found < name) low = middle + 1; else high = middle;
+  }
+  return undefined;
+}
+
+// In a cast-emulated program (castEmulationParameters), the function each
+// thunk Binaryen put in the table calls: function index -> table index, for
+// the entries of segments that fill table 0 from a constant offset. A thunk
+// converts its parameters (local.get, i32.wrap_i64, f32 and f64.reinterpret)
+// and calls its function.
+export function castThunkTargets(bytes, parsed) {
+  const reader = new Reader(bytes);
+  reader.take(8);
+  let segments = [], bodies, begins = new Uint32Array(), ends = begins;
+  while (!reader.done) {
+    const id = reader.u8(), section = reader.subreader(reader.u32(), `section ${id}`);
+    if (id === 9) segments = readVector(section, item => {
+      const flags = item.u32(), opcode = flags === 0 ? item.u8() : 0;
+      if (flags !== 0 || (opcode !== 0x41 && opcode !== 0x42)) return null;
+      const offset = BigInt(item.signed(opcode === 0x41 ? 32 : 64));
+      if (item.u8() !== 0x0b) return null;
+      return { offset, functions: readVector(item, entry => entry.u32()) };
+    });
+    if (id === 10) {
+      bodies = section.bytes;
+      begins = new Uint32Array(section.u32());
+      ends = new Uint32Array(begins.length);
+      for (let index = 0; index < begins.length; index++) {
+        const size = section.u32();
+        begins[index] = section.offset;
+        section.take(size);
+        ends[index] = section.offset;
+      }
+    }
+  }
+  const imported = parsed.imports.filter(entry => entry.type.kind === "func").length;
+  const targets = new Map();
+  for (const { offset, functions } of segments.filter(Boolean)) functions.forEach((thunk, position) => {
+    const index = thunk - imported;
+    if (index < 0 || index >= begins.length) return;
+    const code = new Reader(bodies.subarray(begins[index], ends[index]));
+    if (code.u32() !== 0) return;
+    for (let opcode = code.u8(); !code.done; opcode = code.u8()) {
+      if (opcode === 0x20) code.u32();
+      else if (opcode === 0x10) {
+        const target = code.u32();
+        if (!targets.has(target)) targets.set(target, offset + BigInt(position));
+        return;
+      } else if (opcode !== 0xa7 && opcode !== 0xbe && opcode !== 0xbf) return;
+    }
+  });
+  return targets;
+}
+
+// An instance makes an object for every function it exports when it is made:
+// in Chrome 50 MiB for the 234,338 of a program linked -rdynamic, of the 4 GiB
+// heap a tab's Workers share; in a table they cost 8 MiB, each entry made when
+// first read (measured in Chrome 138, task 20261117-220855). BYTES with every
+// function export but those KEEP names moved into a table exported as
+// DOLLY_EXPORT_TABLE, and the entry of each moved one; null when none moves.
+export const DOLLY_EXPORT_TABLE = "__dolly_exports";
+export function exportFunctionsByTable(bytes, parsed, keep) {
+  const reader = new Reader(bytes);
+  reader.take(8);
+  const sections = [];
+  while (!reader.done) {
+    const start = reader.offset, id = reader.u8(), body = reader.subreader(reader.u32(), `section ${id}`);
+    sections.push({ id, body, bytes: bytes.subarray(start, reader.offset) });
+  }
+  const exportSection = sections.find(section => section.id === 7);
+  if (!exportSection) return null;
+  const kept = [], moved = [];
+  readVector(exportSection.body, item => {
+    const begin = item.offset, name = item.string(), kind = item.u8(), index = item.u32();
+    (kind === 0 && !keep.has(name) ? moved : kept).push({ name, index, bytes: item.bytes.subarray(begin, item.offset) });
+  });
+  if (moved.length === 0) return null;
+  const vector = (count, parts) => joinBytes([encodeUnsigned(count), ...parts]);
+  const section = (id, body) => joinBytes([Uint8Array.of(id), encodeUnsigned(body.length), body]);
+  const rest = reader => reader.bytes.subarray(reader.offset);
+  const tables = sections.find(entry => entry.id === 4);
+  const definedTables = tables ? tables.body.u32() : 0;
+  const table = parsed.imports.filter(entry => entry.type.kind === "table").length + definedTables;
+  const replacements = new Map([
+    [4, section(4, vector(definedTables + 1, [tables ? rest(tables.body) : new Uint8Array(),
+      Uint8Array.of(0x70, 0x00), encodeUnsigned(moved.length)]))],
+    [7, section(7, vector(kept.length + 1, [...kept.map(entry => entry.bytes),
+      encodeUnsigned(DOLLY_EXPORT_TABLE.length), encoder.encode(DOLLY_EXPORT_TABLE), Uint8Array.of(1), encodeUnsigned(table)]))],
+  ]);
+  const elements = sections.find(entry => entry.id === 9);
+  const segment = joinBytes([Uint8Array.of(0x02), encodeUnsigned(table), Uint8Array.of(0x41, 0x00, 0x0b, 0x00),
+    encodeUnsigned(moved.length), ...moved.map(entry => encodeUnsigned(entry.index))]);
+  replacements.set(9, section(9, elements ? vector(elements.body.u32() + 1, [rest(elements.body), segment]) : vector(1, [segment])));
+  // Sections in the order WebAssembly requires; a table and an element section
+  // go where they belong when the module has none.
+  const order = [1, 2, 3, 4, 5, 13, 6, 7, 8, 9, 12, 10, 11];
+  const parts = [bytes.subarray(0, 8)];
+  const placed = new Set();
+  for (const { id, bytes: original } of sections) {
+    for (const missing of [4, 9]) {
+      if (id !== 0 && !placed.has(missing) && order.indexOf(id) > order.indexOf(missing)) {
+        parts.push(replacements.get(missing));
+        placed.add(missing);
+      }
+    }
+    if (replacements.has(id)) {
+      parts.push(replacements.get(id));
+      placed.add(id);
+    } else parts.push(original);
+  }
+  for (const missing of [4, 9]) if (!placed.has(missing)) parts.push(replacements.get(missing));
+  return { bytes: joinBytes(parts), slots: new Map(moved.map(({ name }, slot) => [name, slot])) };
 }
 
 function encodeUnsigned(value) {

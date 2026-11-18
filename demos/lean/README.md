@@ -43,15 +43,11 @@ file anyway. Task threads get 8 MiB of stack, as under Emscripten, instead of
 probes and refuses it.
 
 Lean's interpreter calls compiled code by its symbol, which it finds with
-`dlsym` in the symbols `-rdynamic` exports. A threaded Dolly program has no
-`-rdynamic`, so `lean` and `lake` are linked with a table of the same
-symbols, generated from the archives' WebAssembly objects by
-[`lean-symbols.c`](lean-symbols.c), each function declared with the
-signature its object gives it. `lake`'s table leaves `libLeanExport.a` out:
-its object is another program's, with a `main`, which the table's references
-would link beside Lake's, and the release's `lake` exports none of it. A
-program Lake links has no table, as natively it has no exported symbols
-either.
+`dlsym` in the symbols `-rdynamic` exports: `lean`, `lake` and `leanc` are
+linked so, as upstream links them against its shared libraries, with what
+those hold whole (`Init`, `Std` and the runtime, and `Lake` in `lake`), and
+the images that hold them declare `dso@0`. A program Lake links is not, as
+natively it exports nothing either.
 
 `lean` and `lake` recurse deeper than a browser's stack holds: upstream
 gives Lean's elaboration a thread of 1 GiB, and some of the release's own
@@ -65,18 +61,16 @@ in `stage0/src`:
 
 - `IO.Process.spawn` forks; Dolly has none, so it spawns with
   `posix_spawnp`, whose actions set the child's descriptors and directory. A
-  Dolly process leads its own session already. The child starts with default
-  signal dispositions and none blocked, which a Dolly child always does and
-  `posix_spawnp` refuses to imply: a forked child would keep the `SIGPIPE`
-  Lean ignores. A program that cannot be run fails the spawn with an error
-  that names it, where a forked child would exit with 255: `lake new` without
-  Git warns that it made no repository, as Lake does when `git` fails.
+  Dolly process leads its own session already. The child keeps the signals
+  Lean ignores and blocks, as a forked one does. A program that cannot be
+  run fails the spawn with an error that names it, where a forked child
+  would exit with 255: `lake new` without Git warns that it made no
+  repository, as Lake does when `git` fails.
 - Eight C++ definitions take other parameters than the Lean declarations
   that call them: six IO functions keep a world argument the compiler no
   longer passes, and two `Unit →` functions take none. A native call
   ignores the difference; a WebAssembly call must match, or the linker
   makes it a trap, so the definitions take what Lean declares.
-- The interpreter looks symbols up in that table (`lean_dolly_symbol`).
 - The libraries closures are relocated against are the program alone: a
   Dolly process is one module, and there is no `dl_iterate_phdr`.
 - The program's path is read from `/proc/self/exe`, the only such link
@@ -85,9 +79,9 @@ in `stage0/src`:
 
 ## Limits
 
-- A threaded Dolly program loads no shared objects, so `lean --plugin` and
-  `--load-dynlib`, and Lake's `precompileModules` and shared `extern_lib`s,
-  fail when they load one.
+- `lean --plugin` and `--load-dynlib`, and Lake's `precompileModules` and
+  shared `extern_lib`s, would load shared objects through `dso@0`: the lean
+  test tries none.
 - `bv_decide` runs CaDiCaL and Lake's artifact cache runs leantar, which the
   release downloads or builds beside Lean; neither is built here.
 - A Lake dependency fetched with Git needs `amy install git`, and its host

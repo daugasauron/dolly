@@ -1,10 +1,12 @@
-DOLLY 7
+DOLLY 8
 PACKAGE cc
 REQUIRES HOST runtime@0
 
 # The C/C++ toolchain as system-build bootstraps it: the compiler and its
-# drivers, the C and C++ headers and libraries, the host clients and Make.
-FROM /v0.1.6/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
+# drivers, the C and C++ headers and libraries and the host clients, with the
+# make package.
+FROM /Dollyfile-system-build 0c72e09eba84571d4f8634cf6e7507eb1be1b9b8aa1fae61f6b0ec884b26b6fb
+INSTALL /Dollyfile-make 51df2ffdf4a717b48244209c92fed92ead402930627d9e9cf9aaead72700b8ac
 
 EXPORTS FILE   compiler      /usr/libexec/dolly/process-bin/compiler
 EXPORTS FOLDER process-sdk   /usr/lib/dolly/process
@@ -16,7 +18,6 @@ EXPORTS TOOL cc
 EXPORTS TOOL c++
 EXPORTS TOOL ld
 EXPORTS TOOL ar
-EXPORTS TOOL make
 EXPORTS ENV CC  cc
 EXPORTS ENV CXX c++
 EXPORTS ENV AR  ar
@@ -24,7 +25,5 @@ FILE /usr/share/man/cat1/ar.1
 FILE /usr/share/man/cat1/c++.1
 FILE /usr/share/man/cat1/cc.1
 FILE /usr/share/man/cat1/ld.1
-FILE /usr/share/man/cat1/make.1
-FILE /usr/share/licenses/make/COPYING
 FILE /usr/share/licenses/libcxx/LICENSE
 FILE /usr/share/licenses/libcxxabi/LICENSE

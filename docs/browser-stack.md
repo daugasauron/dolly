@@ -118,7 +118,6 @@ found (the demo is `demos/llvm`):
 | | Chrome | Firefox |
 | --- | --- | --- |
 | Build the compiler's 2,559 units (`llvm-build`, 44 minutes at four jobs) | yes: this is how the image is built | the two deepest units compile; the whole build has not been run |
-| Rebuild it with itself (`demos/llvm/test/stage2-browser.mjs`, on demand) | yes, identical to the first | not run |
 | Use the built compiler: the `llvm-cc` image, `amy install llvm` | yes | yes |
 
 Images are built by a Chromium-based browser and are the same bytes for

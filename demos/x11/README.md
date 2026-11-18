@@ -10,13 +10,16 @@ own under a stock window manager.
 - `xorg-server`: Xsdl, the X server in Dolly's display, with xkbcomp and the keyboard descriptions.
 - `pixman`: the pixel library the X server draws with.
 - `libxkbfile`: X.Org's library of XKB keymap files.
+- `libxfont2`: libXfont2, the X server's font library: built-in, PCF, BDF and SNF fonts, with the server's 64-bit protocol types, for servers the `cc` package builds.
+- `libmd`: libmd, the BSD message digests (MD5, SHA-1, SHA-2, SHA-3 and the rest), for programs the `cc` package builds; it brings no compiler.
 - `xkbcomp`: the XKB keymap compiler the X server runs.
 - `xkeyboard-config`: the keyboard descriptions xkbcomp reads, with the evdev rules.
 - `twm`: twm, the Tab Window Manager.
 - `xclock`: xclock, the Athena clock.
 - `xeyes`: xeyes, the eyes that follow the pointer.
 - `xterm`: xterm, the terminal emulator for X, with a shell on a pseudo-terminal.
-- `x11-build`: A build stage: X's client libraries, from the protocol headers and libxcb to the Athena widgets, as static libraries.
+- `x11-build`: A build stage: the `x11-libs` package and Python, where X's programs and libraries are built.
+- `x11-libs`: X's client libraries, Xlib, libxcb and libXau to the Athena widgets and the extension libraries GTK links, static, with their headers, the protocol headers and pkg-config files: for what a session or another package compiles.
 - `x11-window`: A program's window on the X server, for a platform that draws on the page through display@0 and input@0: frames go in, input@0's records come out. Godot and PhotoCraft draw their X windows through it.
 
 Open `/x11-desktop/`; build with `npm run image -- x11-desktop`. The session
@@ -30,18 +33,19 @@ is back.
 
 ## How it is built
 
-- [`Dollyfile-x11-build`](Dollyfile-x11-build): xorgproto, xtrans, xcb-proto,
+- [`Dollyfile-x11-libs`](Dollyfile-x11-libs): xorgproto, xtrans, xcb-proto,
   libXau, libxcb, libX11, libXext, libXrender, libXfixes, libXi, libICE,
   libSM, libXt, libXmu, libXpm and libXaw, unchanged, by a Makefile that
-  states what their configure scripts would find; xcb's protocol code is
-  written by xcb-proto's generator in Dolly's Python. Static libraries and
-  pkg-config files: `pkg-config --libs xaw7` names what to link, sockets@0's
-  client (`-ldolly-sockets`) included.
-- pixman, libxkbfile and xkbcomp are packages, each built by upstream's Meson;
-  xkeyboard-config's package writes its evdev rules with its own generator.
-  [`Dollyfile-xorg-server`](Dollyfile-xorg-server) builds xorg-server 21.1.25
-  by upstream's Meson on them, and libmd's SHA-1 and libXfont2 (built-in
-  fonts, PCF and BDF) for the server alone by a Makefile.
+  states what their configure scripts would find, and libXrandr, libXcursor,
+  libXdamage, libXcomposite and libXinerama, which GTK links, by a script;
+  xcb's protocol code is written by xcb-proto's generator in Dolly's Python.
+  Static libraries and pkg-config files: `pkg-config --libs xaw7` names what
+  to link, sockets@0's client (`-ldolly-sockets`) included.
+- pixman, libxkbfile, xkbcomp, libmd and libxfont2 are packages, each built by
+  upstream's Meson or by a Makefile that states what its configure script would
+  find; xkeyboard-config's package writes its evdev rules with its own
+  generator. [`Dollyfile-xorg-server`](Dollyfile-xorg-server) builds
+  xorg-server 21.1.25 by upstream's Meson on them.
 - The server is Xsdl, the kdrive server in an SDL window, which xorg-server
   had until 2009 (commit 52bc6d94, "kdrive: Purge Xsdl"). [`xsdl/sdl.c`](xsdl/sdl.c)
   is that driver ported to SDL 2 and to today's kdrive, and
@@ -74,8 +78,7 @@ Godot and PhotoCraft, which draw on the page through `display@0` and
 lantern-drift` or `amy install photocraft` in xterm, then `lantern-drift`,
 `godot-editor -e --path DIRECTORY` or `photocraft
 /usr/share/photocraft/pictures/great-wave.jpg`. Where `DISPLAY` names an X
-display (`:0`; the terminal's own `DISPLAY` is its display library's path)
-their platforms open the window through
+display (`:0`, which only this image sets) their platforms open the window through
 [`x11-window`](x11-window/x11-window.h): a static library over Xlib whose
 records are `input@0`'s, keys named as a browser names them, so a platform
 reads an X window with the code that reads the page. Their frames are drawn

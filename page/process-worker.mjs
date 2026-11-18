@@ -1,4 +1,5 @@
 import { DOLLY_ERRNO } from "./process-constants.mjs";
+import { callFields, callFieldsOffset, controlBytes, controlWord } from "./process-control.mjs";
 
 import {
   DOLLY_PROCESS_CLOCK_MONOTONIC, DOLLY_PROCESS_CLOCK_REALTIME, DOLLY_PROCESS_CLOCK_TIME,
@@ -23,20 +24,30 @@ const deferredResult = -(1n << 63n);
 const reservationRetryMilliseconds = 50;
 const reservationPatienceMilliseconds = 5000;
 
+// The supervisor's end: the port the page sends first when it made this Worker
+// (host/runtime/runtime.mjs pageWorkers), or else this Worker's owner, a thread's.
+let supervisor = self;
+// However long a busy machine takes to deliver it: the supervisor posts it as
+// it makes this Worker, and ends the Worker of a process that ends first.
 const configuration = await new Promise((resolve, reject) => {
-  const timeout = setTimeout(
-    () => reject(new Error("Dolly process configuration was not provided")),
-    10_000,
-  );
+  const undecodable = () => reject(new Error("Dolly process configuration could not be decoded"));
+  self.addEventListener("messageerror", undecodable, { once: true });
   self.addEventListener("message", function configure(event) {
+    if (event.data?.supervisor instanceof MessagePort) {
+      supervisor = event.data.supervisor;
+      supervisor.addEventListener("message", configure);
+      supervisor.addEventListener("messageerror", undecodable, { once: true });
+      supervisor.start();
+      return;
+    }
     if (event.data?.type !== "configure") return;
     self.removeEventListener("message", configure);
-    clearTimeout(timeout);
+    supervisor.removeEventListener("message", configure);
     resolve(event.data);
   });
 });
-// The operations that start and end a thread, the threads module's
-// (runtime.mjs setThreadProvider), for a threaded program.
+// The operations that start and end a thread and the export a thread starts
+// at, the threads module's (runtime.mjs setThreadProvider), for a threaded program.
 const threadOperations = configuration.threaded ? configuration.threadOperations : {};
 
 if (!(configuration.module instanceof WebAssembly.Module || configuration.module instanceof MessagePort) ||
@@ -44,18 +55,19 @@ if (!(configuration.module instanceof WebAssembly.Module || configuration.module
     !(configuration.kernelMemory instanceof WebAssembly.Memory) ||
     !(configuration.control instanceof SharedArrayBuffer) ||
     !Array.isArray(configuration.local) ||
-    configuration.control.byteLength !== 32 ||
+    configuration.control.byteLength !== controlBytes ||
     !Number.isFinite(configuration.clockOrigin) ||
     !Number.isSafeInteger(configuration.mailbox) || configuration.mailbox <= 0 ||
     typeof configuration.memory?.initial !== "bigint" || typeof configuration.memory?.maximum !== "bigint" ||
     (configuration.port !== undefined && !(configuration.port instanceof MessagePort)) ||
     !Number.isInteger(configuration.pid) || configuration.pid <= 0 ||
     (configuration.threaded && !(Number.isInteger(configuration.threadOperations?.spawn) &&
-      Number.isInteger(configuration.threadOperations?.exit)))) {
+      Number.isInteger(configuration.threadOperations?.exit) && typeof configuration.threadEntry === "string"))) {
   throw new Error("Dolly process received an invalid configuration");
 }
 
 const control = new Int32Array(configuration.control);
+const callFieldValues = new Float64Array(configuration.control, callFieldsOffset, callFields.length);
 const mailbox = BigInt(configuration.mailbox);
 const maximumBytes = configuration.memory.maximum * 65536n;
 const clockOffset = performance.timeOrigin - configuration.clockOrigin;
@@ -101,7 +113,7 @@ function reportThreadFinished() {
     while (Atomics.load(received, 0) === 0 &&
            Atomics.wait(received, 0, 0, receiverPatienceMilliseconds) !== "timed-out");
   }
-  self.postMessage({ type: "thread-finished", pid: configuration.pid, tid: configuration.tid, result: threadResult });
+  supervisor.postMessage({ type: "thread-finished", pid: configuration.pid, tid: configuration.tid, result: threadResult });
 }
 
 // The process's memory lives in its Workers alone, so that it goes when they
@@ -109,9 +121,9 @@ function reportThreadFinished() {
 // that spawned the thread.
 async function processMemory() {
   if (configuration.port) {
-    // A thread's start word (control word 5): the supervisor sets 2 when it ends
+    // A thread's start word: the supervisor sets 2 when it ends
     // the thread before the program runs here, and this Worker ends.
-    const ended = Atomics.waitAsync(control, 5, 0);
+    const ended = Atomics.waitAsync(control, controlWord.start, 0);
     const { memory, received } = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error("the process memory was not provided")), 10_000);
       configuration.port.onmessage = ({ data }) => { clearTimeout(timeout); resolve(data ?? {}); };
@@ -140,9 +152,11 @@ async function processMemory() {
 async function programModule() {
   const { module } = configuration;
   if (module instanceof WebAssembly.Module) return module;
+  // Its Worker posted it, compiled, as this Worker started: it takes milliseconds.
   const received = await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("the program's module was not provided")), 10_000);
     module.onmessage = ({ data }) => { clearTimeout(timeout); resolve(data); };
+    module.onmessageerror = () => { clearTimeout(timeout); reject(new Error("the program's module could not be received")); };
   });
   module.close();
   if (!(received instanceof WebAssembly.Module)) throw new TypeError("Dolly process received an invalid module");
@@ -159,8 +173,8 @@ function packetRange(addressValue, sizeValue) {
 }
 
 function decodeResult() {
-  const low = BigInt(Atomics.load(control, 2) >>> 0);
-  const high = BigInt(Atomics.load(control, 3) >>> 0);
+  const low = BigInt(Atomics.load(control, controlWord.resultLow) >>> 0);
+  const high = BigInt(Atomics.load(control, controlWord.resultHigh) >>> 0);
   return BigInt.asIntN(64, low | (high << 32n));
 }
 
@@ -172,17 +186,17 @@ function clockResponse(clock, response, now) {
   return BigInt(clockResponseSize);
 }
 
-// The request goes into the mailbox under control word 4, which the
+// The request goes into the mailbox under the copy word, which the
 // supervisor seals (2) before it frees the mailbox of a Worker it ends: a
 // Worker ended mid-copy cannot write into memory the kernel has reused. A
 // sealed Worker is being terminated: false, and the call ends its thread.
 function copyRequest(request) {
-  if (Atomics.compareExchange(control, 4, 0, 1) !== 0) return false;
+  if (Atomics.compareExchange(control, controlWord.copy, 0, 1) !== 0) return false;
   try {
     gate.exports.request(BigInt(request.address), mailbox, BigInt(request.size));
   } finally {
-    Atomics.store(control, 4, 0);
-    Atomics.notify(control, 4);
+    Atomics.store(control, controlWord.copy, 0);
+    Atomics.notify(control, controlWord.copy);
   }
   return true;
 }
@@ -245,28 +259,29 @@ function call(operation, requestAddressValue, requestSizeValue,
   }
   const result = awaitHost(() => {
     // Positive 31-bit sequences wrap from 2^31 - 1 back to one.
-    const sequence = Atomics.load(control, 0) % 0x7fffffff + 1;
-    Atomics.store(control, 0, sequence);
+    const sequence = Atomics.load(control, controlWord.call) % 0x7fffffff + 1;
+    Atomics.store(control, controlWord.call, sequence);
     if (!copyRequest(request)) return deferredResult;
-    self.postMessage({
-      type: "syscall",
-      pid: configuration.pid, tid: configuration.tid,
-      sequence,
-      operation,
-      requestAddress: request.address,
-      requestSize: request.size,
-      responseAddress: response.address,
-      responseCapacity: response.size,
-      memoryBytes,
-      port: channel?.port1,
-    }, channel ? [channel.port1] : []);
+    // A call's fields, then its sequence in the doorbell word, which the supervisor
+    // waits on: a message on the page's port (pageWorkers) took ten times as long.
+    // A thread's spawn carries its channel in a message.
+    if (channel) {
+      supervisor.postMessage({ type: "syscall", pid: configuration.pid, tid: configuration.tid, sequence, operation,
+        requestAddress: request.address, requestSize: request.size, responseAddress: response.address,
+        responseCapacity: response.size, memoryBytes, port: channel.port1 }, [channel.port1]);
+    } else {
+      // In callFields' order (process-control.mjs).
+      callFieldValues.set([operation, request.address, request.size, response.address, response.size, memoryBytes]);
+      Atomics.store(control, controlWord.doorbell, sequence);
+      Atomics.notify(control, controlWord.doorbell);
+    }
     for (;;) {
-      const observed = Atomics.load(control, 1);
+      const observed = Atomics.load(control, controlWord.answered);
       if (observed === sequence) break;
       // Wait for exactly the value we observed. If the supervisor responds
       // between the load and this call, Atomics.wait returns "not-equal"
       // instead of sleeping after the notification has already happened.
-      Atomics.wait(control, 1, observed);
+      Atomics.wait(control, controlWord.answered, observed);
     }
     return decodeResult();
   });
@@ -293,10 +308,42 @@ function call(operation, requestAddressValue, requestSizeValue,
   return result;
 }
 
+// What ended the program. Wasm unwinds in one phase, so a C++ throw that no
+// frame catches leaves the program instead of reaching std::terminate (whose
+// message Dolly's libc++abi leaves out anyway). Its C++ type and a
+// std::exception's what() are read through the program's own runtime, by the
+// Itanium ABI, where it exports what that takes, as an executable linked
+// -rdynamic does.
+function failureMessage(error) {
+  if (!(error instanceof WebAssembly.Exception)) return error instanceof Error ? error.message : String(error);
+  let detail = "";
+  try {
+    const { __cpp_exception: tag, __cxa_begin_catch: beginCatch, __cxa_current_exception_type: currentType,
+      __cxa_current_primary_exception: currentException, _ZTISt9exception: exceptionInfo,
+      _ZTVN10__cxxabiv120__si_class_type_infoE: singleBaseInfo, __indirect_function_table: table } = instance.exports;
+    if (error.is(tag)) {
+      const word = address => new DataView(memory.buffer).getBigUint64(Number(address), true);
+      const string = address => {
+        const bytes = new Uint8Array(memory.buffer, Number(address), Math.min(512, memory.buffer.byteLength - Number(address)));
+        return new TextDecoder().decode(bytes.slice(0, bytes.indexOf(0)));
+      };
+      beginCatch(error.getArg(tag, 0));
+      const thrown = currentException(), type = currentType();
+      // A type_info: its vtable pointer, its name, and for a class of one base, that base's.
+      detail = `: C++ ${string(word(type + 8n))}`;
+      let base = type;
+      while (base !== exceptionInfo.value && word(base) === singleBaseInfo.value + 16n) base = word(base + 16n);
+      // A std::exception at the object's start: what() is its third virtual function.
+      if (base === exceptionInfo.value) detail += `: ${string(table.get(word(word(thrown) + 16n))(thrown))}`;
+    }
+  } catch { /* The program exports less: what was read stays. */ }
+  return `an exception the program threw and none of its frames caught${detail}`;
+}
+
 try {
   memory = await processMemory();
   // The start word is 1 from here, unless the supervisor has just set 2.
-  if (configuration.port && Atomics.compareExchange(control, 5, 0, 1) !== 0) throw UNSTARTED;
+  if (configuration.port && Atomics.compareExchange(control, controlWord.start, 0, 1) !== 0) throw UNSTARTED;
   // The trusted copier between this memory and the mailbox, and the program's
   // call import (abi/dolly-process-gate-0.wat).
   gate = new WebAssembly.Instance(configuration.gateModule, {
@@ -318,15 +365,17 @@ try {
     } finally { URL.revokeObjectURL(url); }
   }));
   awaitHost = localModules.find(module => module.awaitHost)?.awaitHost ?? awaitHost;
-  self.postMessage({ type: "started", pid: configuration.pid, tid: configuration.tid });
+  // Started, before any call, on the doorbell (page/process-supervisor.mjs).
+  Atomics.store(control, controlWord.started, 1);
+  Atomics.notify(control, controlWord.doorbell);
   // Through JSPI where that stack is the larger one (page/process-supervisor.mjs).
   const enter = configuration.promisingEntry ? WebAssembly.promising : entry => entry;
   if (configuration.argument !== undefined) {
-    threadResult = await enter(instance.exports.dolly_thread_start)(configuration.tid, configuration.argument);
+    threadResult = await enter(instance.exports[configuration.threadEntry])(configuration.tid, configuration.argument);
     reportThreadFinished();
   } else {
     await enter(instance.exports._start)();
-    self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
+    supervisor.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
   }
 } catch (caught) {
   if (caught === UNSTARTED) {
@@ -334,16 +383,16 @@ try {
   } else if (ending === THREAD_EXIT && configuration.threaded && typeof threadResult === "bigint") {
     reportThreadFinished();
   } else if (ending === PROCESS_EXIT) {
-    self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
+    supervisor.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
   } else {
     // A trap on a stack stack@0 made ends its caller with a trap of its own;
     // the provider learns the first one's reason a moment later.
     await null;
     const error = localModules.map(module => module.failure).find(Boolean) ?? caught;
-    self.postMessage({
+    supervisor.postMessage({
       type: "failed",
       pid: configuration.pid, tid: configuration.tid,
-      message: error instanceof Error ? error.message : String(error),
+      message: failureMessage(error),
       stack: error instanceof Error ? error.stack ?? "" : "",
     });
   }

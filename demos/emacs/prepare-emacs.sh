@@ -50,24 +50,24 @@ container+=(-v "${tree}:/tmp/emacs" -v "${temporary}/bin:/dolly-bin:ro"
 # patch). Dolly's compiler has no -MP.
 # -O0 keeps C locals in linear memory, where Emacs's conservative collector
 # scans the stack: Wasm locals are invisible to it, and an -O2 temacs crashes
-# collecting garbage during loadup.
+# collecting garbage during loadup. Without build details the dump holds no
+# build time or host name, so each build of it gives the same bytes.
 "${container[@]}" CONFIG_SHELL=/bin/sh \
   ac_cv_func_getrandom=yes ac_cv_func_malloc_trim=no emacs_cv_linux_sysinfo=no \
   gl_cv_func_fchmodat_works=yes emacs_cv_pthread_lib=no emacs_cv_usable_FIONREAD=no \
   emacs_cv_tputs_lib='none required' \
   /bin/sh ./configure \
     --host=wasm64-unknown-emscripten --build=x86_64-pc-linux-gnu --prefix=/usr \
-    --disable-autodepend --without-all --without-x --without-ns \
+    --disable-autodepend --disable-build-details --without-all --without-x --without-ns \
     --with-dumping=pdumper --without-native-compilation --without-modules \
     --without-threads --without-compress-install --without-pop \
     --without-libsystemd --without-dbus --without-selinux --without-gpm \
     --with-sound=no --without-file-notification --disable-acl \
     CC=cc AR=ar RANLIB=: MKDIR_P='mkdir -p' INSTALL='install -c' \
     AWK=awk GREP=grep EGREP='grep -E' SED=sed CFLAGS='-O0' >/dev/null
-# Make re-executes itself after remaking an included makefile; Dolly has no
-# exec, so the fragment src/Makefile includes is generated here.
-"${container[@]}" make -s -C src /tmp/emacs/src/lisp.mk >/dev/null
 rm -f "${tree}/config.log" "${tree}/configure.lineno" "${tree}/a.wasm"
+# Dolly compiles the Lisp itself (Dollyfile-emacs): the release's bytecode goes.
+find "${tree}/lisp" -name '*.elc' -delete
 
 mv -T -- "${tree}" "${output}"
 printf '%s\n' "${output}"

@@ -1,0 +1,97 @@
+DOLLY 8
+TOOLCHAIN blender-deps
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST input@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+
+# Build-only: the libraries Blender 5.3.0 links, each a package at the version
+# Blender pins (build_files/build_environment/cmake/versions.cmake there).
+# - Blender's own: Imath, OpenEXR (over libdeflate and OpenJPH), OpenColorIO
+#   (over yaml-cpp, pystring and minizip-ng), OpenImageIO (over pugixml and
+#   robin-map) with its programs, which its CMake package checks are there,
+#   oneTBB, Eigen, libepoxy and glslang (the WebGPU backend compiles Blender's
+#   GLSL to SPIR-V with it). OpenEXR, OpenColorIO, OpenImageIO and oneTBB
+#   are compiled with -pthread, as Blender is: OpenEXR's call_once links only so.
+# - FreeType with Brotli (Blender's fonts are WOFF2), libjpeg-turbo (Blender
+#   takes libjpeg's boolean as an integer, which it is there), libtiff, expat,
+#   {fmt}, and Python with libpython and what a program that embeds it links.
+# - binaryen is for Blender's link (Dollyfile-blender).
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+INSTALL /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
+INSTALL /Dollyfile-gzip cef69a22c3b9f73889f4c819fcfaee2fb4487474ea4efa364117b8796465d1a4
+INSTALL /demos/tools/Dollyfile-libpng b30b694311392c7242c13b8d263d86fa14806f27657ed493bdf5d5a487850b6d
+INSTALL /demos/tools/Dollyfile-freetype fc54578a7e9ebbeac63b73e4ead0c1a7a49a8af8169520e5be3004bdc97ea0ce
+INSTALL /demos/tools/Dollyfile-libjpeg-turbo 1e61de3e2c532637c8d07ebbc820361b211b8421307492bf35398e96beb6a029
+INSTALL /demos/tools/Dollyfile-libtiff 7d9e63783c9c99e4e9a90184e546ec8b21eee2f926cdc9614a144f9d1d245bf3
+INSTALL /demos/tools/Dollyfile-expat b178823faa8bd56e6c52c62f947712b676649d0cdc3b1f6a1ef9fe0cf3551a9d
+INSTALL /demos/tools/Dollyfile-fmt de962c9c55465cab32d8996d673d856e4d891832b9af300aa76446943a00a483
+INSTALL /demos/tools/Dollyfile-zstd 3fa6d4f97ba9831868c4690894f20ee31c17dd6648be30f00d5cab2868106b65
+INSTALL /demos/tools/Dollyfile-xz 459f0cc5ab2cda8ede96f9c9434f947f97b7e5faef4bfd3543abcb2be3e8e909
+INSTALL /demos/tools/Dollyfile-bzip2 d6347b250f4debc2f903c3a4a7cd770f055933d2b695c8cc67e930c4412ae415
+INSTALL /demos/tools/Dollyfile-sqlite 55762b6f4a8de41a2e28f94e23eb548e483f58212ef1cada30df747f9b4c7455
+INSTALL /demos/tools/Dollyfile-binaryen e798ba99ca24562c5bd6b48891798995a83243a3294b6842dc4fda530dba5b34
+INSTALL /demos/tools/Dollyfile-imath a3569353a9d737851791da0ca7fb197fe58a1728b627e30bc309c4833a564d3b
+INSTALL /demos/tools/Dollyfile-openexr c1965396dd436bdf404514605d9b29c518c865b989b076e8d7451ffa6c81b27c
+INSTALL /demos/tools/Dollyfile-opencolorio 168f390e67f7385c9c4e794e30fc74025ad82be8c1ed690b161bf46545094752
+INSTALL /demos/tools/Dollyfile-openimageio 0f58d082c686b7a5dc32fb512e1c9a9c797f0e9c274d924fa5e914968f6bb2f6
+INSTALL /demos/tools/Dollyfile-robin-map c75b52aac6155bd0e357e8a325e7d68a5f43bc3574d8ce56748a27b1f05e2ddf
+INSTALL /demos/tools/Dollyfile-onetbb 12f598ca6feb1b3975d388dfa2378803b276e46055deee3b0ef94913961ceda7
+INSTALL /demos/tools/Dollyfile-eigen 2df901be3c7228c849f645b8085932df1e17c765681fd0a148d6d7e74e270612
+INSTALL /demos/gtk/Dollyfile-libepoxy e1e7237c0ba07a83d2360c2b39029c142e29ee7a6eeca4bd1d702eb1826fb3cd
+INSTALL /demos/tools/Dollyfile-glslang b050787a464d74232469100307c09dc2acedbc3465175108fa6bf1a1471af282
+INSTALL /demos/python/Dollyfile-python c39225e146dd9f27a77c5b8b534c4d3eec2246b777c435e766dd48495fa3a2c1
+# What the python package links and does not bring: libpython's modules need them.
+INSTALL /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6e458431e
+INSTALL /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL patch
+REQUIRES TOOL python3
+REQUIRES LIB python
+REQUIRES TOOL wasm-opt
+REQUIRES TOOL oiiotool
+REQUIRES LIB z
+REQUIRES LIB png16
+REQUIRES LIB freetype
+REQUIRES LIB brotlidec
+REQUIRES LIB jpeg
+REQUIRES LIB tiff
+REQUIRES LIB expat
+REQUIRES LIB fmt
+REQUIRES LIB zstd
+REQUIRES LIB lzma
+REQUIRES LIB bz2
+REQUIRES LIB sqlite3
+REQUIRES LIB Imath
+REQUIRES LIB OpenEXR
+REQUIRES LIB OpenColorIO
+REQUIRES LIB OpenImageIO
+REQUIRES LIB tbb
+REQUIRES LIB epoxy
+REQUIRES LIB glslang
+REQUIRES HEADER eigen3
+REQUIRES HEADER tsl
+
+# The interpreter links and runs with the options Dollyfile-blender gives
+# Blender's link, an hour of compiling before that link, beside the expat
+# package, which OpenColorIO links there.
+FILE /tmp/embed.c
+    #include <Python.h>
+    #include <expat.h>
+    int main(void) {
+      XML_ParserFree(XML_ParserCreate(NULL));
+      Py_Initialize();
+      int status = PyRun_SimpleString("import sqlite3, hashlib, pyexpat, bz2, lzma, urllib.request");
+      Py_Finalize();
+      return status != 0;
+    }
+SLOP cc -pthread /tmp/embed.c -I/usr/include/python3.14 -o /tmp/embed -lpython3.14 --dolly-cast-emulation \
+  -lffi -llzma -lbz2 -lsqlite3 -lcurl -L/usr/lib/python3.14/embed -lpyexpat -lHacl_Hash_BLAKE2 \
+  -lHacl_Hash_MD5 -lHacl_Hash_SHA1 -lHacl_Hash_SHA2 -lHacl_Hash_SHA3 -lexpat -lz -lm
+SLOP /tmp/embed
+
+ENTRY /bin/foreground -i /bin/slop

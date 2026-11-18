@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE x11-window
 REQUIRES HOST runtime@0
 REQUIRES HOST sockets@0
@@ -7,17 +7,19 @@ REQUIRES HOST sockets@0
 # through display@0 and input@0: frames of pixels go in, and keys, the pointer,
 # the wheel and focus come out as input@0's records, keys named as a browser
 # names them. Godot and PhotoCraft draw their X windows through it. A static
-# library over Xlib: a program links it with -lX11 -lxcb -lXau -ldolly-sockets.
-FROM /v0.1.6/demos/x11/Dollyfile-x11-build d266f99a2cd6c4470dea11dabd9eb92bf34da4899a638cb3a2795f0b9725efb7
-USE /v0.1.6/Dollyfile-libdolly-display c4f8ea64af9ad51300b9b48369558e17493bccb9be1b7db853cda0e1d7d66a48
-USE /v0.1.6/Dollyfile-libdolly-input 45202588e489298ba6fe352129e992fca0c7a45e13bf45cde85976c931a981e4
+# library over Xlib: a program links it with -lX11 -lxcb -lXau -ldolly-sockets,
+# which come with it, as do the input header its own includes.
+FROM /demos/x11/Dollyfile-x11-build abcf4da3570a80974a718f2ec018c0490cc4484b2796dc6a3a0bccb7557be3f3
+INSTALL /demos/x11/Dollyfile-x11-libs 35717a8ff71126fc72d47fd6e4aa806e834865ad25f185db21013d98176ac100
+USE /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
+INSTALL /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.6/dist/static/x11/x11-window.h e9101346f695e029fc06bd81b24a615958c262bffeaa781ec6343cf839d3b28f /usr/include/x11-window.h
-SOURCE /v0.1.6/dist/static/x11/x11-window.c b83baae42a180c5d00880097ce14ca64ba8700a037d8e5b021522a6379f12b27 /tmp/x11-window/x11-window.c
+SOURCE /dist/static/x11/x11-window.h 02304c404eb2d265c6c09fd5e75fd10ae145bdf2ad20d38f4f932bd31f5b5158 /usr/include/x11-window.h
+SOURCE /dist/static/x11/x11-window.c cfff68e730a5cb022de1ba35fa6f4a2ab67c4eb342aa0d39757d52d79bbd1705 /tmp/x11-window/x11-window.c
 SLOP cc -O2 -c /tmp/x11-window/x11-window.c -o /tmp/x11-window/x11-window.o
 SLOP ar rcs /usr/lib/libx11-window.a /tmp/x11-window/x11-window.o
 SLOP rm -rf /tmp/x11-window

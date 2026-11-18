@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { browsers } from "../../browsers.mjs";
 import { delay, demoTest, installProbe } from "../../browser.mjs";
 import { observe } from "./fixtures/node-oracle.mjs";
 import { decoderCases } from "./fixtures/utf8-cases.mjs";
@@ -63,8 +64,8 @@ const overlapping = new Map();
 
 const fixtures = Object.fromEntries(["janis-files.mjs", "janis-process.mjs", "janis-terminal.mjs", "node-oracle.mjs", "utf8-browser.mjs", "utf8-cases.mjs", "utf8-writer.c"]
   .map(name => [name, `demos/javascript/test/fixtures/${name}`]));
-await demoTest("javascript", { image: "typescript", timeout: 600_000, browser: process.env.DOLLY_BROWSER ?? "chromium", server: { handle, fixtures } }, async ({ server, open }) => {
-  const { page, submit, run, start, waitText } = await open({ ...await installProbe("typescript"), policy: { maxRequests: 256,
+for (const browser of browsers) await demoTest("javascript", { image: "typescript", timeout: 600_000, browser, server: { handle, fixtures } }, async ({ server, open }) => {
+  const { page, submit, run, start, waitText } = await open({ ...await installProbe("curl", "typescript"), policy: { maxRequests: 256,
     rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"] }] } });
   const scratch = "/tmp/dolly-javascript-test";
   await run(`mkdir ${scratch} && cd ${scratch} && for name in ${Object.keys(fixtures).join(" ")}; do curl -fsS ${server.origin}/fixture/$name -o $name || exit 1; done`);

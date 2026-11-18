@@ -26,27 +26,15 @@ if has_image mojo-llvm; then
     mojo_inputs+=("${mojo_llvm_dir}/${path}" "/tmp/mojo-llvm/${path}")
   done
   node scripts/build-source-tar.mjs "${static_dir}/mojo/mojo-llvm.tar.gz" "${mojo_inputs[@]}"
-  # The library alone, without its legacy formats and dictionary builder.
-  zstd_dir="$(bash scripts/fetch-pinned-source.sh zstd)"
-  mojo_inputs=()
-  for path in lib/common lib/compress lib/decompress lib/zstd.h lib/zstd_errors.h lib/zdict.h LICENSE; do
-    mojo_inputs+=("${zstd_dir}/${path}" "/tmp/zstd/${path}")
-  done
-  node scripts/build-source-tar.mjs "${static_dir}/mojo/zstd.tar" "${mojo_inputs[@]}"
   copy_static demos/llvm/llvm-host-triple.patch mojo/llvm-host-triple.patch
-  copy_static demos/rust/config/patches/llvm-main-executable.patch mojo/llvm-main-executable.patch
   # The one patch of Mojo's LLVM (bazel/public-patches/llvm_source.bzl) outside LLDB and the Bazel overlay.
   copy_static "${mojo_dir}/bazel/public-patches/llvm-machinefunction-sti-ref-to-ptr.patch" mojo/llvm-machinefunction-sti-ref-to-ptr.patch
 fi
 if has_image mojo; then
   mojo_dir="$(bash scripts/fetch-pinned-checkout.sh modular)"
-  fmt_dir="$(bash scripts/fetch-pinned-source.sh fmt)"
-  xxhash_dir="$(bash scripts/fetch-pinned-source.sh xxhash)"
-  opentelemetry_dir="$(bash scripts/fetch-pinned-source.sh opentelemetry)"
   # The packages of the compiler's closure and the standard library: no tests,
-  # docs, examples, other tools or max/. Of {fmt}, xxHash and OpenTelemetry,
-  # what is compiled or included. The target's patches (one names Bazel's
-  # list of LLVM backends) and its package gpu.
+  # docs, examples, other tools or max/. The target's patches (one names
+  # Bazel's list of LLVM backends) and its package gpu.
   mojo_inputs=()
   for path in BUILD.bazel LICENSE bazel/internal/gen_dialect_checksum.py bazel/public-patches/llvm_project.bzl \
       Config Mojo/BUILD.bazel Mojo/include Mojo/lib \
@@ -54,11 +42,6 @@ if has_image mojo; then
       AsyncRT/BUILD.bazel AsyncRT/include AsyncRT/lib Cache/BUILD.bazel Cache/include Cache/lib \
       Init/BUILD.bazel Init/include Init/lib; do
     mojo_inputs+=("${mojo_dir}/${path}" "/tmp/mojo/modular/${path}")
-  done
-  for path in include src/format.cc LICENSE; do mojo_inputs+=("${fmt_dir}/${path}" "/tmp/mojo/fmt/${path}"); done
-  for path in xxhash.c xxhash.h xxh3.h LICENSE; do mojo_inputs+=("${xxhash_dir}/${path}" "/tmp/mojo/xxhash/${path}"); done
-  for path in api/include sdk/include LICENSE; do
-    mojo_inputs+=("${opentelemetry_dir}/${path}" "/tmp/mojo/opentelemetry/${path}")
   done
   node scripts/build-source-tar.mjs "${static_dir}/mojo/mojo.tar.gz" "${mojo_inputs[@]}" \
     demos/mojo/port /tmp/mojo/port demos/mojo/bazel-to-cmake.py /tmp/mojo/bazel-to-cmake.py \
@@ -69,4 +52,22 @@ if has_image mojo-gpu; then
   for example in hello saxpy mandelbrot; do
     copy_static "demos/mojo/target/test/fixtures/${example}.mojo" "mojo/examples/${example}.mojo"
   done
+fi
+# The xxhash package's sources: the library's, xxhsum's, its manual page and both licences.
+if has_image xxhash; then
+  xxhash_dir="$(bash scripts/fetch-pinned-source.sh xxhash)"
+  node scripts/build-source-tar.mjs "${static_dir}/xxhash/source.tar.gz" \
+    "${xxhash_dir}/xxhash.c" /tmp/xxhash/xxhash.c "${xxhash_dir}/xxhash.h" /tmp/xxhash/xxhash.h \
+    "${xxhash_dir}/xxh3.h" /tmp/xxhash/xxh3.h "${xxhash_dir}/cli" /tmp/xxhash/cli \
+    "${xxhash_dir}/LICENSE" /usr/share/licenses/xxhash/LICENSE "${xxhash_dir}/cli/COPYING" /usr/share/licenses/xxhash/COPYING
+fi
+# The opentelemetry-cpp package's sources: what its CMake project reads for the API, the SDK and the exporters.
+if has_image opentelemetry-cpp; then
+  opentelemetry_dir="$(bash scripts/fetch-pinned-source.sh opentelemetry)"
+  opentelemetry_inputs=()
+  for path in CMakeLists.txt api sdk ext exporters cmake third_party_release LICENSE; do
+    opentelemetry_inputs+=("${opentelemetry_dir}/${path}" "/tmp/opentelemetry-cpp/${path}")
+  done
+  node scripts/build-source-tar.mjs "${static_dir}/opentelemetry-cpp/source.tar.gz" "${opentelemetry_inputs[@]}" \
+    "${opentelemetry_dir}/LICENSE" /usr/share/licenses/opentelemetry-cpp/LICENSE
 fi

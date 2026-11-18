@@ -1,0 +1,15 @@
+{
+  "image": "default",
+  "directory": "/tmp/amy-gtk",
+  "steps": [
+    {
+      "fresh": true,
+      "why": "A program links libepoxy and asks it whether an extension is in a list, which needs no context.",
+      "script": "amy install libepoxy",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <epoxy/gl.h>' 'int main(void) {' '  return epoxy_extension_in_string(\"GL_ARB_one GL_ARB_two\", \"GL_ARB_two\") &&' '      !epoxy_extension_in_string(\"GL_ARB_one GL_ARB_two\", \"GL_ARB_t\") ? 0 : 1;' '}' > /tmp/amy-libepoxy.c && cc $(pkg-config --cflags epoxy) /tmp/amy-libepoxy.c $(pkg-config --libs epoxy) -o /tmp/amy-libepoxy && /tmp/amy-libepoxy", "status": 0 }
+  ]
+}

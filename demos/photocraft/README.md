@@ -13,7 +13,10 @@ through zenity's dialog and PhotoCraft's JPEG options
 in 14 ms at the median, 16 at the 90th percentile (30 moves). Cargo compiles the package in 28 minutes in the image
 build, and zenity in 5 more. The update check finds no network, as Dolly gives programs none.
 Text copied outside the page pastes into the New Layer dialog's name, and the field's Ctrl+C
-gives it back to the browser's clipboard (the same test, Chrome and Firefox, 2026-11-13).
+gives it back to the browser's clipboard (the same test, Chrome and Firefox, 2026-11-13). On a
+touchscreen with no fine pointer a tap lands on the window's pixel under the finger, also once the
+page's bar has come below the canvas and left the window less room
+([test](test/photocraft-touch-browser.mjs), Chrome, 2026-11-18).
 
 On `x11-desktop` (2026-11-13, [test](test/photocraft-x11-browser.mjs)), `amy install photocraft`
 and `photocraft` with the Great Wave open its window 21 to 23 s after the command, in Chrome and

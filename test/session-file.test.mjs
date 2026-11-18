@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { exportSessionFile, importSessionFile } from "../site/session-file.mjs";
 import { DOLLY_SESSION_FORMAT_VERSION, DOLLY_SESSION_MAX_BYTES, DOLLY_SESSION_METADATA_MAX_BYTES,
-  customSessionIdentity, sessionCompatible, encodeSessionStream, decodeSessionSnapshot } from "../site/session-store.mjs";
+  customSessionIdentity, sessionCompatible, encodeSessionStream, decodeSessionSnapshot } from "../host/snapshot/session-store.mjs";
 import { createHash, randomBytes } from "node:crypto";
 import { MAX_SNAPSHOT_BYTES } from "../page/snapshot-records.mjs";
 
@@ -98,7 +98,7 @@ test("reject corrupt, truncated, oversized and unsupported session envelopes", a
 });
 
 test("custom session files retain the exact recipe, artifact and inherited restrictions", async () => {
-  const source = `DOLLY 7\nAPPLICATION custom-proof\nFILE /usr/share/note\n    ${"note".repeat(2500)}\nENTRY /bin/slop\n`;
+  const source = `DOLLY 8\nAPPLICATION custom-proof\nFILE /usr/share/note\n    ${"note".repeat(2500)}\nENTRY /bin/slop\n`;
   const customImage = { source, artifact: { buildId: "image-build",
     recipeSha256: createHash("sha256").update(source).digest("hex"), sha256: "a".repeat(64),
     byteLength: 1234, inputs: [{ recipeSha256: "b".repeat(64), sha256: "c".repeat(64) }] },
@@ -130,7 +130,7 @@ test("custom session files retain the exact recipe, artifact and inherited restr
 
 // The custom image a save names may be as large as any image.
 test("a session's custom image may be as large as any image", () => {
-  const source = "DOLLY 7\nAPPLICATION large\nENTRY /bin/slop\n";
+  const source = "DOLLY 8\nAPPLICATION large\nENTRY /bin/slop\n";
   const custom = byteLength => ({ source, artifact: { buildId: "image-build",
     recipeSha256: createHash("sha256").update(source).digest("hex"), sha256: "a".repeat(64), byteLength, inputs: [] } });
   assert.match(customSessionIdentity(custom(MAX_SNAPSHOT_BYTES)), /^custom:/);

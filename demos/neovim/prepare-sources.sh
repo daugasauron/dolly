@@ -56,13 +56,13 @@ if has_image nvim; then
   node scripts/build-source-tar.mjs "${static_dir}/neovim/parsers.tar" "${parser_inputs[@]}" \
     "${neovim_dir}/LICENSE.txt" /usr/share/licenses/neovim-parsers/build-recipes
 fi
-for dependency in utf8proc treesitter; do
-  if has_image nvim; then
-    dependency_dir="$(bash scripts/fetch-pinned-source.sh "${dependency}")"
-    dependency_license=LICENSE
-    if [[ "${dependency}" == utf8proc ]]; then dependency_license=LICENSE.md; fi
-    node scripts/build-source-tar.mjs "${static_dir}/neovim/${dependency}.tar" \
-      "${dependency_dir}" "/tmp/${dependency}/source" \
-      "${dependency_dir}/${dependency_license}" "/usr/share/licenses/${dependency}/LICENSE"
+# The utf8proc and tree-sitter packages' sources (pin, package, licence file).
+for dependency in utf8proc:utf8proc:LICENSE.md treesitter:tree-sitter:LICENSE; do
+  IFS=: read -r dependency_pin dependency_package dependency_license <<< "${dependency}"
+  if has_image "${dependency_package}"; then
+    dependency_dir="$(bash scripts/fetch-pinned-source.sh "${dependency_pin}")"
+    node scripts/build-source-tar.mjs "${static_dir}/neovim/${dependency_pin}.tar" \
+      "${dependency_dir}" "/tmp/${dependency_pin}/source" \
+      "${dependency_dir}/${dependency_license}" "/usr/share/licenses/${dependency_package}/LICENSE"
   fi
 done

@@ -223,9 +223,9 @@ int dolly_terminal_present_pending(void) {
 }
 
 int dolly_display_prepare(void) {
-  const char *driver_path = getenv("DISPLAY");
+  const char *driver_path = getenv("DOLLY_DISPLAY_LIBRARY");
   if (driver_path == NULL || driver_path[0] != '/') {
-    fputs("dolly: DISPLAY must name an absolute shared-library path\n", stderr);
+    fputs("dolly: DOLLY_DISPLAY_LIBRARY must name an absolute shared-library path\n", stderr);
     return 1;
   }
 
@@ -328,8 +328,10 @@ static int64_t display_acquire_packet(int pid, unsigned char *mailbox,
   }
   if (display_depth == DISPLAY_LEASE_DEPTH) return -EBUSY;
 
-  // The lease starts at the size of the surface the page shows now.
+  // The lease starts at the size of the frame on screen: the terminal's, drawn
+  // for the surface the page shows now, or the lease's it nests in.
   apply_surface();
+  driver->present();
   const uint32_t width = atomic_load_explicit(&display_mailbox.frame_width,
                                                memory_order_acquire);
   const uint32_t height = atomic_load_explicit(&display_mailbox.frame_height,

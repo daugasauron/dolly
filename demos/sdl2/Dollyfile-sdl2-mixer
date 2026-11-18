@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE sdl2-mixer
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -13,8 +13,8 @@ REQUIRES HOST touch@0
 # music command need more than it carries and are off. It plays through the
 # sdl2 package's audio@0 driver: libSDL2_mixer.a with its header, pkg-config
 # file and CMake package, for programs the cc package builds with SDL2.
-FROM /v0.1.6/demos/cmake/Dollyfile-cmake-build f84837ea83bbeefd78cd596af30b787cb49a2b3e9f9f5c066966ae7e892a5676
-INSTALL /v0.1.6/demos/sdl2/Dollyfile-sdl2 0cb3d31f4b0eb87610b9d1d5956d1adbc575e67c662b9b8f7d8d50183da65333
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+INSTALL /demos/sdl2/Dollyfile-sdl2 d3938a1d871d053e813e0b039fb4bc209ab08cc461e1e80431180616b03b931e
 REQUIRES HEADER libc
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2
@@ -24,7 +24,7 @@ REQUIRES TOOL make
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.6/dist/static/sdl2-mixer/source.tar 1fe1f322d9579a1395fe80732380b691dec80bb060b6ce5481db59ac1b1e57b8 /tmp/sdl2-mixer/source.tar
+SOURCE /dist/static/sdl2-mixer/source.tar 1fe1f322d9579a1395fe80732380b691dec80bb060b6ce5481db59ac1b1e57b8 /tmp/sdl2-mixer/source.tar
 SLOP tar -xf /tmp/sdl2-mixer/source.tar -C /
 SLOP cmake -S /tmp/sdl2-mixer/source -B /tmp/sdl2-mixer/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \

@@ -1,35 +1,36 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
+import { access, mkdtemp, readdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sha256 as digest } from "../scripts/sha256.mjs";
-import { executableHostRequirements, checkHostAbi, hostRequirement } from "../host/requirements.mjs";
+import { executableHostRequirements, checkHostAbi } from "../host/requirements.mjs";
 import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 import { hostManifests } from "../host/manifests.mjs";
+import { exportIndex } from "../page/wasm-interface.mjs";
 import { DOLLY_NENA_GIVES_BYTES, DOLLY_NENA_REASON_BYTES } from "../host/nena/abi.mjs";
 import { siteReference } from "../page/static-asset.mjs";
 test("every image declares its complete host set itself", async () => {
   const root = new URL("../", import.meta.url).pathname;
   const load = createDollyfileGraphLoader(root);
   const terminal = ["runtime@0", "display@0", "input@0"];
-  const interactive = [...terminal, "download@0", "http@0", "snapshot@0", "upload@0"];
   // Every image declares the runtime it is built on; the engine retained for
-  // FROM builds uses http@0; download and upload tools arrive with transfer,
-  // which system installs; a terminal
-  // draws with display@0 and reads keys with input@0, which the display package
-  // alone does not ask for; Git, which system-tools holds, runs threads; default
-  // installs packages with amy, which has nena enable what a package needs
-  // beyond these.
+  // FROM builds fetches nothing; download and upload tools arrive with
+  // transfer, which default installs; a terminal draws with display@0 and
+  // reads keys with input@0, which the display package alone does not ask for;
+  // Git, which system-tools holds, runs threads; curl and Git's HTTP helpers
+  // fetch; default installs packages with amy, which has nena enable what a
+  // package needs beyond these (curl's http@0).
   const core = {
-    default: [...interactive, "packages@0", "nena@0"],
-    system: [...interactive, "threads@0"],
-    "system-build": ["runtime@0", "http@0"], "zig-build": ["runtime@0", "http@0"],
-    "ghostty-build": [...terminal, "http@0"],
-    "system-tools": [...terminal, "http@0", "threads@0"], transfer: ["runtime@0", "download@0", "upload@0"],
+    default: [...terminal, "download@0", "snapshot@0", "upload@0", "packages@0", "nena@0"],
+    system: [...terminal, "snapshot@0", "threads@0"],
+    "system-build": ["runtime@0"], "zig-build": ["runtime@0"],
+    "ghostty-build": terminal,
+    "system-tools": [...terminal, "threads@0"], transfer: ["runtime@0", "download@0", "upload@0"],
+    git: ["runtime@0", "threads@0"], "git-http": ["runtime@0", "http@0", "threads@0"],
     zlib: ["runtime@0"], gzip: ["runtime@0"], curl: ["runtime@0", "http@0"], display: ["runtime@0", "display@0"],
-    nena: ["runtime@0", "nena@0"],
+    nena: ["runtime@0", "nena@0"], amy: ["runtime@0", "packages@0"], dollyfile: ["runtime@0"],
   };
   for (const image of await discoverImageDefinitions(root)) {
     const graph = await load(image.filename);
@@ -43,10 +44,10 @@ test("every image declares its complete host set itself", async () => {
 test("FROM, INSTALL and COPY carry no host requirements; a package's must be declared", async () => {
   const dir = await mkdtemp(join(tmpdir(), "dolly-host-modules-"));
   try {
-    const base = "DOLLY 7\nAPPLICATION base\nREQUIRES HOST display@0\nENTRY /bin/slop\n";
-    const donor = "DOLLY 7\nAPPLICATION donor\nREQUIRES HOST threads@0\nENTRY /bin/slop\n";
-    const pkg = "DOLLY 7\nPACKAGE pkg\nREQUIRES HOST gpu@0\nFILE /usr/share/pkg\n";
-    const recipe = hosts => `DOLLY 7\nAPPLICATION default\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}FROM ${siteReference("Dollyfile-base")} ${digest(base)}\nCOPY ${siteReference("Dollyfile-donor")} ${digest(donor)} /usr /usr\nINSTALL ${siteReference("Dollyfile-pkg")} ${digest(pkg)}\nENTRY /bin/slop\n`;
+    const base = "DOLLY 8\nAPPLICATION base\nREQUIRES HOST display@0\nENTRY /bin/slop\n";
+    const donor = "DOLLY 8\nAPPLICATION donor\nREQUIRES HOST threads@0\nENTRY /bin/slop\n";
+    const pkg = "DOLLY 8\nPACKAGE pkg\nREQUIRES HOST gpu@0\nFILE /usr/share/pkg\n";
+    const recipe = hosts => `DOLLY 8\nAPPLICATION default\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}FROM ${siteReference("Dollyfile-base")} ${digest(base)}\nCOPY ${siteReference("Dollyfile-donor")} ${digest(donor)} /usr /usr\nINSTALL ${siteReference("Dollyfile-pkg")} ${digest(pkg)}\nENTRY /bin/slop\n`;
     for (const [path, source] of [["Dollyfile-base", base], ["Dollyfile-donor", donor], ["Dollyfile-pkg", pkg]]) {
       await writeFile(join(dir, path), source);
     }
@@ -97,16 +98,48 @@ test("every host module says what it gives within nena's record", () => {
   }
 });
 
+// A module is its directory (host/README.md): the manifest names each of its
+// files but itself and the generated abi.mjs, and nothing elsewhere but a
+// runtime's kernel; what the page and its Workers load of it, its host and
+// processWorker and what they import, reaches beyond its directory only the
+// runtime's files.
+test("each host module's manifest names the files of its directory, whose JavaScript imports only them and the runtime's", async () => {
+  const root = new URL("../", import.meta.url), checkout = url => url.href.slice(root.href.length);
+  const paths = ["host", "processWorker", "seed", "fixtures", "contracts", "process", "headers", "kernel", "client", "tools", "files"];
+  const runtime = new RegExp(`^(?:page|host${hostManifests.filter(({ provides }) => provides === "kernel")
+    .map(({ name }) => `|host/${name}`).join("")})/[^/]+\\.mjs$`);
+  const specifiers = [/\bfrom\s+"(\.{1,2}\/[^"]+)"/g, /\bimport\s+"(\.{1,2}\/[^"]+)"/g,
+    /\bimport\(\s*"(\.{1,2}\/[^"]+)"\s*\)/g, /new URL\(\s*"(\.{1,2}\/[^"]+)"\s*,\s*import\.meta\.url\s*\)/g];
+  for (const manifest of hostManifests) {
+    const directory = new URL("./", manifest.url), own = checkout(directory);
+    const named = new Set(paths.flatMap(field => [manifest[field] ?? []].flat()).map(path => checkout(new URL(path, directory))));
+    for (const path of named) {
+      await access(new URL(path, root));
+      assert.ok(path.startsWith(own) || manifest.provides === "kernel", `${own}module.json names ${path}`);
+    }
+    for (const file of await readdir(directory)) {
+      assert.ok(["module.json", "abi.mjs"].includes(file) || named.has(own + file), `${own}module.json does not name ${file}`);
+    }
+    const pending = [manifest.host, manifest.processWorker ?? []].flat().map(path => own + path), loaded = new Set();
+    while (pending.length) {
+      const file = pending.pop();
+      if (loaded.has(file)) continue;
+      loaded.add(file);
+      const text = await readFile(new URL(file, root), "utf8");
+      for (const pattern of specifiers) for (const [, specifier] of text.matchAll(pattern)) {
+        const target = checkout(new URL(specifier, new URL(file, root)));
+        if (target.startsWith(own)) pending.push(target);
+        else assert.match(target, runtime, `${file} imports ${target}`);
+      }
+    }
+  }
+});
+
 // The registry's list, enable and disable go to the page side of the module
 // whose manifest asks for them (host/modules.mjs), and nothing else switches
-// a module. Disabling asks for no dependents: every module another depends
-// on is fixed.
-test("nena@0 alone is given the registry's switches, and no module is switched off under its user", () => {
+// a module.
+test("nena@0 alone is given the registry's switches", () => {
   assert.deepEqual(hostManifests.filter(manifest => manifest.switches).map(manifest => manifest.name), ["nena"]);
-  for (const { name, dependencies } of hostManifests) for (const dependency of dependencies) {
-    assert.ok(hostManifests.find(manifest => manifest.name === hostRequirement(dependency).name).fixed,
-      `${name} depends on ${dependency}, which nena could disable`);
-  }
 });
 
 // Operation numbers are one space: module_for() in kernel/process-kernel.c hands a
@@ -131,7 +164,7 @@ test("no two contracts claim one process operation number", async () => {
     if (!processWorker) continue;
     const { serve } = await import(new URL(processWorker, url));
     // What a process Worker gives a provider, with stack-wrap's two exports.
-    const local = serve({ memory: new WebAssembly.Memory({ initial: 1 }), processInterface: { exports: [] },
+    const local = serve({ memory: new WebAssembly.Memory({ initial: 1 }), processInterface: { exports: exportIndex([]) },
       instance: { exports: { dolly_stack_room: new WebAssembly.Global({ value: "i32", mutable: true }, 0),
         dolly_stack_continue() {} } }, stack: { promisingEntry: false, depths: { direct: 0, promising: 0 } } });
     for (let operation = 0; operation < 256; ++operation) {

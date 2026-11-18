@@ -1,6 +1,3 @@
-import { DOLLY_POINTER_ACTION_DRAG as drag, DOLLY_POINTER_ACTION_PRESS as press,
-  DOLLY_POINTER_ACTION_RELEASE as release } from "../host/input/abi.mjs";
-
 // How the page's handle (docs/embedding.md) reads the terminal, over the page APIs of
 // display@0, input@0 and the runtime: the screen's text is the terminal's own
 // selection of every cell, made with pointer records.
@@ -35,6 +32,7 @@ export function terminalText(page) {
       const geometry = transport.geometry();
       const dimensions = transport.dimensions();
       if (!geometry.cellWidth || !geometry.cellHeight || !dimensions.cols || !dimensions.rows) return "";
+      const { press, drag, release } = inputTransport.pointerActions;
       const x = geometry.paddingX + Math.floor(geometry.cellWidth / 4);
       const y = geometry.paddingY + Math.floor(geometry.cellHeight / 2);
       const endX = x + (dimensions.cols - 1) * geometry.cellWidth, endY = y + (dimensions.rows - 1) * geometry.cellHeight;
@@ -62,7 +60,7 @@ export function terminalText(page) {
       const text = await visibleTerminalText();
       return terminal.foregroundPid() === pid && !terminal.foregroundInterruptible() && pattern.test(text);
     }, description, 6000);
-    const geometry = transport.geometry();
+    const geometry = transport.geometry(), { press, release } = inputTransport.pointerActions;
     const x = geometry.paddingX + Math.floor(geometry.cellWidth / 2);
     const y = geometry.paddingY + Math.floor(geometry.cellHeight / 2);
     await inputTransport.pushPointer(x, y, press, shifted);

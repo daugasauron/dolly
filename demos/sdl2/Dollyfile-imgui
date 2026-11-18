@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE imgui
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -11,8 +11,8 @@ REQUIRES HOST touch@0
 # renderer: libimgui.a and its headers for programs the cc package builds,
 # which link -limgui -lSDL2 -lm, and imgui-demo, upstream's
 # example_sdl2_sdlrenderer2.
-FROM /v0.1.6/Dollyfile-system-tools 69127104c12ae52e00d0e0a8787c3c99ece25f59a2c382fc9c811d66a090e5ec
-INSTALL /v0.1.6/demos/sdl2/Dollyfile-sdl2 0cb3d31f4b0eb87610b9d1d5956d1adbc575e67c662b9b8f7d8d50183da65333
+FROM /Dollyfile-system-tools 1606024fba5919c1fb6c0369ad86cc69f3ecf38099dff75bddb3eccb97da71e5
+INSTALL /demos/sdl2/Dollyfile-sdl2 d3938a1d871d053e813e0b039fb4bc209ab08cc461e1e80431180616b03b931e
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES HEADER sdl2
@@ -25,7 +25,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.6/dist/static/imgui/source.tar b2e714273ba9e28e383dcfcde11630181c5aff0dbd196c4efe4d99b0b71186f2 /tmp/imgui.tar
+SOURCE /dist/static/imgui/source.tar b2e714273ba9e28e383dcfcde11630181c5aff0dbd196c4efe4d99b0b71186f2 /tmp/imgui.tar
 SLOP tar -xf /tmp/imgui.tar -C /
 FILE /tmp/imgui/Makefile
     .RECIPEPREFIX := >

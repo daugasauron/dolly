@@ -4,6 +4,14 @@
 #include "servers/display/display_server.h"
 
 #include <EGL/egl.h>
+#include <atomic>
+#include <condition_variable>
+#include <deque>
+#include <mutex>
+#include <thread>
+
+// After the C++ headers: in C++ before C++23, <stdatomic.h>, which it includes, defines macros
+// over std::atomic's functions.
 #include <dolly/input.h>
 #include <dolly/touch.h>
 
@@ -33,6 +41,10 @@ class DisplayServerDolly : public DisplayServer {
 	uint32_t finger_ids[DOLLY_TOUCH_FINGERS] = {};
 	bool finger_down[DOLLY_TOUCH_FINGERS] = {};
 	Point2 finger_at[DOLLY_TOUCH_FINGERS];
+	// The first finger's last down, by which its next is a double tap.
+	bool tapped = false;
+	uint32_t last_tap_ms = 0;
+	Point2 last_tap_position;
 	uint64_t clipboard_lease = 0;
 	String clipboard;
 	// The editor's terminal and its modes as the editor found them, which it gives back (-1:
@@ -67,9 +79,23 @@ class DisplayServerDolly : public DisplayServer {
 	// window fills it.
 	Size2i screen;
 	DisplayServerEnums::WindowMode mode = DisplayServerEnums::WINDOW_MODE_WINDOWED;
-	// A record that ended a frame's sleep, which the next process_events reads first.
+	// A record that ended a frame's sleep, which the next process_events reads first (an X
+	// window's records, which the main thread reads).
 	dolly_input_event woken_by;
 	bool woken = false;
+	// The page's records, each with the time it came: a thread of their own waits for them, so a
+	// double click is timed by its presses, not by the frames that read them, which take a
+	// second each where the browser gives no GPU.
+	struct Record {
+		dolly_input_event event;
+		uint64_t msec;
+	};
+	std::thread reader;
+	std::atomic<bool> reading = false;
+	std::mutex records_mutex;
+	std::condition_variable records_came;
+	std::deque<Record> records;
+	void read_records();
 
 	static Vector<String> get_rendering_drivers_func();
 	static DisplayServer *create_func(const String &p_rendering_driver, DisplayServerEnums::WindowMode p_mode, DisplayServerEnums::VSyncMode p_vsync_mode, uint32_t p_flags, const Point2i *p_position, const Size2i &p_resolution, int p_screen, DisplayServerEnums::Context p_context, int64_t p_parent_window, Error &r_error);
@@ -78,9 +104,8 @@ class DisplayServerDolly : public DisplayServer {
 	Error create_gl_context();
 	Error create_gl_surface();
 	void send_window_event(DisplayServerEnums::WindowEvent p_event) const;
-	void read_event(const dolly_input_event &p_event);
+	void read_event(const dolly_input_event &p_event, uint64_t p_msec);
 	void read_touches();
-	int next_event(dolly_input_event &r_event, double p_timeout_milliseconds);
 	void resized(const Size2i &p_size);
 	void present(const uint8_t *p_pixels, uint32_t p_width, uint32_t p_height, size_t p_stride, bool p_rgba);
 	static void present_frame(const uint8_t *p_pixels, uint32_t p_width, uint32_t p_height, uint32_t p_stride);

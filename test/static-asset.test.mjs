@@ -6,8 +6,7 @@ const parts = [Buffer.from("part one"), Buffer.from(" and part two")];
 const bytes = Buffer.concat(parts);
 const manifest = () => ({ byteLength: bytes.length, sha256: digest(bytes),
   parts: parts.map(part => ({ byteLength: part.length, sha256: digest(part) })) });
-// A manifest says what it is; the header pages before v0.1.5 needed changes nothing.
-const response = (value, headers = {}) => new Response(JSON.stringify(value), { headers });
+const response = value => new Response(JSON.stringify(value));
 const target = "https://fixture.example/_dolly/release/static/sdk.tar.gz";
 
 test("multipart delivery uses only fixed sibling URLs and verifies original bytes", async () => {
@@ -25,10 +24,6 @@ test("multipart delivery uses only fixed sibling URLs and verifies original byte
     });
   assert.deepEqual(Buffer.from(await decoded.arrayBuffer()), bytes);
   assert.equal(decoded.headers.get("content-length"), String(bytes.length));
-  const labelled = await decodeStaticAsset(response(manifest(), { "x-dolly-parts": "1" }), target, {}, bytes.length,
-    async url => new Response(parts[Number(url.href.at(-1))]));
-  assert.deepEqual(Buffer.from(await labelled.arrayBuffer()), bytes);
-  assert.equal(labelled.headers.has("x-dolly-parts"), false);
   for (const body of ["ordinary", '{"byteLengt', "", JSON.stringify({ sha256: digest(bytes), byteLength: bytes.length })]) {
     // An ordinary file comes back whole, the bytes read to tell it from a manifest included.
     const ordinary = await decodeStaticAsset(new Response(body), target, {}, 100, () => assert.fail("not a manifest"));

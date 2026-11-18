@@ -1,0 +1,30 @@
+DOLLY 8
+PACKAGE imath
+REQUIRES HOST runtime@0
+
+# Imath, the vectors, matrices and 16-bit half floats of computer graphics
+# (OpenEXR's, OpenColorIO's, OpenImageIO's), from upstream's release archive,
+# unchanged, built by its CMake project, for programs the cc package builds.
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /dist/static/imath/source.tar.gz 41ff6809cd7d7d380fdb286b83f53bbabf70f86d9e4ac7af648f10b7be100d2b /tmp/imath.tar.gz
+SLOP gzip -dc /tmp/imath.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/imath -B /tmp/imath-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+  -DBUILD_TESTING=OFF
+SLOP cmake --build /tmp/imath-build -j4
+SLOP cmake --install /tmp/imath-build
+
+EXPORTS LIB    Imath       /usr/lib/libImath-3_2.a
+EXPORTS HEADER Imath       /usr/include/Imath
+EXPORTS FOLDER imath-cmake /usr/lib/cmake/Imath
+FILE /usr/lib/pkgconfig/Imath.pc
+FILE /usr/share/licenses/imath/LICENSE.md
+SLOP rm -rf /tmp/imath /tmp/imath-build /tmp/imath.tar.gz

@@ -6,6 +6,46 @@
 
 From the module audit (`tasks/20261104-135806-module-audit`, R5, section 4 item 3).
 
+## State (2026-11-17, ws/modules)
+
+Done on `ws/modules`; what is left is the round's (below).
+- The page's HTTP policy is a page resource (`page/network.mjs`), not http@0's: every
+  provider gets `network` (`admit(url)`, `refused`, `fetch`, `builder()`, `inherited()`), so
+  packages@0 judges a URL without depending on http@0 (`host/packages/module.json`:
+  `runtime@0` alone).
+- packages@0 answers another directory over its own mailbox too (`transport.mjs`): its
+  Worker (`worker.mjs`) reads the index, the catalog, the metadata and the packs, each file
+  only once the page's policy admits it (`packages-admit`, counted and shown as the guest's),
+  without credentials, within the rule's size and time, and keeps none of its packs
+  (`page/pack-store.mjs` gives a directory read with a guest's fetch no store); a refusal is
+  `EACCES`, which amy says ("this page's HTTP policy does not admit it"). The broker's
+  `packages.dolly.invalid` service (`service.mjs`) is gone, and so is the pack-store growth the
+  core audit measured: nothing of another directory is recorded.
+- amy (`programs/commands/amy.c`) links no HTTP client and reads every directory through
+  packages@0; `Dollyfile-amy` and `Dollyfile-dollyfile` (with modules-r4's engine) declare no
+  `http@0`.
+- http@0 is no longer `fixed`: its page side takes the page's policy when enabled, and its
+  Worker side ends each transfer in flight with `ECANCELED` when disabled
+  (`HttpMailbox.cancelAll`). The registry refuses to disable a module that an enabled one
+  depends on (http@0 under build@0), in place of the rule that such modules be fixed.
+- `default` drops `curl` and `http@0` (owner, 2026-11-04: http only where an agent fetches):
+  `amy install curl` has nena enable `http@0`. `tmux-panes` and `x11-desktop` drop the `http@0`
+  they declared for amy alone.
+
+Verified in this tree, whose runtime and core catalog (42 images, image inputs `75bf4d6f…`)
+were rebuilt on the changed seed: `test/amy-browser.mjs` passes in Chromium and Firefox on a
+`default` that declares no `http@0` (`amy`: list, info and files of a package the image
+holds, `amy install curl` with nena enabling `http@0`, two installs and a list at once, a
+mirror's package, the engine's rows, a save and its restore; `amy another directory`: a
+rule for the directory's URL alone refuses its index with no request there, a prefix rule
+installs `less` from it with no cookie reaching it and no pack record of it in the store,
+and a quota of 2 refuses it after at most 2 requests; the core's `amy programs` and `amy
+tools`). `test/nena-browser.mjs` passes in both, `nena disable http` and `enable http`
+among it (logs: `work/modules/build/modules-tests/a*/`).
+Left for the 0.1.8 round, which rebuilds every image (the seed changed): the catalog builds
+(its seal check confirms each image that no longer declares `http@0` holds no program
+recording it) and each demo's `amy-browser.mjs`.
+
 ## State (2026-11-12)
 
 Decided: do it. Owner (2026-11-04): "the only place I expect to see @http is on the pi-agent

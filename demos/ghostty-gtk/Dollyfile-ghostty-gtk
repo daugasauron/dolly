@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE ghostty-gtk
 REQUIRES HOST runtime@0
 REQUIRES HOST dso@0
@@ -7,12 +7,13 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
 # Ghostty's GTK application from its release tarball, which carries its
-# compiled interface files, built by Zig in Dolly over mesa-build: libadwaita
-# and Ghostty's own build.zig
-# (ghostty-dolly.patch; its packages fetched on the host, prepare-ghostty.sh).
-FROM /v0.1.6/demos/ghostty-gtk/Dollyfile-mesa-build 9fcbff7068453ed0edf72d076ef8583fdfd83992dc69b67f288000955b5f5a0f
-USE /v0.1.6/demos/zig/Dollyfile-zig-llvm 994e170bd4e0fc865a7ad1d66074764a4f30568d5315c8159b1ca175d623d305
-USE /v0.1.6/Dollyfile-libdolly-pty efe053dd7e7f0c006053f02763ebd5fbf2d9a81da6124a904805a03dbb6abd9c
+# compiled interface files, built by Zig in Dolly over gtk-build and the
+# libadwaita package: Ghostty's own build.zig (ghostty-dolly.patch; its
+# packages fetched on the host, prepare-ghostty.sh).
+FROM /demos/gtk/Dollyfile-gtk-build d45afed0f2212ee5791bc1e1a4c21dc800e688dbeb22ea38072a9463ff1c5c56
+USE /demos/zig/Dollyfile-zig-llvm 0aa017af6a6878f1b9c220a384105abc6717e18868ac8023f44bb49a16ec9f33
+USE /demos/ghostty-gtk/Dollyfile-libadwaita 595319132886c8f358991b1c1c030fc7fccf762703459cdcf1ff20c8ee3d99da
+USE /Dollyfile-libdolly-pty 2dc46dfff7c7fee8075069868c7bbc87077a3eb712bb1865f34264ac0315dbd9
 
 REQUIRES TOOL   c++
 REQUIRES TOOL   cc
@@ -25,16 +26,13 @@ REQUIRES TOOL   mkdir
 REQUIRES TOOL   patch
 REQUIRES TOOL   python3
 REQUIRES TOOL   tar
-REQUIRES TOOL   xz
 REQUIRES TOOL   zig
 
 # What GTK's libraries read as they start, which a static link leaves out:
-# GTK's settings schemas, compiled (a dialog that keeps a setting, as the emoji
-# chooser of a text field does, aborts without its schema), and fontconfig's
-# configuration, for the fonts an image has in /usr/share/fonts.
-SOURCE /v0.1.6/dist/static/gtk/gtk-4.24.1.tar.xz e98abe720e16129c8c0f50761dee0a2e9ae2478055e31018f6cf977fcf6513e9 /tmp/ghostty-gtk/gtk.tar.xz
-SLOP CWD /tmp/ghostty-gtk xz -dc gtk.tar.xz | tar -xf -
-SLOP mkdir -p /usr/share/glib-2.0/schemas && cp /tmp/ghostty-gtk/gtk-4.24.1/gtk/*.gschema.xml /usr/share/glib-2.0/schemas/
+# GTK's settings schemas, which gtk-build keeps, compiled (a dialog that keeps
+# a setting, as the emoji chooser of a text field does, aborts without its
+# schema), and fontconfig's configuration, for the fonts an image has in
+# /usr/share/fonts.
 SLOP glib-compile-schemas --strict /usr/share/glib-2.0/schemas
 FILE /usr/share/glib-2.0/schemas/gschemas.compiled
 FILE /etc/fonts/fonts.conf
@@ -44,16 +42,6 @@ FILE /etc/fonts/fonts.conf
       <dir>/usr/share/fonts</dir>
       <cachedir>/tmp/fontconfig</cachedir>
     </fontconfig>
-
-# libadwaita, static. It carries its own copies of five of GTK's builder
-# helpers under GTK's names, which a static link of both would hold twice:
-# its build names its copies its own.
-SOURCE /v0.1.6/dist/static/ghostty-gtk/libadwaita-1.10.0.tar.xz b1bf56239269d101a6391ad4553c910eff9cc6170b803916405477ef60a66c84 /tmp/ghostty-gtk/libadwaita.tar.xz
-SLOP CWD /tmp/ghostty-gtk xz -dc libadwaita.tar.xz | tar -xf -
-SLOP CWD /tmp/ghostty-gtk meson setup build-adw libadwaita-1.10.0 --wrap-mode=nodownload --prefix=/usr --libdir=lib \
-  --buildtype=release -Ddefault_library=static -Dintrospection=disabled -Dvapi=false -Dtests=false \
-  -Dexamples=false -Ddocumentation=false "-Dc_args=-D_gtk_builder_check_parent=adw_gtk_builder_check_parent -D_gtk_builder_prefix_error=adw_gtk_builder_prefix_error -D_gtk_builder_error_unhandled_tag=adw_gtk_builder_error_unhandled_tag -D_gtk_builder_parser_translate=adw_gtk_builder_parser_translate -Dgtk_buildable_child_deprecation_warning=adwgtk_buildable_child_deprecation_warning"
-SLOP meson compile -C /tmp/ghostty-gtk/build-adw && meson install --no-rebuild -C /tmp/ghostty-gtk/build-adw
 
 # Zig hands a link to cc without the program's own flags. This cc passes
 # all of it to Dolly's and gives Ghostty's link the rest: Binaryen's cast
@@ -95,7 +83,7 @@ SLOP cc -O1 /tmp/ghostty-cc/cc.c -o /tmp/ghostty-cc/cc
 # Ghostty's build finds libdolly-sockets and libdolly-pty under a prefix's lib.
 SLOP mkdir -p /tmp/ghostty-prefix && ln -s /usr/lib /tmp/ghostty-prefix/lib
 
-SOURCE /v0.1.6/dist/static/ghostty-gtk/ghostty.tar.gz f11c48d17b3237e5f8590f6df96a61eac3f5abade37d1b52aaf75f5611600077 /tmp/ghostty.tar.gz
+SOURCE /dist/static/ghostty-gtk/ghostty.tar.gz f11c48d17b3237e5f8590f6df96a61eac3f5abade37d1b52aaf75f5611600077 /tmp/ghostty.tar.gz
 SLOP gzip -dc /tmp/ghostty.tar.gz | tar -xf - -C /
 # Ghostty's threads share the program's memory, so its code needs wasm's
 # atomics, which Zig's baseline for Emscripten lacks: the CPU Dolly's cc
@@ -109,7 +97,7 @@ SLOP ghostty +version | grep -q 'Ghostty 1.4.0'
 
 SLOP mkdir -p /usr/share/licenses/ghostty-gtk
 SLOP cp /tmp/ghostty/LICENSE /usr/share/licenses/ghostty-gtk/ghostty-LICENSE
-SLOP cp /tmp/ghostty-gtk/libadwaita-1.10.0/COPYING /usr/share/licenses/ghostty-gtk/libadwaita-COPYING
+SLOP cp /usr/share/licenses/libadwaita/COPYING /usr/share/licenses/ghostty-gtk/libadwaita-COPYING
 SLOP cp /usr/share/licenses/mesa/license.rst /usr/share/licenses/ghostty-gtk/mesa-license.rst
 EXPORTS TOOL ghostty
 FILE /usr/share/licenses/ghostty-gtk/ghostty-LICENSE
@@ -117,7 +105,7 @@ FILE /usr/share/licenses/ghostty-gtk/libadwaita-COPYING
 FILE /usr/share/licenses/ghostty-gtk/mesa-license.rst
 FILE /usr/share/man/cat1/ghostty.1
     ghostty: Ghostty's GTK application, built inside Dolly from the pinned
-    commit, for an X server (the ghostty-x11 application starts one).
+    commit, for an X server (x11-desktop starts one).
     
       ghostty                           a window with $SHELL in it
       ghostty --command=direct:/bin/slop --gtk-single-instance=false

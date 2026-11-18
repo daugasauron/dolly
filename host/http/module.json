@@ -3,7 +3,6 @@
   "version": 0,
   "build": true,
   "gives": "HTTP(S) requests under the page's policy",
-  "fixed": "the page's HTTP policy is consumed once, at load",
   "dependencies": ["runtime@0"],
   "phase": "kernel",
   "imports": ["env.dolly_http_dispatch"],
@@ -13,5 +12,6 @@
   "headers": ["http.h", "http-abi.h"],
   "kernel": ["kernel.c"],
   "client": ["client.c"],
+  "files": ["broker.mjs", "local-services.mjs"],
   "tools": ["libcurl.c"]
 }

@@ -1,6 +1,6 @@
 # patch in a subdirectory of a git checkout patches nothing
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 220
 - TAGS: commands,git
 

@@ -126,11 +126,11 @@ function validAbsolutePath(value) {
     !value.split("/").some((part) => part === "." || part === "..");
 }
 
-// A site path names a file one release of the site publishes: /vX.Y.Z/PATH,
-// without a query. FROM, INSTALL and COPY take one whose file is
-// Dollyfile[-NAME]; SOURCE takes one or an absolute http(s) URL without a
-// fragment.
-const sitePathSyntax = /^\/v\d+\.\d+\.\d+\/[^?#\\ \t\r\n\v\f]+$/;
+// A site path names a file the site publishes by its path from the site's
+// root, /PATH, without a query. FROM, INSTALL, USE and COPY take one whose
+// file is Dollyfile[-NAME]; SOURCE takes one or an absolute http(s) URL
+// without a fragment.
+const sitePathSyntax = /^\/[^?#\\ \t\r\n\v\f]+$/;
 const sourceURL = /^https?:\/\/[^/?#\\ \t\r\n\v\f]+(?:[/?][^#\\ \t\r\n\v\f]*)?$/;
 // A URL parser resolves empty, "." and ".." path segments (also spelled with
 // %2e) to another path, so a recipe names only normalized paths.
@@ -320,16 +320,16 @@ function inspectRecipe(source, label, rows) {
 // The rows /bin/dollyfile executes, which the page writes to
 // /etc/dolly/recipe.rows: the engine parses no recipe text, so this file is the
 // language's one parser. Every field ends with NUL, which no recipe holds:
-// "DOLLY 7 SHA256" of the recipe's text, then for each row after DOLLY
+// "DOLLY 8 SHA256" of the recipe's text, then for each row after DOLLY
 // "LINE COUNT" and that many fields, the directive first.
-export const recipeRows = (recipe, sha256) => [`DOLLY 7 ${sha256}`,
+export const recipeRows = (recipe, sha256) => [`DOLLY 8 ${sha256}`,
   ...recipe.rows.slice(1).flatMap(row => [`${row.line} ${row.fields.length}`, ...row.fields])]
   .map(field => `${field}\0`).join("");
 
 export function inspectDollyfile(source, label = "Dollyfile") {
   const rows = directives(physicalLines(source, label), label);
-  if (rows[0]?.directive !== "DOLLY" || rows[0].args !== "7") {
-    throw new Error(`${label}:${rows[0]?.line ?? 1}: first declaration must be DOLLY 7`);
+  if (rows[0]?.directive !== "DOLLY" || rows[0].args !== "8") {
+    throw new Error(`${label}:${rows[0]?.line ?? 1}: first declaration must be DOLLY 8`);
   }
   return inspectRecipe(source, label, rows);
 }

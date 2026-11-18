@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 
 import { inspectDollyfile, imageFileName } from "../site/dollyfile-view.mjs";
@@ -126,9 +126,4 @@ export async function imageRegistryJson(projectDir, definitions, staticSources =
   const loadGraph = createDollyfileGraphLoader(projectDir);
   return catalogJson(await Promise.all(definitions.map(async definition =>
     catalogRecord(definition, await loadGraph(definition.filename)))), staticSources);
-}
-
-export async function writeImageRegistry(projectDir, definitions, staticSources = []) {
-  await writeFile(resolve(projectDir, "dist/dolly-images.json"),
-    await imageRegistryJson(projectDir, definitions, staticSources));
 }

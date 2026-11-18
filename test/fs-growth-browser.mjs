@@ -14,7 +14,7 @@ await browserTest("fs-growth", { image: growthCases.image, server: { fixtures: g
   page.on("console", message => { if (message.type() === "error") failures.push(message.text()); });
   // The growths that fit, then, while kernel memory is still small, a timed append around a
   // refused growth, then the refusals and the file that fills memory.
-  await runSteps(submit, server.origin, { ...growthCases, steps: growthCases.steps.slice(0, 3) });
+  await runSteps(submit, { ...growthCases, steps: growthCases.steps.slice(0, 3) });
   // A growth that cannot fit takes no memory before it is refused: kernel
   // memory left at its maximum made the same append fifteen times slower in Chrome.
   const run = async command => assert.equal(await submit(command), 0, command);
@@ -23,7 +23,7 @@ await browserTest("fs-growth", { image: growthCases.image, server: { fixtures: g
   assert.equal(await submit("./fs-growth size huge 9000"), DOLLY_ERRNO.ENOSPC);
   const after = await timed("rm huge && ./fs-growth append timed 1024 && rm timed");
   assert.ok(after < 4 * before + 500, `a 1 GiB append took ${before.toFixed(0)} ms, and ${after.toFixed(0)} ms after a refused growth`);
-  await runSteps(submit, server.origin, { ...growthCases, steps: growthCases.steps.slice(3) });
+  await runSteps(submit, { ...growthCases, steps: growthCases.steps.slice(3) });
   assert.deepEqual(failures, []);
   await run("cd / && rm -r /tmp/fs-growth");
 });

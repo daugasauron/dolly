@@ -3,7 +3,8 @@ import { holdIndicators, showIndicators } from "./page-indicators.mjs";
 import { hostRegistry } from "../host/modules.mjs";
 import { pageChords } from "./page-chords.mjs";
 import { terminalText } from "./terminal-text.mjs";
-import { bootstrapSources, imageBase, imageDefinition, loadImages } from "./images.mjs";
+import { imageBase, imageDefinition, loadImages } from "./images.mjs";
+import { pageNetwork, serveNetworkFetches } from "./network.mjs";
 import * as processConstants from "./process-constants.mjs";
 
 // The terminal's own look: its canvas, the hidden keyboard, the boot log and
@@ -13,7 +14,8 @@ import * as processConstants from "./process-constants.mjs";
 const pageStyle = new CSSStyleSheet();
 pageStyle.replaceSync(`
   .dolly-terminal { position: relative; overflow: hidden; outline: none; caret-color: transparent;
-    display: flex; flex-direction: column;
+    /* One box for the frame, which the display's canvas and gpu@0's share, above input@0's bar. */
+    display: grid; grid-template: minmax(0, 1fr) auto / minmax(0, 1fr);
     /* Dolly's own UI in the embedding's colours (docs/embedding.md), unset Dolly's: the three, the
        terminal's bright black for what is quieter, and mixes of them for raised and sunken parts. */
     --dolly-ui-background: var(--dolly-background, #262626); --dolly-ui-color: var(--dolly-color, #e8e3d7);
@@ -21,9 +23,8 @@ pageStyle.replaceSync(`
     --dolly-ui-raised: color-mix(in srgb, var(--dolly-ui-color) 7%, var(--dolly-ui-background));
     --dolly-ui-sunken: color-mix(in srgb, var(--dolly-ui-background) 66%, black);
     --dolly-ui-alert: #e98773; }
-  .dolly-terminal #display { display: block; width: 100%; flex: 1 1 0; min-height: 0; cursor: text; touch-action: none;
+  .dolly-terminal #display { grid-area: 1 / 1; width: 100%; height: 100%; cursor: text; touch-action: none;
     object-fit: contain; }
-  .dolly-terminal #display[hidden] { display: none; }
   .dolly-terminal #keyboard { position: fixed; left: -10000px; top: 0; width: 1px; height: 1px; opacity: 0; caret-color: transparent; }
   .dolly-terminal #bootstrap-log { position: absolute; inset: 0; z-index: 1; margin: 0; padding: 1rem 1.15rem; overflow: auto;
     white-space: pre-wrap; color: var(--dolly-ui-color); background: var(--dolly-ui-background);
@@ -47,17 +48,17 @@ function element(tag, properties, attributes = {}) {
 // Runs an image in `mount`, an element the embedding sizes, from the image
 // directory `images` (images.mjs). The embedding, trusted page code, names the
 // host modules the page has (`modules`, the URLs of their manifests) and sets
-// the HTTP broker's policy (`http`: { policy, relays }), both before anything
-// of the guest runs. `files` ({ "/absolute/path": string or Uint8Array }) are
+// the page's HTTP policy (`http`: { policy, relays }, network.mjs), both
+// before anything of the guest runs. `files` ({ "/absolute/path": string or Uint8Array }) are
 // written over the restored image before its ENTRY starts. `site`, given, is the
 // root of the routes a module may link to (session/, sessions/, docs/). It
 // resolves to the page's API (window.__dolly on the site) once the image's ENTRY runs.
 export function boot(mount, { images, image, modules, site, http = {}, files = {}, session } = {}) {
   return run(mount, { images, modules, site, http }, async registry => {
-    // A saved session (snapshot@0) restores its image as it was saved: files are for a fresh start.
-    const selected = session === undefined ? null
-      : await registry.selectBoot({ image, mode: "snapshot", loadSession: true, session });
-    if (session !== undefined && !selected) throw new Error("opening a saved session needs snapshot@0 among the page's modules");
+    // A saved session restores its image as it was saved, as the module that
+    // keeps sessions selects it: files are for a fresh start.
+    const selected = session === undefined ? null : await registry.selectBoot({ image, loadSession: true, session });
+    if (session !== undefined && !selected) throw new Error("no host module of this page opens a saved session");
     const definition = imageDefinition(selected?.image ?? image);
     if (!definition || typeof files !== "object" || files === null) throw new Error("invalid Dolly boot options");
     if (definition.entry === null) throw new Error(`${image} has no ENTRY; it only builds`);
@@ -68,20 +69,21 @@ export function boot(mount, { images, image, modules, site, http = {}, files = {
 }
 
 // What boot() does, for the routes of the site too (site.mjs), which build and
-// restore images of their own. `route(registry)` selects what runs:
+// restore images of their own and give the host modules the site's
+// `imageBuilder` (host/README.md). `route(registry)` selects what runs:
 // - image, label: the route's image ("custom" for none) and its boot log line;
 // - required, enabled: the host modules the image requires, and those the page
 //   enables (by default the required ones), which a build alone may set;
-// - configuration, inherited: the modules' configuration, and what http@0
-//   inherits from the tab that opened this one;
+// - configuration, inherited: the modules' configuration, and what the page's
+//   network inherits from the tab that opened this one (network.mjs);
 // - worker: the runtime Worker's URL, by default dist/dolly-runtime-worker.mjs (runtime-worker.mjs bundled);
-// - start(host, report): before the Worker starts, the fields it adds to the
-//   configure message ({ message, transfers }), or null once an image without
-//   ENTRY is built;
+// - start(host, report, network): before the Worker starts, the fields it adds
+//   to the configure message ({ message, transfers }), or null once an image
+//   without ENTRY is built;
 // - message(message): each message of the Worker;
-// - running(host): the context host modules' entryStarted is given beside
-//   `image`, and members of the page's handle.
-export async function run(mount, { images, modules, site, http }, route) {
+// - running(host, network): the context host modules' entryStarted is given
+//   beside `image`, and members of the page's handle.
+export async function run(mount, { images, modules, site, http, imageBuilder }, route) {
   // Adopted once, which a page's style-src without 'unsafe-inline' allows.
   if (!document.adoptedStyleSheets.includes(pageStyle)) document.adoptedStyleSheets = [...document.adoptedStyleSheets, pageStyle];
   const canvas = element("canvas", { id: "display", hidden: true }, { "aria-label": "Dolly sandbox framebuffer" });
@@ -133,7 +135,7 @@ export async function run(mount, { images, modules, site, http }, route) {
       Object.assign(document.createElement("a"), { textContent: text, href, style: "color:var(--dolly-ui-accent);margin-left:1.5ch" }));
     notice.append(`This image has ended: its program ${how}.`, ...links);
     // The notice takes the element's bottom strip; the last frame and the log keep the rest.
-    Object.assign(canvas.style, { flex: "none", height: `calc(100% - ${notice.offsetHeight}px)`, objectFit: "contain",
+    Object.assign(canvas.style, { height: `calc(100% - ${notice.offsetHeight}px)`, objectFit: "contain",
       objectPosition: "left top" });
     bootstrapLog.style.bottom = `${notice.offsetHeight}px`;
     links[0].focus();
@@ -171,15 +173,16 @@ export async function run(mount, { images, modules, site, http }, route) {
     runtimeWorker.postMessage({ type: "prepare", images: imageBase.href, modules: registry.urls,
       hostModules: selected.enabled ?? selected.required });
     appendBootstrap(`DOLLY / ${image.toUpperCase()} / ${selected.label}\n\n`);
+    const network = pageNetwork({ embedding: http, inherited: selected.inherited, applicationBase: imageBase, mount, keyboard });
+    serveNetworkFetches(network, runtimeWorker);
     host = await registry.createHost("browser", selected.enabled ?? selected.required, {
       send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),
-      resources: { mount, canvas, keyboard, applicationBase: imageBase, site: site && new URL(site), showStatus, fatal,
-        indicators: { hold: holdIndicators, show: showIndicators } },
-      configuration: { ...selected.configuration, http: { ...selected.configuration?.http, embedding: http,
-        sources: bootstrapSources(), inherited: selected.inherited } },
+      resources: { mount, canvas, keyboard, applicationBase: imageBase, site: site && new URL(site), imageBuilder,
+        network, claimsKey: network.claimsKey, showStatus, fatal, indicators: { hold: holdIndicators, show: showIndicators } },
+      configuration: selected.configuration,
     });
     host.require(selected.required);
-    const started = selected.start ? await selected.start(host, appendBootstrap) : { message: {}, transfers: [] };
+    const started = selected.start ? await selected.start(host, appendBootstrap, network) : { message: {}, transfers: [] };
     if (started === null) {
       document.documentElement.dataset.dollyStatus = "built";
       host.dispose();
@@ -228,7 +231,7 @@ export async function run(mount, { images, modules, site, http }, route) {
     appendBootstrap(bootstrapDecoder.decode());
     runtimeReady = true;
     document.documentElement.dataset.image = ready.image;
-    const { context, page } = await selected.running?.(host) ?? {};
+    const { context, page } = await selected.running?.(host, network) ?? {};
     await host.entryStarted({ image, ...context });
     runtimeWorker.postMessage({ type: "entry-ready-ack" });
     // A module that shows the canvas replaces the bootstrap log.

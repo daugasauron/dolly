@@ -1,0 +1,40 @@
+DOLLY 8
+PACKAGE libtiff
+REQUIRES HOST runtime@0
+
+# libtiff from upstream's release archive, unchanged, built by its CMake
+# project, for programs the cc package builds: TIFF images, compressed with
+# zlib's Deflate and libjpeg-turbo's JPEG among the codecs it carries.
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+INSTALL /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
+INSTALL /demos/tools/Dollyfile-libjpeg-turbo 1e61de3e2c532637c8d07ebbc820361b211b8421307492bf35398e96beb6a029
+REQUIRES HEADER libc
+REQUIRES HEADER jpeglib
+REQUIRES HEADER zlib
+REQUIRES LIB jpeg
+REQUIRES LIB z
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /dist/static/libtiff/source.tar.gz c5da00dd76ead711973fa6105554841158518378c0d313677de16820d877ce97 /tmp/libtiff.tar.gz
+SLOP gzip -dc /tmp/libtiff.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/libtiff -B /tmp/libtiff-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+  -Djpeg=ON -Dzlib=ON -Djbig=OFF -Dlerc=OFF -Dlzma=OFF -Dzstd=OFF -Dwebp=OFF -Dlibdeflate=OFF \
+  -Dtiff-tools=OFF -Dtiff-tests=OFF -Dtiff-contrib=OFF -Dtiff-docs=OFF -Dtiff-opengl=OFF
+SLOP cmake --build /tmp/libtiff-build -j4
+SLOP cmake --install /tmp/libtiff-build
+SLOP grep -q '^#define JPEG_SUPPORT' /usr/include/tiffconf.h
+
+EXPORTS LIB    tiff     /usr/lib/libtiff.a
+EXPORTS LIB    tiffxx   /usr/lib/libtiffxx.a
+EXPORTS HEADER tiff     /usr/include/tiff.h
+EXPORTS HEADER tiffconf /usr/include/tiffconf.h
+EXPORTS HEADER tiffio   /usr/include/tiffio.h
+EXPORTS HEADER tiffvers /usr/include/tiffvers.h
+FILE /usr/include/tiffio.hxx
+FILE /usr/lib/pkgconfig/libtiff-4.pc
+FILE /usr/share/licenses/libtiff/LICENSE.md
+SLOP rm -rf /tmp/libtiff /tmp/libtiff-build /tmp/libtiff.tar.gz

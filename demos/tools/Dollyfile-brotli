@@ -1,0 +1,37 @@
+DOLLY 8
+PACKAGE brotli
+REQUIRES HOST runtime@0
+
+# Brotli's libraries from upstream's release archive, unchanged, built by its
+# CMake project, for programs the cc package builds: FreeType reads WOFF2
+# fonts with the decoder.
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+REQUIRES HEADER libc
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL mv
+REQUIRES TOOL rm
+REQUIRES TOOL sed
+REQUIRES TOOL tar
+
+SOURCE /dist/static/brotli/source.tar.gz cefac754d60c8b6fdb867ba589113f0cfa382570972623f2bc038e470eb0d90a /tmp/brotli.tar.gz
+SLOP gzip -dc /tmp/brotli.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/brotli -B /tmp/brotli-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=OFF -DBROTLI_BUILD_TOOLS=OFF -DBROTLI_DISABLE_TESTS=ON
+SLOP cmake --build /tmp/brotli-build -j4
+SLOP cmake --install /tmp/brotli-build
+# The libraries are static, so a program that links the decoder or the
+# encoder links libbrotlicommon too: their .pc files require it publicly, as
+# FreeType's static build requires its own libraries.
+SLOP CWD /usr/lib/pkgconfig for pc in libbrotlidec.pc libbrotlienc.pc; do sed 's/^Requires.private:/Requires:/' $pc > /tmp/$pc && mv /tmp/$pc $pc; done
+
+EXPORTS LIB    brotlicommon /usr/lib/libbrotlicommon.a
+EXPORTS LIB    brotlidec    /usr/lib/libbrotlidec.a
+EXPORTS LIB    brotlienc    /usr/lib/libbrotlienc.a
+EXPORTS HEADER brotli       /usr/include/brotli
+FILE /usr/lib/pkgconfig/libbrotlicommon.pc
+FILE /usr/lib/pkgconfig/libbrotlidec.pc
+FILE /usr/lib/pkgconfig/libbrotlienc.pc
+FILE /usr/share/licenses/brotli/LICENSE
+SLOP rm -rf /tmp/brotli /tmp/brotli-build /tmp/brotli.tar.gz

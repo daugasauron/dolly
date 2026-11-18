@@ -1,0 +1,46 @@
+DOLLY 8
+PACKAGE openexr
+REQUIRES HOST runtime@0
+REQUIRES HOST threads@0
+
+# OpenEXR, the high-dynamic-range image format, from upstream's release archive
+# without its tests, unchanged, built by its CMake project, for programs the cc
+# package builds: its libraries, with its compressors over the libdeflate and
+# OpenJPH packages and Imath's half floats. Compiled with -pthread: its
+# call_once links only so, and a program links it so, on threads@0.
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+INSTALL /demos/tools/Dollyfile-imath a3569353a9d737851791da0ca7fb197fe58a1728b627e30bc309c4833a564d3b
+INSTALL /demos/tools/Dollyfile-libdeflate 57184e752a130bd38e01721b82bb9d6cf6f0351a9f6bc03a8c95c208ed006679
+INSTALL /demos/tools/Dollyfile-openjph 5639b38b41ebd0a558129466f29c0ebb42464c72bcf0a05de70edfca86ef4e00
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES HEADER Imath
+REQUIRES LIB Imath
+REQUIRES LIB deflate
+REQUIRES LIB openjph
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /dist/static/openexr/source.tar.gz 40fec5b88b19917657c10efb7d37eaed89ae2b60f8e0667da36cf93afe1483d4 /tmp/openexr.tar.gz
+SLOP gzip -dc /tmp/openexr.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/openexr -B /tmp/openexr-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+  -DCMAKE_C_FLAGS=-pthread -DCMAKE_CXX_FLAGS=-pthread -DBUILD_TESTING=OFF -DOPENEXR_BUILD_PYTHON=OFF \
+  -DOPENEXR_INSTALL_TOOLS=OFF -DOPENEXR_BUILD_TOOLS=OFF -DOPENEXR_BUILD_EXAMPLES=OFF -DOPENEXR_INSTALL_DOCS=OFF \
+  -DBUILD_WEBSITE=OFF
+SLOP cmake --build /tmp/openexr-build -j4
+SLOP cmake --install /tmp/openexr-build
+
+EXPORTS LIB    OpenEXR       /usr/lib/libOpenEXR-3_4.a
+EXPORTS LIB    OpenEXRCore   /usr/lib/libOpenEXRCore-3_4.a
+EXPORTS LIB    OpenEXRUtil   /usr/lib/libOpenEXRUtil-3_4.a
+EXPORTS LIB    Iex           /usr/lib/libIex-3_4.a
+EXPORTS LIB    IlmThread     /usr/lib/libIlmThread-3_4.a
+EXPORTS HEADER OpenEXR       /usr/include/OpenEXR
+EXPORTS FOLDER openexr-cmake /usr/lib/cmake/OpenEXR
+FILE /usr/lib/pkgconfig/OpenEXR.pc
+FILE /usr/share/licenses/openexr/LICENSE.md
+SLOP rm -rf /tmp/openexr /tmp/openexr-build /tmp/openexr.tar.gz

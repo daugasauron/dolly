@@ -1,11 +1,11 @@
-# Dollyfile 7
+# Dollyfile 8
 
 A Dollyfile is an ordered recipe that `/bin/dollyfile`
 ([`dollyfile.c`](../programs/dollyfile.c)) executes inside Wasm to build an image.
 The page reads the recipe ([`dollyfile-view.mjs`](../site/dollyfile-view.mjs),
 the language's one parser) and gives the engine its rows, the words of each
 line, in `/etc/dolly/recipe.rows`: the engine parses no recipe text. The rows
-are the engine's input contract: NUL-terminated fields, first `DOLLY 7` and
+are the engine's input contract: NUL-terminated fields, first `DOLLY 8` and
 the SHA-256 of the recipe's text, then for each later line `LINE COUNT` and
 that many fields, the directive first (a `FILE`'s body and a `SLOP` command
 are one field each). A host that builds images gives the engine
@@ -16,11 +16,11 @@ and sessions install. Steps share one filesystem and environment and run in
 order.
 
 ```text
-DOLLY 7
+DOLLY 8
 PACKAGE example
 REQUIRES HOST runtime@0
 
-FROM /vX.Y.Z/Dollyfile-system <sha256>
+FROM /Dollyfile-system <sha256>
 FILE /tmp/example.c
     #include <stdio.h>
     int main(void) { puts("hello"); }
@@ -29,16 +29,16 @@ EXPORTS TOOL example
 ```
 
 ```text
-DOLLY 7
+DOLLY 8
 APPLICATION example-app
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
 
-INSTALL /vX.Y.Z/Dollyfile-core <sha256>
-INSTALL /vX.Y.Z/Dollyfile-posix <sha256>
-INSTALL /vX.Y.Z/Dollyfile-display <sha256>
-INSTALL /vX.Y.Z/demos/example/Dollyfile-example <sha256>
+INSTALL /Dollyfile-core <sha256>
+INSTALL /Dollyfile-posix <sha256>
+INSTALL /Dollyfile-display <sha256>
+INSTALL /demos/example/Dollyfile-example <sha256>
 
 FILE /etc/dolly/init.slop
     /bin/foreground /usr/bin/example
@@ -47,13 +47,17 @@ ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
 ```
 
 Recipes name every image and file they read with its SHA-256. A file the
-site publishes is a site path, `/vX.Y.Z/PATH`: the site's version
-([`version.mjs`](../page/version.mjs), `package.json`), then the file's
-checkout path. Core recipes are at the top level, demo recipes in
+site publishes is a site path, `/PATH`: the file's checkout path from the
+site's root. Core recipes are at the top level, demo recipes in
 `demos/DEMO/` ([`recipe-files.mjs`](../scripts/recipe-files.mjs)), headers in
 `include/dolly/` and `host/MODULE/`, prepared sources in `dist/static/`. No
-recipe names a host: a page serves its own version's files wherever it is
-mounted, and reads no other version's.
+recipe names a host or a version: a page serves its own files wherever it is
+mounted (the public site mounts each version at `/vX.Y.Z/`), and the pin, not
+the path, says which bytes a row means. A recipe and the image built from it
+are therefore the same bytes in every version that does not change them, and
+a version change rebuilds nothing. `DOLLY 7` wrote the version into every
+site path (`/v0.1.7/Dollyfile-system`), which made each release a new text
+and a new pin for every recipe and a rebuild of every image.
 
 ## Text
 
@@ -67,7 +71,7 @@ mounted, and reads no other version's.
   only `$`, `` ` ``, `"` and `\`. Elsewhere `\` escapes the next character.
   Unclosed quotes are errors. Values are literal: expansion happens only inside
   `SLOP`.
-- The first declaration is `DOLLY 7`, the second the role and name.
+- The first declaration is `DOLLY 8`, the second the role and name.
 - `FILE /path` may be followed by a body: the following lines that start with
   four spaces, which are removed; each line ends with LF. A blank body line needs
   the four spaces; tabs do not count. Body text is literal.
@@ -101,7 +105,7 @@ mounted, and reads no other version's.
 
 | Declaration | Meaning |
 | --- | --- |
-| `DOLLY 7` | Language version. |
+| `DOLLY 8` | Language version. |
 | `APPLICATION name`, `TOOLCHAIN name`, `PACKAGE name` | Role and name. |
 | `REQUIRES HOST name@abi` | The image uses this host module when it runs. |
 | `FROM RECIPE SHA256` | First operation: start from a completed application or toolchain. An application or toolchain keeps the base; a package is only built in it. |
@@ -120,16 +124,14 @@ mounted, and reads no other version's.
 - Paths are absolute and normalized: no trailing `/`, `//`, `.`, `..`,
   backslash, CR or LF; under 4096 bytes. Only `COPY` paths and `CWD` may be
   `/`.
-- A site path is `/vX.Y.Z/` (three decimal numbers) and a normalized path, with
+- A site path is `/` and a normalized path, with
   no query, fragment, whitespace or `\`. `RECIPE` is a site path that names
   `Dollyfile` or `Dollyfile-name`. `LOCATION` is a site path, or a file of
   another site: an absolute `http(s)://` URL with a host, no fragment and no
   whitespace or `\`.
 - `SHA256` is 64 lowercase hex digits of the exact referenced bytes.
-  `node scripts/update-recipe-pins.mjs` writes the site's version into every
-  site path and refreshes recipe pins (`--sources` also the pins of the
-  site's prepared sources). A version change therefore rewrites every recipe
-  and rebuilds every image once.
+  `node scripts/update-recipe-pins.mjs` refreshes recipe pins (`--sources`
+  also the pins of the site's prepared sources).
 - Pins stay inline and cascade: each pin covers everything the referenced
   recipe pins, so a change anywhere changes the hash of every recipe that
   depends on it and rebuilds those images. That is intended: every image is
@@ -160,8 +162,8 @@ mounted, and reads no other version's.
   package keeps none of it: the base is only the environment the package is
   built in. The build runs the base's `/bin/dollyfile`.
 - A recipe without `FROM` starts from nothing and keeps only what it installs
-  and declares: `default` is `core`, `posix`, `display`, `curl`, `amy`, `nena`,
-  `transfer`, `ps`, its start-up script and an ENTRY, with no compiler. It opens, and `amy` installs
+  and declares: `default` is `core`, `posix`, `display`, `amy`, `nena`,
+  `transfer`, `ps`, its start-up script and an ENTRY, with no compiler and no HTTP client. It opens, and `amy` installs
   into it, but it is not a base to compile on: `FROM` a toolchain for that.
   Every application of the catalog is built so
   ([`lint-dollyfiles.mjs`](../scripts/lint-dollyfiles.mjs) refuses one with
@@ -184,7 +186,8 @@ mounted, and reads no other version's.
   packages the package itself installed: the record lists the packages an
   image or session holds. It holds a recipe at one pin: an `INSTALL` of a
   recipe it holds at another pin fails, naming the recipe, in a session as
-  in a build.
+  in a build. Where the row is kept, its files are listed in
+  `/etc/dolly/files/NAME` (below).
 - `USE` is a package recipe's `INSTALL` of what only its build needs, such as
   a library its program links statically or the tools that build it: the
   package and the ones its record names are installed as by `INSTALL`, and
@@ -196,17 +199,17 @@ mounted, and reads no other version's.
   imports no environment, exports or host requirements. Imported images are
   earlier builds of at most 2 GiB and 100,000 retained paths; an image cannot
   share a name with one it imports.
-- `SOURCE` downloads through the HTTP broker, creates parent directories and
-  replaces `DESTINATION` only after the digest matches. Downloads are not
-  retained by themselves.
+- `SOURCE` takes the file the page hands the build for the row (a site path's
+  from the image directory, a URL's fetched under the page's HTTP policy),
+  creates parent directories and replaces `DESTINATION` only after the digest
+  matches. Its file is not retained by itself. The engine fetches nothing.
 - Where bytes come from never changes a recipe or its identity; pins cover
   content. A site path names the page's own copy of a file its release
   publishes, so the domain, a site under a path prefix, `npm run serve`, the
   test server and image builds all build from their own files, an unpublished
   checkout included. The page grants exactly those files to builds
-  ([HTTP](http.md)) and refuses a path of another version, naming both
-  versions; URLs are external and pass only if the embedding's HTTP policy
-  allows them. A recipe never grants itself network access. Upstream hosts
+  ([HTTP](http.md)); URLs are external and pass only if the embedding's HTTP
+  policy allows them. A recipe never grants itself network access. Upstream hosts
   often send no CORS headers, so upstream archives are staged and published
   by the site ([sources](sources.md#pins-and-identity)). `dolly-build` lets a
   build's steps reach any host, through Node (`docs/embedding.md`), so
@@ -267,8 +270,7 @@ mounted, and reads no other version's.
   ([browser boundary](browser-boundary.md)). An application declares the
   kernel, the terminal (`display@0`, `input@0`), the session's save
   (`snapshot@0`) and what its packages need: `gnu-emacs` the first four,
-  `tmux-panes` also `pty@0`, `sockets@0` and `amy`'s `http@0` and
-  `packages@0`. `default` declares no module for a package it does not hold:
+  `tmux-panes` also `pty@0`, `sockets@0` and `amy`'s `packages@0`. `default` declares no module for a package it does not hold:
   where an image declares `nena@0`, `amy install` has `nena` enable what a
   package needs beyond the image's list (`python` loads modules, `dso@0`;
   every SDL2 program records `touch@0` and `audio@0`). A terminal draws with `display@0` and reads keys
@@ -318,12 +320,12 @@ from the toolchain that builds them; `amy`, `git` and `transfer` hold their
 builds.
 
 ```text
-DOLLY 7
+DOLLY 8
 PACKAGE ripgrep
 REQUIRES HOST runtime@0
 REQUIRES HOST threads@0
 
-FROM /vX.Y.Z/demos/rust/Dollyfile-rust-build <sha256>
+FROM /demos/rust/Dollyfile-rust-build <sha256>
 …
 EXPORTS TOOL rg
 ```
@@ -354,8 +356,9 @@ EXPORTS TOOL rg
   the site for its own pages; a host names its own), which `packages@0` gives,
   unless `amy server URL` names another for the session in
   `/etc/dolly/packages-server` (removing the file goes back). `amy server`
-  prints it. `amy` reads the server's `amy-index.txt` through the
-  [HTTP broker](http.md#transport) and keeps no copy: a published version
+  prints it. `amy` reads the server's `amy-index.txt` from `packages@0`, of
+  another directory than the page's only where the page's
+  [HTTP policy](http.md#policy) admits it, and keeps no copy: a published version
   serves it, as all its files, as immutable (`npm run serve` sends `no-store`),
   and `amy list`, `info` and `install` name the URL they could not read.
   `amy list` prints each name,
@@ -379,16 +382,17 @@ EXPORTS TOOL rg
   session lacks (it reads them from the package's receipt, the image's and
   `/etc/dolly/enabled`) and says so: `amy install tmux` in `default` enables
   `pty@0` and `sockets@0`; the page makes each switch. Looking
-  a name up in the index is the only unpinned step. The service reads a
-  directory other than the page's only where the page's HTTP policy admits a
-  GET of the directory's URL, and passes only packages built for the page's
-  runtime: a pin the server does not publish, or publishes for another, fails
-  by name and installs nothing.
-- `amy install` then says what it added (files, bytes and the commands now in
-  `/bin` or `/usr/bin`) and keeps the list in `/etc/dolly/files/NAME`, one
-  `SIZE PATH` line per file or link the snapshot holds outside `/etc/dolly`,
-  Dolly's own record of an image. `amy files NAME` prints that list, or, for a
-  package no session installed, reads it from the release's snapshot.
+  a name up in the index is the only unpinned step. The service reads each
+  file of a directory other than the page's only where the page's HTTP policy
+  admits a GET of it, as a request of the guest's, and passes only packages
+  built for the page's runtime: a pin the server does not publish, or
+  publishes for another, fails by name and installs nothing.
+- An `INSTALL` row the filesystem keeps, a build's or a session's, records the
+  package's files in `/etc/dolly/files/NAME`, one `SIZE PATH` line per file or
+  link the snapshot holds outside `/etc/dolly`, Dolly's own record of an image.
+  `amy install` then says what it added (files, bytes and the commands now in
+  `/bin` or `/usr/bin`), and `amy files NAME` prints the list; a package not
+  installed has none.
 - Installed files are session files, within the 8 GiB a save holds. Exported
   variables apply when the session is next loaded; the current shell keeps its
   environment ([sessions](sessions.md)).
@@ -399,7 +403,7 @@ EXPORTS TOOL rg
 flowchart TD
   recipe["Dollyfile, pinned"] --> exec
   bases["FROM / INSTALL / USE / COPY images: cached, published or built first"] --> exec
-  inputs["SOURCE files via the HTTP broker"] --> exec
+  inputs["SOURCE files the page hands over"] --> exec
   exec["/bin/dollyfile in a fresh runtime"] --> snap["Sealed snapshot: retained files, env, ENTRY"]
   snap -- "npm run image: headless Chrome on /IMAGE/rebuild/" --> packs["dist/ snapshot, packaged as shared packs"]
   snap -- "/IMAGE/rebuild/ in a browser" --> cache[("Browser image cache")]
@@ -427,20 +431,19 @@ flowchart TD
 - `npm run image -- IMAGE` stages local sources, refreshes the pins of the
   site's sources and recipes and builds with the existing runtime; `--plan` only shows what
   would rebuild. External source pins are never refreshed automatically.
-- Images whose dependencies are complete build concurrently, one headless Chrome
-  each; `DOLLY_IMAGE_JOBS` overrides the count chosen from available memory.
-  Each build's log is in `build/image-logs/IMAGE.log`; a failed image skips
-  only its dependents and fails the command.
+- Images whose dependencies are complete build concurrently, the one that starts
+  the longest chain first, one headless Chrome each: one build per four cores
+  and per 9 GiB of available memory; `DOLLY_IMAGE_JOBS` overrides the count.
+  Each build's log is in `build/image-logs/IMAGE.log`, ending with its peak
+  memory; a failed image skips only its dependents and fails the command.
 - `npm run lint:dollyfiles` checks every catalog graph (references, pins,
   names, roles, host requirements, and that a recipe of the chain declares
   ENTRY's programs) without running anything. A catalog recipe names the
-  site's files by this version's site paths: another version's path and a
-  URL of the public site are refused.
+  site's files by site paths: a URL of the public site is refused.
 
 ## Custom images and Studio
 
 `/custom/` builds a pasted or uploaded recipe in a fresh sandbox; its site
-paths must name files this release publishes, and one of another version is
-refused before anything is built. Dollyfile Studio adds Pi, Neovim linting and
+paths must name files this release publishes. Dollyfile Studio adds Pi, Neovim linting and
 `dollyfile-build FILE` ([Studio builds](image-build-service.md)). Custom
 images can be saved as [sessions](sessions.md).

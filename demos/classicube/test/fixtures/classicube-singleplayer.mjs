@@ -116,7 +116,7 @@ export async function runClassiCubeProof({ send, evaluate, wait, key, snapshot, 
   await evaluate("__dolly.saveSession('classicube-proof')");
   const maps = await evaluate(`(async () => {
     const browser = performance.getEntriesByType('resource').find(e => e.name.endsWith('/page/browser.mjs')).name;
-    const store = await import(new URL('../site/session-store.mjs', browser));
+    const store = await import(new URL('../host/snapshot/session-store.mjs', browser));
     const buffer = (await store.decodeSessionSnapshot((await store.loadStoredSession('classicube-proof')).bytes)).slice(0);
     const view = new DataView(buffer), bytes = new Uint8Array(buffer), result = {};
     let offset = 16;

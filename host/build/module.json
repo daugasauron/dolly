@@ -10,5 +10,6 @@
   "process": [],
   "headers": [],
   "kernel": [],
-  "client": []
+  "client": [],
+  "files": ["service.mjs", "ui.mjs"]
 }

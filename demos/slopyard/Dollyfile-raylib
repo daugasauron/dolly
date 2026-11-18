@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE raylib
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -10,9 +10,12 @@ REQUIRES HOST touch@0
 # its custom platform): InitWindow shows the frames through display@0, keys,
 # text, the pointer and the wheel come from input@0, fingers from touch@0, and
 # GetTime reads the monotonic clock. <dolly/raylib.h> serves a program that holds the display
-# itself. For programs the cc package builds.
-FROM /v0.1.6/Dollyfile-system 33e5bcf65ef4a634da5dbf8e291a379148e7971aa0411fe1bdaa4e0332f24b94
-INSTALL /v0.1.6/Dollyfile-libdolly-touch 3c23d1f22584166c434123c76bbc1be95ffe3738cbef0382e672e768a934f8d7
+# itself. For programs the cc package builds; <dolly/raylib.h> includes the
+# display and input headers, whose packages come with it.
+FROM /Dollyfile-system 8d54b8fd95bd265381fcacf4d97044d3ad3deb0e969deeed8e4b5e791e71dcb5
+INSTALL /Dollyfile-libdolly-touch e575ebfcfdeb0bd32c82b34d59b0a25b627a1189a5a5ebdcc930073fe86594f0
+INSTALL /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
+INSTALL /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
 REQUIRES HEADER libc
 REQUIRES HEADER display
 REQUIRES HEADER input
@@ -24,7 +27,7 @@ REQUIRES TOOL   mkdir
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.6/dist/static/gamedev/raylib.tar b16dd083b9205e14f8b79a1d91c934b579c9a92bcb4e3af0e374f3e71dcf82d3 /tmp/raylib.tar
+SOURCE /dist/static/gamedev/raylib.tar b16dd083b9205e14f8b79a1d91c934b579c9a92bcb4e3af0e374f3e71dcf82d3 /tmp/raylib.tar
 FILE /usr/src/dolly/raylib/raylib.mk
     CC := cc
     AR := ar

@@ -10,18 +10,21 @@
 // the air (50,000 units). It flies by itself to the moon, low over its ground, and back to the
 // planet's. Then it leaves the planet by itself: it reports a height of over
 // 150,000 units, a chart whose anchor moved on the way, and a frame with a scene's worth of colours
-// (the planet under it).
-// Usage: node demos/godot/test/godot-flyover-browser.mjs [chromium|firefox ...]
+// (the planet under it). Chrome shows its frames on the X display by copies
+// (--disable-vulkan-surface): its Vulkan swapchain there shows a full-screen page at half the
+// display's rate, whatever the page draws.
+// Usage: [DOLLY_BROWSER=firefox] node demos/godot/test/godot-flyover-browser.mjs
 import assert from "node:assert/strict";
-import { chromium, firefox } from "playwright-core";
+import { chromium } from "playwright-core";
+import { launchInstalledFirefox } from "../../../test/browser.mjs";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
+import { browsers } from "../../browsers.mjs";
 
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 for (const name of browsers) {
   assert.ok(["chromium", "firefox"].includes(name));
   const server = await startBrowserServer(new URL("../../..", import.meta.url).pathname, "godot-voxel-flyover");
   const browser = name === "firefox"
-    ? await firefox.launch({ channel: "moz-firefox", headless: false, firefoxUserPrefs: { "dom.webgpu.enabled": true } })
+    ? await launchInstalledFirefox()
     : await chromium.launch({ channel: "chrome", headless: false,
       args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan,VulkanFromANGLE",
         "--disable-vulkan-surface"] });

@@ -115,7 +115,7 @@ LINK_INPUTS := $(MODULE_LIBS) $(STATIC_LIBS) $(B)/libwine.a $(B)/libwine_port.a 
 # callers of one of them trap: that warning, like any other, fails the link (the name belongs in shared-names.txt).
 link = $(CC) -pthread -Wl,--fatal-warnings -Wl,--global-base=67108864 -Wl,--initial-memory=134217728 -o $(1) $(B)/obj/port/port/main.o $(2) \
        -Wl,--whole-archive,$(subst $(space),$(comma),$(strip $(MODULE_LIBS))),--no-whole-archive \
-       $(STATIC_LIBS) $(B)/libwine.a $(B)/libwine_port.a -lcurl -lfreetype -lpng16 -lz -lm -ldolly-sockets
+       $(STATIC_LIBS) $(B)/libwine.a $(B)/libwine_port.a -lcurl -lfreetype -lbrotlidec -lbrotlicommon -lpng16 -lz -lm -ldolly-sockets
 
 # What the linked modules call in modules left out of the program (delay-loaded DLLs mostly): the first
 # link names them, and each gets a stub that raises Wine's "unimplemented function" exception.

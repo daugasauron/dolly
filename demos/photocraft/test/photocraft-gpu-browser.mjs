@@ -7,14 +7,15 @@
 // quits, and the shell reads the copy back. Copy and paste are the page's clipboard (clipboard@0):
 // text copied outside pastes into the Layers panel's New Layer dialog, and its Ctrl+C gives it
 // back to the browser's clipboard.
-// Usage: node demos/photocraft/test/photocraft-gpu-browser.mjs [chromium|firefox ...]
+// Usage: [DOLLY_BROWSER=firefox] node demos/photocraft/test/photocraft-gpu-browser.mjs
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { crc32, deflateSync } from "node:zlib";
-import { chromium, firefox } from "playwright-core";
+import { chromium } from "playwright-core";
+import { launchInstalledFirefox } from "../../../test/browser.mjs";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
+import { browsers } from "../../browsers.mjs";
 
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 // A PNG of one colour, WIDTH by HEIGHT.
 function png(width, height, rgb) {
@@ -39,8 +40,7 @@ for (const name of browsers) {
   assert.ok(["chromium", "firefox"].includes(name));
   const server = await startBrowserServer(new URL("../../..", import.meta.url).pathname, "photocraft-photos");
   const browser = name === "firefox"
-    ? await firefox.launch({ channel: "moz-firefox", headless: false,
-      firefoxUserPrefs: { "dom.webgpu.enabled": true, "dom.events.testing.asyncClipboard": true } })
+    ? await launchInstalledFirefox({ "dom.events.testing.asyncClipboard": true })
     : await chromium.launch({ channel: "chrome", headless: false,
       args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan,VulkanFromANGLE"] });
   const deadline = setTimeout(() => void browser.close(), 600_000);

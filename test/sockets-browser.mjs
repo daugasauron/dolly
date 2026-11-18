@@ -12,7 +12,7 @@ const policy = origin => ({ rules: [{ origin, pathPrefix: "/fixture/", methods: 
 await browserTest("sockets", { image: "system", server: { fixtures: socketCases.fixtures } }, async ({ server, open }) => {
   const { page, submit } = await open({ policy: policy(server.origin),
     ...await composed(socketCases.hosts, socketCases.packages, { base: socketCases.image }) });
-  await runSteps(submit, server.origin, socketCases);
+  await runSteps(submit, socketCases);
 
   // The module adds no kernel import: http@0's dispatch stays the one network edge.
   assert.deepEqual(await page.evaluate(async () => WebAssembly.Module.imports(
@@ -29,11 +29,11 @@ await browserTest("sockets", { image: "system", server: { fixtures: socketCases.
 await browserTest("sockets not declared", { image: "system", server: { fixtures: undeclaredCases.fixtures } }, async ({ server, open }) => {
   const { submit } = await open({ policy: policy(server.origin),
     ...await composed([], undeclaredCases.packages, { base: undeclaredCases.image }) });
-  await runSteps(submit, server.origin, undeclaredCases);
+  await runSteps(submit, undeclaredCases);
 
   const pin = name => { const { dollyfile, sha256 } = catalog.images.find(({ image }) => image === name); return `${siteReference(dollyfile)} ${sha256}`; };
   const { hostRequirements } = catalog.images.find(({ image }) => image === "system");
-  const recipe = ["DOLLY 7", "APPLICATION unsealed", ...hostRequirements.map(module => `REQUIRES HOST ${module}`),
+  const recipe = ["DOLLY 8", "APPLICATION unsealed", ...hostRequirements.map(module => `REQUIRES HOST ${module}`),
     `FROM ${pin("system")}`, `INSTALL ${pin("libdolly-sockets")}`, "REQUIRES TOOL cc", "FILE /tmp/asked.c", "    #include <sys/socket.h>",
     "    int main(void) { int ends[2]; return socketpair(AF_UNIX, SOCK_STREAM, 0, ends); }",
     "SLOP cc /tmp/asked.c -ldolly-sockets -o /usr/bin/asked", "EXPORTS TOOL asked", "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");

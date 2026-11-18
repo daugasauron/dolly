@@ -1,13 +1,12 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN ghostty-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
-REQUIRES HOST http@0
 
-FROM /v0.1.6/Dollyfile-zig-build 90061764772376d61f11f5cad358d6346f544a95d20c960b5cebb6cbf50f3ec1
-INSTALL /v0.1.6/Dollyfile-libdolly-display c4f8ea64af9ad51300b9b48369558e17493bccb9be1b7db853cda0e1d7d66a48
-INSTALL /v0.1.6/Dollyfile-libdolly-input 45202588e489298ba6fe352129e992fca0c7a45e13bf45cde85976c931a981e4
+FROM /Dollyfile-zig-build 0cd82e87084c1aa809f8758b2df2a9904575b466d21596819e6667db839d4393
+INSTALL /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
+INSTALL /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
 
 REQUIRES HEADER libc
 REQUIRES HEADER display
@@ -19,17 +18,17 @@ REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 REQUIRES TOOL   zig
 
-SOURCE /v0.1.6/dist/static/default/ghostty.tar              74835c10f3034c328c097e85cb164071a9f53af21a44688dabf0b06a6f7334cf /tmp/ghostty.tar
-SOURCE /v0.1.6/dist/static/default/uucode.tar               be9d52ab9c0f49deb5fd8baa54b4b14f490f8e29e200d044e908d7adad54e3d0 /tmp/uucode.tar
-SOURCE /v0.1.6/dist/static/default/ghostty/display.c        6bbea55d7e863e812802ac6e7f2169c95494828f547084ae425733f38405624b /usr/src/dolly/ghostty/display.c
-SOURCE /v0.1.6/dist/static/default/stb_truetype.h           ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/ghostty/stb_truetype.h
-SOURCE /v0.1.6/dist/static/default/stb_image.h              594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3 /tmp/ghostty/stb_image.h
-SOURCE /v0.1.6/dist/static/default/IosevkaTerm-SemiBold.ttf cb3fd282d86c0e7cc2829f848df5a58973db98c8369a20427a9b3d06727e5aaa /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+SOURCE /dist/static/default/ghostty.tar              74e6b2f57be127f98828c7efc088a654779c72e331ad998d803fea43a343e884 /tmp/ghostty.tar
+SOURCE /dist/static/default/uucode.tar               be9d52ab9c0f49deb5fd8baa54b4b14f490f8e29e200d044e908d7adad54e3d0 /tmp/uucode.tar
+SOURCE /dist/static/default/ghostty/display.c        a7e79a8cf1eeae5538e673eb66c644e7466a5d9a03bf621d2c32c090be2f1a4b /usr/src/dolly/ghostty/display.c
+SOURCE /dist/static/default/stb_truetype.h           ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/ghostty/stb_truetype.h
+SOURCE /dist/static/default/stb_image.h              594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3 /tmp/ghostty/stb_image.h
+SOURCE /dist/static/default/IosevkaTerm-SemiBold.ttf cb3fd282d86c0e7cc2829f848df5a58973db98c8369a20427a9b3d06727e5aaa /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 # What IosevkaTerm has no glyph for: Chinese, Japanese and Korean, then emoji.
-SOURCE /v0.1.6/dist/static/default/DroidSansFallback.ttf    56d3edfb377a8bc3c4b77f4476405c770173c0e31221ad7c77d0a8e1f3039a3e /usr/share/fonts/DroidSansFallback.ttf
-SOURCE /v0.1.6/dist/static/default/droid-fonts-NOTICE       38751245389e1e23f73e6f5384b5cbe7fa972cc4410c5adc9c04b082a0b9561a /usr/share/licenses/droid-fonts/NOTICE
-SOURCE /v0.1.6/dist/static/default/NotoEmoji-Regular.ttf    cd07743a4c93d8da929afdd28c1d368f11da478a1093146a13610081c2a58440 /usr/share/fonts/NotoEmoji-Regular.ttf
-SOURCE /v0.1.6/dist/static/default/noto-emoji-OFL.txt       fb755fa3280d1d215a20df2e64fe6a0f75f8208439b11671978214aae60d2997 /usr/share/licenses/noto-emoji/OFL.txt
+SOURCE /dist/static/default/DroidSansFallback.ttf    56d3edfb377a8bc3c4b77f4476405c770173c0e31221ad7c77d0a8e1f3039a3e /usr/share/fonts/DroidSansFallback.ttf
+SOURCE /dist/static/default/droid-fonts-NOTICE       38751245389e1e23f73e6f5384b5cbe7fa972cc4410c5adc9c04b082a0b9561a /usr/share/licenses/droid-fonts/NOTICE
+SOURCE /dist/static/default/NotoEmoji-Regular.ttf    cd07743a4c93d8da929afdd28c1d368f11da478a1093146a13610081c2a58440 /usr/share/fonts/NotoEmoji-Regular.ttf
+SOURCE /dist/static/default/noto-emoji-OFL.txt       fb755fa3280d1d215a20df2e64fe6a0f75f8208439b11671978214aae60d2997 /usr/share/licenses/noto-emoji/OFL.txt
 SLOP tar \
   -xf /tmp/ghostty.tar \
   -C /
@@ -181,6 +180,6 @@ SLOP rm \
   /usr/src/uucode
 
 # Opened, the image runs the display library it just built.
-EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
+EXPORTS ENV DOLLY_DISPLAY_LIBRARY /usr/lib/libdisplay.so
 
 ENTRY /bin/foreground -i /bin/slop

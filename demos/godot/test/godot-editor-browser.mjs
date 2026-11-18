@@ -2,12 +2,12 @@
 // project and exports the project's pack, which godot runs. Then Dodge the
 // Creeps, which the editor exported when its package was built, shows its title
 // on the page and starts on Enter: its score counts. Last the editor opens its
-// own window on the page and changes its view at a click.
-// Usage: node demos/godot/test/godot-editor-browser.mjs [chromium|firefox ...]
+// own window on the page, changes its view at a click and opens a script at a double click.
+// Usage: [DOLLY_BROWSER=firefox] node demos/godot/test/godot-editor-browser.mjs
 import assert from "node:assert/strict";
+import { browsers } from "../../browsers.mjs";
 import { demoTest, framePoint, waitForDisplay, writeCommand } from "../../browser.mjs";
 
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const project = {
   "project.godot": `config_version=5
 [application]
@@ -82,6 +82,24 @@ for (const browser of browsers) {
         break;
       } catch (error) {
         if (attempt === 12) throw error;
+      }
+    }
+    // A double click on main.gd in the FileSystem dock, two clicks 90 ms apart as a hand's, opens
+    // it in the script editor, whose page is dark grey there. The editor draws a frame a second
+    // here: where one comes between the presses, they are timed by when they came. Just after
+    // the 2D view it may take neither click, as after its first draw, so the double click repeats.
+    const script = await framePoint(page, 64, 505);
+    for (let attempt = 1; ; attempt++) {
+      for (const pause of [90, 0]) {
+        await page.mouse.click(...script);
+        await new Promise(resolve => setTimeout(resolve, pause));
+      }
+      try {
+        await waitForDisplay(page, () => [...displaySnapshot.getContext("2d").getImageData(700, 450, 1, 1).data].slice(0, 3).join() === "26,26,26",
+          undefined, { timeout: 10_000 });
+        break;
+      } catch (error) {
+        if (attempt === 3) throw error;
       }
     }
     // The editor's Ctrl+C is Copy (it clears ISIG while it has the page); Ctrl+Q quits it. One

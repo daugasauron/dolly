@@ -1,14 +1,16 @@
 #!/usr/bin/env node
-// Packages this checkout as npm packages, one directory and one tarball each under OUT:
+// Packages this checkout as npm packages, one directory and one tarball each under OUT, and
+// prints the tarballs in the order to publish them: each after the packages it depends on, so a
+// publish npm refuses stops before anything that needs it is out.
 //   node scripts/package-npm.mjs OUT [VERSION]
-// VERSION is the checkout's (package.json) or a prerelease of it, such as 0.1.4-rc.0,
+// VERSION is the checkout's (page/version.mjs) or a prerelease of it, such as 0.1.4-rc.0,
 // which npm publishes beside the release without taking its number.
 // - @daugasauron/dolly, the runtime: what boot() (page/browser.mjs), the Worker and
 //   an image build in the page (site/image-builder.mjs) import, the kernel and the
 //   contracts beside them, and the host modules that are the runtime's own machinery.
 // - @daugasauron/dolly-host-NAME, one device host module: its directory, which imports
-//   nothing outside it (host/README.md). download@0's is dolly-host-save: npm refuses a
-//   new name with the word download ("That word is not allowed", 2026-10-30).
+//   nothing outside it (host/README.md). Each name is npmPackageName's (npm-names.mjs), which
+//   says "save" for "download": download@0's is dolly-host-save.
 // - @daugasauron/dolly-image-NAME and dolly-package-NAME, the directory of an image
 //   config/npm-images.txt lists, by its role: its catalog, every image's metadata of
 //   its closure, its packs, the recipes the page verifies and its amy-index.txt.
@@ -28,21 +30,22 @@ import { discoverImageDefinitions, imageRegistryJson, selectImageDefinitions } f
 import { amyIndex, heldPackages, indexSource, plainText } from "./image-directory.mjs";
 import { imageDescriptions } from "./image-menu.mjs";
 import { siteReference, sitePath } from "../page/static-asset.mjs";
+import { DOLLY_VERSION } from "../page/version.mjs";
 import { hostManifests } from "../host/manifests.mjs";
+import { npmPackageName } from "./npm-names.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const out = resolve(process.argv[2] ?? "");
 if (!process.argv[2]) throw new Error("usage: package-npm.mjs OUT [VERSION]");
-const checkout = JSON.parse(await readFile(resolve(projectDir, "package.json"), "utf8")).version;
-const version = process.argv[3] ?? checkout;
-if (version !== checkout && !version.startsWith(`${checkout}-`)) throw new Error(`VERSION is ${checkout} or a prerelease of it`);
+const version = process.argv[3] ?? DOLLY_VERSION;
+if (version !== DOLLY_VERSION && !version.startsWith(`${DOLLY_VERSION}-`)) throw new Error(`VERSION is ${DOLLY_VERSION} or a prerelease of it`);
 const scope = "@daugasauron";
 // The modules that are the runtime's own machinery, and the device modules each
-// published on its own: the rest of host/manifests.mjs but build@0, the site's
-// image builder, which is not published.
+// published on its own: the rest of host/manifests.mjs but build@0, which builds
+// with the site's image builder (host/README.md, `imageBuilder`) and is not published.
 const runtimeModules = ["runtime", "http", "threads", "dso", "stack", "nena", "snapshot", "packages"];
 const deviceModules = hostManifests.map(({ name }) => name).filter(name => ![...runtimeModules, "build"].includes(name));
-const hostPackage = name => `dolly-host-${name === "download" ? "save" : name}`;
+const hostPackage = name => npmPackageName("host", name);
 
 // The files a module graph reaches by relative specifiers: static and literal dynamic
 // imports, and the Workers and worklets it starts from new URL("…", import.meta.url),
@@ -65,6 +68,8 @@ async function closure(entries) {
 }
 const manifest = async name => JSON.parse(await readFile(resolve(projectDir, `host/${name}/module.json`), "utf8"));
 
+// Each package written, its tarball and the packages of this scope it depends on.
+const packed = [];
 async function writePackage(directory, files, packageJson, readme) {
   await mkdir(directory, { recursive: true });
   await writeFile(join(directory, "README.md"), readme);
@@ -74,7 +79,10 @@ async function writePackage(directory, files, packageJson, readme) {
   }
   await writeFile(join(directory, "package.json"), `${JSON.stringify({ version, type: "module", ...packageJson,
     repository: { type: "git", url: "git+https://github.com/daugasauron/dolly.git" } }, null, 2)}\n`);
-  return execFileSync("npm", ["pack", "--silent", "--pack-destination", out], { cwd: directory, encoding: "utf8" }).trim();
+  const tarball = execFileSync("npm", ["pack", "--silent", "--pack-destination", out], { cwd: directory, encoding: "utf8" }).trim();
+  packed.push({ name: packageJson.name, tarball,
+    needs: Object.keys(packageJson.dependencies ?? {}).filter(dependency => dependency.startsWith(`${scope}/`)) });
+  return tarball;
 }
 
 const runtimeEntries = ["page/browser.mjs", "host/modules.mjs",
@@ -89,20 +97,20 @@ for (const name of runtimeModules) {
 const runtimeFiles = [...await closure(runtimeEntries), "dist/dolly.wasm", "dist/dolly-process-worker.mjs", "dist/dolly-runtime-worker.mjs",
   "dist/dolly-process-dso.mjs", "dist/dolly-process-stack.mjs", "LICENSE", "coi-serviceworker.js",
   ...["process-gate", "process", "threads", "dso"].map(name => `dist/dolly-${name}-0.wasm`)];
-const tarballs = [await writePackage(join(out, "dolly"), runtimeFiles.map(file => [file, file]), {
+await writePackage(join(out, "dolly"), runtimeFiles.map(file => [file, file]), {
   name: `${scope}/dolly`, license: "MIT", exports: { ".": "./page/browser.mjs" },
   description: "Dolly's runtime: a POSIX-like userspace for wasm64 in a browser tab. Run images with boot().",
-}, await readFile(resolve(projectDir, "docs/embedding.md"), "utf8"))];
+}, await readFile(resolve(projectDir, "docs/embedding.md"), "utf8"));
 
 for (const name of deviceModules) {
   const { host } = await manifest(name);
   const files = await closure([`host/${name}/module.json`, `host/${name}/${host}`]);
   const outside = files.filter(file => !file.startsWith(`host/${name}/`));
   if (outside.length) throw new Error(`host/${name} imports outside its directory: ${outside.join(", ")}`);
-  tarballs.push(await writePackage(join(out, hostPackage(name)), files.map(file => [file, relative(`host/${name}`, file)]), {
+  await writePackage(join(out, hostPackage(name)), files.map(file => [file, relative(`host/${name}`, file)]), {
     name: `${scope}/${hostPackage(name)}`, license: "MIT", dependencies: { [`${scope}/dolly`]: version },
     description: `Dolly's ${name}@0 host module: ${(await manifest(name)).gives}.`,
-  }, `# ${scope}/${hostPackage(name)}\n\nDolly's \`${name}@0\` host module: ${(await manifest(name)).gives}. Give the URL of its\n\`module.json\` to \`boot()\`'s \`modules\`; ${scope}/dolly's README says how.\n`));
+  }, `# ${scope}/${hostPackage(name)}\n\nDolly's \`${name}@0\` host module: ${(await manifest(name)).gives}. Give the URL of its\n\`module.json\` to \`boot()\`'s \`modules\`; ${scope}/dolly's README says how.\n`);
 }
 
 // An image's directory, for each image config/npm-images.txt lists: its catalog alone,
@@ -114,7 +122,7 @@ for (const name of deviceModules) {
 const definitions = await discoverImageDefinitions(projectDir);
 const listed = (await readFile(resolve(projectDir, "config/npm-images.txt"), "utf8")).split("\n").filter(Boolean);
 const described = await imageDescriptions(projectDir, await selectImageDefinitions(definitions, listed.join(",")));
-const packageName = (image, role) => `dolly-${role === "package" ? "package" : "image"}-${image}`;
+const packageName = (image, role) => npmPackageName(role === "package" ? "package" : "image", image);
 // The images an image's INSTALL rows name.
 async function installedBy(image) {
   const closureOfImage = await selectImageDefinitions(definitions, image);
@@ -168,7 +176,7 @@ async function writeImageDirectory(image) {
       `\`npx dolly-build add NAME ${image}\` adds it to a project's recipe (${scope}/dolly-build's README). Either\n` +
       `installs this package, the packages it installs and the host modules it declares, at\n\`dolly-build\`'s version.\n\n${licensed}`);
 }
-for (const image of listed) tarballs.push(await writeImageDirectory(image));
+for (const image of listed) await writeImageDirectory(image);
 // The build command, the scripts it runs and the files init writes, at their checkout
 // paths. It finds the runtime and the packages it builds from beside itself, never through
 // these copies.
@@ -182,17 +190,28 @@ const piPackages = await installedBy("pi-minimal");
 const unlistedPi = piPackages.filter(needed => !listed.includes(needed));
 if (unlistedPi.length) throw new Error(`config/npm-images.txt: dolly-build installs ${unlistedPi.join(", ")}, which it does not list`);
 // The published packages and images and the device host modules each declares, which init
-// and add install with a package the project lacks or a recipe that names them.
+// and add install with a package the project lacks or a recipe that names them, and Pi's
+// packages, which init's recipe installs.
 const catalog = JSON.parse(await imageRegistryJson(projectDir, await selectImageDefinitions(definitions, listed.join(",")))).images;
 await mkdir(join(out, "dolly-build"), { recursive: true });
 const devicesOf = role => Object.fromEntries(catalog.filter(record => record.role === role && listed.includes(record.image))
   .map(record => [record.image, record.hostRequirements.map(value => value.split("@")[0]).filter(name => deviceModules.includes(name))]));
 await writeFile(join(out, "dolly-build/packages.json"),
-  `${JSON.stringify({ packages: devicesOf("package"), images: devicesOf("application") }, null, 1)}\n`);
-tarballs.push(await writePackage(join(out, "dolly-build"), [...buildFiles, "LICENSE"].map(file => [file, file]), {
+  `${JSON.stringify({ packages: devicesOf("package"), images: devicesOf("application"), pi: piPackages }, null, 1)}\n`);
+await writePackage(join(out, "dolly-build"), [...buildFiles, "LICENSE"].map(file => [file, file]), {
   name: `${scope}/dolly-build`, license: "MIT", bin: { "dolly-build": "scripts/dolly-build.mjs" },
   dependencies: { [`${scope}/dolly`]: version, "playwright-core": devDependencies["playwright-core"],
     ...Object.fromEntries(piPackages.map(needed => [`${scope}/${packageName(needed, "package")}`, version])) },
   description: "Build a Dolly image of your own from installed packages, in a browser, into a static site.",
-}, await readFile(resolve(projectDir, "docs/npm.md"), "utf8")));
-console.log(tarballs.map(name => join(out, name)).join("\n"));
+}, await readFile(resolve(projectDir, "docs/npm.md"), "utf8"));
+const byName = new Map(packed.map(entry => [entry.name, entry]));
+if (byName.size !== packed.length) throw new Error("two packages have one npm name");
+const order = [];
+const place = (name, from) => {
+  const entry = byName.get(name) ?? (() => { throw new Error(`${from} depends on ${name}, which is not packaged`); })();
+  if (order.includes(entry.tarball)) return;
+  for (const needed of entry.needs) place(needed, name);
+  order.push(entry.tarball);
+};
+for (const { name } of packed) place(name, name);
+console.log(order.map(name => join(out, name)).join("\n"));

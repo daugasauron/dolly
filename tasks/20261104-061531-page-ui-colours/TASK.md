@@ -12,10 +12,22 @@ greys among them (`#77736c`, `#333`, `#191919`). Decided by the integrator: one 
 (the owner's rule, 2026-11-03: one renderer owns what belongs together). The greys become mixes of
 the background and the colour (`color-mix()`), so the defaults draw today's pixels.
 
-## State (2026-11-12)
+## State (2026-11-16, the audit)
+
+`fix/page-colours` (`bf6c49cb7`) is in v0.1.6 and v0.1.7. `test/theme-browser.mjs` passed in
+Chromium and Firefox on 0.1.7's full round (`work/round1113/build/round-1117-evidence/browser.log`).
+Two literals came in afterwards, on 2026-11-12 with `fix/batch`, and are left:
+- microphone@0's prompt, `host/microphone/microphone.mjs:35-36` (`9aaed3b15`): `background:#262626`,
+  `border:1px solid #e98773`, `color:#e8e3d7`, for `--dolly-ui-background`, `--dolly-ui-alert` and
+  `--dolly-ui-color`;
+- html@0's notice, `host/html/html.mjs:146` (`dd1087119`): `color: #ff9b84`. It is inside the popup's
+  frame, which gets the three properties only, so it takes `--dolly-accent` or a mix of it.
+Then close.
+
+## Done on `fix/page-colours` (2026-11-12)
 
 On `fix/page-colours` (from main): `.dolly-terminal` defines the UI's colours once
-(`src/browser.mjs`): `--dolly-ui-background`, `-color` and `-accent` are the three properties
+(`src/browser.mjs`, now `page/browser.mjs`): `--dolly-ui-background`, `-color` and `-accent` are the three properties
 with Dolly's defaults; `--dolly-ui-quiet` is the terminal's bright black
 (`--dolly-display-palette-8`, `#77736c` unset: the grey of today, one source with the terminal);
 `--dolly-ui-raised` (was `#333`) mixes 7% of the colour into the background, which draws

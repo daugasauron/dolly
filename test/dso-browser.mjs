@@ -2,7 +2,7 @@
 // module (and threads@0) added, since a test states what its programs need.
 // What a program sees in an image without it is in host-modules-browser.mjs.
 import assert from "node:assert/strict";
-import { browserTest, composed, runSteps } from "./browser.mjs";
+import { browserTest, runSteps, workbench } from "./browser.mjs";
 import cppDso from "./cases/cpp-dso.json" with { type: "json" };
 
 const fixtures = Object.fromEntries(["dso-check.c", "dso-library.c", "dso-cpp-check.cpp", "dso-cpp-library.cpp",
@@ -43,6 +43,14 @@ int main(void) {
   void *library = dlopen("/tmp/dso/weak.so", RTLD_NOW);
   int (*present)(void) = library ? (int (*)(void))dlsym(library, "present") : 0;
   return present == 0 || present() != 37;
+}
+`,
+  // A throw no frame catches, in the main thread or another.
+  "uncaught.cpp": `#include <stdexcept>
+#include <thread>
+int main(int argc, char **) {
+  if (argc > 1) std::thread([] { throw std::runtime_error("no frame catches this"); }).join();
+  throw std::runtime_error("no frame catches this");
 }
 `,
   "ffi.c": `#include <errno.h>
@@ -120,7 +128,7 @@ await browserTest("dso", { image: "system", timeout: 300_000, server: { fixtures
   const loaderFetches = () => server.requests.get("/dist/dolly-process-dso.mjs") ?? 0;
   const before = loaderFetches();
   const { submit, text } = await open({ policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
-    ...await composed(cppDso.hosts, cppDso.packages, { base: cppDso.image }) });
+    ...await workbench(cppDso.hosts, cppDso.packages) });
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
   // The loader arrives with the page, as the process Worker does, never with a program.
   const fetched = loaderFetches();
@@ -133,11 +141,19 @@ await browserTest("dso", { image: "system", timeout: 300_000, server: { fixtures
   await run("c++ -O0 -shared dso-cpp-library.cpp -o dso-cpp-library.so && c++ -O0 -rdynamic dso-cpp-check.cpp -o dso-cpp-check && ./dso-cpp-check /tmp/dso/dso-cpp-library.so");
   assert.equal(await submit("./dso-check /tmp/dso/dso-library.so 37"), 37,
     "a DSO exits only its owning process through the shared libc provider");
-  await runSteps(submit, server.origin, cppDso);
+  await runSteps(submit, cppDso);
   await run(`rm -rf ${cppDso.directory} && cd /tmp/dso`);
   // A library's own records are checked before it is entered, and packets are bounded.
   await run("cc -O1 -shared denied.c -o denied.so && cc -O1 -rdynamic host.c -o host && ./host && test ! -e /tmp/dso/entered");
   await run("cc -O1 -shared weak.c -o weak.so && cc -O1 -rdynamic weak-host.c -o weak-host && ./weak-host");
+  // A process that an exception no frame catches ends says so, in a host with its type and what().
+  await run("c++ -O1 -pthread -rdynamic uncaught.cpp -o uncaught && c++ -O1 uncaught.cpp -o uncaught-plain");
+  const uncaught = "an exception the program threw and none of its frames caught";
+  for (const [command, said] of [["./uncaught", `${uncaught}: C++ St13runtime_error: no frame catches this`],
+    ["./uncaught thread", `${uncaught}: C++ St13runtime_error: no frame catches this`], ["./uncaught-plain", uncaught]]) {
+    assert.equal(await submit(`${command} 2> uncaught.err`), 126, command);
+    await run(`grep -qF '${said}' uncaught.err`);
+  }
   // FFI needs no host: a program that links its client is served.
   await run("cc -O1 ffi.c -o ffi && ./ffi");
   // A host keeps one owner of signal state although -rdynamic roots all of libc.

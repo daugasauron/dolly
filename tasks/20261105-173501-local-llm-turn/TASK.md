@@ -1,6 +1,6 @@
 # A turn of pi-local's bundled model in Firefox did not end
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: local-llm,pi-local,flaky
 
@@ -18,3 +18,12 @@ the screen was kept: the test's wait for the turn had no limit of its own. It no
 after 10 minutes with the visible text, which is what to read next time.
 
 Done when the cause is named from that text or a reproduction, and fixed where it lies.
+
+## Closed (2026-11-16, the audit): not seen again
+
+There has been no reproduction in eleven days. The GPU stage of four later rounds ran
+`local-llm-browser.mjs` in Firefox: `round-1113c`, `round-1114`, `round-1115` and `round-1117`
+(`work/round1113/build/*-evidence/gpu-local-llm.log`). Each time, Pi's two tasks in pi-local
+passed ("pi-local firefox task with qwen3.5-2b, minicpm5-2b installed … passed with external
+requests denied"), with no failure line. If a turn hangs again, the test's 10-minute limit prints
+the screen, which is what this task lacked. Reopen from that output.

@@ -1,0 +1,29 @@
+DOLLY 8
+PACKAGE libdeflate
+REQUIRES HOST runtime@0
+
+# libdeflate, whole-buffer DEFLATE, zlib and gzip compression and
+# decompression (OpenEXR's), from upstream's release archive, unchanged, built
+# by its CMake project, for programs the cc package builds.
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+REQUIRES HEADER libc
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /dist/static/libdeflate/source.tar.gz 7cf468c92e52a31ff21e5ff750b57cfd06f0a4b7d91f67a72bfd7dc38bc683cf /tmp/libdeflate.tar.gz
+SLOP gzip -dc /tmp/libdeflate.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/libdeflate -B /tmp/libdeflate-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \
+  -DLIBDEFLATE_BUILD_SHARED_LIB=OFF -DLIBDEFLATE_BUILD_GZIP=OFF
+SLOP cmake --build /tmp/libdeflate-build -j4
+SLOP cmake --install /tmp/libdeflate-build
+
+EXPORTS LIB    deflate          /usr/lib/libdeflate.a
+EXPORTS HEADER libdeflate       /usr/include/libdeflate.h
+EXPORTS FOLDER libdeflate-cmake /usr/lib/cmake/libdeflate
+FILE /usr/lib/pkgconfig/libdeflate.pc
+FILE /usr/share/licenses/libdeflate/COPYING
+SLOP rm -rf /tmp/libdeflate /tmp/libdeflate-build /tmp/libdeflate.tar.gz

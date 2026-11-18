@@ -6,19 +6,20 @@
 // and sent, with openrouter.ai answered here. The microphone is the engine's sample recording
 // played over and over through Web Audio (test/microphone-browser.mjs proves
 // the device itself).
-// Usage: node demos/speech/test/speech-browser.mjs [chromium|firefox]
+// Usage: [DOLLY_BROWSER=firefox] node demos/speech/test/speech-browser.mjs
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { devices } from "playwright-core";
+import { browsers } from "../../browsers.mjs";
 import { delay, demoTest, shellPrompt } from "../../browser.mjs";
 
 const root = new URL("../../../", import.meta.url).pathname;
 const archive = execFileSync("bash", ["scripts/fetch-pinned-archive.sh", "transcribe"], { cwd: root, encoding: "utf8" }).trim();
 const sample = execFileSync("tar", ["-xzOf", archive, "--wildcards", "*/samples/jfk.wav"], { maxBuffer: 1 << 24 }).toString("base64");
-const image = "speech-to-text-mic", browser = process.argv[2] ?? "chromium";
-const plays = { chromium: ["--autoplay-policy=no-user-gesture-required"], firefox: { "media.autoplay.default": 0 } }[browser];
+const image = "speech-to-text-mic";
+const plays = { chromium: ["--autoplay-policy=no-user-gesture-required"], firefox: { "media.autoplay.default": 0 } };
 const refuses = { chromium: ["--use-fake-device-for-media-stream", "--deny-permission-prompts"],
-  firefox: { "media.navigator.streams.fake": true, "permissions.default.microphone": 2 } }[browser];
+  firefox: { "media.navigator.streams.fake": true, "permissions.default.microphone": 2 } };
 const speaking = page => page.addInitScript(sample => {
   navigator.mediaDevices.getUserMedia = async () => {
     const context = new AudioContext(), source = context.createBufferSource(), output = context.createMediaStreamDestination();
@@ -31,7 +32,7 @@ const speaking = page => page.addInitScript(sample => {
   };
 }, sample);
 
-await demoTest("speech", { image, browser, launch: plays }, async ({ open }) => {
+for (const browser of browsers) await demoTest("speech", { image, browser, launch: plays[browser] }, async ({ open }) => {
   const { page, text, waitText, prompt } = await open({ prompt: null, setup: speaking });
   await waitText(/Listening\./);
   // The line grows while it is spoken: its last row is read until a finished line holds the sentence.
@@ -50,21 +51,22 @@ await demoTest("speech", { image, browser, launch: plays }, async ({ open }) => 
   assert.equal(await page.evaluate(() => __dolly.microphone.active + __dolly.microphone.liveTracks), 0, "Ctrl+C releases the microphone");
 });
 
-await demoTest("speech refused", { image, browser, launch: refuses }, async ({ open }) => {
+for (const browser of browsers) await demoTest("speech refused", { image, browser, launch: refuses[browser] }, async ({ open }) => {
   const { text } = await open();
   assert.match(await text(), /the browser refused the microphone/);
 });
 
 // The programs need the microphone, which default does not declare: amy has
 // nena enable it and installs speech-to-text with the model it names.
-await demoTest("speech packages", { image: "default", browser }, async ({ open }) => {
+for (const browser of browsers) await demoTest("speech packages", { image: "default", browser }, async ({ open }) => {
   const { run } = await open();
   await run("amy install speech-to-text && grep -qx microphone@0 /etc/dolly/enabled && command -v speech-to-text && " +
     "test -f /usr/share/dolly/speech/parakeet-tdt_ctc-110m.gguf");
 });
 
-// Chrome on Android is the phone this is for; Firefox has no phone to stand in for.
-if (browser === "chromium") await demoTest("pi-phone", { image: "pi-phone", launch: plays, timeout: 600_000 }, async ({ open }) => {
+// Chrome on Android is the phone this is for.
+if (browsers.includes("firefox")) console.log("pi-phone: firefox skipped: Playwright emulates no phone in Firefox (isMobile)");
+if (browsers.includes("chromium")) await demoTest("pi-phone", { image: "pi-phone", launch: plays.chromium, timeout: 600_000 }, async ({ open }) => {
   const key = "sk-or-v1-DOLLYPHONETESTKEY0123456789", asked = [], said = "DOLLY-PHONE-HEARD";
   // OpenRouter speaks OpenAI's completions or Anthropic's messages, by the model chosen.
   const events = {

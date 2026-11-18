@@ -36,6 +36,8 @@ test("sysroot publication keys startup code and preserves previous versions", as
   await writeFile(join(root, "config/process-libc-provider.symbols"), "fixture\n");
   // What cc exports for -rdynamic and -pthread, which build.sh writes from the module manifests.
   for (const option of ["rdynamic", "pthread"]) await writeFile(join(root, `build/${option}.exports`), `${option}_entry\n`);
+  // The seed part cc -pthread links, which build.sh names from the manifests (ccSysroot).
+  await writeFile(join(root, "build/pthread.sysroot"), "threads\n");
   const startup = join(root, "build/process-crt1.o");
   const compileStartup = async value => {
     await writeFile(join(root, "startup.c"), `int startup(void) { return ${value}; }\n`);

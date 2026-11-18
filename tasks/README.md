@@ -22,10 +22,13 @@ reorganization; a task that waits for the owner says so in its State and ranks l
 Close with `- STATUS: CLOSED` after verifying the done-when, in a closing section with the date
 and the evidence (commit, release tag, test). A part that is not done and still wanted moves to
 the task where it belongs first. The CLI has no `close` command; `tatr ls -c` lists closed
-tasks, `tatr ref ID` what refers to one. Closed tasks are history and are not rewritten.
+tasks, `tatr ref ID` what refers to one. Any other status, `DONE` among them, keeps a task in
+`tatr ls`. Closed tasks are history and are not rewritten.
 
 Use a unique suffix (`-s`) when creating several tasks in the same second. `tasks/tags`
-describes every tag in use, one per line. The `audit` tag marks findings of the audits of
-2026-09-13 (main `ff633f7`) and 2026-09-30 (main `4340d03`). Evidence paths under `build/`,
-`.cache/` and `work/` exist only on the machine that produced them. Four closed tasks of
+describes every tag in use, one per line. The `audit` tag marks an audit's findings; the first
+audit was of 2026-09-13 (main `ff633f7`). Evidence paths under `build/`,
+`.cache/` and `work/` exist only on the machine that produced them. A `src/` path in a task
+written before 2026-11-13 is now under `kernel/`, `process/`, `page/`, `site/`, `programs/` or `test/`
+(`15037f809`). Four closed tasks of
 September have ids without a time of day, so `tatr` does not list them.

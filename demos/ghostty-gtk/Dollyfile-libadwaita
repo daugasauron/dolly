@@ -1,0 +1,36 @@
+DOLLY 8
+PACKAGE libadwaita
+REQUIRES HOST runtime@0
+REQUIRES HOST dso@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+
+# libadwaita, GNOME's widgets and styles for GTK 4 (Ghostty's window), from
+# upstream's release, unchanged, built by its own Meson over gtk-build as a
+# static library, for GTK programs the gtk-build toolchain builds. It carries
+# its own copies of five of GTK's builder helpers under GTK's names, which a
+# static link of both would hold twice: its build names its copies its own. A
+# program exports adw_get_resource and adw_stylesheet_get_resource, whose
+# constructors register its resources, so that wasm-ld keeps them.
+FROM /demos/gtk/Dollyfile-gtk-build d45afed0f2212ee5791bc1e1a4c21dc800e688dbeb22ea38072a9463ff1c5c56
+REQUIRES TOOL meson
+REQUIRES TOOL mkdir
+REQUIRES TOOL cp
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+REQUIRES TOOL xz
+
+SOURCE /dist/static/ghostty-gtk/libadwaita-1.10.0.tar.xz b1bf56239269d101a6391ad4553c910eff9cc6170b803916405477ef60a66c84 /tmp/libadwaita.tar.xz
+SLOP CWD /tmp xz -dc libadwaita.tar.xz | tar -xf -
+SLOP CWD /tmp meson setup libadwaita-build libadwaita-1.10.0 --wrap-mode=nodownload --prefix=/usr --libdir=lib \
+  --buildtype=release -Ddefault_library=static -Dintrospection=disabled -Dvapi=false -Dtests=false \
+  -Dexamples=false -Ddocumentation=false "-Dc_args=-D_gtk_builder_check_parent=adw_gtk_builder_check_parent -D_gtk_builder_prefix_error=adw_gtk_builder_prefix_error -D_gtk_builder_error_unhandled_tag=adw_gtk_builder_error_unhandled_tag -D_gtk_builder_parser_translate=adw_gtk_builder_parser_translate -Dgtk_buildable_child_deprecation_warning=adwgtk_buildable_child_deprecation_warning"
+SLOP meson compile -C /tmp/libadwaita-build && meson install --no-rebuild -C /tmp/libadwaita-build
+SLOP mkdir -p /usr/share/licenses/libadwaita
+SLOP cp /tmp/libadwaita-1.10.0/COPYING /usr/share/licenses/libadwaita/COPYING
+
+EXPORTS LIB    adwaita-1  /usr/lib/libadwaita-1.a
+EXPORTS HEADER libadwaita /usr/include/libadwaita-1
+FILE /usr/lib/pkgconfig/libadwaita-1.pc
+FILE /usr/share/licenses/libadwaita/COPYING
+SLOP rm -rf /tmp/libadwaita-1.10.0 /tmp/libadwaita-build /tmp/libadwaita.tar.xz

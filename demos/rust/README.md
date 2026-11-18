@@ -1,12 +1,12 @@
 # Rust
 
 Rust built inside Dolly: `rustc`, its standard library and Cargo are compiled
-from their pinned sources by an externally built seed, and everything else
-Rust in the catalog is built by the result with Cargo.
+from their pinned sources by the previous round's build of them, the seed, and
+everything else Rust in the catalog is built by the result with Cargo.
 
 ## Images
 
-- `rust-sdk`: the seed, staged: its compiler and standard library, and its Cargo linked here.
+- `rust-sdk`: the seed, staged: rustc, its standard library and Cargo as the previous round built them.
 - `rust-llvm`: the LLVM 22 libraries rustc links, built by Dolly's `c++`.
 - `rust-build`: rustc, the standard library and Cargo built from source, the kept rustc by the first one built here; the base of every Rust build.
 - `rust-tools`: interactive shell: `system` with the `rust` and `cargo` packages.
@@ -19,21 +19,23 @@ Rust in the catalog is built by the result with Cargo.
 - `cbindgen`: `cbindgen`, which writes C headers for Rust libraries; SpiderMonkey's configure requires it.
 - `naga`: `naga`, the wgpu project's shader translator; 0 A.D.'s shaders are translated to WGSL with it.
 
-Build the seed once with `./demos/rust/build-rust-toolchain.sh` (Linux x86_64, Podman, Python
-3.12+, curl, patch), then `npm run image -- rust-tools`. `rust-sdk` starts from
+`npm run image -- rust-tools` fetches the pinned seed from the GitHub release that carries it;
+staging rust-build's sources takes Python 3.12+, curl and patch. `rust-sdk` starts from
 `system-build`; the `pi` and `codex` packages install `ripgrep` and `fd`.
 
 ## The seed
 
-Rust 1.98.1 with LLVM 22.1.8 is a bootstrap exception: built outside Dolly by
-[`build-rust-toolchain.sh`](build-rust-toolchain.sh) from
-[`toolchain/bootstrap-sources.json`](toolchain/bootstrap-sources.json) and the
-patches beside it, then validated against `dolly-process-0`. It holds `rustc`
-linked, the standard library, and Cargo cross-compiled up to one object that
-[`Dollyfile-rust-sdk`](Dollyfile-rust-sdk) links against Dolly's libc, libcurl
-and zlib. Image preparation only stages a verified seed; it never builds one.
-Rust is written in Rust, so some first compiler has to come from outside; the
-seed is that and nothing more ([below](#built-inside-dolly)).
+The seed is Rust 1.98.1 as Dolly built it in the previous round: `rust-build`'s
+rustc and standard library and the `cargo` package's Cargo, which
+[`pin-seed.mjs`](pin-seed.mjs) archives and pins in
+[`source-pins.sh`](source-pins.sh) (`DOLLY_RUST_SEED_*`), and the GitHub release
+carries ([sources](../../docs/sources.md#the-rust-and-go-seeds)). A round pins
+it after its images; a pin it leaves unchanged is the fixed point. `rust-sdk`
+compiles its linker adapter itself. Rust is written in Rust, so the first
+compiler came from outside: Rust 1.98.1 with LLVM 22.1.8, cross-built on Linux
+in Podman by `build-rust-toolchain.sh` (last in commit `6a610431`). The 0.1.7
+images it built gave the first seed built in Dolly; a bootstrap from nothing
+starts there.
 
 ## Built inside Dolly
 
@@ -41,7 +43,7 @@ seed is that and nothing more ([below](#built-inside-dolly)).
 compiler against `rust-llvm`'s libraries and keeps the second:
 
 1. The seed's rustc compiles rustc's 251 crates. This first rustc links the
-   seed's standard library, so it still holds code compiled outside Dolly.
+   seed's standard library, the previous round's.
 2. The first rustc compiles the standard library (`-Z build-std`), which
    replaces the seed's.
 3. The first rustc compiles rustc again, against that library, and rustdoc
@@ -58,18 +60,25 @@ compiler against `rust-llvm`'s libraries and keeps the second:
 - A third rustc is the second again: measured in a Chrome session, 264 files
   (the 251.3 MiB `rustc` and 263 libraries) were the same between the second
   and third generation ([task](../../tasks/20260930-231100-self-host-rust/TASK.md)),
-  and with the recipe's own command on 2026-11-04, before rustdoc joined it. The
-  recipe checks the standard library on every build, not the compiler.
-- The sources are the seed's: the pinned Rust archive with the same patches,
-  the `rust-src` component for the standard library, and each locked crate
-  extracted as Cargo's directory source
-  ([`prepare-rustc-sources.py`](prepare-rustc-sources.py)), with rustdoc's 44
+  and with the recipe's own command on 2026-11-04, before rustdoc joined it. On
+  2026-11-17 `rust-build` on the seed taken from 0.1.7's gave the seed's 392
+  files and its Cargo, byte for byte
+  ([task](../../tasks/20261116-142914-ports-07/TASK.md)). The recipe checks the
+  standard library on every build; a round's pin of the seed checks the
+  compiler and Cargo.
+- The sources: the pinned Rust archive with its patches, the `rust-src`
+  component for the standard library, and each locked crate extracted as
+  Cargo's directory source ([`toolchain/prepare.sh`](toolchain/prepare.sh),
+  [`prepare-rustc-sources.py`](prepare-rustc-sources.py)), with rustdoc's 44
   crates ([`rustdoc.lock`](config/rustdoc.lock)). The recipe applies one patch
-  the seed has not: rustdoc finds its sysroot by its symlinked name
+  more: rustdoc finds its sysroot by its symlinked name
   ([`rustc-sysroot.patch`](config/patches/rustc-sysroot.patch)).
 - `rustc` is linked as a host of procedural-macro libraries (`cc -rdynamic`),
-  so it has no threads; [`rust-linker.c`](rust-linker.c) adds the loader names
-  Rust binds and what std in a loaded library imports.
+  without threads: its frontend and code generation run on one thread
+  ([`toolchain/rust.patch`](toolchain/rust.patch)), a choice for serial
+  semantics, which Cargo's parallel `rustc` processes make up for;
+  [`rust-linker.c`](rust-linker.c) adds the loader names Rust binds and what
+  std in a loaded library imports.
 
 ## Sources for a Cargo build
 
@@ -77,7 +86,7 @@ compiler against `rust-llvm`'s libraries and keeps the second:
 offline build: upstream's archive, every crate its `Cargo.lock` names
 (checksum-verified, extracted to `vendor/`), the target patches applied in
 place, and a `.cargo/config.toml` that points Cargo at `vendor/` and sets the
-profile the seed is built with. A recipe then runs `cargo build --offline`.
+profile the images are built with. A recipe then runs `cargo build --offline`.
 
 ## Cargo
 
@@ -129,5 +138,12 @@ with the compiler.
   The compiler loads proc macros and needs `dso@0`, which a build host enables
   and an image that keeps `rustc` declares.
 - Target patches live in [`config/patches/`](config/patches/).
+- Rust's target is Emscripten's (`target_os = "emscripten"`,
+  [`wasm64-emscripten-probe.json`](toolchain/wasm64-emscripten-probe.json)), where C sees
+  `__dolly__`: an exception kept by choice. A Dolly target would need a port of std and
+  the `libc` crate, and would leave without a path the crates that have an Emscripten
+  branch (2 of ripgrep's 51 vendored crates, 48 of Codex's 1,218); the patches that name
+  `emscripten` correct those branches for Dolly. Where std lists the systems that lock
+  files, Emscripten is not among them: `File::lock` answers `Unsupported`.
 
 Test: `npm run test:demos -- rust` ([`test/`](test/)).

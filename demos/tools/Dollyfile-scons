@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE scons
 REQUIRES HOST runtime@0
 REQUIRES HOST dso@0
@@ -8,9 +8,9 @@ REQUIRES HOST threads@0
 
 # SCons from the wheel PyPI publishes, installed by pip; Python runs it. Its base
 # holds the C compiler it starts. The host modules are Python's.
-FROM /v0.1.6/Dollyfile-system 33e5bcf65ef4a634da5dbf8e291a379148e7971aa0411fe1bdaa4e0332f24b94
-INSTALL /v0.1.6/demos/python/Dollyfile-python a2bee41935e12229aed6db1256f11dde6b22125b8696ca3d31afcf70f9d7295b
-USE /v0.1.6/Dollyfile-mandoc 54d325551ebd2d294534eac0ca4c1dfda6bc6120c6c08043d14d7e721c0292a9
+FROM /Dollyfile-system 8d54b8fd95bd265381fcacf4d97044d3ad3deb0e969deeed8e4b5e791e71dcb5
+INSTALL /demos/python/Dollyfile-python c39225e146dd9f27a77c5b8b534c4d3eec2246b777c435e766dd48495fa3a2c1
+USE /Dollyfile-mandoc 483a559eb568966844e5ef06ca4b9fd848a5b7ae1ff12bdfd9605123c34dcfb9
 
 REQUIRES TOOL cc
 REQUIRES TOOL cp
@@ -18,18 +18,18 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL pip
 REQUIRES TOOL text-page
 
-SOURCE /v0.1.6/dist/static/tools/scons-4.10.1-py3-none-any.whl bd9d1c52f908d874eba92a8c0c0a8dcf2ed9f3b88ab956d0fce1da479c4e7126 /tmp/scons-4.10.1-py3-none-any.whl
+SOURCE /dist/static/tools/scons-4.10.1-py3-none-any.whl bd9d1c52f908d874eba92a8c0c0a8dcf2ed9f3b88ab956d0fce1da479c4e7126 /tmp/scons-4.10.1-py3-none-any.whl
 SLOP pip install --no-compile --no-index --no-deps /tmp/scons-4.10.1-py3-none-any.whl
 SLOP mkdir -p /usr/share/licenses/scons
 SLOP cp /usr/lib/python3.14/site-packages/scons-4.10.1.dist-info/licenses/LICENSE /usr/share/licenses/scons/LICENSE
 # The page from SCons' source archive: the wheel has none.
-SOURCE /v0.1.6/dist/static/tools/scons.1 b6c0c5c9997d8dc70af5bf623df08a4d9091065ae6b4046cd17019d965c07cac /tmp/scons.1
+SOURCE /dist/static/tools/scons.1 b6c0c5c9997d8dc70af5bf623df08a4d9091065ae6b4046cd17019d965c07cac /tmp/scons.1
 SLOP text-page /tmp/scons.1
 
-# SCons takes a program on PATH for a compiler only if its execute bit is set,
-# and Dolly keeps none, so the SConstruct names it.
+# SCons takes a program on PATH for a compiler only if its execute bit is set:
+# the default environment finds cc, which INSTALL made 0755 as every file is.
 FILE /tmp/scons-check/SConstruct
-    Environment(CC="cc").Program("check", "check.c")
+    Program("check", "check.c")
 FILE /tmp/scons-check/check.c
     int main(void) { return 0; }
 SLOP CWD /tmp/scons-check scons -Q && ./check

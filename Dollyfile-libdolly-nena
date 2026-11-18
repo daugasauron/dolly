@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE libdolly-nena
 REQUIRES HOST runtime@0
 
@@ -6,15 +6,15 @@ REQUIRES HOST runtime@0
 # host modules), for the nena command and programs the cc package builds: cc
 # links every client archive in /usr/lib/dolly/process, and a program records
 # nena@0 only when it calls the client.
-FROM /v0.1.6/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
+FROM /Dollyfile-system-build 0c72e09eba84571d4f8634cf6e7507eb1be1b9b8aa1fae61f6b0ec884b26b6fb
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.6/host/nena/nena.h 61b82f1124188211a58bbd6e2bc5d46c57bb9bde807e139098b30fb3c0ce1057 /usr/include/dolly/nena.h
-SOURCE /v0.1.6/host/nena/nena-abi.h 9d564bb848e79e48e679ee557b63909a7b2167df364f08b589eae8e398e996a2 /usr/include/dolly/nena-abi.h
-SOURCE /v0.1.6/host/nena/client.c b9cb6b199ed7253b8e15dd56bf6fcbd74c485a026db497335828b8724e92e878 /tmp/libdolly-nena/client.c
+SOURCE /host/nena/nena.h 61b82f1124188211a58bbd6e2bc5d46c57bb9bde807e139098b30fb3c0ce1057 /usr/include/dolly/nena.h
+SOURCE /host/nena/nena-abi.h 9d564bb848e79e48e679ee557b63909a7b2167df364f08b589eae8e398e996a2 /usr/include/dolly/nena-abi.h
+SOURCE /host/nena/client.c b9cb6b199ed7253b8e15dd56bf6fcbd74c485a026db497335828b8724e92e878 /tmp/libdolly-nena/client.c
 SLOP cc -O1 -c /tmp/libdolly-nena/client.c -o /tmp/libdolly-nena/client.o
 SLOP ar rcs /usr/lib/dolly/process/libdolly-nena.a /tmp/libdolly-nena/client.o
 

@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 APPLICATION dollyfile-studio
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -14,25 +14,24 @@ REQUIRES HOST nena@0
 REQUIRES HOST dso@0
 REQUIRES HOST build@0
 
-INSTALL /v0.1.6/Dollyfile-core 1af35bd391b18ddb626a8a5248c4c940564cc4c23af9c2d44e313bf847b66bba
-INSTALL /v0.1.6/Dollyfile-posix 37d85018d9ab218475d878070e6d5df646238f3e450e534e5c31b6c9e3198191
-INSTALL /v0.1.6/Dollyfile-display 9516e36ef9c8566c9f0590546e1474db96ca02ddc75028e562e92af71fdbdeef
-# The tools Pi's dolly skill teaches: cc and make, Git, curl.
-INSTALL /v0.1.6/Dollyfile-cc dd9c3a1f3e39d395d478e5a07e6a01bee97e16e71f4a583a07fe7f8c2356ba8c
-INSTALL /v0.1.6/Dollyfile-libdolly-display c4f8ea64af9ad51300b9b48369558e17493bccb9be1b7db853cda0e1d7d66a48
-INSTALL /v0.1.6/Dollyfile-libdolly-input 45202588e489298ba6fe352129e992fca0c7a45e13bf45cde85976c931a981e4
-INSTALL /v0.1.6/Dollyfile-libdolly-download 95c2cc70e0449df33d18e0315becc264b3166b75e93ca0b8e998cb99d26a8a89
-INSTALL /v0.1.6/Dollyfile-libdolly-upload 1fe7e77466c74fd2d961fda7b2fefd33065e6a638e12e07dedf954894832fcd3
-INSTALL /v0.1.6/Dollyfile-libdolly-threads 7ca1c1bb45478b24497893847ae282fb75685663349239a3b1a8b0c8bd84575f
-INSTALL /v0.1.6/Dollyfile-git 3393aa9b0bb67b91dd2195bfc5be7477d276e9522ae2ada7041abc1d21cb1e1c
-INSTALL /v0.1.6/Dollyfile-curl 084ff066ff997321eb771ee8a29503b8e5eb6ff877cb6407df761bcb5173655b
-# download and upload, which Pi's prompt teaches (transfer).
-INSTALL /v0.1.6/Dollyfile-transfer 4fa648be8267a2f66c4d29ab3c9e31c8832d7c6245ed3c227619fed030dd6953
-INSTALL /v0.1.6/demos/pi/Dollyfile-pi-dolly ce909cd141c0902055811226d2247465fbed952f4da311f00e482b6109a31cb7
-INSTALL /v0.1.6/Dollyfile-amy dcd5a7f5c88a9bbb99002762959d64dd04be2d479dc85566783f48f9c19d07ac
+INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
+INSTALL /Dollyfile-posix c24b7cb8dfc057769bc7f644f68c2922514adb89272756d8ed793c0318d5f3d5
+INSTALL /Dollyfile-display cc98bc6edc0e5dea2bfb79e3095ea1fb6744e28282d28cec6c2e013cf6435992
+# The tools Pi's dolly skill teaches: cc and make with the host modules' client
+# libraries, Git, curl.
+INSTALL /Dollyfile-cc 3c50048026aec1c0c21ac6c0b74d93f53b5c0a3fa83b5c9930d86924a3b59eaa
+INSTALL /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
+INSTALL /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
+INSTALL /Dollyfile-libdolly-download c4fcb208423787a23dba384fa56a9e7a94680d3fbe8a107e3e59b2237ab6dc16
+INSTALL /Dollyfile-libdolly-upload 8ac6d3294c36592ef7147a9d0fddfe1558ab9edfae12e51b857aeea90527d7d9
+INSTALL /Dollyfile-libdolly-threads dc22418aec61aa289a4b7c746891cc161b447fb14b6075696c4c04ddb9d6aecf
+INSTALL /Dollyfile-git beec0dcd0aadae135004bdad2dc5ca42ae35cbf06eb67475d0c57e9185bd4f76
+INSTALL /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6e458431e
+INSTALL /demos/pi/Dollyfile-pi-dolly 6a15920f37ebd8f43a4481b81e9ca222eb08b20cac07d568b5fc0cdd9c80892c
+INSTALL /Dollyfile-amy 95b7ecb251d9d5c3d28eb8aaa63b6bd2a465fac35756bdf95b520884a61547e4
 # nena enables the host modules a package needs beyond these.
-INSTALL /v0.1.6/Dollyfile-nena 3946645dbbc253accb15ce4ce43b012da951ec9aa0c7eb6c06d7293e439f2db6
-INSTALL /v0.1.6/demos/neovim/Dollyfile-nvim 9860c96bf3ccd0a705d683360d32644460671056e027b3029e6d68c12c62f2e6
+INSTALL /Dollyfile-nena 67a37d644a04e3eddd12fe2e5d335dcf473b1b549337f0a9ce2f445f00b91ad8
+INSTALL /demos/neovim/Dollyfile-nvim 139bfb692ff823804a7559e6d406134c4baf2d604ecadde3409911e1a29cc806
 REQUIRES TOOL pi
 REQUIRES TOOL nvim
 REQUIRES TOOL janis
@@ -41,7 +40,7 @@ REQUIRES TOOL sha256sum
 REQUIRES TOOL sed
 # dollyfile-build starts disposable image builds through the page.
 
-SOURCE /v0.1.6/dist/static/studio/studio.tar 179704ae4ad9ea4d845465a7a2623e734bd7b0dfcf7cbb7a1063b94cdfa61727 /tmp/dollyfile-studio/source.tar
+SOURCE /dist/static/studio/studio.tar 8e10274f9c54f79d8de68eea9380d5db76a49ad8a361ad0c3cb4e120703c1f32 /tmp/dollyfile-studio/source.tar
 SLOP tar -xf /tmp/dollyfile-studio/source.tar -C /
 SLOP slop -e /usr/share/dollyfile-studio/install.slop
 SLOP dollyfile-lint /usr/share/dollyfile-studio/examples/Dollyfile-hello

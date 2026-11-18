@@ -1,0 +1,35 @@
+DOLLY 8
+PACKAGE onetbb
+REQUIRES HOST runtime@0
+REQUIRES HOST threads@0
+
+# oneTBB, Intel's Threading Building Blocks: parallel algorithms, flow graphs
+# and concurrent containers over a pool of threads, from upstream's release
+# archive, unchanged, built by its CMake project, for programs the cc package
+# builds with -pthread, on threads@0: the tbb library without hwloc and
+# without its allocator.
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /dist/static/onetbb/source.tar.gz 84e89d1c131052a5950736f53b6e3c84d8aae83aaaa65647f7681b8461e98a1f /tmp/onetbb.tar.gz
+SLOP gzip -dc /tmp/onetbb.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/onetbb -B /tmp/onetbb-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+  -DCMAKE_C_FLAGS=-pthread -DCMAKE_CXX_FLAGS=-pthread -DTBB_TEST=OFF -DTBBMALLOC_BUILD=OFF -DTBB_STRICT=OFF \
+  -DTBB_DISABLE_HWLOC_AUTOMATIC_SEARCH=ON -DTBB_EXAMPLES=OFF
+SLOP cmake --build /tmp/onetbb-build -j4
+SLOP cmake --install /tmp/onetbb-build
+
+EXPORTS LIB    tbb       /usr/lib/libtbb.a
+EXPORTS HEADER tbb       /usr/include/tbb
+EXPORTS HEADER oneapi    /usr/include/oneapi
+EXPORTS FOLDER tbb-cmake /usr/lib/cmake/TBB
+FILE /usr/lib/pkgconfig/tbb.pc
+FOLDER /usr/share/licenses/onetbb
+SLOP rm -rf /tmp/onetbb /tmp/onetbb-build /tmp/onetbb.tar.gz

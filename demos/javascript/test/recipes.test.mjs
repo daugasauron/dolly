@@ -18,7 +18,7 @@ test("quickjs, janis and typescript are packages, each built on the one before",
   assert.deepEqual(exported(typescript), ["FOLDER:typescript", "TOOL:tsc"]);
   assert.ok(quickjs.files.some(({ path }) => path === "/usr/share/licenses/quickjs-ng/LICENSE"));
   assert.ok(typescript.sources.some(({ location }) => location === siteReference("dist/static/default/typescript-5.9.3.tgz")));
-  // The engine's own command reaches no host module but the runtime; Janis adds HTTP.
-  assert.deepEqual(quickjs.hostRequirements, ["runtime@0"]);
-  for (const recipe of [janis, typescript]) assert.deepEqual(recipe.hostRequirements, ["download@0", "http@0", "runtime@0"]);
+  // qjs starts threads (os.Worker), so what installs the package declares them; Janis adds HTTP.
+  assert.deepEqual(quickjs.hostRequirements, ["runtime@0", "threads@0"]);
+  for (const recipe of [janis, typescript]) assert.deepEqual(recipe.hostRequirements, ["download@0", "http@0", "runtime@0", "threads@0"]);
 });

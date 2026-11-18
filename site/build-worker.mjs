@@ -5,13 +5,13 @@
 // restores a custom image the site built before. Images cross to and from Wasm
 // memory a piece at a time: the page holds them as Blobs, never in a JS heap.
 import { DOLLY_IMAGE_BUILD_ID } from "../page/generated.mjs";
-import { imageBase, imageDefinition } from "../page/images.mjs";
+import { DOLLY_STATIC_SOURCES, imageBase, imageDefinition } from "../page/images.mjs";
 import { scanSnapshotRecords, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "../page/snapshot-records.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256 } from "./image-artifact.mjs";
 import { imageInputs } from "../page/image-inputs.mjs";
 import { imageFileName, inspectDollyfile, MAX_DOLLYFILE_BYTES, recipeFileName, recipeRows } from "./dollyfile-view.mjs";
 import { checkedCustomArtifact } from "./custom-image.mjs";
-import { siteReference, decodeStaticAsset } from "../page/static-asset.mjs";
+import { boundedAssetBlob, siteReference, sitePath, decodeStaticAsset } from "../page/static-asset.mjs";
 import { checkedMemoryRange, kernelArtifact, runImage } from "../page/worker-image.mjs";
 
 const encoder = new TextEncoder();
@@ -32,12 +32,47 @@ function* capturedPieces(kernel, memory, total) {
   if (produced !== total) throw new Error("Dolly system snapshot capture failed");
 }
 
-// A catalog recipe as this site publishes it, checked against its pin.
+// A catalog recipe as this site publishes it, checked against its pin: its
+// text and its parse.
 async function catalogRecipe(definition) {
   const response = await fetch(new URL(definition.dollyfile, imageBase), { credentials: "same-origin", redirect: "error" });
   const bytes = response.ok ? await response.arrayBuffer() : new ArrayBuffer(0);
   if (await sha256(bytes) !== definition.sha256) throw new Error(`${definition.dollyfile} does not match its pin`);
-  return inspectDollyfile(new TextDecoder().decode(bytes), definition.dollyfile);
+  const text = new TextDecoder().decode(bytes);
+  return { text, recipe: inspectDollyfile(text, definition.dollyfile) };
+}
+
+// An external URL, fetched by the page under its HTTP policy (page/network.mjs
+// fetch): a Blob.
+const pageFetches = new Map();
+let pageFetchCount = 0;
+self.addEventListener("message", ({ data }) => {
+  if (data?.type !== "network-fetched" || !pageFetches.has(data.id)) return;
+  const { resolve, reject } = pageFetches.get(data.id);
+  pageFetches.delete(data.id);
+  if (data.bytes instanceof Blob) resolve(data.bytes); else reject(new Error(data.error));
+});
+const pageFetch = url => new Promise((resolve, reject) => {
+  pageFetches.set(++pageFetchCount, { resolve, reject });
+  // At most what the engine takes of a SOURCE (dollyfile.c, MAX_SOURCE_BYTES).
+  self.postMessage({ type: "network-fetch", url, limit: 2 ** 30, id: pageFetchCount });
+});
+
+// The file a SOURCE row names, as the engine reads it (/etc/dolly/sources/SHA256,
+// whose digest it checks): a site path is the file this directory publishes, an
+// external URL what the page's policy admits. Null, said, for one neither gives.
+async function sourceFile({ location, line }, stage) {
+  try {
+    if (!location.startsWith("/")) return await pageFetch(location);
+    const path = sitePath(location), published = DOLLY_STATIC_SOURCES.find(source => source.path === path);
+    if (!published) throw new Error("not a file this image directory publishes");
+    const url = new URL(path.slice(1), imageBase), init = { credentials: "same-origin", redirect: "error" };
+    const response = await decodeStaticAsset(await fetch(url, init), url, init, published.byteLength);
+    return await boundedAssetBlob(response, published.byteLength);
+  } catch (error) {
+    stage(`SOURCE ${location} (line ${line}): ${error.message}`);
+    return null;
+  }
 }
 
 await runImage(async (config, host) => {
@@ -53,9 +88,12 @@ await runImage(async (config, host) => {
   }
   const recipe = custom ? inspectDollyfile(customSource) : definition;
   const locator = custom ? "FILE:/etc/dolly/upload.Dollyfile" : siteReference(definition.dollyfile);
-  const prepareRecipe = (files, rows) => {
+  // A build's root recipe: its text (a catalog recipe's at /etc/dolly/recipe.Dollyfile,
+  // which the engine reads for a site path) and its rows.
+  const prepareRecipe = (files, rows, text) => {
     files.write("/etc/dolly/recipe.locator", locator);
     if (custom) files.write("/etc/dolly/upload.Dollyfile", customSource);
+    else if (text !== undefined) files.write("/etc/dolly/recipe.Dollyfile", text);
     if (rows !== undefined) files.write("/etc/dolly/recipe.rows", rows);
   };
   // Copies a whole snapshot, a Blob, into the kernel's checked staging range a
@@ -95,7 +133,8 @@ await runImage(async (config, host) => {
   const declared = recipe.hostRequirements;
   const recipeSha256 = custom ? await sha256(encoder.encode(customSource)) : definition.sha256;
   // /bin/dollyfile executes the rows this page's parser compiles.
-  const rows = recipeRows(custom ? recipe : await catalogRecipe(definition), recipeSha256);
+  const root = custom ? { text: customSource, recipe } : await catalogRecipe(definition);
+  const rows = recipeRows(root.recipe, recipeSha256);
   const baseReference = custom ? recipe.from : definition.artifacts.find(reference => reference.operation === "from");
   // A root build that installs the recipe engine's package starts from that package's
   // /bin/dollyfile, as a FROM build starts from its base's; any other from the compiler seed.
@@ -123,7 +162,7 @@ await runImage(async (config, host) => {
   const engine = engineReference ? artifacts.get(engineReference.sha256) : null;
   if (engineReference && !engine) throw new Error("dollyfile package artifact was not provided");
   const builder = base ?? engine, builderReference = baseReference ?? engineReference;
-  let seed = null, built = false;
+  let seed = null, built = false, sources;
   return {
     name: image,
     async prepare({ files, stage }) {
@@ -134,11 +173,19 @@ await runImage(async (config, host) => {
         const url = kernelArtifact("dolly.data");
         seed = await (await decodeStaticAsset(await fetch(url), url, {}, snapshotSizeLimit)).blob();
       }
-      prepareRecipe(files, rows);
-      // The engine reads each input from its Blob as it restores it: the kernel never holds an input's snapshot.
-      host.kernel.setBuildInputs([...artifacts.values()].map(artifact => artifact.bytes));
+      prepareRecipe(files, rows, custom ? undefined : root.text);
+      // The engine reads each input from its Blob as it restores it: the kernel
+      // never holds an input's snapshot. Each SOURCE file is an input too.
+      sources = new Map();
+      for (const row of root.recipe.sources) {
+        if (sources.has(row.sha256)) continue;
+        const file = await sourceFile(row, stage);
+        if (file) sources.set(row.sha256, file);
+      }
+      host.kernel.setBuildInputs([...[...artifacts.values()].map(artifact => artifact.bytes), ...sources.values()]);
       [...artifacts.values()].forEach((artifact, input) =>
         files.input(`/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`, input, artifact.bytes.size));
+      [...sources].forEach(([digest, file], index) => files.input(`/etc/dolly/sources/${digest}`, artifacts.size + index, file.size));
       // The kernel restores a snapshot against the list of its paths.
       const manifest = builder?.manifest ?? [...(await scanSnapshotRecords(seed.stream(), () => false)).records.keys()];
       files.write("/etc/dolly/image.manifest", `${manifest.join("\n")}\n`);
@@ -148,7 +195,7 @@ await runImage(async (config, host) => {
       let status;
       if (builder) {
         stage(`loading builder from ${builderReference.location}...`);
-        status = kernel.dolly_process_bootstrap_resume_prepare(BigInt(await stageSnapshot(kernel, memory, builder.bytes)), 1);
+        status = kernel.dolly_process_bootstrap_resume_prepare(BigInt(await stageSnapshot(kernel, memory, builder.bytes)));
       } else {
         status = kernel.dolly_process_bootstrap_prepare(BigInt(await stageSnapshot(kernel, memory, seed)));
         seed = null;
@@ -159,7 +206,9 @@ await runImage(async (config, host) => {
         status = (await supervisor.spawn(builder ? ["/bin/dollyfile", locator] : ["/usr/libexec/dolly/process-bin/bootstrap"])).status;
       }
       for (const artifact of artifacts.values()) files.remove(`/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`);
+      for (const digest of sources.keys()) files.remove(`/etc/dolly/sources/${digest}`);
       artifacts.clear();
+      sources.clear();
       host.kernel.setBuildInputs([]);
       if (status !== 0) return { status };
       // Kernel memory never shrinks: its size now is the build's high-water mark.

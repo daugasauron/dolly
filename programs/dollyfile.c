@@ -14,7 +14,6 @@
 #include <unistd.h>
 
 #include <dolly/host-abi.h>
-#include <dolly/http.h>
 #include <dolly/runtime.h>
 #include "sha256.h"
 #include "fs-record.h"
@@ -89,6 +88,9 @@ typedef struct {
   size_t host_requirement_count;
   size_t host_requirement_capacity;
   char *selected_image;
+  // `dollyfile install`: a session, which takes a package's modules from its
+  // image and, with nena@0, from what it enabled since.
+  int live;
   // A live install in a session with nena@0: the session's record of the
   // modules it enabled since, one name@version a line; NULL in every other run.
   char *enabled;
@@ -293,17 +295,11 @@ static int normalized_path(const char *path) {
   return 1;
 }
 
-// A site path names a file one release of the site publishes: /vX.Y.Z/PATH,
-// without a query. The broker resolves it; the engine only reads its form.
+// A site path names a file the site publishes by its path from the site's
+// root, /PATH, without a query. The broker resolves it; the engine only reads
+// its form.
 static int site_path(const char *value) {
-  if (value[0] != '/' || value[1] != 'v') return 0;
-  const char *cursor = value + 2;
-  for (int part = 0; part < 3; ++part) {
-    if (*cursor < '0' || *cursor > '9') return 0;
-    while (*cursor >= '0' && *cursor <= '9') ++cursor;
-    if (*cursor++ != (part < 2 ? '.' : '/')) return 0;
-  }
-  return *cursor != '\0' && strpbrk(value, "?#\\ \t\r\n\v\f") == NULL && normalized_path(value);
+  return value[0] == '/' && value[1] != '\0' && strpbrk(value, "?#\\ \t\r\n\v\f") == NULL && normalized_path(value);
 }
 
 // SOURCE takes a site path or an absolute http(s) URL without a fragment.
@@ -383,27 +379,11 @@ static int mkdir_parents(const char *path, int include_last) {
   return 0;
 }
 
-static int fetch_memory(const char *url, Buffer *buffer) {
-  dolly_http_response response = {0};
-  dolly_http_request request = {
-      .method = "GET",
-      .url = url,
-      .headers = "",
-      .flags = DOLLY_HTTP_FAIL_STATUS,
-      .write = append_buffer,
-      .write_context = buffer,
-  };
-  const int status = dolly_http_perform(&request, &response);
-  const unsigned response_status = response.status;
-  if (status != 0) {
-    fprintf(stderr, "dollyfile: GET %s failed: %d\n", url, status);
-  } else if (response.status < 200 || response.status >= 300) {
-    fprintf(stderr, "dollyfile: GET %s returned HTTP %u\n", url, response.status);
-  }
-  dolly_http_response_dispose(&response);
-  return status == 0 && response_status >= 200 && response_status < 300
-      ? 0 : status != 0 ? status : -EIO;
-}
+// The page hands a build its inputs as files: the text of the root recipe a
+// site path names, and the file of each SOURCE row by its SHA-256, which the
+// engine checks. The engine fetches nothing.
+static const char recipe_text_path[] = "/etc/dolly/recipe.Dollyfile";
+static const char sources_dir[] = "/etc/dolly/sources";
 
 static int read_file_buffer(const char *path, Buffer *buffer) {
   int descriptor = open(path, O_RDONLY);
@@ -431,19 +411,34 @@ static int read_file_buffer(const char *path, Buffer *buffer) {
   return result;
 }
 
-// A recipe locator is a site path or, for an uploaded root, FILE:/path.
+// A recipe locator is a site path, whose text the page wrote at
+// recipe_text_path, or, for an uploaded root, FILE:/path.
 static int fetch_recipe(const char *locator, Buffer *buffer, char digest[65]) {
   int status;
   if (strncmp(locator, "FILE:", 5) == 0) {
     status = valid_absolute_path(locator + 5) ? read_file_buffer(locator + 5, buffer) : -EINVAL;
   } else {
-    status = recipe_file_name(locator) != NULL ? fetch_memory(locator, buffer) : -EINVAL;
+    status = recipe_file_name(locator) != NULL ? read_file_buffer(recipe_text_path, buffer) : -EINVAL;
   }
   if (status != 0) return status;
   if (buffer->length == 0 || buffer->length > MAX_RECIPE_BYTES) return -EFBIG;
   if (memchr(buffer->data, '\0', buffer->length) != NULL) return -EINVAL;
   sha256_bytes(buffer->data, buffer->length, digest);
   return 0;
+}
+
+// Copies the file at PATH into DOWNLOAD; 0 or a negative errno.
+static int copy_input(const char *path, Download *download) {
+  const int descriptor = open(path, O_RDONLY);
+  if (descriptor < 0) return -errno;
+  unsigned char bytes[64 * 1024];
+  int result = 0;
+  for (ssize_t count; result == 0 && (count = read(descriptor, bytes, sizeof(bytes))) != 0;) {
+    if (count < 0) result = -errno;
+    else if (write_download(bytes, (size_t)count, download) != (size_t)count) result = -EFBIG;
+  }
+  if (close(descriptor) != 0 && result == 0) result = -errno;
+  return result;
 }
 
 static int fetch_source(const char *url, const char *expected, const char *destination) {
@@ -463,26 +458,15 @@ static int fetch_source(const char *url, const char *expected, const char *desti
     goto done;
   }
   sha256_init(&download.sha);
-  dolly_http_response response = {0};
-  dolly_http_request request = {
-      .method = "GET",
-      .url = url,
-      .headers = "",
-      .flags = DOLLY_HTTP_FAIL_STATUS,
-      .write = write_download,
-      .write_context = &download,
-  };
+  char input[sizeof(sources_dir) + 66];
+  snprintf(input, sizeof(input), "%s/%s", sources_dir, expected);
   printf("dollyfile: SOURCE %s -> %s\n", url, destination);
   fflush(stdout);
-  status = dolly_http_perform(&request, &response);
+  status = copy_input(input, &download);
   if (close(download.descriptor) != 0 && status == 0) status = -errno;
   download.descriptor = -1;
-  if (status == 0 && (response.status < 200 || response.status >= 300)) status = -EIO;
-  if (status != 0) {
-    fprintf(stderr, "dollyfile: GET %s failed: %d (HTTP %u, %zu bytes)\n",
-            url, status, response.status, download.length);
-  }
-  dolly_http_response_dispose(&response);
+  if (status == -ENOENT) fprintf(stderr, "dollyfile: SOURCE %s: the page handed over no file for it\n", url);
+  else if (status != 0) fprintf(stderr, "dollyfile: SOURCE %s: %s (%d)\n", url, strerror(-status), status);
   if (status == 0) {
     unsigned char digest[32];
     char actual[65];
@@ -510,7 +494,7 @@ done:
 
 // The page compiles a recipe into rows (recipeRows in site/dollyfile-view.mjs,
 // the language's one parser) and writes them here: the engine reads fields,
-// not recipe text. Every field ends with NUL: "DOLLY 7 SHA256" of the recipe
+// not recipe text. Every field ends with NUL: "DOLLY 8 SHA256" of the recipe
 // text, then for each row "LINE COUNT" and that many fields, the directive
 // first. A FILE row's last field is its body; RUN and SLOP rows start with
 // their directory, and SLOP's command is the text Slop reads.
@@ -534,7 +518,7 @@ static int read_rows(const char *path, const char digest[65], Buffer *bytes, Fie
     fields->items[index] = (char *)bytes->data + offset;
     offset += strlen(fields->items[index]) + 1;
   }
-  return strncmp(fields->items[0], "DOLLY 7 ", 8) == 0 && strcmp(fields->items[0] + 8, digest) == 0 ? 0 : -EBADMSG;
+  return strncmp(fields->items[0], "DOLLY 8 ", 8) == 0 && strcmp(fields->items[0] + 8, digest) == 0 ? 0 : -EBADMSG;
 }
 
 static int fields_hold(const Fields *fields, const char *value) {
@@ -996,9 +980,13 @@ static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
         take_text(&cursor, end, &location) != 0 || take_text(&cursor, end, &digest) != 0 ||
         take_text(&cursor, end, &source) != 0) result = -EINVAL;
     char actual[65];
+    // A recipe is named by its site path, but in the image's own receipt
+    // (LOCATOR NULL) an image built from an uploaded recipe names its root FILE:/path.
+    const int uploaded_root = locator == NULL && index + 1 == count && result == 0 &&
+                              strncmp(location, "FILE:", 5) == 0 && valid_absolute_path(location + 5);
     if (result == 0) {
       sha256_bytes(source, strlen(source), actual);
-      if (recipe_kind(kind) == NULL || !valid_name(name) || recipe_file_name(location) == NULL ||
+      if (recipe_kind(kind) == NULL || !valid_name(name) || (recipe_file_name(location) == NULL && !uploaded_root) ||
           !valid_sha256(digest) || strcmp(actual, digest) != 0 ||
           strlen(source) > MAX_RECIPE_BYTES) result = -EBADMSG;
     }
@@ -1028,6 +1016,9 @@ static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
   }
   if (result == 0 && *missing != '\0') {
     if (engine->enabled != NULL) fprintf(stderr, "dollyfile: %s needs %s: nena enable%s\n", locator, missing, enable);
+    else if (engine->live) fprintf(stderr, "dollyfile: %s needs %s, which this image does not declare and, "
+                                   "without nena@0, cannot enable: install it in an image with nena@0, such as default\n",
+                                   locator, missing);
     else fprintf(stderr, "dollyfile: %s needs %s: add %s\n", locator, missing, declare);
     result = 2;
   }
@@ -1248,6 +1239,29 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
                          const char *destination, Scope *visible, Scope *exports, const Scope *own,
                          const Fields *later);
 
+// The files and links an INSTALL row restored outside /etc/dolly, one
+// "SIZE PATH" line each, in /etc/dolly/files/NAME, which the image keeps and
+// `amy files NAME` prints.
+static int record_files(Engine *engine, const char *locator, const Artifact *artifact,
+                        const dolly_fs_record *restored, const uint32_t *indices, size_t count) {
+  Buffer list = {.limit = MAX_SOURCE_BYTES};
+  int result = 0;
+  for (size_t index = 0; result == 0 && index < count; ++index) {
+    const char *path = restored[index].path;
+    if (restored[index].kind == DOLLY_FS_DIRECTORY || strncmp(path, "/etc/dolly/", 11) == 0) continue;
+    char size[24];
+    const size_t length = (size_t)snprintf(size, sizeof(size), "%llu ",
+                                           (unsigned long long)artifact->records[indices[index]].size);
+    if (append_buffer(size, length, &list) != length || append_buffer(path, strlen(path), &list) != strlen(path) ||
+        append_buffer("\n", 1, &list) != 1) result = -EFBIG;
+  }
+  char path[64];
+  snprintf(path, sizeof(path), "/etc/dolly/files/%s", image_file_name(recipe_file_name(locator)));
+  if (result == 0) result = write_inline_file(path, list.data, list.length);
+  free(list.data);
+  return result != 0 ? result : append_string(&engine->keep, &engine->keep_count, &engine->keep_capacity, path);
+}
+
 // A package's record names the packages its recipe installed, dependencies
 // first. Installs the rows this filesystem's record lacks, for `locator`. A
 // row whose snapshot is not here ends with ROW_FIRST before anything changed:
@@ -1374,6 +1388,7 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   }
   for (size_t index = 0; result == 0 && keep && index < count; ++index)
     result = append_string(&engine->keep, &engine->keep_count, &engine->keep_capacity, selected[index].path);
+  if (result == 0 && keep && mode == IMPORT_INSTALL) result = record_files(engine, locator, artifact, selected, indices, count);
   // A package recipe starts its own record; INSTALL adds the package's rows, then its row.
   if (result == 0 && mode == IMPORT_FROM && package_recipe && unlink(installed_path) != 0 && errno != ENOENT) result = -errno;
   const dolly_fs_record *rows = result == 0 && mode == IMPORT_INSTALL ? artifact_file(artifact, installed_path) : NULL;
@@ -2107,6 +2122,7 @@ static int read_environment_file(Engine *engine) {
 // the row; nothing is sealed.
 static int install_live(Engine *engine, const char *locator, const char *expected) {
   Scope exports = {0}, visible = {0}, own = {0};
+  engine->live = 1;
   // The image's own receipt names its recipes and host modules.
   Buffer receipt = {.limit = MAX_SOURCE_BYTES};
   int result = read_file_buffer("/etc/dolly/artifact", &receipt);
@@ -2161,8 +2177,8 @@ static void dispose_engine(Engine *engine) {
 }
 
 static void usage(FILE *stream) {
-  fputs("usage: dollyfile /vVERSION/RECIPE|FILE:/path\n"
-        "       dollyfile install /vVERSION/RECIPE SHA256\n", stream);
+  fputs("usage: dollyfile /RECIPE|FILE:/path\n"
+        "       dollyfile install /RECIPE SHA256\n", stream);
 }
 
 int main(int argc, char **argv) {

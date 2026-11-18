@@ -1,24 +1,6 @@
 --- a/src/library/ir_interpreter.cpp
 +++ b/src/library/ir_interpreter.cpp
-@@ -338,8 +338,16 @@
-   return print_value(const_cast<tout &>(ios), v, t);
- }
- 
-+#ifdef __dolly__
-+// A threaded Dolly process has no dynamic symbol table: the link of `lean` and `lake`
-+// adds a table of the symbols -rdynamic would export; another program has none, as natively.
-+extern "C" __attribute__((weak)) void * lean_dolly_symbol(char const *) { return nullptr; }
-+#endif
-+
- void * lookup_symbol_in_cur_exe(char const * sym) {
--#ifdef LEAN_WINDOWS
-+#ifdef __dolly__
-+    return lean_dolly_symbol(sym);
-+#elif defined(LEAN_WINDOWS)
-     std::vector<HMODULE> hmods(128);
-     DWORD bytes_needed;
-     lean_always_assert(EnumProcessModules(GetCurrentProcess(), &hmods[0], hmods.size() * sizeof(HMODULE), &bytes_needed));
-@@ -1200,7 +1208,8 @@
+@@ -1200,7 +1200,8 @@
      }
  }
  
@@ -169,7 +151,7 @@
  #else
      // since Linux 2.4.11, our glibc 2.27 requires at least 3.2
      // glibc 2.30 would provide a wrapper
-@@ -431,10 +438,62 @@
+@@ -431,10 +438,51 @@
      lean_unreachable();
  }
  
@@ -213,18 +195,7 @@
 +        envp.push_back(var.data());
 +    }
 +    envp.push_back(nullptr);
-+    // The child starts with default dispositions and no signal blocked, as a Dolly child does:
-+    // a forked one would keep the SIGPIPE Lean ignores.
-+    posix_spawnattr_t attributes;
-+    posix_spawnattr_init(&attributes);
-+    sigset_t signals;
-+    sigemptyset(&signals);
-+    posix_spawnattr_setsigmask(&attributes, &signals);
-+    sigfillset(&signals);
-+    posix_spawnattr_setsigdefault(&attributes, &signals);
-+    posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF);
-+    int error = posix_spawnp(pid, pargs[0], &actions, &attributes, pargs, envp.data());
-+    posix_spawnattr_destroy(&attributes);
++    int error = posix_spawnp(pid, pargs[0], &actions, nullptr, pargs, envp.data());
 +    posix_spawn_file_actions_destroy(&actions);
 +    return error;
 +}

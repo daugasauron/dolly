@@ -138,10 +138,11 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   await page.evaluate(() => document.activeElement.blur());
   assert.equal(await typed("test -d /workspace"), 0);
   // amy's index and a recipe are site paths, so they are read under the prefix.
-  assert.equal(await page.evaluate(() => __dolly.submit("amy list | grep -q '^curl  *installed '")), 0);
+  assert.equal(await page.evaluate(() => __dolly.submit("amy list | grep -q '^ps  *installed '")), 0);
   assert.ok(prefixed.includes(`${prefix}/amy-index.txt`), "amy did not read the site's index");
-  assert.equal(await page.evaluate(recipe => __dolly.submit(`curl -fsS ${recipe} -o /tmp/recipe && cmp /tmp/recipe /etc/dolly/Dollyfile`),
-    siteReference("Dollyfile")), 0);
+  // curl, which default does not hold, installs with the http@0 it needs.
+  assert.equal(await page.evaluate(recipe => __dolly.submit(`amy install curl > /dev/null && curl -fsS ${recipe} -o /tmp/recipe && ` +
+    "cmp /tmp/recipe /etc/dolly/Dollyfile"), siteReference("Dollyfile")), 0);
   assert.ok(prefixed.includes(`${prefix}/Dollyfile`), "the image's recipe was not read from the site");
   assert.ok(prefixed.some(path => path.startsWith(`${prefix}/dist/packs/`)), "image did not load snapshot packs");
   assert.deepEqual(prefixed.filter(path => path.includes("/static/")), [], "prebuilt route fetched rebuild-only sources");

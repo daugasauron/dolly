@@ -1,20 +1,19 @@
-DOLLY 7
+DOLLY 8
 PACKAGE amy
 REQUIRES HOST runtime@0
-REQUIRES HOST http@0
 REQUIRES HOST packages@0
 
 # amy and the recipe engine it runs (the dollyfile package): what a session needs
 # to install packages. amy reads the package index of an image directory, by
 # default the one the page loads its images from.
-FROM /v0.1.6/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
-INSTALL /v0.1.6/Dollyfile-dollyfile 21e1fc5906dedfaeb01edc40404fab4c0939a3c420686923801c7d0e088fdcd4
-USE /v0.1.6/Dollyfile-libdolly-packages 1970fb1dbf68cac3bab7402314e55581fb03dbff6eb58cbc4837d483642870eb
+FROM /Dollyfile-system-build 0c72e09eba84571d4f8634cf6e7507eb1be1b9b8aa1fae61f6b0ec884b26b6fb
+INSTALL /Dollyfile-dollyfile 05eb5138b6e5166673e5d445b74064d530ebd863aab9a937b5f32123d86f5cd5
+USE /Dollyfile-libdolly-packages 97b5e05e5bf9421743681968bf30a722be128cb1081610b18223a8ba2fc48a95
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.6/dist/static/default/commands/amy.c 2f2749e586880f6b6665fa7646abe7240d0139305da8b34c1f2daa0c2a02a808 /tmp/amy/amy.c
+SOURCE /dist/static/default/commands/amy.c e3a055b15c3ca265406522f75da38d46d0134c51e51fe66640682095c45e295f /tmp/amy/amy.c
 SLOP cc -O2 /tmp/amy/amy.c -o /bin/amy
 
 EXPORTS TOOL amy

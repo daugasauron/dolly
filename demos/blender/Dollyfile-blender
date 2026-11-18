@@ -1,0 +1,113 @@
+DOLLY 8
+PACKAGE blender
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST gpu@0
+REQUIRES HOST clipboard@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+
+# Blender 5.3.0 from upstream's release archive, built by its own CMake
+# project inside Dolly: its window on the page, and `blender -b` with its
+# Python (the python package's CPython 3.14) and Cycles on the CPU.
+# blender-dolly.patch names Dolly's files to the build and adds their enum
+# values; the archive places them (prepare-sources.sh).
+# - blender_lite.cmake, upstream's configuration with every optional library
+#   off, then Cycles and pugixml (OpenImageIO's static library needs it) on.
+# - WITH_GHOST_DOLLY: the window system is ghost/GHOST_SystemDolly, on
+#   display@0, input@0 and clipboard@0. WITH_WEBGPU_BACKEND: the GPU module
+#   draws through webgpu/ on gpu@0, with the glslang and
+#   spirv-wgsl packages; no OpenGL or Vulkan backend.
+# - Dolly claims no x86 or ARM: Cycles builds its scalar kernel and its own
+#   BVH (Embree off, as in the lite configuration).
+# - PYTHON_LINKFLAGS, by default ELF's -Xlinker -export-dynamic: -rdynamic,
+#   what libpython's built-in modules link, and cc --dolly-cast-emulation,
+#   since Blender defines Python methods taking no arguments with one
+#   parameter, which CPython calls with two. Such a program loads only
+#   extension modules linked so too: Blender's NumPy (below).
+# - Brotli for FreeType, which Blender puts on the link line only with its
+#   precompiled libraries.
+FROM /demos/blender/Dollyfile-blender-deps 9ad42ac72388394c12fe4b6e04b54f9cb062e1fc3c2afdc0789de7865c5e0425
+INSTALL /demos/python/Dollyfile-python c39225e146dd9f27a77c5b8b534c4d3eec2246b777c435e766dd48495fa3a2c1
+USE /demos/godot/Dollyfile-spirv-wgsl 4d95ade7ab7d86a6ba38e84d6ebf8fe523521175ef7cceb28b86758374905288
+USE /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
+USE /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
+USE /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
+USE /Dollyfile-libdolly-clipboard 99746a8bd9b9eb136098753ccc526ac94a14540e6d26082ae8748eb6e3fa08a6
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL patch
+REQUIRES TOOL pip
+REQUIRES TOOL python3
+REQUIRES TOOL wasm-opt
+REQUIRES TOOL mkdir
+
+# NumPy, which the glTF add-on and others import, as Blender's own releases
+# carry it: built as the numpy package's (demos/python) and linked with cc
+# --dolly-cast-emulation, into Blender's scripts/modules, which its Python
+# searches before python's site-packages, where the numpy package serves python.
+USE /demos/tools/Dollyfile-meson 1b12743f4d6bbb9cd96b6088dd4b61d4de8915f4df0a52414ae2177726dde8b9
+SOURCE /dist/static/python-data/numpy-2.5.4.tar.gz 9a94cf751c9ad8ebaa835bcd3d40dacf8534ad086b88c38029b65123c7999d2a /tmp/numpy/numpy-2.5.4.tar.gz
+SOURCE /dist/static/python-data/meson_python-0.22.1-py3-none-any.whl 258fde948cf45aab5df23fcc9e17a9050ee73d4e1002fe6cf86519f61c414778 /tmp/numpy/meson_python-0.22.1-py3-none-any.whl
+SOURCE /dist/static/python-data/cython-3.3.1-py3-none-any.whl 61abc7feedd20dac6c4ff7ab3a30e17136a067b242ab9253e2b4a6d9a72c2b61 /tmp/numpy/cython-3.3.1-py3-none-any.whl
+SOURCE /dist/static/python-data/pyproject_metadata-0.12.1-py3-none-any.whl f7162d580a96386a8eb096da06215f981f547d1490f03055ef99e323bc2da427 /tmp/numpy/pyproject_metadata-0.12.1-py3-none-any.whl
+SOURCE /dist/static/python-data/packaging-26.3-py3-none-any.whl d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c /tmp/numpy/packaging-26.3-py3-none-any.whl
+SLOP pip install --no-index --no-deps --no-compile --find-links /tmp/numpy meson-python cython pyproject-metadata packaging
+SLOP LDFLAGS=--dolly-cast-emulation pip install --no-index --no-build-isolation --no-deps --no-compile --no-cache-dir \
+  --root /tmp/numpy/root /tmp/numpy/numpy-2.5.4.tar.gz
+SLOP mkdir -p /usr/share/blender/5.3/scripts/modules
+SLOP CWD /tmp/numpy/root/usr/lib/python3.14/site-packages cp -R numpy numpy-2.5.4.dist-info /usr/share/blender/5.3/scripts/modules
+SLOP rm -rf /tmp/numpy
+
+SOURCE /dist/static/blender/blender.tar.gz 5ddc7af7a05d10d42c7ece68fc620dd160b85eaf1482f70a97cf066a57fe039a /tmp/blender.tar.gz
+SLOP gzip -dc /tmp/blender.tar.gz | tar -xf - -C /
+SLOP rm /tmp/blender.tar.gz
+SLOP CWD /tmp/blender/source patch -p1 -i /tmp/blender/blender-dolly.patch
+SLOP time cmake -S /tmp/blender/source -B /tmp/blender/build \
+  -C /tmp/blender/source/build_files/cmake/config/blender_lite.cmake \
+  -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+  -DCMAKE_C_FLAGS=-pthread -DCMAKE_CXX_FLAGS=-pthread \
+  "-DPYTHON_LINKFLAGS=-rdynamic --dolly-cast-emulation -lffi -llzma -lbz2 -lsqlite3 -lcurl -L/usr/lib/python3.14/embed -lpyexpat -lHacl_Hash_BLAKE2 -lHacl_Hash_MD5 -lHacl_Hash_SHA1 -lHacl_Hash_SHA2 -lHacl_Hash_SHA3" \
+  "-DCMAKE_EXE_LINKER_FLAGS=-lbrotlidec -lbrotlicommon" \
+  -DWITH_HEADLESS=OFF -DWITH_GHOST_DOLLY=ON -DWITH_GHOST_WAYLAND=OFF -DWITH_GHOST_X11=OFF -DWITH_GHOST_SDL=OFF \
+  -DWITH_OPENGL_BACKEND=OFF -DWITH_VULKAN_BACKEND=OFF -DWITH_WEBGPU_BACKEND=ON \
+  -DWITH_INPUT_NDOF=OFF -DWITH_INPUT_IME=OFF -DWITH_XR_OPENXR=OFF \
+  -DWITH_CYCLES=ON -DWITH_TBB=ON -DWITH_PUGIXML=ON -DWITH_ASSERT_RELEASE=OFF \
+  -DPYTHON_VERSION=3.14 -DWITH_PYTHON_INSTALL=OFF -DWITH_INSTALL_PORTABLE=OFF \
+  -DWITH_LIBS_PRECOMPILED=OFF -DWITH_LINKER_LLD=OFF -DWITH_LINKER_MOLD=OFF -DWITH_COMPILER_CCACHE=OFF \
+  -DWITH_DOC_MANPAGE=OFF -DWITH_CPU_CHECK=OFF -DWITH_GTESTS=OFF
+SLOP time make -C /tmp/blender/build -j4
+SLOP cmake --install /tmp/blender/build
+
+# Its Python with NumPy, the default scene, and that scene rendered by Cycles to a PNG.
+SLOP CWD /tmp test "$(blender -b --python-expr 'import bpy, sys, numpy; print("check", bpy.app.version_string, sys.platform, numpy.__version__, [o.name for o in bpy.data.objects])' | grep check)" = \
+  "check 5.3.0 dolly 2.5.4 ['Camera', 'Cube', 'Light']"
+FILE /tmp/blender/render.py
+    import bpy
+    scene = bpy.context.scene
+    scene.render.engine = "CYCLES"
+    scene.cycles.samples = 4
+    scene.render.resolution_percentage = 10
+    scene.render.filepath = "/tmp/blender/render.png"
+    bpy.ops.render.render(write_still=True)
+SLOP CWD /tmp time blender -b --python /tmp/blender/render.py
+SLOP test -s /tmp/blender/render.png
+
+EXPORTS TOOL blender
+FOLDER /usr/share/blender
+FOLDER /usr/share/doc/blender
+# The licences of what is linked into the program: Blender's (its own notices
+# are in /usr/share/doc/blender/license) and those of the packages it links.
+# libpython's are the python package's.
+SLOP mkdir -p /usr/share/licenses/blender
+SLOP cp /tmp/blender/source/COPYING /usr/share/licenses/blender/COPYING
+SLOP CWD /usr/share/licenses cp -R zlib libpng zstd freetype brotli libjpeg-turbo libtiff expat fmt imath libdeflate \
+  openjph openexr robin-map pugixml yaml-cpp pystring minizip-ng opencolorio openimageio onetbb eigen libepoxy glslang \
+  /usr/share/licenses/blender
+FOLDER /usr/share/licenses/blender
+SLOP blender --help > /usr/share/man/cat1/blender.1
+FILE /usr/share/man/cat1/blender.1

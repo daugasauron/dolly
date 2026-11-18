@@ -7,14 +7,16 @@ README. Demos may use each other; the core never uses a demo.
 - [classicube](classicube/README.md): ClassiCube block world with Pi agents.
 - [closed-source-agent](closed-source-agent/README.md): Claude Code, downloaded from npm into the session after a notice.
 - [cmake](cmake/README.md): CMake and libuv, a base for C/C++ ports.
+- [blender](blender/README.md): Blender 5.3 headless, built inside Dolly by its own CMake: `blender -b` with its Python and Cycles on the CPU, as a package.
 - [codex](codex/README.md): the Codex CLI built from Rust source inside Dolly.
+- [deep-hedger](deep-hedger/README.md): an option-pricing model fitted to a live option chain in Mojo kernels on WebGPU, behind an ImGui program; its theory.
 - [emacs](emacs/README.md): GNU Emacs for the terminal, as a package and an application.
 - [ffmpeg](ffmpeg/README.md): FFmpeg, `ffmpeg` and `ffprobe` with its libraries, built inside Dolly by its own configure, as a package.
 - [fingers](fingers/README.md): a figure that fingers on a touchscreen move and zoom, through SDL2's finger events.
 - [game-agent](game-agent/README.md): agent code and the Codex relay shared by the games.
 - [ghostty-gtk](ghostty-gtk/README.md): Ghostty's GTK application on Dolly's X server: its window, its OpenGL renderer on Mesa and a shell.
 - [go](go/README.md): Go's toolchain, ported as `GOOS=dolly GOARCH=wasm64`, rebuilt inside Dolly from its seed; gofmt and esbuild.
-- [godot](godot/README.md): Godot 4.7 and its editor, built inside Dolly by SCons: its Compatibility renderer on Mesa, its sound on `audio@0`, and Dodge the Creeps, which the editor exported here.
+- [godot](godot/README.md): Godot 4.7 and its editor, built inside Dolly by SCons: its renderers on `gpu@0` through Dolly's WebGPU driver, the Project Manager's too, its sound on `audio@0`, and games on them: Airtime, Voxel Flyover, Truck Town, Lantern Drift and Dodge the Creeps.
 - [gtk](gtk/README.md): the libraries GTK is built on, GLib and PCRE2, as packages; GObject programs pass through Binaryen's cast emulation.
 - [javascript](javascript/README.md): QuickJS-ng, Janis and TypeScript, each a package.
 - [lean](lean/README.md): Lean 4.35, bootstrapped inside Dolly from upstream's stage0, with Lake building programs through `cc`, as a package.
@@ -23,6 +25,7 @@ README. Demos may use each other; the core never uses a demo.
 - [mojo](mojo/README.md): the Mojo compiler built inside Dolly, as the package `mojo`; its programs run there, and in `mojo-gpu` with kernels on WebGPU.
 - [neovim](neovim/README.md): Neovim with Lua and Tree-sitter parsers.
 - [ocaml](ocaml/README.md): OCaml 5.5, bytecode, built inside Dolly from upstream's bootstrap compiler, as a package.
+- [photocraft](photocraft/README.md): PhotoCraft, an image editor in Rust built inside Dolly by Cargo, drawn on `gpu@0` or in a window on `x11-desktop`, as a package.
 - [pi](pi/README.md): the Pi coding agent.
 - [python](python/README.md): CPython and stock pip over the HTTP broker.
 - [rclone](rclone/README.md): rclone, which keeps a folder of the session in step with a folder a WebDAV server holds, as a package.
@@ -33,7 +36,7 @@ README. Demos may use each other; the core never uses a demo.
 - [speech](speech/README.md): speech to text from the microphone, and Pi on a phone with speech and buttons a finger taps in place of a keyboard.
 - [studio](studio/README.md): Dollyfile Studio.
 - [tmux](tmux/README.md): tmux on pseudo-terminals, as a package and an application with two panes; libevent and NetBSD's terminfo library as packages.
-- [tools](tools/README.md): SQLite, jq, the xz, zstd, bzip2, lz4 and pigz compressors, zip and unzip, tree, bc, xxd, base64, Meson, yacc and flex, wabt and Binaryen, toybox's grep and sed, a tar that writes archives, a small vi and the dte editor, as packages built from their release archives.
+- [tools](tools/README.md): SQLite, jq, the xz, zstd, bzip2, lz4 and pigz compressors, zip and unzip, tree, bc, xxd, base64, Meson, yacc, flex and gperf, wabt and Binaryen, toybox's grep and sed, a tar that writes archives, a small vi and the dte editor, and the libraries other demos build with (pkgconf, libpng, FreeType, Brotli, libjpeg-turbo, libtiff, expat, {fmt}), as packages built from their release archives.
 - [wine](wine/README.md): Wine 4.0.4 as one wasm64 process: a desktop that is a folder, with Notepad, WineMine, ReactOS Paint, GIMP 2.2, the NetSurf browser (fetching through libcurl), a Command Prompt, and an interpreter for small x86-64 Windows programs with TinyCC to compile them.
 - [x11](x11/README.md): the X Window System built inside Dolly: X.Org's server on the display, twm, and X's own clients in windows of their own.
 - [xonotic](xonotic/README.md): Xonotic 0.8.6 on the DarkPlaces engine, built inside Dolly and drawn on `gpu@0` or by its software rasterizer.

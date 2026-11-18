@@ -11,5 +11,6 @@
   "headers": ["upload.h", "upload-abi.h"],
   "kernel": ["kernel.c"],
   "client": ["client.c"],
+  "files": ["transport.mjs"],
   "package": "libdolly-upload"
 }

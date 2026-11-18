@@ -1,0 +1,37 @@
+DOLLY 8
+PACKAGE opentelemetry-cpp
+REQUIRES HOST runtime@0
+REQUIRES HOST threads@0
+
+# OpenTelemetry's C++ API and SDK, from upstream's release archive, unchanged,
+# built by its CMake project for programs the cc package builds with -pthread,
+# on threads@0 (the SDK's batch processors and metric readers are threads):
+# traces, metrics and logs, with the ostream and in-memory exporters and none
+# that sends over the network. C++20's standard library in place of its own
+# nostd types (OPENTELEMETRY_STL_VERSION=2020), as the Mojo compiler takes its
+# headers. The archives and their CMake package and pkg-config files are in
+# /usr/lib/opentelemetry-cpp, the headers in /usr/include/opentelemetry.
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /dist/static/opentelemetry-cpp/source.tar.gz fb2223afe31b0a1cc0d5ea77e993be39457484863c082acf4bb26978c32bad3c /tmp/opentelemetry-cpp.tar.gz
+SLOP gzip -dc /tmp/opentelemetry-cpp.tar.gz | tar -xf - -C /
+# Its CMake stops at a processor it has no name for unless ARCH, which it reads from the
+# environment first and uses only for Windows' vcpkg, names one.
+SLOP ARCH=wasm64 cmake -S /tmp/opentelemetry-cpp -B /tmp/opentelemetry-cpp-build -DCMAKE_SYSTEM_NAME=Dolly \
+  -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib/opentelemetry-cpp \
+  -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_CXX_STANDARD=20 -DCMAKE_CXX_FLAGS=-pthread \
+  -DWITH_STL=CXX20 -DBUILD_TESTING=OFF -DWITH_BENCHMARK=OFF -DWITH_EXAMPLES=OFF -DWITH_FUNC_TESTS=OFF
+SLOP cmake --build /tmp/opentelemetry-cpp-build -j4
+SLOP cmake --install /tmp/opentelemetry-cpp-build
+
+EXPORTS HEADER opentelemetry     /usr/include/opentelemetry
+EXPORTS FOLDER opentelemetry-cpp /usr/lib/opentelemetry-cpp
+FILE /usr/share/licenses/opentelemetry-cpp/LICENSE
+SLOP rm -rf /tmp/opentelemetry-cpp /tmp/opentelemetry-cpp-build /tmp/opentelemetry-cpp.tar.gz

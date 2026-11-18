@@ -1,6 +1,6 @@
 # Sourced by scripts/prepare-image-sources.sh.
-# imgui-x11 builds both again where X's libraries are.
-if has_image sdl2 || has_image imgui-x11; then
+# sdl2-x11 builds SDL2 again where X's libraries are; imgui-x11 builds ImGui again over it.
+if has_image sdl2 || has_image sdl2-x11; then
   sdl2_dir="$(bash demos/sdl2/prepare-sdl2.sh)"
   sdl2_inputs=()
   for entry in src include cmake CMakeLists.txt SDL2Config.cmake.in SDL2.spec.in \

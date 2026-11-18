@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { browserTest } from "./browser.mjs";
+import { browserTest, workbench } from "./browser.mjs";
 import { createGitTransportFixture, runGitTransport } from "./fixtures/git-transport.mjs";
 
 const fixtures = { "libcurl-contract.c": "test/fixtures/libcurl-contract.c" };
@@ -86,7 +86,7 @@ await browserTest("network", { image: "system", server: { fixtures, handle } }, 
     // contacts it, only the relay does.
     const forge = server.origin.replace("127.0.0.1", "forge.localhost");
     const relays = [{ origin: forge, through: `${server.origin}/fixture/relay/` }];
-    const { submit } = await open({ relays, policy: { rules: [
+    const { submit } = await open({ ...await workbench([], ["git-http"]), relays, policy: { rules: [
       { origin: forge, pathPrefix: "/fixture/", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },
       { origin: blocked, pathPrefix: "/fixture/", methods: ["GET"] },
       { origin: server.origin, path: "/fixture/http.txt", methods: ["GET"], maxResponseBytes: 8 },
@@ -119,6 +119,7 @@ await browserTest("network", { image: "system", server: { fixtures, handle } }, 
     await run(`curl -fsS ${server.origin}/fixture/libcurl-contract.c -o /tmp/libcurl-contract.c`);
     await run(`cc -O0 /tmp/libcurl-contract.c -lcurl -o /tmp/libcurl-contract && timeout 20 /tmp/libcurl-contract ${server.origin}/fixture/libcurl-contract`);
     assert.deepEqual(contractRequests, [
+      { authorization: null, body: "" },
       { authorization: null, body: "payload" },
       { authorization: "Basic dXNlcjpwYXNz", body: "payload" },
       { authorization: null, body: "abc" },

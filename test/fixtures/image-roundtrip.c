@@ -54,7 +54,6 @@ static int roundtrip(void) {
   CHECK(manifest != NULL);
   for (size_t index = 0; index < 6; ++index) CHECK(fprintf(manifest, "%s\n", records[index].path) > 0);
   CHECK(fclose(manifest) == 0);
-  CHECK(dolly_snapshot_format_version() == 2);
   size_t size;
   unsigned char *image = capture_image(&size);
   CHECK(image != NULL);

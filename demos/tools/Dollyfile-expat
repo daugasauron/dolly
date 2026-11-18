@@ -1,0 +1,33 @@
+DOLLY 8
+PACKAGE expat
+REQUIRES HOST runtime@0
+
+# expat from upstream's release archive, unchanged, built by its CMake
+# project, for programs the cc package builds. CPython's libpython carries its
+# own expat, which renames the API (pyexpatns.h) and leaves two internal names
+# as they are: this one renames those, so that a program that embeds Python
+# (Blender) links both.
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+REQUIRES HEADER libc
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /dist/static/expat/source.tar.gz a47298e5f7a6732c23059731fc0d5ebfd82a30c88d2099f24760be94903d99b3 /tmp/expat.tar.gz
+SLOP gzip -dc /tmp/expat.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/expat -B /tmp/expat-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+  -DEXPAT_SHARED_LIBS=OFF -DEXPAT_BUILD_TOOLS=OFF -DEXPAT_BUILD_EXAMPLES=OFF -DEXPAT_BUILD_TESTS=OFF \
+  -DEXPAT_BUILD_DOCS=OFF \
+  "-DCMAKE_C_FLAGS=-Dg_reparseDeferralEnabledDefault=expat_reparseDeferralEnabledDefault -D_INTERNAL_trim_to_complete_utf8_characters=expat_trim_to_complete_utf8_characters"
+SLOP cmake --build /tmp/expat-build -j4
+SLOP cmake --install /tmp/expat-build
+
+EXPORTS LIB    expat          /usr/lib/libexpat.a
+EXPORTS HEADER expat          /usr/include/expat.h
+EXPORTS HEADER expat_external /usr/include/expat_external.h
+EXPORTS FOLDER expat-cmake    /usr/lib/cmake/expat-2.8.5
+FILE /usr/lib/pkgconfig/expat.pc
+FILE /usr/share/licenses/expat/COPYING
+SLOP rm -rf /tmp/expat /tmp/expat-build /tmp/expat.tar.gz

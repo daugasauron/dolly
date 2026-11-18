@@ -1,6 +1,6 @@
 # The x11 workbench as a demo video
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 410
 - TAGS: x11,demo,recording,0.1.6,owner
 

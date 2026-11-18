@@ -1,0 +1,29 @@
+DOLLY 8
+PACKAGE pystring
+REQUIRES HOST runtime@0
+
+# pystring, Python's string methods for C++ (OpenColorIO's), from upstream's
+# release archive, unchanged: one source file, whose Makefile is libtool's,
+# compiled into a static library for programs the cc package builds.
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES TOOL ar
+REQUIRES TOOL c++
+REQUIRES TOOL cp
+REQUIRES TOOL gzip
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /dist/static/pystring/source.tar.gz 4dc3199fc9024e3ea7c99fc05c83a99bf08e22922103fc5801bb9b6df469390d /tmp/pystring.tar.gz
+SLOP gzip -dc /tmp/pystring.tar.gz | tar -xf - -C /
+SLOP CWD /tmp/pystring c++ -O2 -c pystring.cpp -o pystring.o
+SLOP CWD /tmp/pystring ar rcs /usr/lib/libpystring.a pystring.o
+SLOP mkdir -p /usr/include/pystring
+SLOP cp /tmp/pystring/pystring.h /usr/include/pystring/pystring.h
+
+EXPORTS LIB    pystring /usr/lib/libpystring.a
+EXPORTS HEADER pystring /usr/include/pystring
+FILE /usr/share/licenses/pystring/LICENSE
+SLOP rm -rf /tmp/pystring /tmp/pystring.tar.gz

@@ -84,14 +84,16 @@ flowchart LR
 - A second start of an image reads its packs from the browser's pack store,
   which keeps every pack an image read, checked against its digest at each
   use, and removes what no image of this runtime names any more
-  ([`pack-store.mjs`](../page/pack-store.mjs)); a restore reads none. The
+  ([`pack-store.mjs`](../page/pack-store.mjs)); a restore reads none. An
+  image a build read is kept once, decoded in the image cache: its packs are
+  not, and a start of it downloads them again. The
   sessions page shows its size and clears it. A save asks the browser to keep
   the origin's storage, the saves and the packs, when it runs short of space
   (`navigator.storage.persist()`): Chrome answers from the site's engagement
   without asking, Firefox asks the user.
 - A saved session opens without a network. A save, or an import, keeps the
   site's runtime in the browser's Cache Storage
-  ([`offline.mjs`](../site/offline.mjs)): the files `dist/dolly-offline.json`
+  ([`offline.mjs`](../host/snapshot/offline.mjs)): the files `dist/dolly-offline.json`
   lists (the session and sessions pages, the page's and the Workers' code, the
   host modules and the kernel, about 4 MB; not the compiler seed a root build
   starts from), each checked against the
@@ -116,9 +118,9 @@ flowchart LR
 
 Code: kernel [`host/snapshot/kernel.c`](../host/snapshot/kernel.c); page
 [`host/snapshot/transport.mjs`](../host/snapshot/transport.mjs),
-[`session-store.mjs`](../site/session-store.mjs),
-[`session-file.mjs`](../site/session-file.mjs),
-[`offline.mjs`](../site/offline.mjs), list page
+[`session-store.mjs`](../host/snapshot/session-store.mjs) and
+[`offline.mjs`](../host/snapshot/offline.mjs); the site's session files
+[`session-file.mjs`](../site/session-file.mjs) and list page
 [`sessions.mjs`](../site/sessions.mjs).
 
 ## Upload and download

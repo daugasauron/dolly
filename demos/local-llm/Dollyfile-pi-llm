@@ -1,23 +1,34 @@
-DOLLY 7
+DOLLY 8
 PACKAGE pi-llm
 REQUIRES HOST runtime@0
+REQUIRES HOST download@0
 REQUIRES HOST gpu@0
+REQUIRES HOST html@0
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
 
-# Pi's provider for the models dolly-llama runs in the tab on gpu@0, with the
-# bundled Qwen3.5-2B, which Pi's settings choose: /local installs and switches models.
-FROM /v0.1.6/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
-INSTALL /v0.1.6/demos/local-llm/Dollyfile-llama f673c078c952014e756351d73681295ac0ee15e956c9a4a32b8a16ba83cbfbbe
-INSTALL /v0.1.6/demos/local-llm/Dollyfile-qwen3.5-2b 8cfb03199839a875af109e377f401bcc6267f895c6d6b6b39ac53c78aeb1d8e4
+# Pi's provider for the models dolly-llama runs in the tab on gpu@0, with Pi
+# and the bundled Qwen3.5-2B, which Pi's settings choose: /local installs and
+# switches models. Its settings replace pi-dolly's, which it installs first.
+FROM /Dollyfile-system-build 0c72e09eba84571d4f8634cf6e7507eb1be1b9b8aa1fae61f6b0ec884b26b6fb
+INSTALL /demos/pi/Dollyfile-pi-dolly 6a15920f37ebd8f43a4481b81e9ca222eb08b20cac07d568b5fc0cdd9c80892c
+INSTALL /demos/local-llm/Dollyfile-llama c7a231b757aa831f183b831b585ad01a3f560cff272734891de434a8e3815cf5
+INSTALL /demos/local-llm/Dollyfile-qwen3.5-2b 84cc08039903045351fee61e1985492d27b9f4f025d14917c6d31df320cdf6b2
 
 REQUIRES TOOL tar
 REQUIRES TOOL dolly-llama
 
-SOURCE /v0.1.6/dist/static/llama/provider.tar 68b75b1b327c2c3000ef964e4a1f00ec7fb4536abae00baa7622d6734aaecce2 /tmp/llm-provider.tar
+SOURCE /dist/static/llama/provider.tar 68b75b1b327c2c3000ef964e4a1f00ec7fb4536abae00baa7622d6734aaecce2 /tmp/llm-provider.tar
 SLOP tar -xf /tmp/llm-provider.tar -C /
 
 FILE /home/dolly/.pi/agent/settings.json
     {"enableInstallTelemetry":false,"images":{"autoResize":false},"shellPath":"/bin/slop","theme":"dolly","tuiMode":"regular","defaultProvider":"webgpu","defaultModel":"qwen3.5-2b","defaultThinkingLevel":"off","compaction":{"reserveTokens":4096,"keepRecentTokens":6144}}
 
 EXPORTS FOLDER local-llm /usr/lib/dolly-llm
-EXPORTS FOLDER local-llm-models /usr/share/dolly/llm
 EXPORTS FILE local-model-provider /home/dolly/.pi/agent/extensions/local-model-provider.js
+# /local lists the release's models by their descriptions; a model's package
+# holds its own, the bundled one's among them.
+FILE /usr/share/dolly/llm/lfm2.5.json
+FILE /usr/share/dolly/llm/minicpm5-2b.json
+FILE /usr/share/dolly/llm/qwen3.5-4b.json

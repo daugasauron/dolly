@@ -38,6 +38,7 @@ flowchart TB
     clip["clipboard@0"]
     up["upload@0"]
     snap["snapshot@0"]
+    pkg
   end
   th["threads@0: Worker budget"]
   dso["dso@0: loader and FFI in the process's own Worker"]
@@ -47,10 +48,10 @@ flowchart TB
   guest --> th
   guest --> dso
   guest --> stack
-  http --> policy["HTTP policy"]
+  http --> policy["the page's HTTP policy"]
+  pkg["packages@0: another directory's files"] --> policy
   policy --> fetch(("Fetch"))
-  policy --> build["build@0: local build service"]
-  policy --> packages["packages@0: local package service"]
+  http --> build["build@0: local build service"]
   dl --> save["user clicks Save"]
   html --> answer["user submits a form or closes"]
   up --> picker["user picks a file"]
@@ -69,11 +70,14 @@ instantiates the kernel itself, with no generated JavaScript:
 [`host/modules.mjs`](../host/modules.mjs) builds the whole import object, each
 import from the module whose [manifest](../host/README.md) owns it; a disabled
 module's imports return `ENOSYS`. Images and packets select no JavaScript or
-Worker URL.
+Worker URL. What each module's JavaScript calls of the browser (and the page's
+and the site's) is a table of [`browser-apis.test.mjs`](../test/browser-apis.test.mjs),
+which fails on a call outside its row: a change there is a change of the
+Authority column here, and the two go together.
 
 | Module | Channel | Authority | Code |
 | --- | --- | --- | --- |
-| `runtime@0` | `env.memory`, `env.dolly_memory_grow`, `env.dolly_clock_realtime`, `env.dolly_clock_monotonic`, `env.dolly_entropy`, `env.dolly_bootstrap_write_bytes`, `env.dolly_build_input_read`, terminal mailbox | Kernel memory, grown up to its maximum by a Worker of the module's own; the two clocks; 64 KiB of entropy a call; boot text, 1 MiB a write; in a build, the bytes of the images the page handed it as its inputs, 8 MiB a read, which the kernel reads as files instead of holding them; process Workers, each holding its process's memory and a mailbox in kernel memory; report foreground and results, receive Ctrl+C | [`host/runtime/`](../host/runtime/module.json) ([`process-supervisor.mjs`](../page/process-supervisor.mjs)) |
+| `runtime@0` | `env.memory`, `env.dolly_memory_grow`, `env.dolly_clock_realtime`, `env.dolly_clock_monotonic`, `env.dolly_entropy`, `env.dolly_bootstrap_write_bytes`, `env.dolly_build_input_read`, terminal mailbox | Kernel memory, grown up to its maximum by a Worker of the module's own; the two clocks; 64 KiB of entropy a call; boot text, 1 MiB a write; in a build, the bytes of the images and files the page handed it as its inputs, 8 MiB a read, which the kernel reads as files instead of holding them; process Workers, each holding its process's memory and a mailbox in kernel memory, which the page makes at the runtime Worker's request, only from a `blob:` URL (the bundled process Worker, a module holder); report foreground and results, receive Ctrl+C | [`host/runtime/`](../host/runtime/module.json) ([`process-supervisor.mjs`](../page/process-supervisor.mjs)) |
 | `http@0` | `env.dolly_http_dispatch`, 16-slot pool | The only agent-selected network edge, under the page's policy | [`host/http/`](../host/http/module.json) |
 | `download@0` | `env.dolly_download_dispatch` | Stream one file (1 MiB chunks, 1 GiB) into a Blob under a checked basename; saved only by a user click; at most 4 waiting | [`host/download/`](../host/download/module.json) |
 | `html@0` | `env.dolly_html_dispatch` | Show one document of at most 1 MiB of UTF-8 in a popup in boot()'s element, and return the fields of the form of it the user submits (64 KiB, as a form posts them) or that the user closed it. The popup is a sandboxed srcdoc frame in which no script runs (forms only, no scripts, popups, modals or top navigation; of the page's origin, so the page writes into it): the page parses the document with DOMParser, which loads and runs nothing, and builds the popup from its text and an allowlist of content and form elements and attributes, copied into new elements, so no URL, style, script, link, refresh or base of it exists there. A form's submit event reaches the page, which takes its fields and stops the submission. The browser offers none of the user's saved addresses, cards or past entries in its fields (each form `autocomplete="off"`, each control a token the browsers do not fill). The frame holds no script or style element, so it needs nothing of the embedding's Content-Security-Policy, which a srcdoc frame takes. The look is the embedding's (custom properties on boot()'s element; the page fetches the font file they name and hands the popup its bytes). One popup at a time; refused for 2 s after a close | [`host/html/`](../host/html/module.json) |
@@ -94,7 +98,7 @@ Worker URL.
 | `dso@0` | process Worker of an executable that records it, each thread's in a program using `threads@0` | Instantiate Wasm the process supplies into its own memory and function table (each thread's, in the order of the records in that memory), call its table entries with signatures chosen at run time, and wait on a word of its memory (libc's futex in a threaded host); no import, no kernel entry, nothing outside that process | [`host/dso/`](../host/dso/module.json) ([`process.mjs`](../host/dso/process.mjs)) |
 | `stack@0` | process Worker of an executable that records it, each thread's in a program using `threads@0` | Call the program's own `dolly_stack_continue` on a fresh stack (`WebAssembly.promising`, through a trusted module of three functions that catches what it throws) and set its `dolly_stack_room` global; no import, no kernel entry, nothing outside that process | [`host/stack/`](../host/stack/module.json) ([`process.mjs`](../host/stack/process.mjs)) |
 | `build@0` | reserved URL via `http@0` | Start a disposable image build that writes the image cache | [`host/build/`](../host/build/module.json) |
-| `packages@0` | mailbox; reserved URL via `http@0` | Hand over the page's image directory's URL, its `amy-index.txt` (one chunk) and the verified snapshot of a package it publishes over the module's mailbox, 2 GiB in 1 MiB chunks into a file of the guest's that must not exist; another directory's, where the page's HTTP policy admits it, through `http@0`'s reserved URL; one at a time, 64 snapshots per page | [`host/packages/`](../host/packages/module.json) |
+| `packages@0` | mailbox | Hand over an image directory's URL, its `amy-index.txt` (one chunk) and the verified snapshot of a package it publishes, 2 GiB in 1 MiB chunks into a file of the guest's that must not exist: the page's own directory, or another the guest names, each of whose files is read only where the page's HTTP policy admits it and none kept; one process at a time, another's request waiting until that process ends; 1024 snapshots per page load, past which the page says a reload gives more | [`host/packages/`](../host/packages/module.json) |
 
 - `REQUIRES HOST` lines and executable `dolly.host` records
   ([`dolly-host-0.wat`](../abi/dolly-host-0.wat)) are compatibility demands, not
@@ -129,10 +133,12 @@ Worker URL.
     that ran on them, each told why. What a module keeps
     in Wasm, such as local sockets, stays with the processes that hold it.
   - A module whose manifest says `fixed` is never switched: `runtime@0`,
-    `http@0` (its policy is consumed once, at load), `build@0`, and
-    `display@0`, `input@0` and `snapshot@0`, which the terminal and a
-    restored session are built on before ENTRY; the modules others depend
-    on are among them.
+    `build@0`, and `display@0`, `input@0` and `snapshot@0`, which the
+    terminal and a restored session are built on before ENTRY. Nor is one
+    that an enabled module depends on disabled (`http@0` under `build@0`).
+    `http@0` takes the page's policy as it was at load, and enabling it
+    widens nothing that policy does not admit; disabling it ends each
+    transfer in flight with `ECANCELED`.
   - `nena disable nena` disposes the provider itself: nothing switches a
     module again until the page is reloaded.
   - The provider writes the modules a session enabled beyond its image's to
@@ -142,38 +148,46 @@ Worker URL.
     cannot enable then is reported on the page and left out.
 - The page enables exactly the image's requirements, its runtime among them;
   rebuild routes add `http@0`, `threads@0`, `dso@0` and `stack@0` for
-  building (sources are fetched, and toolchains run threaded tools, compilers
+  building (a step may fetch, and toolchains run threaded tools, compilers
   and interpreters that load modules, and tools `stack-wrap` rewrote), and a
-  dependency build enables the declared runtime with those four. A build's loader also admits the
+  dependency build enables the declared runtime with those four. The engine
+  fetches nothing: the build Worker hands it the root recipe's text and each
+  `SOURCE` row's file as build inputs, the image directory's own files read
+  by their sizes in its catalog and an external URL fetched by the page under
+  its HTTP policy (`network-fetch`, [`network.mjs`](../page/network.mjs),
+  [`build-worker.mjs`](../site/build-worker.mjs)); the engine checks each
+  file's SHA-256. A build's loader also admits the
   modules of the images it reads, which it does not enable: their calls
   answer `ENOSYS`. Only Dollyfile Studio
   declares `build@0`, and the page admits it only after ENTRY starts
   ([Studio builds](image-build-service.md)). An image declaring `packages@0`
-  (`default`) gets the page's image directory, that directory's
-  `amy-index.txt` and a published package's snapshot, rebuilt and verified
-  from its packs exactly as a build input, over the module's mailbox
+  (`default`) gets an image directory's URL, its `amy-index.txt` and a
+  published package's snapshot, rebuilt and verified from its packs exactly
+  as a build input, over the module's mailbox
   ([`dolly-packages-0.wat`](../host/packages/dolly-packages-0.wat),
   [`transport.mjs`](../host/packages/transport.mjs)): the kernel writes them
-  into a file of the guest's that must not exist, as upload@0 does; another
-  directory there is `EACCES`. Another directory's snapshot goes through
-  `http@0`, as `…/v1/packages/SHA256/from/DIRECTORY` after ENTRY starts
-  ([`service.mjs`](../host/packages/service.mjs)), read only where the page's HTTP policy admits a GET of its URL,
-  counted and shown as the guest's request (`admit` in
-  [`http.mjs`](../host/http/http.mjs)), else 403, and only metadata for this
-  runtime passes. A pin the directory does not publish is 404, a second
-  concurrent snapshot 409, the 65th per page 429; the bytes are ordinary
-  sandbox data and grant nothing ([amy](dollyfile.md#packages-and-amy)).
-  The index of package names is not the service's: it is the site's public
-  `amy-index.txt`, an ordinary request under the HTTP policy.
+  into a file of the guest's that must not exist, as upload@0 does. Of a
+  directory the guest names (`amy server URL`) the package Worker
+  ([`worker.mjs`](../host/packages/worker.mjs)) reads each file (the index,
+  the catalog, every metadata file, pack and pack part) as the broker reads
+  the guest's: only where the page's HTTP policy admits a GET of that URL,
+  counted and shown as the guest's request (`admit`,
+  [`network.mjs`](../page/network.mjs)), without credentials, within the
+  rule's `maxResponseBytes` and timeout; a refusal ends the request with
+  `EACCES`, and none of its packs is kept in the pack store. Only metadata
+  for this runtime passes. A pin the directory does not publish is `ENOENT`,
+  the 1025th snapshot of a page load `EDQUOT`; the bytes are ordinary sandbox
+  data and grant nothing ([amy](dollyfile.md#packages-and-amy)).
 - Builders ([`image-builder.mjs`](../site/image-builder.mjs)) run the build
-  host's modules as the page's modules configure them (`host.builder`): the
-  page's HTTP policy without local services, no display, file picker or
-  ENTRY. One build runs per page; cancellation holds that lease until the
-  builder stops.
+  host's modules with the page network's `builder()`: the page's HTTP policy
+  and its count, without local services, display, file picker or ENTRY. One build runs per page; cancellation holds that lease until the
+  builder stops. `build@0` builds with the one the site's routes give the
+  page (`imageBuilder`, [`site.mjs`](../site/site.mjs)); a page without one
+  has no `build@0`.
 - Build and custom-session policy comes from trusted browser state, never from
-  recipe or snapshot contents. [`http.mjs`](../host/http/http.mjs) consumes the
-  embedding's policy once and intersects a result tab's saved parent policy
-  with its own; missing inheritance fails closed, so reopening a build cannot
+  recipe or snapshot contents. The page ([`network.mjs`](../page/network.mjs))
+  takes the embedding's policy once and intersects a result tab's saved parent
+  policy with its own; missing inheritance fails closed, so reopening a build cannot
   silently restore unrestricted HTTP. Build results are opaque retained files,
   not permission to execute host code.
 - Audio and GPU scope, lease and object IDs are never reused and request
@@ -195,11 +209,14 @@ Worker URL.
 - The default includes the app's own origin (same-origin requests need no CORS).
   A URL is absolute or a site path (below); the page URL is no implicit base.
   Restrict it with a policy.
-- Bootstrap sources are the exact files the release publishes, named by their
-  site paths; the page fetches the copy its own release holds
-  ([`policy.mjs`](../host/http/policy.mjs)). The guest cannot choose where that
-  copy is, and its address grants nothing. Other files of the site are
-  ordinary destinations.
+- A build's inputs (the recipes and `SOURCE` files of the image directory)
+  never pass the broker: the build Worker reads them by the sizes the catalog
+  gives and the engine checks each by its SHA-256. A `SOURCE` row's URL is
+  fetched by the page as a GET a module makes for the guest: admitted and
+  counted by the policy, without credentials, within its rule
+  ([`network.mjs`](../page/network.mjs) `fetch`). A file of the site is an
+  ordinary destination of the policy ([`http-policy.mjs`](../page/http-policy.mjs)),
+  for a build step as for any program.
 - A relay ([HTTP](http.md#cors-and-relays)) is embedding configuration consumed
   with the policy: it maps an exact origin to a URL prefix the page fetches
   instead. It adds no destination: the policy judges the URL the program
@@ -210,10 +227,10 @@ Worker URL.
   by default or on the public sites.
 - Loopback and LAN hosts are ordinary destinations: responses need CORS, but the
   request itself still reaches them.
-- A request URL that is a site path (`/vX.Y.Z/amy-index.txt`, the page's own
-  version) is resolved against the root of the site serving the release,
-  never above it, and then judged by the policy like any absolute URL
-  ([`broker.mjs`](../host/http/broker.mjs)); another version's path is refused. It
+- A request URL that is a site path (`/amy-index.txt`) is resolved against
+  the root of the site serving the release, never above it, and then judged
+  by the policy like any absolute URL
+  ([`broker.mjs`](../host/http/broker.mjs)). It
   grants nothing: the default policy already admits the page's own origin, an
   explicit policy admits the file only by a rule for it, and the request
   carries no cookies. The program is told the path it asked for, not where
@@ -232,8 +249,8 @@ Worker URL.
   carries out only the body admission judged whole, and brings in at most
   `maxResponseBytes`.
 - Multipart reassembly ([`static-asset.mjs`](../page/static-asset.mjs)) applies
-  only to exact bootstrap sources (every inherited policy must agree), pinned
-  snapshot packs and user-clicked source links. The manifest holds sizes and
+  only to a build's inputs of the image directory, pinned snapshot packs and
+  user-clicked source links, never to a program's request. The manifest holds sizes and
   hashes, never destinations; parts are fixed `.part-N` siblings fetched without
   guest headers, credentials, queries or redirects, under the original timeout
   and byte bound (parts of 20 MiB, at most the largest snapshot, 2 GiB). A remote
@@ -254,8 +271,8 @@ Worker URL.
 | Indicator visibility | The GPU indicator, Save button and download offers hide ten seconds after the page is ready and on the user's `Ctrl+Shift+F`, which is not delivered as input. Page state shows them again (a new adapter state, a save, an offer); the one guest request among these is the bounded download offer, which shows them and can hide nothing ([`page-indicators.mjs`](../page/page-indicators.mjs)) |
 | Image ending | Once the ENTRY process is gone, page text below the last frame says how it ended: its exit status or signal number, or one line of its failure (printable ASCII, 512 bytes; the stack goes to the console). The page sets it as text and parses none of it; a running program can draw a lookalike but cannot cover, change or remove the notice. A module may add a link it builds itself, as `snapshot@0` does for the session the tab saved ([`browser.mjs`](../page/browser.mjs)) |
 | Image cache | Verified artifacts: each image's snapshot a file of origin-private storage, indexed in IndexedDB, 32 images and 8 GiB ([`image-artifact.mjs`](../site/image-artifact.mjs)) |
-| Pack store | The packs of the images this browser has read, so a start or a saved session reads none of them again: each a file of origin-private storage named by its SHA-256, kept only once its reader has checked it against that digest, checked so again at every use and removed when it fails. Each image read records its packs; when no image is being read on the origin (a Web Lock), the records of another runtime's images and of images the catalog no longer has go, then every pack no record names. Only the page and its Workers write it, from trusted metadata: a program that installs a package (`packages@0`) or builds an image (`build@0`) makes it keep that image's packs, bytes of the catalog and nothing else. The sessions page shows its size and clears it. A save asks the browser to keep the origin's storage (`navigator.storage.persist()`) ([`pack-store.mjs`](../page/pack-store.mjs)) |
-| Kept runtime | The site's own files that open a saved session (its session and sessions pages, the page's and the Workers' code, the host modules, the kernel; no image and nothing of a session), in the browser's Cache Storage, so a save opens when the network fails. The page writes it when a session is saved or imported, from the site's list `dist/dolly-offline.json`, each file checked against the SHA-256 the list gives; the cache is named by the site's address and the list's digest, and one of another list is removed. The site's service worker answers a same-origin GET from it only when the request itself fails, never in place of a response of the server, and controls only pages loaded after it. It holds no policy, adds no destination and reads nothing of the guest: a program reaches it only as it reaches the site's files, through `http@0`'s policy. The sessions page says whether it is kept and clears it with the pack store ([`offline.mjs`](../site/offline.mjs), [`coi-serviceworker.js`](../coi-serviceworker.js)) |
+| Pack store | The packs of the images this browser has read, so a start or a saved session reads none of them again: each a file of origin-private storage named by its SHA-256, kept only once its reader has checked it against that digest, checked so again at every use and removed when it fails. Each image read records its packs; when no image is being read on the origin (a Web Lock), the records of another runtime's images and of images the catalog no longer has go, then every pack no record names. A build's inputs that the image cache holds lose their records once the build has read them, so an image is kept once, decoded, and a start of it downloads its packs again. Only the page and its Workers write it, from trusted metadata: a program that installs a package (`packages@0`) or builds an image (`build@0`) makes it keep that image's packs, bytes of the catalog and nothing else. The sessions page shows its size and clears it. A save asks the browser to keep the origin's storage (`navigator.storage.persist()`) ([`pack-store.mjs`](../page/pack-store.mjs)) |
+| Kept runtime | The site's own files that open a saved session (its session and sessions pages, the page's and the Workers' code, the host modules, the kernel; no image and nothing of a session), in the browser's Cache Storage, so a save opens when the network fails. The page writes it when a session is saved or imported, from the site's list `dist/dolly-offline.json`, each file checked against the SHA-256 the list gives; the cache is named by the site's address and the list's digest, and one of another list is removed. The site's service worker answers a same-origin GET from it only when the request itself fails, never in place of a response of the server, and controls only pages loaded after it. It holds no policy, adds no destination and reads nothing of the guest: a program reaches it only as it reaches the site's files, through `http@0`'s policy. The sessions page says whether it is kept and clears it with the pack store ([`offline.mjs`](../host/snapshot/offline.mjs), [`coi-serviceworker.js`](../coi-serviceworker.js)) |
 | Boot and code loading | Fixed kernel artifacts only ([`worker-image.mjs`](../page/worker-image.mjs)): the kernel and, for a root build, the compiler seed, a snapshot the kernel restores itself; one bundled process Worker; the plugin loader links an explicit kernel export map and fetches nothing |
 | Process entry | The supervisor measures, with a recursion of its own, whether `WebAssembly.promising` gives a stack half again as deep; where it does, the process Worker calls through it the entry of an executable that carries a `dolly.process.stack` section (the compiler and Emacs), only for that stack ([browser stack](browser-stack.md)). No import is `Suspending`, so the call still runs to completion before the Worker handles anything else ([`process-supervisor.mjs`](../page/process-supervisor.mjs), [`process-worker.mjs`](../page/process-worker.mjs)) |
 | Clocks, entropy, CPU and memory use | Inputs and availability effects only; the kernel grows its own memory up to its declared maximum, and its abort is a Wasm trap |
@@ -271,19 +288,20 @@ identities and ABI constants the runtime's build writes (`dist/dolly-build-id.mj
 loads the bundle of [`process-worker.mjs`](../page/process-worker.mjs) and the
 modules it serves. An image directory is data: the page and the Worker import its catalog
 (`dist/dolly-images.json`) and image metadata
-(`dist/dolly-IMAGE-system-snapshot.json`) as JSON, and check its packs, recipes
+(`dist/dolly-IMAGE-system-snapshot.json`) as JSON (the package Worker fetches
+another directory's, as above), and check its packs, recipes
 and sources against them. A page runs none of its code, so an embedding may
 boot a directory it does not trust: its programs get only the host modules the
 embedding lists.
 
 | Part | Files |
 | --- | --- |
-| Page | [`browser.mjs`](../page/browser.mjs) (`boot()`), [`route.mjs`](../site/route.mjs) (a route page: its image, module list and HTTP policy), [`site.mjs`](../site/site.mjs) (the site's routes), [`source-download.mjs`](../site/source-download.mjs) (the site's source links), [`terminal-text.mjs`](../page/terminal-text.mjs), [`build-log.mjs`](../page/build-log.mjs), [`page-chords.mjs`](../page/page-chords.mjs), [`page-indicators.mjs`](../page/page-indicators.mjs), [`coi-serviceworker.js`](../coi-serviceworker.js) (isolation where a host sends no headers; the kept runtime where the network fails) |
+| Page | [`browser.mjs`](../page/browser.mjs) (`boot()`), [`route.mjs`](../site/route.mjs) (a route page: its image, module list and HTTP policy), [`site.mjs`](../site/site.mjs) (the site's routes), [`source-download.mjs`](../site/source-download.mjs) (the site's source links), [`network.mjs`](../page/network.mjs) (the page's HTTP policy, [`http-policy.mjs`](../page/http-policy.mjs), and its refusal notices, [`http-refusals.mjs`](../page/http-refusals.mjs)), [`terminal-text.mjs`](../page/terminal-text.mjs), [`build-log.mjs`](../page/build-log.mjs), [`page-chords.mjs`](../page/page-chords.mjs), [`page-indicators.mjs`](../page/page-indicators.mjs), [`coi-serviceworker.js`](../coi-serviceworker.js) (isolation where a host sends no headers; the kept runtime where the network fails) |
 | Registry | [`modules.mjs`](../host/modules.mjs), [`manifests.mjs`](../host/manifests.mjs) (the site's list), [`requirements.mjs`](../host/requirements.mjs), [`abi.mjs`](../host/abi.mjs) |
 | Images | [`images.mjs`](../page/images.mjs), [`packaged-snapshot.mjs`](../page/packaged-snapshot.mjs), [`pack-store.mjs`](../page/pack-store.mjs), [`image-inputs.mjs`](../page/image-inputs.mjs), [`snapshot-records.mjs`](../page/snapshot-records.mjs), [`image-entry.mjs`](../page/image-entry.mjs), [`image-names.mjs`](../page/image-names.mjs), [`static-asset.mjs`](../page/static-asset.mjs), [`sha256.mjs`](../page/sha256.mjs), [`version.mjs`](../page/version.mjs) |
 | Runtime Worker | [`worker-image.mjs`](../page/worker-image.mjs), [`runtime-worker.mjs`](../page/runtime-worker.mjs) (boot()'s, bundled with what it imports into `dist/dolly-runtime-worker.mjs`), [`build-worker.mjs`](../site/build-worker.mjs) (the site's and `dolly-build`'s), [`process-supervisor.mjs`](../page/process-supervisor.mjs), [`kernel-plugin.mjs`](../page/kernel-plugin.mjs), [`process-abi.mjs`](../page/process-abi.mjs), [`wasm-interface.mjs`](../page/wasm-interface.mjs), [`process-constants.mjs`](../page/process-constants.mjs) |
 | Building images (the site's, and `dolly-build`'s page for npm users) and custom images (the site's) | [`image-build.mjs`](../site/image-build.mjs), [`image-builder.mjs`](../site/image-builder.mjs), [`image-artifact.mjs`](../site/image-artifact.mjs), [`custom-image.mjs`](../site/custom-image.mjs), [`custom-dollyfile.mjs`](../site/custom-dollyfile.mjs) (the custom image page), [`dollyfile-view.mjs`](../site/dollyfile-view.mjs), [`dollyfile-graph.mjs`](../site/dollyfile-graph.mjs) |
-| Sessions | [`session-store.mjs`](../site/session-store.mjs), [`session-file.mjs`](../site/session-file.mjs), [`sessions.mjs`](../site/sessions.mjs) (the site's list), [`offline.mjs`](../site/offline.mjs) (the kept runtime), [`alphabetical.mjs`](../site/alphabetical.mjs) |
+| Sessions | `snapshot@0`'s [`session-store.mjs`](../host/snapshot/session-store.mjs) (the saves) and [`offline.mjs`](../host/snapshot/offline.mjs) (the kept runtime), [`session-file.mjs`](../site/session-file.mjs), [`sessions.mjs`](../site/sessions.mjs) (the site's list), [`alphabetical.mjs`](../site/alphabetical.mjs) |
 
 ## The page's handle
 
@@ -307,8 +325,9 @@ acceptance and the checks of a deployed site use it.
 - An enabled module adds its own and takes them away when `nena` disables it:
   `transport`, `fontSize`, `graphicsActive`, `copySelection()`, `frame()` (`display@0`),
   `inputTransport` (`input@0`), `touchTransport` (`touch@0`), the broker's request counters (`http@0`),
-  `sessionName` and `saveSession(name)` (`snapshot@0`), `gpu`, `audio` and
-  `microphone`.
+  `sessionName` and `saveSession(name)` (`snapshot@0`), `gpu`, `audio`,
+  `microphone`, and `openConsole({ argv })` (`console@0`), which starts the
+  program `argv` names on a console the caller holds, as a command line could.
 
 None gives authority a user of the page lacks: each write is what a key, a
 paste, a click or Save does, through the same functions, without the gesture.

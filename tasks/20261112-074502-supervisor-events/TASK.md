@@ -1,6 +1,6 @@
 # The kernel decides, the host executes: one event export in place of the supervisor's policy
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 380
 - TAGS: processes,architecture,abi,lifecycle,audit,0.1.6
 

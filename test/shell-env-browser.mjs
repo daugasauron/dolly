@@ -6,7 +6,7 @@ import { siteReference } from "../page/static-asset.mjs";
 
 const { default: catalog } = await import("../dist/dolly-images.json", { with: { type: "json" } });
 const display = catalog.images.find(({ image }) => image === "display");
-const recipe = ["DOLLY 7", "APPLICATION no-shell", "REQUIRES HOST runtime@0", "REQUIRES HOST display@0", "REQUIRES HOST input@0",
+const recipe = ["DOLLY 8", "APPLICATION no-shell", "REQUIRES HOST runtime@0", "REQUIRES HOST display@0", "REQUIRES HOST input@0",
   `INSTALL ${siteReference(display.dollyfile)} ${display.sha256}`,
   "FILE /tmp/shell.c", "    #include <stdio.h>", "    #include <stdlib.h>",
   '    int main(void) { const char *shell = getenv("SHELL"); printf("SHELL=%s.\\n", shell ? shell : "unset"); getchar(); return 0; }',

@@ -6,12 +6,12 @@
  */
 import { DOLLY_PROCESS_ABI_DIGEST } from "../../page/generated.mjs";
 import { DOLLY_ERRNO } from "./abi.mjs";
-import { parseWasmInterface, Reader } from "../../page/wasm-interface.mjs";
+import { DOLLY_EXPORT_TABLE, findExport, parseWasmInterface, Reader } from "../../page/wasm-interface.mjs";
 import { executableHostRequirements, checkHostAbi } from "../requirements.mjs";
 import { DOLLY_DSO_CLOSE, DOLLY_DSO_ERROR_CAPACITY, DOLLY_DSO_GLOBAL, DOLLY_DSO_LIMIT, DOLLY_DSO_OPEN,
   DOLLY_DSO_SYMBOL, DOLLY_DSO_THREADS_SIZE, DOLLY_DSO_WAIT, DOLLY_FFI_CALL, DOLLY_FFI_CLOSURE_FREE,
   DOLLY_FFI_CLOSURE_PREP } from "./abi.mjs";
-import { createProcessFfi } from "./ffi.mjs";
+import { castThunk, createProcessFfi } from "./ffi.mjs";
 import { requireDsoType, validateDsoHost, validateDsoInterface } from "./interface.mjs";
 import { createThreadRecords, ThreadRecordError } from "./threads.mjs";
 
@@ -95,11 +95,18 @@ function setTable(index, value) {
   processTable.set(index, value);
 }
 
-function functionIndex(value) {
+// A function's table index: in a cast-emulated program, its thunk's, the
+// program's own where it has one, so that a pointer to it is one wherever taken.
+function functionIndex({ type, value, thunk = -1 }) {
   const previous = functionIndices.get(value);
   if (previous !== undefined) return previous;
+  if (thunk >= 0) {
+    functionIndices.set(value, BigInt(thunk));
+    return BigInt(thunk);
+  }
   const index = growTable(1n);
-  setTable(index, value);
+  const parameters = configuration.processInterface.castEmulationParameters;
+  setTable(index, parameters ? castThunk(value, type, parameters) : value);
   functionIndices.set(value, index);
   return index;
 }
@@ -116,6 +123,24 @@ function typedSymbols(exports, values, memoryBase = 0n) {
   }));
 }
 
+// The process's own symbols, as typedSymbols gives a library's, each made when
+// first asked for: an executable linked -rdynamic exports thousands, which a
+// map of them all held in each of its Workers (page/wasm-interface.mjs exportIndex);
+// most functions are entries of the table the supervisor moved them into.
+function processExports(index, values) {
+  const symbols = new Map();
+  return {
+    get(name) {
+      if (!symbols.has(name)) {
+        const found = findExport(index, name);
+        symbols.set(name, found && { type: found.type, thunk: found.thunk,
+          value: found.slot < 0 ? values[name] : values[DOLLY_EXPORT_TABLE].get(found.slot) });
+      }
+      return symbols.get(name);
+    },
+  };
+}
+
 function globalSymbol(name) {
   const main = processSymbols.get(name);
   if (main !== undefined) return main;
@@ -126,8 +151,9 @@ function globalSymbol(name) {
   return undefined;
 }
 
-function symbolAddress({ value }) {
-  if (typeof value === "function") return functionIndex(value);
+function symbolAddress(symbol) {
+  const { value } = symbol;
+  if (typeof value === "function") return functionIndex(symbol);
   if (value instanceof WebAssembly.Global) {
     const raw = value.value;
     return typeof raw === "bigint" ? raw : BigInt(raw);
@@ -180,6 +206,13 @@ function instantiateDso(bytes, flags, placement = {}) {
   }
   const module = new WebAssembly.Module(bytes);
   const requirements = dylinkRequirements(module);
+  // A cast-emulated program calls every table entry with one signature, of
+  // which a library linked with --dolly-cast-emulation too puts thunks there.
+  const emulated = configuration.processInterface.castEmulationParameters;
+  if (requirements.tableSize !== 0n && source.castEmulationParameters !== emulated) {
+    throw new TypeError(emulated ? "a cast-emulated program loads libraries linked with --dolly-cast-emulation"
+      : "a library linked with --dolly-cast-emulation loads into a cast-emulated program alone");
+  }
   if (requirements.needed.length !== 0) {
     throw new TypeError(
       `shared object has unloaded dependencies: ${requirements.needed.join(", ")}`,
@@ -373,7 +406,7 @@ function symbolIndex(handle, name, value) {
     if (indexed !== undefined) return indexed;
     const bytes = encoder.encode(name);
     const copy = keep(bytes);
-    const index = functionIndex(value.value);
+    const index = functionIndex(value);
     publish({ kind: DOLLY_DSO_SYMBOL, values: [handle, copy, BigInt(bytes.length), index, 0n] }, true);
     return index;
   });
@@ -404,7 +437,7 @@ function applyRecord(records, index) {
   } else if (kind === DOLLY_DSO_SYMBOL) {
     const [handle, name, size, index] = values;
     const value = lookupSymbol(handle, decoder.decode(Uint8Array.from(memoryBytes(name, size))));
-    if (typeof value?.value !== "function" || functionIndex(value.value) !== index) throw divergence();
+    if (typeof value?.value !== "function" || functionIndex(value) !== index) throw divergence();
   } else if (kind === DOLLY_FFI_CLOSURE_PREP && freedLater(records, index, values[0])) {
     return;
   } else if (ffi.handles(kind) && kind !== DOLLY_FFI_CALL) {
@@ -517,7 +550,7 @@ export function serve(context) {
   configuration = context;
   instance = context.instance;
   processTable = instance.exports.__indirect_function_table;
-  processSymbols = typedSymbols(configuration.processInterface.exports, instance.exports);
+  processSymbols = processExports(configuration.processInterface.exports, instance.exports);
   // In a program using threads@0 every thread's Worker has a table of its
   // own: a call reads the same entry in each, and a host of libraries places
   // what it adds in every one (threads.mjs).
@@ -547,17 +580,16 @@ export function serve(context) {
     })),
   });
   // A program using threads@0 that hosts no libraries calls functions only.
-  // In a cast-emulated program every table entry is a thunk of one signature,
-  // which neither a library nor a closure made here has.
-  const callsOnly = (context.threaded && !threadRecords) || context.processInterface.castEmulationParameters > 0;
+  const callsOnly = context.threaded && !threadRecords;
   const refusal = (operation, response) => ffi.handles(operation) ? -BigInt(DOLLY_ERRNO.ENOTSUP)
-    : writeDsoResponse(response, 0n, DOLLY_ERRNO.ENOTSUP,
-      context.threaded ? "not in a program using threads@0 without -rdynamic" : "not in a cast-emulated program");
+    : writeDsoResponse(response, 0n, DOLLY_ERRNO.ENOTSUP, "not in a program using threads@0 without -rdynamic");
   return {
     handles: operation => (operation >= DOLLY_DSO_OPEN && operation <= DOLLY_DSO_WAIT) || ffi.handles(operation),
     call(operation, request, response) {
       if (operation === DOLLY_DSO_WAIT) return threadRecords ? futexWait(request) : -BigInt(DOLLY_ERRNO.ENOTSUP);
-      if (callsOnly && operation !== DOLLY_FFI_CALL) return refusal(operation, response);
+      if (callsOnly && operation !== DOLLY_FFI_CALL) {
+        return refusal(operation, response);
+      }
       threadRecords?.synchronize();
       return ffi.handles(operation) ? ffi.call(operation, request, response) : processDsoCall(operation, request, response);
     },

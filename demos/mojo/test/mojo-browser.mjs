@@ -6,8 +6,9 @@
 // Headless Chrome has a software adapter. With a GPU window on DISPLAY, Chrome
 // and the installed Firefox run it on the GPU as well.
 import assert from "node:assert/strict";
-import { mkdir, readFile } from "node:fs/promises";
-import { chromium, firefox } from "playwright-core";
+import { readFile } from "node:fs/promises";
+import { chromium } from "playwright-core";
+import { launchInstalledFirefox } from "../../../test/browser.mjs";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
 import { shellPrompt, writeCommand } from "../../browser.mjs";
 import { sourcePins } from "../../../scripts/upstreams.mjs";
@@ -18,15 +19,13 @@ const notebooks = `.cache/modular-${(await sourcePins(root.pathname)).get("MODUL
 // The image has no network edge: the programs are written into the session.
 const sources = Object.fromEntries(await Promise.all([...upstream.map(name => [name, `${notebooks}/${name}.mojo`]),
   ...programs.map(name => [name, `demos/mojo/target/test/fixtures/${name}.mojo`])].map(async ([name, path]) => [name, await readFile(new URL(path, root), "utf8")])));
-// The installed Firefox is a snap with a private /tmp: its profile must live under $HOME.
-process.env.TMPDIR = new URL("build/mojo-test/", root).pathname;
-await mkdir(process.env.TMPDIR, { recursive: true });
 const launches = { "headless chromium": () => chromium.launch({ channel: "chrome", headless: true,
   args: ["--no-sandbox", "--disable-gpu", "--enable-unsafe-webgpu"] }) };
+if (!process.env.DISPLAY) console.log("mojo: firefox skipped: Firefox has WebGPU only in a window on DISPLAY");
 if (process.env.DISPLAY) {
   launches.chromium = () => chromium.launch({ channel: "chrome", headless: false,
     args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan"] });
-  launches.firefox = () => firefox.launch({ channel: "moz-firefox", headless: false, firefoxUserPrefs: { "dom.webgpu.enabled": true } });
+  launches.firefox = () => launchInstalledFirefox();
 }
 
 const server = await startBrowserServer(root.pathname, "mojo-gpu");

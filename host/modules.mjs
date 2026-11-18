@@ -82,9 +82,8 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
   const switched = new Map();
   let switching = Promise.resolve(), startContext, entryContext;
   // The page API (window.__dolly) by property descriptor, so module getters
-  // stay live; a child build host's configuration; what an opened result tab
-  // or restored session inherits from this page.
-  const page = {}, builder = {}, inherited = {};
+  // stay live.
+  const page = {};
   // What executables may require: name@version -> the ABI digest its provider
   // implements, for exactly the modules the image declares (see admit) and
   // those its session enabled since (nena@0).
@@ -108,10 +107,11 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
     }
   }
   const get = name => instances.get(name);
-  // Page UI across modules: the first module that claims a key event takes it
-  // from the guest's input and may act on it; a module drawing over the
-  // display canvas reports the pixel size of its frame.
+  // Page UI across modules: the page's own (resources.claimsKey) or the first
+  // module that claims a key event takes it from the guest's input and may act
+  // on it; a module drawing over the display canvas reports the pixel size of its frame.
   function claimsKey(event) {
+    if (resources.claimsKey?.(event)) return true;
     for (const instance of instances.values()) {
       const claim = instance.claimsKey?.(event);
       if (claim) return claim;
@@ -120,7 +120,8 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
   }
   const surfaceSize = () => [...instances.values()].find(instance => instance.surfaceSize)?.surfaceSize;
   // A pointer's position in pixels of the frame shown, which the canvas fits
-  // within its box at the frame's own shape, centred (object-fit: contain).
+  // within its box at the frame's own shape, centred (object-fit: contain): the
+  // display's canvas's box, which a module's canvas over it shares (page/browser.mjs).
   function framePoint({ clientX, clientY }) {
     const bounds = resources.canvas.getBoundingClientRect(), { width, height } = surfaceSize() ?? resources.canvas;
     const scale = Math.min(bounds.width / width, bounds.height / height);
@@ -168,11 +169,6 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
       if (key in page) throw new Error(`duplicate page API member: ${key}`);
       Object.defineProperty(page, key, descriptor);
     }
-    if (instance.builder) builder[name] = instance.builder;
-    for (const [key, value] of Object.entries(instance.inherited ?? {})) {
-      if (key in inherited) throw new Error(`duplicate inherited record: ${key}`);
-      inherited[key] = value;
-    }
   }
   // What attach registered for one module, undone. Its provider lets go first,
   // as when the page ends, and then of what a runtime that goes on must not
@@ -183,8 +179,6 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
     instance.disabled?.();
     for (const type of Object.keys(instance.messages ?? {})) messages.delete(type);
     for (const key of Object.keys(instance.page ?? {})) delete page[key];
-    for (const key of Object.keys(instance.inherited ?? {})) delete inherited[key];
-    delete builder[name];
     delete config[name];
     instances.delete(name);
     started.delete(name);
@@ -209,7 +203,7 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
   // The page decides and goes first when enabling, last when disabling; the
   // Worker's side follows by message. Each resolves to null, or to one line
   // saying why not. A module whose manifest says `fixed` is never switched;
-  // the modules others depend on (runtime@0, http@0) are among them.
+  // a module an enabled one depends on is not disabled.
   const requirementOf = ({ name, version }) => `${name}@${version}`;
   const list = () => contracts.map(contract => ({ name: contract.name, version: contract.version,
     gives: contract.gives ?? "", fixed: contract.fixed ?? "", enabled: instances.has(contract.name),
@@ -255,6 +249,9 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
     if (!module || module.contract.version !== version) return "this page has no such host module";
     if (!instances.has(name)) return null;
     if (module.contract.fixed) return `fixed: ${module.contract.fixed}`;
+    const dependent = [...instances.keys()].map(other => byName.get(other).contract)
+      .find(contract => contract.dependencies.some(dependency => hostRequirement(dependency).name === name));
+    if (dependent) return `${requirementOf(dependent)} needs it`;
     const refusal = await workerSwitch(value, false);
     if (refusal) return refusal;
     detach(name);
@@ -281,7 +278,7 @@ async function createHost({ byName, owners, contracts, runtimes }, side, enabled
   } catch (error) { dispose(); throw error; }
   const kernel = hostRequirement(kernels[0]).name;
   return {
-    transfers, configuration: config, page, builder, inherited,
+    transfers, configuration: config, page,
     kernel: instances.get(kernel),
     get enabled() { return [...instances.keys()].map(name => requirementOf(byName.get(name).contract)); },
     require: requireModules, dispose,

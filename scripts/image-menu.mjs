@@ -46,8 +46,6 @@ export const menuGroup = (heading, images) => [`<tr class="group"><th colspan="3
 // The menu's table body: the groups by heading.
 const heading = group => /^<tr class="group"><th colspan="3">([^<]*)</.exec(group)[1];
 export const menuBody = groups => [...groups].sort((left, right) => alphabetical(heading(left), heading(right))).join("\n");
-// The groups of a table body menuBody wrote.
-export const menuGroups = body => body.split(/\n(?=<tr class="group">)/).filter(group => group.trim());
 
 // The pages scripts/generate-routes.mjs writes from terminal.html, at their
 // served paths. Each image is { image, openable }.

@@ -1,0 +1,5 @@
+[
+{"name": "Go", "use": "The Go toolchain for GOOS=dolly GOARCH=wasm64: its patched source, and its seed as the previous round's go package built it; the go package builds it again in Dolly", "licence": "BSD-3-Clause", "prebuilt": true, "repository": "https://go.googlesource.com/go", "pins": ["GO", "GO_HOST", "GO_SEED"], "sources": ["dist/static/go/go-source.tar.gz", "dist/static/go/go-seed.tar.gz"]},
+{"name": "esbuild", "use": "esbuild, built by Go in Dolly", "licence": "MIT", "repository": "https://github.com/evanw/esbuild", "pins": ["ESBUILD"], "sources": ["dist/static/go/esbuild.tar"]},
+{"name": "golang.org/x/sys", "use": "Go module esbuild vendors", "licence": "BSD-3-Clause", "repository": "https://go.googlesource.com/sys", "sources": ["dist/static/go/esbuild.tar"]}
+]

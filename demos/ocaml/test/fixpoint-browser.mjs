@@ -1,14 +1,14 @@
-// Upstream's fixpoint in a session: in default with the cc and gzip
+// Upstream's fixpoint in a session: in default with the cc, gzip and curl
 // packages and the host modules Dollyfile-ocaml declares (nena enables them, as
 // a person would), its rows run again up to its make bootstrap, which fails
 // unless the compiler that boot/ocamlc built reproduces itself.
-// Usage: node demos/ocaml/test/fixpoint-browser.mjs [chromium|firefox ...]
+// Usage: [DOLLY_BROWSER=firefox] node demos/ocaml/test/fixpoint-browser.mjs
 import { readFile } from "node:fs/promises";
+import { browsers } from "../../browsers.mjs";
 import { demoTest } from "../../browser.mjs";
 import { inspectDollyfile } from "../../../site/dollyfile-view.mjs";
 import { sitePath } from "../../../page/static-asset.mjs";
 
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const recipe = new URL("../Dollyfile-ocaml", import.meta.url);
 const { rows, hostRequirements } = inspectDollyfile(await readFile(recipe, "utf8"), recipe.href);
 const modules = hostRequirements.filter(module => module !== "runtime@0").map(module => module.replace(/@0$/, ""));
@@ -17,9 +17,8 @@ const steps = rows.slice(0, rows.findIndex(row => row.args.includes(" make -j4 b
 
 for (const browser of browsers) {
   await demoTest("ocaml fixpoint", { image: "default", timeout: 1_800_000, browser }, async ({ server, open }) => {
-    const { run } = await open({ policy: { rules: [{ origin: server.origin, path: "/amy-index.txt", methods: ["GET"] },
-      { origin: server.origin, pathPrefix: "/dist/static/ocaml/", methods: ["GET"] }] } });
-    await run(`nena enable ${modules.join(" ")} && amy install cc && amy install gzip`);
+    const { run } = await open({ policy: { rules: [{ origin: server.origin, pathPrefix: "/dist/static/ocaml/", methods: ["GET"] }] } });
+    await run(`nena enable ${modules.join(" ")} && amy install cc && amy install gzip && amy install curl`);
     for (const { directive, args } of steps) {
       if (directive === "SOURCE") {
         const [source, , path] = args.split(" ");

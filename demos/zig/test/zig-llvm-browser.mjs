@@ -4,6 +4,7 @@
 // project's build.zig, both with the tools the package compiled. Zig names a
 // WebAssembly program NAME.wasm.
 // Usage: node demos/zig/test/zig-llvm-browser.mjs
+import { browsers } from "../../browsers.mjs";
 import { demoTest, writeCommand } from "../../browser.mjs";
 
 const hello = `const std = @import("std");
@@ -54,11 +55,10 @@ pub fn build(b: *std.Build) void {
     }) }));
 }
 `;
-for (const browser of ["chromium", "firefox"]) {
-  await demoTest("zig-llvm", { image: "default", browser, timeout: 1_800_000 }, async ({ server, open }) => {
-    const { run } = await open({ policy: { rules: [{ origin: server.origin, path: "/amy-index.txt", methods: ["GET"] }] } });
-    // A package's environment applies from the next session load: ZIG_LIBC is named here.
-    await run("amy install zig-llvm && export ZIG_LIBC=/usr/lib/zig/libc.txt");
+for (const browser of browsers) {
+  await demoTest("zig-llvm", { image: "default", browser, timeout: 1_800_000 }, async ({ open }) => {
+    const { run } = await open({ policy: { rules: [] } });
+    await run("amy install zig-llvm");
     await run("test \"$(zig version)\" = 0.17.0 && mkdir /tmp/zig-test && cd /tmp/zig-test");
     await run(writeCommand("hello.zig", hello));
     await run('zig build-exe hello.zig && test "$(./hello.wasm 2>&1)" = "hello child"');

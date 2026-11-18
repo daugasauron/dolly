@@ -1,24 +1,43 @@
-import { readFile } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { escapeHtml } from "./render-dollyfile-view.mjs";
 import { alphabetical } from "../site/alphabetical.mjs";
 import { siteReference, sitePath } from "../page/static-asset.mjs";
 
-// config/upstreams.json names every upstream the catalog builds or bundles.
-// "sources" match recipe SOURCE references: paths of the site or full
-// URLs, where "*" matches within a path segment and a trailing "/" matches a
-// tree. "pins" are config/source-pins.sh keys (DOLLY_GIT_URL and
+// config/upstreams.json and each demo's upstreams.json name every upstream the
+// catalog builds or bundles. "sources" match recipe SOURCE references: paths of
+// the site or full URLs, where "*" matches within a path segment and a trailing
+// "/" matches a tree. "pins" are source-pins.sh keys (DOLLY_GIT_URL and
 // DOLLY_GIT_COMMIT are GIT), which also name the seed's and host-built inputs.
 // "seed" upstreams are compiled into the runtime every page loads; "prebuilt"
-// ones reach recipes as files built outside Dolly, not as source; an "npm" row
-// stands for the packages its published node_modules tree ships.
+// ones reach recipes as built files (from outside Dolly, or a previous round's
+// seed), not as source; an "npm" row stands for the packages its published
+// node_modules tree ships.
+// The core's file, then each demo's (demos/DEMO/NAME), in the order they are read.
+async function coreAndDemoFiles(projectDir, core, name) {
+  const demos = (await readdir(resolve(projectDir, "demos"), { withFileTypes: true }))
+    .filter(entry => entry.isDirectory()).map(entry => `demos/${entry.name}/${name}`).sort();
+  const present = await Promise.all(demos.map(path => access(resolve(projectDir, path)).then(() => path, () => null)));
+  return [core, ...present.filter(Boolean)];
+}
+
 export async function sourcePins(projectDir) {
   const pins = new Map();
-  for (const [, key, field, value] of (await readFile(resolve(projectDir, "config/source-pins.sh"), "utf8"))
-    .matchAll(/^DOLLY_(\w+?)_(URL|COMMIT|VERSION|IMAGE|SHA256)=['"]?([^'"\n]*)/gm)) {
-    pins.set(key, { ...pins.get(key), [field.toLowerCase()]: value });
+  for (const path of await coreAndDemoFiles(projectDir, "config/source-pins.sh", "source-pins.sh")) {
+    for (const [, key, field, value] of (await readFile(resolve(projectDir, path), "utf8"))
+      .matchAll(/^DOLLY_(\w+?)_(URL|COMMIT|VERSION|IMAGE|SHA256)=['"]?([^'"\n]*)/gm)) {
+      pins.set(key, { ...pins.get(key), [field.toLowerCase()]: value });
+    }
   }
   return pins;
+}
+
+async function upstreamEntries(projectDir) {
+  const entries = [];
+  for (const path of await coreAndDemoFiles(projectDir, "config/upstreams.json", "upstreams.json")) {
+    entries.push(...JSON.parse(await readFile(resolve(projectDir, path), "utf8")));
+  }
+  return entries;
 }
 
 function sourcePattern(entry) {
@@ -30,12 +49,12 @@ function sourcePattern(entry) {
 // The table's rows with the SOURCE references of DEFINITIONS that each one matches
 // and the images whose own recipe reads them. Every SOURCE needs a row.
 export async function upstreamRows(projectDir, definitions) {
-  const rows = JSON.parse(await readFile(resolve(projectDir, "config/upstreams.json"), "utf8"))
+  const rows = (await upstreamEntries(projectDir))
     .map(row => ({ ...row, patterns: (row.sources ?? []).map(sourcePattern), images: new Set(), locations: new Set() }));
   for (const { image, filename, parsed } of definitions) {
     for (const { location, line } of parsed.sources) {
       const owners = rows.filter(row => row.patterns.some(pattern => pattern.test(location)));
-      if (!owners.length) throw new Error(`${filename}:${line}: ${location} has no entry in config/upstreams.json`);
+      if (!owners.length) throw new Error(`${filename}:${line}: ${location} has no entry in an upstreams.json`);
       for (const row of owners) {
         row.images.add(image);
         row.locations.add(location);

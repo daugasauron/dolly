@@ -1,6 +1,6 @@
 # The terminal draws the colours a program sets (OSC 4, 10, 11, 12)
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS: display,terminal
 
@@ -26,3 +26,12 @@ read, Neovim only asks the background with OSC 11 `?`).
 
 Done when: a program's `printf '\e]11;#102030\a'` turns the canvas background, read as a pixel,
 and `\e]111\a` restores the page's, in Chromium and Firefox; the terminal and display suites pass.
+
+## Closed (2026-11-16, the audit)
+
+`fix/osc-colours` (`9e662a353`) was merged in `677fa56d0` and is in v0.1.6 and v0.1.7. 0.1.7's full
+round rebuilt every image that installs `display`. On it, `test/theme-browser.mjs` passed in Chromium
+(18.7 s) and Firefox (29.7 s); its first part is the done-when's OSC 11 and OSC 111 check. The
+terminal and display tests passed in both browsers too
+(`work/round1113/build/round-1117-evidence/browser.log`). What Neovim, Emacs and tmux send on their
+defaults was never measured. The done-when did not ask for it.

@@ -18,10 +18,13 @@ test's JavaScript.
 - The others (`shell.json`, `toolchain.json`, `process.json`, `cpp.json`,
   `cpp-dso.json`, `pty.json`, `man.json`, `default.json`, `cc-package.json`,
   `zig-package.json`, `sockets.json`, `sockets-undeclared.json`, `fs-growth.json`, `host-modules.json`, `touch.json`, `pager.json`,
-  `amy-programs.json`, `amy-tools.json`): steps in order in one `directory`, made where it is absent, which first gets `files`
+  `amy-programs.json`, `amy-tools.json`, and each demo's `demos/DEMO/test/amy-cases.json`,
+  its packages'): steps in order in one `directory`, made where it is absent, which first gets `files`
   (their text) and `fixtures` (each named by its path in this repository). Each step's `script` runs as
   `/bin/slop -c SCRIPT` there and exits with `status`, or with any nonzero
   status where `fails` is true. Steps share files, not shell state; `terminal`
-  marks a step whose standard input must be a terminal.
+  marks a step whose standard input must be a terminal. `fresh` marks a step
+  that may begin a new session of the image: from it to the next such step,
+  one package installs and is used in a session that held none of the others.
 
 `why` says what a case is for, where its name does not.

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { browserTest, runSteps } from "./browser.mjs";
+import { browserTest, runSteps, workbench } from "./browser.mjs";
 import toolchain from "./cases/toolchain.json" with { type: "json" };
 
 // Git, download and the rest of the toolchain image's tools are used below.
 const image = process.env.DOLLY_IMAGE ?? "system";
 await browserTest("core", { image }, async ({ server, open }) => {
-  const { page, submit } = await open({ policy: { maxRequests: 256,
+  const { page, submit } = await open({ ...await workbench(), policy: { maxRequests: 256,
     rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   const starts = [];
   const recordRequest = request => { if (/^https?:/.test(request.url())) starts.push(request.url()); };
@@ -25,7 +25,7 @@ await browserTest("core", { image }, async ({ server, open }) => {
     assert.equal(await submit("/tmp/core-invalid"), 126, fixture);
   }
   assert.equal(await submit("rm /tmp/core-invalid"), 0);
-  await runSteps(submit, server.origin, toolchain);
+  await runSteps(submit, toolchain);
   // A program's HTTP goes through the broker to the test server.
   assert.equal(await submit(`DOLLY_PROCESS_HTTP_CHECK_URL=${server.origin}/fixture/http.txt ./http-check`), 0);
   assert.equal(await submit(`cd /workspace && rm -rf ${toolchain.directory}`), 0);
@@ -94,7 +94,7 @@ await browserTest("core", { image }, async ({ server, open }) => {
   assert.notEqual(await submit(`curl -fsS ${server.origin}/denied`), 0);
   assert.equal(server.requests.has("/denied"), false, "denied userspace HTTP reached the host server");
   // Only images declaring build@0 reach the page's build service.
-  assert.notEqual(await submit("curl -fsS -d 'DOLLY 7' https://build.dolly.invalid/v1/builds"), 0);
+  assert.notEqual(await submit("curl -fsS -d 'DOLLY 8' https://build.dolly.invalid/v1/builds"), 0);
   assert.equal(await page.locator("#image-build").count(), 0);
   // Wasm only offers downloads: each needs a click, and the queue is bounded.
   const automatic = page.waitForEvent("download", { timeout: 1000 }).then(() => true, () => false);
@@ -136,7 +136,7 @@ await browserTest("core", { image }, async ({ server, open }) => {
   }), [false, true, true], "image cache exceeded its entry bound or dropped another runtime's image");
   // Without an embedding policy every HTTP(S) destination is reachable,
   // the page's own origin included.
-  const defaults = await open();
+  const defaults = await open(await workbench());
   assert.equal(await defaults.submit(`curl -fsS ${server.origin}/fixture/http.txt -o /dev/null`), 0);
-  assert.equal(await defaults.submit(`curl -fsS ${server.origin}/Dollyfile${image === "default" ? "" : `-${image}`} -o /tmp/source && cmp /tmp/source /etc/dolly/Dollyfile`), 0);
+  assert.equal(await defaults.submit(`curl -fsS ${server.origin}/Dollyfile-system -o /tmp/source && grep -qx 'TOOLCHAIN system' /tmp/source`), 0);
 });

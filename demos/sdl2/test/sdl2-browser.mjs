@@ -1,17 +1,38 @@
 // The sdl2 package installed on `system`: a source build, RGB565 presentation,
 // text and key input, clicks, pointer presence and blur. Usage: node demos/sdl2/test/sdl2-browser.mjs
 import assert from "node:assert/strict";
+import { browsers } from "../../browsers.mjs";
 import { demoTest, framePoint, installProbe, waitForDisplay } from "../../browser.mjs";
 
-await demoTest("sdl2", { image: "sdl2", timeout: 600_000,
+for (const browser of browsers) await demoTest("sdl2", { browser, image: "sdl2", timeout: 600_000,
   server: { fixtures: { "sdl2-probe.c": "demos/sdl2/test/fixtures/sdl2-probe.c" } } }, async ({ server, open }) => {
-  const { page, run, start } = await open({ ...await installProbe("sdl2"),
+  const { page, run, start } = await open({ ...await installProbe("curl", "sdl2"),
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
-  // Keys with layout-specific text and repeats need Chrome's own key events.
-  const cdp = await page.context().newCDPSession(page);
+  // Keys with layout-specific text and repeats: Chrome's own key events; in Firefox Playwright's
+  // keyboard (a repeated down is a repeat), and the page's key events for text off its layout.
+  const cdp = browser === "chromium" && await page.context().newCDPSession(page);
+  const held = { 8: "Shift", 2: "Control", 4: "Meta" };
   const key = async ({ modifiers = 0, ...event }) => {
+    if (!cdp) {
+      const combination = [...Object.entries(held).filter(([bit]) => modifiers & bit).map(([, name]) => name), event.code || event.key];
+      if (!event.text || /^[\x20-\x7e]$/.test(event.text)) return page.keyboard.press(combination.join("+"));
+      return page.evaluate(({ key, code }) => {
+        const keyboard = document.querySelector("#keyboard");
+        for (const type of ["keydown", "keyup"]) keyboard.dispatchEvent(new KeyboardEvent(type, { key, code, bubbles: true }));
+      }, { key: event.text, code: event.code });
+    }
     await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", modifiers, ...event });
     await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", modifiers, ...event, text: undefined });
+  };
+  const repeat = async () => {
+    if (!cdp) {
+      await page.keyboard.down("KeyX");
+      await page.keyboard.down("KeyX");
+      return page.keyboard.up("KeyX");
+    }
+    await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "x", code: "KeyX", text: "x" });
+    await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "x", code: "KeyX", text: "x", autoRepeat: true });
+    await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "x", code: "KeyX" });
   };
   const displayActive = () => page.waitForFunction(() => __dolly.transport.graphicsActive());
   await run(`mkdir /tmp/dolly-sdl2 && cd /tmp/dolly-sdl2 && curl -fsS ${server.origin}/fixture/sdl2-probe.c -o probe.c && cc -O0 -I/usr/include/SDL2 probe.c -o probe -lSDL2 -lm`);
@@ -33,12 +54,10 @@ await demoTest("sdl2", { image: "sdl2", timeout: 600_000,
   for (const [text, code, modifiers] of [["B", "KeyB", 8], ["!", "Digit1", 8], ["é", "KeyE", 0], ["😀", "", 0]]) {
     await key({ key: text, code, modifiers, text });
   }
-  await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "x", code: "KeyX", text: "x" });
-  await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "x", code: "KeyX", text: "x", autoRepeat: true });
-  await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "x", code: "KeyX" });
-  // Shortcuts, dead keys and navigation produce no text.
+  await repeat();
+  // Shortcuts, dead keys and navigation produce no text (Playwright's keyboard has no dead key).
   for (const [name, code, modifiers] of [["d", "KeyD", 2], ["k", "KeyK", 4], ["Dead", "Quote", 0], ["ArrowLeft", "ArrowLeft", 0]]) {
-    await key({ key: name, code, modifiers });
+    if (cdp || name !== "Dead") await key({ key: name, code, modifiers });
   }
   await page.evaluate(() => {
     const keyboard = document.querySelector("#keyboard");

@@ -19,7 +19,7 @@
 +  set(SDL_TIMER_UNIX 1)
 +  set(HAVE_SDL_TIMERS TRUE)
 +  list(APPEND SOURCE_FILES ${SDL2_SOURCE_DIR}/src/timer/unix/SDL_systimer.c)
-+  # Thread creation remains unsupported. Use SDL's existing serial primitives.
++  # Serial by choice: SDL's own primitives for a target without threads.
 +  set(SDL_THREADS_DISABLED 1)
 +  set(HAVE_SDL_THREADS TRUE)
 +  file(GLOB THREADS_SOURCES ${SDL2_SOURCE_DIR}/src/thread/generic/*.c)

@@ -22,6 +22,7 @@ var air_ticks := 0
 var gain_ticks := 0
 var yaw := 0.0
 var pitch := -0.06
+var turned := Vector2.ZERO     # How far the mouse has turned the view, radians right and up.
 var elapsed := 0.0
 var best := 0.0
 var peak_speed := 0.0
@@ -162,8 +163,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN] and looking:
 			player.jump_queue = 2
 	elif event is InputEventMouseMotion and looking:
-		yaw += event.relative.x * LOOK
-		pitch = clampf(pitch - event.relative.y * LOOK, -1.48, 1.48)
+		# The pointer's own pixels, as Airtime turns, which the stretch to 1280 by 720 leaves unscaled.
+		var motion: Vector2 = event.screen_relative
+		yaw += motion.x * LOOK
+		pitch = clampf(pitch - motion.y * LOOK, -1.48, 1.48)
+		turned += Vector2(motion.x, -motion.y) * LOOK
 	elif event is InputEventKey and not event.echo:
 		var down: bool = event.pressed
 		match event.physical_keycode:
@@ -186,6 +190,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				deaths += 1
 				respawn(false)
 			KEY_Q:
+				print("AIRTIME view %d %d" % [roundi(rad_to_deg(turned.x)), roundi(rad_to_deg(turned.y))])
 				get_tree().quit()
 			KEY_ESCAPE:
 				if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:

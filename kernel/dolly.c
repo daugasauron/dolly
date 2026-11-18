@@ -180,7 +180,7 @@ int dolly_write_file(const char *path, const void *bytes, size_t length) {
   if (path == NULL || !dolly_fs_valid_path(path) ||
       (bytes == NULL && length != 0)) return -EINVAL;
   if (dolly_fs_parents(path, 1) != 0) return -errno;
-  int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+  int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0777);
   if (fd < 0) return -errno;
 
   const unsigned char *cursor = bytes;
@@ -280,9 +280,8 @@ int dolly_process_bootstrap_prepare(uintptr_t size) {
   return 0;
 }
 
-int dolly_process_bootstrap_resume_prepare(uintptr_t size,
-                                           uint32_t resume_uses) {
-  if (resume_uses != 1 || dolly_kernel_boot_environment() != 0) return 1;
+int dolly_process_bootstrap_resume_prepare(uintptr_t size) {
+  if (dolly_kernel_boot_environment() != 0) return 1;
   puts("dolly: restoring image builder");
   fflush(stdout);
   if (dolly_snapshot_restore_staged(size, "/bin/dollyfile") != 0) {

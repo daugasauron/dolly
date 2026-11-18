@@ -1,0 +1,47 @@
+DOLLY 8
+PACKAGE opencolorio
+REQUIRES HOST runtime@0
+REQUIRES HOST threads@0
+
+# OpenColorIO, colour management for film and graphics, from upstream's release
+# archive, unchanged, built by its CMake project over the expat, yaml-cpp,
+# pystring, minizip-ng and Imath packages, for programs the cc package builds:
+# its library, without its programs, Python, GPU tests or SIMD. Compiled with
+# -pthread: a program links it so, on threads@0.
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+INSTALL /demos/tools/Dollyfile-expat b178823faa8bd56e6c52c62f947712b676649d0cdc3b1f6a1ef9fe0cf3551a9d
+INSTALL /demos/tools/Dollyfile-yaml-cpp dd07e204068346fdda0169ef43f9d8507c117b151d7f68314c74a129a2367264
+INSTALL /demos/tools/Dollyfile-pystring 624014a3070f0f2f3deb644e789a9d0b59acda92a80b6ecd24557cccbb66f907
+INSTALL /demos/tools/Dollyfile-minizip-ng a01244e013a1f0da270c29bb61db3fbf9ccfc240d181ec0492686c3f7caf17e8
+INSTALL /demos/tools/Dollyfile-imath a3569353a9d737851791da0ca7fb197fe58a1728b627e30bc309c4833a564d3b
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES LIB expat
+REQUIRES LIB yaml-cpp
+REQUIRES LIB pystring
+REQUIRES LIB minizip
+REQUIRES LIB Imath
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /dist/static/opencolorio/source.tar.gz 209a8529d4a36bfcfa1bc8de934f11d1489760749b0541271d6f854afe82176a /tmp/opencolorio.tar.gz
+SLOP gzip -dc /tmp/opencolorio.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/opencolorio -B /tmp/opencolorio-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_C_FLAGS=-pthread -DCMAKE_CXX_FLAGS=-pthread -DOCIO_BUILD_APPS=OFF \
+  -DOCIO_BUILD_PYTHON=OFF -DOCIO_BUILD_NUKE=OFF -DOCIO_BUILD_JAVA=OFF -DOCIO_BUILD_DOCS=OFF -DOCIO_BUILD_TESTS=OFF \
+  -DOCIO_BUILD_GPU_TESTS=OFF -DOCIO_USE_SIMD=OFF -DOCIO_INSTALL_EXT_PACKAGES=NONE -Dyaml-cpp_VERSION=0.8.0
+SLOP cmake --build /tmp/opencolorio-build -j4
+SLOP cmake --install /tmp/opencolorio-build
+
+EXPORTS LIB    OpenColorIO       /usr/lib/libOpenColorIO.a
+EXPORTS HEADER OpenColorIO       /usr/include/OpenColorIO
+EXPORTS FOLDER opencolorio-cmake /usr/lib/cmake/OpenColorIO
+# The find modules OpenColorIO's CMake package locates its static libraries with.
+FOLDER /usr/share/OpenColorIO
+FILE /usr/lib/pkgconfig/OpenColorIO.pc
+FOLDER /usr/share/licenses/opencolorio
+SLOP rm -rf /tmp/opencolorio /tmp/opencolorio-build /tmp/opencolorio.tar.gz

@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE llama-cpp
 REQUIRES HOST runtime@0
 REQUIRES HOST gpu@0
@@ -9,8 +9,8 @@ REQUIRES HOST gpu@0
 # webgpu.cpp, the WebGPU C API that backend calls, over gpu@0. For programs the
 # cc package builds: they link the archives in /usr/lib/dolly-llm with
 # -ldolly-gpu, which the package brings, and need gpu@0.
-FROM /v0.1.6/demos/cmake/Dollyfile-cmake-build f84837ea83bbeefd78cd596af30b787cb49a2b3e9f9f5c066966ae7e892a5676
-INSTALL /v0.1.6/Dollyfile-libdolly-gpu 4e414e02d7bdbdb758df4be150f49ff2223d992b07249a67da2fca57b291ad88
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+INSTALL /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
 REQUIRES HEADER gpu
 REQUIRES LIB dolly-gpu
 REQUIRES TOOL ar
@@ -21,7 +21,7 @@ REQUIRES TOOL make
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE /v0.1.6/dist/static/llama/source.tar b008360243cca6d71ce6364c0bd8fe60dfcb9ed7dc5202e08efeb9bc9a72d78e /tmp/llama-source.tar
+SOURCE /dist/static/llama/source.tar b008360243cca6d71ce6364c0bd8fe60dfcb9ed7dc5202e08efeb9bc9a72d78e /tmp/llama-source.tar
 SLOP tar -xf /tmp/llama-source.tar -C /
 SLOP cmake -S /tmp/llama -B /tmp/llama/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \

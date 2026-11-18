@@ -4,7 +4,7 @@
   "steps": [
     {
       "why": "Every command on PATH has a page, which is text: its first line is no macro. The loop prints the names that failed.",
-      "script": "rm -f /tmp/pageless; for file in /bin/* /usr/bin/*; do name=${file##*/}; man \"$name\" > /tmp/page && sed 1q /tmp/page | grep -qv '^[.]' || echo \"$name\" >> /tmp/pageless; done; ! cat /tmp/pageless 2> /dev/null",
+      "script": "rm -f /tmp/pageless; for file in /bin/* /usr/bin/*; do test -e \"$file\" || continue; name=${file##*/}; man \"$name\" > /tmp/page && sed 1q /tmp/page | grep -qv '^[.]' || echo \"$name\" >> /tmp/pageless; done; ! cat /tmp/pageless 2> /dev/null",
       "status": 0
     },
     {
@@ -59,7 +59,7 @@
       "status": 1
     },
     { "script": "amy install git && man git > /tmp/page && git --help > /tmp/help && cmp /tmp/page /tmp/help", "status": 0 },
-    { "script": "rm -f /tmp/pageless; for file in /bin/* /usr/bin/*; do name=${file##*/}; man \"$name\" > /tmp/page && sed 1q /tmp/page | grep -qv '^[.]' || echo \"$name\" >> /tmp/pageless; done; ! cat /tmp/pageless 2> /dev/null", "status": 0 },
+    { "script": "rm -f /tmp/pageless; for file in /bin/* /usr/bin/*; do test -e \"$file\" || continue; name=${file##*/}; man \"$name\" > /tmp/page && sed 1q /tmp/page | grep -qv '^[.]' || echo \"$name\" >> /tmp/pageless; done; ! cat /tmp/pageless 2> /dev/null", "status": 0 },
     { "script": "rm -f /tmp/helpless; for file in /bin/* /usr/bin/*; do name=${file##*/}; if test -e \"/usr/share/man/cat1/$name.1\" && ! sed 1q \"/usr/share/man/cat1/$name.1\" | grep -q '^[A-Z].*([1-9])' && test \"$name\" != test && test \"$name\" != \"[\" && test \"$name\" != echo; then \"$file\" --help > /tmp/help && test -s /tmp/help || echo \"$name\" >> /tmp/helpless; fi; done; ! cat /tmp/helpless 2> /dev/null", "status": 0 }
   ]
 }

@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE premake
 REQUIRES HOST runtime@0
 
@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # that generate their Makefiles with it. Bootstrap.mak's two stages run
 # directly, its own make -j being unbounded: a premake that loads its scripts,
 # then one with them embedded.
-FROM /v0.1.6/Dollyfile-system-tools 69127104c12ae52e00d0e0a8787c3c99ece25f59a2c382fc9c811d66a090e5ec
+FROM /Dollyfile-system-tools 1606024fba5919c1fb6c0369ad86cc69f3ecf38099dff75bddb3eccb97da71e5
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL gzip
@@ -15,7 +15,7 @@ REQUIRES TOOL patch
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.6/dist/static/premake/source.tar.gz 1629f9db03329c6196ce90e9457b423cef9dd23e6a45f180888e5285aedb6a55 /tmp/premake.tar.gz
+SOURCE /dist/static/premake/source.tar.gz 1629f9db03329c6196ce90e9457b423cef9dd23e6a45f180888e5285aedb6a55 /tmp/premake.tar.gz
 SLOP gzip -dc /tmp/premake.tar.gz | tar -xf - -C /
 SLOP patch -p1 -d /tmp/premake/source -i /tmp/premake/dolly.patch
 FILE /tmp/premake/build.slop

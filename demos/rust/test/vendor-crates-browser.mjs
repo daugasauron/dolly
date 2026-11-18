@@ -5,10 +5,11 @@
 // optional dependency a feature enables, another target's dependency and no
 // dependency's dev-dependency; then a crate whose checksum does not match, and
 // a Cargo.lock's versions without the index.
-// Usage: node demos/rust/test/vendor-crates-browser.mjs [chromium|firefox ...]
+// Usage: [DOLLY_BROWSER=firefox] node demos/rust/test/vendor-crates-browser.mjs
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
+import { browsers } from "../../browsers.mjs";
 import { demoTest, redirectFetch, writeCommand } from "../../browser.mjs";
 import { tarEntry } from "./fixtures/cargo.mjs";
 
@@ -52,7 +53,6 @@ const handle = (request, response, path, headers) => {
   return true;
 };
 
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 for (const browser of browsers) {
   requests.length = 0;
   await demoTest("vendor-crates", { image: "default", timeout: 600_000, browser, server: { handle } }, async ({ server, open }) => {

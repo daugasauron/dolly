@@ -1,6 +1,7 @@
 // A saved session opens without a network: the save keeps the site's runtime in
-// the browser (site/offline.mjs), and once the server answers nothing its page,
-// the runtime and the files all come from there. A page that was not kept fails.
+// the browser (host/snapshot/offline.mjs), and once the server answers nothing
+// its page, the runtime and the files all come from there. A page that was not
+// kept fails.
 import assert from "node:assert/strict";
 import { browserTest, composed } from "./browser.mjs";
 

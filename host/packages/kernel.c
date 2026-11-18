@@ -1,6 +1,10 @@
 // packages@0 kernel side: one request at a time, written into a temporary file
 // chunk by chunk as the page answers and renamed to its destination at the end
-// (dolly-packages-0.wat), as upload@0 writes a file the user picked.
+// (dolly-packages-0.wat), as upload@0 writes a file the user picked. The
+// mailbox serves one process from its first request until it ends, as an amy
+// command fetches a package and then the rows it needs into the same files:
+// another process's request is deferred, retried each scheduling turn, until
+// then.
 #include <errno.h>
 #include <limits.h>
 #include <stddef.h>
@@ -36,7 +40,8 @@ _Static_assert(
     offsetof(dolly_packages_mailbox, data) == DOLLY_PACKAGES_CHUNK_OFFSET,
     "packages mailbox layout differs from dolly-packages-0.wat");
 _Alignas(64) static dolly_packages_mailbox mailbox;
-static int owner;
+// The process whose request is in progress, and the one the mailbox serves.
+static int owner, holder;
 static int descriptor = -1;
 static char *temporary;
 static char *destination;
@@ -69,7 +74,7 @@ static int valid_pin(const char *pin) {
 // directory and pin from the mailbox.
 static int64_t packages_begin(int pid, const dolly_packages_request *request, const char *path, const char *directory) {
   const uint32_t previous = atomic_load(&mailbox.request);
-  if (previous != atomic_load(&mailbox.completed)) return -EBUSY;
+  if (previous != atomic_load(&mailbox.completed)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
   struct stat metadata;
   if (lstat(path, &metadata) == 0) return -EEXIST;
   if (errno != ENOENT) return -errno;
@@ -101,7 +106,8 @@ static int64_t packages_fetch(int pid, const dolly_packages_request *request, co
     packages_cancel(pid);
     return -ENOSYS;
   }
-  if (owner != 0 && owner != pid) return -EBUSY;
+  if (holder != 0 && holder != pid) return DOLLY_PROCESS_DISPATCH_DEFERRED;
+  holder = pid;
   if (owner == 0) return packages_begin(pid, request, path, directory);
   if (strcmp(destination, path) != 0) return -EBUSY;
   const uint32_t chunk = atomic_load(&mailbox.chunk);
@@ -166,7 +172,9 @@ static int64_t packages_call(int pid, int tid, uint32_t operation, unsigned char
 }
 
 static void packages_release(int pid, int tid) {
-  if (tid == 0) packages_cancel(pid);
+  if (tid != 0) return;
+  packages_cancel(pid);
+  if (holder == pid) holder = 0;
 }
 
 const dolly_kernel_module dolly_packages_kernel = {

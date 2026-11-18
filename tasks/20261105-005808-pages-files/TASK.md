@@ -1,6 +1,6 @@
 # Pages' 20,000 files for v0.1.6 beside every published version
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: release,deployment
 
@@ -45,3 +45,15 @@ dynamic redirects, or the page's pack base), which counts each pack once. Versio
 nothing by design (`docs/deployment.md`), so this changes that rule for packs, which are
 content-addressed. Done when v0.1.0 to v0.1.6 export within 20,000 files and boot from a
 locally served deployment.
+
+## Closed (2026-11-16, the audit)
+
+The done-when of 2026-11-07 holds. v0.1.6 was deployed with v0.1.0 to v0.1.3 retired, and v0.1.7
+with v0.1.4 retired too: `work/locks/retired/` holds v0.1.0 to v0.1.4, `work/locks/published/`
+v0.1.5 to v0.1.7. The v0.1.7 deployment is 15,092 files with 16 header rules
+(`work/round1113/build/release-0.1.7-evidence/checklist.log`). v0.1.6's release notes say "v0.1.0 to
+v0.1.3 are no longer online", v0.1.7's say the same of v0.1.4. On 2026-11-16 at 13:46 UTC,
+`/v0.1.0/` and `/v0.1.3/` answered 404 on both domains. `/v0.1.4/` and
+`/v0.1.4/default/` still answered 200 from Cloudflare's edge (`age` 45 h), while v0.1.4's other
+paths answered 404. That leftover is filed as `tasks/20261116-135534-repo-03` (evidence in
+`work/audit-1116-evidence/repo/live-retired-v014.txt`).

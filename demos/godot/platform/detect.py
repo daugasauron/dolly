@@ -71,8 +71,8 @@ def configure(env: "SConsEnvironment"):
         env.Append(LIBS=["spirv-wgsl"])
     if env["opengl3"]:
         # The Compatibility renderer on Mesa's OpenGL, linked in: EGL and its
-        # gallium driver, softpipe (mesa-build). GLAD takes the functions from
-        # eglGetProcAddress.
+        # gallium driver, softpipe (the mesa package). GLAD takes the functions
+        # from eglGetProcAddress.
         env.Prepend(CPPPATH=["#thirdparty/glad"])
         env.Append(CPPDEFINES=["GLES3_ENABLED", "GLAD_ENABLED", "GLAD_GLES2", "EGL_ENABLED", "EGL_STATIC"])
         env.Append(LIBS=["EGL", "gallium_dri", "z", "m"])

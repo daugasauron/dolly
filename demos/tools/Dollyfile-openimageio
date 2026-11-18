@@ -1,0 +1,83 @@
+DOLLY 8
+PACKAGE openimageio
+REQUIRES HOST runtime@0
+REQUIRES HOST threads@0
+
+# OpenImageIO, which reads, writes and processes the images of film and
+# graphics, from upstream's release archive with openimageio-dolly.patch
+# (Dolly beside Emscripten in its lists of systems, WebAssembly's int64_t, and
+# ustring's plain path for this libc++), built by its CMake project over the
+# OpenEXR, libtiff, libjpeg-turbo, libpng, pugixml, {fmt} and OpenColorIO
+# packages: its libraries and its programs (oiiotool, iinfo, iconvert, idiff, igrep, maketx,
+# testtex) with -pthread, on threads@0. No TBB, FreeType, video, camera raw,
+# HEIF, WebP, GIF, JPEG 2000 or OpenGL.
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+INSTALL /demos/tools/Dollyfile-openexr c1965396dd436bdf404514605d9b29c518c865b989b076e8d7451ffa6c81b27c
+INSTALL /demos/tools/Dollyfile-libtiff 7d9e63783c9c99e4e9a90184e546ec8b21eee2f926cdc9614a144f9d1d245bf3
+INSTALL /demos/tools/Dollyfile-libpng b30b694311392c7242c13b8d263d86fa14806f27657ed493bdf5d5a487850b6d
+INSTALL /demos/tools/Dollyfile-pugixml 8935115aed96c4d664514720d00d043c611482951d029c0eac320346ccf771ce
+INSTALL /demos/tools/Dollyfile-fmt de962c9c55465cab32d8996d673d856e4d891832b9af300aa76446943a00a483
+INSTALL /demos/tools/Dollyfile-opencolorio 168f390e67f7385c9c4e794e30fc74025ad82be8c1ed690b161bf46545094752
+USE /demos/tools/Dollyfile-robin-map c75b52aac6155bd0e357e8a325e7d68a5f43bc3574d8ce56748a27b1f05e2ddf
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES HEADER tsl
+REQUIRES LIB OpenEXR
+REQUIRES LIB tiff
+REQUIRES LIB jpeg
+REQUIRES LIB png16
+REQUIRES LIB pugixml
+REQUIRES LIB fmt
+REQUIRES LIB OpenColorIO
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL patch
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+REQUIRES TOOL test
+
+SOURCE /dist/static/openimageio/source.tar.gz 998905e686d2bbda1d020d525621a9b99a55466f447d02f08cc3b5abc4ff546b /tmp/openimageio.tar.gz
+SOURCE /dist/static/openimageio/openimageio-dolly.patch 381fafeeb5a5e9dd9125b748f55247ac1b30a8a9f870cb274c9b114e3bec7994 /tmp/openimageio-dolly.patch
+SLOP gzip -dc /tmp/openimageio.tar.gz | tar -xf - -C /
+SLOP patch -p1 -d /tmp/openimageio -i /tmp/openimageio-dolly.patch
+SLOP cmake -S /tmp/openimageio -B /tmp/openimageio-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_C_FLAGS=-pthread -DCMAKE_CXX_FLAGS=-pthread \
+  -DUSE_PYTHON=OFF -DOIIO_BUILD_TOOLS=ON -DOIIO_BUILD_TESTS=OFF -DBUILD_TESTING=OFF -DBUILD_DOCS=OFF \
+  -DINSTALL_DOCS=OFF -DSTOP_ON_WARNING=OFF -DLINKSTATIC=ON -DUSE_EXTERNAL_PUGIXML=ON -DUSE_TBB=OFF \
+  -DUSE_FREETYPE=OFF -DUSE_QT=OFF -DUSE_OPENCV=OFF -DUSE_FFMPEG=OFF -DUSE_NUKE=OFF -DUSE_OPENVDB=OFF \
+  -DUSE_GIF=OFF -DUSE_LIBRAW=OFF -DUSE_LIBHEIF=OFF -DUSE_PTEX=OFF -DUSE_WEBP=OFF -DUSE_OPENJPEG=OFF \
+  -DUSE_JXL=OFF -DUSE_DCMTK=OFF -DUSE_R3DSDK=OFF -DUSE_OPENGL=OFF -DOpenImageIO_BUILD_MISSING_DEPS=none
+SLOP cmake --build /tmp/openimageio-build -j4
+SLOP cmake --install /tmp/openimageio-build
+
+EXPORTS LIB    OpenImageIO       /usr/lib/libOpenImageIO.a
+EXPORTS LIB    OpenImageIO_Util  /usr/lib/libOpenImageIO_Util.a
+EXPORTS HEADER OpenImageIO       /usr/include/OpenImageIO
+EXPORTS FOLDER openimageio-cmake /usr/lib/cmake/OpenImageIO
+EXPORTS TOOL oiiotool
+EXPORTS TOOL iconvert
+EXPORTS TOOL idiff
+EXPORTS TOOL igrep
+EXPORTS TOOL iinfo
+EXPORTS TOOL maketx
+EXPORTS TOOL testtex
+# Each program's --help as its page.
+SLOP oiiotool --help > /usr/share/man/cat1/oiiotool.1 || test -s /usr/share/man/cat1/oiiotool.1
+SLOP iinfo --help > /usr/share/man/cat1/iinfo.1 || test -s /usr/share/man/cat1/iinfo.1
+SLOP iconvert --help > /usr/share/man/cat1/iconvert.1 || test -s /usr/share/man/cat1/iconvert.1
+SLOP idiff --help > /usr/share/man/cat1/idiff.1 || test -s /usr/share/man/cat1/idiff.1
+SLOP igrep --help > /usr/share/man/cat1/igrep.1 || test -s /usr/share/man/cat1/igrep.1
+SLOP maketx --help > /usr/share/man/cat1/maketx.1 || test -s /usr/share/man/cat1/maketx.1
+SLOP testtex --help > /usr/share/man/cat1/testtex.1 || test -s /usr/share/man/cat1/testtex.1
+FILE /usr/share/man/cat1/oiiotool.1
+FILE /usr/share/man/cat1/iinfo.1
+FILE /usr/share/man/cat1/iconvert.1
+FILE /usr/share/man/cat1/idiff.1
+FILE /usr/share/man/cat1/igrep.1
+FILE /usr/share/man/cat1/maketx.1
+FILE /usr/share/man/cat1/testtex.1
+FILE /usr/lib/pkgconfig/OpenImageIO.pc
+FOLDER /usr/share/licenses/openimageio
+SLOP rm -rf /tmp/openimageio /tmp/openimageio-build /tmp/openimageio.tar.gz /tmp/openimageio-dolly.patch

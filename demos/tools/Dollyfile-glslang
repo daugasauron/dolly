@@ -1,0 +1,39 @@
+DOLLY 8
+PACKAGE glslang
+REQUIRES HOST runtime@0
+REQUIRES HOST threads@0
+
+# glslang, Khronos's GLSL front end and SPIR-V writer (Blender's WebGPU
+# backend compiles its GLSL to SPIR-V with it), at the commit Blender pins for
+# its shaderc, unchanged, built by its CMake project as static libraries for
+# programs the cc package builds: no HLSL, no optimizer, no programs. Its
+# CMake package links Threads, so it is compiled with -pthread.
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /dist/static/glslang/source.tar.gz aa546b0cc358b1123ecb9e35b7e0521a054e01e31839247a24d5f227459e1d6f /tmp/glslang.tar.gz
+SLOP gzip -dc /tmp/glslang.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/glslang -B /tmp/glslang-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_C_FLAGS=-pthread -DCMAKE_CXX_FLAGS=-pthread \
+  -DENABLE_OPT=OFF -DGLSLANG_TESTS=OFF -DENABLE_GLSLANG_BINARIES=OFF -DENABLE_HLSL=OFF -DENABLE_PCH=OFF \
+  -DBUILD_EXTERNAL=OFF -DENABLE_SPVREMAPPER=OFF
+SLOP cmake --build /tmp/glslang-build -j4
+SLOP cmake --install /tmp/glslang-build
+
+EXPORTS LIB    glslang       /usr/lib/libglslang.a
+EXPORTS HEADER glslang       /usr/include/glslang
+EXPORTS FOLDER glslang-cmake /usr/lib/cmake/glslang
+FILE /usr/lib/libGenericCodeGen.a
+FILE /usr/lib/libMachineIndependent.a
+FILE /usr/lib/libOSDependent.a
+FILE /usr/lib/libSPIRV.a
+FILE /usr/lib/libglslang-default-resource-limits.a
+FILE /usr/share/licenses/glslang/LICENSE.txt
+SLOP rm -rf /tmp/glslang /tmp/glslang-build /tmp/glslang.tar.gz

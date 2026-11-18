@@ -11,7 +11,7 @@ const fileInput = document.querySelector("#dollyfile-upload");
 const storageKey = "dolly-custom-source";
 const base = DOLLY_IMAGES.find(image => image.image === "system") ?? DOLLY_IMAGES[0];
 try {
-  source.value = sessionStorage.getItem(storageKey) ?? `DOLLY 7
+  source.value = sessionStorage.getItem(storageKey) ?? `DOLLY 8
 APPLICATION custom
 ${base.hostRequirements.map(requirement => `REQUIRES HOST ${requirement}\n`).join("")}
 FROM ${siteReference(base.dollyfile)} ${base.sha256}

@@ -1,6 +1,6 @@
 # A compiler that reads stdin and fails is retried on the consumed input and exits 0
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: compiler,bug,process
 

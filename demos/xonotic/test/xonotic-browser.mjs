@@ -1,22 +1,26 @@
 // The dedicated server built in the xonotic-build image runs Xonotic's own
 // server benchmark (serverbench.cfg: bots only, benchmark clock) to the end of
-// the match, from the release's pk3 archives fetched into the shared
-// filesystem; then the client draws its menu and a live match, which it records
+// the match, from the release's pk3 archives, which curl (composed onto the
+// image) fetches into the shared filesystem; then the client draws its menu and a
+// live match, which it records
 // and replays as a timedemo, and a SIGKILL ends it with the shell intact.
 // Usage: node demos/xonotic/test/xonotic-browser.mjs
 // With DISPLAY, Chrome runs in a window with the GPU's adapter and the client
-// draws on gpu@0; headless, or with DOLLY_BROWSER=firefox, gpu@0 has no adapter
-// and the client falls back to the engine's software rasterizer.
+// draws on gpu@0; headless, or in Firefox, gpu@0 has no adapter, the client falls
+// back to the engine's software rasterizer and the run checks its menu's frame alone,
+// the rest being the window's run.
 import assert from "node:assert/strict";
+import { browsers } from "../../browsers.mjs";
 import { delay, demoTest, heardAudio, meterAudio, snapshotDisplay } from "../../browser.mjs";
+import { composed } from "../../../test/browser.mjs";
 
 const archives = ["xonotic-20230620-data.pk3", "xonotic-20230620-maps.pk3"];
 const fonts = ["font-xolonium-20230620.pk3", "font-unifont-20230620.pk3"];
 const fixtures = Object.fromEntries([...archives, ...fonts].map(name => [name, `.cache/xonotic/release/Xonotic/data/${name}`]));
 const basedir = "/home/dolly/xonotic";
 const userdir = "/home/dolly/.xonotic/data";
-const browser = process.env.DOLLY_BROWSER ?? "chromium";
-const gpu = browser === "chromium" && Boolean(process.env.DISPLAY);
+// On gpu@0, in Chrome on DISPLAY, for the browser being run.
+let gpu;
 const client = `cd ${basedir} && xonotic-sdl -xonotic -basedir ${basedir} +vid_soft 1 +vid_soft_threads 1 +vid_fullscreen 0 ` +
   "+vid_width 1024 +vid_height 768";
 
@@ -60,54 +64,59 @@ async function frame(page) {
     measureFrame(displaySnapshot.getContext("2d").getImageData(0, 0, 1024, 768).data) : null);
 }
 
-await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser, webgpu: gpu ? "window" : false,
+for (const browser of browsers) await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser,
+  webgpu: (gpu = browser === "chromium" && Boolean(process.env.DISPLAY)) ? "window" : false,
   server: { fixtures } }, async ({ server, open }) => {
   const { page, run, start, text } = await open({ policy: { rules: [
     { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"], maxResponseBytes: 1024 * 1024 * 1024 }] },
-    setup: page => page.addInitScript(meterAudio) });
+    ...await composed(["http"], ["curl"], { base: "xonotic-build", setup: page => page.addInitScript(meterAudio) }) });
   // The client's sound plays through audio@0, which may wait for a user interaction.
   await page.mouse.click(10, 10);
   await run(`mkdir -p ${basedir}/data && cd ${basedir}/data && ` +
     archives.map(name => `curl -fsS ${server.origin}/fixture/${name} -o ${name}`).join(" && "));
   await run(`ls -l ${basedir}/data`);
 
-  // sv_eventlog in serverbench.cfg writes :gamestart and :end; quit_and_redirect ends the process.
-  // log_file is relative to the user directory, ~/.xonotic/data.
-  const started = performance.now();
-  const match = start(`cd ${basedir} && xonotic-dedicated -xonotic -basedir ${basedir} +exec serverbench.cfg ` +
-    "+bot_number 8 +maxplayers 16 +timelimit_override 1 +log_file match.log");
-  const log = "/home/dolly/.xonotic/data/match.log";
-  let peakBytes = 0;
-  while (match.status === null) {
-    await delay(2000);
-    // The page's memory, Workers included; Firefox has no such measurement.
-    const bytes = await page.evaluate(() => performance.measureUserAgentSpecificMemory?.().then(result => result.bytes)).catch(() => 0);
-    peakBytes = Math.max(peakBytes, bytes ?? 0);
-  }
-  const seconds = (performance.now() - started) / 1000;
-  assert.equal(match.status, 0, "the server must quit after the match");
-  // Lines keep their colour code prefix (^7) in the file.
-  await run(`grep -q ':gamestart:' ${log}`);
-  await run(`grep -q ':end$' ${log}`);
-  await run(`grep ':scores:' ${log}`);
-  await run("ls -l /usr/bin/xonotic-dedicated /usr/bin/gmqcc");
-  console.log((await text()).split("\n").filter(line => /:scores:|xonotic-dedicated$|gmqcc$/.test(line)).join("\n"));
-  console.log(`xonotic: serverbench with 8 bots ran to its end in ${seconds.toFixed(1)}s; page memory peak ${(peakBytes / 1048576).toFixed(0)} MiB`);
+  // Without a GPU window the run checks the software path alone, the menu's frame below;
+  // with one (the GPU stage, demos/run-browser-tests.mjs --display) it runs whole.
+  if (gpu) {
+    // sv_eventlog in serverbench.cfg writes :gamestart and :end; quit_and_redirect ends the process.
+    // log_file is relative to the user directory, ~/.xonotic/data.
+    const started = performance.now();
+    const match = start(`cd ${basedir} && xonotic-dedicated -xonotic -basedir ${basedir} +exec serverbench.cfg ` +
+      "+bot_number 8 +maxplayers 16 +timelimit_override 1 +log_file match.log");
+    const log = "/home/dolly/.xonotic/data/match.log";
+    let peakBytes = 0;
+    while (match.status === null) {
+      await delay(2000);
+      // The page's memory, Workers included; Firefox has no such measurement.
+      const bytes = await page.evaluate(() => performance.measureUserAgentSpecificMemory?.().then(result => result.bytes)).catch(() => 0);
+      peakBytes = Math.max(peakBytes, bytes ?? 0);
+    }
+    const seconds = (performance.now() - started) / 1000;
+    assert.equal(match.status, 0, "the server must quit after the match");
+    // Lines keep their colour code prefix (^7) in the file.
+    await run(`grep -q ':gamestart:' ${log}`);
+    await run(`grep -q ':end$' ${log}`);
+    await run(`grep ':scores:' ${log}`);
+    await run("ls -l /usr/bin/xonotic-dedicated /usr/bin/gmqcc");
+    console.log((await text()).split("\n").filter(line => /:scores:|xonotic-dedicated$|gmqcc$/.test(line)).join("\n"));
+    console.log(`xonotic: serverbench with 8 bots ran to its end in ${seconds.toFixed(1)}s; page memory peak ${(peakBytes / 1048576).toFixed(0)} MiB`);
 
-  // QuakeC: gmqcc rebuilds the three programs; the rebuilt server logic, placed
-  // as a loose file above the pk3, then runs a second match to its end.
-  const compiled = performance.now();
-  await run("make -f /usr/src/dolly/xonotic/Makefile qc");
-  const qc = "/tmp/xonotic/build/qc";
-  await run(`ls -l ${qc}/progs.dat ${qc}/csprogs.dat ${qc}/menu.dat && sha256sum ${qc}/progs.dat ${qc}/csprogs.dat ${qc}/menu.dat`);
-  console.log((await text()).split("\n").filter(line => /\.dat$/.test(line)).join("\n"));
-  console.log(`xonotic: gmqcc rebuilt progs.dat, csprogs.dat and menu.dat in ${((performance.now() - compiled) / 1000).toFixed(1)}s`);
-  await run(`cp ${qc}/progs.dat ${basedir}/data/progs.dat && rm ${log}`);
-  const rematch = start(`cd ${basedir} && xonotic-dedicated -xonotic -basedir ${basedir} +exec serverbench.cfg ` +
-    "+bot_number 8 +maxplayers 16 +timelimit_override 1 +log_file match.log +which progs.dat");
-  assert.equal(await rematch.done, 0, "the server must quit after the match on the rebuilt progs.dat");
-  await run(`grep -q 'progs.dat is file ${basedir}/data/progs.dat' ${log} && grep -q ':end$' ${log}`);
-  console.log("xonotic: the match ran to its end on the progs.dat built in Dolly");
+    // QuakeC: gmqcc rebuilds the three programs; the rebuilt server logic, placed
+    // as a loose file above the pk3, then runs a second match to its end.
+    const compiled = performance.now();
+    await run("make -f /usr/src/dolly/xonotic/Makefile qc");
+    const qc = "/tmp/xonotic/build/qc";
+    await run(`ls -l ${qc}/progs.dat ${qc}/csprogs.dat ${qc}/menu.dat && sha256sum ${qc}/progs.dat ${qc}/csprogs.dat ${qc}/menu.dat`);
+    console.log((await text()).split("\n").filter(line => /\.dat$/.test(line)).join("\n"));
+    console.log(`xonotic: gmqcc rebuilt progs.dat, csprogs.dat and menu.dat in ${((performance.now() - compiled) / 1000).toFixed(1)}s`);
+    await run(`cp ${qc}/progs.dat ${basedir}/data/progs.dat && rm ${log}`);
+    const rematch = start(`cd ${basedir} && xonotic-dedicated -xonotic -basedir ${basedir} +exec serverbench.cfg ` +
+      "+bot_number 8 +maxplayers 16 +timelimit_override 1 +log_file match.log +which progs.dat");
+    assert.equal(await rematch.done, 0, "the server must quit after the match on the rebuilt progs.dat");
+    await run(`grep -q 'progs.dat is file ${basedir}/data/progs.dat' ${log} && grep -q ':end$' ${log}`);
+    console.log("xonotic: the match ran to its end on the progs.dat built in Dolly");
+  }
 
   // The SDL client draws its menu through the engine's software render path,
   // on gpu@0 (dpgpurast.c) or in the engine's software rasterizer (Wasm SIMD)
@@ -175,6 +184,7 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser,
   await page.waitForFunction(() => !__dolly.transport.graphicsActive()); // the display is released
   await run("echo SHELL-BACK");
   console.log("xonotic: the client drew a frame and quit back to the shell");
+  if (!gpu) return;
 
   // The ultimate preset asks for offset and relief mapping and renders shadow maps into depth
   // textures, which dpgpurast does not draw: on gpu@0 no permutation lacks its WGSL, no packet is

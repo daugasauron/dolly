@@ -1,6 +1,6 @@
 # Rust, Cargo and Zig built inside Dolly: what they left open
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 90
 - TAGS: toolchain,rust,zig,bootstrap
 
@@ -252,3 +252,16 @@ Each is fixed or has its own task.
 - Changing anything in `demos/rust/toolchain/` or `config/` re-keys the rustc archive, whose
   staging reads the seed's prepared tree (`build/rustc-port`): a tree with only the seed's
   tarball cannot stage it.
+
+## Closed (2026-11-16, the audit): what is left is recorded or not wanted
+
+Nothing was taken from "Still open" after 2026-11-04. Each item is either a limit the demo's README
+now states, or a question no decision waits on:
+- A failing doc test before edition 2024 ends rustdoc: `demos/rust/README.md:91-94` states it.
+- Network Cargo: `demos/rust/README.md:114` states that there is no `cargo search`, `publish` or
+  `login`, and `vendor-crates` covers crates.io.
+- A parallel Codex build against a serial one, byte for byte: no build or test depends on it.
+- `libdisplay.so` at `-Oz`, 19.4% smaller, its speed not measured: it rebuilds every image, and no
+  task asks for it. The measurement stays above.
+- The committed generated Ghostty files: a bootstrap exception, recorded in
+  `tasks/20261116-141243-repo-08` (item 7) for `docs/sources.md`.

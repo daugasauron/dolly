@@ -1,0 +1,34 @@
+{
+  "image": "default",
+  "directory": "/tmp/amy-rust",
+  "steps": [
+    {
+      "fresh": true,
+      "why": "rustc links through cc, which the package installs.",
+      "script": "! command -v rustc",
+      "status": 0
+    },
+    { "script": "amy install rust", "status": 0 },
+    { "script": "printf 'fn main() { println!(\"{}\", 6 * 7); }\\n' > /tmp/amy.rs && rustc /tmp/amy.rs -o /tmp/amy && test \"$(/tmp/amy)\" = 42", "status": 0 },
+    {
+      "fresh": true,
+      "why": "Cargo runs a crate, its compiler and cc brought with it.",
+      "script": "! command -v cargo",
+      "status": 0
+    },
+    { "script": "amy install cargo", "status": 0 },
+    { "script": "mkdir -p /tmp/amy-crate/src && cd /tmp/amy-crate && printf '[package]\\nname = \"amy-crate\"\\nversion = \"0.1.0\"\\nedition = \"2021\"\\n' > Cargo.toml && printf 'fn main() { println!(\"{}\", 6 * 7); }\\n' > src/main.rs && test \"$(cargo run --offline --quiet)\" = 42", "status": 0 },
+    { "fresh": true, "script": "! command -v rg", "status": 0 },
+    { "script": "amy install ripgrep", "status": 0 },
+    { "script": "mkdir /tmp/amy-hay && echo needle > /tmp/amy-hay/stack && rg -q needle /tmp/amy-hay", "status": 0 },
+    { "fresh": true, "script": "! command -v fd", "status": 0 },
+    { "script": "amy install fd", "status": 0 },
+    { "script": "mkdir /tmp/amy-hay && echo needle > /tmp/amy-hay/stack && test \"$(fd stack /tmp/amy-hay)\" = /tmp/amy-hay/stack", "status": 0 },
+    { "fresh": true, "script": "! command -v protox", "status": 0 },
+    { "script": "amy install protox", "status": 0 },
+    { "script": "cd /tmp && printf 'syntax = \"proto3\";\\nmessage Probe { string name = 1; }\\n' > amy.proto && protox amy.proto -o amy.pb && test -s amy.pb", "status": 0 },
+    { "fresh": true, "script": "! command -v cbindgen", "status": 0 },
+    { "script": "amy install cbindgen", "status": 0 },
+    { "script": "printf '#[no_mangle]\\npub extern \"C\" fn answer() -> i32 { 42 }\\n' > /tmp/amy-answer.rs && cbindgen /tmp/amy-answer.rs | grep -q 'int32_t answer'", "status": 0 }
+  ]
+}

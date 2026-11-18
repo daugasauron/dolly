@@ -17,8 +17,8 @@
       "status": 0
     },
     {
-      "why": "cc is recorded before zig.",
-      "script": "names=; while read row path pin; do names=\"$names ${path##*Dollyfile-}\"; done < /etc/dolly/installed; test \"$names\" = ' core display cc zig'",
+      "why": "cc is recorded before zig, and make, which cc installs, before cc.",
+      "script": "names=; while read row path pin; do names=\"$names ${path##*Dollyfile-}\"; done < /etc/dolly/installed; test \"$names\" = ' core display make cc zig'",
       "status": 0
     }
   ]

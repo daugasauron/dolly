@@ -1,6 +1,6 @@
 # The site's catalog lacks python-data, ffmpeg and openblas
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: bug,site,0.1.6
 
@@ -27,3 +27,12 @@ On the domain release served locally (`127.0.0.1:9045`, release `0d27c879…`, m
 `default`, `amy install matplotlib` (python-dateutil and the rest with it), then a Matplotlib
 plot saved as a PNG (16,986 bytes, nothing on standard error), in headless Chrome. Left: the same
 on the live site, once the owner deploys 0.1.6.
+
+## Closed (2026-11-16, the audit)
+
+Both parts of the done-when hold on the live site. v0.1.7's deployment (`work/locks/published/v0.1.7`)
+serves `dist/dolly-python-data-system-snapshot.json`, matplotlib's, numpy's, openblas's and ffmpeg's.
+On `https://slopshare.dev/v0.1.7/default/`, in headless Chrome at 13:51 UTC, `amy install matplotlib`
+exited 0 in 17.5 s ("matplotlib installed: 1190 files"). Then `python3 -c` with Matplotlib's Agg
+backend saved a 22,368-byte `/tmp/plot.png` with nothing on standard error (the script and log are
+`work/audit-1116-evidence/repo/live-matplotlib.mjs` and `.log`).

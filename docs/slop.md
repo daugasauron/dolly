@@ -89,7 +89,7 @@ slop [-efnux] script [arg ...]
 - `cd` without an operand needs `HOME`; an empty operand is a no-op. `PWD` is
   always the directory's real path, so `cd -P` is what `cd` does and `-L` is
   refused.
-- `trap ACTION CONDITION...` handles `EXIT`, `HUP`, `INT`, `QUIT`, `PIPE` and `TERM`.
+- `trap ACTION CONDITION...` handles `EXIT`, `HUP`, `INT`, `QUIT`, `USR1`, `USR2`, `PIPE` and `TERM`.
   A signal's action runs once the current command has finished; `EXIT` runs
   when the shell or a subshell leaves, also after a signal. A subshell starts
   without traps. `trap '' SIGNAL` is rejected: commands always start with

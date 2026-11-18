@@ -10,9 +10,7 @@ execFileSync(process.execPath,[resolve(root,"scripts/build-source-tar.mjs"),outp
   "demos/slopyard/src","/usr/src/dolly/slopyard"],{cwd:root,stdio:"inherit"});
 const hash=bytes=>createHash("sha256").update(bytes).digest("hex");
 const pin=async path=>`${siteReference(path)} ${hash(await readFile(resolve(root,path)))}`;
-// The Lua archive pin is refreshed by update-recipe-pins --sources.
-const luaPin=(/lua-5\.5\.1\.tar\.gz ([0-9a-f]{64})/.exec(await readFile(resolve(root,"demos/slopyard/Dollyfile-slopyard-build"),"utf8").catch(()=>""))??[,"0".repeat(64)])[1];
-await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard-build"),`DOLLY 7
+await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard-build"),`DOLLY 8
 TOOLCHAIN slopyard-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -25,11 +23,12 @@ REQUIRES HOST gpu@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-# Where Slopyard is compiled: its Lua 5.5, its Box3D build, the game and its
+# Where Slopyard is compiled: the lua5.5 package, its Box3D build, the game and its
 # sources. slopyard-game keeps the game; the game's tests compile here.
 FROM ${await pin("demos/slopyard/Dollyfile-gamedev-sdk")}
 INSTALL ${await pin("Dollyfile-libdolly-gpu")}
 INSTALL ${await pin("demos/javascript/Dollyfile-janis")}
+INSTALL ${await pin("demos/slopyard/Dollyfile-lua5.5")}
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make
@@ -40,25 +39,6 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES HEADER libc
 
-SOURCE ${siteReference("dist/static/slopyard/lua-5.5.1.tar.gz")} ${luaPin} /tmp/lua55/source.tar.gz
-SLOP gzip -dc /tmp/lua55/source.tar.gz > /tmp/lua55/source.tar
-SLOP tar -xf /tmp/lua55/source.tar -C /tmp/lua55
-FILE /tmp/lua55/Makefile
-    SOURCE := /tmp/lua55/lua-5.5.1/src
-    FILES := $(filter-out $(SOURCE)/lua.c,$(wildcard $(SOURCE)/*.c))
-    OBJECTS := $(patsubst $(SOURCE)/%.c,/tmp/lua55/%.o,$(FILES))
-    /usr/lib/liblua5.5.a: $(OBJECTS)
-    	ar rcs $@ $^
-    /tmp/lua55/%.o: $(SOURCE)/%.c
-    	cc -std=c17 -O2 -DLUA_USE_C89 -I $(SOURCE) -c $< -o $@
-SLOP make -f /tmp/lua55/Makefile
-SLOP mkdir -p /usr/include/lua5.5 /usr/share/licenses/lua5.5
-SLOP cp /tmp/lua55/lua-5.5.1/src/lua.h /tmp/lua55/lua-5.5.1/src/luaconf.h /tmp/lua55/lua-5.5.1/src/lauxlib.h /tmp/lua55/lua-5.5.1/src/lualib.h /usr/include/lua5.5
-SLOP cp /tmp/lua55/lua-5.5.1/doc/readme.html /usr/share/licenses/lua5.5/readme.html
-SLOP rm -rf /tmp/lua55
-EXPORTS LIB lua55 /usr/lib/liblua5.5.a
-EXPORTS HEADER lua55 /usr/include/lua5.5
-FILE /usr/share/licenses/lua5.5/readme.html
 REQUIRES LIB raylib
 REQUIRES LIB box3d
 REQUIRES LIB dolly-raylib
@@ -82,7 +62,7 @@ EXPORTS FOLDER slopyard-source /usr/src/dolly/slopyard
 
 ENTRY /bin/foreground -i /bin/slop
 `);
-await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard-game"),`DOLLY 7
+await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard-game"),`DOLLY 8
 PACKAGE slopyard-game
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -105,7 +85,7 @@ FILE /usr/share/man/cat1/slopyard.1
     coastal scrapyard where two teams deliver cargo.
     slopyard --check runs the game's own checks.
 `);
-await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),`DOLLY 7
+await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),`DOLLY 8
 APPLICATION slopyard
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0

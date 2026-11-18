@@ -1,16 +1,17 @@
 // Wasm-initiated image builds. No Wasm imports: enabling build@0 only lets the
 // page admit POST https://build.dolly.invalid/v1/builds (host/http/local-services.mjs)
-// once the image ENTRY starts. Page-initiated rebuilds never need it. Builders
-// get http@0's builder configuration; a result tab inherits its policies.
-export function browser({ mount, keyboard, get }) {
-  // Imported here: a static import would cycle back into the host registry
-  // through the image builder.
-  const ui = import("./ui.mjs");
+// once the image ENTRY starts. Page-initiated rebuilds never need it. The page's
+// imageBuilder builds (the site's routes give theirs) with the page network's
+// builder; a result tab inherits its policies (page/network.mjs).
+export const check = ({ imageBuilder }) => imageBuilder ? undefined : "this page builds no images";
+
+export function browser({ mount, keyboard, imageBuilder, network, get }) {
+  // The panel and the builder load on the page alone, while the image boots.
+  const loading = Promise.all([import("./ui.mjs"), imageBuilder()]);
   return {
     async entryStarted() {
-      const { mountImageBuild } = await ui;
-      const http = get("http");
-      http.services.build = mountImageBuild(http, mount, keyboard);
+      const [{ mountImageBuild }, builder] = await loading;
+      get("http").services.build = mountImageBuild(network, builder, mount, keyboard);
     },
     claimsKey: event => !!event.target.closest?.("#image-build"),
   };

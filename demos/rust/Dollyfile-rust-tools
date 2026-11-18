@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN rust-tools
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -11,9 +11,10 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.6/Dollyfile-system 33e5bcf65ef4a634da5dbf8e291a379148e7971aa0411fe1bdaa4e0332f24b94
-INSTALL /v0.1.6/Dollyfile-libdolly-sockets 21a5b6d8d2dea4fa61305f4af76be2773bc8f92fb4e8419ba985bda01efca52a
-INSTALL /v0.1.6/demos/rust/Dollyfile-rust 97978a015b868b0c9387bf51666da6d5b6fc5ca89f242f314efac6eb63f8436b
-INSTALL /v0.1.6/demos/rust/Dollyfile-cargo 0ff519fd8ddfb258f756f826a8cd144364968d3d4ece99d2650a8a12ac1a6814
+FROM /Dollyfile-system 8d54b8fd95bd265381fcacf4d97044d3ad3deb0e969deeed8e4b5e791e71dcb5
+INSTALL /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
+INSTALL /demos/rust/Dollyfile-cargo 11297e55b459d9a68fc200e8183593bed3c28f5c4997e0ae055047aca0005e1a
+# Cargo fetches a Git dependency with git, whose HTTP helpers are git-http's.
+INSTALL /Dollyfile-git-http fe182caf88022592ea0a2dda7a7e9fd53a31f46d92d2ffa37e97a12782ded615
 
 ENTRY /bin/foreground -i /bin/slop

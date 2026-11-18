@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE dodge-the-creeps
 REQUIRES HOST runtime@0
 REQUIRES HOST audio@0
@@ -13,10 +13,10 @@ REQUIRES HOST clipboard@0
 # Dodge the Creeps, the game of Godot's first 2D tutorial, from the demo
 # projects' release: Godot's editor imports its assets and exports its pack
 # here, and dodge-the-creeps plays the pack with godot, which installs with it.
-FROM /v0.1.6/Dollyfile-system 33e5bcf65ef4a634da5dbf8e291a379148e7971aa0411fe1bdaa4e0332f24b94
-INSTALL /v0.1.6/demos/godot/Dollyfile-godot 1a94c903878939cce57b5bac3d4368eb394ba6289f2bb1fb73928022a84f042a
-USE /v0.1.6/demos/godot/Dollyfile-godot-editor 824a42e42bc71870454975d15ca94d4d27387a751330f33cd74e112db6742b69
-USE /v0.1.6/demos/tools/Dollyfile-unzip 8ddac06aaeb9689a2e77ae94ab457c2c166bf9abcb44f42990ebd0527119d092
+FROM /Dollyfile-system 8d54b8fd95bd265381fcacf4d97044d3ad3deb0e969deeed8e4b5e791e71dcb5
+INSTALL /demos/godot/Dollyfile-godot a07eb1a7b241b23dd68aa49582ca0338d8949ff94273d58b8f2010b2c764305e
+USE /demos/godot/Dollyfile-godot-editor 41a3f6f8e56c4de02b5a9498ffd4be8bf8ac37780d7215b9e1a15e72af4c7a5e
+USE /demos/tools/Dollyfile-unzip 9e5879c496bf641d5bcf962ff725b582cf24fd9ea50a1c6b2104a7bc7a7c0edb
 
 REQUIRES TOOL cp
 REQUIRES TOOL godot-editor
@@ -24,7 +24,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL unzip
 
-SOURCE /v0.1.6/dist/static/godot/2d_dodge_the_creeps.zip cebca9d95eccd4fafa2b9c3892fd75be527c25044e6e78f91fe92b76ece29052 /tmp/dodge.zip
+SOURCE /dist/static/godot/2d_dodge_the_creeps.zip cebca9d95eccd4fafa2b9c3892fd75be527c25044e6e78f91fe92b76ece29052 /tmp/dodge.zip
 SLOP CWD /tmp unzip -q /tmp/dodge.zip
 # The editor exports a pack for a preset; the game's own release sets none.
 FILE /tmp/dodge_the_creeps/export_presets.cfg

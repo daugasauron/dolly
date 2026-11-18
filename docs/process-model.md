@@ -93,8 +93,8 @@ sequenceDiagram
   `dolly_thread_start`) and a Worker that fails while running exit with status
   126 after one line on the process's own descriptor 2 that names the cause
   ([`process-supervisor.mjs`](../page/process-supervisor.mjs)); unrelated
-  processes are unaffected. `cc` refuses to link a thread client without
-  `-pthread`, so what it links the loader runs.
+  processes are unaffected. Only `cc -pthread` links the thread client, and it
+  exports the thread entry, so what it links the loader runs.
 - A malformed call returns an errno and the process keeps running: `EFAULT` for
   a packet outside its memory, `E2BIG` over 1 MiB, `ENOSYS` for an unknown
   operation, `EINVAL` for a wrong layout
@@ -430,10 +430,10 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
 
 ## Signals
 
-- Supported: `SIGHUP`, `SIGINT`, `SIGQUIT`, `SIGABRT`, `SIGKILL`, `SIGPIPE`,
-  `SIGALRM`, `SIGTERM`, `SIGCHLD`, `SIGWINCH`; others are rejected, and only
-  the kernel sends another process `SIGCHLD` (`kill` with it fails with
-  `ENOTSUP`).
+- Supported: `SIGHUP`, `SIGINT`, `SIGQUIT`, `SIGABRT`, `SIGKILL`, `SIGUSR1`,
+  `SIGUSR2`, `SIGPIPE`, `SIGALRM`, `SIGTERM`, `SIGCHLD`, `SIGWINCH`; others
+  are rejected, and only the kernel sends another process `SIGCHLD` (`kill`
+  with it fails with `ENOTSUP`).
 - Handlers run in Wasm at syscall boundaries ([`signal.c`](../process/signal.c))
   with masks, `SA_RESTART`, `SA_RESETHAND`, `SA_NODEFER` and `SA_SIGINFO`.
   Alternate stacks, `sigwait`, asynchronous preemption and `SA_NOCLDWAIT` are
@@ -498,6 +498,11 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   `pthread_create` with `EAGAIN`. Handlers run on the
   main thread, also while it waits in `pthread_join`. A host of libraries
   loads them in every thread (below); no cancellation or directed signals.
+- Without `-pthread` a program is one thread
+  ([`pthread-stubs.c`](../process/pthread-stubs.c)): `pthread_create` and
+  `pthread_cancel` fail with `ENOTSUP`, a lock it holds is busy, and waiting
+  for it is `EDEADLK` or, with a deadline, `ETIMEDOUT` there; a condition's
+  timed wait lasts until its deadline; a barrier of more than one fails with `EAGAIN`.
 - `dso@0` ([`host/dso/dolly-dso-0.wat`](../host/dso/dolly-dso-0.wat),
   [`host/dso/process.mjs`](../host/dso/process.mjs)): process-local DSOs and
   FFI, served in the Worker of an executable that records the module
@@ -525,12 +530,25 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
     for its thread-locals (`__wasm_init_tls`, which `cc -shared` exports) and
     resolves its own `GOT.mem` entries. A threaded program that is not a host
     calls functions only: closures are refused with `ENOTSUP`.
-  - A program passed through Binaryen's cast emulation (`wasm-opt
-    --fpcast-emu`), whose table holds nothing but thunks of one signature,
-    sixteen or more `i64` parameters and an `i64` result, is called in it; loading and
-    closures, which would add an entry of another signature, are refused.
-    GObject programs need it: they call functions through casts to types of
-    other parameters.
+  - A program passed through Binaryen's cast emulation (`cc
+    --dolly-cast-emulation`, `wasm-opt --fpcast-emu`) holds nothing but thunks
+    of one signature in its table, sixteen or more `i64` parameters and an `i64`
+    result, which every indirect call uses. GObject programs need it: they call
+    functions through casts to types of other parameters (Blender's Python
+    methods too). Such a host loads a library linked so too (`cc -shared
+    --dolly-cast-emulation`), whose table entries are thunks of the same
+    signature; a library with entries of other signatures is refused, and a
+    cast-emulated one is refused by any other program. A function the loader
+    places in the table (a `GOT.func` entry, `dlsym`) goes in as a thunk of
+    that signature, as Binaryen's convert, or as the program's own thunk where
+    it has one, so that a pointer to a function compares equal wherever it was
+    taken. A closure goes in as the thunk of the function made for it.
+  - A program's function exports, but `_start` and Dolly's own (`dolly_*`,
+    `__dolly_*`), are entries of a table the process Worker adds to the module
+    (`__dolly_exports`), where the loader finds them: Chrome makes an object of
+    every export when it instantiates a module, 50 MiB in each Worker for the
+    234,338 functions a program linked `-rdynamic` exports, of the 4 GiB a tab's
+    Workers share; a table costs 8 MiB, its entries made when first read.
   - Without the record a program loads nothing: `dlopen` returns `NULL` with
     `ENOSYS` and a `dlerror()` naming `-rdynamic` and `dso@0`, and the raw
     operations are unknown ones. With it, the image must declare
@@ -557,8 +575,11 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   with `ENOSYS`. Sockets and other state a module keeps in the kernel stay
   with their processes; a threaded program ends with status 126 when
   `threads@0` is disabled under it.
-- Not switched: `runtime@0`, `http@0`, `build@0`, `display@0`, `input@0` and
-  `snapshot@0`; `nena` says why for each.
+- Not switched: `runtime@0`, `build@0`, `display@0`, `input@0` and
+  `snapshot@0`; `nena` says why for each. Nor is a module disabled that an
+  enabled one needs (`http@0` under `build@0`). `http@0` switched on takes the
+  page's HTTP policy as it was at load; switched off, each transfer in flight
+  ends with `ECANCELED` (`amy install curl` enables it in `default`).
 - `nena disable nena` gives the privilege up until the page is reloaded: the
   session then is as an image without `nena@0`, and its refusals read so.
 - The modules a session enabled are listed in `/etc/dolly/enabled`, one

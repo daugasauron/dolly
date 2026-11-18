@@ -1,0 +1,48 @@
+DOLLY 8
+PACKAGE deep-hedger-build
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST audio@0
+REQUIRES HOST touch@0
+REQUIRES HOST gpu@0
+
+# The deep hedger's two programs: dh-fit, a Mojo program whose kernels run on
+# the GPU of the image that runs it, and dh-gui, an ImGui program over SDL2.
+# The compilers and the libraries are linked in and needed by no one who
+# installs it.
+FROM /Dollyfile-system-tools 1606024fba5919c1fb6c0369ad86cc69f3ecf38099dff75bddb3eccb97da71e5
+USE /demos/sdl2/Dollyfile-imgui 1533b320e6514e9f794e60d3db730c3cce421853bb90cc26b8bba0874c414a94
+USE /demos/mojo/Dollyfile-mojo 781f0578f0adcbad585190d4e203549e50c4ef526333745419e85dd266d2e08c
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES HEADER sdl2
+REQUIRES HEADER imgui
+REQUIRES LIB SDL2
+REQUIRES LIB imgui
+REQUIRES LIB dolly-gpu
+REQUIRES TOOL c++
+REQUIRES TOOL mojo
+REQUIRES TOOL rm
+
+SOURCE /dist/static/deep-hedger/dh-gui.cpp 9fe3d9c5dc8f42bde2b8b17a42eb7899ab00dadd70376b8631b847941aad580d /tmp/deep-hedger/dh-gui.cpp
+SOURCE /dist/static/deep-hedger/dh-fit.mojo 00320fd0601c5d84d2f3af8b40f70ac4f114d68a3a2b7ff16805aad50c2e4eea /tmp/deep-hedger/dh-fit.mojo
+SLOP c++ -O2 -std=c++17 -I/usr/include/imgui -I/usr/include/SDL2 /tmp/deep-hedger/dh-gui.cpp -o /usr/bin/dh-gui -limgui -lSDL2 -lm
+SLOP mojo build -o /usr/bin/dh-fit /tmp/deep-hedger/dh-fit.mojo
+EXPORTS TOOL dh-gui
+EXPORTS TOOL dh-fit
+FILE /usr/share/man/cat1/dh-gui.1
+    dh-gui: the deep hedger. Loads a live option chain (marketdata.app; AAPL
+    needs no token), shows its bids and asks, and fits a path law to them with
+    dh-fit: the model's bid and ask of every contract are what hedging its
+    two sides costs along the law's paths.
+    
+      dh-gui                    Escape or Ctrl+C in the terminal ends it
+      dh-fit CHAIN PATHS SEED   the fit alone, reporting on stdout
+      dh-fit check CHAIN PATHS  its gradients against finite differences
+    
+    dh-fit needs gpu@0; curl fetches the chain through http@0.
+COPY /demos/sdl2/Dollyfile-sdl2 d3938a1d871d053e813e0b039fb4bc209ab08cc461e1e80431180616b03b931e /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+COPY /demos/sdl2/Dollyfile-imgui 1533b320e6514e9f794e60d3db730c3cce421853bb90cc26b8bba0874c414a94 /usr/share/licenses/imgui /usr/share/licenses/imgui
+COPY /demos/mojo/Dollyfile-mojo 781f0578f0adcbad585190d4e203549e50c4ef526333745419e85dd266d2e08c /usr/share/licenses/mojo /usr/share/licenses/mojo
+SLOP rm -rf /tmp/deep-hedger

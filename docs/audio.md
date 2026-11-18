@@ -44,7 +44,9 @@ default input, through process operation 130.
 - The browser decides. OPEN asks it for the default input and returns at once;
   the browser shows its own permission prompt, and the page shows "Microphone"
   over the display for as long as a program waits for or holds the device.
-  Nothing is asked before a program opens the microphone.
+  Nothing is asked before a program opens the microphone. In a session that
+  enabled `microphone@0` itself (`nena@0`), the page asks before the browser
+  does: Allow, which holds for the session, or Refuse, which denies the capture.
 - Operations: OPEN, READ (1 to 4,096 frames; never blocks, returns the frames
   queued), STATUS (queued, captured and dropped frames, state), CLOSE. States:
   waiting for permission, capturing, denied (a read fails with `EACCES`),

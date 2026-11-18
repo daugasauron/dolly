@@ -46,13 +46,16 @@ if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === "k
 } else if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === "exports") {
   // What cc exports from a program built with -OPTION (rdynamic, pthread), one symbol a line.
   for (const { ccExports } of hostManifests) for (const symbol of ccExports?.[process.argv[3]] ?? []) console.log(symbol);
+} else if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === "sysroot") {
+  // The module whose seed part cc -OPTION links (pthread): its name, its part's directory.
+  for (const { name, ccSysroot } of hostManifests) if (ccSysroot === process.argv[3]) console.log(name);
 } else if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === "links") {
   // What cc links into every program: each client but those a program asks for.
   for (const { name, client, requested } of hostManifests) if (client.length && !requested) console.log(`-ldolly-${name}`);
 } else if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const field = process.argv[2];
   if (process.argv.length !== 3 || !["contracts", "process", "headers", "kernel", "client", "seed", "fixtures"].includes(field)) {
-    throw new Error("usage: host-modules.mjs contracts|process|headers|kernel|client|seed|fixtures|packaged|exports OPTION|links");
+    throw new Error("usage: host-modules.mjs contracts|process|headers|kernel|client|seed|fixtures|packaged|exports OPTION|sysroot OPTION|links");
   }
   for (const { name, file } of hostFiles(field)) console.log(field === "client" ? `${name} ${file}` : file);
 }

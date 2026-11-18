@@ -1,10 +1,10 @@
-DOLLY 7
+DOLLY 8
 PACKAGE make
 REQUIRES HOST runtime@0
 
 # GNU Make as system-build compiles it, for a session that runs rules and
-# compiles nothing: the cc package holds the same file.
-FROM /v0.1.6/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
+# compiles nothing: the cc package installs it.
+FROM /Dollyfile-system-build 0c72e09eba84571d4f8634cf6e7507eb1be1b9b8aa1fae61f6b0ec884b26b6fb
 
 EXPORTS TOOL make
 FILE /usr/share/man/cat1/make.1

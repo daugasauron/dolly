@@ -17,7 +17,8 @@ int64_t raw_process_call(uint32_t operation, const void *request,
 
 _Static_assert(SIGHUP == DOLLY_PROCESS_SIGHUP && SIGINT == DOLLY_PROCESS_SIGINT &&
                SIGQUIT == DOLLY_PROCESS_SIGQUIT && SIGABRT == DOLLY_PROCESS_SIGABRT &&
-               SIGKILL == DOLLY_PROCESS_SIGKILL && SIGPIPE == DOLLY_PROCESS_SIGPIPE &&
+               SIGKILL == DOLLY_PROCESS_SIGKILL && SIGUSR1 == DOLLY_PROCESS_SIGUSR1 &&
+               SIGUSR2 == DOLLY_PROCESS_SIGUSR2 && SIGPIPE == DOLLY_PROCESS_SIGPIPE &&
                SIGALRM == DOLLY_PROCESS_SIGALRM &&
                SIGTERM == DOLLY_PROCESS_SIGTERM && SIGCHLD == DOLLY_PROCESS_SIGCHLD &&
                SIGWINCH == DOLLY_PROCESS_SIGWINCH, "process signal numbers");
@@ -155,6 +156,9 @@ int raise(int signal_number) {
 /* Returns deliver_pending's result: 2 when no handler ran. */
 static int set_mask(int how, const sigset_t *set) {
   for (int number = 1; number < _NSIG; ++number) {
+    /* musl keeps 32 to 34 for itself: its sigaddset and sigdelset refuse them,
+     * setting errno, which a successful call leaves as it was. */
+    if (number - 32u < 3) continue;
     const int member = sigismember(set, number) == 1;
     if (how == SIG_SETMASK || member) {
       if (member && how != SIG_UNBLOCK && number != SIGKILL && number != SIGSTOP)

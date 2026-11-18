@@ -49,9 +49,9 @@ Every image declares its role: an `APPLICATION` people open, a `TOOLCHAIN`
 recipes build on, or a `PACKAGE` recipes and sessions install
 ([Dollyfile](docs/dollyfile.md#roles-and-names)).
 
-- `default`: A shell, its text tools, curl, ps, amy, which installs the rest, and nena, which enables the host modules they need.
+- `default`: A shell, its text tools, ps, amy, which installs the rest, curl among it, and nena, which enables the host modules they need.
 - `system`: `system-tools` with saved sessions (`snapshot@0`, `session-recover`).
-- `system-tools`: Shell, display, Git, curl, Make and POSIX tools.
+- `system-tools`: Shell, display, Git, Make and POSIX tools.
 - `system-build`: C/C++ compiler, headers and basic build tools.
 - `zig-build`: Zig built from source by the C/C++ compiler; emits C.
 - `ghostty-build`: Ghostty terminal build with Zig and its SDK.
@@ -61,11 +61,13 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `dollyfile`: `dollyfile`, the recipe engine alone: an image that installs it can be built `FROM`.
 - `nena`: `nena`, which lists a session's host modules and enables or disables them, where the image declares `nena@0`.
 - `posix`: `grep`, `sed`, `sort`, `find`, `xargs`, `awk`, `sh` and the other text and file tools.
-- `git`: `git` over the page's HTTP broker, with `diff` and `patch`.
+- `git`: `git`, with `diff` and `patch`, and `vi` for the messages it edits; `git-http` adds its HTTP and HTTPS remotes.
+- `git-http`: Git's HTTP and HTTPS remote helpers over the page's HTTP broker, for `git clone` of an `https://` URL.
 - `zlib`: libz: zlib's headers and static library, for programs the `cc` package builds; it brings no compiler.
 - `curl`: `curl` and libcurl, over the page's HTTP broker.
 - `gzip`: `gzip`, which compresses and decompresses `.gz` files with zlib.
 - `less`: `less`, the pager; Git and `man` page through it once it is installed.
+- `vi`: Neatvi, a small `vi` and `ex` that needs no terminal database; Git starts it to edit a message.
 - `ninja`: `ninja` (Samurai), which Meson and CMake's Ninja generator build with.
 - `mandoc`: `mandoc`, which formats a manual page of man or mdoc macros as text, and `text-page`, with which a package formats upstream's pages when it is built.
 - `make`: GNU `make` alone, for rules that compile nothing; `cc` brings it too.
@@ -129,7 +131,7 @@ is a static site, and `init` writes the workflow that builds it in CI.
 [Dolly from npm](docs/npm.md) is the guide: the project's files, tools,
 skills, the policy, CI, serving and updating; the
 [npm changelog](docs/npm-changelog.md) lists what changed in the packages, and
-[Upgrading](docs/npm-upgrading.md) moves a 0.1.5 project to 0.1.6.
+[Upgrading](docs/npm-upgrading.md) moves a 0.1.5 project to 0.1.7.
 [Data Pi](demos/pi/data-pi/README.md) is such a project, and
 [An agent in place of a web frontend](docs/agent-frontend.md) goes on from
 there: your backend's API, your model provider and how Pi starts.
@@ -167,7 +169,7 @@ Image builds rewrite SHA-256 pins in `Dollyfile*`. Check by what you changed
 | Kernel C | `npm run build:runtime`, then `npm run test:core` | 15 s without changes (2026-11-02) |
 | A recipe or its sources | `npm run image -- IMAGE` | 3 s when nothing changed (`default`); `gzip` builds in 4 s (2026-11-02) |
 | Seed: headers, Slop, commands, libc adapter | every image rebuilds | 970 s for `default`, `cc`, `git` and `less`, 19 images, one browser at a time (2026-11-02) |
-| Before merging | `npm run test:browser` (`test/*-browser.mjs`), `npm run test:demos` (`demos/*/test/`) | 442 s for the core tests in both browsers, four files at a time (2026-10-31) |
+| Before merging | `npm run test:browser` (`test/*-browser.mjs`), `npm run test:demos` (`demos/*/test/`) | 1049 s for the core tests in both browsers, 161 runs, four files at a time (2026-11-15) |
 
 ## Docs
 

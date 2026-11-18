@@ -1,18 +1,14 @@
 import { createHttpAdmission, HttpMailbox, NetworkTransport } from "./broker.mjs";
-import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "./policy.mjs";
 import { localServicesTransport } from "./local-services.mjs";
-import { refusalNotices } from "./refusals.mjs";
 export { DOLLY_HTTP_ABI_DIGEST as digest } from "./abi.mjs";
 
-// The page takes the embedding's policy once, with the image directory's
-// trusted sources and, in a custom tab, the policies it inherited; a builder or
-// headless host is given its network instead. Modules depending on http@0 add
-// their local services to `services`. Each request the policy refuses is a line in the
-// console and a notice on the page (refusals.mjs).
-export function browser({ applicationBase, configuration, mount, keyboard, send, ask }) {
-  let transport, admission, network = configuration.network;
-  const services = {}, refusals = refusalNotices(mount, keyboard);
-  const instance = {
+// The guest's requests, judged by the page's network (its policy, which the
+// page takes once at load: page/network.mjs). Modules depending on http@0 add
+// their local services to `services`; a child build host has none.
+export function browser({ network, send, ask }) {
+  let transport, admission;
+  const services = {}, local = localServicesTransport(network.policy, services, network.fetchRequest);
+  return {
     services,
     page: {
       get httpActive() { return transport?.active ?? false; },
@@ -27,8 +23,8 @@ export function browser({ applicationBase, configuration, mount, keyboard, send,
       // The Worker writes the records into the guest's slots.
       const mailbox = { publish: record => ask({ type: "http-publish", ...record }, [record.bytes.buffer]),
         fail: ending => send({ type: "http-fail", ...ending }) };
-      transport = new NetworkTransport(mailbox, network.policy, { fetchRequest: network.fetchRequest, site: network.site,
-        refused: refusals.refused });
+      transport = new NetworkTransport(mailbox, local.policy, { fetchRequest: local.fetchRequest, site: network.site,
+        refused: network.refused });
     },
     messages: {
       async "http-request"(message) {
@@ -39,34 +35,8 @@ export function browser({ applicationBase, configuration, mount, keyboard, send,
         Atomics.notify(admission, 0);
       },
     },
-    // A GET a host module makes for the guest, judged by the page's policy as
-    // the guest's own requests are, and shown as theirs when refused.
-    admit(url) {
-      try {
-        network.policy.authorize(url, "GET", new Headers(), 0);
-      } catch (error) {
-        refusals.refused({ method: "GET", target: url, reason: error.message });
-        throw error;
-      }
-    },
-    claimsKey: refusals.claimsKey,
-    dispose() { transport?.close(); refusals.dispose(); },
+    dispose() { transport?.close(); },
   };
-  if (!network) {
-    // A custom tab intersects the policy of the page that built it with its
-    // own; a missing inheritance fails closed.
-    const { embedding, sources, inherited } = configuration;
-    let policy = new DollyHttpPolicy(embedding?.policy, sources, applicationBase, embedding?.relays);
-    if (inherited) policy = restrictDollyHttpPolicy(policy, inherited.policies, sources, applicationBase);
-    // A site path names a file of this page's site.
-    const site = new URL(applicationBase).href;
-    network = { ...localServicesTransport(policy, services), site };
-    // Builders inherit the policy and no local service; an opened result tab
-    // or restored session inherits the policy configurations.
-    instance.builder = { network: { ...localServicesTransport(policy), site } };
-    instance.inherited = { policies: httpPolicyConfigurations(policy) };
-  }
-  return instance;
 }
 
 // The Worker copies each request out of kernel memory for the page to judge,
@@ -83,5 +53,7 @@ export function worker({ send, get }) {
       mailbox = new HttpMailbox(memory.buffer, Number(kernel.dolly_http_mailbox_address()));
       return { admission: admission.control.buffer };
     },
+    // Switched off (nena@0): a program waiting on a transfer is told it ended.
+    disabled() { mailbox?.cancelAll(); },
   };
 }

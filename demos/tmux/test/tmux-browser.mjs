@@ -2,15 +2,14 @@
 // two panes with a shell on a pseudo-terminal in each. Typing reaches the
 // active pane; Ctrl+C ends the program in a pane and not its shell; a resize
 // of the window reaches the program in a pane; detached, the shells keep
-// running, and attach returns to them. Then, in Chrome, the tmux package:
+// running, and attach returns to them. Then the tmux package:
 // installed into default, whose amy has nena enable pty@0 and sockets@0, and
 // into an image built on default that declares them.
-// Usage: node demos/tmux/test/tmux-browser.mjs [chromium|firefox ...]
+// Usage: [DOLLY_BROWSER=firefox] node demos/tmux/test/tmux-browser.mjs
 import assert from "node:assert/strict";
+import { browsers } from "../../browsers.mjs";
 import { demoTest, shellPrompt, writeCommand } from "../../browser.mjs";
 import { siteReference } from "../../../page/static-asset.mjs";
-
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 
 // Prints its terminal's size, and again after each of two resizes.
 const sizeProgram = `
@@ -185,7 +184,7 @@ for (const browser of browsers) {
   });
 }
 
-if (browsers.includes("chromium")) {
+for (const browser of browsers) {
   const { default: catalog } = await import("../../../dist/dolly-images.json", { with: { type: "json" } });
   const pin = name => {
     const { dollyfile, sha256 } = catalog.images.find(definition => definition.image === name);
@@ -194,9 +193,9 @@ if (browsers.includes("chromium")) {
   // Host requirements are never inherited: the probe restates default's, and
   // adds the two tmux needs that default does not declare.
   const hosts = [...catalog.images.find(definition => definition.image === "default").hostRequirements, "pty@0", "sockets@0"];
-  const recipe = ["DOLLY 7", "APPLICATION tmux-probe", ...hosts.map(host => `REQUIRES HOST ${host}`),
+  const recipe = ["DOLLY 8", "APPLICATION tmux-probe", ...hosts.map(host => `REQUIRES HOST ${host}`),
     `FROM ${pin("default")}`, `INSTALL ${pin("tmux")}`, "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
-  await demoTest("tmux package", { image: "default", timeout: 300_000 }, async ({ open }) => {
+  await demoTest("tmux package", { image: "default", timeout: 300_000, browser }, async ({ open }) => {
     // default declares neither pty@0 nor sockets@0: amy has nena enable them.
     const session = await open();
     await session.run("amy install tmux && grep -qx pty@0 /etc/dolly/enabled && grep -qx sockets@0 /etc/dolly/enabled && command -v tmux");

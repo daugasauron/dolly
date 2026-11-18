@@ -3,10 +3,10 @@
 // entry that asks for the user's token, under a policy that admits that API and
 // the model's provider alone. A scripted model on an origin of its own makes the
 // calls a model would. Usage: node demos/pi/test/frontend-browser.mjs
-// (DOLLY_BROWSER=firefox runs it in Firefox).
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
+import { browsers } from "../../browsers.mjs";
 import { delay, demoTest } from "../../browser.mjs";
 import { siteReference } from "../../../page/static-asset.mjs";
 import catalog from "../../../dist/dolly-images.json" with { type: "json" };
@@ -75,7 +75,7 @@ const llm = await listen(provider);
 // reads the user's token and the model's key without showing them.
 const base = catalog.images.find(({ image }) => image === "pi-runtime");
 const file = (path, text) => [`FILE ${path}`, ...text.trim().split("\n").map(line => `    ${line}`)];
-const recipe = ["DOLLY 7", "APPLICATION orders-agent", ...base.hostRequirements.map(module => `REQUIRES HOST ${module}`),
+const recipe = ["DOLLY 8", "APPLICATION orders-agent", ...base.hostRequirements.map(module => `REQUIRES HOST ${module}`),
   `FROM ${siteReference(base.dollyfile)} ${base.sha256}`,
   ...file("/home/dolly/.pi/agent/SYSTEM.md", `
 You are the order desk assistant of a small shop. Staff ask you about orders
@@ -100,7 +100,7 @@ secretenv ORDERS_TOKEN 'Orders token (not shown): ' secretenv SHOP_LLM_KEY 'Mode
 /bin/foreground -i /bin/slop`),
   "ENTRY /bin/foreground -i /bin/slop /etc/agent/start.slop", ""].join("\n");
 
-await demoTest("pi frontend", { image: "pi-runtime", timeout: 300_000, browser: process.env.DOLLY_BROWSER ?? "chromium" }, async ({ server, open }) => {
+for (const browser of browsers) await demoTest("pi frontend", { image: "pi-runtime", timeout: 300_000, browser }, async ({ server, open }) => {
   pageOrigin = server.origin;
   const policy = { rules: [
     { origin: api, pathPrefix: "/api/", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },

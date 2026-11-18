@@ -2,7 +2,7 @@
   "name": "packages",
   "version": 0,
   "gives": "the release's published packages, for amy",
-  "dependencies": ["http@0"],
+  "dependencies": ["runtime@0"],
   "phase": "image",
   "imports": [],
   "host": "packages.mjs",
@@ -11,5 +11,6 @@
   "headers": ["packages.h", "packages-abi.h"],
   "kernel": ["kernel.c"],
   "client": ["client.c"],
+  "files": ["transport.mjs", "worker.mjs"],
   "package": "libdolly-packages"
 }

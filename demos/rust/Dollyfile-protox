@@ -1,9 +1,9 @@
-DOLLY 7
+DOLLY 8
 PACKAGE protox
 REQUIRES HOST runtime@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.6/demos/rust/Dollyfile-rust-build f735883d0a3e47cb374271067800d7c1db8d9ae85db3e643045d636afe9ed4ee
+FROM /demos/rust/Dollyfile-rust-build 0cf19c04495bade57f7319e9d3b94c75c984d0e0417953f2110011d740c56b89
 REQUIRES TOOL cargo
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
@@ -14,7 +14,7 @@ REQUIRES TOOL test
 
 # The archive holds upstream source and its locked crates, checksum-verified,
 # laid out as Cargo's directory source.
-SOURCE /v0.1.6/dist/static/rust/protox.tar.gz 8c38b6965d16c0d551455819220ae943987ad690a5b065affeced030f3e0c7fe /tmp/protox.tar.gz
+SOURCE /dist/static/rust/protox.tar.gz 8c38b6965d16c0d551455819220ae943987ad690a5b065affeced030f3e0c7fe /tmp/protox.tar.gz
 SLOP gzip -dc /tmp/protox.tar.gz | tar -xf - -C /
 SLOP CWD /tmp/protox/source cargo build -j 4 --offline --bin protox --features bin --target-dir /tmp/protox/build
 SLOP cp /tmp/protox/build/debug/protox /usr/bin/protox

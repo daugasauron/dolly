@@ -1,10 +1,10 @@
-import { HttpError, isDollyCredentialHeader, stripDollyBrowserOwnedHeaders } from "./policy.mjs";
+import { HttpError, isDollyCredentialHeader, stripDollyBrowserOwnedHeaders } from "../../page/http-policy.mjs";
 import { DOLLY_ERRNO as errno } from "./abi.mjs";
-import { decodeStaticAsset, sitePath } from "../../page/static-asset.mjs";
+import { sitePath } from "../../page/static-asset.mjs";
 import { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_CHUNK_CAPACITY, DOLLY_HTTP_MAX_METHOD, DOLLY_HTTP_MAX_URL,
   DOLLY_HTTP_MAX_HEADERS, DOLLY_HTTP_MAX_BODY, DOLLY_HTTP_HEADER_SIZE, DOLLY_HTTP_WORD_SEQUENCE,
   DOLLY_HTTP_WORD_STATUS, DOLLY_HTTP_WORD_LENGTH, DOLLY_HTTP_WORD_EOF, DOLLY_HTTP_WORD_ERROR,
-  DOLLY_HTTP_WORD_KIND, DOLLY_HTTP_STATE_WRITABLE, DOLLY_HTTP_STATE_READABLE, DOLLY_HTTP_STATE_FAILED,
+  DOLLY_HTTP_WORD_KIND, DOLLY_HTTP_STATE_IDLE, DOLLY_HTTP_STATE_WRITABLE, DOLLY_HTTP_STATE_READABLE, DOLLY_HTTP_STATE_FAILED,
   DOLLY_HTTP_KIND_URL, DOLLY_HTTP_KIND_HEADER, DOLLY_HTTP_KIND_BODY, DOLLY_HTTP_FAIL_STATUS,
   DOLLY_HTTP_FOLLOW_REDIRECTS } from "./abi.mjs";
 
@@ -123,6 +123,17 @@ export class HttpMailbox {
     Atomics.store(this.words, word, DOLLY_HTTP_STATE_FAILED);
     Atomics.notify(this.words, word);
   }
+
+  // Every slot in use fails with ECANCELED: the page side is gone.
+  cancelAll() {
+    for (let index = 0; index < DOLLY_HTTP_SLOT_COUNT; index++) {
+      const word = this.word(index);
+      if (Atomics.load(this.words, word) === DOLLY_HTTP_STATE_IDLE) continue;
+      Atomics.store(this.words, word + DOLLY_HTTP_WORD_ERROR, errno.ECANCELED);
+      Atomics.store(this.words, word, DOLLY_HTTP_STATE_FAILED);
+      Atomics.notify(this.words, word);
+    }
+  }
 }
 
 // The page's broker: policy, Fetch and the slots' bookkeeping. It never reads
@@ -146,9 +157,9 @@ export class NetworkTransport {
 
   get active() { return this.slots.some(slot => slot !== null); }
 
-  // A URL is absolute, or a site path: /vVERSION/FILE is a file of the site
-  // serving this release, never above its root and of no other version. The
-  // policy then judges it like any other URL.
+  // A URL is absolute, or a site path: /FILE is a file of the site serving
+  // this release, never above its root. The policy then judges it like any
+  // other URL.
   target(url) {
     const absolute = URL.parse(url);
     if (absolute || !url.startsWith("/")) return absolute;
@@ -301,9 +312,7 @@ class HttpTransfer {
         signal: this.controller.signal,
       };
       const source = rule.relay ? new URL(rule.relay) : target;
-      let response = await this.broker.fetchRequest(source, init);
-      if (rule.bootstrap === true)
-        response = await decodeStaticAsset(response, source, init, rule.maxResponseBytes, this.broker.fetchRequest);
+      const response = await this.broker.fetchRequest(source, init);
       const status = response.status;
       // A relay is transport, and where the site is served is the page's
       // business: the program is told the URL it asked for.

@@ -32,7 +32,8 @@ seed's own `cc`.
   Emscripten sources, as Emscripten's container builds them, DWARF included.
   The seed ships the container's builtins; `system-build` compiles the other
   three itself. A link takes these instead with `-L/usr/lib/llvm-runtimes`;
-  `test/llvm-browser.mjs` compares both links.
+  `test/llvm-browser.mjs` compares both links. The site does not publish it:
+  it serves this comparison, which a checkout runs.
 
 Key files: [`Dollyfile-llvm-tablegen`](Dollyfile-llvm-tablegen),
 [`prepare-sources.sh`](prepare-sources.sh) (checks out the pinned commit, applies
@@ -66,11 +67,9 @@ Firefox.
 
 ## Reproducing it
 
-`node demos/llvm/test/stage2-browser.mjs` runs `llvm-build`'s rows again in the
-`llvm-cc` image, so with the compiler built there, and requires every archive,
-the compiler and the TableGen tools to be the first stage's bytes. It takes
-about 50 minutes and 7 GB in Chrome and runs on demand: the catalog builds no
-second stage.
+A compiler round requires `llvm-cc`, built by the pinned seed, to give the
+seed's bytes again ([the seed's compiler](../../docs/sources.md#the-seeds-compiler)): the
+compiler reproduces itself.
 
 ## Limits
 

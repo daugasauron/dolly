@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE lean-std
 REQUIRES HOST runtime@0
 
@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # from the release's sources: each module's .olean files and its C, which cc
 # compiles into libInit.a and libStd.a (lean-dolly.mk). Every Lean file
 # imports Init.
-FROM /v0.1.6/demos/lean/Dollyfile-lean-stage0 a530d57c26269b538222cbaf8ccdf71e995c06fff9e72f49c866e2f9607653d2
+FROM /demos/lean/Dollyfile-lean-stage0 f12db5c2a9a2bb81981e1f57893cd6e5440a4dd79dfa3e01c06758256199e2de
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL find
@@ -18,12 +18,16 @@ REQUIRES TOOL tar
 REQUIRES TOOL tr
 REQUIRES TOOL xargs
 
-SOURCE /v0.1.6/dist/static/lean/lean.tar.gz ef83239912f7c218c5f0e937de704b7da807b9802b05216414b59b9dec42e0da /tmp/lean.tar.gz
-SOURCE /v0.1.6/dist/static/lean/port.tar 1716710f88ccdd478709b75533ef1686ff39e381ad7d66ff65caff992e2dd1a6 /tmp/lean-port.tar
+SOURCE /dist/static/lean/lean.tar.gz ef83239912f7c218c5f0e937de704b7da807b9802b05216414b59b9dec42e0da /tmp/lean.tar.gz
+SOURCE /dist/static/lean/port.tar b98085e118db528bb5b28bb24b5c2c74e5caff7a582025f05e77492cd2337dae /tmp/lean-port.tar
 # Stage 1 reads only src/.
 SLOP gzip -dc /tmp/lean.tar.gz | tar -xf - -C / && rm -r /tmp/lean.tar.gz /tmp/lean/stage0
 SLOP tar -xf /tmp/lean-port.tar -C /
-SLOP CWD /tmp/lean make -f dolly/lean-dolly.mk -j4 STAGE=1 LIBRARIES='Init Std' LEAN=/usr/lib/lean-stage0/lean
+# Two jobs: a lean adds a thread for each of its tasks that waits for another,
+# and on a busy machine one took 21 thread Workers, four at once 59, past
+# the 64 threads@0 gives a tab and the heap its Workers share
+# (tasks/20261117-195610-lean-crash).
+SLOP CWD /tmp/lean make -f dolly/lean-dolly.mk -j2 STAGE=1 LIBRARIES='Init Std' LEAN=/usr/lib/lean-stage0/lean
 
 FOLDER /usr/lib/lean/Init
 FILE /usr/lib/lean/Init.olean

@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE spirv-wgsl
 REQUIRES HOST runtime@0
 REQUIRES HOST threads@0
@@ -6,9 +6,9 @@ REQUIRES HOST threads@0
 # SPIR-V of Vulkan GLSL shaders to WGSL for gpu@0 (spirv-wgsl/spirv_wgsl.h), as Godot's
 # RenderingDevice driver compiles its shaders: Tint, from Dawn, and SPIRV-Tools, built by their
 # CMake, under Dolly's passes (spirv-wgsl/spirv_wgsl.cpp), in one static library.
-FROM /v0.1.6/demos/cmake/Dollyfile-cmake-build f84837ea83bbeefd78cd596af30b787cb49a2b3e9f9f5c066966ae7e892a5676
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
 # Dawn's CMake requires a Python 3 interpreter.
-USE /v0.1.6/demos/python/Dollyfile-python a2bee41935e12229aed6db1256f11dde6b22125b8696ca3d31afcf70f9d7295b
+USE /demos/python/Dollyfile-python c39225e146dd9f27a77c5b8b534c4d3eec2246b777c435e766dd48495fa3a2c1
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python
@@ -23,7 +23,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
-SOURCE /v0.1.6/dist/static/godot/spirv-wgsl.tar.gz bda3c2877ecfdad5470d55828305195495215b7d116e19e0426dcaafa61f7992 /tmp/spirv-wgsl.tar.gz
+SOURCE /dist/static/godot/spirv-wgsl.tar.gz bda3c2877ecfdad5470d55828305195495215b7d116e19e0426dcaafa61f7992 /tmp/spirv-wgsl.tar.gz
 SLOP gzip -dc /tmp/spirv-wgsl.tar.gz | tar -xf - -C /
 SLOP rm /tmp/spirv-wgsl.tar.gz
 # Dawn's utilities know POSIX only by the systems they name, and trap on WebAssembly through
@@ -38,8 +38,10 @@ SLOP cmake -S /usr/src/dawn -B /tmp/tint -DCMAKE_BUILD_TYPE=Release -DCMAKE_RULE
   -DTINT_BUILD_SPV_WRITER=OFF -DTINT_BUILD_MSL_WRITER=OFF -DTINT_BUILD_HLSL_WRITER=OFF \
   -DTINT_BUILD_GLSL_WRITER=OFF -DTINT_BUILD_GLSL_VALIDATOR=OFF -DTINT_BUILD_CMD_TOOLS=OFF \
   -DTINT_BUILD_TESTS=OFF -DSPIRV_SKIP_TESTS=ON -DSPIRV_SKIP_EXECUTABLES=ON
-# Each job is three processes (Slop, c++, compiler); -j8 exceeds the 32-process cap.
-SLOP CWD /tmp/tint make -j4 tint_api tint_lang_spirv_reader tint_lang_wgsl_writer tint_lang_wgsl_inspector SPIRV-Tools-opt
+# Each job is three processes (Slop, c++, compiler); four jobs, as many as nproc reports.
+# SPIRV-Tools stamps its version with the time of the build unless SOURCE_DATE_EPOCH names
+# one: its pinned commit's (2026-11-04).
+SLOP CWD /tmp/tint SOURCE_DATE_EPOCH=1793750790 make -j4 tint_api tint_lang_spirv_reader tint_lang_wgsl_writer tint_lang_wgsl_inspector SPIRV-Tools-opt
 SLOP c++ -std=c++20 -O2 -DNDEBUG -DDAWN_HAVE_UTILS_BUILD_CONFIG -DTINT_BUILD_SPV_READER=1 -DTINT_BUILD_WGSL_WRITER=1 \
   -DTINT_BUILD_WGSL_READER=0 -DTINT_BUILD_SPV_WRITER=0 -DTINT_BUILD_MSL_WRITER=0 -DTINT_BUILD_HLSL_WRITER=0 \
   -DTINT_BUILD_GLSL_WRITER=0 -DTINT_BUILD_GLSL_VALIDATOR=0 -DTINT_BUILD_NULL_WRITER=0 -DTINT_BUILD_IR_BINARY=0 \

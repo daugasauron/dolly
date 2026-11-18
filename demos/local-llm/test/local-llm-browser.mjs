@@ -4,8 +4,10 @@
 // context size changed there, and the task again.
 import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
-import {chromium,firefox} from 'playwright-core';
+import {chromium} from 'playwright-core';
+import {launchInstalledFirefox} from '../../../test/browser.mjs';
 import {startBrowserServer} from '../../../test/browser-server.mjs';
+import {browsers} from '../../browsers.mjs';
 import {acceptDownload,demoTest} from '../../browser.mjs';
 
 const output=new URL('../../../build/llm-proof/',import.meta.url);
@@ -15,33 +17,31 @@ const hint=/\/local chooses/;
 
 // Without a GPU, in headless Chrome on its software adapter: pi-local starts with the hint
 // beside dolly-tools' sandbox line, and /local takes the hint away without loading a model.
-await demoTest('pi-local start screen',{image:'pi-local',webgpu:true},async({open})=>{
+for(const browser of browsers) await demoTest('pi-local start screen',{image:'pi-local',browser,webgpu:true},async({open})=>{
   const {page,text,waitText,input}=await open({prompt:null,viewport:{width:1280,height:840}});
   await waitText(/sandbox/);
   await waitText(hint);
-  await page.screenshot({path:new URL('chromium-pi-local-start.png',output).pathname});
+  await page.screenshot({path:new URL(`${browser}-pi-local-start.png`,output).pathname});
   await input('/local\r');await waitText(/Local models/);
   await input('\x1b');await page.waitForTimeout(500);
   assert.doesNotMatch(await text(),hint);
 });
 
-if(!process.env.DISPLAY){console.log('local-llm: the model steps are skipped, they need a GPU window on DISPLAY');process.exit(0);}
+if(!process.env.DISPLAY){console.log('local-llm: skipped: the model steps need a GPU window on DISPLAY');process.exit(77);}
 
 const root=new URL('../../../',import.meta.url).pathname;
-// The model pi-local bundles, and the one the user installs next (DOLLY_LLM_SECOND names another package).
+// The model pi-local bundles, and the one the user installs next (DOLLY_LLM_SECOND names another
+// package of the demo's models: qwen3.5-4b or lfm2.5, run on demand).
 const model='qwen3.5-2b',weights=`/usr/share/dolly/llm/${model}.gguf`,second=process.env.DOLLY_LLM_SECOND??'minicpm5-2b';
-// Playwright drives the installed Firefox, which on Ubuntu is a snap with a
-// private /tmp: its profile and downloads must live under $HOME.
-process.env.TMPDIR=new URL('tmp/',output).pathname;await mkdir(process.env.TMPDIR,{recursive:true});
 
 for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local').split(',')) {
   // CSP denies external model servers without disabling the browser HTTP cache.
   const site=await startBrowserServer(root,image,{responseHeaders:{'content-security-policy':"connect-src 'self'"}});
   try {
     for(const name of (process.env.DOLLY_LLM_BROWSERS??'chromium,firefox').split(',')) {
-      const browser=await ({chromium,firefox})[name].launch(name==='chromium'
-        ? {channel:'chrome',headless:false,args:['--no-sandbox','--ozone-platform=x11','--enable-unsafe-webgpu','--use-angle=vulkan','--enable-features=Vulkan']}
-        : {channel:'moz-firefox',headless:false,firefoxUserPrefs:{'dom.webgpu.enabled':true}});
+      const browser=await (name==='chromium'
+        ? chromium.launch({channel:'chrome',headless:false,args:['--no-sandbox','--ozone-platform=x11','--enable-unsafe-webgpu','--use-angle=vulkan','--enable-features=Vulkan']})
+        : launchInstalledFirefox());
       try {
         const context=await browser.newContext({acceptDownloads:true,viewport:{width:1280,height:840}});
         const page=await context.newPage(),errors=[],requests=[];

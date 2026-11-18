@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE cargo
 REQUIRES HOST runtime@0
 REQUIRES HOST dso@0
@@ -6,11 +6,11 @@ REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
 # Cargo as rust-build built it.
-COPY /v0.1.6/demos/rust/Dollyfile-rust-build f735883d0a3e47cb374271067800d7c1db8d9ae85db3e643045d636afe9ed4ee /usr/bin/cargo /usr/bin/cargo
-COPY /v0.1.6/demos/rust/Dollyfile-rust-build f735883d0a3e47cb374271067800d7c1db8d9ae85db3e643045d636afe9ed4ee /usr/share/licenses/cargo /usr/share/licenses/cargo
-COPY /v0.1.6/demos/rust/Dollyfile-rust-build f735883d0a3e47cb374271067800d7c1db8d9ae85db3e643045d636afe9ed4ee /usr/share/dolly/builds/cargo.lock /usr/share/dolly/builds/cargo.lock
+COPY /demos/rust/Dollyfile-rust-build 0cf19c04495bade57f7319e9d3b94c75c984d0e0417953f2110011d740c56b89 /usr/bin/cargo /usr/bin/cargo
+COPY /demos/rust/Dollyfile-rust-build 0cf19c04495bade57f7319e9d3b94c75c984d0e0417953f2110011d740c56b89 /usr/share/licenses/cargo /usr/share/licenses/cargo
+COPY /demos/rust/Dollyfile-rust-build 0cf19c04495bade57f7319e9d3b94c75c984d0e0417953f2110011d740c56b89 /usr/share/dolly/builds/cargo.lock /usr/share/dolly/builds/cargo.lock
 # Cargo runs rustc: the package brings the compiler it was built with.
-INSTALL /v0.1.6/demos/rust/Dollyfile-rust 97978a015b868b0c9387bf51666da6d5b6fc5ca89f242f314efac6eb63f8436b
+INSTALL /demos/rust/Dollyfile-rust 384218ca66ce1d747b3e6b2f42f7186db9793f5ee2b2768417408132b3bde499
 # The cc crate's default flags name a target; Dolly's cc has one.
 EXPORTS ENV CRATE_CC_NO_DEFAULTS 1
 # A Git dependency is fetched by git, which reaches HTTP hosts through the
@@ -33,6 +33,6 @@ FILE /usr/share/man/cat1/cargo.1
     so a project's crates are vendored: amy install vendor-crates, then
     vendor-crates in the project and cargo build --offline. A crate that uses
     libc needs the SDK's copy, which vendor-crates patches in. A Git dependency
-    is fetched by git (amy install git), from a host that sends CORS headers.
+    is fetched by git (amy install git git-http), from a host that sends CORS headers.
     There is no cargo search, publish or login.
     Upstream's book: https://doc.rust-lang.org/cargo/

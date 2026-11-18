@@ -1,8 +1,7 @@
-import { inspectDollyfile, MAX_DOLLYFILE_BYTES } from "../../site/dollyfile-view.mjs";
-
 export const BUILD_ORIGIN = "https://build.dolly.invalid";
+// A request is one Dollyfile, which is at most 128 KiB.
 export const BUILD_LIMITS = Object.freeze({
-  maxRequestBytes: MAX_DOLLYFILE_BYTES, maxResponseBytes: 8 * 1024 * 1024,
+  maxRequestBytes: 128 * 1024, maxResponseBytes: 8 * 1024 * 1024,
   timeoutMilliseconds: 45 * 60_000, credentialHeaders: new Set(),
 });
 const encoder = new TextEncoder();
@@ -14,10 +13,12 @@ function response(body, status, url) {
 }
 
 // One bounded stream and one disposable build at a time. Opening is UI-only.
-// The run callback receives only recipe text, logging and cancellation.
+// inspect(source) parses a Dollyfile and throws on an invalid one; the run
+// callback receives only recipe text, logging and cancellation.
 export class ImageBuildService extends EventTarget {
-  constructor(run) {
+  constructor(inspect, run) {
     super();
+    this.inspect = inspect;
     this.run = run;
     this.state = "idle";
     this.detail = "";
@@ -65,10 +66,10 @@ export class ImageBuildService extends EventTarget {
     if (this.active) return response(JSON.stringify({ type: "error", message: "An image build is already running or stopping" }) + "\n", 409, url);
     let source, recipe;
     try {
-      if (!init.body || init.body.byteLength > MAX_DOLLYFILE_BYTES) throw new Error("Dollyfile exceeds 128 KiB");
+      if (!init.body || init.body.byteLength > BUILD_LIMITS.maxRequestBytes) throw new Error("Dollyfile exceeds 128 KiB");
       source = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(init.body);
       if (source.includes("\0")) throw new Error("Dollyfile contains NUL bytes");
-      recipe = inspectDollyfile(source);
+      recipe = this.inspect(source);
     } catch (error) { return response(JSON.stringify({ type: "error", message: error.message }) + "\n", 400, url); }
     init.signal?.throwIfAborted();
     const job = { source, name: recipe.image,

@@ -5,7 +5,7 @@ import { DOLLY_IMAGE_BUILD_ID } from "../../page/generated.mjs";
 import { DOLLY_IMAGES } from "../../page/images.mjs";
 import { sha256 } from "../../page/static-asset.mjs";
 import { DOLLY_SESSION_FORMAT_VERSION, loadStoredSession, sessionCompatible,
-  sessionLoadUrl, validSessionName, DOLLY_SESSION_MAX_BYTES } from "../../site/session-store.mjs";
+  sessionLoadUrl, validSessionName, DOLLY_SESSION_MAX_BYTES } from "./session-store.mjs";
 
 // A session route (/session/?name=NAME), or boot()'s session option on a page
 // of one's own, boots the saved session's image from the save, which is its whole
@@ -13,7 +13,7 @@ import { DOLLY_SESSION_FORMAT_VERSION, loadStoredSession, sessionCompatible,
 // files into a fresh system image instead.
 export async function boot(route) {
   if (!route.loadSession) return undefined;
-  if (route.mode !== "snapshot") throw new Error("invalid Dolly route configuration");
+  if (route.mode === "rebuild") throw new Error("invalid Dolly route configuration");
   const query = new URL(location.href).searchParams;
   const name = route.session ?? query.get("name"), recovering = route.session === undefined && query.get("recover") === "1";
   // The site lists its saves; a page of one's own has no such page.

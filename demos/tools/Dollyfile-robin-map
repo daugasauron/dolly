@@ -1,0 +1,25 @@
+DOLLY 8
+PACKAGE robin-map
+REQUIRES HOST runtime@0
+
+# robin-map, Tessil's C++ hash map and set with Robin Hood hashing
+# (OpenImageIO's), from upstream's release archive, unchanged: its headers,
+# installed by its CMake project with its CMake package, for programs the cc
+# package builds.
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+REQUIRES HEADER libc
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /dist/static/robin-map/source.tar.gz 8cbe261a373859504a1ca97fdfb8aed5b6cbb81c80d27a7dd0da3afee3ebf5fd /tmp/robin-map.tar.gz
+SLOP gzip -dc /tmp/robin-map.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/robin-map -B /tmp/robin-map-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+SLOP cmake --install /tmp/robin-map-build
+
+EXPORTS HEADER tsl             /usr/include/tsl
+EXPORTS FOLDER robin-map-cmake /usr/share/cmake/tsl-robin-map
+FILE /usr/share/licenses/robin-map/LICENSE
+SLOP rm -rf /tmp/robin-map /tmp/robin-map-build /tmp/robin-map.tar.gz

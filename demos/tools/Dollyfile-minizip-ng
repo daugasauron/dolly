@@ -1,0 +1,35 @@
+DOLLY 8
+PACKAGE minizip-ng
+REQUIRES HOST runtime@0
+
+# minizip-ng, the zip archive library (OpenColorIO's OCIOZ archives), from
+# upstream's release archive, unchanged, built by its CMake project over the
+# zlib package alone (no encryption, no other compressors and no iconv), for
+# programs the cc package builds.
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+INSTALL /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
+REQUIRES HEADER libc
+REQUIRES HEADER zlib
+REQUIRES LIB z
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /dist/static/minizip-ng/source.tar.gz 0ee22e486e82d282c12c0d63c6218fd82d637c27914a21dd0fde970f439414f5 /tmp/minizip-ng.tar.gz
+SLOP gzip -dc /tmp/minizip-ng.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/minizip-ng -B /tmp/minizip-ng-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+  -DMZ_FETCH_LIBS=OFF -DMZ_LIBCOMP=OFF -DMZ_PKCRYPT=OFF -DMZ_WZAES=OFF \
+  -DMZ_OPENSSL=OFF -DMZ_SIGNING=OFF -DMZ_PPMD=OFF -DMZ_LZMA=OFF -DMZ_ZSTD=OFF -DMZ_BZIP2=OFF -DMZ_ICONV=OFF \
+  -DMZ_ZLIB=ON -DMZ_ZLIB_FLAVOR=zlib
+SLOP cmake --build /tmp/minizip-ng-build -j4
+SLOP cmake --install /tmp/minizip-ng-build
+
+EXPORTS LIB    minizip       /usr/lib/libminizip.a
+EXPORTS HEADER minizip       /usr/include/minizip
+EXPORTS FOLDER minizip-cmake /usr/lib/cmake/minizip
+FILE /usr/lib/pkgconfig/minizip.pc
+FILE /usr/share/licenses/minizip-ng/LICENSE
+SLOP rm -rf /tmp/minizip-ng /tmp/minizip-ng-build /tmp/minizip-ng.tar.gz

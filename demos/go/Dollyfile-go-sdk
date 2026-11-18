@@ -1,17 +1,19 @@
-DOLLY 7
+DOLLY 8
 TOOLCHAIN go-sdk
 REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 
-# The external seed (build-go-toolchain.sh): Go's GOROOT for dolly/wasm64,
-# cross-built on Linux. go-build rebuilds its toolchain here.
-FROM /v0.1.6/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
-INSTALL /v0.1.6/Dollyfile-gzip afb9abb2b9a78e4c82811af6f5695f814ac322f538655f733ba6813895be13ae
+# Go's GOROOT for dolly/wasm64: the seed, the go package's commands as the
+# previous round built them, and the sources the go package builds again.
+FROM /Dollyfile-system-build 0c72e09eba84571d4f8634cf6e7507eb1be1b9b8aa1fae61f6b0ec884b26b6fb
+INSTALL /Dollyfile-gzip cef69a22c3b9f73889f4c819fcfaee2fb4487474ea4efa364117b8796465d1a4
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
-SOURCE /v0.1.6/dist/static/go/go-sdk.tar.gz 88296c30822d83b442a6413e7effc957417136423c9048f1efd6fd81578a6750 /tmp/go-sdk.tar.gz
-SLOP gzip -dc /tmp/go-sdk.tar.gz | tar -xf - -C /usr/lib
-SLOP rm /tmp/go-sdk.tar.gz
+SOURCE /dist/static/go/go-source.tar.gz ff2cedfda915d79e084c431cc8f30ec7ee41afa3a9b9ef47d4415cdb1891131a /tmp/go-source.tar.gz
+SOURCE /dist/static/go/go-seed.tar.gz fd1b17456aeb6971a04ab2d1d76a73de88bc1dd7f5fc2bc8845a2827d51a9b19 /tmp/go-seed.tar.gz
+SLOP gzip -dc /tmp/go-source.tar.gz | tar -xf - -C /
+SLOP gzip -dc /tmp/go-seed.tar.gz | tar -xf - -C /
+SLOP rm /tmp/go-source.tar.gz /tmp/go-seed.tar.gz
 
 EXPORTS ENV PATH /bin:/usr/bin:/usr/lib/go/bin
 # go.env's GOTOOLCHAIN=auto would fetch newer toolchains, which do not run here.

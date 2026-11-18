@@ -94,9 +94,9 @@ test("prepared published bytes update module and image pins without changing ext
   const pin = "0".repeat(64);
   try {
     await mkdir(join(scratch, "dist/static"), { recursive: true });
-    await writeFile(join(scratch, "Dollyfile"), `DOLLY 7\nAPPLICATION default\nINSTALL ${siteReference("Dollyfile-tool")} ${pin}\nENTRY /bin/slop\n`);
-    await writeFile(join(scratch, "Dollyfile-addon"), `DOLLY 7\nAPPLICATION addon\nFROM ${siteReference("Dollyfile")} ${pin}\nENTRY /bin/slop\n`);
-    await writeFile(join(scratch, "Dollyfile-tool"), `DOLLY 7\nPACKAGE tool\nSOURCE ${siteReference("dist/static/tool.c")} ${pin} /tmp/tool.c\nSOURCE https://example.invalid/source ${pin} /tmp/upstream\n`);
+    await writeFile(join(scratch, "Dollyfile"), `DOLLY 8\nAPPLICATION default\nINSTALL ${siteReference("Dollyfile-tool")} ${pin}\nENTRY /bin/slop\n`);
+    await writeFile(join(scratch, "Dollyfile-addon"), `DOLLY 8\nAPPLICATION addon\nFROM ${siteReference("Dollyfile")} ${pin}\nENTRY /bin/slop\n`);
+    await writeFile(join(scratch, "Dollyfile-tool"), `DOLLY 8\nPACKAGE tool\nSOURCE ${siteReference("dist/static/tool.c")} ${pin} /tmp/tool.c\nSOURCE https://example.invalid/source ${pin} /tmp/upstream\n`);
     for (const bytes of ["first source", "edited source"]) {
       await writeFile(join(scratch, "dist/static/tool.c"), bytes);
       await updateRecipePins(scratch, "all");

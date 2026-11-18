@@ -1,6 +1,7 @@
 import { DOLLY_PROCESS_ABI_DIGEST } from "./generated.mjs";
 import { DOLLY_ERRNO } from "./process-constants.mjs";
-import { parseWasmInterface } from "./wasm-interface.mjs";
+import { callFields, callFieldsOffset, controlBytes, controlWord } from "./process-control.mjs";
+import { castThunkTargets, exportFunctionsByTable, exportIndex, parseWasmInterface } from "./wasm-interface.mjs";
 import { validateProcessInterface } from "./process-abi.mjs";
 import { executableHostRequirements, checkHostAbi } from "../host/requirements.mjs";
 import {
@@ -52,32 +53,29 @@ const compilationNoticeMilliseconds = 250;
 // compiled in Firefox, where the cache held two. An idle Worker costs about
 // 2.5 MB, so a small module is compiled and held here.
 const heldModuleBytes = 16 * 1024 * 1024;
-const holderUrl = URL.createObjectURL(new Blob([`let module;
-onmessage = async ({ data: { bytes, port } }) => {
-  if (port) return port.postMessage(module);
+// It reaches the supervisor on the port the page sends it first (pageWorker).
+const holderUrl = URL.createObjectURL(new Blob([`let module, supervisor;
+onmessage = async ({ data: { supervisor: port, bytes, port: channel } }) => {
+  if (port) return void (supervisor = port, port.onmessage = onmessage);
+  if (channel) return channel.postMessage(module);
   try {
     module = await WebAssembly.compile(bytes);
-    postMessage(null);
+    supervisor.postMessage(null);
   } catch (error) {
-    postMessage(String(error?.message ?? error));
+    supervisor.postMessage(String(error?.message ?? error));
   } finally {
     bytes.transfer(0);
   }
 };`], { type: "text/javascript" }));
-// Each holder until it answers: Firefox ends a Worker that only its own
-// handlers reach once its loop is idle, as after it posts its answer, and
-// that answer is lost.
-const compiling = new Set();
 // The Worker holding the module compiled from BYTES, which it takes.
-function compileHeld(bytes) {
-  const holder = new Worker(holderUrl, { name: "dolly-module" });
-  compiling.add(holder);
+function compileHeld(bytes, pageWorker) {
+  const holder = pageWorker(holderUrl, { name: "dolly-module" });
   return new Promise((resolve, reject) => {
     const fail = message => { holder.terminate(); reject(new Error(message)); };
-    holder.onmessage = ({ data }) => data === null ? resolve(holder) : fail(data);
-    holder.onerror = event => { event.preventDefault(); fail(event.message || "module Worker failed"); };
+    holder.addEventListener("message", ({ data }) => data === null ? resolve(holder) : fail(data));
+    holder.addEventListener("error", event => { event.preventDefault(); fail(event.message || "module Worker failed"); });
     holder.postMessage({ bytes: bytes.buffer }, [bytes.buffer]);
-  }).finally(() => compiling.delete(holder));
+  });
 }
 const largeInteractiveProcessBytes = 128 * 1024 * 1024;
 const workerReclamationMilliseconds = 500;
@@ -174,7 +172,7 @@ function encodeSpawn(arguments_, flags, standard = true) {
 // into a mailbox of its own in kernel memory, and the memory goes with the
 // Worker. This Worker only names that mailbox to the kernel.
 export class DollyProcessSupervisor {
-  constructor(kernel, kernelMemory, gateModule, workerUrl, processContract, hostAbi, serviceHost, threadHost, processModules) {
+  constructor(kernel, kernelMemory, gateModule, workerUrl, processContract, hostAbi, serviceHost, threadHost, processModules, pageWorker) {
     if (!(kernelMemory instanceof WebAssembly.Memory) ||
         !(gateModule instanceof WebAssembly.Module) || !(workerUrl instanceof URL)) {
       throw new TypeError("invalid Dolly process supervisor configuration");
@@ -188,6 +186,8 @@ export class DollyProcessSupervisor {
     this.serviceHost = serviceHost;
     this.threadHost = threadHost;
     this.processModules = processModules;
+    // A Worker the page makes (host/runtime/runtime.mjs pageWorkers).
+    this.pageWorker = pageWorker;
     this.processes = new Map();
     this.deferred = new Map();
     this.compiledModules = new Map();
@@ -205,7 +205,7 @@ export class DollyProcessSupervisor {
     this.serviceTimer = setInterval(() => this.#serviceTick(), 16);
   }
 
-  static async create(kernel, kernelMemory, runtimeBase, hostAbi, serviceHost, threadHost, processModules) {
+  static async create(kernel, kernelMemory, runtimeBase, hostAbi, serviceHost, threadHost, processModules, pageWorker) {
     const [gateBytes, contractBytes, workerBytes] = await Promise.all([
       "dolly-process-gate-0.wasm", "dolly-process-0.wasm", "dolly-process-worker.mjs",
     ].map(async name => {
@@ -222,7 +222,7 @@ export class DollyProcessSupervisor {
       const supervisor = new DollyProcessSupervisor(
         kernel, kernelMemory, gateModule, workerUrl,
         parseWasmInterface(contractBytes, "dolly-process-0"),
-        hostAbi, serviceHost, threadHost, processModules,
+        hostAbi, serviceHost, threadHost, processModules, pageWorker,
       );
       supervisor.releaseWorkerSource = () => URL.revokeObjectURL(workerUrl.href);
       // Entered through JSPI (WebAssembly.promising), a process runs on a
@@ -389,12 +389,12 @@ export class DollyProcessSupervisor {
   // or one compiled from the bytes, found by their SHA-256 or compiled now.
   async #compiledImage(pid) {
     const version = BigInt(this.kernel.dolly_process_image_version(pid));
-    const key = this.compiledVersions.get(version);
-    if (version !== 0n && this.compiledModules.has(key)) {
+    const known = version !== 0n && this.#knownModule(this.compiledVersions.get(version));
+    if (known) {
       if (this.kernel.dolly_process_image_consumed(pid) !== 0) {
         throw new Error(`kernel did not release executable ${pid}`);
       }
-      return this.#cachedModule(key);
+      return known;
     }
     const compiled = await this.#compileProcess(this.#takeImage(pid), pid);
     if (version !== 0n) {
@@ -407,12 +407,24 @@ export class DollyProcessSupervisor {
     return compiled;
   }
 
-  // A cached module, made the most recently used.
-  #cachedModule(key) {
-    const cached = this.compiledModules.get(key);
-    this.compiledModules.delete(key);
-    this.compiledModules.set(key, cached);
-    return cached;
+  // The module compiled from the bytes KEY names, made the most recently used:
+  // the cache's, or one the cache let go that a process still runs. A second
+  // copy would be compiled in full: in Firefox, whose Workers share one budget
+  // of code memory, three copies of rustc (254.5 MiB) left none for its linker.
+  #knownModule(key) {
+    const running = [...this.processes.values()].map(process => process.compiled).filter(Boolean);
+    const known = this.compiledModules.get(key) ?? running.find(compiled => compiled.key === key);
+    if (known) this.#remember(known);
+    return known;
+  }
+
+  // Makes a module the cache's most recently used, if it fits.
+  #remember(compiled) {
+    if (this.compiledModules.delete(compiled.key)) this.compiledModuleBytes -= compiled.byteLength;
+    if (compiled.byteLength > compiledModuleCacheBytes) return;
+    this.#evict(compiled.byteLength);
+    this.compiledModules.set(compiled.key, compiled);
+    this.compiledModuleBytes += compiled.byteLength;
   }
 
   // The notices of a slow compile go to process `pid`, whose launch started it.
@@ -420,7 +432,8 @@ export class DollyProcessSupervisor {
     const byteLength = bytes.byteLength;
     const digest = hex(await crypto.subtle.digest("SHA-256", bytes));
     const key = `${byteLength}:${digest}`;
-    if (this.compiledModules.has(key)) return this.#cachedModule(key);
+    const known = this.#knownModule(key);
+    if (known) return known;
     // What this module will replace in the cache goes before it is compiled.
     if (byteLength <= compiledModuleCacheBytes) this.#evict(byteLength);
 
@@ -447,8 +460,13 @@ export class DollyProcessSupervisor {
       checkHostAbi(requirements, this.hostAbi);
       threaded = this.threadHost?.threaded(parsed, requirements) ?? false;
       largeStack = parsed.customSections.includes("dolly.process.stack");
-      module = byteLength >= heldModuleBytes ? await compileHeld(bytes) : await WebAssembly.compile(bytes);
-      processInterface = { imports: parsed.imports, exports: parsed.exports,
+      // The runtime calls _start and Dolly's own exports (dolly_thread_start,
+      // __dolly_dso_allocate) by name; dso@0 finds the others in the table.
+      const byTable = exportFunctionsByTable(bytes, parsed, { has: name => name === "_start" || /^(__)?dolly_/.test(name) });
+      const thunks = parsed.castEmulationParameters ? castThunkTargets(bytes, parsed) : undefined;
+      if (byTable) bytes = byTable.bytes;
+      module = bytes.byteLength >= heldModuleBytes ? await compileHeld(bytes, this.pageWorker) : await WebAssembly.compile(bytes);
+      processInterface = { imports: parsed.imports, exports: exportIndex(parsed.exports, byTable?.slots, thunks),
         castEmulationParameters: parsed.castEmulationParameters };
       prepared = true;
     } finally {
@@ -462,12 +480,7 @@ export class DollyProcessSupervisor {
       }
     }
     const compiled = { key, module, memoryRequirements, processInterface, threaded, largeStack, requirements, byteLength };
-    if (byteLength <= compiledModuleCacheBytes) {
-      // An exec's compile may have run beside this one.
-      this.#evict(byteLength);
-      this.compiledModules.set(key, compiled);
-      this.compiledModuleBytes += byteLength;
-    }
+    this.#remember(compiled);
     return compiled;
   }
 
@@ -485,7 +498,7 @@ export class DollyProcessSupervisor {
   // Ends the Worker of a held module (heldModuleBytes) that neither the cache
   // nor a process holds.
   #release(compiled) {
-    if (!(compiled.module instanceof Worker) || this.compiledModules.get(compiled.key) === compiled) return;
+    if (compiled.module instanceof WebAssembly.Module || this.compiledModules.get(compiled.key) === compiled) return;
     for (const process of this.processes.values()) if (process.compiled === compiled) return;
     compiled.module.terminate();
   }
@@ -623,12 +636,9 @@ export class DollyProcessSupervisor {
     const { pid, compiled: { module }, memoryRequirements, processInterface, threaded, local } = process;
     const name = `dolly-process-${pid}-thread-${thread.tid}`;
     const worker = threaded ? this.threadHost.create(pid, this.workerUrl, name)
-      : new Worker(this.workerUrl, { type: "module", name });
+      : this.pageWorker(this.workerUrl, { type: "module", name });
     if (!worker) throw new Error("thread Worker capacity exhausted");
-    // Words: the call sequence, the answered sequence, the result's two
-    // halves, the copy word (page/process-worker.mjs copyRequest) and a
-    // thread's start word (#disposeThread).
-    const control = new SharedArrayBuffer(32);
+    const control = new SharedArrayBuffer(controlBytes);
     thread.mailbox = Number(this.kernel.malloc(BigInt(packetLimit)));
     if (!thread.mailbox) { worker.terminate(); throw new Error("kernel memory for a process mailbox"); }
     if (this.kernel.dolly_process_worker_mailbox(pid, thread.tid, BigInt(thread.mailbox)) !== 0) {
@@ -647,13 +657,31 @@ export class DollyProcessSupervisor {
     worker.addEventListener("message", thread.messageHandler);
     worker.addEventListener("error", thread.errorHandler, { once: true });
     worker.addEventListener("messageerror", thread.messageErrorHandler, { once: true });
+    // The doorbell: the Worker's start, then each call, in their order.
+    const fields = new Float64Array(control, callFieldsOffset, callFields.length), ring = (observed, started) =>
+      void Promise.resolve(Atomics.waitAsync(thread.control, controlWord.doorbell, observed).value).then(() => {
+        if (thread.worker !== worker) return;
+        if (!started && Atomics.load(thread.control, controlWord.started)) {
+          started = true;
+          this.#message(process, { type: "started", pid, tid: thread.tid }, thread);
+        }
+        const sequence = Atomics.load(thread.control, controlWord.doorbell);
+        if (sequence !== observed) this.#message(process, { type: "syscall", pid, tid: thread.tid, sequence,
+          ...Object.fromEntries(callFields.map((name, index) => [name, fields[index]])) }, thread);
+        ring(sequence, started);
+      });
+    ring(0, false);
     // local: the modules this executable records that are served in its own
     // Worker (host/dso), each as the bundle it imports and its configuration.
-    // A held module comes from its Worker, on a channel of this Worker's own.
-    const channel = module instanceof Worker ? new MessageChannel() : null;
+    // A held module comes from its Worker, on a channel of this Worker's own,
+    // which the thread keeps: once this Worker collects the ports it handed on,
+    // Firefox forgets what the holder posted that the thread's Worker has not
+    // read yet, and the Worker gets a messageerror (measured 2026-11-17, Firefox 155).
+    const channel = module instanceof WebAssembly.Module ? null : new MessageChannel();
+    thread.moduleChannel = channel;
     channel && module.postMessage({ port: channel.port1 }, [channel.port1]);
     worker.postMessage({ type: "configure", pid, tid: thread.tid, argument, threaded, control,
-      threadOperations: threaded ? this.threadHost.operations : undefined,
+      threadOperations: threaded ? this.threadHost.operations : undefined, threadEntry: threaded ? this.threadHost.entry : undefined,
       module: channel ? channel.port2 : module,
       memory: memoryRequirements, port, mailbox: thread.mailbox, kernelMemory: this.kernelMemory, gateModule: this.gateModule,
       promisingEntry: this.promisingEntry && process.largeStack, stackDepths: this.stackDepths,
@@ -673,10 +701,10 @@ export class DollyProcessSupervisor {
 
   #signal(process, sequence, result) {
     const encoded = BigInt.asUintN(64, result);
-    Atomics.store(process.control, 2, Number(encoded & 0xffffffffn));
-    Atomics.store(process.control, 3, Number((encoded >> 32n) & 0xffffffffn));
-    Atomics.store(process.control, 1, sequence);
-    Atomics.notify(process.control, 1);
+    Atomics.store(process.control, controlWord.resultLow, Number(encoded & 0xffffffffn));
+    Atomics.store(process.control, controlWord.resultHigh, Number((encoded >> 32n) & 0xffffffffn));
+    Atomics.store(process.control, controlWord.answered, sequence);
+    Atomics.notify(process.control, controlWord.answered);
   }
 
   #clearTimers(process) {
@@ -711,8 +739,8 @@ export class DollyProcessSupervisor {
         values.some((value) => !Number.isSafeInteger(value) || value < 0) ||
         message.requestSize > packetLimit || message.responseCapacity > packetLimit ||
         spawnsThread !== (message.port instanceof MessagePort) ||
-        Atomics.load(thread.control, 0) !== message.sequence ||
-        Atomics.load(thread.control, 1) === message.sequence) {
+        Atomics.load(thread.control, controlWord.call) !== message.sequence ||
+        Atomics.load(thread.control, controlWord.answered) === message.sequence) {
       this.#fail(process, new Error(`process ${process.pid} sent an invalid syscall`));
       return;
     }
@@ -930,32 +958,36 @@ export class DollyProcessSupervisor {
       thread.worker.removeEventListener("messageerror", thread.messageErrorHandler);
       // Chrome keeps a Worker terminated inside Atomics.wait, and its memory,
       // for two seconds. Answered with the deferred result, which no program
-      // is handed, a waiting Worker leaves Wasm and closes itself.
-      if (thread.control) this.#signal(thread, Atomics.load(thread.control, 0), deferredResult);
+      // is handed, a waiting Worker leaves Wasm and closes itself. Its doorbell's
+      // waiter (#launchWorker) is woken to end.
+      if (thread.control) {
+        this.#signal(thread, Atomics.load(thread.control, controlWord.call), deferredResult);
+        Atomics.notify(thread.control, controlWord.doorbell);
+      }
       // Chrome keeps what was posted to a Worker terminated before it runs, the
       // memory a thread's Worker is sent among it, until this Worker collects
-      // garbage. One that has not started (control word 5 still 0) is told so
+      // garbage. One that has not started (its start word still 0) is told so
       // and ends itself (page/process-worker.mjs processMemory).
-      const unstarted = thread !== process && Atomics.compareExchange(thread.control, 5, 0, 2) === 0;
-      if (unstarted) Atomics.notify(thread.control, 5);
+      const unstarted = thread !== process && Atomics.compareExchange(thread.control, controlWord.start, 0, 2) === 0;
+      if (unstarted) Atomics.notify(thread.control, controlWord.start);
       // threads@0 disabled since has already terminated its Workers.
       if (process.threaded && this.threadHost) this.threadHost.release(thread.worker, !unstarted);
       else thread.worker.terminate();
     }
-    // The Worker copies a request into its mailbox under control word 4
+    // The Worker copies a request into its mailbox under the copy word
     // (page/process-worker.mjs copyRequest); sealed, it copies no more, and the
     // mailbox goes back to the kernel. Termination has no completion event: a
     // Worker ended inside a copy finishes it first.
     if (thread.mailbox) {
       this.kernel.dolly_process_worker_mailbox(process.pid, thread.tid, 0n);
-      while (Atomics.compareExchange(thread.control, 4, 0, 2) === 1 &&
-             Atomics.wait(thread.control, 4, 1, mailboxSealMilliseconds) !== "timed-out");
-      if (Atomics.load(thread.control, 4) === 2) this.kernel.free(BigInt(thread.mailbox));
+      while (Atomics.compareExchange(thread.control, controlWord.copy, 0, 2) === 1 &&
+             Atomics.wait(thread.control, controlWord.copy, 1, mailboxSealMilliseconds) !== "timed-out");
+      if (Atomics.load(thread.control, controlWord.copy) === 2) this.kernel.free(BigInt(thread.mailbox));
     }
     thread.mailbox = 0;
     thread.worker = null;
     thread.control = null;
-    thread.messageHandler = thread.errorHandler = thread.messageErrorHandler = null;
+    thread.messageHandler = thread.errorHandler = thread.messageErrorHandler = thread.moduleChannel = null;
     process.threads.delete(thread.tid);
   }
 
@@ -1007,7 +1039,7 @@ export class DollyProcessSupervisor {
     }
     this.processes.clear();
     this.deferred.clear();
-    for (const compiled of this.compiledModules.values()) if (compiled.module instanceof Worker) compiled.module.terminate();
+    for (const compiled of this.compiledModules.values()) if (!(compiled.module instanceof WebAssembly.Module)) compiled.module.terminate();
     this.compiledModules.clear();
     this.compiledModuleBytes = 0;
     this.compiledVersions.clear();

@@ -4,7 +4,7 @@
   ;; kernel sends raw terminal output to it.
   (import "env" "memory" (memory i64 1024 131072 shared))
 
-  ;; Boot-only, host-initiated display installation. Wasm reads DISPLAY from
+  ;; Boot-only, host-initiated display installation. Wasm reads DOLLY_DISPLAY_LIBRARY from
   ;; its own filesystem and exposes bytes; the browser instantiates those
   ;; bytes with Wasm-only imports, then returns the v6 driver structure address.
   ;; There is deliberately no guest-callable browser loader import.

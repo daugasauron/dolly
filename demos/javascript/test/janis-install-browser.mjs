@@ -2,8 +2,9 @@
 // fixture registry the test origin serves in the registry's place: ranges,
 // nesting, integrity, optional and platform packages, scripts that are not
 // run, launchers, --prefix, --registry and --integrity, and what it refuses.
-// Usage: node demos/javascript/test/janis-install-browser.mjs (DOLLY_BROWSER=firefox runs it in Firefox).
+// Usage: [DOLLY_BROWSER=firefox] node demos/javascript/test/janis-install-browser.mjs
 import assert from "node:assert/strict";
+import { browsers } from "../../browsers.mjs";
 import { demoTest, redirectFetch } from "../../browser.mjs";
 import { integrities, npmRegistry, registry } from "./fixtures/npm-registry.mjs";
 
@@ -11,10 +12,9 @@ const fixture = npmRegistry("/npm");
 const tarballs = () => fixture.requests.filter(({ path }) => path.endsWith(".tgz")).map(({ path }) => path);
 const modules = "/usr/lib/node_modules";
 
-await demoTest("janis-install", { image: "default", timeout: 300_000, browser: process.env.DOLLY_BROWSER ?? "chromium",
+for (const browser of browsers) await demoTest("janis-install", { image: "default", timeout: 300_000, browser,
   server: { handle: fixture.handle } }, async ({ server, open }) => {
-  const policy = { maxRequests: 256, rules: [{ origin: server.origin, path: "/amy-index.txt", methods: ["GET"] },
-    { origin: registry, pathPrefix: "/", methods: ["GET"] }] };
+  const policy = { maxRequests: 256, rules: [{ origin: registry, pathPrefix: "/", methods: ["GET"] }] };
   const { run, submit, text } = await open({ policy, setup: redirectFetch(registry, `${server.origin}/npm`) });
   const fails = async command => assert.notEqual(await submit(command), 0, `${command} succeeded:\n${await text()}`);
   await run("amy install janis-install && man janis-install > /dev/null");
@@ -40,7 +40,8 @@ await demoTest("janis-install", { image: "default", timeout: 300_000, browser: p
   await run("janis-install --prefix /tmp/other/node_modules dolly-left && test -f /tmp/other/node_modules/@dolly/shared/index.js");
   await run(`cd /tmp/other && test "$(janis -e 'console.log(require("dolly-left"))')" = 'left shared 1.0.0' && cd /workspace`);
 
-  // A copy of the registry's files, as a recipe stages them: nothing is fetched.
+  // A copy of the registry's files, as a recipe stages them, with curl: nothing is fetched.
+  await run("amy install curl");
   await run(["dolly-left", "@dolly/shared"].map(name => `mkdir -p /tmp/copy/${name}/- && curl -fsS ${registry}/${name} -o /tmp/copy/${name}/metadata.json`)
     .concat(["dolly-left/-/dolly-left-1.0.0.tgz", "@dolly/shared/-/shared-1.0.0.tgz"].map(path => `curl -fsS ${registry}/${path} -o /tmp/copy/${path}`)).join(" && "));
   const copied = fixture.requests.length;

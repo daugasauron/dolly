@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE tar
 REQUIRES HOST runtime@0
 
@@ -6,8 +6,12 @@ REQUIRES HOST runtime@0
 # builds its commands from. It writes archives and reads links, which the
 # tar of the core package does not, and it takes that one's place: /bin
 # comes first on PATH. Its -z, -j and -J start gzip, bzip2 or xz from PATH,
-# by posix_spawn instead of fork (sbase-tar-spawn.patch), and tar waits for it.
-FROM /v0.1.6/demos/tools/Dollyfile-tools-build f0a23271701bb566fdd11375946b1a4159d15510005f66c9781cf5a2f411eb5c
+# by posix_spawn instead of fork (sbase-tar-spawn.patch), and tar waits for it:
+# the three come with it.
+FROM /demos/tools/Dollyfile-tools-build 3c416d0813c5baabb63ce16ebbd9abda02d78c2f86dcb2bbb351a19ffcb32139
+INSTALL /Dollyfile-gzip cef69a22c3b9f73889f4c819fcfaee2fb4487474ea4efa364117b8796465d1a4
+INSTALL /demos/tools/Dollyfile-bzip2 d6347b250f4debc2f903c3a4a7cd770f055933d2b695c8cc67e930c4412ae415
+INSTALL /demos/tools/Dollyfile-xz 459f0cc5ab2cda8ede96f9c9434f947f97b7e5faef4bfd3543abcb2be3e8e909
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -22,8 +26,8 @@ REQUIRES TOOL   readlink
 REQUIRES TOOL   test
 REQUIRES TOOL   text-page
 
-SOURCE /v0.1.6/dist/static/default/sbase.tar 23daa7bd6d5169ba5ad4a9801fe039ba28b103e3dbb74583fccb48f3333253eb /tmp/sbase.tar
-SOURCE /v0.1.6/dist/static/tools/sbase-tar-spawn.patch 3c7c19e521a33229eb18435f81af7f47160a03c97f61e3e6c508b41648487463 /tmp/sbase-tar-spawn.patch
+SOURCE /dist/static/default/sbase.tar 23daa7bd6d5169ba5ad4a9801fe039ba28b103e3dbb74583fccb48f3333253eb /tmp/sbase.tar
+SOURCE /dist/static/tools/sbase-tar-spawn.patch 3c7c19e521a33229eb18435f81af7f47160a03c97f61e3e6c508b41648487463 /tmp/sbase-tar-spawn.patch
 SLOP tar -xf /tmp/sbase.tar -C /
 SLOP patch -p1 -d /tmp/sbase -i /tmp/sbase-tar-spawn.patch
 

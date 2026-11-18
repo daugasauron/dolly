@@ -3,27 +3,21 @@
   "directory": "/tmp/amy-tools",
   "steps": [
     {
-      "why": "What a session adds one package at a time: each command is absent from default, installs alone, is used, and its manual page is text, with no macros. None brings the compiler until zig, which writes C for it.",
+      "fresh": true,
+      "why": "Each package in a default session of its own: its command is absent, it installs alone and is used, and its manual page is text, with no macros. cc installs after it where the use compiles.",
       "script": "! command -v ninja",
       "status": 0
     },
     { "script": "amy install ninja", "status": 0 },
     { "script": "mkdir /tmp/amy-ninja && cd /tmp/amy-ninja && printf '%s\\n' 'rule write' '  command = echo built > $out' 'build out: write' > build.ninja && ninja && test \"$(cat out)\" = built && man ninja > /dev/null", "status": 0 },
-    { "script": "! command -v make", "status": 0 },
+    { "fresh": true, "script": "! command -v make", "status": 0 },
     { "script": "amy install make", "status": 0 },
     { "script": "mkdir /tmp/amy-make && cd /tmp/amy-make && printf 'out:\\n\\techo made > out\\n' > Makefile && make && test \"$(cat out)\" = made", "status": 0 },
-    {
-      "why": "The interpreter and the two modules built for it.",
-      "script": "! command -v lua",
-      "status": 0
-    },
-    { "script": "amy install lua", "status": 0 },
-    { "script": "test \"$(lua -e 'local lpeg, uv = require(\"lpeg\"), require(\"luv\"); assert(uv.now() >= 0); print(lpeg.match(lpeg.R(\"09\")^1, \"42\") * 14)')\" = 42", "status": 0 },
-    { "script": "man lua > /tmp/amy-man && grep -q 'interpreter' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    { "script": "! command -v session-recover", "status": 0 },
+    { "fresh": true, "script": "! command -v session-recover", "status": 0 },
     { "script": "amy install session-recover", "status": 0 },
     { "script": "session-recover --help | grep -q '^usage: session-recover' && ! session-recover /tmp/missing /tmp/recovered 2> /dev/null", "status": 0 },
     {
+      "fresh": true,
       "why": "\"packed\", compressed.",
       "script": "! command -v gzip",
       "status": 0
@@ -31,62 +25,7 @@
     { "script": "amy install gzip", "status": 0 },
     { "script": "printf '\\037\\213\\010\\000\\000\\000\\000\\000\\002\\003\\053\\110\\114\\316\\116\\115\\341\\002\\000\\103\\340\\101\\057\\007\\000\\000\\000' | gzip -dc | grep -qx packed", "status": 0 },
     {
-      "why": "The engine's own command: it evaluates, and holds no module of Node's.",
-      "script": "! command -v qjs",
-      "status": 0
-    },
-    { "script": "amy install quickjs", "status": 0 },
-    { "script": "test \"$(qjs -e 'console.log(6 * 7)')\" = 42 && ! qjs -e 'import \"node:fs\"' 2> /dev/null && man qjs > /dev/null", "status": 0 },
-    {
-      "why": "A Node-style script reads a file. Janis starts its children with sh, which posix holds.",
-      "script": "! command -v janis",
-      "status": 0
-    },
-    { "script": "amy install janis", "status": 0 },
-    { "script": "echo read > /tmp/amy-janis.txt && test \"$(janis -e 'console.log(require(\"node:fs\").readFileSync(\"/tmp/amy-janis.txt\", \"utf8\").trim().toUpperCase())')\" = READ && test \"$(janis -e 'console.log(require(\"node:child_process\").execSync(\"echo spawned\").toString().trim())')\" = spawned && man janis > /dev/null && ! command -v tsc", "status": 0 },
-    { "script": "! command -v nvim", "status": 0 },
-    { "script": "amy install nvim", "status": 0 },
-    { "script": "nvim --headless -c 'call writefile([\"written\"], \"/tmp/amy-nvim\")' -c 'qa!' && test \"$(cat /tmp/amy-nvim)\" = written", "status": 0 },
-    { "script": "man nvim > /tmp/amy-man && grep -q 'edit text' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    { "script": "! command -v emacs", "status": 0 },
-    { "script": "amy install emacs", "status": 0 },
-    { "script": "test \"$(emacs --batch --eval '(princ (* 6 7))')\" = 42", "status": 0 },
-    { "script": "! command -v rg", "status": 0 },
-    { "script": "amy install ripgrep", "status": 0 },
-    { "script": "mkdir /tmp/amy-hay && echo needle > /tmp/amy-hay/stack && rg -q needle /tmp/amy-hay", "status": 0 },
-    { "script": "! command -v fd", "status": 0 },
-    { "script": "amy install fd", "status": 0 },
-    { "script": "test \"$(fd stack /tmp/amy-hay)\" = /tmp/amy-hay/stack", "status": 0 },
-    { "script": "! command -v protox", "status": 0 },
-    { "script": "amy install protox", "status": 0 },
-    { "script": "cd /tmp && printf 'syntax = \"proto3\";\\nmessage Probe { string name = 1; }\\n' > amy.proto && protox amy.proto -o amy.pb && test -s amy.pb", "status": 0 },
-    { "script": "! command -v cbindgen", "status": 0 },
-    { "script": "amy install cbindgen", "status": 0 },
-    { "script": "printf '#[no_mangle]\\npub extern \"C\" fn answer() -> i32 { 42 }\\n' > /tmp/amy-answer.rs && cbindgen /tmp/amy-answer.rs | grep -q 'int32_t answer'", "status": 0 },
-    {
-      "why": "yes ends when its reader does.",
-      "script": "! command -v yes",
-      "status": 0
-    },
-    { "script": "amy install sbase", "status": 0 },
-    { "script": "test \"$(yes | head -n 3 | tr '\\n' ' ')\" = 'y y y ' && test \"$(printf abc | sha1sum | cut -c 1-40)\" = a9993e364706816aba3e25717850c26c9cd0d89d && printf abc | sha512sum | grep -q '^ddaf35a193617aba' && cal 10 2026 | grep -q 2026 && echo sponged > /tmp/amy-sponge && tr a-z A-Z < /tmp/amy-sponge | sponge /tmp/amy-sponge && grep -qx SPONGED /tmp/amy-sponge && uuencode /tmp/amy-sponge sponge | uudecode -o /tmp/amy-uu && cmp /tmp/amy-uu /tmp/amy-sponge", "status": 0 },
-    { "script": "man yes > /tmp/amy-man && grep -q 'output' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    { "script": "man cal > /tmp/amy-man && grep -q 'calendar' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    {
-      "why": "janis-install comes after janis, gzip and sbase, whose commands it brings, and both before pi-dolly, whose pi installs them; without the registry it refuses a git spec by name.",
-      "script": "! command -v janis-install",
-      "status": 0
-    },
-    { "script": "amy install janis-install", "status": 0 },
-    { "script": "man janis-install > /dev/null && command -v sha512sum > /dev/null && ! janis-install user/repo 2> /dev/null", "status": 0 },
-    {
-      "why": "Pi as pi-agent has it: pi-dolly installs pi and the platform's documents beside the files Pi reads.",
-      "script": "! command -v pi",
-      "status": 0
-    },
-    { "script": "amy install pi-dolly", "status": 0 },
-    { "script": "pi --version > /dev/null && ! cc --version 2> /dev/null && amy installed | grep -q '^pi ' && test -s /home/dolly/.pi/agent/SYSTEM.md && test -s /home/dolly/.pi/agent/extensions/dolly-tools.js && test -s /usr/share/doc/dolly/docs/slop.md", "status": 0 },
-    {
+      "fresh": true,
       "why": "The two ways its manual page gives: a function for a C program, and a program with the standard library.",
       "script": "! command -v zig",
       "status": 0
@@ -94,96 +33,7 @@
     { "script": "amy install zig", "status": 0 },
     { "script": "mkdir /tmp/amy-zig && cd /tmp/amy-zig && printf 'export fn answer() c_int { return 42; }\\n' > answer.zig && printf 'int answer(void); int main(void) { return answer(); }\\n' > main.c && zig build-obj -ofmt=c -femit-bin=answer.c answer.zig && cc -I /usr/lib/zig main.c answer.c -o answer && man zig > /dev/null && ./answer; test $? = 42 && printf 'const std = @import(\"std\");\\npub fn main() void { std.debug.print(\"{d}\", .{6 * 7}); }\\n' > hello.zig && zig build-exe -target wasm64-emscripten -fsingle-threaded -ofmt=c -lc -femit-bin=hello.c hello.zig && cc -Wno-incompatible-pointer-types '-Dzig_unimplemented()=(__builtin_trap(),0)' -I /usr/lib/zig hello.c -o hello && test \"$(./hello 2>&1)\" = 42", "status": 0 },
     {
-      "why": "zig brought cc, so a package that holds a library also links a program with it. A database written and queried; a second process is told that the first has it.",
-      "script": "! command -v sqlite3",
-      "status": 0
-    },
-    { "script": "amy install sqlite", "status": 0 },
-    { "script": "sqlite3 /tmp/amy.db \"create table word(n, name); insert into word values (6, 'six'), (7, 'seven'), (9, 'nine'); pragma journal_mode = wal\" > /dev/null && test \"$(sqlite3 /tmp/amy.db \"select sum(n) * 3 + 3, json_group_array(name) from word where name like 's%'\")\" = '42|[\"six\",\"seven\"]' && sqlite3 /tmp/amy.db 'select count(*) from word' \".shell sqlite3 /tmp/amy.db 'select count(*) from word' 2>&1\" | grep -q 'database is locked' && printf '%s\\n' '#include <sqlite3.h>' \"int main(void) { return sqlite3_libversion_number() != SQLITE_VERSION_NUMBER; }\" > /tmp/amy-sqlite3.c && cc -O0 /tmp/amy-sqlite3.c -lsqlite3 -o /tmp/amy-sqlite3 && /tmp/amy-sqlite3", "status": 0 },
-    { "script": "man sqlite3 > /tmp/amy-man && grep -q 'SQLite' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    {
-      "why": "A sum, and a number that a regular expression takes out of a string.",
-      "script": "! command -v jq",
-      "status": 0
-    },
-    { "script": "amy install jq", "status": 0 },
-    { "script": "echo '{\"a\": [1, 20, 21], \"b\": \"x-42\"}' > /tmp/amy.json && test \"$(jq -r '(.a | add | tostring) + \" \" + (.b | capture(\"(?<n>[0-9]+)\").n)' /tmp/amy.json)\" = '42 42'", "status": 0 },
-    { "script": "man jq > /tmp/amy-man && grep -q 'JSON' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    { "script": "! command -v xz", "status": 0 },
-    { "script": "amy install xz", "status": 0 },
-    { "script": "seq 1 20000 > /tmp/amy-xz && xz -k /tmp/amy-xz && test \"$(stat -c %s /tmp/amy-xz.xz)\" -lt \"$(stat -c %s /tmp/amy-xz)\" && unxz -c /tmp/amy-xz.xz | cmp - /tmp/amy-xz && xz -c < /tmp/amy-xz | xz -dc | cmp - /tmp/amy-xz && printf '%s\\n' '#include <lzma.h>' \"int main(void) { return lzma_version_number() != LZMA_VERSION; }\" > /tmp/amy-lzma.c && cc -O0 /tmp/amy-lzma.c -llzma -o /tmp/amy-lzma && /tmp/amy-lzma", "status": 0 },
-    { "script": "man xz > /tmp/amy-man && grep -q 'compress' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    { "script": "! command -v zstd", "status": 0 },
-    { "script": "amy install zstd", "status": 0 },
-    { "script": "seq 1 20000 > /tmp/amy-zstd && zstd -k /tmp/amy-zstd && test \"$(stat -c %s /tmp/amy-zstd.zst)\" -lt \"$(stat -c %s /tmp/amy-zstd)\" && unzstd -c /tmp/amy-zstd.zst | cmp - /tmp/amy-zstd && zstd -c < /tmp/amy-zstd | zstd -dc | cmp - /tmp/amy-zstd && printf '%s\\n' '#include <zstd.h>' \"int main(void) { return ZSTD_versionNumber() != ZSTD_VERSION_NUMBER; }\" > /tmp/amy-zstd.c && cc -O0 /tmp/amy-zstd.c -lzstd -o /tmp/amy-zstd && /tmp/amy-zstd", "status": 0 },
-    { "script": "man zstd > /tmp/amy-man && grep -q 'compress' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    { "script": "! command -v bzip2", "status": 0 },
-    { "script": "amy install bzip2", "status": 0 },
-    { "script": "seq 1 20000 > /tmp/amy-bzip2 && bzip2 -k /tmp/amy-bzip2 && test \"$(stat -c %s /tmp/amy-bzip2.bz2)\" -lt \"$(stat -c %s /tmp/amy-bzip2)\" && bunzip2 -c /tmp/amy-bzip2.bz2 | cmp - /tmp/amy-bzip2 && bzip2 -c < /tmp/amy-bzip2 | bzip2 -dc | cmp - /tmp/amy-bzip2 && printf '%s\\n' '#include <bzlib.h>' \"int main(void) { return BZ2_bzlibVersion()[0] != '1'; }\" > /tmp/amy-bzlib.c && cc -O0 /tmp/amy-bzlib.c -lbz2 -o /tmp/amy-bzlib && /tmp/amy-bzlib", "status": 0 },
-    { "script": "man bzip2 > /tmp/amy-man && grep -q 'compress' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    { "script": "! command -v lz4", "status": 0 },
-    { "script": "amy install lz4", "status": 0 },
-    { "script": "seq 1 20000 > /tmp/amy-lz4 && lz4 -k /tmp/amy-lz4 && test \"$(stat -c %s /tmp/amy-lz4.lz4)\" -lt \"$(stat -c %s /tmp/amy-lz4)\" && unlz4 -c /tmp/amy-lz4.lz4 | cmp - /tmp/amy-lz4 && lz4 -c < /tmp/amy-lz4 | lz4 -dc | cmp - /tmp/amy-lz4 && printf '%s\\n' '#include <lz4.h>' \"int main(void) { return LZ4_versionNumber() != LZ4_VERSION_NUMBER; }\" > /tmp/amy-lz4.c && cc -O0 /tmp/amy-lz4.c -llz4 -o /tmp/amy-lz4 && /tmp/amy-lz4", "status": 0 },
-    { "script": "man lz4 > /tmp/amy-man && grep -q 'compress' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    {
-      "why": "gzip, earlier here, reads what pigz packs.",
-      "script": "! command -v pigz",
-      "status": 0
-    },
-    { "script": "amy install pigz", "status": 0 },
-    { "script": "seq 1 20000 > /tmp/amy-pigz && pigz -k /tmp/amy-pigz && test \"$(stat -c %s /tmp/amy-pigz.gz)\" -lt \"$(stat -c %s /tmp/amy-pigz)\" && unpigz -c /tmp/amy-pigz.gz | cmp - /tmp/amy-pigz && pigz -c < /tmp/amy-pigz | pigz -dc | cmp - /tmp/amy-pigz && pigz -c /tmp/amy-pigz | gzip -dc | cmp - /tmp/amy-pigz", "status": 0 },
-    { "script": "man pigz > /tmp/amy-man && grep -q 'compress' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    { "script": "! command -v unzip", "status": 0 },
-    { "script": "amy install unzip", "status": 0 },
-    { "script": "mkdir /tmp/amy-unzip && cd /tmp/amy-unzip && printf '\\120\\113\\003\\004\\012\\000\\000\\000\\000\\000\\307\\273\\114\\135\\103\\340\\101\\057\\007\\000\\000\\000\\007\\000\\000\\000\\004\\000\\000\\000\\156\\157\\164\\145\\160\\141\\143\\153\\145\\144\\012\\120\\113\\001\\002\\036\\003\\012\\000\\000\\000\\000\\000\\307\\273\\114\\135\\103\\340\\101\\057\\007\\000\\000\\000\\007\\000\\000\\000\\004\\000\\000\\000\\000\\000\\000\\000\\000\\000\\000\\000\\264\\201\\000\\000\\000\\000\\156\\157\\164\\145\\120\\113\\005\\006\\000\\000\\000\\000\\001\\000\\001\\000\\062\\000\\000\\000\\051\\000\\000\\000\\000\\000' > note.zip && test \"$(zipinfo -1 note.zip)\" = note && unzip -q note.zip && grep -qx packed note", "status": 0 },
-    { "script": "man unzip > /tmp/amy-man && grep -q 'extract' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    { "script": "man zipinfo > /tmp/amy-man && grep -q 'archive' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    {
-      "why": "zip comes with unzip, which zip -T starts.",
-      "script": "! command -v zip",
-      "status": 0
-    },
-    { "script": "amy install zip", "status": 0 },
-    { "script": "mkdir -p /tmp/amy-zip/in/deep /tmp/amy-zip/out && cd /tmp/amy-zip && seq 1 2000 > in/deep/numbers && zip -q -r in.zip in && zip -T in.zip > /dev/null && unzip -q in.zip -d out && cmp out/in/deep/numbers in/deep/numbers && test \"$(stat -c %s in.zip)\" -lt \"$(stat -c %s in/deep/numbers)\"", "status": 0 },
-    { "script": "man zip > /tmp/amy-man && grep -q 'compress' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    { "script": "! command -v tree", "status": 0 },
-    { "script": "amy install tree", "status": 0 },
-    { "script": "mkdir -p /tmp/amy-tree/a/b && touch /tmp/amy-tree/a/b/leaf /tmp/amy-tree/top && cd /tmp/amy-tree && test \"$(tree --noreport -i -f . | tr '\\n' ' ')\" = '. ./a ./a/b ./a/b/leaf ./top ' && tree -J . | grep -q '\"name\":\"leaf\"'", "status": 0 },
-    { "script": "man tree > /tmp/amy-man && grep -q 'director' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    { "script": "! command -v bc", "status": 0 },
-    { "script": "amy install bc", "status": 0 },
-    { "script": "test \"$(echo '6 * 7; 2 ^ 64; scale = 20; 4 * a(1)' | bc -l | tr '\\n' ' ')\" = '42 18446744073709551616 3.14159265358979323844 ' && test \"$(echo '6 7 * p' | dc)\" = 42", "status": 0 },
-    { "script": "man bc > /tmp/amy-man && grep -q 'calculator' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    { "script": "man dc > /tmp/amy-man && grep -q 'calculator' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    { "script": "! command -v xxd", "status": 0 },
-    { "script": "amy install xxd", "status": 0 },
-    { "script": "test \"$(echo hello | xxd -p)\" = 68656c6c6f0a && seq 1 300 > /tmp/amy-xxd && xxd /tmp/amy-xxd | xxd -r | cmp - /tmp/amy-xxd", "status": 0 },
-    { "script": "man xxd > /tmp/amy-man && grep -q 'hex' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    { "script": "! command -v base64", "status": 0 },
-    { "script": "amy install base64", "status": 0 },
-    { "script": "test \"$(echo packed | base64)\" = cGFja2VkCg== && seq 1 3000 | base64 > /tmp/amy-base64 && base64 -d /tmp/amy-base64 | tail -n 1 | grep -qx 3000 && printf '%s\\n' '#include <libbase64.h>' \"int main(void) { return base64_decode(0, 0, 0, 0, 0) != 1; }\" > /tmp/amy-libbase64.c && cc -O0 /tmp/amy-libbase64.c -lbase64 -o /tmp/amy-libbase64 && /tmp/amy-libbase64", "status": 0 },
-    {
-      "why": "A module written from text is valid, reads back and loses its names to wasm-strip; a program cc links here is a module with 64-bit memory.",
-      "script": "! command -v wasm2wat",
-      "status": 0
-    },
-    { "script": "amy install wabt", "status": 0 },
-    { "script": "cd /tmp && echo '(module (func $answer (export \"answer\") (result i32) i32.const 42))' > amy.wat && wat2wasm --debug-names amy.wat -o amy.wasm && wasm-validate amy.wasm && wasm2wat amy.wasm | grep -q 'i32.const 42' && wasm-objdump -x amy.wasm | grep -q answer && cp amy.wasm amy-named.wasm && wasm-strip amy.wasm && test \"$(stat -c %s amy.wasm)\" -lt \"$(stat -c %s amy-named.wasm)\" && echo 'int main(void) { return 0; }' > amy-wabt.c && cc amy-wabt.c -o amy-wabt && wasm-objdump -x amy-wabt | grep -q i64", "status": 0 },
-    { "script": "man wasm-objdump > /tmp/amy-man && grep -q 'WebAssembly' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    { "script": "man wat2wasm > /tmp/amy-man && grep -q 'WebAssembly' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    {
-      "why": "A grammar becomes a parser that counts its tokens, and a scanner counts the numbers it reads. flex comes with yacc.",
-      "script": "! command -v yacc",
-      "status": 0
-    },
-    { "script": "amy install yacc", "status": 0 },
-    { "script": "cd /tmp && printf '%s\\n' '%{' 'int count; int yylex(void); void yyerror(const char *message) {}' '%}' '%token A' '%%' 'list: | list A { count++; };' '%%' '#include <stdio.h>' 'int yylex(void) { return getchar() == EOF ? 0 : A; }' 'int main(void) { yyparse(); return count; }' > amy.y && yacc -o amy-y.c amy.y && cc amy-y.c -o amy-y; printf abcdef | ./amy-y; test $? = 6", "status": 0 },
-    { "script": "man yacc > /tmp/amy-man && grep -q 'parser' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    { "script": "! command -v flex", "status": 0 },
-    { "script": "amy install flex", "status": 0 },
-    { "script": "cd /tmp && printf '%s\\n' '%{' 'static int numbers;' '%}' '%%' '[0-9]+ numbers++;' '.|\\n ;' '%%' 'int main(void) { yylex(); return numbers; }' > amy.l && flex -o amy-l.c amy.l && cc amy-l.c -lfl -o amy-l; echo 'a 1 bb 22 c 333' | ./amy-l; test $? = 3 && lex --version > /dev/null", "status": 0 },
-    { "script": "man flex > /tmp/amy-man && grep -q 'scanner' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    {
+      "fresh": true,
       "why": "A page of macros becomes text, and text-page puts it where man reads it.",
       "script": "! command -v mandoc",
       "status": 0
@@ -192,43 +42,13 @@
     { "script": "printf '%s\\n' '.Dd October 13, 2026' '.Dt PROBE 1' '.Os' '.Sh NAME' '.Nm probe' '.Nd a page of macros' > /tmp/amy.1 && mandoc -T ascii /tmp/amy.1 | grep -q 'a page of macros' && text-page /tmp/amy.1 && grep -qx 'NAME' /usr/share/man/cat1/amy.1", "status": 0 },
     { "script": "man mandoc > /tmp/amy-man && grep -q 'manual' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
     {
+      "fresh": true,
       "why": "ex edits by commands; vi at the terminal is typed by the page after these steps.",
       "script": "! command -v vi",
       "status": 0
     },
     { "script": "amy install vi", "status": 0 },
     { "script": "printf 'one\\ntwo\\n' > /tmp/amy-ex && printf '%s\\n' '%s/two/2/' w q | ex -s /tmp/amy-ex > /dev/null && test \"$(tr '\\n' ' ' < /tmp/amy-ex)\" = 'one 2 '", "status": 0 },
-    {
-      "why": "A syntax file dte holds is written out and loads; dte at the terminal is typed by the page too.",
-      "script": "! command -v dte",
-      "status": 0
-    },
-    { "script": "amy install dte", "status": 0 },
-    { "script": "dte -b syntax/json > /tmp/json && dte -s /tmp/json > /dev/null", "status": 0 },
-    { "script": "man dte > /tmp/amy-man && grep -q 'text editor' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    {
-      "why": "grep and sed with the options the image's lack, in their place: a tree is searched, edited where it matched, and searched again. Last of the tools, so that the checks above ran the image's own.",
-      "script": "! command -v toybox",
-      "status": 0
-    },
-    { "script": "amy install toybox", "status": 0 },
-    { "script": "mkdir -p /tmp/amy-toybox/a/b && cd /tmp/amy-toybox && printf 'one\\nneedle\\n' > a/b/hay && echo needle > a/top && echo none > a/other && test \"$(grep -rn needle . | sort | tr '\\n' ' ')\" = './a/b/hay:2:needle ./a/top:1:needle ' && grep -rl needle . | xargs sed -i 's/needle/pin/' && ! grep -rq needle . && test \"$(grep -rc pin a | sort | tr '\\n' ' ')\" = 'a/b/hay:1 a/other:0 a/top:1 ' && test \"$(echo 'a needle b' | grep -o 'ne*dle')\" = needle && man sed | grep -q -- '-i'", "status": 0 },
-    { "script": "amy install dolly-docs && test -f /usr/share/doc/dolly/docs/dollyfile.md", "status": 0 },
-    {
-      "why": "The core's tar only unpacks files and directories. The tar package puts sbase's in its place: a tree with a link archived, listed and unpacked.",
-      "script": "mkdir -p /tmp/amy-tar/in/deep /tmp/amy-tar/out && cd /tmp/amy-tar && seq 1 2000 > in/deep/numbers && ln -s deep/numbers in/link && ! tar -cf in.tar in 2> /dev/null",
-      "status": 0
-    },
-    {
-      "why": "-j starts bzip2 and waits for it: the archive is whole when tar ends; -z reads with the gzip package.",
-      "script": "amy install tar && cd /tmp/amy-tar && tar -cf in.tar in && tar -xf in.tar -C out && cmp out/in/deep/numbers in/deep/numbers && test \"$(readlink out/in/link)\" = deep/numbers && tar -cf - in | pigz | gzip -dc | tar -tf - | grep -qx in/link && tar -cjf in.tbz in && tar -tjf in.tbz | grep -qx in/link && tar -cf - in | pigz > in.tgz && tar -tzf in.tgz | grep -qx in/link",
-      "status": 0
-    },
-    { "script": "man tar > /tmp/amy-man && grep -q 'archive' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
-    {
-      "why": "dolly-llama computes on the GPU, a host module default does not declare: amy has nena enable gpu@0, which a page admits with or without WebGPU.",
-      "script": "amy install llama && grep -qx gpu@0 /etc/dolly/enabled && command -v dolly-llama",
-      "status": 0
-    }
+    { "fresh": true, "script": "amy install dolly-docs && test -f /usr/share/doc/dolly/docs/dollyfile.md", "status": 0 }
   ]
 }

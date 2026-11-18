@@ -2,8 +2,8 @@
 
 Everyday command-line programs as packages: `amy install NAME` in a running
 session. Each is built inside Dolly from a pinned upstream release, unchanged:
-by `cc` and a Makefile in the recipe, wabt and Binaryen by their own CMake, Meson from its
-wheel by pip. Slop does not run a configure script, so a recipe states what
+by `cc` and a Makefile in the recipe, wabt, Binaryen and the libraries by
+their own CMake, Meson from its wheel by pip. Slop does not run a configure script, so a recipe states what
 the script would find here, in the comments beside its flags.
 
 ## Images
@@ -19,7 +19,6 @@ the script would find here, in the comments beside its flags.
 - `unzip`: Info-ZIP's `unzip` and `zipinfo`.
 - `tree`: tree, which draws a directory as a tree.
 - `bc`: the `bc` and `dc` calculators (Gavin Howard's).
-- `vi`: Neatvi, a small `vi` and `ex` that needs no terminal database.
 - `xxd`: xxd, the hex dump that also reads one back.
 - `base64`: `base64` (Alfred Klomp's) and libbase64.
 - `yacc`: Berkeley Yacc, as `yacc` and `byacc`.
@@ -28,10 +27,33 @@ the script would find here, in the comments beside its flags.
 - `binaryen`: Binaryen's `wasm-opt`, for its function-pointer cast emulation (`--fpcast-emu`).
 - `meson`: Meson, with the `python`, `cc` and `ninja` packages it runs on.
 - `scons`: SCons, with the `python` package it runs on; it builds Godot (`demos/godot`).
+- `pkgconf`: pkgconf, also as `pkg-config`, which reads the `.pc` files libraries install.
+- `libpng`: libpng with zlib, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
+- `freetype`: FreeType with libpng, zlib and Brotli (WOFF2 fonts), a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
+- `brotli`: Brotli's libraries, the decoder that FreeType reads WOFF2 with and the encoder, by upstream's CMake; it brings no compiler.
+- `libjpeg-turbo`: libjpeg-turbo, the libjpeg API without its x86 and Arm SIMD code, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
+- `libtiff`: libtiff with zlib and libjpeg-turbo, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
+- `expat`: expat, the XML parser, a library for programs the `cc` package builds, by upstream's CMake, with two internal names that CPython's own expat keeps renamed; it brings no compiler.
+- `fmt`: {fmt}, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
+- `gperf`: GNU gperf, the perfect hash function generator that fontconfig's build runs.
+- `eigen`: Eigen, the C++ template library for linear algebra: its headers, CMake package and pkg-config file; it brings no compiler.
+- `imath`: Imath, the half floats, vectors and matrices of computer graphics, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
+- `libdeflate`: libdeflate, whole-buffer DEFLATE, zlib and gzip compression, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
+- `openjph`: OpenJPH, the High-Throughput JPEG 2000 codec, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
+- `openexr`: OpenEXR, the high-dynamic-range image format, with Imath, libdeflate and OpenJPH, a library for programs the `cc` package builds with `-pthread`, by upstream's CMake; it brings no compiler.
+- `robin-map`: robin-map, C++ hash maps and sets with Robin Hood hashing: its headers and CMake package; it brings no compiler.
+- `pugixml`: pugixml, the C++ XML parser with XPath, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
+- `yaml-cpp`: yaml-cpp, a YAML parser and emitter for C++, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
+- `pystring`: pystring, Python's string methods for C++, a library for programs the `cc` package builds; it brings no compiler.
+- `minizip-ng`: minizip-ng, zip archives over zlib, a library for programs the `cc` package builds, by upstream's CMake; it brings no compiler.
+- `opencolorio`: OpenColorIO, colour management for film and graphics, a library for programs the `cc` package builds with `-pthread`, by upstream's CMake; it brings no compiler.
+- `openimageio`: OpenImageIO: `oiiotool`, `iinfo`, `iconvert`, `idiff`, `igrep`, `maketx` and `testtex`, and its libraries, over OpenEXR, libtiff, libjpeg-turbo, libpng and OpenColorIO, on threads.
+- `onetbb`: oneTBB, parallel algorithms and concurrent containers on threads, a library for programs the `cc` package builds with `-pthread`, by upstream's CMake; it brings no compiler.
+- `glslang`: glslang, the GLSL front end and SPIR-V writer, a library for programs the `cc` package builds with `-pthread`, by upstream's CMake; it brings no compiler.
 - `toybox`: toybox's `grep` and `sed`, which have `grep -r` and `sed -i`, in place of the image's.
 - `dte`: dte, a small full-screen editor with the keys of a desktop one.
 - `tools-build`: A build stage: `cmake-build` with the core's `mandoc`, what these packages are built on.
-- `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks; `-z`, `-j` and `-J` run gzip, bzip2 and xz.
+- `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks; `-z`, `-j` and `-J` run gzip, bzip2 and xz, which come with it.
 - `sbase`: the sbase commands the image leaves out: `yes`, `cal`, `sha1sum`, `sha512sum`, `sponge`, `cols`, `uuencode` and `uudecode`.
 
 `man` prints a page of text (`/usr/share/man/cat1`) as it is and has no
@@ -53,11 +75,11 @@ What the platform decides ([process model](../../docs/process-model.md)):
 - `sqlite3` is built with linenoise and `dc` edits its lines as `bc` does,
   from before the terminal edited a line itself.
 - Dolly's `tar` reads files, directories and pax headers, and refuses links.
-  `jq`'s, `zstd`'s and `bc`'s archives hold links, `wabt`'s is xz, and
-  `toybox`'s headers are generated: their builds read plain tars of the files they need
+  `jq`'s, `zstd`'s and `bc`'s archives hold links, `wabt`'s and the libraries'
+  are xz or are read alike, and `toybox`'s headers are generated:
+  their builds read plain tars of the files they need
   ([`prepare-sources.sh`](prepare-sources.sh)); the rest build from the
   archive as published.
-- `fork` fails: `vi`'s `!` commands and language servers say so.
 - SCons takes a program on `PATH` for a compiler only if its execute bit is
   set, and Dolly keeps none: a `SConstruct` names its compiler
   (`Environment(CC="cc")`), as Godot's platform does.
@@ -73,5 +95,5 @@ What the platform decides ([process model](../../docs/process-model.md)):
 
 Test: the `amy tools` case of [`test/amy-browser.mjs`](../../test/amy-browser.mjs)
 installs each into `default`, uses it, links a program with each library and
-types at the terminal into `sqlite3`, `dc`, `vi` and `dte`; `amy meson alone`
+types at the terminal into `sqlite3`, `dc`, `dte` and the core's `vi`; `amy meson alone`
 builds a project in a session that had no compiler.

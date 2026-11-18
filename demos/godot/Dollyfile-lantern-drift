@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE lantern-drift
 REQUIRES HOST runtime@0
 REQUIRES HOST audio@0
@@ -15,9 +15,9 @@ REQUIRES HOST clipboard@0
 # volumetric fog, glow, SSAO and particles, its sound made in code. Its project
 # (demos/godot/lantern-drift) is imported and exported here by Godot's editor, and lantern-drift
 # plays the pack with godot, which installs with it. The project installs too, for the editor.
-FROM /v0.1.6/Dollyfile-system 33e5bcf65ef4a634da5dbf8e291a379148e7971aa0411fe1bdaa4e0332f24b94
-INSTALL /v0.1.6/demos/godot/Dollyfile-godot 1a94c903878939cce57b5bac3d4368eb394ba6289f2bb1fb73928022a84f042a
-USE /v0.1.6/demos/godot/Dollyfile-godot-editor 824a42e42bc71870454975d15ca94d4d27387a751330f33cd74e112db6742b69
+FROM /Dollyfile-system 8d54b8fd95bd265381fcacf4d97044d3ad3deb0e969deeed8e4b5e791e71dcb5
+INSTALL /demos/godot/Dollyfile-godot a07eb1a7b241b23dd68aa49582ca0338d8949ff94273d58b8f2010b2c764305e
+USE /demos/godot/Dollyfile-godot-editor 41a3f6f8e56c4de02b5a9498ffd4be8bf8ac37780d7215b9e1a15e72af4c7a5e
 
 REQUIRES TOOL cp
 REQUIRES TOOL godot-editor
@@ -25,7 +25,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /v0.1.6/dist/static/godot/lantern-drift.tar 48d6b38d8862f7a56372f5dbaf26f38d255cfd6c949b2b3c216aee122eeb6f13 /tmp/lantern-drift.tar
+SOURCE /dist/static/godot/lantern-drift.tar 48d6b38d8862f7a56372f5dbaf26f38d255cfd6c949b2b3c216aee122eeb6f13 /tmp/lantern-drift.tar
 SLOP CWD / tar -xf /tmp/lantern-drift.tar
 SLOP mkdir -p /usr/share/lantern-drift
 SLOP cp -r /usr/src/lantern-drift /usr/share/lantern-drift/project

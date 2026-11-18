@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE godot
 REQUIRES HOST runtime@0
 REQUIRES HOST audio@0
@@ -13,23 +13,26 @@ REQUIRES HOST clipboard@0
 # Godot from its release, patched below, built by SCons with Dolly's cc on a
 # platform of Dolly's own (platform/dolly, from demos/godot/platform): the
 # engine with GDScript, 2D and 3D and Godot's own physics for both, the
-# fallback text server, Ogg Vorbis, MP3, WebP and regular expressions, what an
+# fallback text server, Ogg Vorbis, MP3, WebP, regular expressions and glTF
+# scenes read at run time (GLTFDocument: Voxel Flyover reads its flyer so), what an
 # exported game loads; its Mobile and Forward+ renderers on gpu@0 where the
 # browser grants WebGPU, and its Compatibility renderer on Mesa's OpenGL (EGL
-# and softpipe, linked in from mesa-build) where it does not, with its sound on
-# audio@0. It plays on the page or runs a project with --headless.
-FROM /v0.1.6/demos/ghostty-gtk/Dollyfile-mesa-build 9fcbff7068453ed0edf72d076ef8583fdfd83992dc69b67f288000955b5f5a0f
-USE /v0.1.6/demos/tools/Dollyfile-scons 7805aaa4652f6bcb46094f9cd4917a23fe75ae490e6714bd3dbc539dc05abb7f
-USE /v0.1.6/Dollyfile-mandoc 54d325551ebd2d294534eac0ca4c1dfda6bc6120c6c08043d14d7e721c0292a9
-USE /v0.1.6/Dollyfile-libdolly-gpu 4e414e02d7bdbdb758df4be150f49ff2223d992b07249a67da2fca57b291ad88
-USE /v0.1.6/Dollyfile-libdolly-sockets 21a5b6d8d2dea4fa61305f4af76be2773bc8f92fb4e8419ba985bda01efca52a
-USE /v0.1.6/demos/godot/Dollyfile-spirv-wgsl 0304276ab0e1c8c8edcfc7605acb2a4be5a388aa1ee28a3c106ab4da240ffe14
-USE /v0.1.6/Dollyfile-libdolly-audio 171473b51fcbf13f55dcfa4f7500f097db53a6c25c7d5063f02deff905a382a2
-USE /v0.1.6/Dollyfile-libdolly-clipboard 53492e99b75778f54a6230da7b8394654d28cbc3092bedfe591f51f61b882b71
-USE /v0.1.6/demos/x11/Dollyfile-x11-window 9fdf88e17460e04dd9e288372782d5768b73bf4160f5bd8350dc483fc19a9b2a
-USE /v0.1.6/Dollyfile-libdolly-display c4f8ea64af9ad51300b9b48369558e17493bccb9be1b7db853cda0e1d7d66a48
-USE /v0.1.6/Dollyfile-libdolly-input 45202588e489298ba6fe352129e992fca0c7a45e13bf45cde85976c931a981e4
-USE /v0.1.6/Dollyfile-libdolly-touch 3c23d1f22584166c434123c76bbc1be95ffe3738cbef0382e672e768a934f8d7
+# and softpipe, the mesa package's, linked in) where it does not, with its
+# sound on audio@0. It plays on the page or runs a project with --headless.
+FROM /Dollyfile-system-tools 1606024fba5919c1fb6c0369ad86cc69f3ecf38099dff75bddb3eccb97da71e5
+USE /demos/ghostty-gtk/Dollyfile-mesa bcc95cf5c5fee6f218d201a12e25605facdb7b7f28bd266b5850f944200e288c
+USE /demos/x11/Dollyfile-x11-libs 35717a8ff71126fc72d47fd6e4aa806e834865ad25f185db21013d98176ac100
+USE /demos/tools/Dollyfile-scons 5b346ebbdefa10db0da54791b71fa894a23ec9f4e8bef01affd5dace8adce700
+USE /Dollyfile-mandoc 483a559eb568966844e5ef06ca4b9fd848a5b7ae1ff12bdfd9605123c34dcfb9
+USE /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
+USE /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0
+USE /demos/godot/Dollyfile-spirv-wgsl 4d95ade7ab7d86a6ba38e84d6ebf8fe523521175ef7cceb28b86758374905288
+USE /Dollyfile-libdolly-audio a4064796256e039400d5ea30faae6dfeccb9c09d62a8b6dd09daebc16fbf1f7f
+USE /Dollyfile-libdolly-clipboard 99746a8bd9b9eb136098753ccc526ac94a14540e6d26082ae8748eb6e3fa08a6
+USE /demos/x11/Dollyfile-x11-window 73875bfe38b3cf2f598dd947ecc85c74effd73b2fc89b2e1cb23e88b0b3cda3d
+USE /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
+USE /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
+USE /Dollyfile-libdolly-touch e575ebfcfdeb0bd32c82b34d59b0a25b627a1189a5a5ebdcc930073fe86594f0
 
 REQUIRES TOOL cp
 REQUIRES TOOL grep
@@ -41,7 +44,7 @@ REQUIRES TOOL scons
 REQUIRES TOOL tar
 REQUIRES TOOL text-page
 
-SOURCE /v0.1.6/dist/static/godot/source.tar.gz ecb29258bcec3b698c9a9a32d978fe0a0424099c1159e0a801bb6ba6f8756167 /tmp/godot-source.tar.gz
+SOURCE /dist/static/godot/source.tar.gz 6d28a26b223aa17987d3de835690ff642f6d2903080e1da2a183200c8cad3a9d /tmp/godot-source.tar.gz
 SLOP gzip -dc /tmp/godot-source.tar.gz | tar -xf - -C /
 # Godot's modern renderers take only the drivers main.cpp names; glslang builds beside them;
 # Forward+ starts SDFGI only on a device with image atomics, which its voxelization takes.
@@ -49,7 +52,8 @@ SLOP CWD /usr/src/godot patch -p1 -i platform/dolly/godot-dolly.patch
 SLOP CWD /usr/src/godot scons -j4 platform=dolly modules_enabled_by_default=no \
   module_gdscript_enabled=yes module_text_server_fb_enabled=yes module_freetype_enabled=yes \
   module_godot_physics_2d_enabled=yes module_godot_physics_3d_enabled=yes module_ogg_enabled=yes module_vorbis_enabled=yes \
-  module_minimp3_enabled=yes module_webp_enabled=yes module_regex_enabled=yes module_glslang_enabled=yes
+  module_minimp3_enabled=yes module_webp_enabled=yes module_regex_enabled=yes module_glslang_enabled=yes \
+  module_gltf_enabled=yes
 SLOP cp /usr/src/godot/bin/godot.dolly.template_release.wasm64 /usr/bin/godot
 SLOP mkdir -p /usr/share/licenses/godot
 SLOP cp /usr/src/godot/LICENSE.txt /usr/src/godot/COPYRIGHT.txt /usr/share/licenses/godot
@@ -71,9 +75,9 @@ FILE /tmp/godot-check/main.tscn
 FILE /tmp/godot-check/main.gd
     extends Node
     func _ready() -> void:
-        print("GODOT ", OS.get_name())
+        print("GODOT ", OS.get_name(), " ", ClassDB.class_exists("GLTFDocument"))
         get_tree().quit()
-SLOP godot --headless --path /tmp/godot-check | grep -qx 'GODOT Dolly'
+SLOP godot --headless --path /tmp/godot-check | grep -qx 'GODOT Dolly true'
 
 EXPORTS TOOL godot
 FILE /usr/share/licenses/godot/LICENSE.txt

@@ -10,7 +10,7 @@ cleanup() {
 trap cleanup EXIT
 if [[ ! -d "${output}" ]]; then
   temporary="$(mktemp -d "${project_dir}/.cache/.${1}-extract.XXXXXX")"
-  tar -xzf "${archive}" --strip-components=1 -C "${temporary}"
+  tar -xf "${archive}" --strip-components=1 -C "${temporary}"
   mv -T "${temporary}" "${output}"
   temporary=""
 fi

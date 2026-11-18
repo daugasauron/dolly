@@ -1,6 +1,6 @@
 # Dollyfile: one parser for every host, a line for files no row keeps, init without FROM, clearer docs
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 260
 - TAGS: dollyfile,syntax,donna,docs,audit,0.1.6
 

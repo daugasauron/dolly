@@ -1,6 +1,6 @@
 # Programs' CPU speed: LTO in Dolly's driver, and malloc
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: compiler,libc,performance,godot
 
@@ -73,3 +73,12 @@ rounds (ms):
   no bounds checks at all (`--no-wasm-bounds-checks`, measurement only): Box 20-22, Camera 17-18,
   Label 47-51, Sun 32-37 against 24-26, 20-22, 56-60, 37-39; its import 2630 against 3140 ms.
   Of the gap to native, memory64's checks are about 15%.
+
+## Closed (2026-11-16, the audit)
+
+The done-when holds: both levers are measured above, and the one that pays is in. Threaded programs
+link mimalloc (`88297891a`, `programs/compiler.cpp:934`), in v0.1.6 and v0.1.7. ThinLTO is recorded
+as not paying, and the driver still refuses `-flto` (`programs/compiler.cpp:387`). The State's "left:
+the catalog round on that seed" was done by 0.1.6's and 0.1.7's full rounds. 0.1.7's seed compiler
+`c98f9ab6…` is the fixed point (`9c589654e`). Accepting `-flto` for upstream builds that ask for it
+is `tasks/20261104-124135-cc-flto`, which now quotes the measured cost above.

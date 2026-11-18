@@ -37,7 +37,7 @@ Open `/rts-arena/`; build with `npm run image -- rts-arena`.
 
 ## Limits
 
-- Audio, separately distributed music and thread creation are unavailable.
+- Audio and separately distributed music are unavailable; SDL runs without threads ([SDL2](../sdl2/README.md)).
 - Recordings are not portable across game builds.
 - Process packets are limited to 1 MiB, so very long conversations can outgrow a
   request.

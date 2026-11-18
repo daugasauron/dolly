@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { chromium } from "playwright-core";
+import { chromium, firefox } from "playwright-core";
+import { browsers } from "../../browsers.mjs";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
 import { routeAttributes } from "../../../test/browser.mjs";
 import { imageFile } from "./fixtures/image-file.mjs";
@@ -9,7 +10,7 @@ const server = await startBrowserServer(new URL("../../../", import.meta.url).pa
     await imageFile("zero-ad-engine", "/usr/libexec/zero-ad/spidermonkey-check", "spidermonkey-check.wasm") } });
 let browser, deadline, page;
 try {
-  browser = await chromium.launch({ channel: "chrome", headless: true,
+  browser = browsers[0] === "firefox" ? await firefox.launch({ headless: true }) : await chromium.launch({ channel: "chrome", headless: true,
     args: ["--no-sandbox", "--disable-gpu"] });
   deadline = setTimeout(() => void browser.close(), 120000);
   page = await browser.newPage();
@@ -22,7 +23,7 @@ try {
     await page.locator("#bootstrap-log").textContent());
   await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
   const submit = command => page.evaluate(text => __dolly.submit(text), command);
-  assert.equal(await submit(`curl -fsS ${server.origin}/fixture/spidermonkey.wasm -o /tmp/spidermonkey`), 0);
+  assert.equal(await submit(`amy install curl && curl -fsS ${server.origin}/fixture/spidermonkey.wasm -o /tmp/spidermonkey`), 0);
   for (let run = 0; run < 2; run++) {
     const started = performance.now();
     assert.equal(await submit("/tmp/spidermonkey"), 0);
@@ -30,6 +31,7 @@ try {
   }
   assert.equal(await submit("printf 'shell survived\\n' > /tmp/sm-result && test -s /tmp/sm-result"), 0);
   console.log(await page.evaluate(() => __dolly.visibleTerminalText()));
+  console.log(`0ad spidermonkey: ${browsers[0]} passed`);
 } catch (error) {
   if (page && !page.isClosed()) {
     console.error(await page.locator("#bootstrap-log").textContent().catch(() => ""));

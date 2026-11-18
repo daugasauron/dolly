@@ -20,7 +20,7 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   const { HttpMailbox, NetworkTransport } = await import(asset("host/http/broker.mjs"));
   const { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_WORD_ERROR, DOLLY_HTTP_WORD_KIND, DOLLY_HTTP_WORD_LENGTH, DOLLY_HTTP_WORD_SEQUENCE } =
     await import(asset("host/http/abi.mjs"));
-  const { DollyHttpPolicy, restrictDollyHttpPolicy, httpPolicyConfigurations } = await import(asset("host/http/policy.mjs"));
+  const { DollyHttpPolicy, restrictDollyHttpPolicy, httpPolicyConfigurations } = await import(asset("page/http-policy.mjs"));
   const { DOLLY_KERNEL_PLUGIN_ABI_DIGEST } = await import(asset("dist/dolly-kernel-plugin-abi.mjs"));
   const { DOLLY_ERRNO: errno } = await import(asset("page/process-constants.mjs"));
   const fixtureOrigin = new URL(import.meta.url).origin;

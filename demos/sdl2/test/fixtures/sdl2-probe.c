@@ -74,6 +74,7 @@ int main(int argc, char **argv)
     SDL_Quit();
     if (argc > 1 && !strcmp(argv[1], "input")) {
         assert(clicks == 1 && right_clicks == 1 && keys == 1);
+        printf("typed %s\n", typed);
         assert(!strcmp(typed, "aB!é😀xx日本語 ✓"));
     }
     if (presence) assert(enters >= 2 && leaves >= 1 && focus_losses >= 1);

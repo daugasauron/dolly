@@ -3,7 +3,7 @@
 // saved session (`loadSession`), which snapshot@0 selects. Building happens
 // here and in the site's runtime Worker (build-worker.mjs), never in a page
 // that only runs images: their code is imported by the routes that build or
-// run a custom image.
+// run a custom image, and by build@0's panel (imageBuilder).
 import { buildHost, hostManifests, switching } from "../host/manifests.mjs";
 import { run } from "../page/browser.mjs";
 import { imageDefinition, loadImages } from "../page/images.mjs";
@@ -25,11 +25,36 @@ async function pageModules({ image, mode, loadSession, images, named }) {
     .map(({ url }) => url);
 }
 
+// The site's image builder, which the page gives build@0 (host/README.md): a
+// Dollyfile's parse, the build of its custom image with every module the site
+// builds, which resolves to the image's descriptor in the image cache, and the
+// tab that opens a completed one.
+async function imageBuilder() {
+  const [{ buildImage }, { prepareImageArtifacts }, { loadImageArtifactDescriptor }, { inspectDollyfile }, { openCustomImage }] =
+    await Promise.all([import("./image-builder.mjs"), import("./image-build.mjs"), import("./image-artifact.mjs"),
+      import("./dollyfile-view.mjs"), import("./custom-image.mjs")]);
+  const modules = hostManifests.map(({ url }) => url);
+  async function build(source, network, report, signal) {
+    const artifacts = await prepareImageArtifacts("custom", source,
+      (image, artifacts) => buildImage(image, artifacts, network, report, { modules, signal }),
+      text => report(text + "\n"), signal);
+    signal.throwIfAborted();
+    const artifact = await buildImage("custom", artifacts, network, report, { modules, signal, customSource: source });
+    signal.throwIfAborted();
+    const descriptor = await loadImageArtifactDescriptor(artifact.recipeSha256, artifact.inputs);
+    if (!descriptor || descriptor.sha256 !== artifact.sha256) {
+      throw new Error("Image built, but could not be saved for opening. Free browser storage and rebuild.");
+    }
+    return descriptor;
+  }
+  return { inspect: inspectDollyfile, build, open: openCustomImage };
+}
+
 export async function bootRoute(mount, { image: route, mode = "snapshot", loadSession = false, named, ...options }) {
   // A directory that does not load names every module; run() then says why it failed.
   const modules = await pageModules({ image: route, mode, loadSession, images: options.images, named })
     .catch(() => hostManifests.map(({ url }) => url));
-  return run(mount, { ...options, modules }, async registry => {
+  return run(mount, { ...options, modules, imageBuilder }, async registry => {
     if (!["snapshot", "rebuild"].includes(mode) || typeof loadSession !== "boolean") {
       throw new Error("invalid Dolly boot options");
     }
@@ -65,17 +90,17 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
       configuration: selected?.configuration,
       inherited: rebuild ? undefined : custom,
       worker: rebuild || image === "custom" ? new URL("./build-worker.mjs", import.meta.url) : undefined,
-      async start(host, report) {
+      async start(host, report, network) {
         // The site's builds have every module it builds, whatever the page enables.
         const site = hostManifests.map(({ url }) => url);
         // Only a rebuild builds: an image without ENTRY never runs (above).
         const [{ buildImage }, { prepareImageArtifacts }] = rebuild
           ? await Promise.all([import("./image-builder.mjs"), import("./image-build.mjs")]) : [{}, {}];
-        const build = (name, inputs) => buildImage(name, inputs, host.builder, report, { modules: site });
+        const build = (name, inputs) => buildImage(name, inputs, network.builder(), report, { modules: site });
         const artifacts = rebuild ? await prepareImageArtifacts(image, source, build, text => report(`${text}\n`)) : [];
         if (!runnable) {
           // An image without ENTRY has no program to run: keep the complete log and report the result.
-          const built = await buildImage(image, artifacts, host.builder, report, { modules: site, customSource: source });
+          const built = await buildImage(image, artifacts, network.builder(), report, { modules: site, customSource: source });
           report(`\nBUILT ${source === undefined ? image : recipe.image} · ${(built.byteLength / 1024 / 1024).toFixed(1)} MiB · sha256 ${built.sha256}\n`);
           return null;
         }
@@ -91,11 +116,11 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
         if (message.type === "image-built") rebuilt = message.artifact;
       },
       // A save of a custom image carries its recipe and what the tab inherited.
-      async running(host) {
+      async running(host, network) {
         const page = { get builtImage() { return rebuilt; } };
         if (image !== "custom") return { page };
         const { buildId, recipeSha256, sha256: digest, byteLength, inputs } = customArtifact ?? rebuilt ?? custom.artifact;
-        return { page, context: { custom: { source, artifact: { buildId, recipeSha256, sha256: digest, byteLength, inputs }, ...host.inherited } } };
+        return { page, context: { custom: { source, artifact: { buildId, recipeSha256, sha256: digest, byteLength, inputs }, ...network.inherited() } } };
       },
     };
   });

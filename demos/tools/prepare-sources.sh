@@ -17,7 +17,6 @@ binaryen binaryen binaryen-version_133.tar.gz
 tree tree unix-tree-2.3.2.tar.gz
 dte dte dte-1.11.1.tar.gz
 base64 base64 base64-0.5.2.tar.gz
-vi neatvi neatvi-20.tar.gz
 sqlite linenoise linenoise-2.0.tar.gz
 yacc byacc byacc-20260126.tgz
 flex reflex reflex-20260131.tgz
@@ -64,6 +63,56 @@ if has_image bc; then
     "${tool_dir}/NOTICE.md" /usr/share/licenses/bc/NOTICE.md \
     "${tool_dir}/manuals/bc/N.1" /usr/share/man/man1/bc.1 \
     "${tool_dir}/manuals/dc/N.1" /usr/share/man/man1/dc.1
+fi
+# Libraries that other demos build against, from their release archives, with their licences.
+if has_image libpng; then
+  tool_dir="$(bash scripts/fetch-pinned-source.sh libpng)"
+  node scripts/build-source-tar.mjs "${static_dir}/libpng/source.tar.gz" "${tool_dir}" /tmp/libpng \
+    "${tool_dir}/LICENSE" /usr/share/licenses/libpng/LICENSE
+fi
+if has_image freetype; then
+  tool_dir="$(bash scripts/fetch-pinned-source.sh freetype)"
+  node scripts/build-source-tar.mjs "${static_dir}/freetype/source.tar.gz" "${tool_dir}" /tmp/freetype \
+    "${tool_dir}/LICENSE.TXT" /usr/share/licenses/freetype/LICENSE.TXT \
+    "${tool_dir}/docs/FTL.TXT" /usr/share/licenses/freetype/FTL.TXT
+fi
+for library in brotli:LICENSE libjpeg-turbo:LICENSE.md:README.ijg libtiff:LICENSE.md expat:COPYING fmt:LICENSE \
+    gperf:COPYING eigen:COPYING.README:COPYING.MPL2:COPYING.BSD:COPYING.APACHE:COPYING.MINPACK imath:LICENSE.md \
+    libdeflate:COPYING openjph:LICENSE robin-map:LICENSE pugixml:LICENSE.md yaml-cpp:LICENSE pystring:LICENSE \
+    minizip-ng:LICENSE opencolorio:LICENSE:THIRD-PARTY.md openimageio:LICENSE.md:THIRD-PARTY.md \
+    onetbb:LICENSE.txt:third-party-programs.txt glslang:LICENSE.txt; do
+  library_name="${library%%:*}"
+  if has_image "${library_name}"; then
+    tool_dir="$(bash scripts/fetch-pinned-source.sh "${library_name//-/_}")"
+    library_licences=()
+    IFS=: read -ra library_files <<< "${library#*:}"
+    for tool_file in "${library_files[@]}"; do
+      library_licences+=("${tool_dir}/${tool_file}" "/usr/share/licenses/${library_name}/${tool_file}")
+    done
+    node scripts/build-source-tar.mjs "${static_dir}/${library_name}/source.tar.gz" "${tool_dir}" "/tmp/${library_name}" \
+      "${library_licences[@]}"
+  fi
+done
+# OpenEXR's tests hold a symbolic link, which Dolly's tar refuses: its archive without them.
+if has_image openexr; then
+  tool_dir="$(bash scripts/fetch-pinned-source.sh openexr)"
+  tool_inputs=()
+  for tool_file in "${tool_dir}"/* "${tool_dir}"/src/*; do
+    [[ "${tool_file}" == "${tool_dir}/src" || "${tool_file}" == "${tool_dir}/src/test" ]] && continue
+    tool_inputs+=("${tool_file}" "/tmp/openexr/${tool_file#"${tool_dir}/"}")
+  done
+  node scripts/build-source-tar.mjs "${static_dir}/openexr/source.tar.gz" "${tool_inputs[@]}" \
+    "${tool_dir}/LICENSE.md" /usr/share/licenses/openexr/LICENSE.md
+fi
+if has_image openimageio; then
+  copy_static demos/tools/openimageio-dolly.patch openimageio/openimageio-dolly.patch
+fi
+if has_image pkgconf; then
+  tool_dir="$(bash scripts/fetch-pinned-source.sh pkgconf)"
+  node scripts/build-source-tar.mjs "${static_dir}/pkgconf/source.tar" \
+    "${tool_dir}/libpkgconf" /tmp/pkgconf/libpkgconf \
+    "${tool_dir}/cli" /tmp/pkgconf/cli \
+    "${tool_dir}/COPYING" /usr/share/licenses/pkgconf/COPYING
 fi
 # wabt's source release, with the libraries it vendors, is an xz archive.
 if has_image wabt; then

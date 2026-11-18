@@ -2,8 +2,8 @@
 // display DISPLAY names: Chrome on Vulkan, or the installed Firefox (docs/gpu.md).
 //   node test/gpu-explicit-browser.mjs chromium|firefox
 import assert from "node:assert/strict";
-import { chromium, firefox } from "playwright-core";
-import { composed, routeAttributes } from "./browser.mjs";
+import { chromium } from "playwright-core";
+import { launchInstalledFirefox, routeAttributes, workbench } from "./browser.mjs";
 import { startBrowserServer } from "./browser-server.mjs";
 
 const name = process.argv[2] ?? "chromium";
@@ -11,7 +11,7 @@ assert.ok(["chromium", "firefox"].includes(name));
 const server = await startBrowserServer(new URL("..", import.meta.url).pathname, "system",
   { fixtures: { "gpu-explicit.c": "test/fixtures/gpu-explicit.c" } });
 const browser = name === "firefox"
-  ? await firefox.launch({ channel: "moz-firefox", headless: false, firefoxUserPrefs: { "dom.webgpu.enabled": true } })
+  ? await launchInstalledFirefox()
   : await chromium.launch({ channel: "chrome", headless: false,
     args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan,VulkanFromANGLE"] });
 const deadline = setTimeout(() => void browser.close(), 180_000);
@@ -19,7 +19,7 @@ try {
   const page = await browser.newPage(), errors = [];
   page.on("pageerror", error => errors.push(error.message));
   await routeAttributes(page, { policy: { maxRequests: 1, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
-  const image = await composed(["gpu"], ["libdolly-gpu"], { base: "system" });
+  const image = await workbench(["gpu"], ["libdolly-gpu"]);
   await image.setup(page);
   await page.goto(server.origin + image.path);
   await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null, { timeout: 120_000 });

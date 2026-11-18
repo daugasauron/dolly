@@ -6,13 +6,14 @@
 // the Scene dock hides it, F5 runs the game so and Ctrl+S saves the scene. Copy and paste are the
 // page's (clipboard@0): a node's name copied in its rename field is the browser's and pastes into
 // another node's, and the browser's text pastes as a third's. The editor's log holds no error.
-// Usage: node demos/godot/test/godot-projects-browser.mjs [chromium|firefox ...]
+// Usage: [DOLLY_BROWSER=firefox] node demos/godot/test/godot-projects-browser.mjs
 import assert from "node:assert/strict";
-import { chromium, firefox } from "playwright-core";
+import { chromium } from "playwright-core";
+import { launchInstalledFirefox } from "../../../test/browser.mjs";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
+import { browsers } from "../../browsers.mjs";
 import { writeCommand } from "../../browser.mjs";
 
-const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 // Each game: its image, its project's copy, its HUD node, and the nodes renamed by copy and paste.
 const games = [
@@ -53,8 +54,7 @@ for (const name of browsers) {
   for (const game of games) {
     const server = await startBrowserServer(new URL("../../..", import.meta.url).pathname, game.image);
     const browser = name === "firefox"
-      ? await firefox.launch({ channel: "moz-firefox", headless: false,
-        firefoxUserPrefs: { "dom.webgpu.enabled": true, "dom.events.testing.asyncClipboard": true } })
+      ? await launchInstalledFirefox({ "dom.events.testing.asyncClipboard": true })
       : await chromium.launch({ channel: "chrome", headless: false,
         args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan,VulkanFromANGLE"] });
     const deadline = setTimeout(() => void browser.close(), 900_000);

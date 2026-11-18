@@ -1,6 +1,6 @@
 # Page providers: console backpressure, html limits, packages quota, display frame, session wording, review map
 
-- STATUS: DONE
+- STATUS: CLOSED
 - PRIORITY: 240
 - TAGS: host-modules,security,docs,browser-boundary,audit,0.1.6
 
@@ -58,3 +58,9 @@ that holds an address and a card, offering on a field in the popup or not.
 
 Each is in with a test where it changes behaviour (console, html, packages, display), and the review
 map matches the code.
+
+## Closed (2026-11-13)
+
+As the State of 2026-11-13 says: the autofill case closed the list (`62451eca0`), after the
+others on `fix/batch` and `fix/console-interrupt`, each with its test; all are in v0.1.6.
+(Status set from DONE to CLOSED by the audit of 2026-11-16.)

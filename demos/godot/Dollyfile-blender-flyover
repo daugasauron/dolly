@@ -1,0 +1,53 @@
+DOLLY 8
+APPLICATION blender-flyover
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST touch@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST audio@0
+REQUIRES HOST gpu@0
+REQUIRES HOST clipboard@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+
+# Blender and Voxel Flyover on one filesystem: Blender's window opens on the
+# script that makes the flyover's flyer, with the flyer it made; Run Script
+# makes it anew and writes the file the flyover reads when it starts.
+INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
+INSTALL /Dollyfile-posix c24b7cb8dfc057769bc7f644f68c2922514adb89272756d8ed793c0318d5f3d5
+INSTALL /Dollyfile-display cc98bc6edc0e5dea2bfb79e3095ea1fb6744e28282d28cec6c2e013cf6435992
+INSTALL /demos/blender/Dollyfile-blender c7162bd0097e17bd6ceaa9644694d7aa5bfeca853f12834d00ce01a31bfd5dda
+INSTALL /demos/godot/Dollyfile-voxel-flyover 94e10f12846959473f39988959e9f4db9351cafb4858233793c3a017f48906e9
+REQUIRES TOOL blender
+REQUIRES TOOL voxel-flyover
+
+# Blender's Scripting workspace, flyer.py in its Text Editor, run once, and
+# the 3D view showing the colours of its materials. What Blender makes here is
+# the script's and the file it writes, so quitting asks to save no scene.
+FILE /usr/share/voxel-flyover/open-flyer.py
+    import bpy
+    bpy.context.preferences.view.use_save_prompt = False
+    text = bpy.data.texts.load("/usr/share/voxel-flyover/project/flyer.py")
+    workspace = bpy.data.workspaces["Scripting"]
+    for area in workspace.screens[0].areas:
+        if area.type == "TEXT_EDITOR":
+            area.spaces[0].text = text
+        if area.type == "VIEW_3D":
+            area.spaces[0].shading.color_type = "MATERIAL"
+    bpy.context.window.workspace = workspace
+    # Once the window has drawn, which it does after this script.
+    def run():
+        with bpy.context.temp_override(window=bpy.context.window_manager.windows[0]):
+            exec(compile(text.as_string(), text.filepath, "exec"), {"__name__": "__main__"})
+    bpy.app.timers.register(run, first_interval=1.0)
+
+FILE /etc/dolly/init.slop
+    /bin/foreground /usr/bin/blender --python /usr/share/voxel-flyover/open-flyer.py
+    printf '\nBlender has quit; voxel-flyover plays the flyer it saved, and\n'
+    printf 'blender --python /usr/share/voxel-flyover/open-flyer.py opens the script again.\n'
+    /bin/foreground -i /bin/slop
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

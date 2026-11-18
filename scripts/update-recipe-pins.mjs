@@ -5,12 +5,12 @@ import { resolve } from "node:path";
 import { inspectDollyfile } from "../site/dollyfile-view.mjs";
 import { recipeFiles } from "./recipe-files.mjs";
 import { publishedHostFiles, publishedDocument } from "./host-modules.mjs";
-import { siteReference, sitePath } from "../page/static-asset.mjs";
+import { sitePath } from "../page/static-asset.mjs";
 import { discoverImageDefinitions, selectImageDefinitions } from "./image-definitions.mjs";
 
-// Writes this version into every site reference, then the pins. SOURCES
-// selects the images whose source pins are refreshed (DOLLY_BUILD_IMAGES
-// syntax, "all" for every image): preparation stages only their closure.
+// Writes the pins. SOURCES selects the images whose source pins are refreshed
+// (DOLLY_BUILD_IMAGES syntax, "all" for every image): preparation stages only
+// their closure.
 export async function updateRecipePins(projectDir, sources) {
   const active = new Set(), pinned = new Map();
   const files = await recipeFiles(projectDir);
@@ -25,9 +25,9 @@ export async function updateRecipePins(projectDir, sources) {
     const original = await readFile(path, "utf8");
     const recipe = inspectDollyfile(original, location);
     const lines = original.split(/\r\n|\r|\n/);
-    // Replaces one operand of a reference's row: its location or its pin.
-    function replace(reference, operand, value) {
-      const current = reference[operand];
+    // Replaces the pin of a reference's row.
+    function replace(reference, value) {
+      const current = reference.sha256;
       if (current === value) return;
       const row = recipe.rows.find(row => row.line === reference.line);
       for (let index = row.line - 1; index < row.endLine; index += 1) {
@@ -38,18 +38,15 @@ export async function updateRecipePins(projectDir, sources) {
           const parsed = inspectDollyfile(candidate.join("\n"), location);
           const updated = [...parsed.sources, ...parsed.artifacts]
             .find(item => item.line === reference.line);
-          if (updated?.[operand] === value && Object.entries(reference)
-            .every(([key, kept]) => key === operand || updated[key] === kept)) {
+          if (updated?.sha256 === value && Object.entries(reference)
+            .every(([key, kept]) => key === "sha256" || updated[key] === kept)) {
             lines[index] = candidate[index];
-            reference[operand] = value;
+            reference.sha256 = value;
             return;
           }
         }
       }
-      throw new Error(`${location}:${row.line}: cannot locate recipe ${operand}`);
-    }
-    for (const reference of [...recipe.sources, ...recipe.artifacts]) {
-      replace(reference, "location", reference.location.replace(/^\/v[^/]+\//, siteReference("")));
+      throw new Error(`${location}:${row.line}: cannot locate recipe pin`);
     }
     if (refreshed.has(files.get(location))) for (const source of recipe.sources) {
       const path = sitePath(source.location);
@@ -58,10 +55,10 @@ export async function updateRecipePins(projectDir, sources) {
         throw new Error(`${location}: ${source.location} is outside trusted build inputs`);
       }
       const bytes = await readFile(resolve(projectDir, path.slice(1)));
-      replace(source, "sha256", createHash("sha256").update(bytes).digest("hex"));
+      replace(source, createHash("sha256").update(bytes).digest("hex"));
     }
     for (const reference of recipe.artifacts) {
-      replace(reference, "sha256", await pin(reference.location));
+      replace(reference, await pin(reference.location));
     }
     const source = lines.join("\n");
     if (source !== original) await writeFile(path, source);

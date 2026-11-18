@@ -106,7 +106,7 @@ test("the production seed contains only bootstrap and compiler executables, not 
   const definitions = await discoverImageDefinitions(new URL("..", import.meta.url).pathname);
   for (const { name, package: image } of hostManifests) {
     const taken = image && definitions.find(definition => definition.image === image).parsed.sources
-      .map(({ location }) => location.replace(/^\/v[^/]+\//, ""));
+      .map(({ location }) => location.slice(1));
     for (const { file } of [...hostFiles("headers"), ...hostFiles("client")].filter(entry => entry.name === name)) {
       if (image) assert.ok(taken.includes(file), `${image} takes ${file}`);
     }
@@ -247,6 +247,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["dollyfile", "/bin/dollyfile"],
     ["ghostty-build", "/usr/bin/zig"],
     ["git", "/usr/bin/git"],
+    ["git-http", "/usr/libexec/dolly/git-remote-http"],
     ["gzip", "/bin/gzip"],
     ["html", "/usr/bin/html"],
     ["less", "/usr/bin/less"],
@@ -276,6 +277,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["system-build", "/bin/slop"],
     ["system-tools", "/usr/bin/git"],
     ["transfer", "/bin/download"],
+    ["vi", "/usr/bin/vi"],
     ["zig", "/usr/bin/zig"],
     ["zig-build", "/usr/bin/zig"],
     ["zlib", "/usr/lib/libz.a"],
@@ -357,7 +359,7 @@ test("dist registers every image of the catalog", async () => {
 test("each catalog recipe's rows are published by its digest", async () => {
   const { images } = await json("dolly-images.json");
   for (const { dollyfile, sha256 } of images) {
-    assert.ok((await readFile(artifact(`rows/${sha256}.rows`), "utf8")).startsWith(`DOLLY 7 ${sha256}\0`), dollyfile);
+    assert.ok((await readFile(artifact(`rows/${sha256}.rows`), "utf8")).startsWith(`DOLLY 8 ${sha256}\0`), dollyfile);
   }
 });
 

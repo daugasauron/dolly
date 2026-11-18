@@ -1,0 +1,67 @@
+DOLLY 8
+PACKAGE vi
+REQUIRES HOST runtime@0
+
+# Neatvi, a small vi and ex, from the files of upstream's tagged archive,
+# unchanged, by the rules of its Makefile. It draws with escape sequences of
+# its own and reads no terminal database. Its ! commands and language servers
+# start by fork, which fails here, and it says so. It is Git's editor, so it
+# is built where Git is, without the tools Git comes with: ex is vi -e.
+FROM /Dollyfile-system-build 0c72e09eba84571d4f8634cf6e7507eb1be1b9b8aa1fae61f6b0ec884b26b6fb
+USE /Dollyfile-gzip cef69a22c3b9f73889f4c819fcfaee2fb4487474ea4efa364117b8796465d1a4
+
+REQUIRES HEADER libc
+REQUIRES TOOL   cat
+REQUIRES TOOL   cc
+REQUIRES TOOL   cp
+REQUIRES TOOL   gzip
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   mv
+REQUIRES TOOL   printf
+REQUIRES TOOL   tar
+REQUIRES TOOL   test
+
+SOURCE /dist/static/default/neatvi-20.tar.gz e1d9a89d770aa5bb60da472be1a526eb1d99be9267c4d6067fc625f10efc8fe5 /tmp/neatvi.tar.gz
+SLOP gzip -dc /tmp/neatvi.tar.gz | tar -xf - -C /tmp && mv /tmp/neatvi-20 /tmp/neatvi
+
+FILE /tmp/vi.mk
+    .RECIPEPREFIX := >
+    S := /tmp/neatvi
+    BIN := /usr/bin
+    NAMES := vi ex lbuf mot sbuf ren dir syn reg led uc term rset rstr regex cmd tag conf lsp json
+    $(BIN)/vi: $(addprefix $S/,$(addsuffix .o,$(NAMES)))
+    >cc $^ -o $@
+    $S/%.o: $S/%.c $S/vi.h $S/conf.h $S/kmap.h
+    >cc -O2 -c $< -o $@
+SLOP make -j4 -f /tmp/vi.mk
+FILE /usr/bin/ex
+    #!/bin/slop
+    exec vi -e "$@"
+# Neatvi ships no licence file or manual page: its sources open with the
+# licence, which ex writes out, and its README is the manual.
+SLOP mkdir -p /usr/share/licenses/vi /usr/share/doc/vi && cp /tmp/neatvi/README /usr/share/doc/vi/README
+SLOP printf '%s\n' '2,16w /usr/share/licenses/vi/LICENSE' 'q' | ex -s /tmp/neatvi/vi.c > /dev/null
+
+SLOP printf 'one\ntwo\n' > /tmp/vi-check && printf '%s\n' '%s/two/2/' 'w' 'q' | ex -s /tmp/vi-check > /dev/null && test "$(cat /tmp/vi-check)" = "$(printf 'one\n2')"
+
+EXPORTS TOOL vi
+EXPORTS TOOL ex
+FILE /usr/share/licenses/vi/LICENSE
+FILE /usr/share/doc/vi/README
+# Neatvi has no --help, so its page begins with a title, as upstream's pages do.
+FILE /usr/share/man/cat1/vi.1
+    VI(1), EX(1)
+    
+    vi, ex: Neatvi, a small vi with an ex mode, from upstream's files unchanged.
+    
+      vi FILE...        edits the files
+      ex FILE...        edits them in ex mode
+      :wq writes and leaves; :q! leaves without writing.
+    
+    It draws with escape sequences of its own and needs no terminal database.
+    What starts another program (:!, a filter through a command, a language
+    server) needs fork, which Dolly does not have: it fails and says so.
+    Upstream's README lists the commands and options: /usr/share/doc/vi/README.
+SLOP cp /usr/share/man/cat1/vi.1 /usr/share/man/cat1/ex.1
+FILE /usr/share/man/cat1/ex.1

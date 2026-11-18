@@ -3,21 +3,19 @@ import { loadRecipeGraph } from "./dollyfile-graph.mjs";
 import { imageInputs, imageInputsMatch } from "../page/image-inputs.mjs";
 import { describeImageArtifact, loadImageArtifactDescriptor, loadImageArtifact, saveImageArtifact } from "./image-artifact.mjs";
 import { loadPackagedSnapshotMetadata, packagedSystemSnapshot } from "../page/packaged-snapshot.mjs";
+import { forgetImages } from "../page/pack-store.mjs";
 import { siteReference, sitePath } from "../page/static-asset.mjs";
 
 
 // A custom recipe builds from this release's published recipes and sources.
 async function customRecipeGraph(customSource, signal) {
-  const graph = await loadRecipeGraph(async reference => {
+  return loadRecipeGraph(async reference => {
     if (reference === "Dollyfile") return new TextEncoder().encode(customSource);
     const response = await fetch(new URL(sitePath(reference).slice(1), imageBase),
       { credentials: "same-origin", redirect: "error", signal });
     if (!response.ok) throw new Error(`${reference}: HTTP ${response.status}; this release does not publish that recipe`);
     return response.arrayBuffer();
   }, "Dollyfile");
-  // The broker would refuse another version's path without saying why.
-  for (const { location } of graph.root.sources) sitePath(location);
-  return graph;
 }
 
 // Only explicit image references schedule builds. Modules still execute in
@@ -85,5 +83,13 @@ export async function prepareImageArtifacts(image, customSource, build, report, 
   for (const reference of references) selected.set(reference.sha256, await resolve(reference));
   const loaded = [];
   for (const node of selected.values()) loaded.push(await materialize(node));
+  // Each image read is kept once: none of the packs of those the image cache now holds.
+  const cached = [];
+  for (const { definition, descriptor, artifact } of artifacts.values()) {
+    if (artifact && (await loadImageArtifactDescriptor(definition.sha256, descriptor.inputs))?.sha256 === artifact.sha256) {
+      cached.push(definition.image);
+    }
+  }
+  await forgetImages(cached);
   return loaded;
 }

@@ -3,7 +3,7 @@
 // serves, and its packs: streamed into a booting kernel, or merged in path
 // order into the image's canonical snapshot.
 import { DOLLY_IMAGE_BUILD_ID } from "./generated.mjs";
-import { DOLLY_IMAGES, imageBase } from "./images.mjs";
+import { DOLLY_IMAGES, directoryFetch, directoryJSON, imageBase } from "./images.mjs";
 import { imageInputs, imageInputsMatch, recipesDigest } from "./image-inputs.mjs";
 import { hostRequirements } from "../host/requirements.mjs";
 import { siteReference, decodeStaticAsset, hex } from "./static-asset.mjs";
@@ -43,7 +43,7 @@ function inputClosure(image, order = [], path = []) {
 
 async function importMetadata(image) {
   try {
-    return (await import(new URL(`dist/dolly-${image}-system-snapshot.json`, imageBase).href, { with: { type: "json" } })).default;
+    return await directoryJSON(`dist/dolly-${image}-system-snapshot.json`);
   } catch {
     throw new Error(`The packaged ${image} snapshot is missing. Run npm run image -- ${image} first.`);
   }
@@ -170,9 +170,9 @@ async function* packagedSnapshotParts(metadata, signal) {
 }
 
 async function downloadedPack(pack, signal) {
-  const url = new URL(`dist/packs/${pack.sha256}.snapshot.gz`, imageBase);
+  const url = new URL(`dist/packs/${pack.sha256}.snapshot.gz`, imageBase), fetchRequest = directoryFetch ?? fetch;
   const init = { cache: "force-cache", credentials: "same-origin", redirect: "error", signal };
-  const response = await decodeStaticAsset(await fetch(url, init), url, init, pack.encodedByteLength);
+  const response = await decodeStaticAsset(await fetchRequest(url, init), url, init, pack.encodedByteLength, fetchRequest);
   if (!response.ok || !response.body) throw new Error(`snapshot returned HTTP ${response.status}`);
   const declared = response.headers.get("content-length");
   if (declared !== null && Number(declared) !== pack.encodedByteLength) throw new Error("snapshot HTTP content length mismatch");

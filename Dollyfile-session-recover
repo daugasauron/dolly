@@ -1,18 +1,18 @@
-DOLLY 7
+DOLLY 8
 PACKAGE session-recover
 REQUIRES HOST runtime@0
 
 # session-recover copies the files a saved session holds under /home and
 # /workspace into a new directory.
-FROM /v0.1.6/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
+FROM /Dollyfile-system-build 0c72e09eba84571d4f8634cf6e7507eb1be1b9b8aa1fae61f6b0ec884b26b6fb
 
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.6/dist/static/session-recovery/session-recover.c c401619a8a3642b8cf72221bff35fa906a3f33ddbb208f485dcea2028a284ee1 /tmp/session-recovery/session-recover.c
-SOURCE /v0.1.6/dist/static/session-recovery/session-records.h 2a6049e03a3b92e0315915b93436f7d7cdacfd6e18cf80728ebd3f2530001597 /tmp/session-recovery/session-records.h
-SOURCE /v0.1.6/dist/static/session-recovery/fs-record.h 3dee050e2b45c34f9b840ecf995df0a10199df6cec8b2d1b8049d551e1da2e90 /tmp/session-recovery/fs-record.h
+SOURCE /dist/static/session-recovery/session-recover.c c401619a8a3642b8cf72221bff35fa906a3f33ddbb208f485dcea2028a284ee1 /tmp/session-recovery/session-recover.c
+SOURCE /dist/static/session-recovery/session-records.h 2a6049e03a3b92e0315915b93436f7d7cdacfd6e18cf80728ebd3f2530001597 /tmp/session-recovery/session-records.h
+SOURCE /dist/static/session-recovery/fs-record.h 3dee050e2b45c34f9b840ecf995df0a10199df6cec8b2d1b8049d551e1da2e90 /tmp/session-recovery/fs-record.h
 
 SLOP cc -O1 -I/tmp/session-recovery /tmp/session-recovery/session-recover.c -o /usr/bin/session-recover
 EXPORTS TOOL session-recover

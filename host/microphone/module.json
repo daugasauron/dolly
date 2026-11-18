@@ -11,5 +11,6 @@
   "headers": ["microphone.h", "microphone-abi.h"],
   "kernel": ["kernel.c"],
   "client": ["client.c"],
+  "files": ["provider.mjs", "worklet.mjs"],
   "package": "libdolly-microphone"
 }

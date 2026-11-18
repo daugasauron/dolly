@@ -18,6 +18,11 @@ for a host that is single-threaded (Zig's default on WebAssembly) and has no
 file watcher, as Dolly is: upstream's maker calls its servers and watcher where
 such a host has none. Zig 0.17 links libc for Emscripten by itself.
 
+Zig builds for `wasm64-emscripten`, where C sees `__dolly__`: an exception kept by
+choice, as for Rust ([Rust](../rust/README.md#limits)). Zig's standard library has no
+Dolly target; the `.emscripten` cases the patches add say what Dolly's libc, musl,
+answers (Linux's `getdents`, for one).
+
 zig2 is built with every command (`dev = .full`): upstream builds the full
 compiler with zig2, and here zig2 is the compiler. A program for Dolly is
 `NAME.wasm`. Zig 0.17 compiles the program behind `zig build`, `init`, `fetch`
@@ -32,7 +37,7 @@ about 20 minutes, `cc` compiles it in 8 in a 9 GB slot (6 GB is not enough, for
 ## Images
 
 - `zig-llvm-build`: build-only; zig1 compiles the compiler to C and `cc` compiles that.
-- `zig-llvm`: `zig` with its LLVM backend; the LLVM libraries are linked in, so it brings no LLVM. It brings `cc` for its links.
+- `zig-llvm`: `zig` with its LLVM backend, in place of the core's `zig`: both install `/usr/bin/zig` and `/usr/lib/zig`, and the later install replaces the other's files. The LLVM libraries are linked in, so it brings no LLVM. It brings `cc` for its links.
 
 ## Test
 

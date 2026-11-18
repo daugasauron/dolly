@@ -141,6 +141,38 @@ function typedWasmFunction(function_, parameters, result) {
   }).exports.closure;
 }
 
+// The thunk Binaryen's cast emulation makes of a function in the table, for a
+// function the loader places in a cast-emulated program's: it takes
+// `parameters` i64s, converts those the function has to its types, calls it and
+// converts its result back (an i32 or the bits of an f32 zero-extended, an f64's
+// bits, 0 for none). One module per type; an instance per function.
+const castThunkModules = new Map();
+export function castThunk(function_, { params, results }, parameters) {
+  if (params.length > parameters || results.length > 1) {
+    throw new TypeError(`a cast-emulated program calls functions of at most ${parameters} parameters and one result`);
+  }
+  const key = `${params}>${results}>${parameters}`;
+  let module = castThunkModules.get(key);
+  if (!module) {
+    const fromI64 = { i32: [0xa7], i64: [], f32: [0xa7, 0xbe], f64: [0xbf] };
+    const toI64 = { i32: [0xad], i64: [], f32: [0xbc, 0xad], f64: [0xbd] };
+    const body = [0, ...params.flatMap((type, index) => {
+      if (!fromI64[type]) throw new TypeError(`unsupported cast-emulated Wasm type ${type}`);
+      return [0x20, ...uleb(index), ...fromI64[type]];
+    }), 0x10, 0, ...(results.length ? toI64[results[0]] ?? [] : [0x42, 0]), 0x0b];
+    if (results.length && !toI64[results[0]]) throw new TypeError(`unsupported cast-emulated Wasm type ${results[0]}`);
+    const bytes = new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+      ...section(1, [2, 0x60, ...uleb(params.length), ...params.map(wasmType), ...uleb(results.length),
+        ...results.map(wasmType), 0x60, ...uleb(parameters), ...Array(parameters).fill(0x7e), 1, 0x7e]),
+      ...section(2, [1, ...wasmName("dolly"), ...wasmName("function"), 0, 0]),
+      ...section(3, [1, 1]),
+      ...section(7, [1, ...wasmName("thunk"), 0, 1]),
+      ...section(10, [1, ...uleb(body.length), ...body])]);
+    castThunkModules.set(key, module = new WebAssembly.Module(bytes));
+  }
+  return new WebAssembly.Instance(module, { dolly: { function: function_ } }).exports.thunk;
+}
+
 // change(operation, values, apply) makes a closure change, apply(): a host
 // using threads@0 makes it in every thread's table (threads.mjs).
 export function createProcessFfi({
@@ -331,6 +363,12 @@ export function createProcessFfi({
     }
   }
 
+  // A caller may declare an integer result of another width than the function's
+  // Wasm result (ctypes declares int by default); as a native ABI does, the
+  // declared width of the returned value is stored.
+  const narrowed = (result, bits) => typeof result === "bigint" ? Number(BigInt.asUintN(bits, result)) : result;
+  const widened = result => BigInt.asUintN(64, typeof result === "bigint" ? result : BigInt(result));
+
   function storeResult(pointer, type, result) {
     const location = asBigInt(pointer, "FFI result pointer");
     switch (type.id) {
@@ -339,7 +377,7 @@ export function createProcessFfi({
       case FFI_TYPE_INT:
       case FFI_TYPE_UINT32:
       case FFI_TYPE_SINT32:
-        view(location, 4, "FFI i32 result").setUint32(0, result, true);
+        view(location, 4, "FFI i32 result").setUint32(0, narrowed(result, 32), true);
         return;
       case FFI_TYPE_FLOAT:
         view(location, 4, "FFI f32 result").setFloat32(0, result, true);
@@ -349,18 +387,16 @@ export function createProcessFfi({
         return;
       case FFI_TYPE_UINT8:
       case FFI_TYPE_SINT8:
-        view(location, 1, "FFI i8 result").setUint8(0, result);
+        view(location, 1, "FFI i8 result").setUint8(0, narrowed(result, 8));
         return;
       case FFI_TYPE_UINT16:
       case FFI_TYPE_SINT16:
-        view(location, 2, "FFI i16 result").setUint16(0, result, true);
+        view(location, 2, "FFI i16 result").setUint16(0, narrowed(result, 16), true);
         return;
       case FFI_TYPE_UINT64:
       case FFI_TYPE_SINT64:
       case FFI_TYPE_POINTER:
-        view(location, 8, "FFI i64 result").setBigUint64(
-          0, BigInt.asUintN(64, result), true,
-        );
+        view(location, 8, "FFI i64 result").setBigUint64(0, widened(result), true);
         return;
       case FFI_TYPE_COMPLEX:
         throw new TypeError("complex FFI results are unsupported");
@@ -611,7 +647,7 @@ export function createProcessFfi({
     if ((cif.flags & VARARGS_FLAG) !== 0) parameters.push("i64");
     const result = returnByArgument ? null : resultWasmType(cif.returnType);
 
-    return typedWasmFunction((...arguments_) => {
+    const function_ = typedWasmFunction((...arguments_) => {
       const frame = stack();
       let valueIndex = 0;
       const returnPointer = returnByArgument
@@ -659,16 +695,21 @@ export function createProcessFfi({
       }
 
       frame.publish();
+      const callbackArguments = [cif.pointer, returnPointer, argumentArray, userData];
       try {
-        tableFunction(callbackIndex, "FFI closure callback")(
-          cif.pointer, returnPointer, argumentArray, userData,
-        );
+        const callback = tableFunction(callbackIndex, "FFI closure callback");
+        if (castEmulationParameters) callback(...toCastEmulation(callbackArguments, [], castEmulationParameters));
+        else callback(...callbackArguments);
       } finally {
         frame.restore();
       }
       return returnByArgument
         ? undefined : callbackResult(returnPointer, cif.returnType);
     }, parameters, result);
+    // A cast-emulated program calls it through a thunk, as every entry of its table.
+    return castEmulationParameters
+      ? castThunk(function_, { params: parameters, results: result ? [result] : [] }, castEmulationParameters)
+      : function_;
   }
 
   // The changes to the table, from their packets' values. Each checks its

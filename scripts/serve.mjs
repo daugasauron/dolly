@@ -133,7 +133,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     if (!releaseDigest.test(await readlink(resolve(releases, "current")))) throw new Error("invalid current release");
   } catch {
-    throw new Error("No published Dolly app. Run npm run publish after building; failed builds leave it untouched.");
+    throw new Error("No published Dolly app. Run bash scripts/package-pages.sh after building; failed builds leave it untouched.");
   }
   const server = createReleaseServer(releases);
   server.listen(Number(process.env.DOLLY_PORT ?? 8080), "127.0.0.1", () => {

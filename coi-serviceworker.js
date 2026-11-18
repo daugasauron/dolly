@@ -5,8 +5,8 @@
 //   them where a response lacks them, so shared wasm64 memory is available there.
 // - Where the network fails, a GET is answered from this site's kept runtime: the
 //   files a saved session opens with, which the page stores when a session is
-//   saved, each checked against the site's list (site/offline.mjs). A response the
-//   server gives, an error among them, is never replaced.
+//   saved, each checked against the site's list (host/snapshot/offline.mjs). A
+//   response the server gives, an error among them, is never replaced.
 const kept = `dolly-offline ${self.registration.scope} `;
 async function keptResponse(request, failure) {
   for (const name of request.method === "GET" ? await caches.keys() : []) {

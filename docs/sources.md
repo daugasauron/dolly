@@ -19,6 +19,8 @@ flowchart TD
 | Component | Built outside Dolly | Result |
 | --- | --- | --- |
 | Emscripten 6.0.8 | Digest-pinned container links the kernel, process sysroot, gate and seed ([`CMakeLists.txt`](../toolchain/CMakeLists.txt), [`build.sh`](../scripts/build.sh)) | Kernel plus process libc with its compiler-rt builtins, which the first link needs; the seed holds headers and the Dollyfile engine source, which [`bootstrap.c`](../programs/bootstrap.c) compiles before the first recipe |
+| Bison 3.8.2 | Built natively on the host ([`build-bison.sh`](../scripts/build-bison.sh)); [`generate-awk.sh`](../scripts/generate-awk.sh) runs it on One True Awk's `awkgram.y` | `awkgram.tab.c` and `awkgram.tab.h`, which `system-tools` compiles into `/bin/awk` |
+| Zig 0.17.0 | The host's Zig ran libghostty-vt's build graph once; its output is committed in [`programs/ghostty/generated/`](../programs/ghostty/generated/README.md) | The two options modules and `wuffs-c.zig`, translate-c's output for Wuffs' header, which `ghostty-build` compiles |
 
 libc++, libc++abi and libunwind are not among them: [`Dollyfile-system-build`](../Dollyfile-system-build)
 compiles Emscripten's pinned copy with the flags of Emscripten's own build,
@@ -30,12 +32,8 @@ The libc's and libc++'s headers, and libc++'s sources, are staged with their
 libc's triple, `wasm64-unknown-emscripten`; a program sees neither name
 ([process model](process-model.md#executables)).
 
-Demo exceptions (the Rust and Go compiler seeds) are recorded in their demo
-READMEs. Every externally built program (the Rust and Go seeds)
-validates against `dolly-process-0` exactly and ships without an Emscripten
-JavaScript loader. Host preparation may
-configure and patch pinned trees deterministically and reviewably, but must not
-compile the programs an image claims to build.
+Host preparation may configure and patch pinned trees deterministically and
+reviewably, but must not compile the programs an image claims to build.
 
 ## The seed's compiler
 
@@ -54,7 +52,8 @@ checks the compiler against `dolly-process-0`.
   `llvm-tablegen` configures LLVM with CMake and Python, which are demos too.
   Nothing of the core reads them; it reads the pin alone.
 - A checkout without the archive downloads it from the GitHub release that
-  carries it: every release uploads the seed compiler it was built with.
+  carries it: every release uploads the seeds it was built with, this one and
+  the Rust and Go demos' ([below](#the-rust-and-go-seeds)).
 - Changing the compiler (its driver, the LLVM pin, the libc it links) takes a
   round: build `llvm-cc` with the current seed, pin it, rebuild the runtime and
   the catalog. `llvm-cc` built by the new seed gives the pinned bytes again, or
@@ -73,12 +72,41 @@ checks the compiler against `dolly-process-0`.
   was a host build of the same sources and driver (`scripts/build-toolchain.sh`,
   last in commit `3fc9d5da`); a bootstrap from nothing starts there.
 
+## The Rust and Go seeds
+
+Rust and Go are written in themselves, so their demos' images start from a
+compiler of the previous round, pinned like the C seed's, in the demo's
+`source-pins.sh`: `demos/rust/pin-seed.mjs` archives `rust-build`'s rustc and
+standard library with the `cargo` package's Cargo (`DOLLY_RUST_SEED_*`),
+`demos/go/pin-seed.mjs` the `go` package's commands (`DOLLY_GO_SEED_*`).
+Staging ([`seed-archive.mjs`](../scripts/seed-archive.mjs)) takes each by its
+SHA-256 alone and refuses one whose executables are for another process
+contract or host module.
+
+- A round pins the three seeds after its images; one that leaves them
+  unchanged is their fixed point. A crate or Go patch, a libc or a contract
+  change rebuilds images, as for C, and the next round's seeds are their
+  result.
+- For a process contract or host module that only adds, `node
+  scripts/seed-archive.mjs restamp DOLLY_RUST_SEED` (and `DOLLY_GO_SEED`)
+  writes the new digests wherever the seed's executables hold the old ones:
+  their stamps, their `dolly.host` records, and the copy Go's linker writes
+  into what it links. The round's builds replace the restamped seeds. Go's
+  linker is built with the current digests: staging writes them into its
+  source (`zdolly.go`).
+- The first of each was taken from 0.1.7's images, which seeds built on the
+  host had built: Rust's cross-built in Podman
+  (`demos/rust/build-rust-toolchain.sh`, last in commit `6a610431`), Go's by
+  `demos/go/build-go-toolchain.sh`, which stays for rclone's staging. A
+  bootstrap from nothing starts there.
+
 ## Pins and identity
 
 - Upstream versions, URLs and archive digests live in
-  [`source-pins.sh`](../config/source-pins.sh) and the npm lockfile. Dollyfiles
-  pin the exact served bytes, since preparation can change bytes without changing
-  upstream.
+  [`source-pins.sh`](../config/source-pins.sh) for what the core reads, in each
+  demo's `demos/DEMO/source-pins.sh`, which it sources, and in the npm
+  lockfile. Dollyfiles pin the exact served bytes, since preparation can change
+  bytes without changing upstream.
 - [`prepare-image-sources.sh`](../scripts/prepare-image-sources.sh) stages the
   selected catalog's inputs (each demo adds a `prepare-sources.sh` hook);
   [`generate-routes.mjs`](../scripts/generate-routes.mjs) checks every

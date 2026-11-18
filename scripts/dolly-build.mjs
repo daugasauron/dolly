@@ -25,6 +25,7 @@ import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { chromium, firefox } from "playwright-core";
 import { amyIndex, catalogJson, catalogRecord, heldPackages, indexDescriptions, indexSource, metadataJson, snapshotMetadata } from "./image-directory.mjs";
+import { npmPackageName } from "./npm-names.mjs";
 import { buildImageInPage, savePageSnapshot } from "./page-image-build.mjs";
 import { isolationHeaders, mimeTypes } from "./serve.mjs";
 import { ensureSnapshotPacks } from "./share-pages-snapshots.mjs";
@@ -76,12 +77,13 @@ async function launch(options) {
 const project = ["init", "add"].includes(positionals[0]);
 if ((browserName && !browsers[browserName]) || (project ? positionals.length < 2 : positionals.length !== 2)) fail(usage);
 const scope = resolve("node_modules/@daugasauron"), beside = resolve(import.meta.dirname, "../..");
-const hostPackage = name => `@daugasauron/dolly-host-${name === "download" ? "save" : name}`;
-// Pi's packages, which init's recipe installs: those dolly-build depends on, pi-minimal's
-// (scripts/package-npm.mjs), in its order.
+const hostPackage = name => `@daugasauron/${npmPackageName("host", name)}`;
 const own = JSON.parse(await readFile(join(import.meta.dirname, "../package.json"), "utf8"));
-const piPackages = Object.keys(own.dependencies ?? {})
-  .filter(dependency => dependency.startsWith("@daugasauron/dolly-package-")).map(dependency => dependency.replace("@daugasauron/dolly-package-", ""));
+// packages.json, which scripts/package-npm.mjs writes beside dolly-build: the published
+// packages and images with the device host modules each declares, and Pi's packages,
+// pi-minimal's, which init's recipe installs, in its order.
+const { packages: published, images, pi: piPackages } = project
+  ? JSON.parse(await readFile(join(import.meta.dirname, "../packages.json"), "utf8")) : {};
 
 // init and add install what they name and the project lacks, at dolly-build's version, with
 // the package manager that runs them: the runtime, each PACKAGE, and the device host modules
@@ -91,7 +93,6 @@ const piPackages = Object.keys(own.dependencies ?? {})
 // update, and the host modules of the packages its recipe installs and of the image it
 // starts FROM, which a new version may add to.
 if (project) {
-  const { packages: published, images } = JSON.parse(await readFile(join(import.meta.dirname, "../packages.json"), "utf8"));
   const named = positionals.slice(2), unknown = named.filter(name => !published[name]);
   if (!validName(positionals[1])) fail(`${positionals[1]}: a name is lowercase letters, digits and dashes, at most 32 bytes`);
   if (unknown.length) fail(`${unknown.join(", ")}: no such package. The packages: ${Object.keys(published).sort().join(", ")}`);
@@ -107,7 +108,7 @@ if (project) {
   }
   const missing = [...new Set([...stale,
     ...["@daugasauron/dolly", ...hosts.map(hostPackage)].filter(name => !existsSync(join(scope, basename(name)))),
-    ...named.map(name => `@daugasauron/dolly-package-${name}`).filter(name => ![scope, beside].some(parent => existsSync(join(parent, basename(name)))))])];
+    ...named.map(name => `@daugasauron/${npmPackageName("package", name)}`).filter(name => ![scope, beside].some(parent => existsSync(join(parent, basename(name)))))])];
   if (missing.length) {
     const manager = /^(pnpm|yarn)\//.exec(process.env.npm_config_user_agent ?? "")?.[1] ?? "npm";
     const command = [manager, manager === "npm" ? "install" : "add", manager === "yarn" ? "--exact" : "--save-exact",
@@ -128,14 +129,18 @@ for (const pending = [scope, beside]; pending.length;) {
   for (const name of (await readdir(parent)).filter(name => /^dolly-(image|package)-/.test(name))) {
     const directory = await realpath(join(parent, name));
     if (directories.some(found => found.directory === directory)) continue;
-    directories.push({ directory, package: `@daugasauron/${name}`, image: name.replace(/^dolly-(image|package)-/, ""),
-      catalog: JSON.parse(await readFile(join(directory, "dist/dolly-images.json"), "utf8")) });
+    // Its own image: the one in its catalog whose npm name it has.
+    const catalog = JSON.parse(await readFile(join(directory, "dist/dolly-images.json"), "utf8"));
+    const kind = /^dolly-(image|package)-/.exec(name)[1];
+    const image = catalog.images.find(candidate => npmPackageName(kind, candidate.image) === name)?.image
+      ?? fail(`${join(parent, name)} holds no image of its name`);
+    directories.push({ directory, package: `@daugasauron/${name}`, image, catalog });
     pending.push(dirname(directory));
   }
 }
 const definitionOf = ({ catalog, image }) => catalog.images.find(candidate => candidate.image === image);
 const installed = (image, kind) => directories.find(candidate => candidate.image === image)
-  ?? fail(`${image} is not installed: npm install @daugasauron/dolly-${kind}-${image}`);
+  ?? fail(`${image} is not installed: npm install @daugasauron/${npmPackageName(kind, image)}`);
 // The directory whose own image a row names, at the row's pin.
 const holder = reference => directories.find(candidate => {
   const definition = definitionOf(candidate);
@@ -163,7 +168,7 @@ async function scaffold(name, packages) {
   const pages = (await readdir(join(import.meta.dirname, "dolly-build-init/public"), { recursive: true, withFileTypes: true }))
     .filter(entry => entry.isFile()).map(entry => relative(join(import.meta.dirname, "dolly-build-init"), join(entry.parentPath, entry.name)).split(sep).join("/")).sort();
   const files = {
-    [`Dollyfile-${name}`]: `DOLLY 7\nAPPLICATION ${name}\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}\n` +
+    [`Dollyfile-${name}`]: `DOLLY 8\nAPPLICATION ${name}\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}\n` +
       installs.map(definition => `${installRow(definition)}\n`).join("") + "\n" + await template("Dollyfile"),
     ...Object.fromEntries(await Promise.all(pages.map(async file => [file, await template(file)]))),
     [`.github/workflows/${name}.yml`]: await template("workflow.yml"),

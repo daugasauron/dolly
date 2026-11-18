@@ -1,0 +1,27 @@
+DOLLY 8
+PACKAGE eigen
+REQUIRES HOST runtime@0
+
+# Eigen, the C++ template library for linear algebra, from upstream's archive at
+# the commit Blender 5.3 pins, unchanged: its headers, installed by its CMake
+# project with its CMake package and pkg-config file, for programs the cc
+# package builds.
+FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+REQUIRES HEADER libc
+REQUIRES TOOL cmake
+REQUIRES TOOL gzip
+REQUIRES TOOL rm
+REQUIRES TOOL tar
+
+SOURCE /dist/static/eigen/source.tar.gz 32e84f92ef740e62354e326952be3d6b498d92b4f417439b9820377c798a6411 /tmp/eigen.tar.gz
+SLOP gzip -dc /tmp/eigen.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/eigen -B /tmp/eigen-build -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DEIGEN_BUILD_DOC=OFF \
+  -DEIGEN_BUILD_BLAS=OFF -DEIGEN_BUILD_LAPACK=OFF -DEIGEN_BUILD_DEMOS=OFF
+SLOP cmake --install /tmp/eigen-build
+
+EXPORTS HEADER eigen3      /usr/include/eigen3
+EXPORTS FOLDER eigen-cmake /usr/share/eigen3
+FILE /usr/share/pkgconfig/eigen3.pc
+FOLDER /usr/share/licenses/eigen
+SLOP rm -rf /tmp/eigen /tmp/eigen-build /tmp/eigen.tar.gz

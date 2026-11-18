@@ -7,7 +7,7 @@ or remote fallback.
 ## Images
 
 - `pi-local`: Pi with the bundled Qwen3.5-2B; `/local` installs and switches models. Requires WebGPU.
-- `pi-llm`: Pi's provider for the models `dolly-llama` runs in the tab, with the bundled Qwen3.5-2B, which Pi's settings choose; it needs `gpu@0`.
+- `pi-llm`: Pi with its provider for the models `dolly-llama` runs in the tab and the bundled Qwen3.5-2B, which its settings choose; it needs `gpu@0`.
 - `llama-cpp`: llama.cpp's libraries with ggml's WebGPU backend over the GPU interface, for programs the `cc` package builds; they need `gpu@0`.
 - `llama`: `dolly-llama`, linked on `llama-cpp`, serving a GGUF over stdin and stdout; it needs `gpu@0`.
 - `qwen3.5-2b`: Model package: Qwen3.5-2B weights, description and license.
@@ -45,9 +45,12 @@ licensed below 10 million US dollars of annual revenue.
 ## A model is a package
 
 A model package installs `/usr/share/dolly/llm/ID.json` beside its weights; the
-provider lists that directory and names no model. Adding one is
-[`models/ID.json`](models/), a recipe per package and a row in
-[`config/upstreams.json`](../../config/upstreams.json). The description holds
+provider lists that directory and names no model. `pi-llm` holds the other models'
+descriptions too, so that `/local` lists them before their packages are installed, each
+the same file as its package's. Adding one is
+[`models/ID.json`](models/), a recipe per package, its description's `FILE` row in
+[`Dollyfile-pi-llm`](Dollyfile-pi-llm) and a row in
+[`upstreams.json`](upstreams.json). The description holds
 what no upstream file knows:
 
 - `source`: the pinned upstream GGUF and the license file shipped with it.
@@ -87,7 +90,10 @@ which saves memory.
 
 - [`Dollyfile-llama-cpp`](Dollyfile-llama-cpp), [`CMakeLists.txt`](CMakeLists.txt):
   unchanged llama.cpp, its WGSL and the chat and sampling sources of its
-  `common` library, built in Dolly with CMake.
+  `common` library, built in Dolly with CMake. `ggml-webgpu.cpp` is compiled
+  with `__EMSCRIPTEN__=1`, upstream's only switch between a browser's WebGPU
+  and Dawn's (whose toggles and native features `gpu@0` does not give): an
+  exception kept by choice.
 - [`webgpu.cpp`](webgpu.cpp), [`main.cpp`](main.cpp): the WebGPU C adapter for
   the functions this backend uses, and the `dolly-llama` command. Each stdin
   line is the request `llama-server` takes at `/v1/chat/completions`; stdout is

@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE posix
 REQUIRES HOST runtime@0
 
@@ -6,8 +6,8 @@ REQUIRES HOST runtime@0
 # that builds them: sbase, awk, Dolly's find, xargs and the like, and sh.
 # Upstream's pages, of mdoc and man macros, are kept as the text mandoc
 # formats, which man prints as it is.
-FROM /v0.1.6/Dollyfile-system-tools 69127104c12ae52e00d0e0a8787c3c99ece25f59a2c382fc9c811d66a090e5ec
-USE /v0.1.6/Dollyfile-mandoc 54d325551ebd2d294534eac0ca4c1dfda6bc6120c6c08043d14d7e721c0292a9
+FROM /Dollyfile-system-tools 1606024fba5919c1fb6c0369ad86cc69f3ecf38099dff75bddb3eccb97da71e5
+USE /Dollyfile-mandoc 483a559eb568966844e5ef06ca4b9fd848a5b7ae1ff12bdfd9605123c34dcfb9
 
 REQUIRES TOOL text-page
 SLOP text-page /usr/share/man/man1/*.1
@@ -64,6 +64,8 @@ EXPORTS TOOL command
 EXPORTS TOOL xargs
 EXPORTS TOOL find
 EXPORTS TOOL env
+# And its link, which upstream scripts name in #!/usr/bin/env (system-tools).
+FILE /usr/bin/env
 EXPORTS TOOL time
 EXPORTS TOOL timeout
 EXPORTS TOOL realpath
@@ -95,7 +97,6 @@ FILE /usr/share/man/cat1/od.1
 FILE /usr/share/man/cat1/paste.1
 FILE /usr/share/man/cat1/pathchk.1
 FILE /usr/share/man/cat1/printenv.1
-FILE /usr/share/man/cat1/printf.1
 FILE /usr/share/man/cat1/readlink.1
 FILE /usr/share/man/cat1/rmdir.1
 FILE /usr/share/man/cat1/sed.1

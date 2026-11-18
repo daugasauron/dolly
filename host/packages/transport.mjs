@@ -4,18 +4,22 @@ import * as A from "./abi.mjs";
 const capacity = A.DOLLY_PACKAGES_CHUNK_CAPACITY;
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 const encoder = new TextEncoder();
-// Snapshots served per page: enough for every package, not for a loop.
-const maxSnapshots = 64;
+// Snapshots served per page load: every package of the catalog several times
+// over, not a loop's.
+export const maxSnapshots = 1024;
 // The index is one chunk.
 const maxIndexBytes = capacity;
 
 // The Worker's end of packages@0's mailbox (dolly-packages-0.wat): it answers
 // each request the kernel reports, one chunk at a time, from the page's own
-// image directory, `imageBase`; another directory is refused until the page's
-// HTTP policy judges it here.
+// image directory, `imageBase`, or another the guest names, each of whose
+// files `admit(url)` judges: it resolves to the limits of the page's rule for
+// it, or rejects. `spent()` tells the page when a snapshot is refused for the quota.
 export class PackagesTransport {
-  constructor(buffer, address, imageBase) {
+  constructor(buffer, address, imageBase, spent, admit) {
     this.imageBase = imageBase;
+    this.spent = spent;
+    this.admit = admit;
     if (!(buffer instanceof SharedArrayBuffer) || !Number.isSafeInteger(address) || address <= 0 || address % 4 ||
         address > buffer.byteLength - A.DOLLY_PACKAGES_CHUNK_OFFSET - capacity) throw new TypeError("invalid packages mailbox");
     this.words = new Int32Array(buffer, address, 16);
@@ -71,28 +75,37 @@ export class PackagesTransport {
     };
     const whole = bytes => { size = bytes.length; return publish(bytes, true); };
     const refuse = code => publish(new Uint8Array(), true, code);
+    let refused = false;
     try {
       const kind = Atomics.load(words, A.DOLLY_PACKAGES_WORD_KIND);
       const directory = decoder.decode(this.directory.slice(0, Atomics.load(words, A.DOLLY_PACKAGES_WORD_DIRECTORY_LENGTH)));
       if (kind === A.DOLLY_PACKAGES_KIND_DIRECTORY) return await whole(encoder.encode(this.imageBase.href));
-      if (directory !== this.imageBase.href) return await refuse(errno.EACCES);
-      if (kind === A.DOLLY_PACKAGES_KIND_INDEX) {
-        const response = await fetch(new URL("amy-index.txt", this.imageBase), { credentials: "same-origin", redirect: "error" });
-        const length = Number(response.headers.get("content-length") ?? 0);
-        if (!response.ok || length > maxIndexBytes) return await refuse(response.ok ? errno.EFBIG : errno.ENOENT);
-        const bytes = new Uint8Array(await response.arrayBuffer());
-        return await (bytes.length > maxIndexBytes ? refuse(errno.EFBIG) : whole(bytes));
+      if (kind === A.DOLLY_PACKAGES_KIND_SNAPSHOT && this.served >= maxSnapshots) {
+        this.spent();
+        return await refuse(errno.EDQUOT);
       }
-      if (this.served >= maxSnapshots) return await refuse(errno.EDQUOT);
-      // The packages Worker (worker.mjs) finds the package and merges its
-      // checked packs into its snapshot, a chunk per message.
+      // The packages Worker (worker.mjs) reads the index, or finds the package
+      // and merges its checked packs into its snapshot, a chunk per message.
+      // Of another directory it asks before each file it reads: a refusal of
+      // the page's policy ends the request with EACCES.
       worker = new Worker(new URL("./worker.mjs", import.meta.url), { type: "module", name: "dolly-packages" });
       const ask = message => new Promise((resolve, reject) => {
-        worker.onmessage = ({ data }) => data.error === undefined ? resolve(data) : reject(new Error(data.error));
+        worker.onmessage = ({ data }) => {
+          if (data.admit === undefined) return data.error === undefined ? resolve(data) : reject(new Error(data.error));
+          this.admit(new URL(data.admit)).then(limits => worker.postMessage({ admitted: data.id, limits }), error => {
+            refused = true;
+            worker.postMessage({ admitted: data.id, refused: error.message });
+          });
+        };
         worker.onerror = event => { event.preventDefault(); reject(new Error(event.message || "package Worker failed")); };
         worker.postMessage(message);
       });
-      const found = await ask({ directory, sha256: decoder.decode(this.pin.slice()) });
+      const judged = directory !== this.imageBase.href;
+      if (kind === A.DOLLY_PACKAGES_KIND_INDEX) {
+        const index = await ask({ directory, index: maxIndexBytes, judged });
+        return await (index.missing ? refuse(errno.ENOENT) : index.bytes ? whole(index.bytes) : refuse(errno.EFBIG));
+      }
+      const found = await ask({ directory, sha256: decoder.decode(this.pin.slice()), judged });
       if (found.missing) return await refuse(errno.ENOENT);
       if (!Number.isSafeInteger(found.size) || found.size <= 0 || found.size > A.DOLLY_PACKAGES_MAX_SIZE) return await refuse(errno.EFBIG);
       // A package found counts against the quota; a miss does not.
@@ -111,7 +124,7 @@ export class PackagesTransport {
       }
       if (sent !== size) await refuse(errno.EIO);
     } catch {
-      await refuse(errno.EIO);
+      await refuse(refused ? errno.EACCES : errno.EIO);
     } finally {
       worker?.terminate();
       Atomics.store(words, A.DOLLY_PACKAGES_WORD_COMPLETED, sequence);

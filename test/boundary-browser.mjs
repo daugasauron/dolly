@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { sha256 } from "../scripts/sha256.mjs";
 import { readFile } from "node:fs/promises";
-import { browserTest } from "./browser.mjs";
+import { browserTest, composed, workbench } from "./browser.mjs";
 import { createHttpRedirectFixture } from "./fixtures/http-redirect-server.mjs";
 import { siteReference } from "../page/static-asset.mjs";
 
@@ -57,27 +57,30 @@ async function largeSharedBuffersInHeap(page) {
   return sizes;
 }
 
-await browserTest("boundary", { server: { handle } }, async ({ name, server, open }) => {
-  const { page, submit } = await open({ policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
+await browserTest("boundary", { image: "system", server: { handle } }, async ({ name, server, open }) => {
+  const { page, submit } = await open({ ...await workbench(), policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   // Outer imports equal the contract, plugin ABI rejections, policy before
   // Fetch, deadlines, quotas, typed errors, literal metadata and redirects.
   await page.evaluate(() => import("/test/fixtures/browser-boundary.mjs")
     .then(module => module.runBrowserBoundaryChecks(new URL("/", location.href).href)));
   partRequests.length = 0;
   corrupt = false;
-  // Recipes name the site path; the page fetches its release's copy.
+  // Recipes name the site path: a build's SOURCE row reads the page's own copy,
+  // its two fixed parts checked against the manifest, and the engine checks the pin.
   const reference = siteReference(source.slice(1));
-  assert.equal(await submit(`curl -fsS ${reference} -o /tmp/boundary-source.c`), 0);
-  assert.equal(await submit(`test "$(sha256sum /tmp/boundary-source.c | cut -d ' ' -f 1)" = ${sha256(bytes)}`), 0);
-  assert.equal(partRequests.length, 2, "one authorized source fetch reads its two fixed parts");
-  assert.notEqual(await submit(`curl -fsS ${reference}.part-0 -o /tmp/boundary-denied`), 0);
-  assert.notEqual(await submit(`curl -fsS ${server.origin}${source}.part-0 -o /tmp/boundary-denied`), 0);
-  assert.equal(partRequests.length, 2, "derived delivery grants no guest access to sibling URLs");
-  // Another version's path is not this page's file.
-  assert.notEqual(await submit(`curl -fsS /v987.0.21${source} -o /tmp/boundary-denied`), 0);
+  const sourced = () => composed(["runtime", "display", "input"], ["core", "posix", "display"],
+    { rows: [`SOURCE ${reference} ${sha256(bytes)} /usr/share/boundary-source.c`, "FILE /usr/share/boundary-source.c"] });
+  const built = await open(await sourced());
+  assert.equal(await built.submit(`test "$(sha256sum /usr/share/boundary-source.c | cut -d ' ' -f 1)" = ${sha256(bytes)}`), 0);
+  await built.page.close();
+  assert.equal(partRequests.length, 2, "one build input reads its two fixed parts");
+  // A program's request for the file or a part is the policy's to judge, and
+  // this one has no rule for them: the site grants nothing.
+  for (const target of [reference, `${reference}.part-0`, `${server.origin}${source}.part-0`, `/v987.0.21${source}`])
+    assert.notEqual(await submit(`curl -fsS ${target} -o /tmp/boundary-denied`), 0, target);
+  assert.equal(partRequests.length, 2, "a program reached a file of the site");
   corrupt = true;
-  assert.notEqual(await submit(`curl -fsS ${reference} -o /tmp/boundary-corrupt`), 0);
-  assert.equal(await submit("rm -f /tmp/boundary-source.c /tmp/boundary-corrupt"), 0);
+  await assert.rejects(open({ prompt: null, ...await sourced() }), /SOURCE [^\n]*\(line \d+\): [\s\S]*SOURCE failed/);
   // The page holds no view of kernel memory, only Workers do: after typing,
   // HTTP and the display, the page's heap has no shared buffer of its size.
   // In Chromium, whose DevTools protocol lists them.
@@ -85,7 +88,8 @@ await browserTest("boundary", { server: { handle } }, async ({ name, server, ope
 
   // An uncaught failure in the runtime Worker, as a kernel trap outside a
   // system call would be, ends the runtime: the page must not stay "ready".
-  await page.workers().find(worker => worker.url().endsWith("/dist/dolly-runtime-worker.mjs"))
+  // A rebuild route's runtime Worker is the build's (site/site.mjs).
+  await page.workers().find(worker => /\/(?:dist\/dolly-runtime-worker|site\/build-worker)\.mjs$/.test(worker.url()))
     .evaluate(() => { setTimeout(() => { throw new Error("boundary probe"); }); });
   await page.waitForFunction(() => document.documentElement.dataset.dollyStatus === "failed");
   assert.match(await page.locator("#bootstrap-log").textContent(), /FATAL\n.*boundary probe/);

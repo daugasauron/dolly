@@ -167,7 +167,9 @@ export class FramebufferPresenter {
     this.painted = painted;
     this.cursor = cursor;
     this.cursorStyle = undefined;
-    this.sequence = -1;
+    // The sequence of the frame painted last: before Dolly publishes its first,
+    // 0, and the mailbox's geometry describes no frame.
+    this.sequence = 0;
     this.running = true;
   }
 

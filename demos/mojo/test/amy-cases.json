@@ -1,0 +1,32 @@
+{
+  "image": "default",
+  "directory": "/tmp/amy-mojo",
+  "steps": [
+    {
+      "fresh": true,
+      "why": "mojo build links what it compiles through cc.",
+      "script": "! command -v mojo",
+      "status": 0
+    },
+    { "script": "amy install mojo", "status": 0 },
+    { "script": "printf 'def main():\\n    print(\"hello\", 6 * 7)\\n' > hello.mojo && mojo build hello.mojo && test \"$(./hello)\" = 'hello 42'", "status": 0 },
+    {
+      "fresh": true,
+      "why": "xxhsum prints the XXH32 of a file and checks the XXH128 sums it wrote; a program hashes in pieces as at once.",
+      "script": "! command -v xxhsum",
+      "status": 0
+    },
+    { "script": "amy install xxhash", "status": 0 },
+    { "script": "printf abc > /tmp/amy-xxh && xxhsum -H0 /tmp/amy-xxh | grep -q '^32d153ff ' && xxhsum -H2 /tmp/amy-xxh > /tmp/amy-xxh.sum && xxhsum -c /tmp/amy-xxh.sum && man xxhsum > /tmp/amy-man && grep -q 'hash' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man", "status": 0 },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <string.h>' '#include <xxhash.h>' 'int main(void) {' '  XXH3_state_t *state = XXH3_createState();' '  XXH3_64bits_reset(state);' '  XXH3_64bits_update(state, \"Dol\", 3);' '  XXH3_64bits_update(state, \"ly\", 2);' '  int ok = XXH3_64bits_digest(state) == XXH3_64bits(\"Dolly\", 5) && XXH32(\"abc\", 3, 0) == 0x32d153ffU;' '  XXH3_freeState(state);' '  return ok ? 0 : 1;' '}' > /tmp/amy-xxhash.c && cc /tmp/amy-xxhash.c -lxxhash -o /tmp/amy-xxhash && /tmp/amy-xxhash", "status": 0 },
+    {
+      "fresh": true,
+      "why": "A span with an attribute, exported by the SDK's ostream exporter; the SDK links with -pthread.",
+      "script": "amy install opentelemetry-cpp",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <opentelemetry/exporters/ostream/span_exporter_factory.h>' '#include <opentelemetry/sdk/trace/simple_processor_factory.h>' '#include <opentelemetry/sdk/trace/tracer_provider_factory.h>' '#include <opentelemetry/trace/provider.h>' '#include <sstream>' 'namespace trace_sdk = opentelemetry::sdk::trace;' 'int main() {' '  std::stringstream out;' '  auto processor = trace_sdk::SimpleSpanProcessorFactory::Create(' '      opentelemetry::exporter::trace::OStreamSpanExporterFactory::Create(out));' '  std::shared_ptr<opentelemetry::trace::TracerProvider> provider = trace_sdk::TracerProviderFactory::Create(std::move(processor));' '  auto span = provider->GetTracer(\"dolly\")->StartSpan(\"amy-span\");' '  span->SetAttribute(\"answer\", 42);' '  span->End();' '  return out.str().find(\"amy-span\") != std::string::npos && out.str().find(\"answer: 42\") != std::string::npos ? 0 : 1;' '}' > /tmp/amy-opentelemetry-cpp.cpp && c++ -pthread -std=c++20 -DOPENTELEMETRY_STL_VERSION=2020 /tmp/amy-opentelemetry-cpp.cpp -L/usr/lib/opentelemetry-cpp -lopentelemetry_exporter_ostream_span -lopentelemetry_trace -lopentelemetry_resources -lopentelemetry_common -lopentelemetry_version -o /tmp/amy-opentelemetry-cpp && /tmp/amy-opentelemetry-cpp", "status": 0 }
+  ]
+}

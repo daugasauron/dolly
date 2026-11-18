@@ -19,6 +19,8 @@ static const char *mode;
 static volatile sig_atomic_t received;
 static volatile sig_atomic_t depth, maximum_depth;
 static volatile sig_atomic_t alarms;
+/* What one process sends another: each child takes them all. */
+static const int sent[] = {SIGINT, SIGTERM, SIGUSR1, SIGUSR2};
 
 static void normal_exit(void) {
   int fd = open(exit_path, O_WRONLY | O_CREAT, 0666);
@@ -164,8 +166,7 @@ int main(int argc, char **argv) {
     struct sigaction action = {.sa_handler = handler,
       .sa_flags = !strcmp(mode, "restart") ? SA_RESTART : 0};
     if (!strcmp(mode, "ignore") || !strcmp(mode, "ignore-loop")) action.sa_handler = SIG_IGN;
-    CHECK(sigaction(SIGINT, &action, NULL) == 0);
-    CHECK(sigaction(SIGTERM, &action, NULL) == 0);
+    for (unsigned index = 0; index < sizeof(sent) / sizeof(*sent); ++index) CHECK(sigaction(sent[index], &action, NULL) == 0);
     int fd = open(lock_path, O_CREAT | O_WRONLY, 0666);
     CHECK(fd >= 0 && close(fd) == 0);
     if (!strcmp(mode, "tree")) {
@@ -212,7 +213,8 @@ int main(int argc, char **argv) {
     CHECK(WIFEXITED(resize_exit_status) && WEXITSTATUS(resize_exit_status) == 23);
   }
 
-  for (int number = SIGINT; number <= SIGTERM; number += SIGTERM - SIGINT) {
+  for (unsigned sending = 0; sending < sizeof(sent) / sizeof(*sent); ++sending) {
+    const int number = sent[sending];
     const char *modes[] = {"reraise", "exit", "spin", "return", "restart", "ignore", "clock"};
     for (unsigned index = 0; index < sizeof(modes) / sizeof(modes[0]); ++index) {
       mode = modes[index];
@@ -274,6 +276,10 @@ int main(int argc, char **argv) {
   sigset_t waiting;
   CHECK(sigpending(&waiting) == 0 && sigismember(&waiting, SIGTERM) == 1);
   CHECK(sigprocmask(SIG_SETMASK, &previous, NULL) == 0 && received == 1);
+  /* A successful call leaves errno as it was: Emacs reads a failed select's after it. */
+  errno = EINTR;
+  CHECK(sigprocmask(SIG_SETMASK, &previous, NULL) == 0 && errno == EINTR);
+  CHECK(pthread_sigmask(SIG_SETMASK, &previous, NULL) == 0 && errno == EINTR);
   CHECK(signal(SIGTERM, SIG_DFL) != SIG_ERR);
   CHECK(signal(SIGKILL, SIG_IGN) == SIG_ERR && errno == EINVAL);
   for (int flags = 0; flags <= 1; ++flags) {

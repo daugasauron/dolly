@@ -1,19 +1,21 @@
-DOLLY 7
+DOLLY 8
 PACKAGE libxkbfile
 REQUIRES HOST runtime@0
+REQUIRES HOST sockets@0
 
 # libxkbfile, X.Org's library of XKB keymap files, from its release archive,
 # built by its Meson project as a static library: xkbcomp and the X server
-# link it.
-FROM /v0.1.6/demos/x11/Dollyfile-x11-build d266f99a2cd6c4470dea11dabd9eb92bf34da4899a638cb3a2795f0b9725efb7
-USE /v0.1.6/demos/tools/Dollyfile-xz 9b8487a105a5fa4e6c10e63e42aab0c6a42e6297b91b463d6f088c84de059964
-USE /v0.1.6/demos/tools/Dollyfile-meson 17d576c4dbd2f295e8fd6c051da7d4c4b860dde9455243e5bec8a7243b274d90
-USE /v0.1.6/demos/zero-ad/Dollyfile-pkgconf c23689c5e826c5143377ee1b66de9a5c2830187fa84d6b7cc9bd4fe63e6d2bba
+# link it. Its headers use Xlib's and the protocol's, which come with it.
+FROM /demos/x11/Dollyfile-x11-build abcf4da3570a80974a718f2ec018c0490cc4484b2796dc6a3a0bccb7557be3f3
+INSTALL /demos/x11/Dollyfile-x11-libs 35717a8ff71126fc72d47fd6e4aa806e834865ad25f185db21013d98176ac100
+USE /demos/tools/Dollyfile-xz 459f0cc5ab2cda8ede96f9c9434f947f97b7e5faef4bfd3543abcb2be3e8e909
+USE /demos/tools/Dollyfile-meson 1b12743f4d6bbb9cd96b6088dd4b61d4de8915f4df0a52414ae2177726dde8b9
+USE /demos/tools/Dollyfile-pkgconf 26fb05d3178c786e45f1d9a6f399dcf78b78949f337e8da3c6591ce74352a7b0
 REQUIRES TOOL meson
 REQUIRES TOOL xz
 REQUIRES TOOL tar
 
-SOURCE /v0.1.6/dist/static/x11/libxkbfile-1.2.0.tar.xz 7f71884e5faf56fb0e823f3848599cf9b5a9afce51c90982baeb64f635233ebf /tmp/libxkbfile.tar.xz
+SOURCE /dist/static/x11/libxkbfile-1.2.0.tar.xz 7f71884e5faf56fb0e823f3848599cf9b5a9afce51c90982baeb64f635233ebf /tmp/libxkbfile.tar.xz
 SLOP xz -dc /tmp/libxkbfile.tar.xz | tar -xf - -C /tmp
 SLOP meson setup /tmp/build/xkbfile /tmp/libxkbfile-1.2.0 --prefix=/usr --libdir=lib \
   --buildtype=release -Ddefault_library=static

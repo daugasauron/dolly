@@ -1,0 +1,32 @@
+{
+  "image": "default",
+  "directory": "/tmp/amy-slopyard",
+  "steps": [
+    {
+      "fresh": true,
+      "why": "One frame drawn by raylib's software renderer and shown through Dolly's adapter. As raylib's examples are written: InitWindow holds the display and the keys, and the clock and the frame time run (the page presses Space after these steps). Fingers are raylib's touch points, the first also its mouse (the page puts two down).",
+      "script": "amy install raylib",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <dolly/raylib.h>' 'int main(void) { dolly_raylib window; if (dolly_raylib_open(&window, \"amy\") != 0) return 2; BeginDrawing(); ClearBackground(RAYWHITE); DrawCircle(64, 64, 32, RED); int shown = dolly_raylib_end_frame(&window); return dolly_raylib_close(&window) != 0 || shown != 0; }' > /tmp/amy-raylib.c && cc -O0 /tmp/amy-raylib.c -ldolly-raylib -lraylib -lm -o /tmp/amy-raylib && /tmp/amy-raylib > /dev/null && printf '%s\\n' '#include <raylib.h>' '#include <stdio.h>' 'int main(void) { InitWindow(320, 180, \"keys\"); SetTargetFPS(60); int frames = 0, pressed = 0; while (!WindowShouldClose() && !pressed && frames < 3600) { BeginDrawing(); ClearBackground(RAYWHITE); EndDrawing(); frames++; pressed = IsKeyPressed(KEY_SPACE); } printf(\"after %d frames %.3f s, frame %.4f s\\n\", frames, GetTime(), GetFrameTime()); CloseWindow(); return !(pressed && GetTime() > 0.1 && GetFrameTime() > 0); }' > /tmp/amy-raylib-keys.c && cc -O0 /tmp/amy-raylib-keys.c -lraylib -lm -o /tmp/amy-raylib-keys && printf '%s\\n' '#include <raylib.h>' 'int main(void) { InitWindow(320, 180, \"touch\"); SetTargetFPS(60); int frames = 0, most = 0, released = 0; while (!WindowShouldClose() && !(most == 2 && released) && frames < 3600) { BeginDrawing(); ClearBackground(RAYWHITE); EndDrawing(); frames++; if (GetTouchPointCount() > most) most = GetTouchPointCount(); released = IsMouseButtonReleased(MOUSE_BUTTON_LEFT); } CloseWindow(); return !(most == 2 && released); }' > /tmp/amy-raylib-touch.c && cc -O0 /tmp/amy-raylib-touch.c -lraylib -lm -o /tmp/amy-raylib-touch", "status": 0 },
+    {
+      "fresh": true,
+      "why": "A body dropped for a second falls.",
+      "script": "amy install box3d",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <box3d/box3d.h>' 'int main(void) { b3WorldDef world = b3DefaultWorldDef(); b3WorldId id = b3CreateWorld(&world); b3BodyDef body = b3DefaultBodyDef(); body.type = b3_dynamicBody; b3BodyId ball = b3CreateBody(id, &body); b3ShapeDef shape = b3DefaultShapeDef(); b3Sphere sphere = { { 0.0f, 0.0f, 0.0f }, 0.5f }; b3CreateSphereShape(ball, &shape, &sphere); for (int step = 0; step < 60; ++step) b3World_Step(id, 1.0f / 60.0f, 4); int fell = b3Body_GetPosition(ball).y < -1.0f; b3DestroyWorld(id); return !fell; }' > /tmp/amy-box3d.c && cc -O0 -U__SIZEOF_INT128__ /tmp/amy-box3d.c -lbox3d -o /tmp/amy-box3d && /tmp/amy-box3d", "status": 0 },
+    {
+      "fresh": true,
+      "why": "Lua 5.5 beside the lua package's 5.1: its integers, io.popen and compiled chunks, and a program that embeds it.",
+      "script": "! command -v lua5.5",
+      "status": 0
+    },
+    { "script": "amy install lua5.5", "status": 0 },
+    { "script": "test \"$(lua5.5 -e 'print(_VERSION, math.type(6 * 7), io.popen(\"echo 42\"):read(\"n\"))')\" = \"$(printf 'Lua 5.5\\tinteger\\t42')\" && printf 'return 6 * 7\\n' > /tmp/amy-lua.lua && luac5.5 -o /tmp/amy-lua.out /tmp/amy-lua.lua && test \"$(lua5.5 -e 'print(dofile(\"/tmp/amy-lua.out\"))')\" = 42 && man lua5.5 > /tmp/amy-man && grep -q 'interpreter' /tmp/amy-man", "status": 0 },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "printf '%s\\n' '#include <lauxlib.h>' '#include <lua.h>' '#include <lualib.h>' 'int main(void) {' '  lua_State *state = luaL_newstate();' '  luaL_openlibs(state);' '  if (luaL_dostring(state, \"local t = {} for i = 1, 6 do t[#t + 1] = i * 7 end return t[6]\")) return 1;' '  int answer = (int)lua_tointeger(state, -1);' '  lua_close(state);' '  return answer == 42 ? 0 : 1;' '}' > /tmp/amy-lua5.5.c && cc -I/usr/include/lua5.5 /tmp/amy-lua5.5.c -llua5.5 -lm -o /tmp/amy-lua5.5 && /tmp/amy-lua5.5", "status": 0 }
+  ]
+}

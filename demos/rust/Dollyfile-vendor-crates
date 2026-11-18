@@ -1,17 +1,18 @@
-DOLLY 7
+DOLLY 8
 PACKAGE vendor-crates
 REQUIRES HOST runtime@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
+REQUIRES HOST threads@0
 
 # vendor-crates writes the crates.io crates a Cargo project depends on to
 # vendor/ and points Cargo at them: crates.io's index sends no CORS headers
 # for the files its cache holds, so Cargo cannot resolve there from a page.
 # It is one Janis script linked with the runner, as janis-install is, and
 # checks and decompresses crates with sha256sum (posix) and gzip.
-FROM /v0.1.6/Dollyfile-system-tools 69127104c12ae52e00d0e0a8787c3c99ece25f59a2c382fc9c811d66a090e5ec
-INSTALL /v0.1.6/demos/javascript/Dollyfile-janis 220dbbe7787e293629201fb7011b20e72b31be1d7ff7d422c2ace0bef46ee8c7
-INSTALL /v0.1.6/Dollyfile-gzip afb9abb2b9a78e4c82811af6f5695f814ac322f538655f733ba6813895be13ae
+FROM /Dollyfile-system-tools 1606024fba5919c1fb6c0369ad86cc69f3ecf38099dff75bddb3eccb97da71e5
+INSTALL /demos/javascript/Dollyfile-janis 2280ba6dd9200f9a82a1cecdf5f044d54625ab9b2de055147b24b55b96990647
+INSTALL /Dollyfile-gzip cef69a22c3b9f73889f4c819fcfaee2fb4487474ea4efa364117b8796465d1a4
 
 REQUIRES HEADER libc
 REQUIRES HEADER quickjs-runner
@@ -22,8 +23,8 @@ REQUIRES TOOL   gzip
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   sha256sum
 
-SOURCE /v0.1.6/dist/static/rust/vendor-crates.mjs 9ea76e5c405a2f67c93cdc970f0556b240fdd26f0b37d2a9f862f229bc1c87b2 /usr/lib/vendor-crates/vendor-crates.mjs
-SOURCE /v0.1.6/dist/static/rust/vendor-crates.c   fe7c09dcabc8aeaf62b28621e32c04ec49725f3503f7f33ac6244bdfab6939a9 /tmp/vendor-crates/vendor-crates.c
+SOURCE /dist/static/rust/vendor-crates.mjs 9ea76e5c405a2f67c93cdc970f0556b240fdd26f0b37d2a9f862f229bc1c87b2 /usr/lib/vendor-crates/vendor-crates.mjs
+SOURCE /dist/static/rust/vendor-crates.c   fe7c09dcabc8aeaf62b28621e32c04ec49725f3503f7f33ac6244bdfab6939a9 /tmp/vendor-crates/vendor-crates.c
 SLOP cc -I /usr/include/dolly /tmp/vendor-crates/vendor-crates.c -ldolly-js -lquickjs -o /usr/bin/vendor-crates
 
 SLOP vendor-crates --help > /usr/share/man/cat1/vendor-crates.1

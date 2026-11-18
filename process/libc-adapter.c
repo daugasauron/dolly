@@ -1083,8 +1083,6 @@ __attribute__((__weak__)) int pthread_setschedparam(pthread_t thread, int policy
                                                const struct sched_param *parameter) {
   (void)thread; (void)policy; (void)parameter; return ENOSYS;
 }
-int sched_get_priority_max(int policy) { (void)policy; errno = ENOSYS; return -1; }
-int sched_get_priority_min(int policy) { (void)policy; errno = ENOSYS; return -1; }
 __attribute__((__weak__)) int sem_init(sem_t *semaphore, int shared, unsigned value) {
   (void)semaphore; (void)shared; (void)value; errno = ENOSYS; return -1;
 }
@@ -1104,6 +1102,9 @@ void _pthread_cleanup_pop(struct __ptcb *callback, int execute) {
   }
 }
 #endif
+/* Threads or not, Dolly reports no range of scheduling priorities (libuv asks it). */
+int sched_get_priority_max(int policy) { (void)policy; errno = ENOSYS; return -1; }
+int sched_get_priority_min(int policy) { (void)policy; errno = ENOSYS; return -1; }
 
 __wasi_errno_t __wasi_random_get(uint8_t *buffer, __wasi_size_t size) {
   if (buffer == NULL && size != 0) return EFAULT;

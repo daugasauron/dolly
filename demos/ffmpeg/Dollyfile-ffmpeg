@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE ffmpeg
 REQUIRES HOST runtime@0
 REQUIRES HOST threads@0
@@ -17,9 +17,9 @@ REQUIRES HOST threads@0
 # - pthreads, required: every program linked with these needs threads@0.
 # It knows Clang by the banner of cc -v and compresses its resources with the
 # gzip package, which also unpacks the archive here.
-FROM /v0.1.6/Dollyfile-system-tools 69127104c12ae52e00d0e0a8787c3c99ece25f59a2c382fc9c811d66a090e5ec
-USE /v0.1.6/Dollyfile-gzip afb9abb2b9a78e4c82811af6f5695f814ac322f538655f733ba6813895be13ae
-INSTALL /v0.1.6/Dollyfile-zlib 48ee0a5552eada81c0324749ba5ce9a7d2a2505a91f3ffcaf51f81c36a641f82
+FROM /Dollyfile-system-tools 1606024fba5919c1fb6c0369ad86cc69f3ecf38099dff75bddb3eccb97da71e5
+USE /Dollyfile-gzip cef69a22c3b9f73889f4c819fcfaee2fb4487474ea4efa364117b8796465d1a4
+INSTALL /Dollyfile-zlib acf8f8daaba24468b5b521bbb4d4ba3e034fe28d7a2d92fc680d2e39a1cea971
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib
@@ -33,7 +33,7 @@ REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
 REQUIRES TOOL   test
 
-SOURCE /v0.1.6/dist/static/ffmpeg/ffmpeg-9.0.2.tar.gz 84960df915059e8754fef2cd7c9afeb614062b1b5458ec471eecee619ee04e98 /tmp/ffmpeg.tar.gz
+SOURCE /dist/static/ffmpeg/ffmpeg-9.0.2.tar.gz 84960df915059e8754fef2cd7c9afeb614062b1b5458ec471eecee619ee04e98 /tmp/ffmpeg.tar.gz
 SLOP gzip -dc /tmp/ffmpeg.tar.gz | tar -xf - -C /tmp
 SLOP mkdir /tmp/ffmpeg-build
 SLOP CWD /tmp/ffmpeg-build time /tmp/ffmpeg-9.0.2/configure --prefix=/usr --target-os=none --arch=wasm --disable-asm \

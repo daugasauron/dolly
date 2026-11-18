@@ -5,6 +5,7 @@
 // runs the agent and multiplayer clients against that live relay instead; allow
 // the test origin on the relay and pick it with DOLLY_BROWSER_PORT.
 import { readFile } from "node:fs/promises";
+import { browsers } from "../../browsers.mjs";
 import { acceptDownload, delay, demoTest, leaveGame, redirectFetch, snapshotDisplay } from "../../browser.mjs";
 import { relayProvider } from "../../rts/spectator/relay.mjs";
 import { runClassiCubeAgentProof } from "./fixtures/classicube-agent-browser.mjs";
@@ -44,7 +45,9 @@ async function devtools(page) {
   return { send, evaluate, wait, key, snapshot: () => snapshotDisplay(page) };
 }
 
-await demoTest("classicube", { image: "classicube", timeout: 1_800_000,
+// Its fixtures drive Chrome's DevTools input (CDP), which Playwright gives no other browser.
+if (browsers.includes("firefox")) console.log("classicube: firefox skipped: the fixtures drive Chrome's DevTools input");
+if (browsers.includes("chromium")) await demoTest("classicube", { browser: "chromium", image: "classicube", timeout: 1_800_000,
   server: { handle, port: Number(process.env.DOLLY_BROWSER_PORT ?? 0) } }, async ({ server, open }) => {
   const policy = { maxRequests: 1024, rules: [
     { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] },

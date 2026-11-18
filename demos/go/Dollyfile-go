@@ -1,55 +1,22 @@
-DOLLY 7
+DOLLY 8
 PACKAGE go
 REQUIRES HOST runtime@0
 # go downloads modules with net/http, which records http@0.
 REQUIRES HOST http@0
 
 # Go as Dolly builds it, in its GOROOT: the seed's go command compiles the
-# toolchain and the standard library from the seed's sources again, every
-# package (-a), with the flags of upstream's release build (cmd/dist's
-# toolenv), and installs it over the seed's. The build fails unless every
-# command is, byte for byte, the seed's. The commands start it by its own
-# path, from which it finds its GOROOT.
-FROM /v0.1.6/demos/go/Dollyfile-go-sdk 2c7593cf9b401ae4c9570b0e986fa5d479fba0d157460d1e7d4b6a86bc4af29c
+# toolchain and the standard library from the GOROOT's sources, every package
+# (-a), with the flags of upstream's release build (cmd/dist's toolenv), and
+# installs it over the seed's. Its commands are the next seed
+# (demos/go/pin-seed.mjs). The commands start it by its own path, from which
+# it finds its GOROOT.
+FROM /demos/go/Dollyfile-go-sdk 40f683ca599ad142499124723f85e58f48f3474448f56837e234468a6a2ce6d9
 REQUIRES TOOL go
-SLOP mkdir -p /tmp/seed
-SLOP cp -R /usr/lib/go/pkg/tool/dolly_wasm64 /tmp/seed/tool
-SLOP cp -R /usr/lib/go/bin /tmp/seed/bin
 # Two compiles at a time, each held near 2 GiB: compiling cmd/compile/internal/ssa
 # can grow a process to 3.9 GiB with the default collector (1.8 GB natively).
 # A spawn waits for a slot beside at most one compile, so the processes stay
 # under the 4 GiB a spawn is admitted below, and the build in its 6 GB.
 SLOP CWD /usr/lib/go/src CGO_ENABLED=0 GOCACHE=/tmp/go-cache GOMEMLIMIT=2GiB GOFLAGS='-trimpath -ldflags=-w -gcflags=cmd/...=-dwarf=false' go install -a -p 2 cmd/go cmd/gofmt cmd/asm cmd/cgo cmd/compile cmd/cover cmd/fix cmd/link cmd/preprofile cmd/vet
-# The rebuilt toolchain compares itself with the seed.
-FILE /tmp/same/main.go
-    // Fails unless each file of the first directory is, byte for byte, the
-    // file of its name in the second.
-    package main
-    
-    import (
-    	"bytes"
-    	"fmt"
-    	"os"
-    	"path/filepath"
-    )
-    
-    func main() {
-    	entries, err := os.ReadDir(os.Args[1])
-    	if err != nil {
-    		panic(err)
-    	}
-    	for _, entry := range entries {
-    		seed, seedErr := os.ReadFile(filepath.Join(os.Args[1], entry.Name()))
-    		built, builtErr := os.ReadFile(filepath.Join(os.Args[2], entry.Name()))
-    		if seedErr != nil || builtErr != nil || !bytes.Equal(seed, built) {
-    			fmt.Fprintf(os.Stderr, "%s is not the seed's\n", entry.Name())
-    			os.Exit(1)
-    		}
-    	}
-    	fmt.Printf("%d programs equal the seed's\n", len(entries))
-    }
-SLOP GOCACHE=/tmp/go-cache go run /tmp/same/main.go /tmp/seed/tool /usr/lib/go/pkg/tool/dolly_wasm64
-SLOP GOCACHE=/tmp/go-cache go run /tmp/same/main.go /tmp/seed/bin /usr/lib/go/bin
 SLOP go version
 
 

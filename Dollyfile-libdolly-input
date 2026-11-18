@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE libdolly-input
 REQUIRES HOST runtime@0
 
@@ -6,15 +6,15 @@ REQUIRES HOST runtime@0
 # wheel), for programs the cc package builds: cc links every client archive in
 # /usr/lib/dolly/process, and a program records input@0 only when it calls the
 # client.
-FROM /v0.1.6/Dollyfile-system-build 2b3dacf451ba777ad3724b819014df4e705b024aa73c51c60125d8b5e45c9b57
+FROM /Dollyfile-system-build 0c72e09eba84571d4f8634cf6e7507eb1be1b9b8aa1fae61f6b0ec884b26b6fb
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.6/host/input/input.h 80fefe0139ef63fc5745b7e41662892f0c4b7fb2b4d09a42789de3c693685227 /usr/include/dolly/input.h
-SOURCE /v0.1.6/host/input/input-abi.h f9f2ce405bd06d0a3b29c942dec8dc78f97f6280302690903d49fada36b2f8d1 /usr/include/dolly/input-abi.h
-SOURCE /v0.1.6/host/input/client.c 384c287c684156febe5d144f7d072df437bdfd0ce0f0f435e531918f1cdc2651 /tmp/libdolly-input/client.c
+SOURCE /host/input/input.h 80fefe0139ef63fc5745b7e41662892f0c4b7fb2b4d09a42789de3c693685227 /usr/include/dolly/input.h
+SOURCE /host/input/input-abi.h f9f2ce405bd06d0a3b29c942dec8dc78f97f6280302690903d49fada36b2f8d1 /usr/include/dolly/input-abi.h
+SOURCE /host/input/client.c 384c287c684156febe5d144f7d072df437bdfd0ce0f0f435e531918f1cdc2651 /tmp/libdolly-input/client.c
 SLOP cc -O1 -c /tmp/libdolly-input/client.c -o /tmp/libdolly-input/client.o
 SLOP ar rcs /usr/lib/dolly/process/libdolly-input.a /tmp/libdolly-input/client.o
 

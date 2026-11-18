@@ -1,7 +1,8 @@
-import { parseWasmInterface, appendCustomSection } from "../../page/wasm-interface.mjs";
+import { appendCustomSection, exportIndex, parseWasmInterface } from "../../page/wasm-interface.mjs";
 import { validateProcessInterface } from "../../page/process-abi.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../../dist/dolly-process-abi.mjs";
 import { DOLLY_ERRNO } from "../../page/process-constants.mjs";
+import { controlBytes } from "../../page/process-control.mjs";
 
 function check(condition, message) {
   if (!condition) throw new Error(message);
@@ -14,8 +15,8 @@ let gateModule, kernelMemory;
 
 // Runs the program in a process Worker configured as the supervisor would,
 // with this memory handed over as a thread's is, so the program's writes to it
-// can be read afterwards.
-async function runWorker({ memory, ...configuration }) {
+// can be read afterwards. Its exports go as the supervisor sends them.
+async function runWorker({ memory, processInterface, ...configuration }) {
   gateModule ??= await WebAssembly.compile(await dist("dolly-process-gate-0.wasm"));
   kernelMemory ??= new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" });
   const worker = new Worker(new URL("../../page/process-worker.mjs", import.meta.url), { type: "module" });
@@ -29,9 +30,10 @@ async function runWorker({ memory, ...configuration }) {
         if (data.type === "finished") resolve();
         else if (data.type !== "started") reject(new Error(data.message ?? `unexpected process message: ${data.type}`));
       };
-      worker.postMessage({ type: "configure", pid: 1, control: new SharedArrayBuffer(32), clockOrigin: performance.timeOrigin,
+      worker.postMessage({ type: "configure", pid: 1, control: new SharedArrayBuffer(controlBytes), clockOrigin: performance.timeOrigin,
         local: [], memory: { initial: BigInt(memory.buffer.byteLength / 65536), maximum: 131072n }, port: channel.port1,
-        mailbox: 65536, gateModule, kernelMemory, ...configuration }, [channel.port1]);
+        mailbox: 65536, gateModule, kernelMemory, ...configuration,
+        processInterface: { ...processInterface, exports: exportIndex(processInterface.exports) } }, [channel.port1]);
       channel.port2.postMessage({ memory, received: new Int32Array(new SharedArrayBuffer(4)) });
     });
   } finally { clearTimeout(timer); worker.terminate(); channel.port2.close(); }

@@ -1,4 +1,4 @@
-DOLLY 7
+DOLLY 8
 PACKAGE lean-meta
 REQUIRES HOST runtime@0
 
@@ -6,8 +6,8 @@ REQUIRES HOST runtime@0
 # imports to work with Lean itself, compiled by the first lean (lean-stage0)
 # as lean-std is: its .olean files and libLean.a, which every Lean program
 # links, as upstream's flags name it.
-FROM /v0.1.6/demos/lean/Dollyfile-lean-stage0 a530d57c26269b538222cbaf8ccdf71e995c06fff9e72f49c866e2f9607653d2
-INSTALL /v0.1.6/demos/lean/Dollyfile-lean-std d32552a5028a898aa05f441f0988f7f3cdb6a31b723137d5e0de9f6c2e3a955d
+FROM /demos/lean/Dollyfile-lean-stage0 f12db5c2a9a2bb81981e1f57893cd6e5440a4dd79dfa3e01c06758256199e2de
+INSTALL /demos/lean/Dollyfile-lean-std 9641352c4d4986a3f22d79faffa35c4e8c058ac30d8b57f0dfa95d7e1fee1850
 REQUIRES TOOL ar
 REQUIRES TOOL cc
 REQUIRES TOOL find
@@ -19,14 +19,14 @@ REQUIRES TOOL tar
 REQUIRES TOOL tr
 REQUIRES TOOL xargs
 
-SOURCE /v0.1.6/dist/static/lean/lean.tar.gz ef83239912f7c218c5f0e937de704b7da807b9802b05216414b59b9dec42e0da /tmp/lean.tar.gz
-SOURCE /v0.1.6/dist/static/lean/port.tar 1716710f88ccdd478709b75533ef1686ff39e381ad7d66ff65caff992e2dd1a6 /tmp/lean-port.tar
+SOURCE /dist/static/lean/lean.tar.gz ef83239912f7c218c5f0e937de704b7da807b9802b05216414b59b9dec42e0da /tmp/lean.tar.gz
+SOURCE /dist/static/lean/port.tar b98085e118db528bb5b28bb24b5c2c74e5caff7a582025f05e77492cd2337dae /tmp/lean-port.tar
 # Stage 1 reads only src/.
 SLOP gzip -dc /tmp/lean.tar.gz | tar -xf - -C / && rm -r /tmp/lean.tar.gz /tmp/lean/stage0
 SLOP tar -xf /tmp/lean-port.tar -C /
-# Three jobs: the last modules import most of Lean, and four of them at once
-# exceeded a 9 GB build.
-SLOP CWD /tmp/lean make -f dolly/lean-dolly.mk -j3 STAGE=1 LIBRARIES=Lean LEAN=/usr/lib/lean-stage0/lean
+# Two jobs, for the threads lean-std's recipe counts; the last modules import
+# most of Lean too, and four of them at once exceeded a 9 GB build.
+SLOP CWD /tmp/lean make -f dolly/lean-dolly.mk -j2 STAGE=1 LIBRARIES=Lean LEAN=/usr/lib/lean-stage0/lean
 
 FOLDER /usr/lib/lean/Lean
 FILE /usr/lib/lean/Lean.olean

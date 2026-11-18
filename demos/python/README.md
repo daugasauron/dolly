@@ -28,6 +28,10 @@ Install it with `INSTALL` or `amy install python`; build with
 - `urllib.request` and `requests`, including pip's vendored copy, send
   through `env.dolly_http_dispatch` and its browser policy.
 - `sys.platform` is `"dolly"`. Emscripten/Pyodide wheels are not compatible.
+- A program that embeds Python (Blender) links `-lpython3.14` and, from
+  `/usr/lib/python3.14/embed`, CPython's own expat (`-lpyexpat`) and its HACL
+  archives (`-lHacl_Hash_*`), which its build makes and installs nowhere, with
+  SQLite, bzip2, XZ, zlib, libffi and curl, which the program installs.
 - pip's settings live in `/etc/pip.conf` ([`Dollyfile-python`](Dollyfile-python)); sdists build
   as upstream builds its wheels.
 
@@ -43,7 +47,7 @@ with what it needs (`python` among them), and `amy install matplotlib` into a
 session:
 
 ```text
-INSTALL /vX.Y.Z/demos/python/Dollyfile-matplotlib SHA256
+INSTALL /demos/python/Dollyfile-matplotlib SHA256
 ```
 
 | Package | Its roots, at their versions | It installs |
@@ -71,7 +75,7 @@ print(f"\033_Ga=T,f=100;{base64.b64encode(open('/tmp/plot.png', 'rb').read()).de
 
 - [`Dollyfile-python`](Dollyfile-python), [`cpython-dolly.patch`](cpython-dolly.patch),
   [`prepare-cpython.sh`](prepare-cpython.sh): the interpreter; preparation only
-  configures the pinned tree.
+  configures the pinned tree, with the libc's answers in [`config.site-dolly`](config.site-dolly).
 - [`Dollyfile-libffi`](Dollyfile-libffi), [`libffi-dolly.c`](libffi-dolly.c): FFI over process-local calls.
 - [`cpython-http.c`](cpython-http.c), [`cpython-transport.py`](cpython-transport.py):
   the built-in `_dolly_http` (start, poll, cancel of
