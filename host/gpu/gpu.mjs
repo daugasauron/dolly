@@ -31,28 +31,25 @@ function announce({ indicators }, element, state, borderColor) {
   element.style.borderColor = borderColor;
 }
 
-// The page's indicator names the adapter, or says why there is none. Trusted
-// page DOM over the display: guest frames cannot draw, cover or remove it, and
-// only its link takes clicks.
+// The page's indicator names the adapter, or says why there is none, in the
+// bottom right corner. Trusted page DOM over the display: guest frames cannot
+// draw, cover or remove it, and only its link takes clicks.
 function indicate(page, info, unavailable) {
   let element = document.querySelector("#gpu-status");
   if (!element) {
     // In Dolly's element; a display-less embedding has none, and the indicator shows nowhere.
-    element = (page.mount ?? document.createElement("div")).appendChild(document.createElement("div"));
+    element = (page.mount ? page.indicators.corner("bottom-right") : document.createElement("div"))
+      .appendChild(document.createElement("div"));
     element.id = "gpu-status";
     element.className = "page-indicator";
     element.setAttribute("role", "status");
-    element.style.cssText = "position:absolute;right:0.5rem;bottom:2rem;z-index:8;max-width:calc(100% - 1rem);" +
-      "padding:0.15rem 0.45rem;background:var(--dolly-ui-background);border:1px solid;font-size:13px;pointer-events:none";
   }
   if (unavailable) {
     element.replaceChildren(`No GPU: ${unavailable}`);
     // The site's docs say how to enable WebGPU; another embedding has none.
     if (page.site) {
-      const link = Object.assign(document.createElement("a"), { textContent: "How to enable WebGPU ↗",
-        href: new URL("docs/gpu.md#enabling-webgpu", page.site).href, target: "_blank", rel: "noopener" });
-      link.style.cssText = "color:var(--dolly-ui-accent);pointer-events:auto";
-      element.append(" · ", link);
+      element.append(" · ", Object.assign(document.createElement("a"), { textContent: "How to enable WebGPU ↗",
+        href: new URL("docs/gpu.md#enabling-webgpu", page.site).href, target: "_blank", rel: "noopener" }));
     }
     announce(page, element, "unavailable", "var(--dolly-ui-alert)");
     return {};

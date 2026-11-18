@@ -1,5 +1,5 @@
 import { buildLog } from "./build-log.mjs";
-import { holdIndicators, showIndicators } from "./page-indicators.mjs";
+import { holdIndicators, indicatorCorner, showIndicators } from "./page-indicators.mjs";
 import { hostRegistry } from "../host/modules.mjs";
 import { pageChords } from "./page-chords.mjs";
 import { terminalText } from "./terminal-text.mjs";
@@ -7,10 +7,11 @@ import { imageBase, imageDefinition, loadImages } from "./images.mjs";
 import { pageNetwork, serveNetworkFetches } from "./network.mjs";
 import * as processConstants from "./process-constants.mjs";
 
-// The terminal's own look: its canvas, the hidden keyboard, the boot log and
-// the status line, which lie in boot()'s element and style nothing else of the
-// page. A host module brings the look of what it adds; the page, the boot log's
-// font (the site's is Iosevka, dist/IosevkaTerm-SemiBold.woff2).
+// The terminal's own look: its canvas, the hidden keyboard, the boot log, and
+// the notes in its corners (the status line and the indicators), which lie in
+// boot()'s element and style nothing else of the page. A host module brings the
+// look of what else it adds; the page, the boot log's font (the site's is
+// Iosevka, dist/IosevkaTerm-SemiBold.woff2).
 const pageStyle = new CSSStyleSheet();
 pageStyle.replaceSync(`
   .dolly-terminal { position: relative; overflow: hidden; outline: none; caret-color: transparent;
@@ -31,11 +32,26 @@ pageStyle.replaceSync(`
     font: 600 20px/1.35 "Dolly IosevkaTerm SemiBold", monospace;
     scrollbar-width: thin; scrollbar-color: var(--dolly-ui-accent) var(--dolly-ui-background); }
   .dolly-terminal #bootstrap-log[hidden] { display: none; }
-  .dolly-terminal #session-status { position: absolute; right: 1rem; top: 1rem; z-index: 5; max-width: calc(100% - 2rem);
-    padding: 0.5rem 0.75rem; color: var(--dolly-ui-color); background: var(--dolly-ui-background);
-    border: 1px solid var(--dolly-ui-quiet); font-size: 14px; }
-  .dolly-terminal #session-status[hidden] { display: none; }
-  html[data-indicators="hidden"] .page-indicator { display: none; }
+  /* The page's notes over the display, the status line and the indicators (page-indicators.mjs): a column
+     a corner, each note in the embedding's colours with a border of its state's (quiet, accent, alert).
+     Only their links and buttons take the pointer. */
+  .dolly-terminal .page-corner { position: absolute; z-index: 7; display: flex; flex-direction: column; gap: 0.35rem;
+    max-width: calc(100% - 1rem); pointer-events: none; }
+  .dolly-terminal .page-corner[data-corner^="top"] { top: 0.5rem; }
+  .dolly-terminal .page-corner[data-corner^="bottom"] { bottom: 0.5rem; }
+  .dolly-terminal .page-corner[data-corner$="left"] { left: 0.5rem; align-items: flex-start; }
+  .dolly-terminal .page-corner[data-corner$="right"] { right: 0.5rem; align-items: flex-end; }
+  .dolly-terminal .page-corner > * { box-sizing: border-box; max-width: 100%; margin: 0; padding: 0.2rem 0.45rem;
+    color: var(--dolly-ui-color); background: var(--dolly-ui-background); border: 1px solid var(--dolly-ui-quiet);
+    font: inherit; font-size: 13px; line-height: 1.5; list-style: none; overflow-wrap: anywhere; }
+  .dolly-terminal .page-corner > [hidden], html[data-indicators="hidden"] .page-indicator { display: none; }
+  .dolly-terminal .page-corner li { display: flex; gap: 0.45rem; align-items: baseline; }
+  .dolly-terminal .page-corner li + li { margin-top: 0.25rem; }
+  .dolly-terminal .page-corner li > span { flex: 1; }
+  .dolly-terminal .page-corner a { color: var(--dolly-ui-accent); pointer-events: auto; }
+  .dolly-terminal .page-corner button { cursor: pointer; pointer-events: auto; }
+  .dolly-terminal .page-corner > * button { padding: 0 0.4rem; color: inherit; background: var(--dolly-ui-raised);
+    border: 1px solid var(--dolly-ui-quiet); font: inherit; }
   @media (max-width: 640px) { .dolly-terminal #bootstrap-log { padding: 0.65rem 0.75rem; } }
 `);
 
@@ -95,7 +111,8 @@ export async function run(mount, { images, modules, site, http, imageBuilder }, 
   const bootstrapLog = element("pre", { id: "bootstrap-log" }, { "aria-live": "polite" });
   const status = element("div", { id: "session-status", hidden: true }, { role: "status" });
   mount.classList.add("dolly-terminal");
-  mount.replaceChildren(canvas, keyboard, bootstrapLog, status);
+  mount.replaceChildren(canvas, keyboard, bootstrapLog);
+  indicatorCorner(mount, "top-right").append(status);
   const bootstrapOutput = buildLog(bootstrapLog);
   const appendBootstrap = text => bootstrapOutput.append(text);
   pageChords(mount, keyboard);
@@ -181,7 +198,7 @@ export async function run(mount, { images, modules, site, http, imageBuilder }, 
     host = await registry.createHost("browser", selected.enabled ?? selected.required, {
       send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),
       resources: { mount, canvas, keyboard, applicationBase: imageBase, site: site && new URL(site), imageBuilder,
-        network, claimsKey: network.claimsKey, showStatus, fatal, indicators: { hold: holdIndicators, show: showIndicators } },
+        network, claimsKey: network.claimsKey, showStatus, fatal, indicators: { hold: holdIndicators, show: showIndicators, corner: name => indicatorCorner(mount, name) } },
       configuration: selected.configuration,
     });
     host.require(selected.required);

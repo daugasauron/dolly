@@ -17,23 +17,15 @@ const sizeLabel = bytes => bytes < 1024 * 1024 ? `${Math.ceil(bytes / 1024)} KiB
 
 // Wasm can only ask. Each file reaches the browser's download manager through
 // one user click on its Save button, never automatically.
-export function browser({ mount, keyboard, indicators }) {
+export function browser({ keyboard, indicators }) {
   const pending = new Int32Array(new SharedArrayBuffer(4));
-  const panel = document.createElement("ul");
+  // The offers, in the bottom left corner; an offer waits for the user, the accent's border.
+  const panel = indicators.corner("bottom-left").appendChild(document.createElement("ul"));
   panel.id = "downloads";
   panel.className = "page-indicator";
   panel.setAttribute("aria-label", "Files Dolly offers to save");
   panel.hidden = true;
-  mount.append(panel);
-  // An adopted style sheet, which a page's style-src without 'unsafe-inline' allows.
-  const look = new CSSStyleSheet();
-  look.replaceSync(`
-    #downloads { position: absolute; left: 0.6rem; bottom: 0.6rem; z-index: 7; margin: 0; padding: 0.5rem; list-style: none;
-      max-width: calc(100% - 1.2rem); color: var(--dolly-ui-color); background: var(--dolly-ui-background); border: 1px solid var(--dolly-ui-accent); font-size: 14px; }
-    #downloads[hidden] { display: none; } #downloads li + li { margin-top: 0.4rem; }
-    #downloads button { margin-right: 0.4rem; color: inherit; background: var(--dolly-ui-raised); border: 1px solid var(--dolly-ui-quiet);
-      font: inherit; cursor: pointer; }`);
-  document.adoptedStyleSheets = [...document.adoptedStyleSheets, look];
+  panel.style.borderColor = "var(--dolly-ui-accent)";
   const urls = [];
   // The item of the stream the Worker is still receiving.
   let preparing = null;
@@ -104,7 +96,7 @@ export function browser({ mount, keyboard, indicators }) {
       },
     },
     claimsKey: event => panel.contains(event.target),
-    dispose() { panel.remove(); document.adoptedStyleSheets = document.adoptedStyleSheets.filter(sheet => sheet !== look); for (const url of [...urls]) revoke(url); },
+    dispose() { panel.remove(); for (const url of [...urls]) revoke(url); },
   };
 }
 

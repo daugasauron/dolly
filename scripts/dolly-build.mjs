@@ -162,9 +162,8 @@ for (const name of (await readdir(scope)).filter(name => name.startsWith("dolly-
 const installRow = definition => `INSTALL ${siteReference(definition.dollyfile)} ${definition.sha256}`;
 async function scaffold(name, packages) {
   const installs = [...new Set([...piPackages, ...packages])].map(image => definitionOf(installed(image, "package")));
-  // input@0 is the terminal's keyboard; snapshot@0 the page's Save: a save is kept in the
-  // browser, and the page opens it again.
-  const hosts = [...new Set(installs.flatMap(definition => definition.hostRequirements).concat("input@0", "snapshot@0"))].sort();
+  // input@0 is the terminal's keyboard. A project that wants the page's Save (snapshot@0) adds its row.
+  const hosts = [...new Set(installs.flatMap(definition => definition.hostRequirements).concat("input@0"))].sort();
   const template = async file => (await readFile(join(import.meta.dirname, "dolly-build-init", file), "utf8")).replaceAll("__NAME__", name);
   const pages = (await readdir(join(import.meta.dirname, "dolly-build-init/public"), { recursive: true, withFileTypes: true }))
     .filter(entry => entry.isFile()).map(entry => relative(join(import.meta.dirname, "dolly-build-init"), join(entry.parentPath, entry.name)).split(sep).join("/")).sort();

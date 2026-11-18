@@ -36,8 +36,9 @@ look.setProperty("--dolly-color", vars.text);
 look.setProperty("--dolly-accent", vars.accent);
 look.setProperty("--dolly-display-palette-8", vars.muted);
 
-// Save (Ctrl+Shift+S) keeps the sandbox's state in this browser and names it in the
-// address, ?session=NAME: the page then opens that save, as it was, in place of a fresh start.
+// With REQUIRES HOST snapshot@0 in the recipe, the page's Save (Ctrl+Shift+S) keeps the sandbox's
+// state in this browser and names it in the address, ?session=NAME: the page then opens that save,
+// as it was, in place of a fresh start.
 const session = new URLSearchParams(location.search).get("session") ?? undefined;
 // The requests the sandbox may make are the HTTP rows of the recipe, which boot() applies.
 // A host without CORS headers goes through a relay of your own, boot()'s http: { relays }

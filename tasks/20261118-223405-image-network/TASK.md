@@ -53,6 +53,25 @@ Measured on this tree's images (the round's pass 1 linked, and `clip`, `dolly-do
   `POST /api/v1/messages?beta=true` with `x-api-key` alone, so OpenRouter's Claude models need no
   `models.json` entry.
 
+## The owner on the video (2026-11-19, 07:40)
+
+"1: I don't like the saved/notsaved notification that comes up in the bottom right corner sometimes. I
+want it removed. 2: The blocked policy stuff should be top right, and I didn't like the styling, use the
+same theme and colors as other stuff."
+
+- `init`'s recipe no longer declares `snapshot@0` (Save's button and its notes); a project that wants
+  saves adds the row (`docs/npm.md`, the changelog, Upgrading for a 0.1.7 recipe that has it). Nothing
+  else of npm's flow needs it: the workspace is the page's `files`, the kept runtime is the site's, and
+  `?session=` in `main.mjs` works where the row is. The site's own pages keep Save.
+- The page's notes share one renderer: `indicatorCorner` (`page/page-indicators.mjs`) gives each corner
+  of boot()'s element a column, and `browser.mjs`'s style gives every note in it one look (the
+  embedding's colours, 13px, one border, a state's colour: quiet, accent, alert). The status line and
+  the refusals are at the top right, the status above; Save's button and the GPU adapter's at the bottom
+  right; the download offers and the microphone's at the bottom left; host modules get the column by
+  `indicators.corner(name)`. The refusals are one of the indicators, which they hold shown while a
+  notice is open (Ctrl+Shift+F still hides them); Close and Close all as before. Screenshots before
+  and after, Chrome and Firefox: `build/video/indicators-{before,after}-{chromium,firefox}.png`.
+
 ## Design, as decided
 
 - **The rows.** `HTTP METHOD... URL [HEADER...]` in a recipe: a rule of the page's policy

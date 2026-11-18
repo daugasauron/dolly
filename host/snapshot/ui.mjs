@@ -14,9 +14,6 @@ import { keepRuntime } from "./offline.mjs";
 
 // An adopted style sheet, which a page's style-src without 'unsafe-inline' allows.
 const style = `
-  #session-open { position: absolute; right: 0.5rem; bottom: 0.35rem; z-index: 6;
-    padding: 0.15rem 0.45rem; color: inherit; background: var(--dolly-ui-background);
-    border: 1px solid var(--dolly-ui-quiet); font: inherit; font-size: 13px; cursor: pointer; }
   #session-open[data-failed] { border-color: var(--dolly-ui-alert); }
   #session-dialog { width: min(420px, calc(100vw - 2rem)); padding: 1.2rem;
     background: var(--dolly-ui-background); color: inherit; border: 1px solid var(--dolly-ui-quiet); font: inherit; }
@@ -32,8 +29,8 @@ const style = `
   #session-dialog nav { display: flex; gap: 0.6rem; align-items: center; margin-top: 1rem; }
   #session-dialog nav a { margin-right: auto; font-size: 14px; }
 `;
-const markup = `<button id="session-open" class="page-indicator" type="button" aria-label="Save session" title="Save session (Ctrl+Shift+S)" hidden>Save</button>
-<dialog id="session-dialog" aria-labelledby="session-title">
+const openMarkup = `<button id="session-open" class="page-indicator" type="button" aria-label="Save session" title="Save session (Ctrl+Shift+S)" hidden>Save</button>`;
+const markup = `<dialog id="session-dialog" aria-labelledby="session-title">
   <form id="session-form">
     <h2 id="session-title">Save session</h2>
     <p id="session-detail" role="status"></p>
@@ -60,6 +57,8 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
   const look = new CSSStyleSheet();
   look.replaceSync(style);
   document.adoptedStyleSheets = [...document.adoptedStyleSheets, look];
+  // The button in the bottom right corner, the dialog in Dolly's element.
+  indicators.corner("bottom-right").insertAdjacentHTML("beforeend", openMarkup);
   mount.insertAdjacentHTML("beforeend", markup);
   const button = document.querySelector("#session-open");
   const dialog = document.querySelector("#session-dialog");
