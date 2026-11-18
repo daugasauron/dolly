@@ -470,7 +470,9 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
       // start script asks for the key; Pi then lists the skill and the extension and runs its command.
       // The guide's command finds a browser itself: this machine's Chrome.
       await rm(join(piApp, "my-pi"), { recursive: true, force: true });
-      await (name === "chromium" ? npm(piApp, buildCommand) : dollyBuild(piApp, buildCommand, name));
+      const { stdout: summary } = await (name === "chromium" ? npm(piApp, buildCommand) : dollyBuild(piApp, buildCommand, name));
+      // The build ends by saying what the site may reach: the recipe's rows.
+      assert.match(summary, new RegExp(`lets the image make these requests and no other:\\n[\\s\\S]*\\n  GET ${origin(declaredHost)}/declared/\\*\\n`));
       // As CI builds it: the project committed, cloned, and the workflow's npm ci and build
       // lines run in the clone (the browser is the one under test, which is installed).
       const clone = join(work, `ci-${name}`);
@@ -555,10 +557,12 @@ with zipfile.ZipFile(sys.argv[1], "w") as wheel:
       assert.equal(await python("python -c 'import numpy, pandas, matplotlib.pyplot; " +
         "assert int(pandas.DataFrame({\"v\": numpy.arange(4)})[\"v\"].sum()) == 6'"), 0);
       await data.close();
-      await dollyBuild(dataApp, "npx dolly-build Dollyfile-my-data my-data", name);
+      // A recipe without HTTP rows reaches nothing on the site dolly-build writes.
+      assert.match((await dollyBuild(dataApp, "npx dolly-build Dollyfile-my-data my-data", name)).stdout, /no request: the recipe declares no HTTP row/);
       const mine = await newPage(), own = await booted(mine, `${origin(dataSite)}/`);
       assert.equal(await own("grep -qx 'MEAN 4.5' /home/dolly/mean.txt && python /home/dolly/mean.py | grep -qx 'MEAN 4.5'"), 0);
       assert.equal(await own("grep -qx DOLLY-SAMPLE /home/dolly/sample.txt && python -c 'import dolly_sample'"), 0);
+      assert.equal(await own(`curl -fsS ${origin(declaredHost)}/declared/a > /dev/null`), 9, "a site whose recipe declares nothing");
       assert.ok(["/simple/dolly-sample/", "/project/dolly-sample/", "/files/dolly_sample-1.0-py3-none-any.whl"]
         .every(path => indexed.includes(path)), `the index served ${indexed}`);
       // Built again into a site of its own, through the proxy HTTP_PROXY names.
