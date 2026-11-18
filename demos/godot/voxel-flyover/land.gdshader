@@ -14,6 +14,7 @@ uniform float hole = 0.0;
 uniform vec2 middle; // of the finer grid that draws that square
 uniform bool seas = false; // a far grid draws the sea too, level, where its ground is under it
 uniform float paint_from = 540.0; // where the last trees drawn begin to sink, and their crowns are painted
+uniform float solid = 1.0; // how much of a far grid is drawn: far over its world it goes, pixel by pixel, to the sky's drawing of it (main.gd's set_bodies)
 
 varying vec3 world; // in the chart: x, the height, z
 varying float covered; // how far inside the finer grid's square
@@ -22,7 +23,7 @@ void vertex() {
 	world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	covered = hole - max(abs(world.x - middle.x), abs(world.z - middle.y));
 	float height = ground_here(world.xz).x;
-	if (seas) {
+	if (seas && !on_moon) {
 		// Under the near sea's plane, which ends 4,000 units from the flyer.
 		height = max(height, SEA - 1.2);
 	}
@@ -31,8 +32,9 @@ void vertex() {
 }
 
 void fragment() {
-	// Well inside the finer grid's square nothing of this one is drawn.
-	if (covered > cell * 3.0) {
+	// Well inside the finer grid's square nothing of this one is drawn, and far over its world a far
+	// grid goes pixel by pixel.
+	if (covered > cell * 3.0 || hash(floor(FRAGCOORD.xy)) >= solid) {
 		discard;
 	}
 	vec2 p = world.xz;
@@ -257,4 +259,14 @@ void fragment() {
 	SPECULAR = specular;
 	facing = normalize(mix(facing, vec3(0.0, 1.0, 0.0), level));
 	NORMAL = normalize((VIEW_MATRIX * vec4(lift_way(p, facing), 0.0)).xyz);
+	if (on_moon) {
+		// The moon: grey dust, darker over the seas of lava (the ground's second number there), its
+		// specks finer than a pixel their mean. None of the planet's land above is the moon's.
+		float speck = mix(noise(p / 9.0 + vec2(41.0, 7.0)), 0.5, smoothstep(4.0, 12.0, wide));
+		ALBEDO = mix(vec3(0.36, 0.36, 0.37), vec3(0.16, 0.16, 0.17), here.y) * (1.0 + 0.7 * here.z) * (0.85 + 0.3 * speck) * (0.9 + 0.2 * (grain - 0.5));
+		EMISSION = vec3(0.0);
+		ROUGHNESS = 0.95;
+		SPECULAR = 0.2;
+		NORMAL = normalize((VIEW_MATRIX * vec4(lift_way(p, normal), 0.0)).xyz);
+	}
 }

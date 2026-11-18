@@ -12,7 +12,11 @@ const float SEA = 24.0;
 const float CLOUD_HEIGHT = 520.0;
 const float LOT = 16.0; // a building's lot
 const float HEIGHT_KEPT = 110.0; // the height the ground's textures keep as zero
-const float RADIUS = 600000.0; // the planet's, at the height the chart calls zero
+// The radius of the world the flight is near (the planet's or the moon's, main.gd's cross_bodies), at the
+// height the chart calls zero, and whether it is the moon.
+uniform float body_radius = 600000.0;
+#define RADIUS body_radius
+uniform bool on_moon = false;
 
 // What main.gd tells every shader each frame.
 uniform float clock = 0.0; // seconds flown
@@ -281,6 +285,52 @@ float river_on(vec3 planet) {
 	return abs(noise3(q + vec3(140.0, 77.0, 9.0)) - 0.5);
 }
 
+// A crater of the moon (moon_on): in a cell of a lattice of `size` in one of `share`, a bowl with
+// a raised rim, its middle in the cell's middle part and its radius up to a quarter of the cell, so
+// it lies in its cell and only that cell is read. terrain.gd's crater is the same.
+float crater(vec3 planet, float size, float share, float seed) {
+	vec3 cell = floor(planet / size);
+	if (hash3(cell + vec3(seed, 7.0, 3.0)) > share) {
+		return 0.0;
+	}
+	vec3 middle = (cell + 0.32 + 0.36 * vec3(hash3(cell + vec3(seed, 1.0, 0.0)), hash3(cell + vec3(seed, 2.0, 0.0)), hash3(cell + vec3(seed, 3.0, 0.0)))) * size;
+	float wide = size * (0.12 + 0.13 * hash3(cell + vec3(seed, 4.0, 0.0)));
+	float d = distance(planet, middle) / wide;
+	return wide * ((d < 1.0 ? 0.28 * (d * d - 1.0) : 0.0) + 0.07 * exp(-(d - 1.0) * (d - 1.0) * 40.0));
+}
+
+// The moon's ground: rolling highlands, seas of old lava that lie lower and flatter, a grain of
+// small bumps, and craters at three sizes. Those much smaller than `wide`, how far apart the
+// ground is read, are their mean there: nothing.
+float moon_on(vec3 planet, float wide) {
+	float mare = smoothstep(0.5, 0.6, fbm3(planet / 60000.0 + vec3(17.0, 3.0, 41.0), 2));
+	float roll = (fbm3(planet / 3200.0 + vec3(5.0, 71.0, 13.0), 3) - 0.5) * 220.0;
+	float grain = (noise3(planet / 140.0 + vec3(29.0, 11.0, 83.0)) - 0.5) * 16.0 * (1.0 - smoothstep(30.0, 140.0, wide));
+	float high = mix(roll, roll * 0.1 - 70.0, mare) + grain + crater(planet, 2400.0, 0.45, 11.0);
+	high += crater(planet, 420.0, 0.5, 23.0) * (1.0 - smoothstep(60.0, 250.0, wide));
+	high += crater(planet, 90.0, 0.5, 37.0) * (1.0 - smoothstep(15.0, 60.0, wide));
+	return 150.0 + high;
+}
+
+// How bright the dust thrown out of a crater lies around it (moon_marks): on its walls and rim, and
+// thinning out to two and a half of its radii.
+float crater_rim(vec3 planet, float size, float share, float seed) {
+	vec3 cell = floor(planet / size);
+	if (hash3(cell + vec3(seed, 7.0, 3.0)) > share) {
+		return 0.0;
+	}
+	vec3 middle = (cell + 0.32 + 0.36 * vec3(hash3(cell + vec3(seed, 1.0, 0.0)), hash3(cell + vec3(seed, 2.0, 0.0)), hash3(cell + vec3(seed, 3.0, 0.0)))) * size;
+	float wide = size * (0.12 + 0.13 * hash3(cell + vec3(seed, 4.0, 0.0)));
+	float d = distance(planet, middle) / wide;
+	return exp(-(d - 1.0) * (d - 1.0) * 3.0) * (1.0 - smoothstep(1.8, 2.5, d));
+}
+
+// What the moon's ground keeps where the planet's keeps the climate, for its colour: how far it is
+// a sea of lava, and how bright the dust around its craters is.
+vec2 moon_marks(vec3 planet) {
+	return vec2(smoothstep(0.5, 0.6, fbm3(planet / 60000.0 + vec3(17.0, 3.0, 41.0), 2)), max(crater_rim(planet, 2400.0, 0.45, 11.0), 0.7 * crater_rim(planet, 420.0, 0.5, 23.0)));
+}
+
 // The ground's height. Seas and continents come at four sizes: the planet's continents and
 // oceans (inside a continent most is land, in an ocean little), seas and lands of 7.3 thousand units in them, lands of 2.7 thousand in those, and the
 // coasts, bays and islands of 520; in an ocean only the highest of the last stand out, as
@@ -291,6 +341,9 @@ float river_on(vec3 planet) {
 // narrow to their springs in the hills. terrain.gd computes the same.
 // The ground is read every `wide` units (a grid's cell, the planet's texel; 0 for the ground itself).
 float terrain_on(vec3 planet, float wide, vec2 air) {
+	if (on_moon) {
+		return moon_on(planet, wide);
+	}
 	vec2 globe = planet_fields(planet);
 	float shift = (slow3_seen(planet, 7300.0, vec3(34.0, 62.0, 15.0), wide) - 0.5) * 0.9 + (slow3_seen(planet, 2700.0, vec3(104.0, 42.0, 77.0), wide) - 0.5) * 0.5 + (smoothstep(0.4, 0.6, globe.x) - 0.5) * 0.8;
 	float relief = mix(0.22, 1.0, smoothstep(0.3, 0.5, slow3_seen(planet, 1900.0, vec3(38.0, 77.0, 53.0), wide)));
@@ -326,6 +379,9 @@ float terrain_on(vec3 planet, float wide, vec2 air) {
 // and of 11 thousand units and its part of the planet: cold countries and hot ones, wet ones
 // and dry, deserts and forests seen from orbit, and the cold of the poles.
 vec2 climate_on(vec3 planet, float wide) {
+	if (on_moon) {
+		return moon_marks(planet);
+	}
 	float polar = smoothstep(0.7, 0.98, abs(planet.y) / RADIUS);
 	return vec2(fbm3_seen(planet / 900.0 + vec3(211.0, 57.0, 3.0), 2, wide / 900.0) + (slow3(planet, 19000.0, vec3(37.0, 14.0, 82.0)) - 0.5) * 0.55 + (fbm3(planet / 260000.0 + vec3(13.0, 49.0, 7.0), 2) - 0.5) * 0.3 - 0.55 * polar,
 		fbm3_seen(planet / 560.0 + vec3(13.0, 143.0, 71.0), 2, wide / 560.0) + (slow3(planet, 11000.0, vec3(89.0, 44.0, 26.0)) - 0.5) * 0.45 + (fbm3(planet / 190000.0 + vec3(67.0, 3.0, 39.0), 2) - 0.5) * 0.4);
@@ -339,11 +395,17 @@ float peopled_on(vec3 planet) {
 }
 
 float settled_on(vec3 planet) {
+	if (on_moon) {
+		return 0.0;
+	}
 	return fbm3(planet / 760.0 + vec3(400.0, 109.0, 55.0), 2) + (peopled_on(planet) - 0.5) * 0.2;
 }
 
 // The same where the ground is read every `wide` units: the ground's textures keep it.
 float settled_seen(vec3 planet, float wide) {
+	if (on_moon) {
+		return 0.0;
+	}
 	return fbm3_seen(planet / 760.0 + vec3(400.0, 109.0, 55.0), 2, wide / 760.0) + (peopled_on(planet) - 0.5) * 0.2;
 }
 

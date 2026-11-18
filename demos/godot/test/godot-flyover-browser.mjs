@@ -7,7 +7,8 @@
 // script flies over is the ground the shaders draw on the sphere, its frame has the sky along the top
 // and a scene's worth of colours, and few of its frames took over twice the median, fewer over four
 // times. Flying on through the chain as a quick hand would, it chains five clouds or six and is over
-// the air (50,000 units). Then it leaves the planet by itself: it reports a height of over
+// the air (50,000 units). It flies by itself to the moon, low over its ground, and back to the
+// planet's. Then it leaves the planet by itself: it reports a height of over
 // 150,000 units, a chart whose anchor moved on the way, and a frame with a scene's worth of colours
 // (the planet under it).
 // Usage: node demos/godot/test/godot-flyover-browser.mjs [chromium|firefox ...]
@@ -36,27 +37,28 @@ for (const name of browsers) {
     await page.waitForURL(`${server.origin}/godot-voxel-flyover/`);
     await page.waitForFunction(() => window.__dolly?.gpu?.active && __dolly.gpu.stats.frames > 120, null, { polling: 250, timeout: 300_000 });
     assert.equal(await page.evaluate(() => __dolly.gpu.isFallbackAdapter), false);
-    // A person's click captures the pointer, L gives it back, and a click captures it again; 900 pixels up then
-    // raise the board's nose to almost straight up.
-    const box = await page.locator("#display").boundingBox(), x = box.x + box.width / 2, y = box.y + box.height / 2;
-    const capture = async () => {
+    // A person's click captures the pointer, L gives it back, and a click near the display's foot captures it
+    // again; the mouse pulled from there to its top (Firefox refuses a move out of the page) raises the board's
+    // nose to almost straight up.
+    const box = await page.locator("#display").boundingBox(), x = box.x + box.width / 2;
+    const capture = async y => {
       await page.mouse.click(x, y);
       await page.waitForFunction(() => document.pointerLockElement?.id === "display", null, { timeout: 10_000 });
       await new Promise(resolve => setTimeout(resolve, 1000));
     };
-    await capture();
+    await capture(box.y + box.height / 2);
     await page.keyboard.press("l");
     await page.waitForFunction(() => document.pointerLockElement === null, null, { timeout: 10_000 });
     await new Promise(resolve => setTimeout(resolve, 1500));
-    await capture();
-    await page.mouse.move(x, y - 900, { steps: 90 });
+    await capture(box.y + box.height - 10);
+    await page.mouse.move(x, box.y + 10, { steps: 90 });
     await new Promise(resolve => setTimeout(resolve, 1500));
     await page.keyboard.press("q");
     await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
     const flight = await page.evaluate(() => __dolly.visibleTerminalText());
     const [, helm, pitch] = flight.match(/^FLYOVER flown \d+ clouds \d+ score \d+ helm (\d) high -?\d+ heading -?\d+ pitch (-?\d+) speed \d+ zoom [\d.]+ touches \d+$/m) ?? [];
-    // The heading turns 0.0025 radians a pixel of the motion the page is given, so 900 pixels would raise the nose 129
-    // degrees, and it stops at 86. Firefox gives the moves (2026-11-18: 216 of 240) after
+    // The heading turns 0.0025 radians a pixel of the motion the page is given, so the pull, some 880 pixels at 1600 by
+    // 900, would raise the nose 126 degrees, and it stops at 86. Firefox gives the moves (2026-11-18: 216 of 240) after
     // a jump that the game leaves (320 and 115 pixels for the first move of 8).
     assert.ok(helm === "1" && Number(pitch) >= 80 && Number(pitch) <= 86, `the captured mouse steers the board to almost straight up: ${flight}`);
     assert.equal(await page.evaluate(() => document.pointerLockElement), null, "the pointer is the page's again once the game has quit");
@@ -84,12 +86,17 @@ for (const name of browsers) {
     const [, longest] = chained.match(/^FLYOVER seconds .* clouds \d+ score \d+ longest (\d+)$/m) ?? [];
     const [, chainTop] = chained.match(/^FLYOVER highest (\d+) anchors \d+$/m) ?? [];
     assert.ok(Number(longest) >= 5 && Number(chainTop) > 50_000, `a chain of clouds leaves the air: ${chained}`);
+    // The moon: out toward it, a crossing into its chart, down to fly low over its ground, out again, a crossing
+    // back, and down to the planet's.
+    const voyage = await flown("--autopilot 80 --day 9 --moon 2");
+    const [, crossed, overMoon, overHome] = voyage.match(/^FLYOVER moon crossings (\d+) lowest (\d+) home (\d+)$/m) ?? [];
+    assert.ok(Number(crossed) === 2 && Number(overMoon) < 200 && Number(overHome) < 200, `the moon is flown to and back: ${voyage}`);
     const tour = await flown("--autopilot 100 --day 9 --tour 2 --top 250000");
     const [, highest, anchors] = tour.match(/^FLYOVER highest (\d+) anchors (\d+)$/m) ?? [];
     const [, lit] = tour.match(/^FLYOVER frame \d+x\d+ sky \d+ colours (\d+)$/m) ?? [];
     assert.ok(Number(highest) > 150_000 && Number(anchors) >= 1 && Number(lit) > 60, `Voxel Flyover is left: ${tour}`);
     assert.deepEqual(errors, []);
-    console.log(name, `pitch ${pitch}; clouds ${clouds}, chain of ${longest} to ${chainTop}`, ...report.match(/^FLYOVER (seconds|frame) .*$/gm), "tour:", ...tour.match(/^FLYOVER (seconds|frame|highest) .*$/gm));
+    console.log(name, `pitch ${pitch}; clouds ${clouds}, chain of ${longest} to ${chainTop}; moon: crossings ${crossed}, over it ${overMoon}, over home ${overHome}`, ...report.match(/^FLYOVER (seconds|frame) .*$/gm), "tour:", ...tour.match(/^FLYOVER (seconds|frame|highest) .*$/gm));
     console.log(`godot-flyover: ${name} passed`);
   } finally {
     clearTimeout(deadline);

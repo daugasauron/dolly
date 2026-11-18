@@ -29,10 +29,42 @@ Done when, each in Chrome and Firefox on the GPU, committed in this order:
    back, the second capture worked, the nose stood at 80 to 86 degrees) and its old ring check
    failed (the corgi of before passed the fighter's rings against their courses), which step 2
    replaces; the touch test passed (the drag raised the nose 26 degrees, the board climbed to
-   190, the pinch zoomed, the ring gave the board back). Firefox: through step 2's round, which
+   190, the pinch zoomed, the ring gave the board back). Firefox: through step 3's round, which
    runs the same checks on the same controls.
-2. The clouds: in the source and committed, its tests running.
-3. The moon: to do.
+2. The clouds: `dbf730122`. Chrome: the flyover test passed (pitch 85 after L and the second
+   capture, the morning's first cloud, a chain of six to 228,107 units, the tour) and the touch test
+   (the drag raised the nose 30 degrees, the board climbed to 201). Firefox: the flyover test failed
+   on the test, Firefox refusing the mouse's move to 450 pixels over the page (900 up from the
+   middle); the pull now goes from the display's foot to its top, in step 3's round.
+3. The moon: committed with its image's source; its round (both browsers, all of the above and the
+   voyage) running.
+
+## 3. The moon
+
+A second world, made of what the planet has (terrain.gdshaderinc and terrain.gd behind one switch,
+`on_moon`, and the radius as a uniform and a static variable): radius 200,000 units, its middle 2
+million from the planet's, to the west-north-west of the start, 26 degrees over its horizon there
+(half lit at nine in the morning; the sun gives it phases). Its ground (`moon_on`, in both languages):
+rolling highlands, low dark seas of lava, a grain, and craters at three sizes (2,400, 420 and 90
+units a cell; a bowl and a raised rim in one cell in two), the small ones their mean where the
+ground is read coarsely. A texture of the whole moon is drawn at the start, as the planet's is.
+
+The sky (`world_seen`) draws the other world from its texture, lit by the sun, the planet with its
+seas, woods, deserts, snow, the air's rim and its towns at night; the planet's air veils the moon
+by day. On the moon the sky has no air, the land is grey dust (land.gdshader's last lines), and
+there is no sea, fog, rain, cloud, life, chain, spire or landmark.
+
+The crossing (`cross_bodies`): once the board is nearer the other world's ground than this one's,
+the other world's chart takes the flight, its anchor under the board, its axes the old ones laid on
+the new up; the way the board flies, the camera and the board as seen are turned into the new
+axes. It comes some 600,000 units over each world, where both are the sky's drawings: from two
+thirds of a world's radius over it its far grids go pixel by pixel to the sky's drawing of it
+(`set_bodies`, land.gdshader's `solid`). The new up is the other way, so
+the board and the camera turn to the new axes by degrees in the three seconds after the crossing.
+
+`--moon SECOND`: the corgi flies to the moon (with a chain's boost), down to its ground, over it
+for fifteen seconds, back, and down to the planet's day side. Headless: two crossings, 87 units over the
+moon's ground at the lowest, 22 over the planet's after, all in some 60 s.
 
 ## 2. Clouds that chain out of the air
 

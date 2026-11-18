@@ -74,7 +74,7 @@ blossom or autumn colours, slender spires in the desert, and groves that glow at
 fragment stage roughens a crown's light as leaves do. The sea mirrors the sky, with the sun's
 glitter on its ripples and foam that glows at night along the shore
 ([`water.gdshader`](voxel-flyover/water.gdshader)). The sky follows the hour, with stars, a river of
-them across the night, the moon and an aurora, and carries a layer of cloud lit from the sun's side, whose shade falls on the
+them across the night, an aurora and the moon (a world of its own, below), and carries a layer of cloud lit from the sun's side, whose shade falls on the
 ground ([`sky.gdshader`](voxel-flyover/sky.gdshader)). A day lasts two minutes: one light is the
 sun and then the moon, with four shadow cascades over 420 units that every grid of land casts
 into, 4x MSAA, SSAO, glow, haze that thickens toward the sea, and volumetric fog, in which the low
@@ -390,6 +390,31 @@ chart's anchor moves under the flyer once it is 120,000 units from it: the new c
 the old one's at that place, so the heading stays. A dive from orbit so comes down in a chart
 whose anchor is near, anywhere on the planet.
 
+The moon is a second world (`moon_on` in [`terrain.gdshaderinc`](voxel-flyover/terrain.gdshaderinc)
+and [`terrain.gd`](voxel-flyover/terrain.gd)): a third of the planet's radius, 200,000 units, its
+middle 2 million units from the planet's (the game's distance; its ground has the planet's scale),
+fixed to the west-north-west of the start, 26 degrees over its horizon there, a disc of 14 degrees
+half lit at nine in the morning: the sun gives it phases. Its ground is rolling highlands, seas of
+old lava that lie lower and flatter and darker, a grain of small bumps, and craters at three sizes,
+each a bowl with a raised rim in a cell of a lattice of its size; grey dust, bright around the
+craters it was thrown out of, darker over the seas; no sea of water, no air, no
+life. Its ground is drawn once at the start into a texture of the whole moon, as the planet's is.
+From the planet the sky draws the moon from that texture, lit by the sun and veiled by the air by
+day, and from the moon the planet from its own, with its seas, woods, deserts, snow, the air's rim
+and its towns' lights at night ([`sky.gdshader`](voxel-flyover/sky.gdshader)'s `world_seen`).
+
+The board flies to it as it leaves the planet, faster the higher it is over the world it is near.
+Once it is nearer the moon's ground than the planet's (`cross_bodies`), the flight is near the
+moon: the moon's chart takes it, with its anchor under the board, the grids draw the moon's ground,
+and the planet is in the sky; the way back is the same. Nothing seen moves at the crossing: it
+comes far from both, some 600,000 units over each, where both are drawn by the sky (from two thirds
+of a world's radius over it its far grids go pixel by pixel to the sky's drawing of it,
+`set_bodies`), and what the flight carries (the way the board flies, the camera, the board as it
+is seen) is turned from the old chart's axes into the new one's. Its up is the other way there, so
+the board and the camera turn over to it by degrees in the three seconds after.
+`voxel-flyover -- --autopilot SECONDS --moon SECOND` flies by itself to the moon, down to fly low
+over its ground for fifteen seconds, and back to the planet's.
+
 `voxel-flyover -- --autopilot SECONDS --tour SECOND` leaves the planet by itself and comes back;
 `--high HEIGHT` starts at a height and keeps it.
 
@@ -399,13 +424,13 @@ the frame before: it takes the height between the points of a lattice of 4 units
 once, and a lot's building once (`ground`, `tops`), which is 0.9 ms of script a frame where
 computing each place took 7, and a frame of 35 to 58 ms each time the look ahead came to a new lot. The corgi flies itself until a click takes the board, and until then the camera glides between five views of it, one of them
 the pelican's. It turns the heading and the pitch by degrees toward the
-way it wants (`fly_itself`): it makes for the rings and chains them.
+way it wants (`fly_itself`): it makes for the first clouds of chains.
 The click also gives the game the pointer (the page captures it at a person's click alone), and
 the mouse then steers the board; its first motion after the capture is left, since Firefox reports
 a jump there. The player's camera looks the way the board is headed, from
 behind and over the flyer, so what the board will reach is in the middle of the screen, over the
-corgi's ears. The numbers on the screen are the score's: the points, the chain's rings, and what
-a ring added. On a touchscreen nothing needs a key: the first touch takes the board; then a
+corgi's ears. The numbers on the screen are the score's: the points, the chain's clouds, and what
+a cloud added. On a touchscreen nothing needs a key: the first touch takes the board; then a
 finger's drag steers as the mouse does (a drag across the screen's shorter side as 1,080 pixels),
 two fingers zoom as they move apart or together, and the ring with a cross at the top right gives
 the board back.
@@ -585,12 +610,14 @@ Both games passed in both browsers on 2026-11-13, the editor's log without an er
 [`test/godot-flyover-browser.mjs`](test/godot-flyover-browser.mjs) opens `godot-voxel-flyover` from
 the front page's list of applications, on a hardware adapter, in Chrome and Firefox: the game
 draws on `gpu@0`, a click captures the pointer, L gives it back, a click captures it again, and
-900 pixels of the mouse raise the board's nose to its limit, almost straight up; Q leaves the
-shell. A flight by itself through a morning, from before a chain's first cloud, flies through it
+a pull of the mouse from the display's foot to its top raises the board's nose to its limit, almost
+straight up; Q leaves the shell. A flight by itself through a morning, from before a chain's first
+cloud, flies through it
 and reports even frames and a frame with the sky along its top; one that flies on through the
 chain as a quick hand would chains five clouds or six and is over the air; and one that leaves the
 planet by itself reports a height of over 150,000 units, a chart whose anchor moved on the way,
-and a frame with the planet's colours.
+and a frame with the planet's colours; one flies to the moon, low over its ground, and back to the
+planet's, crossing twice.
 [`test/godot-flyover-touch-browser.mjs`](test/godot-flyover-touch-browser.mjs) plays it with
 fingers alone on a phone's screen (Chrome's touch events, Firefox's touch PointerEvents): held
 sideways, a tap takes the board, a finger's drag up the screen raises its nose and it climbs,
