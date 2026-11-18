@@ -35,6 +35,7 @@ Dolly, as it exported Dodge the Creeps for `amy install dodge-the-creeps`
 - `godot-airtime`: Airtime in Godot on the page, which starts at once; Q leaves a shell where `godot-editor -e --path ~/airtime` opens a copy of its project in Godot's editor, the course in its 3D view. The eye beside Hud in the Scene dock hides the game's display, F5 plays the game so, and Ctrl+S saves the scene.
 - `voxel-flyover`: Voxel Flyover, a corgi's flight on a jet surfboard, with a pelican on a bicycle pedalling under it for the jets, over a planet of mountains, forests and sea that can be left: a sphere of 600,000 units which the GPU builds in its shaders, drawn by Forward+ on `gpu@0`, with a curved horizon, and whole from out of its air; `voxel-flyover` plays it.
 - `godot-voxel-flyover`: Voxel Flyover on the page at once: the corgi flies itself until a click or a touch takes the board; the mouse or a finger then steers it, through courses of rings and, kept climbing, off the planet; Q leaves a shell.
+- `blender-flyover`: Blender and Voxel Flyover in one image: Blender's window opens on the script that makes the flyover's flyer, the board, its jets, the corgi and the pelican on its bicycle, with the flyer it made in the 3D view; Run Script makes it anew, and `voxel-flyover`, after Blender quits, flies what it made.
 
 ## Lantern Drift
 
@@ -98,37 +99,56 @@ flicker. Each shader measures how much of its surface a pixel covers (the deriva
 place, or of the hairs' own coordinates) and lets detail finer than that give way to its mean: the
 octaves of the ground's grain one by one, its flowers, the tilt of its light, the sea's three
 sizes of ripple (whose lost slope becomes roughness, so the sun's glitter widens into a glare),
-the clumps of a crown's leaves, the fur's hairs, which merge into a coat of their mean length, and
-the links of the pelican's chain. A vein of crystal and a far ring's hoop keep a width of a
+the clumps of a crown's leaves, and the fur's hairs, which merge into a coat of their mean
+length. A vein of crystal and a far ring's hoop keep a width of a
 pixel or a few and grow fainter in proportion; a wake seen on edge fades; the painted crowns merge
 into their share's colour where a pixel covers a crown.
 
-The flyer is a character of our own, drawn for this game from Godot's primitive meshes: a corgi in
-mirrored sunglasses and a red cape, crouched on a teal surfboard that two small jets carry. Its
-coat is fur in 18 shells ([`fur.gdshader`](voxel-flyover/fur.gdshader)): each furred part is drawn
-again and again a little further out along its normals, keeping the pixels where a hair is that
-long, and the hairs lean and shiver in the air the flight drives past. It crouches lower the
-faster it goes and the harder it turns, leans and looks into its turns, its ears lie back, and
-its tongue, a strip of the cape's cloth, trails back from the side of its mouth; the cape is a cloth its vertex stage flutters and swings out of a turn
-([`cape.gdshader`](voxel-flyover/cape.gdshader)), and each jet leaves a wake, a ribbon the vertex
-stage lays along the places the board has been ([`wake.gdshader`](voxel-flyover/wake.gdshader)).
+The flyer is a character of our own, made by Blender from a script,
+[`flyer.py`](voxel-flyover/flyer.py), when the image is built, into the glTF file the game reads
+as it starts ([`model.gd`](voxel-flyover/model.gd), Godot's `GLTFDocument`): a Pembroke corgi in
+mirrored sunglasses and a red cape with a gold paw print, on a teal surfboard that two small jets
+carry, and under the board a bicycle, on which a pelican in a cyclist's cap, flying goggles and a
+scarf pedals for the jets. A chain runs from the chainring up to a sprocket on a shaft between the
+two engines, and a fan turns in each engine's intake. The bicycle hangs from the board by its
+rear axle and by two rods from its head tube that pass the rider's head on either side.
 
-Under the board hangs a bicycle, and on it a pelican pedals for the jets
-([`pelican.gd`](voxel-flyover/pelican.gd)), also of primitive meshes: a white bird in a cyclist's
-red cap, with a long bill and its pouch, feathers in the same shells as the corgi's fur, and long
-black-tipped flight feathers, a tail and a crest of the cape's cloth, which trail and flutter in
-the wind. Its legs are laid from hip to knee to pedal each frame, and so is the leading edge of
-each wing, from shoulder to elbow to the wrist at a grip of the handlebar; the wing's
-black-tipped flight feathers hang from all along that edge and its last feathers are closed over
-the grip. The handlebar, the fork and the front wheel
-turn in the head tube with the flight's turn. The bicycle hangs from the board by its rear axle
-and by two rods from its head tube that pass the rider's head on either side. A chain runs from the chainring
-up to a sprocket on a shaft between the two engines, and a fan turns in each engine's intake;
-chain, shaft, fans and wheels turn by the cranks' one angle, so nothing slips, and they are
-striped or sectored so the turning shows ([`drive.gdshader`](voxel-flyover/drive.gdshader)). The
-cranks turn faster the faster the board flies, the flames
+The script bakes three animations, which the game plays by their names. "pedal" is five turns of
+the cranks and all they drive: the legs, laid from hip to knee to pedal, the chain's sixty links
+round the chainring and the sprocket, the shaft, the fans and the wheels, so nothing slips, and
+the pelican rocking on its saddle. "steer" turns the handlebar, the fork and the front wheel in
+the head tube, with the leading edge of each wing laid from shoulder to elbow to the wrist at a
+grip and its black-tipped flight feathers along it. "alive" is eight seconds of the pelican
+looking about, blinking and clapping its bill, and of the corgi panting, tilting its head and
+looking down at the pelican. The game seeks "pedal" by the cranks' angle, which turns faster the
+faster the board flies, and "steer" by the flight's turn, and plays "alive" round.
+
+Parts the script marks in their extras get the game's own surfaces. A coat is fur in 18 shells
+([`fur.gdshader`](voxel-flyover/fur.gdshader)): each furred part is drawn again and again a little
+further out along its normals, keeping the pixels where a hair is that long, in the colours the
+script painted on its vertices (the corgi's tan back and white chest, belly, blaze and muzzle),
+and the hairs lean and shiver in the air the flight drives past. A cloth, the cape, the corgi's
+tongue, the ends of the scarf and the pelican's long feathers, flutters and swings out of a turn
+in its vertex stage ([`cape.gdshader`](voxel-flyover/cape.gdshader)). The corgi crouches lower the
+faster it goes and the harder it turns, leans and looks into its turns, and its ears lie back;
+each jet leaves a wake, a ribbon the vertex stage lays along the places the board has been
+([`wake.gdshader`](voxel-flyover/wake.gdshader)); the flames
 ([`flame.gdshader`](voxel-flyover/flame.gdshader)) lengthen with each stroke of a leg and carry a
 ring of brighter gas for it, the nozzles glow with it, and a pulse runs down each wake.
+
+### The flyer in Blender
+
+`blender-flyover` holds Blender and the game on one filesystem. Blender's window opens on its
+Scripting workspace, `flyer.py` in the Text Editor and the flyer it made in the 3D view; Run Script
+(Alt+P) makes the flyer anew and writes `/usr/share/voxel-flyover/flyer.glb`, which the game reads
+the next time it starts. `blender -b --python /usr/share/voxel-flyover/project/flyer.py` does the
+same without the window. The steps of a video of it:
+
+1. Open `blender-flyover`: Blender shows the script and the flyer.
+2. In the Text Editor, change `CAPE = (0.8, 0.05, 0.08)` near the top to another colour, such as
+   `(0.1, 0.3, 0.9)`, and press Alt+P: the cape in the 3D view turns blue.
+3. Quit Blender (Ctrl+Q) and run `voxel-flyover`: the corgi flies in a blue cape, the pelican
+   pedalling and steering under it.
 
 The world has a year of three days and weather. The seasons are three shares the shaders are
 told: more groves blossom in spring and more turn in autumn, each tree in its own time; in winter
@@ -549,8 +569,8 @@ compiled in 26 minutes in the image build, a 182 MB program. Its debugger listen
 socket (below). The GDScript language server and the Debug Adapter server serve other editors
 over TCP, which Dolly does not have: the language server's one module of its own, JSON-RPC, is
 not built (upstream's switch), and the patch leaves the adapter out. The template packages the
-modules an exported 2D game loads beside the engine's: Ogg Vorbis, MP3, WebP
-and regular expressions.
+modules an exported game loads beside the engine's: Ogg Vorbis, MP3, WebP,
+regular expressions and glTF, which Voxel Flyover reads its flyer with.
 
 [`Dollyfile-dodge-the-creeps`](Dollyfile-dodge-the-creeps) takes the game
 from the demo projects' release as published, gives it an export preset,

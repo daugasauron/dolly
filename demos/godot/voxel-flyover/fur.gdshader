@@ -1,7 +1,7 @@
 // Fur, in shells: the same mesh drawn a number of times (the instances of a MultiMesh), each a
 // little further out along its normals and a little further down the wind, and each keeping only
 // the pixels where a hair is at least that long. The hairs lean and shiver in the air the flight
-// drives past them.
+// drives past them. Its colour is the coat's times the colours of the mesh's vertices.
 shader_type spatial;
 render_mode world_vertex_coords, shadows_disabled;
 
@@ -35,8 +35,8 @@ void fragment() {
 	if (shell > tall || off > 1.3 * (1.0 - shell / tall) + 0.25) {
 		discard;
 	}
-	// Dark at the roots, where little light gets in.
-	ALBEDO = colour * mix(0.5, 1.1, shell) * (0.85 + 0.3 * tall);
+	// Of its colour and its mesh's vertices', dark at the roots, where little light gets in.
+	ALBEDO = colour * COLOR.rgb * mix(0.5, 1.1, shell) * (0.85 + 0.3 * tall);
 	ROUGHNESS = 0.85;
 	SPECULAR = 0.25;
 	BACKLIGHT = colour * 0.3;
