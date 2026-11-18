@@ -23,6 +23,48 @@ Done when, each in Chrome and Firefox on the GPU, committed in this order:
 3. the moon is a second world to fly to from orbit, over or onto, and back, as smooth as the way to
    orbit.
 
+## The owner's morning (2026-11-19)
+
+The owner (07:45): "Ok. The moon is great as an initial step. I want to go back completely with
+the controls, so its WASD and I can use the mouse freely to look around without changing the
+direction. I like the concept of the new cloud things but they should be a lot more colorful and
+visually striking, go crazy. Also sometimes they don't do anything seems some of them are like
+"dead"." Done when, each in Chrome and Firefox on the GPU, committed in this order:
+
+1. the controls of v0.1.7 (`22140c51b`): WASD or the arrows fly, the mouse only turns the view;
+   kept from since: the nose to almost straight up, L to let go, `346f0cbad`'s first-motion fix on
+   the look, the crossings to the moon; touch the same way; tested: the mouse turns the view and
+   leaves the heading, the keys turn the heading;
+2. no dead cloud: every cloud flown through gives its reward, a single one is worth taking, and a
+   test flight through every cloud of a chain, to the 640 boost, finds each counted;
+3. the clouds far more colourful and striking, round and in chains as now, seen from far off, with
+   their frame times against these.
+
+### 1. The keys fly, the mouse looks
+
+As v0.1.7 flew (`hand` in main.gd): A and D or the arrows turn the heading by degrees, up to 0.55
+radians a second; W and S or the arrows raise and lower the nose, no faster than 0.9 radians a
+second, toward 86 degrees while held (the longer, the steeper: a tap climbs gently, held it goes
+almost straight up and out of the air), and let go, the board turns no more and comes level. The
+mouse (0.0035 radians a pixel, its first motion after a capture left) and a finger off the stick
+turn the view around the flyer and over or under it; the camera follows the heading and the pitch
+a little late and the look is turned on from there; let go, it comes back behind the board.
+Enter takes the board as in v0.1.7, Z and X zoom, L lets go (no key is Escape). Touch: v0.1.7's
+stick under the left thumb, which steers as the keys do, and a finger elsewhere that looks; the
+chain's arc and the arrow to the next cloud stay. The game prints the heading, pitch and view at
+each change of hands (`FLYOVER helm ... pointer ...`), which the tests read.
+
+The chains had to follow: laid for a mouse that turned the board at once, they could not be flown
+on the keys (the `--chain` corgi on the keys' rates took one cloud in 35 s). A chain's first cloud
+is now all of it until it is flown through; then the rest is laid from there, from the way the
+board flew through it, as a hand on the keys flies them (`lay_chain`: each link the flight of
+3.5 s at the earned boost, turned 20 to 60 degrees and climbing, at six tenths of the keys' rates).
+Over 400 plots (the probe's survey): the fifth cloud 1,800 to 19,700 units up (5,100 the median),
+the sixth at 60,000; 2.1 ms to lay the rest (4.9 at most), on the frame the first is taken. The
+corgi with `--chain 1` now holds the keys toward each next cloud (`chase` through `hand`):
+headless, a chain of six in 3.45 s a cloud to 57,151 units; the moon voyage, also steered by
+`chase`, still crosses twice (76 units over the moon's ground, 23 over the planet's).
+
 ## State (2026-11-19)
 
 1. The controls: `1e9e49edd`. Chrome: the flyover test's mouse checks passed (L gave the pointer
