@@ -27,22 +27,22 @@ const reservationPatienceMilliseconds = 5000;
 // The supervisor's end: the port the page sends first when it made this Worker
 // (host/runtime/runtime.mjs pageWorkers), or else this Worker's owner, a thread's.
 let supervisor = self;
+// However long a busy machine takes to deliver it: the supervisor posts it as
+// it makes this Worker, and ends the Worker of a process that ends first.
 const configuration = await new Promise((resolve, reject) => {
-  const timeout = setTimeout(
-    () => reject(new Error("Dolly process configuration was not provided")),
-    10_000,
-  );
+  const undecodable = () => reject(new Error("Dolly process configuration could not be decoded"));
+  self.addEventListener("messageerror", undecodable, { once: true });
   self.addEventListener("message", function configure(event) {
     if (event.data?.supervisor instanceof MessagePort) {
       supervisor = event.data.supervisor;
       supervisor.addEventListener("message", configure);
+      supervisor.addEventListener("messageerror", undecodable, { once: true });
       supervisor.start();
       return;
     }
     if (event.data?.type !== "configure") return;
     self.removeEventListener("message", configure);
     supervisor.removeEventListener("message", configure);
-    clearTimeout(timeout);
     resolve(event.data);
   });
 });
