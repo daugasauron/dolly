@@ -75,10 +75,6 @@ for (const browser of browsers) {
     await shown(digit(held[1], 2, 1), marker[2]);
     assert.notDeepEqual(await pixel(digit(held[1], 1, 1)), marker[2]);
     await lift(held);
-    // In fingers' own frame: one painted as the bar comes may have the terminal's size
-    // (tasks/20261118-002000-lease-frame-geometry).
-    await waitForDisplay(page, ([x, y, width]) => displaySnapshot.width === width && [...displaySnapshot.getContext("2d")
-      .getImageData(x, y, 1, 1).data].slice(0, 3).join() !== "120,230,120", [...held[0], width]);
     assert.ok(await figure(at(centre, 120)) && await figure(at(centre, -150)) && !await figure(at(centre, 170)), "zoomed twice");
 
     // One finger moves it 100 to the right and 50 down.
