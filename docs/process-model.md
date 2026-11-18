@@ -530,12 +530,25 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
     for its thread-locals (`__wasm_init_tls`, which `cc -shared` exports) and
     resolves its own `GOT.mem` entries. A threaded program that is not a host
     calls functions only: closures are refused with `ENOTSUP`.
-  - A program passed through Binaryen's cast emulation (`wasm-opt
-    --fpcast-emu`), whose table holds nothing but thunks of one signature,
-    sixteen or more `i64` parameters and an `i64` result, is called in it; loading and
-    closures, which would add an entry of another signature, are refused.
-    GObject programs need it: they call functions through casts to types of
-    other parameters.
+  - A program passed through Binaryen's cast emulation (`cc
+    --dolly-cast-emulation`, `wasm-opt --fpcast-emu`) holds nothing but thunks
+    of one signature in its table, sixteen or more `i64` parameters and an `i64`
+    result, which every indirect call uses. GObject programs need it: they call
+    functions through casts to types of other parameters (Blender's Python
+    methods too). Such a host loads a library linked so too (`cc -shared
+    --dolly-cast-emulation`), whose table entries are thunks of the same
+    signature; a library with entries of other signatures is refused, and a
+    cast-emulated one is refused by any other program. A function the loader
+    places in the table (a `GOT.func` entry, `dlsym`) goes in as a thunk of
+    that signature, as Binaryen's convert, or as the program's own thunk where
+    it has one, so that a pointer to a function compares equal wherever it was
+    taken. Closures, which would add an entry of another signature, are refused.
+  - A program's function exports, but `_start` and Dolly's own (`dolly_*`,
+    `__dolly_*`), are entries of a table the process Worker adds to the module
+    (`__dolly_exports`), where the loader finds them: Chrome makes an object of
+    every export when it instantiates a module, 50 MiB in each Worker for the
+    234,338 functions a program linked `-rdynamic` exports, of the 4 GiB a tab's
+    Workers share; a table costs 8 MiB, its entries made when first read.
   - Without the record a program loads nothing: `dlopen` returns `NULL` with
     `ENOSYS` and a `dlerror()` naming `-rdynamic` and `dso@0`, and the raw
     operations are unknown ones. With it, the image must declare
