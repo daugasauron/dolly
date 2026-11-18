@@ -155,9 +155,10 @@ for (const name of (await readdir(scope)).filter(name => name.startsWith("dolly-
   modules.set(JSON.parse(await readFile(join(scope, name, "module.json"), "utf8")).name, `${name}/module.json`);
 }
 
-// A project: the recipe (INSTALL of Pi's packages and of each PACKAGE at the installed
-// pins, then the template's rows and ENTRY), public/, the page's files (the page, its
-// theme, the workspace and a skill), and the workflow that builds the site in CI.
+// A project: the recipe (the template's HTTP rows, INSTALL of Pi's packages and of each
+// PACKAGE at the installed pins, then the template's other rows and ENTRY), public/, the
+// page's files (the page, its theme, the workspace and a skill), and the workflow that
+// builds the site in CI.
 const installRow = definition => `INSTALL ${siteReference(definition.dollyfile)} ${definition.sha256}`;
 async function scaffold(name, packages) {
   const installs = [...new Set([...piPackages, ...packages])].map(image => definitionOf(installed(image, "package")));
@@ -168,8 +169,9 @@ async function scaffold(name, packages) {
   const pages = (await readdir(join(import.meta.dirname, "dolly-build-init/public"), { recursive: true, withFileTypes: true }))
     .filter(entry => entry.isFile()).map(entry => relative(join(import.meta.dirname, "dolly-build-init"), join(entry.parentPath, entry.name)).split(sep).join("/")).sort();
   const files = {
+    // The template's HTTP rows follow the REQUIRES HOST rows, before the INSTALL rows (__INSTALL__).
     [`Dollyfile-${name}`]: `DOLLY 8\nAPPLICATION ${name}\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}\n` +
-      installs.map(definition => `${installRow(definition)}\n`).join("") + "\n" + await template("Dollyfile"),
+      (await template("Dollyfile")).replace("__INSTALL__\n", installs.map(definition => `${installRow(definition)}\n`).join("")),
     ...Object.fromEntries(await Promise.all(pages.map(async file => [file, await template(file)]))),
     [`.github/workflows/${name}.yml`]: await template("workflow.yml"),
   };
@@ -280,8 +282,15 @@ async function build(recipePath, outArgument) {
     await rm(staging, { recursive: true, force: true });
     throw error;
   }
-  console.log(`dolly-build: ${relative(process.cwd(), outArgument) || "."} is the site of ${image}: a static host serves it as it lies`);
+  const reaches = siteHttpPolicy(parsed).rules.map(rule => `\n  ${rule.methods.join(" ")} ${rule.origin}${rule.path ?? `${rule.pathPrefix}*`}` +
+    (rule.credentialHeaders.length ? ` with ${rule.credentialHeaders.join(" ")}` : ""));
+  console.log(`dolly-build: ${relative(process.cwd(), outArgument) || "."} is the site of ${image}: a static host serves it as it lies\n` +
+    `dolly-build: its page lets the image make ${reaches.length ? `these requests and no other:${reaches.join("")}` : "no request: the recipe declares no HTTP row"}`);
 }
+
+// The policy the site's page applies to the image: its recipe's HTTP rows, which the
+// recipe's parser checked as the page does; a recipe without one reaches nothing.
+const siteHttpPolicy = parsed => parsed.httpPolicy ?? { rules: [] };
 
 // Whether DIRECTORY holds IMAGE built from SOURCE by the runtime of these IDENTITIES.
 async function built(directory, image, source, identities) {
@@ -335,7 +344,8 @@ async function buildImage(directory, { filename, source, image, parsed, holders,
   }
   await writeFile(join(directory, filename), source);
   const graph = await loadRecipeGraph(reference => readFile(join(directory, sitePath(reference).slice(1))), siteReference(filename));
-  const catalog = [...records.values(), catalogRecord({ image, filename, source, parsed }, graph)];
+  // The site's page admits the requests the recipe declares, and none without a declaration.
+  const catalog = [...records.values(), { ...catalogRecord({ image, filename, source, parsed }, graph), httpPolicy: siteHttpPolicy(parsed) }];
   await writeFile(join(directory, "dist/dolly-images.json"), catalogJson(catalog, [...staticSources.values()]));
 
   const page = "<!doctype html><title>dolly-build</title>";

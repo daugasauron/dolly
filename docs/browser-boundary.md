@@ -185,10 +185,11 @@ Authority column here, and the two go together.
   page (`imageBuilder`, [`site.mjs`](../site/site.mjs)); a page without one
   has no `build@0`.
 - Build and custom-session policy comes from trusted browser state, never from
-  recipe or snapshot contents. The page ([`network.mjs`](../page/network.mjs))
+  snapshot contents or anything the guest wrote. The page ([`network.mjs`](../page/network.mjs))
   takes the embedding's policy once and intersects a result tab's saved parent
   policy with its own; missing inheritance fails closed, so reopening a build cannot
-  silently restore unrestricted HTTP. Build results are opaque retained files,
+  silently restore unrestricted HTTP. An image's recipe can only narrow it
+  (its `HTTP` rows, [Network](#network)). Build results are opaque retained files,
   not permission to execute host code.
 - Audio and GPU scope, lease and object IDs are never reused and request
   sequences only increase, so a stale handle never reaches a successor. The
@@ -209,6 +210,18 @@ Authority column here, and the two go together.
 - The default includes the app's own origin (same-origin requests need no CORS).
   A URL is absolute or a site path (below); the page URL is no implicit base.
   Restrict it with a policy.
+- An image narrows the page's policy with the requests its recipe declares,
+  its `HTTP` rows ([Dollyfile](dollyfile.md#the-images-network)). The page
+  intersects them with the embedding's policy and any inherited one, so they
+  never widen it, and reads them from the recipe's text only: the catalog's
+  record of the image (its `httpPolicy`, written from the recipe by the
+  catalog's build or `dolly-build`) or a custom image's recipe, which the page
+  keeps for its tab and its saves ([`browser.mjs`](../page/browser.mjs),
+  [`site.mjs`](../site/site.mjs)). Every page that runs the image applies them
+  to all it fetches for the guest, a restored session and a build in that page
+  included, and a tab opened from it inherits them. A package declares none,
+  so `amy install` changes nothing. `dolly-build` gives an image without rows
+  a policy of no rule.
 - A build's inputs (the recipes and `SOURCE` files of the image directory)
   never pass the broker: the build Worker reads them by the sizes the catalog
   gives and the engine checks each by its SHA-256. A `SOURCE` row's URL is
@@ -351,7 +364,8 @@ Wasm cannot reach the handle. A process can publish any status, so the one
 
 - Exact typed outer imports; no automatic allowance for new port requirements.
 - Denied HTTP never reaches Fetch; credentials, redirects, limits and
-  cancellation stay enforceable after arbitrary guest mailbox writes.
+  cancellation stay enforceable after arbitrary guest mailbox writes. An
+  image's `HTTP` rows narrow the page's policy and never widen it.
 - Span, frame, input, file-transfer and decompression bounds fail closed.
 - Filesystem and process operations stay in Wasm, local sockets and pseudo-terminals among them;
   unsupported fork, network socket and host operations fail without fallbacks.

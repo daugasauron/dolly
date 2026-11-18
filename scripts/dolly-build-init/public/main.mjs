@@ -12,16 +12,6 @@ sessionStorage.removeItem("dolly-isolation-retry");
 const { boot } = await import("./dolly/page/browser.mjs");
 const { images, image, modules } = await import("./image/index.mjs");
 
-// The hosts the agent may reach, and nothing else: the model's provider here,
-// one rule per host the agent needs (api.github.com, pypi.org). A rule names an
-// origin, its paths and methods, and the header that carries the key (docs/http.md
-// in @daugasauron/dolly). Hosts without CORS headers go through a relay of your
-// own (docs/agent-frontend.md).
-const policy = { rules: [
-  { origin: "https://openrouter.ai", pathPrefix: "/api/v1/", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },
-  // { origin: "https://api.anthropic.com", pathPrefix: "/v1/", methods: ["POST"], credentialHeaders: ["x-api-key"] },
-] };
-
 // The project and Pi's skills: workspace/ is written into /workspace and each
 // skills/NAME/ (a SKILL.md and the files it names, Pi's docs/skills.md) into Pi's
 // skills at each boot. dolly-build lists their files in workspace.json and skills.json
@@ -49,4 +39,7 @@ look.setProperty("--dolly-display-palette-8", vars.muted);
 // Save (Ctrl+Shift+S) keeps the sandbox's state in this browser and names it in the
 // address, ?session=NAME: the page then opens that save, as it was, in place of a fresh start.
 const session = new URLSearchParams(location.search).get("session") ?? undefined;
-await boot(document.querySelector("#dolly"), { images, image, modules, http: { policy }, files, session });
+// The requests the sandbox may make are the HTTP rows of the recipe, which boot() applies.
+// A host without CORS headers goes through a relay of your own, boot()'s http: { relays }
+// (docs/agent-frontend.md in @daugasauron/dolly).
+await boot(document.querySelector("#dolly"), { images, image, modules, files, session });

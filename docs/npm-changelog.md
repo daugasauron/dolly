@@ -8,6 +8,17 @@ to the next. The packages of one project are all of one version.
 
 ## 0.1.8
 
+- A recipe declares the requests its image may make, in `HTTP` rows
+  (`HTTP POST https://openrouter.ai/api/v1/chat/completions authorization`),
+  and the page applies them over its own policy, so they only narrow it. A
+  site's sandbox could reach whatever the page's code admitted, every host
+  where it named no policy. `dolly-build` checks the rows, prints what the
+  site may reach, and gives a recipe without rows a site that reaches nothing.
+- `init`'s Pi starts as Pi does anywhere: `/login` and `/model` choose the
+  provider and model. 0.1.7's asked for an OpenRouter key and wrote
+  OpenRouter's model. Its recipe declares the APIs of the providers Pi offers
+  that answer a page, in place of the policy `public/main.mjs` held; its skill
+  is `sandbox`, its extension `/network`. The `tmux` package is published.
 - The recipe language is `DOLLY 8`: a site path is `/PATH`, without the
   version (`FROM /Dollyfile-system SHA256`). A recipe no longer changes with
   every release, and a package that did not change keeps its pin and its

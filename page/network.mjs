@@ -4,16 +4,19 @@ import { boundedAssetBlob } from "./static-asset.mjs";
 
 // The page's network: the HTTP policy the embedding gives boot() (`http`:
 // { policy, relays }), which a custom tab intersects with the policies it
-// inherited. Every host module's page side receives it (host/README.md), so one
+// inherited, and every page with the policy its image declares (`declared`, its
+// recipe's HTTP rows as the page or the catalog read them from the recipe's text,
+// never from anything the guest wrote). Every host module's page side receives it (host/README.md), so one
 // policy judges and counts what leaves the page for the guest: its requests
 // through the broker (http@0) and the files a module reads for it (packages@0's
 // other directories). Each refusal is a line in the console and a notice in
 // MOUNT. `site` resolves a site path; `fetchRequest`, when given, fetches what
 // the policy admits (an embedding's relay), by default the browser's fetch.
-export function pageNetwork({ embedding = {}, inherited, applicationBase, mount, keyboard, fetchRequest }) {
+export function pageNetwork({ embedding = {}, inherited, declared, applicationBase, mount, keyboard, fetchRequest }) {
   let policy = new DollyHttpPolicy(embedding.policy, embedding.relays);
   // A tab that inherits and holds no policies fails closed.
   if (inherited) policy = restrictDollyHttpPolicy(policy, inherited.policies);
+  if (declared) policy = restrictDollyHttpPolicy(policy, [declared]);
   return network(policy, new URL(applicationBase).href, fetchRequest, refusalNotices(mount, keyboard));
 }
 

@@ -89,6 +89,7 @@ export async function bootRoute(mount, { image: route, mode = "snapshot", loadSe
       enabled: runnable ? [...required, ...rebuild ? buildHost : []] : registry.buildHostFor(required),
       configuration: selected?.configuration,
       inherited: rebuild ? undefined : custom,
+      declared: recipe.httpPolicy,
       worker: rebuild || image === "custom" ? new URL("./build-worker.mjs", import.meta.url) : undefined,
       async start(host, report, network) {
         // The site's builds have every module it builds, whatever the page enables.

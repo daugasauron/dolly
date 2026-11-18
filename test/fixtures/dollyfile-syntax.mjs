@@ -185,6 +185,18 @@ export const syntaxCases = [
   [false, probe("REQUIRES TOOL cc\nREQUIRES HOST gpu@0")],
   [false, root(`DOLLY 8\nAPPLICATION default\nFROM ${site("Dollyfile-base")} PIN(/Dollyfile-base)\nREQUIRES HOST gpu@0\nENTRY /bin/slop\n`, base)],
 
+  // The image's network: the page's, so the engine never reads an HTTP row.
+  [true, root(image("HTTP POST https://models.example/v1/chat/completions authorization\n"))],
+  [true, root(image("REQUIRES HOST http@0\nHTTP GET HEAD https://pypi.org/simple/*\nHTTP POST https://a.example/ x-api-key Anthropic-Version\nREQUIRES HOST gpu@0\n"))],
+  [true, root("DOLLY 8\nTOOLCHAIN default\nHTTP GET https://a.example/*\n")],
+  ...["https://a.example", "https://A.example/x", "https://a.example:443/x", "https://a.example/x?y", "https://a.example/x#y",
+    "https://a.example/x*", "https://a.example/*/x", "https://user@a.example/x", "ftp://a.example/x", "/x", "https://a.example/a/../b"]
+    .map(url => [false, root(image(`HTTP GET ${url}\n`))]),
+  ...["HTTP https://a.example/x", "HTTP get https://a.example/x", "HTTP GET", "HTTP GET https://a.example/x bad/header"]
+    .map(row => [false, root(image(`${row}\n`))]),
+  [false, probe("HTTP GET https://a.example/x")],
+  [false, root(image("FILE /etc/a\nHTTP GET https://a.example/x\n"))],
+
   // FROM, INSTALL, COPY and SOURCE.
   [true, root(`DOLLY 8\nAPPLICATION default\nFROM ${site("Dollyfile-base")} PIN(/Dollyfile-base)\nENTRY /bin/slop\n`, base)],
   [true, root(`DOLLY 8\nPACKAGE default\nFROM ${site("Dollyfile-base")} PIN(/Dollyfile-base)\nFILE /usr/share/a\n`, base)],

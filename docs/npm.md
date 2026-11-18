@@ -28,10 +28,12 @@ python3 -m http.server -d my-pi -b 127.0.0.1 8080
   modules they declare), at `dolly-build`'s version, and prints that command.
 - The second `dolly-build` builds the image in a headless browser (45 s for
   this project on a 16-core desktop) and writes the site `my-pi/` (94 MB).
-- Python's server serves it. Open <http://127.0.0.1:8080/>: Pi asks for your
-  OpenRouter key at a prompt that does not show it, and starts in `/workspace`.
-  `curl https://example.com` in Pi's shell fails: the page's policy admits the
-  model's provider and nothing else. Ctrl+D leaves Pi for a shell. When Pi needs
+- Python's server serves it. Open <http://127.0.0.1:8080/>: Pi starts in
+  `/workspace` as it does anywhere, `/login` signs in to a provider and
+  `/model` chooses a model (Pi's `docs/providers.md`). The sandbox may make the
+  requests its recipe declares, the providers' APIs, and no other: `curl
+  https://example.com` in Pi's shell fails ([The network](#the-network)).
+  Ctrl+D leaves Pi for a shell. When Pi needs
   a file of yours it asks with its `upload` tool: the page's file dialog opens,
   and Pi gets the file's path and size, or that you cancelled. Save
   (Ctrl+Shift+S) keeps the sandbox, files and all, in this browser and names it
@@ -47,10 +49,10 @@ command's that refuses them.
 
 | File | What it declares | After a change |
 | --- | --- | --- |
-| `Dollyfile-my-pi` | The sandbox, a [recipe](dollyfile.md): `INSTALL` rows for Pi's packages and the ones you named, each pinned by its recipe's SHA-256; `FILE` rows with Pi's `AGENTS.md`, an extension with a `/hello` command, a `todo` tool, the model's entry and the script that starts Pi with its provider and model | Build again |
+| `Dollyfile-my-pi` | The sandbox, a [recipe](dollyfile.md): `HTTP` rows, the requests it may make ([The network](#the-network)); `INSTALL` rows for Pi's packages and the ones you named, each pinned by its recipe's SHA-256; `FILE` rows with Pi's `AGENTS.md`, an extension with a `/network` command, a `todo` tool and the script that starts the sandbox ([How it starts](#how-it-starts)) | Build again |
 | `public/skills/` | Pi's skills, one directory each: a `SKILL.md` and the files it names. The page writes them into `~/.pi/agent/skills/` at each boot | Build again (the image is kept) |
 | `public/workspace/` | The project the agent works on, written into `/workspace` at each boot | Build again (the image is kept) |
-| `public/main.mjs` | The hosts the agent may reach ([HTTP policy](http.md)): one rule per host, OpenRouter's API to begin with. The files the page writes at boot | Build again (the image is kept) |
+| `public/main.mjs` | The page: the files it writes at boot, and `boot()` | Build again (the image is kept) |
 | `public/index.html`, `public/page.css`, `public/icon.svg` | The page, and the popups' font. No inline script or style, so the host may serve a strict Content-Security-Policy ([Embedding](embedding.md)) | Build again (the image is kept) |
 | `public/theme.json` | The sandbox's colours: five values in Pi's theme format, whose background, text, accent and muted are the terminal's and the popups' too | Build again (the image is kept) |
 | `.github/workflows/my-pi.yml` | The same build in GitHub Actions ([CI](#ci)) | |
@@ -78,6 +80,7 @@ npx dolly-build add my-pi jq sqlite
 | `nvim` | Neovim, with its runtime files and tree-sitter parsers |
 | `cc` | The C and C++ compiler, with `ld`, `ar`, Make and the headers |
 | `jq`, `sqlite`, `less` | `jq`, `sqlite3` and the pager |
+| `tmux` | The terminal multiplexer; the recipe then declares `pty@0` and `sockets@0`, which `add` writes |
 | Pi's own, which `init` always installs | `core` (the shell `slop` and its commands), `posix` (grep, sed, awk, find and the others), `curl`, `display` (the terminal), `dollyfile` (the recipe engine) and `pi-dolly` (Pi, its JavaScript runtime, ripgrep, fd, the `download` and `upload` commands, and Pi's Dolly skill and tools, among them `download` and `upload`, which hand the user a file and ask the user for one) |
 
 `npx dolly-build init` with a name that is no package lists them all. A program
@@ -103,23 +106,56 @@ declares and no other.
   `/usr/lib/node_modules/@earendil-works/pi-coding-agent/docs/`). Scripts and
   other files a skill names lie beside it and are at
   `~/.pi/agent/skills/NAME/` in the sandbox. Pi lists the skills when it
-  starts. `init` writes one, `changelog`.
+  starts. `init` writes one, `sandbox`: what the sandbox may reach, the tools
+  it holds and where its files go.
 - `AGENTS.md`, the instructions Pi takes into every session, is a `FILE` row of
-  the recipe; so are an extension (`/hello`), the model's entry
-  (`models.json`) and the script that starts Pi (`/etc/dolly/init.slop`).
+  the recipe; so are an extension (`/network`, which lists the recipe's `HTTP`
+  rows) and the script that starts the sandbox (`/etc/dolly/init.slop`).
   [An agent in place of a web frontend](agent-frontend.md) goes on from here:
-  your backend's API, another model provider, how Pi starts.
+  your backend's API, a model provider of your own.
 - These files are not secrets: Pi's tools can read them, and so can its model.
 
-## The policy and the key
+## The network
 
-`public/main.mjs` holds the page's HTTP policy: the hosts the sandbox may
-reach, one rule each, with the header that may carry a credential. It is
-enforced in the browser, outside the sandbox ([HTTP](http.md)). `init` writes
-one rule, OpenRouter's API, and Anthropic's as a comment beside it. The key is
-typed at `pi-key`'s prompt in the sandbox each time it starts; it is in no
-file of the site. A host the agent should reach (`api.github.com`, `pypi.org`)
-is one more rule.
+The recipe's `HTTP` rows are the requests the sandbox may make, and the page
+lets it make no other: the page enforces them in the browser, outside the
+sandbox ([Dollyfile](dollyfile.md#the-images-network), [HTTP](http.md)). `init`
+writes a row for each model provider Pi offers whose API answers a page, as Pi
+calls it: Anthropic, OpenAI, Google's Gemini, OpenRouter, Mistral, Groq,
+Cerebras, xAI, DeepSeek, Hugging Face, Together, Vercel's AI Gateway, Moonshot,
+Meta, Ant Ling and Xiaomi. Keep your provider's; a host the agent needs is one
+more row:
+
+```text
+HTTP GET HEAD https://pypi.org/simple/*
+HTTP GET https://api.github.com/repos/OWNER/* authorization
+```
+
+- A row is methods, a URL (a final `/*` takes every path under it) and the
+  headers beyond an ordinary request's that may go with it: the one that
+  carries the key and those the API needs. Any other header is removed before
+  the request leaves.
+- The build checks each row as the page does, fails on an invalid one, and
+  ends by printing what the site may reach. A recipe without `HTTP` rows
+  reaches nothing: a site you build is not the public demo, whose page admits
+  any host.
+- A row is part of the recipe: changing one builds the image again.
+- Pi's other providers do not answer a page: Baseten, Fireworks, NVIDIA,
+  OpenCode, Z.ai, MiniMax and Kimi's and Qwen's coding plans send no CORS
+  headers a browser accepts ([CORS and relays](http.md#cors-and-relays)), and
+  Azure, Cloudflare, Vertex AI and Bedrock answer at an address of your
+  account, which is a row of your own. A sign-in with a subscription (OAuth)
+  works only where the provider's sign-in host answers a page too.
+- The key is Pi's: `/login` keeps it in `~/.pi/agent/auth.json` in the
+  sandbox, and a save keeps that. It is in no file of the site. Pi shows a key
+  as it is typed; a value such as `!cat FILE` makes Pi read it from a file
+  (Pi's `docs/providers.md`).
+
+## How it starts
+
+`/etc/dolly/init.slop`, a `FILE` row of the recipe, is what the sandbox runs,
+one Slop command a line: Pi, then a shell when Pi exits. Another program is
+another first line and a build.
 
 ## Build
 
@@ -262,4 +298,6 @@ To run a prebuilt image in a page with no build at all, see
 | `a browser is not installed` | Install Chrome, or `npx playwright-core install chromium-headless-shell` |
 | `this browser has no WebAssembly memory64` | The build's browser is older than Chrome 138 or Firefox 146 |
 | `Dollyfile-NAME:LINE: unknown directive` | A `FILE` row's body lines start with four spaces |
+| `Dollyfile-NAME:LINE: invalid HTTP` | The row's URL is `https://HOST/PATH`, or `https://HOST/PATH/*` for every path under it, as a browser writes it: no port 443, query or fragment |
+| `curl: (9)` or a notice at the top left of the page naming a refused request | The recipe has no `HTTP` row for that request ([The network](#the-network)) |
 | The page says it is not cross-origin isolated | It is served over plain HTTP from another address than `127.0.0.1`: serve it over HTTPS, or send the two headers |

@@ -108,6 +108,7 @@ and a new pin for every recipe and a rebuild of every image.
 | `DOLLY 8` | Language version. |
 | `APPLICATION name`, `TOOLCHAIN name`, `PACKAGE name` | Role and name. |
 | `REQUIRES HOST name@abi` | The image uses this host module when it runs. |
+| `HTTP METHOD… URL [HEADER…]` | A request the image may make when it runs; with one, it may make no other ([below](#the-images-network)). |
 | `FROM RECIPE SHA256` | First operation: start from a completed application or toolchain. An application or toolchain keeps the base; a package is only built in it. |
 | `INSTALL RECIPE SHA256` | Import a completed package, after the packages its recipe installs: files, exports and environment. An application or toolchain keeps it; a package keeps nothing and records the row for whoever installs it. |
 | `USE RECIPE SHA256` | In a package: `INSTALL` for this build alone, recorded nowhere. |
@@ -267,7 +268,8 @@ and a new pin for every recipe and a rebuild of every image.
   embedding lacks one, and the loader refuses an executable whose stamped
   module is not declared. Requirements grant nothing: the embedding enables
   modules and the HTTP broker decides network access
-  ([browser boundary](browser-boundary.md)). An application declares the
+  ([browser boundary](browser-boundary.md)), which the image's `HTTP` rows
+  narrow. An application declares the
   kernel, the terminal (`display@0`, `input@0`), the session's save
   (`snapshot@0`) and what its packages need: `gnu-emacs` the first four,
   `tmux-panes` also `pty@0`, `sockets@0` and `amy`'s `packages@0`. `default` declares no module for a package it does not hold:
@@ -284,6 +286,41 @@ and a new pin for every recipe and a rebuild of every image.
   ([process model](process-model.md#threads-dsos-and-ffi)), programs linked
   with `-ldolly-sockets` `sockets@0`
   ([local sockets](process-model.md#local-sockets)).
+
+## The image's network
+
+```text
+HTTP POST https://openrouter.ai/api/v1/chat/completions authorization
+HTTP GET HEAD https://pypi.org/simple/*
+```
+
+- An `HTTP` row is a rule of the page's [HTTP policy](http.md#policy): its
+  methods, an origin and a path, a final `/*` for every path under it, and the
+  headers beyond an ordinary request's that may go with it, such as the one
+  that carries a key. The URL is written as the page compares it: no user,
+  query or fragment, nothing a URL parser would change. The parser checks each
+  row with the page's own normalization, so an invalid one fails the recipe.
+- The rows are page configuration, not a build step: the engine never reads
+  them (the page leaves them out of `recipe.rows`), and they need no host
+  module of their own. They follow the role line with the `REQUIRES HOST`
+  lines, before every other declaration, and are never inherited, as those are
+  not. A `PACKAGE` declares none: the network is the opened image's, as its
+  ENTRY is.
+- The page that runs the image intersects its own policy with them: they
+  narrow what the embedding admits and never widen it, for every request the
+  page makes for the guest, a build in that page's `SOURCE` files included.
+  The page reads them from the recipe's text, never from a snapshot or a file
+  the guest wrote: from the catalog's record of the image (its `httpPolicy`,
+  which the catalog's build and `dolly-build` write from the recipe), or from
+  the recipe of a custom image. So does every page that runs it again: a
+  restored session, a tab opened from it, which inherits them. `amy install`
+  changes nothing, since a package declares none. An image without `HTTP`
+  rows keeps the page's policy; `dolly-build` gives one a policy of no rule,
+  so a site built with it reaches nothing.
+- They are `DOLLY 8`: a recipe without them means what it meant, so no pin
+  changed, and a page too old to know them refuses a recipe that has them.
+  A new language version would have changed every recipe's text, and so every
+  pin and image, for no change of meaning.
 
 ## Entry and startup
 

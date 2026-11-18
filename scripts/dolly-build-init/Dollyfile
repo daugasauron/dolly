@@ -1,3 +1,33 @@
+# The requests the site's page lets the sandbox make, and no other: an HTTP row each,
+# METHODS, a URL (with a final /* every path under it) and the headers beyond an
+# ordinary request's that may go with it, such as the one that carries a key. The page
+# enforces them outside the sandbox. These are the model providers Pi offers whose APIs
+# answer a page, each as Pi calls it: keep yours, and add a row for each other host the
+# agent needs, such as HTTP GET https://pypi.org/simple/* (docs/http.md in @daugasauron/dolly).
+HTTP POST https://api.anthropic.com/v1/messages x-api-key anthropic-version anthropic-beta anthropic-dangerous-direct-browser-access
+HTTP POST https://api.openai.com/v1/responses authorization
+HTTP POST https://generativelanguage.googleapis.com/v1beta/models/* x-goog-api-key
+HTTP POST https://openrouter.ai/api/v1/chat/completions authorization
+HTTP POST https://openrouter.ai/api/v1/messages x-api-key
+HTTP POST https://api.mistral.ai/v1/chat/completions authorization
+HTTP POST https://api.groq.com/openai/v1/chat/completions authorization
+HTTP POST https://api.cerebras.ai/v1/chat/completions authorization
+HTTP POST https://api.x.ai/v1/responses authorization
+HTTP POST https://api.deepseek.com/chat/completions authorization
+HTTP POST https://router.huggingface.co/v1/chat/completions authorization
+HTTP POST https://api.together.ai/v1/chat/completions authorization
+HTTP POST https://ai-gateway.vercel.sh/v1/messages x-api-key anthropic-version anthropic-beta
+HTTP POST https://api.moonshot.ai/v1/chat/completions authorization
+HTTP POST https://api.moonshot.cn/v1/chat/completions authorization
+HTTP POST https://api.meta.ai/v1/responses authorization
+HTTP POST https://api.ant-ling.com/v1/chat/completions authorization
+HTTP POST https://api.xiaomimimo.com/v1/chat/completions authorization
+HTTP POST https://token-plan-ams.xiaomimimo.com/v1/chat/completions authorization
+HTTP POST https://token-plan-cn.xiaomimimo.com/v1/chat/completions authorization
+HTTP POST https://token-plan-sgp.xiaomimimo.com/v1/chat/completions authorization
+
+__INSTALL__
+
 # Pi reads its instructions, skills, extensions and themes from /home/dolly/.pi/agent/
 # (Pi's docs/configuration.md, in the image under /usr/lib/node_modules/@earendil-works/pi-coding-agent/docs/).
 # A FILE row writes its body, each line indented four spaces, into the image.
@@ -7,11 +37,14 @@ FILE /home/dolly/.pi/agent/AGENTS.md
     You are the coding agent of this project. Keep answers short, and run the
     project's tests after a change.
 
-FILE /home/dolly/.pi/agent/extensions/hello.js
+# An extension: /network in Pi lists the requests this sandbox may make, the HTTP rows above.
+FILE /home/dolly/.pi/agent/extensions/network.js
+    import { readFileSync } from "node:fs";
     export default function (pi) {
-      pi.registerCommand("hello", {
-        description: "Say hello",
-        handler: async (name, ctx) => ctx.ui.notify(`Hello, ${name || "world"}, from __NAME__!`, "info"),
+      pi.registerCommand("network", {
+        description: "List the requests the page lets this sandbox make",
+        handler: async (_, ctx) => ctx.ui.notify(readFileSync("/etc/dolly/Dollyfile", "utf8").split("\n")
+          .filter(line => line.startsWith("HTTP ")).join("\n") || "None: the recipe has no HTTP row", "info"),
       });
     }
 
@@ -28,22 +61,13 @@ EXPORTS TOOL todo
 
 # Pi's colours are public/theme.json, which the page writes at boot.
 
-# Pi sends OpenRouter's Claude models through Anthropic's Messages API, whose
-# browser header OpenRouter's CORS refuses: this entry sends them through Chat
-# Completions. An endpoint of your own that speaks OpenAI's API is such an entry
-# too (docs/agent-frontend.md).
-FILE /home/dolly/.pi/agent/models.json
-    { "providers": { "openrouter": { "baseUrl": "https://openrouter.ai/api/v1", "api": "openai-completions",
-      "apiKey": "$OPENROUTER_API_KEY", "models": [{ "id": "anthropic/claude-sonnet-5.5" }] } } }
-
-# How Pi starts: the key at a prompt that does not show it, the provider and the
-# model (Pi's docs/providers.md). Another provider is this line and the page's
-# policy rule: Anthropic's API with your own key is the second line. /model in Pi
-# changes the model for a session; --offline keeps Pi from requests the policy
-# refuses. Ctrl+D leaves Pi for a shell.
+# How the sandbox starts: the commands of /etc/dolly/init.slop, in Slop, the shell. Pi
+# starts as it does anywhere: /login signs in to a provider, /model chooses a model
+# (Pi's docs/providers.md). --offline leaves out its update and catalog requests, which
+# the rows above do not admit. Ctrl+D leaves Pi for a shell. Another program, or tmux
+# with Pi and an editor, is the first line (docs/npm.md).
 FILE /etc/dolly/init.slop
-    pi-key OPENROUTER_API_KEY --offline --provider openrouter --model anthropic/claude-sonnet-5.5
-    # pi-key ANTHROPIC_API_KEY --offline --provider anthropic --model claude-sonnet-5-5
+    /bin/foreground -i /usr/bin/pi --offline
     printf '\nPi exited; this is a Slop shell.\n'
     /bin/foreground -i /bin/slop
 

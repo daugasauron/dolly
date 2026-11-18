@@ -24,6 +24,22 @@ npx dolly-build Dollyfile-my-pi my-pi
 `sed` moves the first line and any `SOURCE` row that names a file of the
 site.
 
+The requests the site's sandbox may make move into the recipe. A recipe
+without `HTTP` rows now reaches nothing, whatever `public/main.mjs` admits:
+the page applies the rows over its own policy. Write each rule of 0.1.7's
+`main.mjs` as a row after the `REQUIRES HOST` rows, its methods, origin and
+path, then its `credentialHeaders`:
+
+```text
+HTTP GET POST https://openrouter.ai/api/v1/* authorization
+```
+
+Then take the policy out of `main.mjs` (`const policy` and `http: { policy }`),
+or leave it: the page admits only what both allow. The build prints what the
+site may reach. A recipe of 0.1.7's `init` keeps its OpenRouter key prompt and
+model entry, which still work; a new `init` writes neither
+([changelog](npm-changelog.md)).
+
 ## From 0.1.5 to 0.1.7
 
 ### The upgrade in short
