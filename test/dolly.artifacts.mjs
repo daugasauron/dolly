@@ -240,6 +240,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["default", "/bin/slop"],
     ["amy", "/bin/amy"],
     ["cc", "/bin/cc"],
+    ["clip", "/usr/bin/clip"],
     ["core", "/bin/slop"],
     ["curl", "/usr/bin/curl"],
     ["display", "/usr/lib/libdisplay.so"],
