@@ -31,8 +31,9 @@ Left for the round:
   (`fix/lean-crash`).
 - godot-airtime's Firefox did not launch in 180 s in early-gpu-demos.log (`/snap/bin/firefox`);
   not seen here.
-- Cause 9 (emacs's build check in the round on 0ae1331a2) is in the seed's process library: its
-  fix waits for the coordinator's word, since it changes the seed.
+- Causes 9 and 10 are fixed (d395a46c6, 34d0e192b); the seed changed, so every image but those
+  built in work/triage (system's, default's and emacs's closures, gnu-emacs, transfer, curl and
+  the download and upload clients) is the round's to build.
 
 ## Causes
 
@@ -89,5 +90,15 @@ Left for the round:
    answered EINTR, the handler's WAIT, write and acknowledgement, then Emacs's error and no further
    select. `build/triage/mask-probe.c` shows it in both browsers: errno is EINTR before
    `sigprocmask(SIG_SETMASK, &old, NULL)`, which returns 0, and EINVAL after it; SIG_BLOCK leaves it.
-   The fix is set_mask's: skip the numbers musl reserves. It changes the seed's
-   libdolly-process.a (scripts/build.sh), and with it every image.
+   set_mask skips the numbers musl reserves (d395a46c6), which changes the seed's
+   libdolly-process.a, and process-signals.c checks errno after a successful SIG_SETMASK. On the
+   seed built again: the recipe's check 0 of 10 failed in Chromium and in Firefox, the no-timer
+   variant 0 of 10 in Chromium, mask-probe.c keeps EINTR in both; demos/emacs's tests and
+   test/process-, threads- and ending-browser.mjs pass in both browsers.
+10. **A process Worker refused its process after waiting 10 s for its configuration**
+   (`page/process-worker.mjs`): "Dolly process configuration was not provided", once in
+   emacs's build in work/triage at a load of about 340. The supervisor posts the configuration
+   as it makes the Worker, so the wait measured only a starved machine's delivery. The Worker
+   waits for it now and fails at once on one it cannot decode (34d0e192b). With the supervisor
+   posting each configuration 12 s late (`build/triage/late-configure.mjs`), the shell and a
+   command start in both browsers; the Worker before the change left no prompt.
