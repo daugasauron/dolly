@@ -40,18 +40,21 @@ function residentAnonymous() {
 
 const settle = () => new Promise(resolve => setTimeout(resolve, 2000));
 const inMebibytes = bytes => Math.round(bytes / mebibyte);
-// A Worker's teardown follows the shell's prompt by some milliseconds, more on
-// a loaded machine: a sample has a second to come within the bound. A memory
-// kept for a collection does not.
-async function settledSample(baseline) {
-  for (const deadline = performance.now() + 1000; ; await new Promise(resolve => setTimeout(resolve, 50))) {
-    const sample = residentAnonymous();
-    if (sample - baseline < retainedBound || performance.now() > deadline) return sample;
+// A process's Workers end some milliseconds after the shell's prompt, seconds
+// on a machine that starves the browser, and its memory goes with them: a
+// sample has until a second after the page has no more Workers than WORKERS
+// (at most 30 s) to come within the bound. A memory kept for a collection does not.
+async function settledSample(page, baseline, workers) {
+  for (let ended, started = performance.now(); ; await new Promise(resolve => setTimeout(resolve, 50))) {
+    const sample = residentAnonymous(), now = performance.now();
+    if (sample - baseline < retainedBound) return sample;
+    if (ended === undefined && page.workers().length <= workers) ended = now;
+    if (now - ended > 1000 || now - started > 30000) return sample;
   }
 }
 
 await browserTest("process memory", { image: "system", timeout: 600_000 }, async ({ name, open }) => {
-  const { submit, text } = await open();
+  const { page, submit, text } = await open();
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
   await run(`printf '%s\\n' ${source.split("\n").map(line => `'${line.replaceAll("'", "'\\''")}'`).join(" ")} > /tmp/touch.c && ` +
     "cc -O1 -pthread /tmp/touch.c -o /tmp/touch");
@@ -65,11 +68,11 @@ await browserTest("process memory", { image: "system", timeout: 600_000 }, async
     const command = `/tmp/touch 512${variant}`;
     await run(command);
     await settle();
-    const baseline = residentAnonymous();
+    const baseline = residentAnonymous(), workers = page.workers().length;
     const samples = [];
     for (let round = 0; round < rounds; ++round) {
       await run(command);
-      samples.push(await settledSample(baseline));
+      samples.push(await settledSample(page, baseline, workers));
     }
     await settle();
     const after = residentAnonymous();
@@ -102,11 +105,11 @@ await browserTest("process memory", { image: "system", timeout: 600_000 }, async
   const launch = program => run(`${program} --dolly-toolchain-mode=c --version > /dev/null`);
   for (const program of compilers) await launch(program);
   await settle();
-  const cached = residentAnonymous();
+  const cached = residentAnonymous(), holders = page.workers().length;
   const launches = [];
   for (const program of [...compilers, ...compilers]) {
     await launch(program);
-    launches.push(await settledSample(cached));
+    launches.push(await settledSample(page, cached, holders));
   }
   console.log(`process memory (${name}, four compilers in turn): baseline ${inMebibytes(cached)} MiB, after each ` +
     `${launches.map(inMebibytes).join(" ")}`);
