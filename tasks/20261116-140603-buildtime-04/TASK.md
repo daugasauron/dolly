@@ -1,6 +1,6 @@
 # The same browser tests run again: the npm test four times a release, Xonotic's twice a round
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 170
 - TAGS: audit,build,release,npm,0.1.8
 
@@ -68,3 +68,19 @@ took 13 h 31 min (`20261116-140603-buildtime-00`).
 
 A round and a release, from their logs, run `npm-browser.mjs` twice in all (the browser suite, the
 checklist on the published tarballs) and Xonotic's full test once, the software path still checked.
+
+## Closed 2026-11-19
+
+From the logs of the 0.1.8 round (`dolly-round-018k`, `scripts/round.sh` unchanged,
+`work/integrate-018/build/round/`) and of the release checklist run as RC1 will run it
+(`work/rc-release`, `build/rehearse/checklist.log` and `build/npm-v0.1.8.log`, on `6efdd52cf`):
+
+- `test/npm-browser.mjs` ran twice in all: once in the round, in its suites stage ("npm packages:
+  chromium passed in 386.4s", "firefox passed in 287.5s"), no other stage naming it; once in the
+  checklist's step 3 on the tarballs it packed to publish, `DOLLY_NPM_PACKS` (221.4 s, 187.4 s).
+- Xonotic's whole test ran once, in the GPU stage in Chrome on `:148` (594.1 s: the client drew
+  on gpu@0, the ultimate preset, the bot match, the timedemo at 59.4 fps, SIGKILL). The suites
+  stage ran the software path alone ("the client drew in software, gpu@0 having no device",
+  73.7 s and 81.4 s, where 0.1.7's whole run took 513.7 s). The GPU stage's Firefox run is that
+  software path again (84.1 s), as the runner's `display` map gives Xonotic's GPU window to
+  Chrome alone.
