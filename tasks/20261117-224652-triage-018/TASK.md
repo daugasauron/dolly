@@ -1,6 +1,6 @@
 # The 0.1.8 integration's suites: tests that assumed what merged branches changed, and images that lost curl or /usr/bin/env
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 280
 - TAGS: bug,tests,0.1.8
 
@@ -102,3 +102,11 @@ Left for the round:
    waits for it now and fails at once on one it cannot decode (34d0e192b). With the supervisor
    posting each configuration 12 s late (`build/triage/late-configure.mjs`), the shell and a
    command start in both browsers; the Worker before the change left no prompt.
+
+## Closed (2026-11-20)
+
+Rounds 018m and 018n did what was left. 018m built every image on this task's seed and posix;
+018n (`282bc58c4`, `round.sh verdict` passed) ran every suite on them: the browser tests, the
+demos' 64 (17 more in its GPU stage), "dist registers every image of the catalog", and lean in
+Chromium (87.8 s) and Firefox (99.9 s). Its GPU stage passed godot-gpu, godot-airtime and
+godot-flyover-touch in both browsers, and Xonotic's window in Chrome. Logs: `work/evidence-2026-11-20/round-018n/`.

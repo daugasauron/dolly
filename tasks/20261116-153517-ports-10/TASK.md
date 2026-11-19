@@ -1,6 +1,6 @@
 # Lean, rustc and OCaml still work around 'a threaded program has no -rdynamic', which the core lifted on 2026-11-04: Lean's symbol table and plugin limits, rustc's serial codegen, OCaml's stated reason
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 140
 - TAGS: audit,ports,lean,rust,ocaml,dso,0.1.8
 
@@ -171,3 +171,11 @@ Lean's interpreter finds its symbols through `dlsym` with no generated table and
 test passes, or the README says what still fails and why; rustc runs upstream's threaded codegen
 and the rust and codex demo tests pass, with the build times recorded here; OCaml's script and
 README give upstream's reason for having no stub libraries.
+
+## Closed (2026-11-20)
+
+What was left is done. Round 018m built the other Rust images with the threaded rustc, photocraft
+and SpiderMonkey's chain among them (the whole catalog in one pass), and round 018n's compiler
+stage left the Rust seed at `8b779884…` ("DOLLY_RUST_SEED is .cache/dolly-rust-seed-8b779884….tar.gz").
+Its suites passed the rust, codex and 0 A.D. tests and its GPU stage photocraft's three, in
+Chromium and Firefox. Logs: `work/evidence-2026-11-20/round-018n/`.

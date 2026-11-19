@@ -1,6 +1,6 @@
 # The release round lives in work/: its tests and verdict are outside the repository
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: audit,repo,release,tests,0.1.8
 
@@ -106,3 +106,10 @@ hold, the fixed point, lint, suites, GPU tests), run by `docs/deployment.md`'s s
 0.1.8's round is that script, run unchanged. Its log lists every `*-browser.mjs` of `test/` and
 `demos/` as passed or skipped with a stated need. No round script for 0.1.8 is written in `work/`
 beyond a call of it.
+
+## Closed (2026-11-20)
+
+`dolly-round-018n` (`work/integrate-018`, 04:25 to 07:52, `bash scripts/round.sh` with the unit's
+lines alone) passed every stage on `282bc58c4`, and `bash scripts/round.sh verdict` printed "the
+round passed on 282bc58c4c9b4b145757c5052a85157858098313". Local main was fast-forwarded to it.
+Logs: `work/evidence-2026-11-20/round-018n/`.

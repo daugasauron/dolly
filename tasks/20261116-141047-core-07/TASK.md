@@ -1,6 +1,6 @@
 # DISPLAY names the terminal's display library in every image: upstream programs take it for an X server, and ports test for a colon
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 140
 - TAGS: audit,core,display,0.1.8
 
@@ -84,3 +84,11 @@ Unix system without X; `x11-desktop` keeps exporting `DISPLAY=:0` for its client
 In a rebuilt `default`, `DISPLAY` is unset and the terminal draws; on `x11-desktop`, Godot and
 PhotoCraft open X windows with the colon test gone; the display and default suites pass in
 Chromium and Firefox.
+
+## Closed (2026-11-20)
+
+Round 018n's GPU stage passed `demos/godot/test/godot-x11-browser.mjs` (Lantern Drift's window
+10 s and 8 s after the command, the editor's 51 s and 49 s, in Chrome and Firefox) and
+`demos/photocraft/test/photocraft-x11-browser.mjs` in both; its suites passed
+`test/display-browser.mjs`, `test/default-browser.mjs` and `test/terminal-browser.mjs` in both.
+Logs: `work/evidence-2026-11-20/round-018n/`.

@@ -1,6 +1,6 @@
 # The release's amy tests install packages one after another in one session, which hides missing dependencies
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 245
 - TAGS: audit,amy,tests,0.1.8
 
@@ -89,3 +89,9 @@ tests; the fresh session per package holds wherever the cases end up.
 The test, run on today's recipes, fails on `raylib` and `tar` alone, and passes once
 `20261116-141253-recipes-01` and `20261116-141504-recipes-02` are fixed; its time in each browser
 is recorded here.
+
+## Closed (2026-11-20)
+
+Round 018n (`282bc58c4`) passed both that were left: `demos/tools/test/amy-browser.mjs` in
+Firefox in 71.6 s (Chromium 57.0 s), where it had hung past 900 s, and `test/amy-browser.mjs`
+with its last assertion, no package that no case installs. Log: `work/evidence-2026-11-20/round-018n/``suites.log`.

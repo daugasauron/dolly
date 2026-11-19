@@ -1,6 +1,6 @@
 # Image builds keep 5.7 of the machine's 16 threads busy: two at a time, set by hand without a memory measurement
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 260
 - TAGS: audit,build,memory,0.1.8
 
@@ -142,3 +142,13 @@ time (`rebuild-reasons-1113-1117.txt`).
 
 A full catalog's wall time at the chosen count, with every image's peak memory, is in this task
 against 5 h 49 min at 2, and the round scripts use that count.
+
+## Closed (2026-11-20)
+
+Round 018m (`dolly-round-018m`, `5638246cf`) built the whole catalog at 4 in one pass,
+beside other workstreams' jobs: "building with 4 concurrent browsers", 224 images, `snapshots
+took 20360.4s` (5 h 39 min) against 5 h 49 min at 2. Every image's peak is in its log
+(`work/evidence-2026-11-20/round-018m/images.log`, `grep "peak memory"`): codex 18,823 MiB (12,832
+before rustc's threads, `tasks/20261116-153517-ports-10`), rust-build 8,635, photocraft 8,234,
+blender 7,881, lean 7,401, lean-meta 6,998; 166 of the 224 under 2 GiB; no OOM kill in the user
+journal. `scripts/round.sh` sets no count, so the rounds build at the builder's 4.
