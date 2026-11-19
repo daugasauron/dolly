@@ -9,53 +9,55 @@ From the build-time audit of 2026-11-16 (`work/audit-1116`). Evidence and script
 `record-diff.py`, `record-diff-016-017.txt`, `record-diff-python-data-build.txt`,
 `scratch-codex-build.log`).
 
-## State (2026-11-17, ws/speed)
+## State (2026-11-19): seven of eight build the same bytes again; zig-llvm's cache manifests left
 
-Fixed on `ws/speed`, as the smallest fix below says; the 0.1.8 round confirms what needs the new
-compiler or a heavy chain.
+What `ws/speed` fixed is in the 0.1.8 round (`work/integrate-018` at `8d666a4e4`): `cc` stages a
+link under the output's own name (`StagedLink`, `programs/compiler.cpp`, in the seed compiler
+`21685779…` whose fixed point the round's compiler stage found), `PYTHONHASHSEED=0` on
+godot-editor's SCons, `SOURCE_DATE_EPOCH` on spirv-wgsl's make, contourpy built in a named
+directory, and emacs's three lines before its dump.
 
-- `cc` stages a link under the output's own name, alone in a directory named by the hash
-  (`StagedLink`, `programs/compiler.cpp`), so wasm-ld names the module the same wherever the
-  output goes. Compiled natively against `DOLLY_LLVM_COMMIT`'s LLVMSupport
-  (`work/audit-1116-evidence/buildtime/fix-speed/stagedlink-check.cpp`): the link is staged as
-  `DIR/_multiarray_umath.cpython-314-dolly_0_wasm64.so` and the directory is gone after it. A
-  seed change: the round builds `llvm-cc` with it and pins it, and every image rebuilds; the
-  extension modules' name sections then read their own file names.
-- spirv-wgsl: `SOURCE_DATE_EPOCH=1793750790`, its pinned SPIRV-Tools commit's time (the archive's
-  entries, 2026-11-04T00:06:30Z), on the make that runs `update_build_version.py`
-  (`demos/godot/Dollyfile-spirv-wgsl`). Rebuilds spirv-wgsl and the Godot images. Built twice
-  in `work/speed` (`fix-speed/rebuild-twice.sh`, `rebuild-spirv-wgsl-*.log`): the same snapshot
-  both times, `c2006e47…`, whose library reads `v2026.4 unknown hash, 2026-11-04T00:06:30+00:00`.
-- godot-editor: `PYTHONHASHSEED=0` on its SCons build (`demos/godot/Dollyfile-godot-editor`);
-  `hash(b"godot docs")` in two `python3` processes: two values without it, one with it.
-  Rebuilds godot-editor and the Godot game images.
-- contourpy wrote pip's random source and build directories into `contourpy.util.build_config()`
-  (`_build_config.py`, 127 bytes): python-data-build unpacks its source and builds it from there
-  in a build directory it names (`--config-settings=build-dir=`, meson-python's); the
-  `install` helper takes an unpacked source where a row made one. Built in `work/speed`, its
-  `build_dir` is `/tmp/python-data/contourpy-1.4.0/build/lib/contourpy/util` and `source_dir`
-  `/tmp/python-data/contourpy-1.4.0/lib/contourpy/util`. Rebuilds python-data-build, numpy,
-  pandas, matplotlib, seaborn, python-dateutil and python-data. Built twice there with 0.1.7's
-  compiler (`fix-speed/compare-python-data-build.txt`): the 85 files that differ are the
-  extension modules (their name sections, which the new `cc` fixes) and the wheels' `RECORD`s
-  (those modules' digests); `_build_config.py` no longer differs.
-- emacs differed build to build: built twice in `work/speed` with unchanged inputs it gave three
-  digests with 0.1.7's, 18 bytes of the `.pdmp` in three places (`fix-speed/compare-emacs-*.txt`,
-  read with `extract-file.py`): `emacs-build-time`, the float `gc-elapsed` (0.39 s of collections)
-  and a `(TICKS . 1000000000)` cons beside `*scratch*`'s markers, `buffer-display-time`. Emacs is
-  configured `--disable-build-details`, upstream's switch for the first (`prepare-emacs.sh`);
-  the other two are dump-time state that upstream's loadup keeps, so `emacs-dolly.patch` adds
-  three lines before the dump: `gc-elapsed` nil (it is not counted while nil, and `init_alloc`
-  resets it at startup) and every buffer's `buffer-display-time` nil. Each step built twice
-  (`rebuild-emacs-*.log`): 18, 11, 4, then 0 bytes; the last two builds `f1cc9240…` both.
-  `demos/emacs/test/emacs-browser.mjs` passes in Chromium and Firefox. Rebuilds emacs and
-  gnu-emacs.
+`npm run image -- IMAGE --reproducible` builds the image's whole closure cold, twice (its server
+hides every packaged snapshot): 39 images for numpy, 45 for godot-editor, hours each, which a
+round has no time for. What the done-when asks of it is shown here another way, in
+`work/rc-release` (`build/rehearse/repro.sh` and `twice.sh`, their logs): each image built again
+on the round's own dependencies, its record moved aside so that it builds, in a fresh browser
+profile, its digest beside the round's build of the same inputs; or, where its recipe changed
+today, built twice.
 
-The round must confirm, after its catalog: `npm run image -- IMAGE --reproducible` for numpy,
-python-data-build, spirv-wgsl, emacs and godot-editor (the done-when), and
-`work/audit-1116-evidence/buildtime/fix-speed/rebuild-twice.sh` (the image alone, twice) for
-zig-llvm, voxel-flyover and lantern-drift, whose cache manifests and `.pck` files no one has
-built twice yet (`compare-builds.sh IMAGE` names what differs).
+- The same as the round's: numpy (`9e1e0faf…`), python-data-build (`5cad31a6…`: its 80
+  extension modules' name sections and the wheels' `RECORD`s, which differed with 0.1.7's `cc`,
+  no longer do), spirv-wgsl (`0c68e0b3…`) and godot-editor (`cbce9894…`, 18 min).
+- voxel-flyover and lantern-drift differed from the round's in their `.pck`: each packed scene's
+  `node_ids`, and the pack's digests of those scenes. Godot gives a node whose scene text names no
+  `unique_id` a random one when it packs the scene for export (`ResourceUID::create_id`,
+  `scene/resources/packed_scene.cpp:1100`); its editor writes one for each node it saves
+  (`resource_format_text.cpp:2047`). Every node of the three games' scenes has one now (1, 41 and
+  Airtime's 5, unique within each game). Built twice: voxel-flyover `1ae901fe…` both times,
+  lantern-drift `cc820668…`, airtime-godot `25d065e9…`. On those, `godot-projects-browser.mjs`
+  (the editor on Airtime's and Lantern Drift's projects, Ctrl+S saving a scene) and
+  `godot-flyover-browser.mjs` pass in Chrome and Firefox on a display of the tree's own.
+- emacs differed from the round's in one file, `eieio-datadebug.elc` (2,806 against 2,922 bytes:
+  whether `eieio--class` accessors are inlined with a type check). `make -j4 compile-main`
+  compiles it beside `eieio-core.el`, which it requires: it loads that library's bytecode or its
+  source, whichever exists at that moment. Upstream compiles such files first (`MAIN_FIRST`,
+  bug#25556), eieio-core not among them; the recipe compiles `emacs-lisp/eieio-core.elc` alone
+  first. Built twice: `3b224b81…` both times (a race two builds show absent, not a proof). On it,
+  gnu-emacs built and `demos/emacs/test/emacs-browser.mjs` passes in Chrome and Firefox.
+- zig-llvm differs from the round's in its three cache manifests (`/home/dolly/.cache/zig/h/`), in
+  every entry's time and in nothing else (2,203 entries): a manifest records the time of each
+  source it hashed, and in a build a base image's files carry their restore's time, new each
+  build, where a session's carry 1980-01-02, which the kernel gives every image file at boot
+  (`kernel/system-snapshot.c:106`). Tried, and not kept: the lib's files given that time before
+  the warmup leave one entry varying, the builtin module the first run writes
+  (`b/…/builtin.zig`); given it after, and the tools run again, Zig keeps the times it has; with
+  the manifests removed and the tools compiled again, one of the three is not made again, so a
+  session would compile that tool. Left: a build's restored base with the image time, as at boot
+  (the kernel, a seed change: after 0.1.8), or a step that writes the builtin module before the
+  warmup (a recipe, possible by Friday).
+
+What the round confirms: these images and their dependents (godot-voxel-flyover,
+godot-lantern-drift, godot-airtime, blender-flyover, gnu-emacs) built in it, and their tests.
 
 ## Found
 
