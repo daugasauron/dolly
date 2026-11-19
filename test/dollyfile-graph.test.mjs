@@ -92,6 +92,27 @@ test("lint refuses an ENTRY program that no recipe of the image declares", async
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
+test("lint refuses an image a person opens with the file exchange's modules and no upload or download", async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), "dolly-lint-exchange-"));
+  try {
+    const exchange = "REQUIRES HOST upload@0\nREQUIRES HOST download@0\n";
+    const core = "DOLLY 8\nPACKAGE core\nREQUIRES HOST runtime@0\nEXPORTS TOOL slop\nEXPORTS TOOL foreground\n";
+    // A package that declares the modules opens nowhere: transfer itself.
+    const transfer = `DOLLY 8\nPACKAGE transfer\nREQUIRES HOST runtime@0\n${exchange}EXPORTS TOOL upload\nEXPORTS TOOL download\n`;
+    await writeFile(resolve(directory, "Dollyfile-core"), core);
+    await writeFile(resolve(directory, "Dollyfile-transfer"), transfer);
+    await mkdir(resolve(directory, "demos"));
+    await writeFile(resolve(directory, "README.md"), ["default", "core", "transfer"].map(name => `- \`${name}\`: a fixture\n`).join(""));
+    const lint = async rows => {
+      await writeFile(resolve(directory, "Dollyfile"), `DOLLY 8\nAPPLICATION default\nREQUIRES HOST runtime@0\nREQUIRES HOST display@0\n${exchange}` +
+        `INSTALL ${siteReference("Dollyfile-core")} ${digest(core)}\n${rows}ENTRY /bin/foreground -i /bin/slop\n`);
+      return lintDollyfiles(directory);
+    };
+    await assert.rejects(lint(""), /declares upload@0 and download@0 and has no upload or download command: INSTALL \/Dollyfile-transfer$/);
+    await lint(`INSTALL ${siteReference("Dollyfile-transfer")} ${digest(transfer)}\n`);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
 test("pin updates write the digests into operands only, not matching paths or comments", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-pin-operands-"));
   try {

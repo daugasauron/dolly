@@ -9,7 +9,7 @@ everything else Rust in the catalog is built by the result with Cargo.
 - `rust-sdk`: the seed, staged: rustc, its standard library and Cargo as the previous round built them.
 - `rust-llvm`: the LLVM 22 libraries rustc links, built by Dolly's `c++`.
 - `rust-build`: rustc, the standard library and Cargo built from source, the kept rustc by the first one built here; the base of every Rust build.
-- `rust-tools`: interactive shell: `system` with the `rust` and `cargo` packages.
+- `rust-tools`: interactive shell: `system` with the `rust`, `cargo` and `transfer` packages.
 - `rust`: `rustc`, `rustdoc` and the Rust standard library, built inside Dolly, with the `cc` package it links through.
 - `cargo`: `cargo`, built inside Dolly, with the `rust` package it compiles with.
 - `vendor-crates`: `vendor-crates`, which writes the crates.io crates a Cargo project depends on to `vendor/` for `cargo build --offline`: crates.io's index sends no CORS headers a page can use.

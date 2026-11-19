@@ -24,6 +24,8 @@ INSTALL /demos/tools/Dollyfile-meson 1b12743f4d6bbb9cd96b6088dd4b61d4de8915f4df0
 INSTALL /demos/tools/Dollyfile-freetype fc54578a7e9ebbeac63b73e4ead0c1a7a49a8af8169520e5be3004bdc97ea0ce
 INSTALL /demos/tools/Dollyfile-pkgconf 26fb05d3178c786e45f1d9a6f399dcf78b78949f337e8da3c6591ce74352a7b0
 INSTALL /demos/tools/Dollyfile-libjpeg-turbo 1e61de3e2c532637c8d07ebbc820361b211b8421307492bf35398e96beb6a029
+# download and upload, which move files in and out of its shell (transfer).
+INSTALL /Dollyfile-transfer 06c7f7e4b4d53f6ef7d342f48293d1e61af6e9a330d4d857b597f26471ce8c07
 REQUIRES HEADER freetype2
 REQUIRES HEADER jpeglib
 REQUIRES HEADER zlib

@@ -73,6 +73,14 @@ export async function lintDollyfiles(projectDir) {
     }
     const problem = entryProblem(graph.root);
     if (problem) throw new Error(`${definition.filename}: ${problem}`);
+    // An image a person opens that declares the page's file exchange has its
+    // shell's commands for it.
+    const lacking = graph.root.entry?.length ? ["upload", "download"]
+      .filter(name => graph.root.hostRequirements.includes(`${name}@0`) && !declares(graph.root, `/bin/${name}`)) : [];
+    if (lacking.length) {
+      throw new Error(`${definition.filename}: declares ${lacking.map(name => `${name}@0`).join(" and ")} and has no ` +
+        `${lacking.join(" or ")} command: INSTALL /Dollyfile-transfer`);
+    }
   }
   await imageDescriptions(projectDir, definitions);
   return definitions.length;

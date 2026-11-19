@@ -32,7 +32,7 @@ INSTALL /Dollyfile-nena 67a37d644a04e3eddd12fe2e5d335dcf473b1b549337f0a9ce2f445f
 # Pi with its provider of the models it runs in the tab (pi-dolly and
 # dolly-llama), and the bundled Qwen3.5-2B, which Pi's settings here choose,
 # with a context its compaction keeps within.
-INSTALL /demos/local-llm/Dollyfile-pi-llm dd631826051bc38cf2363af5f56b437758e614a0b2004c1af6386c32b3051eeb
+INSTALL /demos/local-llm/Dollyfile-pi-llm f2dd60a6807b9dbd4801970d39034eae3d50c5cda3ce795bb5b14e1075dd7a9e
 INSTALL /demos/local-llm/Dollyfile-qwen3.5-2b 84cc08039903045351fee61e1985492d27b9f4f025d14917c6d31df320cdf6b2
 FILE /home/dolly/.pi/agent/settings.json
     {"enableInstallTelemetry":false,"images":{"autoResize":false},"shellPath":"/bin/slop","theme":"dolly","tuiMode":"regular","defaultProvider":"webgpu","defaultModel":"qwen3.5-2b","defaultThinkingLevel":"off","compaction":{"reserveTokens":4096,"keepRecentTokens":6144}}
