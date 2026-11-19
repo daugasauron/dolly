@@ -36,7 +36,7 @@ else
   [[ -z "${tagged}" || "${tagged}" == "${commit}" ]] || stop "tag ${version} names ${tagged}, not HEAD"
   [[ ! -e "${archive}/${version}" ]] || stop "${version} is already published; a fix is a new version"
   bash scripts/round.sh verdict || stop "no round passed on HEAD: scripts/round.sh"
-  source config/source-pins.sh
+  source config/source-pins.sh && source demos/rust/source-pins.sh && source demos/go/source-pins.sh
   # The seeds this release was built with, which its GitHub release carries (docs/sources.md):
   # each pinned to this release's asset, its pinned bytes in .cache.
   seeds=() seed_checks=""
