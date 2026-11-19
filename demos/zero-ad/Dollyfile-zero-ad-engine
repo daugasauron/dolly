@@ -13,7 +13,7 @@ REQUIRES HOST threads@0
 
 # Build-only: the 0 A.D. engine (pyrogenesis), built by the Makefiles premake
 # generates from upstream's scripts, with Dolly's c++.
-FROM /demos/zero-ad/Dollyfile-zero-ad-deps cf2e25ceadb170de32f5ac000055c7ff81d1660da6a2c87d5975e10326712889
+FROM /demos/zero-ad/Dollyfile-zero-ad-deps 845003e236d0126ad52914e2956e70d948247f6ba1a736eadca616717004de48
 INSTALL /demos/zero-ad/Dollyfile-premake 5d01b86d02850fb379ee91c53f6fbd5191cddf6cc33356083828cad6417ed88c
 INSTALL /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
 INSTALL /Dollyfile-libdolly-audio a4064796256e039400d5ea30faae6dfeccb9c09d62a8b6dd09daebc16fbf1f7f
@@ -38,7 +38,7 @@ SLOP gzip -dc /tmp/0ad.tar.gz | tar -xf - -C /
 SLOP patch -p1 -d /tmp/0ad -i /tmp/0ad-patches/engine.patch
 
 # SpiderMonkey: its headers, the two archives, its pkg-config file and licences.
-INSTALL /demos/zero-ad/Dollyfile-spidermonkey c836a4516b08edb70d0d63cbaa01214a23ebc306544363bfbdeb355d56094312
+INSTALL /demos/zero-ad/Dollyfile-spidermonkey 233736000470eae2a3deaaaf4714f50aa09e72588daf3bd197782ad676c00f9b
 
 # Probe for test/0ad-spidermonkey-browser.mjs.
 SLOP mkdir -p /usr/libexec/zero-ad

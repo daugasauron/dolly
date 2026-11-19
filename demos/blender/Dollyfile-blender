@@ -62,7 +62,7 @@ SLOP mkdir -p /usr/share/blender/5.3/scripts/modules
 SLOP CWD /tmp/numpy/root/usr/lib/python3.14/site-packages cp -R numpy numpy-2.5.4.dist-info /usr/share/blender/5.3/scripts/modules
 SLOP rm -rf /tmp/numpy
 
-SOURCE /dist/static/blender/blender.tar.gz 5ddc7af7a05d10d42c7ece68fc620dd160b85eaf1482f70a97cf066a57fe039a /tmp/blender.tar.gz
+SOURCE /dist/static/blender/blender.tar.gz 5e7a49c109b58004f1361b6c88882114e4e0694842d68f3a9270733d42d03571 /tmp/blender.tar.gz
 SLOP gzip -dc /tmp/blender.tar.gz | tar -xf - -C /
 SLOP rm /tmp/blender.tar.gz
 SLOP CWD /tmp/blender/source patch -p1 -i /tmp/blender/blender-dolly.patch

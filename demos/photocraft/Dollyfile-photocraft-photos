@@ -14,9 +14,9 @@ REQUIRES HOST sockets@0
 # PhotoCraft on the page with Hokusai's Great Wave open; quitting it leaves a shell where
 # photocraft opens pictures again and photocraft-cli works on them without a window.
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix c24b7cb8dfc057769bc7f644f68c2922514adb89272756d8ed793c0318d5f3d5
-INSTALL /Dollyfile-display cc98bc6edc0e5dea2bfb79e3095ea1fb6744e28282d28cec6c2e013cf6435992
-INSTALL /demos/photocraft/Dollyfile-photocraft 2166d31069f81303c93f2776fcca48426236ce4da9fb8856be1b72a03c25ab85
+INSTALL /Dollyfile-posix bd721815ffc3d3b9d887f57c3260749cb1db05ed2fe3f46a38b37e00ee66391b
+INSTALL /Dollyfile-display a03812d93e51c6338e43063f954fb9492ee0535f94a39e5c377d504a3d9eedb8
+INSTALL /demos/photocraft/Dollyfile-photocraft 7c6f48f6962334035040d28553fc145be65660394fb821a218a630ec10a3c6ea
 # PhotoCraft's own dialogs use upload@0 and download@0; the shell it leaves, where
 # photocraft-cli works on pictures without a window, has download and upload (transfer).
 INSTALL /Dollyfile-transfer 06c7f7e4b4d53f6ef7d342f48293d1e61af6e9a330d4d857b597f26471ce8c07

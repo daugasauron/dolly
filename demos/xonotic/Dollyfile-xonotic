@@ -9,12 +9,12 @@ REQUIRES HOST gpu@0
 REQUIRES HOST touch@0
 
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix c24b7cb8dfc057769bc7f644f68c2922514adb89272756d8ed793c0318d5f3d5
-INSTALL /Dollyfile-display cc98bc6edc0e5dea2bfb79e3095ea1fb6744e28282d28cec6c2e013cf6435992
-COPY /demos/xonotic/Dollyfile-xonotic-build 4a09d507c3d6490c8d44dbb40f1472e3b48e46613d3e31c64b404c779ca9f250 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
-INSTALL /demos/xonotic/Dollyfile-xonotic-shaders 6167c71a3f75bed4dd074fffebf367214440ff77060bff95cc150b94ec6e3ea8
-COPY /demos/xonotic/Dollyfile-xonotic-build 4a09d507c3d6490c8d44dbb40f1472e3b48e46613d3e31c64b404c779ca9f250 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
-COPY /demos/sdl2/Dollyfile-sdl2 d3938a1d871d053e813e0b039fb4bc209ab08cc461e1e80431180616b03b931e /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+INSTALL /Dollyfile-posix bd721815ffc3d3b9d887f57c3260749cb1db05ed2fe3f46a38b37e00ee66391b
+INSTALL /Dollyfile-display a03812d93e51c6338e43063f954fb9492ee0535f94a39e5c377d504a3d9eedb8
+COPY /demos/xonotic/Dollyfile-xonotic-build 9e365461f9e24fbeb94e709afee7b2f7ac1c9a5f268a6c870c2e5e1a905b21cc /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+INSTALL /demos/xonotic/Dollyfile-xonotic-shaders b1418f9d2311e38068c95e0393e84ef7844d3b0d4378bd4bf0ad4827601292b7
+COPY /demos/xonotic/Dollyfile-xonotic-build 9e365461f9e24fbeb94e709afee7b2f7ac1c9a5f268a6c870c2e5e1a905b21cc /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY /demos/sdl2/Dollyfile-sdl2 362af74479f5e038ccdd9f6a0640a02128628be5b3f4ad7851799a5388bded2c /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
 COPY /demos/tools/Dollyfile-libjpeg-turbo 537d4ec44d628942007432cc593d2dbe7e2afcbef65d0d4f94b4dd6dc06eb694 /usr/share/licenses/libjpeg-turbo /usr/share/licenses/libjpeg-turbo
 COPY /demos/tools/Dollyfile-freetype 0a09133179a4a88a258e34af41b7e89c650fdba41a7c12e0c8d3d1c125f9a026 /usr/share/licenses/freetype /usr/share/licenses/freetype

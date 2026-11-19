@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 # libadwaita package: Ghostty's own build.zig (ghostty-dolly.patch; its
 # packages fetched on the host, prepare-ghostty.sh).
 FROM /demos/gtk/Dollyfile-gtk-build d669480ef8c389e2b97ec595f10f773a19792330fa5d56870573915141b2714c
-USE /demos/zig/Dollyfile-zig-llvm 7066a07d429b832dbf13afe83899bf53bd2ed20cf026fa775d0872594e3d873b
+USE /demos/zig/Dollyfile-zig-llvm f3629ce2c84a41427a65caad88636216ed8a8d7c7190b4b7f95b47f2b184dfcf
 USE /demos/ghostty-gtk/Dollyfile-libadwaita abd97abd6a0191359088f6018ffee39f7ce196da1bcdf9eac3857a21f0a06f56
 USE /Dollyfile-libdolly-pty 2dc46dfff7c7fee8075069868c7bbc87077a3eb712bb1865f34264ac0315dbd9
 

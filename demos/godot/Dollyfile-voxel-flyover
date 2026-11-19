@@ -23,7 +23,7 @@ REQUIRES HOST clipboard@0
 FROM /Dollyfile-system 5eb06684bc61be6a1d9af98b8a740fba55b22ff4216f6cdb117c6ff6583104f0
 INSTALL /demos/godot/Dollyfile-godot 5639486ddecaa2d6b55a7f839c954fb15cfb257726008c57d8cec524ebdb0545
 USE /demos/godot/Dollyfile-godot-editor a7f17fce66eac16050a335c25a154ef9c69d05c4abe41cb9349ad6f59e793cd3
-USE /demos/blender/Dollyfile-blender d23f41fe9d81d7372757f886188ed10fdb534d7bb65572e3176c82b9570f9ad3
+USE /demos/blender/Dollyfile-blender be23552d97d4b0baa974f00ec445b3242c10eae0daa6b41896837adb6447a3e8
 
 REQUIRES TOOL blender
 REQUIRES TOOL cp
@@ -32,7 +32,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /dist/static/godot/voxel-flyover.tar 379c846db5adb86d8646d056f6d60755b50b72d5a55f28e9c9ef6e59765cdb16 /tmp/voxel-flyover.tar
+SOURCE /dist/static/godot/voxel-flyover.tar 9dc37e1d5dd327efea39b18d3bcff82a3226b8acd953e644626e419fe4ed894d /tmp/voxel-flyover.tar
 SLOP CWD / tar -xf /tmp/voxel-flyover.tar
 SLOP mkdir -p /usr/share/voxel-flyover
 SLOP cp -r /usr/src/voxel-flyover /usr/share/voxel-flyover/project

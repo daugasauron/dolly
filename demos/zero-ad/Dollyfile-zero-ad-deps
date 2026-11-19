@@ -23,7 +23,7 @@ INSTALL /demos/zero-ad/Dollyfile-libxml2 5727f1e93b73de7c87856998fc3f0fb7e81789c
 INSTALL /demos/zero-ad/Dollyfile-libsodium 311abd102bf75c5e07279ac598077f7f6c5f31bec99d77bcc377e1d5392ea154
 INSTALL /demos/zero-ad/Dollyfile-boost-headers 258964e39e39fc2e8e41dc74c5004c093df3c5191a7f8b47d033b252b0ba6b72
 INSTALL /demos/zero-ad/Dollyfile-icu 7b307bbe45c0685a9c6d498ed90521bf53ad2f6fcf78be053131957c98b120e0
-INSTALL /demos/sdl2/Dollyfile-sdl2 d2348c23eb7966bbf28440f94df9c615917889681f121f8ed3e3d19e05a97a06
+INSTALL /demos/sdl2/Dollyfile-sdl2 362af74479f5e038ccdd9f6a0640a02128628be5b3f4ad7851799a5388bded2c
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES TOOL cc

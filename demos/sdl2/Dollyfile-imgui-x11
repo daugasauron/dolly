@@ -8,7 +8,7 @@ REQUIRES HOST sockets@0
 # server DISPLAY names. ImGui and the example are the imgui package's
 # sources, unchanged.
 FROM /demos/x11/Dollyfile-x11-build 36d336b3007df32264e38238c807ca96aa03d73016dca9ce6ac466b137815544
-USE /demos/sdl2/Dollyfile-sdl2-x11 deb87d8c2e9304535fff33328e245bd09c76fc4a4b8017f01b978983b1631749
+USE /demos/sdl2/Dollyfile-sdl2-x11 c63f179f60c73dfd5da447d8834ab5fbc64c769d9ca44720817ee9c6cfaea7eb
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES TOOL c++

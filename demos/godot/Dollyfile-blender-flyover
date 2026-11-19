@@ -17,10 +17,10 @@ REQUIRES HOST threads@0
 # script that makes the flyover's flyer, with the flyer it made; Run Script
 # makes it anew and writes the file the flyover reads when it starts.
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
-INSTALL /Dollyfile-posix c24b7cb8dfc057769bc7f644f68c2922514adb89272756d8ed793c0318d5f3d5
-INSTALL /Dollyfile-display cc98bc6edc0e5dea2bfb79e3095ea1fb6744e28282d28cec6c2e013cf6435992
-INSTALL /demos/blender/Dollyfile-blender c7162bd0097e17bd6ceaa9644694d7aa5bfeca853f12834d00ce01a31bfd5dda
-INSTALL /demos/godot/Dollyfile-voxel-flyover e0aa94af43842bb08ca2fda1c752e7f449517b79c3b9fbf66d8f9d4accd56193
+INSTALL /Dollyfile-posix bd721815ffc3d3b9d887f57c3260749cb1db05ed2fe3f46a38b37e00ee66391b
+INSTALL /Dollyfile-display a03812d93e51c6338e43063f954fb9492ee0535f94a39e5c377d504a3d9eedb8
+INSTALL /demos/blender/Dollyfile-blender be23552d97d4b0baa974f00ec445b3242c10eae0daa6b41896837adb6447a3e8
+INSTALL /demos/godot/Dollyfile-voxel-flyover 22df8e8a621b7db15773d09d866fdd02d98df1ee9e1470e7a03b36bf1cfdeb59
 REQUIRES TOOL blender
 REQUIRES TOOL voxel-flyover
 

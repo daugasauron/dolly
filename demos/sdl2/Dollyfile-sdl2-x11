@@ -22,7 +22,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /dist/static/sdl2/source.tar 016b2aa2d0b4b1b3fef1b4c4654d8462456b82d6f87e39feea4c87ed340656bb /tmp/sdl2/source.tar
+SOURCE /dist/static/sdl2/source.tar ea3906975d76aff6d9489f4dbe345f8720cbba7036fc22f246cc3658ec77c7bc /tmp/sdl2/source.tar
 SLOP tar -xf /tmp/sdl2/source.tar -C /
 SLOP cmake -S /tmp/sdl2/source -B /tmp/sdl2/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \

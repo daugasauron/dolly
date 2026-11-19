@@ -12,7 +12,7 @@ USE /demos/llvm/Dollyfile-llvm22 d4674665ae5cabf1dd4cdc90251f2512d119906cc9de747
 # Zig links a program for this target with cc (zig-0.17.0-dolly-llvm.patch).
 INSTALL /Dollyfile-cc 3c50048026aec1c0c21ac6c0b74d93f53b5c0a3fa83b5c9930d86924a3b59eaa
 # find, for the times of the cache's sources (below).
-USE /Dollyfile-posix c24b7cb8dfc057769bc7f644f68c2922514adb89272756d8ed793c0318d5f3d5
+USE /Dollyfile-posix bd721815ffc3d3b9d887f57c3260749cb1db05ed2fe3f46a38b37e00ee66391b
 REQUIRES TOOL   c++
 REQUIRES TOOL   ar
 REQUIRES TOOL   find

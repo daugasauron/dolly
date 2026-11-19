@@ -18,7 +18,7 @@ REQUIRES HOST nena@0
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
 INSTALL /Dollyfile-posix bd721815ffc3d3b9d887f57c3260749cb1db05ed2fe3f46a38b37e00ee66391b
 INSTALL /Dollyfile-display a03812d93e51c6338e43063f954fb9492ee0535f94a39e5c377d504a3d9eedb8
-INSTALL /demos/x11/Dollyfile-xorg-server 7ff8b6a9777dfbeed170e4e269c3e5e22516dd2ee35201e79e99100842999af4
+INSTALL /demos/x11/Dollyfile-xorg-server 8c11ffc7d15af149b73ebf9167d1ee96b651f6123a81a0ff976c34a3b3fea35c
 INSTALL /demos/x11/Dollyfile-twm 7ea5cb5c41affb48cb5f5ca1d687ab1868bf6932947aff0280d677dc53cd3a36
 INSTALL /demos/x11/Dollyfile-xclock 3eac370368242bc5081b5db3cfdf9b744b3077eb9a03dc43782bc3d3c2b039f2
 INSTALL /demos/x11/Dollyfile-xeyes 521369cbd0b488814cfe0c39d9c7b4fbc0fbf1a997f5ffe9a3fbb4e12d69f4f3
@@ -27,7 +27,7 @@ INSTALL /demos/x11/Dollyfile-xterm 4aef5844b975dc6f9e102c0f6a35b97601bfbeb8cb0b9
 # enables the host modules they need.
 INSTALL /Dollyfile-amy 95b7ecb251d9d5c3d28eb8aaa63b6bd2a465fac35756bdf95b520884a61547e4
 INSTALL /Dollyfile-nena 67a37d644a04e3eddd12fe2e5d335dcf473b1b549337f0a9ce2f445f00b91ad8
-INSTALL /demos/sdl2/Dollyfile-imgui-x11 e7d764369e0d4b71a158e86a51df984825da7b67f2c185e40e630a0fe121d953
+INSTALL /demos/sdl2/Dollyfile-imgui-x11 efcdeb402ff04d2142becce0e785316579d29541069c5ebb7cf34f1dd079bcfe
 
 # The server takes the display, the keyboard and the pointer until it ends
 # (kill $(cat /tmp/.X0-pid) in the terminal); its clients end with it, and

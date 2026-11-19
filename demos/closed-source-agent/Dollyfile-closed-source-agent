@@ -19,7 +19,7 @@ INSTALL /Dollyfile-amy 95b7ecb251d9d5c3d28eb8aaa63b6bd2a465fac35756bdf95b520884a
 INSTALL /demos/javascript/Dollyfile-janis-install 49ac0a17d652e8a1f249b399354ca4ad55b19df09397ccc28328406013cf4cb4
 INSTALL /demos/closed-source-agent/Dollyfile-secretenv 5486fdd9ea56dc2548493724774e9f6eeffe67b07019ee6aceadd654a9b1a551
 INSTALL /demos/closed-source-agent/Dollyfile-anykey 77b27f70bc88545d47fd11a17929eb41f89dce1f06c16a1dffaf88a484cfddaf
-INSTALL /demos/rust/Dollyfile-ripgrep 881918e854c63b992314cdeeb362cccdc618fc2004b4663c97f24c806f2231a7
+INSTALL /demos/rust/Dollyfile-ripgrep f1645cc725226a27bf8936a4bfa214c7a047f7d0d2686cb4c2a66fc348e33b1d
 # download and upload, which move files in and out of the agent's workspace (transfer).
 INSTALL /Dollyfile-transfer 06c7f7e4b4d53f6ef7d342f48293d1e61af6e9a330d4d857b597f26471ce8c07
 REQUIRES TOOL foreground
