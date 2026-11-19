@@ -19,7 +19,8 @@ was `20261117-083224-ffgpu-resize`'s width.
 844 by 390 sideways and 390 by 844 upright, in both browsers. On the round's
 `godot-voxel-flyover` image with the fix, Firefox 159 on the NVIDIA adapter (Xvfb :160, the
 machine's load 15 to 20): `firefox sideways: high 207 pitch 29 zoom 0.45 touches 4; upright:
-touches 2`, `godot-flyover-touch: firefox passed`.
+touches 2`, `godot-flyover-touch: firefox passed`. Two more starts at 844 by 390 with `hasTouch`
+in new pages drew on, the 120th frame after 32 and 55 s.
 
 ## Found
 
