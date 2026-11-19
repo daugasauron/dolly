@@ -48,6 +48,10 @@ Protocol (`work/dh-evidence/bt-*.py`, this machine):
 
 ## Findings
 
+Everything from "A harness error" to "The fit beyond 1.5 deviations" below was measured with
+every stock trade filled a day after its decision, which decision 9 said until 2026-11-19. It is
+history. The current numbers are in the last section, "Without the fill lag".
+
 ### A harness error, found and fixed (2026-11-18 evening)
 
 The first 95 fits kept their last training step, and the law still moved from step to step
@@ -134,3 +138,111 @@ the out-of-the-money middles in band go from 85% to 98%; beyond, from 63% to 68%
 place from 0.9 to 0.5 half spreads under the mid. So the wings are thin partly from too short a
 fit and partly from the law. 4096 paths do not fit the GPU's memory beside the round. The
 backtest keeps 600 iterations for both periods; a longer fit is a new model to score.
+
+### Without the fill lag (2026-11-19): 2020-09 to 2022-12 again, both seeds
+
+The owner, 2026-11-19: "This makes no sense to me, can we just remove it?" (THEORY.md, decision
+9). The reference, `dh-fit`, the GUI and the score now trade a day's decision at that day's
+close (commit 5fd0123c3). The fits and scores under the lag are kept beside these
+(`build/dh-evidence/bt/lag`). 96 days, 600 iterations, both seeds fitted after that commit.
+
+Commands (this machine): `bash work/dh-evidence/bt-run.sh SEED 20200908 20221231 600 1`;
+`python -B work/dh-evidence/bt-score.py build/dh-evidence/bt/chains build/dh-evidence/bt/fits
+UNDERLYING.parquet build/dh-evidence/bt/rows-sSEED.csv SEED`; `bash work/dh-evidence/bt-all.sh
+2020-09-01 2022-12-31` (its output: `build/dh-evidence/bt/dev-nolag.txt`).
+
+| | Seed 1 | Seed 2 |
+|---|---|---|
+| Middles in band on fresh paths, all / out of the money | 76% / 62% | 75% / 62% |
+| Deviation of a hedged trade's P&L, every out-of-the-money contract both sides, bp: model / Black delta / unhedged | 58.7 / 56.8 / 216 | 58.9 / 56.8 / 216 |
+| The same over the single picks | 42.5 / 40.0 / 150 | 45.2 / 41.4 / 163 |
+| Single picks, the model's hedge less a Black delta, bp a day | -0.9 (t -0.9) | -0.5 (t -0.5) |
+| Single picks, the model's hedge, bp a day | +6.6 (t 3.8), 16% buys | +5.4 (t 2.3), 22% buys |
+| Sales picked less sales not picked | -0.1 (t -0.0) | -0.1 (t -0.0) |
+| Buys picked less buys not picked | +11.3 (t 3.9) | +8.6 (t 1.6) |
+| Richest fifth sold less cheapest bought, at the mid / at the quotes, deviations | +0.09 (t 2.0) / +0.03 (t 0.7) | +0.10 (t 2.8) / +0.04 (t 1.2) |
+| Best deal, all out-of-the-money contracts, bp a trade | +1.51 (t 2.9) on 85 days | +1.38 (t 2.9) on 84 days |
+| The same a day late / less 65 cents a contract | +0.82 (t 1.6) / +1.20 (t 2.3) | +0.81 (t 1.8) / +1.07 (t 2.2) |
+| Best deal among liquid contracts | +1.49 (t 2.7) | +1.35 (t 2.7) |
+| Best deal among liquid contracts within 1.5 deviations | +0.24 (t 0.2) on 54 days | -0.18 (t -0.2) on 57 days |
+| Short straddle, deviation by expiry, bp: the law's option hedge / Black delta / Black vega hedge | 44 to 90 / 130 to 188 / 108 to 200 | 44 to 89 / 130 to 188 / 108 to 200 |
+
+- **The model's stock hedge against a same-day Black delta**: it leaves 27% of the unhedged
+  deviation where the delta leaves 26% (3 to 4% more deviation, both seeds), and on the picks
+  half a basis point to one a day less, not distinguishable from none. With the lag gone the
+  hedger does what a Black delta at the entry's implied volatility does, no better.
+- **The best deal**: within 1.5 deviations, where the law fits, nothing (+0.24 and -0.18 bp, t
+  0.2). Beyond, the sale of wings: +1.4 to +1.5 bp a trade at a deviation of 4 to 5 (t 2.9),
+  half of it gone a day late, +1.1 to +1.2 after commission. The seeds agree on whether there is
+  a deal on 91% of the days; their holdings' cosine is 0.90 and their P&L correlate 0.83.
+  Without the lag it is smaller than under it (+1.9 to +2.1 then).
+- The straddle's option hedge holds: 44 to 90 bp against a Black vega hedge's 108 to 200.
+- The rules fixed above for 2023-01 to 2025-11 are kept as they are, with the lagged Black delta
+  dropped from them: there is none now.
+
+### 2023-01 to 2025-11, scored once (2026-11-20)
+
+118 trade days (2023-01-04 to 2025-10-27), both seeds, the model and the rules as fixed above;
+nothing was changed after these numbers were seen.
+
+Commands (this machine): `bash work/dh-evidence/bt-run.sh SEED 20230101 20251231 600 1`; the
+score as above; `bash work/dh-evidence/bt-all.sh 2023-01-01 2025-12-31` (its output:
+`build/dh-evidence/bt/test-nolag.txt`).
+
+| | Seed 1 | Seed 2 |
+|---|---|---|
+| Middles in band on fresh paths, all / out of the money | 66% / 51% | 66% / 50% |
+| Deviation of a hedged trade's P&L, every out-of-the-money contract both sides, bp: model / Black delta / unhedged | 81.6 / 75.8 / 177 | 82.4 / 75.8 / 177 |
+| The same over the single picks | 58.1 / 57.5 / 126 | 61.4 / 57.3 / 129 |
+| Single picks, the model's hedge less a Black delta, bp a day | +1.0 (t 1.3) | -0.1 (t -0.2) |
+| Single picks, the model's hedge, bp a day | -0.6 (t -0.2), 18% buys | -5.5 (t -1.5), 25% buys |
+| Sales picked less sales not picked | +5.5 (t 1.1) | +1.3 (t 0.4) |
+| Buys picked less buys not picked | -0.6 (t -0.2) | -3.2 (t -0.8) |
+| Richest fifth sold less cheapest bought, at the mid / at the quotes, deviations | -0.00 (t -0.1) / -0.06 (t -1.5) | -0.07 (t -1.2) / -0.12 (t -2.2) |
+| Best deal, all out-of-the-money contracts, bp a trade | +1.63 (t 3.0) on 112 days, worst -31 | -0.06 (t -0.1) on 115 days, worst -75 |
+| The same a day late / less 65 cents a contract | +1.13 (t 2.1) / +1.28 (t 2.4) | -0.74 (t -0.8) / -0.45 (t -0.5) |
+| Best deal among liquid contracts | +0.76 (t 0.7), worst -86 | -0.05 (t -0.0), worst -83 |
+| Best deal among liquid contracts within 1.5 deviations | -1.84 (t -1.3) on 85 days | -2.05 (t -1.6) on 90 days |
+| Short straddle, deviation by expiry, bp: the law's option hedge / Black delta / Black vega hedge | 41 to 100 / 149 to 204 / 123 to 140 | 47 to 99 / 149 to 204 / 123 to 140 |
+
+Seeds: they agree on whether there is a deal on 96% of the days and their holdings' cosine is
+0.89, but the realised P&L of the deal among all contracts correlate 0.33 (among the liquid
+ones 0.92).
+
+**The verdict.** The model does not find statistical arbitrage that holds up.
+
+- Where it is calibrated (within 1.5 deviations) its best deal lost in the second period (-1.8
+  and -2.1 bp a trade) after making nothing in the first.
+- The sale of wings, which paid in the first period, paid for one seed and not for the other in
+  the second, and among liquid contracts for neither; its worst trade was entered on 2025-03-31,
+  before the fall of April 2025 (-75 to -86 bp against a usual gain of 1 to 2). It is a premium
+  with a tail, and the result depends on the seed: by decision 20 it is not a result.
+- Single picks lost; the richest contracts sold against the cheapest lost at the quotes.
+- The hedger's stock hedge is no better than a Black delta at the entry's implied volatility:
+  8% more deviation over all out-of-the-money trades in this period (3 to 4% in the first).
+- **What does hold, in both periods and both seeds**: a short straddle hedged with the chain's
+  other contracts as the law chooses them leaves a third to a half of what a Black delta leaves
+  and less than a Black vega hedge in the next expiry's straddle, for 3 to 8 bp of spreads.
+
+### What was checked for harness errors
+
+- A fit reads its day's chain file and nothing else; a chain is built from that day's rows, the
+  calendar of trading days and the ex-dividend dates (known some weeks ahead; they choose which
+  expiries are in, not what is traded).
+- The last iterate was not settled in the first run and made every wing a sale: found from the
+  share of middles in band on fresh paths against the training's, fixed, all fits redone.
+- Entries a day late at the next close's quotes, against quotes that were stale at a close.
+- The three best-liked holdings left out, against a profit from a few bad quotes.
+- The same side's contracts not picked as the control, against the premium of a side.
+- Two seeds on every number.
+- Not checked: early exercise against a short put that went deep in the money (the trades are
+  out of the money at entry and held to expiry); the stock's real cost (half a basis point is
+  assumed); margin.
+
+### What is left
+
+- The law's wings (thin beyond 1.5 deviations; a longer fit helps within, little beyond).
+- The hedger against the delta: it is trained on the law's paths and the law's days are not
+  the real ones; it loses most at the longer expiries.
+- Task dh-40: which contract hedges two-week vega, built on the straddle result.
+
