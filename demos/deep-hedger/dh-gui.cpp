@@ -816,6 +816,98 @@ static void network_tab() {
   }
 }
 
+// ---- the Picks tab: what the model would trade on this chain, and what such trades did ----
+
+// The backtest's table, written by the backtest and shipped with the image: a line of tab-separated
+// cells is a row, a line starting with # is text.
+static const char *backtest_table = "/usr/share/deep-hedger/backtest.tsv";
+
+static void picks_tab() {
+  ImGui::TextWrapped("%s", "A pick: an out-of-the-money contract whose market quote is on the wrong side of what the model says the hedged trade is worth: sold at a bid over "
+                     "what manufacturing it costs on average, or bought at an ask under what holding it recovers. The gain is the model's mean over its paths, the "
+                     "deviation what the hedge leaves. The last column says whether the strike is within 1.5 deviations of the forward, where the model fits the quotes.");
+  struct Pick {
+    const Contract *contract;
+    bool sell, near;
+    double price, value, deviation;
+  };
+  std::vector<Pick> picks;
+  // Each expiry's deviation to its expiry under the law: its intervals' daily deviations over their days.
+  std::vector<double> to_expiry;
+  double variance = 0;
+  for (size_t e = 0; e < state.expiries.size(); e++) {
+    int days = state.expiries[e].business_days - (e ? state.expiries[e - 1].business_days : 0);
+    variance += days * state.expiries[e].days[1] * state.expiries[e].days[1];
+    to_expiry.push_back(sqrt(variance));
+  }
+  for (const Contract &c : state.contracts) {
+    const Expiry &expiry = state.expiries[c.expiry];
+    if (!c.fitted || c.call * (c.strike - expiry.forward) < 0) continue;
+    double unit = expiry.discount * expiry.forward, width = to_expiry[c.expiry];
+    bool near = width > 0 && fabs(log(c.strike / expiry.forward)) <= 1.5 * width;
+    if (c.bid > c.model[1] * unit) picks.push_back({&c, true, near, c.bid, c.model[1] * unit, c.model[4] * unit});
+    if (c.ask < c.model[0] * unit) picks.push_back({&c, false, near, c.ask, c.model[0] * unit, c.model[5] * unit});
+  }
+  auto gain = [](const Pick &pick) { return pick.sell ? pick.price - pick.value : pick.value - pick.price; };
+  std::sort(picks.begin(), picks.end(), [&](const Pick &a, const Pick &b) { return gain(a) / a.deviation > gain(b) / b.deviation; });
+  ImVec2 available = ImGui::GetContentRegionAvail();
+  if (state.contracts.empty() || !state.contracts[0].fitted) ImGui::TextUnformatted("The picks are shown once the fit has reported.");
+  else if (picks.empty()) ImGui::TextUnformatted("No pick: every out-of-the-money quote is on the right side of the model's value.");
+  else if (ImGui::BeginTable("picks", 9, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(0, available.y * 0.42f))) {
+    ImGui::TableSetupScrollFreeze(0, 1);
+    for (const char *name : {"expiry", "", "strike", "trade", "at", "model's value", "mean gain", "deviation", "within 1.5 deviations"}) ImGui::TableSetupColumn(name);
+    ImGui::TableHeadersRow();
+    for (const Pick &pick : picks) {
+      char date[32];
+      time_t day = state.expiries[pick.contract->expiry].day * 86400;
+      strftime(date, sizeof date, "%Y-%m-%d", gmtime(&day));
+      ImGui::TableNextRow();
+      ImGui::TableNextColumn(), ImGui::TextUnformatted(date);
+      ImGui::TableNextColumn(), ImGui::TextUnformatted(pick.contract->call > 0 ? "call" : "put");
+      ImGui::TableNextColumn(), ImGui::Text("%.5g", pick.contract->strike);
+      ImGui::TableNextColumn(), ImGui::TextUnformatted(pick.sell ? "sell at bid" : "buy at ask");
+      ImGui::TableNextColumn(), ImGui::Text("%.2f", pick.price);
+      ImGui::TableNextColumn(), ImGui::Text("%.3f", pick.value);
+      ImGui::TableNextColumn(), ImGui::TextColored(ImColor(ask_colour), "%+.3f", gain(pick));
+      ImGui::TableNextColumn(), ImGui::Text("%.3f", pick.deviation);
+      ImGui::TableNextColumn(), ImGui::TextUnformatted(pick.near ? "yes" : "no");
+    }
+    ImGui::EndTable();
+  }
+  static const std::string table = read_file(backtest_table);
+  std::vector<std::string> lines;
+  for (size_t at = 0, end; at < table.size(); at = end + 1) {
+    end = table.find('\n', at);
+    if (end == std::string::npos) end = table.size();
+    if (end > at) lines.push_back(table.substr(at, end - at));
+  }
+  bool open = false;
+  for (const std::string &line : lines) {
+    if (line[0] == '#') {
+      if (open) ImGui::EndTable(), open = false;
+      ImGui::TextWrapped("%s", line.c_str() + 2);
+      continue;
+    }
+    std::vector<std::string> cells;
+    for (size_t at = 0, end; at <= line.size(); at = end + 1) {
+      end = line.find('\t', at);
+      if (end == std::string::npos) end = line.size();
+      cells.push_back(line.substr(at, end - at));
+    }
+    if (!open) {
+      if (!ImGui::BeginTable("backtest", (int)cells.size(), ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) return;
+      open = true;
+      ImGui::TableSetupColumn(cells[0].c_str(), ImGuiTableColumnFlags_WidthStretch, 3);
+      for (size_t n = 1; n < cells.size(); n++) ImGui::TableSetupColumn(cells[n].c_str(), ImGuiTableColumnFlags_WidthStretch, 1);
+      ImGui::TableHeadersRow();
+      continue;
+    }
+    ImGui::TableNextRow();
+    for (const std::string &cell : cells) ImGui::TableNextColumn(), ImGui::TextWrapped("%s", cell.c_str());
+  }
+  if (open) ImGui::EndTable();
+}
+
 static void fit_tab() {
   if (ImGui::BeginTable("fit", 13, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
     for (const char *name : {"expiry", "days", "forward, quotes", "forward, model", "discount", "contracts", "in band", "market spread", "model spread", "hedge cost",
@@ -1063,6 +1155,7 @@ int main(int, char **) {
       if (ImGui::BeginTabItem("Quotes")) contracts_tab(), ImGui::EndTabItem();
       if (ImGui::BeginTabItem("Fit")) fit_tab(), ImGui::EndTabItem();
       if (ImGui::BeginTabItem("Network")) network_tab(), ImGui::EndTabItem();
+      if (ImGui::BeginTabItem("Picks")) picks_tab(), ImGui::EndTabItem();
       ImGui::EndTabBar();
     }
     ImGui::End();

@@ -14,7 +14,10 @@ INSTALL /v0.1.7/Dollyfile-core 0400b7c98241821542518a568100a4d8abf5e6642e2dbbc3b
 INSTALL /v0.1.7/Dollyfile-posix 1253bee9688e620f912bff5694ce133044a38d20392218a152f9da4d3a290e63
 INSTALL /v0.1.7/Dollyfile-display a6680af8ee3a48c935c74f701bdd3b31b15ea2aa9e7d98cd8776d9509c81fbd2
 INSTALL /v0.1.7/Dollyfile-curl 6307c6eac2d990657b961ba9ea05fc7f5c261d2f2c2c8662a9876b45ac210f3c
-INSTALL /v0.1.7/demos/deep-hedger/Dollyfile-deep-hedger-build 31f9aee5c1cd894fb3ce3ec7d9617383bc378c9d3b5bec65195fa4f3117b3e71
+INSTALL /v0.1.7/demos/deep-hedger/Dollyfile-deep-hedger-build a9c51f3ffdde26f089e487db2175786e24ea61ff993959108346381d6fbe3c87
+# What the model's picks did on AAPL's history, for dh-gui's Picks tab.
+SOURCE /v0.1.7/dist/static/deep-hedger/backtest.tsv 5c1482b5c71b4848adac242f946b0f6a34a3e1199bb2402abfc3349f616e3baa /usr/share/deep-hedger/backtest.tsv
+FOLDER /usr/share/deep-hedger
 FILE /etc/dolly/init.slop
     /usr/bin/dh-gui
     printf '\nDolly: dh-gui has ended; this is the recovery Slop shell. dh-gui starts it again.\n'
