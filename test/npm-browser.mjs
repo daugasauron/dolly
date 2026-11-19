@@ -53,6 +53,7 @@ import { tmpdir } from "node:os";
 import { extname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { chromium, firefox } from "playwright-core";
+import { registryHandler, registryPackages } from "../scripts/npm-registry.mjs";
 import { isolationHeaders, mimeTypes } from "../scripts/serve.mjs";
 import { DOLLY_VERSION as checkoutVersion } from "../page/version.mjs";
 
@@ -156,14 +157,7 @@ servers.push(refusal);
 try {
   // A registry that holds these packages alone, as npmjs would serve them: each at this
   // checkout's version, the latest, and at a prerelease of it.
-  const published = new Map(), tarballs = [];
-  for (const file of (await readdir(process.env.DOLLY_NPM_OFFLINE)).filter(name => name.endsWith(".tgz"))) {
-    const bytes = await readFile(join(process.env.DOLLY_NPM_OFFLINE, file));
-    const manifest = JSON.parse(execFileSync("tar", ["-xzOf", join(process.env.DOLLY_NPM_OFFLINE, file), "package/package.json"],
-      { encoding: "utf8" }));
-    tarballs.push({ manifest, file, bytes });
-    if (!manifest.version.includes("-rc.")) published.set(manifest.name, { manifest, file, bytes });
-  }
+  const packages = await registryPackages(process.env.DOLLY_NPM_OFFLINE), published = packages.latest;
   // The packages' own rule: the runtime depends on nothing, every other package on the runtime,
   // at its version; a Dolly package also on the packages it installs, and dolly-build on the
   // playwright-core it starts browsers with and the packages its init's recipe installs.
@@ -180,19 +174,7 @@ try {
         published.has(name) && version === manifest.version, `${manifest.name} depends on ${name}@${version}`);
     }
   }
-  const registry = await listen(createServer((request, response) => {
-    const path = decodeURIComponent(new URL(request.url, "http://x").pathname).slice(1);
-    const tarball = tarballs.find(({ file }) => path === `-/${file}`);
-    if (tarball) return response.writeHead(200, { "content-type": "application/octet-stream" }).end(tarball.bytes);
-    if (!published.has(path)) return response.writeHead(404).end();
-    response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({
-      name: path, "dist-tags": { latest: published.get(path).manifest.version },
-      versions: Object.fromEntries(tarballs.filter(({ manifest }) => manifest.name === path).map(({ manifest, file, bytes }) =>
-        [manifest.version, { ...manifest, dist: { tarball: `${origin(registry)}/-/${file}`,
-          shasum: createHash("sha1").update(bytes).digest("hex"),
-          integrity: `sha512-${createHash("sha512").update(bytes).digest("base64")}` } }])),
-    }));
-  }));
+  const registry = await listen(createServer(registryHandler(packages, () => origin(registry))));
   servers.push(registry);
   const guide = await readFile(resolve(projectDir, "docs/embedding.md"), "utf8");
   const blocks = language => [...guide.matchAll(new RegExp("```" + language + "\\n([\\s\\S]*?)```", "g"))].map(([, text]) => text);
