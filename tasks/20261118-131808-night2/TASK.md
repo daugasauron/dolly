@@ -111,6 +111,31 @@ the image (`build/planet/lookrepro.mjs`): the quick move turned the view 42 degr
 as a hand makes it (a small move, then 30 of ten pixels a frame apart) 60. The test moves the mouse
 so now.
 
+### 3. Clouds in every colour
+
+A cloud is now a ball that boils, turns and breathes, swirled through with hard bands of every
+colour (a sixth of the wheel each, a dark seam between two), lit from within and brightest at its
+rim in each band's own hue; five sparks, each its own colour, whirl round it; and a haze of its
+colours lies around it, faint by day and a glow by night (`wisp.gdshader`, `halo.gdshader`,
+`wisp.gdshaderinc`). Far off it is drawn no smaller than a two-hundredth of its distance, and no fog
+veils it. Tuned on stills by day and by night (`build/planet/out/crazy1-9` to `crazy5-21`): bright
+emission bloomed it white and the tone mapping washed it pale; a rim in the colour across the wheel
+added up to white with the band under it; the haze, added over a bright sky or over the cloud
+itself, whitened it. So the emission stays under what whitens, the rim takes each band's hue, the
+haze is faint by day and dim over the cloud.
+
+Frame times, the chain flight of the test (40 s from before a chain's first cloud, through its six)
+in Chrome on the NVIDIA card, two runs each, interleaved (`build/planet/measure3.sh`; the machine's
+load 10 to 19):
+
+| | frames a second | GPU ms | median / p95 / p99 ms |
+| --- | --- | --- | --- |
+| the clouds before | 43.1, 46.9 | 8.2, 8.3 | 19.6 / 48.2 / 56.2; 17.9 / 44.0 / 49.6 |
+| the new clouds | 46.2, 49.2 | 7.7, 8.6 | 17.7 / 44.5 / 53.7; 17.2 / 42.5 / 59.4 |
+
+No worse. Every run but the first had one frame of 527 to 708 ms, the flights before as well as
+after (the ground flight's too), so it is the machine's, not the clouds'.
+
 ## State (2026-11-19)
 
 1. The controls: `1e9e49edd`. Chrome: the flyover test's mouse checks passed (L gave the pointer

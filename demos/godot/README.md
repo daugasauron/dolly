@@ -320,11 +320,19 @@ next showed at its full size and counted nothing; a chain let lapse faded its ne
 counted nothing as it went; and on the frame the chart's anchor moved, high up, the way flown that
 frame was not tested.
 
-A cloud is a ball whose puffs boil, a pearly sheen at its rim that runs through the
-colours, a light at its heart in the colour of its place in the chain, and three small puffs
-that circle it; flown through, it goes. All of them are instances of one mesh, placed,
-grown and lit by its shader, which carries each onto the sphere, so they cost the renderer one
-thing to draw.
+A cloud is a ball that boils in lobes, turns and breathes, swirled through with hard bands of
+every colour, a sixth of the colour wheel each, with a dark seam between each two
+([`wisp.gdshader`](voxel-flyover/wisp.gdshader)). It is lit from within in its colours and
+brightest at its rim, each band in its own hue (two hues there would add up to white), and never
+so bright that the tone mapping whitens it; the environment's glow blooms it, and no fog veils it.
+Five sparks, each its own colour round the wheel, whirl around it on tilted rounds. A haze of its
+colours lies around it, faint by day (added to a bright sky it only whitens) and a glow by night
+([`halo.gdshader`](voxel-flyover/halo.gdshader)). Far off it is drawn no smaller than a
+two-hundredth of its distance, a point of colour that is seen; near, it is its own size, which its
+reach covers. Flown through, it goes. All of them are instances of one mesh, placed, grown and lit
+by its shader (what the two share is [`wisp.gdshaderinc`](voxel-flyover/wisp.gdshaderinc)), which
+carries each onto the sphere, so they cost the renderer two things to draw: the clouds and their
+haze.
 
 The board flies up to 420 units, over the low clouds and under the high layer. At sunrise and
 sunset the sky is in bands (fire at the horizon on the sun's side, rose over it, violet higher,

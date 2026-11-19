@@ -1958,8 +1958,9 @@ static func chain_boost(clouds: int) -> float:
 	return CLOUD_BOOST * pow(2.0, clampi(clouds, 1, CHAIN) - 1)
 
 
-## The clouds: one mesh for all of them (wisp.gdshader), a ball of radius 1 and three small puffs
-## that circle it, which the shader knows by their second UV; and the burst of light that leaves
+## The clouds: one mesh for all of them (wisp.gdshader), a ball of radius 1 and five sparks that
+## whirl around it, which the shader knows by their second UV, drawn again as a haze of light
+## around each (halo.gdshader); and the burst of light that leaves
 ## one as it is flown through.
 func build_wisps() -> void:
 	for at in 25:
@@ -1969,8 +1970,8 @@ func build_wisps() -> void:
 	ball.radial_segments = 32
 	ball.rings = 16
 	var puff := SphereMesh.new()
-	puff.radial_segments = 10
-	puff.rings = 5
+	puff.radial_segments = 8
+	puff.rings = 4
 	var arrays := Parts.arrays_of(ball)
 	var puffs := Parts.arrays_of(puff)
 	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX].duplicate()
@@ -1978,7 +1979,7 @@ func build_wisps() -> void:
 	var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX].duplicate()
 	var marks := PackedVector2Array()
 	marks.resize(vertices.size())
-	for small in 3:
+	for small in 5:
 		var first := vertices.size()
 		for vertex: Vector3 in puffs[Mesh.ARRAY_VERTEX]:
 			vertices.append(vertex)
@@ -2007,6 +2008,15 @@ func build_wisps() -> void:
 	drawn.custom_aabb = AABB(Vector3.ONE * -1e7, Vector3.ONE * 2e7)
 	drawn.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(drawn)
+	var haze := ShaderMaterial.new()
+	haze.shader = preload("res://halo.gdshader")
+	materials.append(haze)
+	var hazes := MultiMeshInstance3D.new()
+	hazes.multimesh = wisps
+	hazes.material_override = haze
+	hazes.custom_aabb = drawn.custom_aabb
+	hazes.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(hazes)
 	var flash := StandardMaterial3D.new()
 	flash.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	flash.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -2021,25 +2031,25 @@ func build_wisps() -> void:
 	add_child(burst)
 
 
-## How a cloud glows: [how bright, 0, the clock when the chain's time for it runs out]. Each chain
+## How a cloud glows: how bright (x), and the clock when the chain's time for it runs out (y). Each chain
 ## shows its next cloud: its first until that is flown through, and then the one after the last
 ## flown through. The next cloud of the chain the board is in beats, faster as the chain's time
 ## runs out, and the one after it shows faintly. The others are not there (none of them, 0): those
 ## flown through, and those to come. Every cloud that is there counts (counts).
-func wisp_glow(chain_at: Dictionary, index: int) -> Array:
+func wisp_glow(chain_at: Dictionary, index: int) -> Vector2:
 	if chain_at.clouds[index][1] == 0.0:
-		return [0.0, 0.0, 0.0]
+		return Vector2.ZERO
 	var going := elapsed < chain_ends and is_same(onward_chain, chain_at)
 	if index == chain_at.next:
-		return [2.6, 0.0, chain_ends] if going else [1.4, 0.0, 0.0]
+		return Vector2(2.6, chain_ends) if going else Vector2(1.4, 0.0)
 	if going and index == chain_at.next + 1:
-		return [0.45, 0.0, 0.0]
-	return [0.0, 0.0, 0.0]
+		return Vector2(0.45, 0.0)
+	return Vector2.ZERO
 
 
 ## Whether a cloud is there to be flown through (wisp_glow).
 func counts(chain_at: Dictionary, index: int) -> bool:
-	return index < CHAIN and wisp_glow(chain_at, index)[0] > 0.0
+	return index < CHAIN and wisp_glow(chain_at, index).x > 0.0
 
 
 ## Notes how a cloud glows from now on, for the shader, which takes it there by degrees from how
@@ -2050,10 +2060,9 @@ func set_wisp(chain_at: Dictionary, index: int) -> void:
 	var at: int = (chain_at.first + index) * 20
 	var glow := wisp_glow(chain_at, index)
 	laid[at + 15] = laid[at + 16]
-	laid[at + 16] = glow[0]
-	laid[at + 17] = glow[1]
+	laid[at + 16] = glow.x
 	laid[at + 18] = elapsed
-	laid[at + 19] = glow[2]
+	laid[at + 19] = glow.y
 
 
 ## Lays every cloud of `chains` out as an instance of `wisps`: its middle, as wide as it is; in
@@ -2070,7 +2079,7 @@ func lay_wisps() -> void:
 			var wide: float = chain_at.clouds[index][1]
 			var glow := wisp_glow(chain_at, index)
 			laid.append_array([wide, 0.0, 0.0, at.x, 0.0, wide, 0.0, at.y, 0.0, 0.0, wide, at.z,
-				index, 0.0, 0.0, glow[0], glow[0], glow[1], -100.0, glow[2]])
+				index, 0.0, 0.0, glow.x, glow.x, 0.0, -100.0, glow.y])
 	wisps.instance_count = laid.size() / 20
 	if not laid.is_empty():
 		wisps.buffer = laid
