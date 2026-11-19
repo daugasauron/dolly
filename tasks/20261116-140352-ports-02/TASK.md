@@ -1,6 +1,6 @@
 # Port patches carry hunks the core made unnecessary: LLVM's executable path in three builds, DarkPlaces's file lock, Make's amalgamation, OCaml's spawn, Codex's single thread, Lean's spawn signals, Emacs's host-made makefile
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: audit,ports,rust,mojo,zig,xonotic,ocaml,codex,lean,emacs,cleanup,0.1.8
 
@@ -60,6 +60,21 @@ Images the change rebuilds: every image (Make is in `system-build`); by item, be
 `rust-llvm`, `mojo-llvm` and what they build (1), `zig-llvm-build` and after (2), `xonotic-build`
 and `xonotic` (3), `ocaml` (5), `codex` (6), the four Lean images (7), `emacs` and `gnu-emacs` (8),
 `wine-build` and `wine` (`icall.c`).
+
+## Closed (2026-11-19)
+
+Round 018k (`integrate/0.1.8` `8d666a4e4`, `work/integrate-018/build/round/`) built every image
+without the hunks: `rust-llvm` with its check that `llvm-config --prefix`, run from `/tmp`,
+prints `/opt/rust-llvm`, `mojo-llvm`, `zig-llvm-build`, `codex`, `ocaml`, `xonotic-build`,
+`emacs`, `gnu-emacs`, `system-build` and the Lean chain. Its tests (`suites.log`, `gpu.log`),
+Chromium and Firefox: rust (101.7 s, 113.3 s), codex with its device sign-in, cancellation,
+token refresh and login CLI (30.6 s, 34.7 s), mojo (on SwiftShader and the hardware adapter in
+Chromium, in Firefox), zig-llvm (57.4 s each), ocaml and its fixpoint, lean (94.9 s, 126.7 s),
+emacs and its package, xonotic (73.7 s, 81.4 s). `make -j2 -l 1` in a session of that round's `system` runs both jobs and prints `make: cannot enforce
+load limits on this operating system`, in Chromium and Firefox (`make-load-browser.mjs`,
+`make-chromium.log`, `make-firefox.log` in `work/evidence-2026-11-19/rc-ports/`). `fix/rc-ports`
+rebuilt `rust-llvm` with threads (`tasks/20261116-153517-ports-10`); its `llvm-config` check
+passes there too.
 
 ## What
 
