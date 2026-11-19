@@ -73,12 +73,13 @@ compiler against `rust-llvm`'s libraries and keeps the second:
   crates ([`rustdoc.lock`](config/rustdoc.lock)). The recipe applies one patch
   more: rustdoc finds its sysroot by its symlinked name
   ([`rustc-sysroot.patch`](config/patches/rustc-sysroot.patch)).
-- `rustc` is linked as a host of procedural-macro libraries (`cc -rdynamic`),
-  without threads: its frontend and code generation run on one thread
-  ([`toolchain/rust.patch`](toolchain/rust.patch)), a choice for serial
-  semantics, which Cargo's parallel `rustc` processes make up for;
-  [`rust-linker.c`](rust-linker.c) adds the loader names Rust binds and what
-  std in a loaded library imports.
+- `rustc` is linked as a threaded host of procedural-macro libraries
+  (`cc -pthread -rdynamic`) and generates code on upstream's threads, against
+  an LLVM built with threads. No jobserver crosses a process here, so each
+  `rustc` takes one token for each processor Dolly reports
+  ([`toolchain/rust.patch`](toolchain/rust.patch)): threads@0 bounds a session's
+  threads. [`rust-linker.c`](rust-linker.c) adds the loader names Rust binds
+  and what std in a loaded library imports.
 
 ## Sources for a Cargo build
 

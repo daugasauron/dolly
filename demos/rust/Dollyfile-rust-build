@@ -11,8 +11,8 @@ REQUIRES HOST threads@0
 # here from their pinned sources. The seed builds the first rustc; that one
 # builds the rustc kept. Every Rust program in the catalog is built by this
 # image's toolchain.
-FROM /demos/rust/Dollyfile-rust-sdk 942533f0584d1269bed952a5c5f178279c290c5a51af900f6b1da8f09ed7bb8f
-COPY /demos/rust/Dollyfile-rust-llvm 7f9f64a3c81787b98c1ca2e0b3d2dc71743dca6201f5b1dead412f9c8fb02ddb /opt/rust-llvm /opt/rust-llvm
+FROM /demos/rust/Dollyfile-rust-sdk 518c8d255b1c67910a954da9413c001ffb7088e95c372d42503d4c2a36cb70eb
+COPY /demos/rust/Dollyfile-rust-llvm 71d7877b5f3e482a9ee7756fbc9518ffe8a9131f2dc8db256de9ec916b2ca0e3 /opt/rust-llvm /opt/rust-llvm
 # patch, for the compiler's patch below.
 INSTALL /Dollyfile-git beec0dcd0aadae135004bdad2dc5ca42ae35cbf06eb67475d0c57e9185bd4f76
 # cmp, for the check that the second generation rebuilds the same library.
@@ -32,7 +32,7 @@ REQUIRES TOOL rm
 # rustc's and std's source as toolchain/prepare.sh prepared it, their locked
 # crates as Cargo's directory source, and the build's settings in
 # /tmp/rustc/.cargo/config.toml.
-SOURCE /dist/static/rust/rustc.tar.gz 29234737d1587e914e0a03634ed99591d1c8f26a275c7767e42e0867c960bd57 /tmp/rustc.tar.gz
+SOURCE /dist/static/rust/rustc.tar.gz 9bd9f3b84e55a5bc76f20d9c232a7bbb191bbcaaa897b00462329563f0b9b404 /tmp/rustc.tar.gz
 SLOP gzip -dc /tmp/rustc.tar.gz | tar -xf - -C /
 SLOP rm /tmp/rustc.tar.gz
 # rustdoc builds its sessions from the default options, whose sysroot the

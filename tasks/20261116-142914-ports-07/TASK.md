@@ -4,12 +4,13 @@
 - PRIORITY: 90
 - TAGS: audit,ports,rust,go,bootstrap,0.1.8
 
-## State (2026-11-17)
+## State (2026-11-19)
 
 The question of 2026-11-16 (should Rust's and Go's seeds be Dolly's own builds of the previous
 round, pinned and uploaded with the release as the seed's compiler is?) was answered yes by the
 integrator on 2026-11-17. Done on `ws/seeds` (on `integrate/0.1.8`, with the release scripts'
-half); open until the 0.1.8 rounds confirm the list at the end.
+half); the rounds reached the fixed point (the list at the end): open until the release
+carries it.
 
 - `demos/rust/pin-seed.mjs` archives `rust-build`'s `/opt/rust-sdk` (rustc and its library) with
   the `cargo` package's linked Cargo; `demos/go/pin-seed.mjs` the `go` package's ten commands
@@ -76,22 +77,20 @@ rebuild; never to merge), and on `ws/seeds` where a line says so:
   pins `docs/process-model.md` at `5a168570…`, which is `2c4cf752…` on `integrate/0.1.8` since
   `ws/seed`'s SIGUSR commit; `lint:dollyfiles` passes.
 
-What the 0.1.8 rounds must do:
+The 0.1.8 rounds:
 
-1. Copy `work/seeds/.cache/dolly-rust-seed-f2b73525….tar.gz` and `dolly-go-seed-d1aee893….tar.gz`
-   into the round tree's `.cache` (the pins name v0.1.7's release, which does not hold them).
-   If the process contract or a host module changes again before the round, staging stops
-   naming `node scripts/seed-archive.mjs restamp DOLLY_RUST_SEED` (and `DOLLY_GO_SEED`): run
-   them and commit the two `source-pins.sh`.
-2. `scripts/round.sh` from `seed`: the Rust and Go chains rebuild with the catalog (rust-build
-   about 66 min).
-3. Its compiler stage pins three new seeds (C's and Rust's linked with the new libc, Rust's with
-   `rust-llvm` rebuilt, Go's linker built from the new `zdolly.go`), commits them and fails as
-   not yet a fixed point; the round on them must leave all three pins unchanged, as the
-   proof's did.
-4. The release uploads that fixed point's `.cache/dolly-seed-compiler-*.tar`,
-   `dolly-rust-seed-*.tar.gz` and `dolly-go-seed-*.tar.gz`, pinned at `v0.1.8`, and runs the
-   three printed checks. A fresh checkout then builds `rust-build` and `go` from them: done.
+1. Done: the restamped seeds went into the rounds' `.cache`; the rounds of 2026-11-17, 11-18
+   (`da026de56`) and 11-19 02:34 (`292c72e3b`) pinned new seeds, each not yet a fixed point.
+2. Done: round 018k (`work/integrate-018`, `integrate/0.1.8` `8d666a4e4`, from `seed`) built
+   `rust-sdk` from Rust `70be9726…`, `go-sdk` from Go `fd1b1745…` and the whole catalog, and its
+   compiler stage pinned the C, Rust and Go seeds unchanged (`21685779…`, `70be9726…`,
+   `fd1b1745…`; `build/round/compiler.log`, "compiler passed"): the fixed point, pinned at
+   v0.1.8's release.
+3. Left: the release uploads that fixed point's three files from `.cache` and runs the
+   checklist's three printed checks; a fresh checkout's staging then takes them from the
+   release. If ports-10's threaded rustc (`tasks/20261116-153517-ports-10`) merges first, the
+   Rust seed changes once more: the next round pins it, and the round after must leave it
+   unchanged before the release uploads it.
 
 ## What
 

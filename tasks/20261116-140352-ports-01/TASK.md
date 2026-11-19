@@ -1,6 +1,6 @@
 # CPython's configure answers predate the libc: 16 os and signal functions Dolly has are missing from Python, and os.execvp exists but raises NameError
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 230
 - TAGS: audit,ports,python,0.1.8
 
@@ -100,6 +100,21 @@ Left:
   it in `ws/ports` passes every check of its recipe (`work/audit-1116-evidence/ports/fix-ports/`,
   `build-3.log`). So of the first bullet the round's rebuild confirms what installs python as a
   build tool and `functions.py` on the published package.
+
+## Closed (2026-11-19)
+
+Round 018k on `integrate/0.1.8` `8d666a4e4` (`work/integrate-018/build/round/`): its images stage
+built `python` from the pinned archive with every check of its recipe, and every image that
+installs it as a build tool (the LLVM chain, Rust, Mojo, Zig, Meson, SCons, Godot, X11,
+`spirv-wgsl`, SpiderMonkey, 0 A.D., the Python data packages); its compiler stage found the seed
+compiler `llvm-cc` gives unchanged. In its suites the python demo test passed in Chromium
+(72.7 s, on `default` 236.7 s) and Firefox (72.0 s, 265.7 s), and `python-data` with `openblas`
+and `numpy` in both (`suites.log`). `functions.py` on that round's `python` package, in a session
+of `system` with `curl` and `python` installed, prints `functions: all passed` in Chromium and
+Firefox: `os.execvp`, `execve`, `os.truncate`, `os.pipe2`, `os.posix_spawn`, `os.wait4`,
+`signal.pthread_sigmask` and `resource.getrusage` among them (`functions-browser.mjs`,
+`functions-chromium.log`, `functions-firefox.log` in `work/evidence-2026-11-19/rc-ports/`).
+`prepare-cpython.sh` has no `sed` on `pyconfig.h`.
 
 ## What
 

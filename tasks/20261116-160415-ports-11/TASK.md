@@ -1,6 +1,6 @@
 # 29 demo tests run in Chromium only; in Firefox the rust demo fails (rustc refused: the program's module was not provided)
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 180
 - TAGS: audit,ports,firefox,rust,wine,tests,0.1.8
 
@@ -77,6 +77,23 @@ The round confirms the rest: the demos suite (`npm run test:demos`) on its image
 with a Firefox line or the need that keeps it out; among them `xonotic` in Firefox and
 `pi-phone` in Chromium, which this tree could not run on its own builds. Images the change
 rebuilds: none (tests).
+
+## Closed (2026-11-19)
+
+Round 018k (`integrate/0.1.8` `8d666a4e4`, `work/integrate-018/build/round/`): its demos suite
+(`suites.log`) has a Firefox line for every one of its 73 test names with a Chromium line, but
+`amy tools` (below); the 29 of this task all have one: each passed in both browsers, `xonotic`
+(73.7 s, 81.4 s) and `rust` (101.7 s, 113.3 s) among them, but `classicube` and `pi-phone`,
+whose Firefox lines name the need (Chrome's DevTools input; no phone emulation in Firefox), and
+`wine`, which passed in Firefox (the `site` session included) and failed in Chromium at GIMP's
+save dialog (`wine-browser.mjs:351`, not a Firefox matter). `pi-local start screen` passed in
+both in the gpu stage (`gpu.log`). The rust demo passed in Firefox three times in a row again on
+`fix/rc-ports`'s threaded rustc (81.0, 80.7, 85.6 s). `amy tools` (a demo test added since,
+Blender's libraries) passed in Chromium and exceeded its 900 s in Firefox; run apart on the
+round's images it passed in Firefox in 108 s and 172 s, and a third run stopped when one of the
+first four sessions took over the 30 s `openImage` allows to boot; four boots at once took
+0.9 to 10.6 s in five rounds (`work/evidence-2026-11-19/rc-ports/firefox/`). That intermittent
+stall is not of this task.
 
 ## What
 
