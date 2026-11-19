@@ -51,6 +51,21 @@ The X workbench's server (xsdl) has no RandR resize: it keeps its size.
   Godot compiles its pipelines ahead for every surface and the variants it may need, on four
   threads. A fix wants the shaders compiled once, where the image is built (Godot's shader baker
   needs a RenderingDevice there: gpu@0 in builds), or fewer pipelines asked for at start.
+- The flyover's start on a quieter machine (`fix/rc-browser`, 2026-11-19, the 0.1.8 round's
+  `godot-voxel-flyover`, Xvfb :160 under the GPU lock, load 3 to 6; `build/start-probe.mjs`
+  there: the page loaded in a new context, the seconds to gpu@0's first frame and its 120th,
+  and how long its batches took, 3 starts each): Chrome 33 to 35 s (first frame 6.0 s, batches
+  19 to 20 s of it), Firefox 21 s (first frame 5.1 s, batches 6.6 s). Firefox on two loaded
+  cores (CPUs 6, 7, 14 and 15 beside two busy loops, load 16 to 24): 49 to 71 s (first frame 9
+  to 15 s, batches 11 to 15 s). A second and third start in the same Chrome were no faster than
+  the first: Chrome kept no compiled pipeline between them.
+- Tried and dropped: gpu@0's worker awaiting a pipeline only where a batch sets it, the rest
+  compiling on beside the next batches (their failures reported at the next WAIT). Chrome: 32 to
+  37 s, batches 17 to 19.5 s, as before: what Godot draws needs nearly all it makes, so the
+  browser's compiling stays in the way, and the contract kept its error at the batch that
+  makes the pipeline.
+- Next: the planet agent takes fewer pipelines at start; the shader baker at build time (gpu@0
+  in builds, which AGENTS.md's "the build's four" rules out) is the owner's to decide.
 
 Left: the round that builds the catalog on input@0's new digest, then Blender's window followed in
 both browsers; the flyover's start.
