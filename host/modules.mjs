@@ -69,9 +69,16 @@ function loadProviders(byName, values, seen = new Set()) {
 }
 
 async function createHost({ byName, owners, contracts, runtimes }, side, enabled,
-  { send, resources = {}, configuration = {} } = {}) {
+  { send: post, resources = {}, configuration = {} } = {}) {
   if (!["browser", "worker"].includes(side)) throw new TypeError("invalid host side");
   const selected = hostRequirements(enabled), instances = new Map(), reasons = new Map(), messages = new Map();
+  // A message goes after what a module would report of the page only at its next frame (display@0's
+  // canvas, which a ResizeObserver reports then): a command it starts reads the page as it was laid
+  // out when the message was sent.
+  const send = (message, transfers) => {
+    for (const instance of instances.values()) instance.beforeSend?.();
+    post(message, transfers);
+  };
   // The kernel is the one requested module that provides it; a module others
   // only depend on does not make it one.
   const kernels = selected.filter(value => runtimes.includes(value));
