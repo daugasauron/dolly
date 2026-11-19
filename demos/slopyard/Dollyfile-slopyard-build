@@ -17,8 +17,6 @@ FROM /demos/slopyard/Dollyfile-gamedev-sdk b6285480b8b39f296ab089965b422f19197cd
 INSTALL /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
 INSTALL /demos/javascript/Dollyfile-janis 2280ba6dd9200f9a82a1cecdf5f044d54625ab9b2de055147b24b55b96990647
 INSTALL /demos/slopyard/Dollyfile-lua5.5 9f548d22e91b47af94356a8687cd2579379e2a904dee607cb92f382a735c2b27
-# download and upload, which bring the game's changed sources in and its outputs out (transfer).
-INSTALL /Dollyfile-transfer 06c7f7e4b4d53f6ef7d342f48293d1e61af6e9a330d4d857b597f26471ce8c07
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make
