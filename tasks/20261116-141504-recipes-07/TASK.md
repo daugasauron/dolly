@@ -1,11 +1,30 @@
 # python ships libpython3.14.a, 13 MB of its 49 MB, which no recipe links and a session cannot link
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: audit,recipes,amy,python,0.1.8
 
 From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`).
+
+## Closed (2026-11-19)
+
+Decided: `libpython3.14.a` stays in `python`, and the Done-when's first half is withdrawn. Both
+reasons the task gave are gone: Blender links it (`demos/blender/Dollyfile-blender-deps`,
+`Dollyfile-blender`'s `PYTHON_LINKFLAGS`), and a session can link it, since `python` also holds what
+CPython's build makes and installs nowhere (`/usr/lib/python3.14/embed`: its expat and HACL
+archives, from `ws/packages`). A package of its own needs Python's build moved into a toolchain
+that both packages keep from; that split, as Debian's -dev, was proposed on 2026-11-04 and the
+owner declined it as too complex (`tasks/20261102-133353-owner-decisions`, Image size).
+
+Proved on `fix/rc-recipes`: `demos/python/test/python-browser.mjs`'s "python on default" now
+installs `sqlite bzip2 xz zlib curl libdolly-sockets` beside `python` in a `default` session and
+links and runs a C program that embeds Python (`Py_Initialize`, then imports sqlite3, hashlib,
+pyexpat, bz2, lzma and zlib and prints 42), with the link line `demos/python/README.md` now names:
+passed in Chromium (147.8 s for the session) and Firefox (149.6 s), with the python image's test
+(70.4 s, 43.2 s), on the 0.1.8 round's images (`integrate/0.1.8` at 8d666a4e4). The rest of the
+Done-when held in that round: `python-data-browser.mjs` passed in both browsers, and Godot, which
+scons builds, passed its tests.
 
 ## State (2026-11-17)
 
