@@ -101,7 +101,15 @@ to 221,052 units; the moon: two crossings, 78 units over its ground and 26 over 
 the morning at 39.1 frames a second with the machine's load at 19). The first run of step 1's
 test had failed at L: the pointer stayed held (L's race, above, `e1a01cb8c`); run by hand on the
 same image (`build/planet/lrepro.mjs`), L gave it back with and without Enter first, so the race
-is the timing's. Firefox and the touch tests: in this round, below when they are done.
+is the timing's. The touch test passed in Chrome (the stick climbed the board to 214 and turned it
+109 degrees, the second finger turned the view 97, the pinch zoomed to 0.45, the ring gave the board
+back upright) and in Firefox (210, 108, 86, 0.45). Firefox's flyover test held the heading at 143
+through the mouse's move, turned the board 57 degrees at D and raised the nose to 85, but the view
+had not turned: the test moved the mouse 300 pixels in 30 quick steps, which Firefox gave the game
+as fewer motions, the first of them the one after the capture that the game leaves. Run by hand on
+the image (`build/planet/lookrepro.mjs`): the quick move turned the view 42 degrees, the same move
+as a hand makes it (a small move, then 30 of ten pixels a frame apart) 60. The test moves the mouse
+so now.
 
 ## State (2026-11-19)
 

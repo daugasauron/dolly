@@ -54,7 +54,14 @@ for (const name of browsers) {
     await page.keyboard.press("Enter");
     await sleep(3000);
     await capture();
-    await page.mouse.move(x + 300, y, { steps: 30 });
+    // The first motion after a capture the game leaves (Firefox reports a jump there), and Firefox gives quick moves
+    // of the mouse as one motion: a small move first, then 30 of ten pixels, a frame apart, as a hand moves it.
+    await page.mouse.move(x + 2, y);
+    await sleep(300);
+    for (let step = 1; step <= 30; step++) {
+      await page.mouse.move(x + 2 + step * 10, y);
+      await sleep(16);
+    }
     await sleep(1000);
     await page.keyboard.press("l");
     await page.waitForFunction(() => document.pointerLockElement === null, null, { timeout: 10_000 });
@@ -75,8 +82,7 @@ for (const name of browsers) {
     const [, helm, heading, pitch] = flight.match(/^FLYOVER flown \d+ clouds \d+ score \d+ helm (\d) high -?\d+ heading (-?\d+) pitch (-?\d+) view -?\d+ -?\d+ speed \d+ zoom [\d.]+ touches \d+$/m) ?? [];
     const turned = (from, to) => ((to - from) % 360 + 540) % 360 - 180;
     // The view turns 0.0035 radians a pixel of the motion the page is given: 60 degrees for the 300 pixels, less in
-    // Firefox, which gives the moves (2026-11-18: 216 of 240) after a jump that the game leaves (320 and 115 pixels for
-    // the first move of 8). The heading the mouse leaves as it was.
+    // Firefox, which gave 216 of 240 pixels of moves on 2026-11-18. The heading the mouse leaves as it was.
     const taken = hands.find(change => change.pointer === "1"), freed = hands.slice(hands.indexOf(taken)).find(change => change.helm === "0");
     assert.ok(taken && freed && freed.view >= 40 && freed.view <= 65 && Math.abs(turned(taken.heading, freed.heading)) <= 2,
       `the mouse turns the view, not the heading: ${flight}`);
