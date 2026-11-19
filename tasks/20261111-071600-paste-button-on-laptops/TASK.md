@@ -16,11 +16,15 @@ and on 2026-11-17 at 21:00, on v0.1.7:
 > also the mouse position (clicks etc) after loading photocraft got distorted. I have a feeling
 > the mouse inaccuracy is related to teh Paste button showing.
 
-## State (2026-11-17)
+## State (2026-11-19)
 
-Fixed on `fix/paste-touch`, and for 0.1.8 on `fix/paste-touch-018` (integrate/0.1.8 with it
-ported: there gpu@0's box, which fits its canvas to the frame, takes the frame's cell). Left: the
-owner's laptop and phone.
+Fixed on `fix/paste-touch`, and for 0.1.8 on `fix/paste-touch-018`, merged into integrate/0.1.8
+(`9e21be650`; there gpu@0's box, which fits its canvas to the frame, takes the frame's cell). The
+0.1.8 round (018k, on 8d666a4e4) passed `test/touch-browser.mjs` in Chrome and Firefox (a coarse
+pointer, the Pixel 7, and no Paste on a laptop beside a fine pointer) and, in its GPU stage,
+`test/pointer-browser.mjs` in both (13 clicks on the pixels under them, on gpu@0's window and on
+display@0's). Left, and the owner's: their laptop, and their Mode1 phone (`pi-phone` over adb),
+which waits for the integrator to ask them.
 
 **Paste.** The rule of 2026-11-11 (`fix/npm-feedback`, in v0.1.6 and v0.1.7) showed Paste where
 `not (any-pointer: fine)` matches. That holds where the browser reports the touchpad beside the

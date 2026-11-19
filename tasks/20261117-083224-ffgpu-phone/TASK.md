@@ -1,8 +1,27 @@
 # Firefox: at a phone's size with a touchscreen a gpu@0 surface presents one frame and stops
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: gpu,firefox,browser,core,0.1.8
+
+## Closed 2026-11-19
+
+Not the phone's size, nor the touchscreen: Playwright 1.63 drives the installed Firefox through
+WebDriver BiDi, which sets a context's viewport, screen size and orientation and nothing for
+`hasTouch` (its BiDi context code sends no touch override; `test/touch-browser.mjs`'s task found a
+`hasTouch` page there reporting a fine pointer), so the page with one at 844 by 390 is the page
+without. A start that drew one frame and no more fits Godot's start stopping the runtime Worker
+(`tasks/20261117-122407-godot-firefox-start`: a thread's Worker made there, while others ended,
+waited for good), fixed on `fix/rc-browser` (216d093a8); the upright screen's resized surface
+was `20261117-083224-ffgpu-resize`'s width.
+
+`demos/godot/test/godot-flyover-touch-browser.mjs` now flies at a phone's sizes in Firefox too:
+844 by 390 sideways and 390 by 844 upright, in both browsers. On the round's
+`godot-voxel-flyover` image with the fix, Firefox 159 on the NVIDIA adapter (Xvfb :160, the
+machine's load 15 to 20): `firefox sideways: high 207 pitch 29 zoom 0.45 touches 4; upright:
+touches 2`, `godot-flyover-touch: firefox passed`.
+
+## Found
 
 Found on 2026-11-17 by the planet's touch test (`feature/planet`, task
 `20261116-223911-planet-day`, its probe `build/planet/ffprobe.mjs` in `work/planet`): in
