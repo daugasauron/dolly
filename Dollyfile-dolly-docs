@@ -8,7 +8,7 @@ REQUIRES HOST runtime@0
 SOURCE /docs/process-model.md 3ddc4cc580e6dd947dc4f124915b6a8fefa8c37f563357909b41f31dfa1a0456 /usr/share/doc/dolly/docs/process-model.md
 SOURCE /docs/browser-stack.md 175383a5395dc62708fe9e1374ed929f1cf2bd0b7ddd9f53b423de20b6dbe665 /usr/share/doc/dolly/docs/browser-stack.md
 SOURCE /docs/slop.md d49e5a151195ebb4b99c7ed0fac25343064a91f55d79c19df22137d14ff8b9a8 /usr/share/doc/dolly/docs/slop.md
-SOURCE /docs/display.md 086682d5de8cbfa753b6df783d4d09868995273a42e9418443d4013bbe4c5928 /usr/share/doc/dolly/docs/display.md
+SOURCE /docs/display.md 941ea71e5f7273895c232c674990176a2a87f43d72c53bfd83203b3bc2c20ee9 /usr/share/doc/dolly/docs/display.md
 SOURCE /docs/gpu.md 97a2983d1e0b380eada17e17201f854e973c88b8de4f5db8a6245b4b230b9bc6 /usr/share/doc/dolly/docs/gpu.md
 SOURCE /docs/audio.md 973cf72bbe2221a36a94fd6ac99956c1624f39f279f7c190d7d0a63e337ce26c /usr/share/doc/dolly/docs/audio.md
 SOURCE /docs/http.md 5b26637adfbb10a37c0a0c2c1599caa8e2b721b6da0dea3c4e6b661db515c619 /usr/share/doc/dolly/docs/http.md
@@ -32,7 +32,7 @@ SOURCE /host/microphone/dolly-microphone-0.wat 308f1b09702e2d7033e32500f3d8753f5
 SOURCE /host/nena/dolly-nena-0.wat 16ede7792fa857525f06c2b5834203e085c28e82b78b5e08f22be30c17f62c08 /usr/share/doc/dolly/host/nena/dolly-nena-0.wat
 SOURCE /host/packages/dolly-packages-0.wat d2ef60bf5a6ce28c9548bb3865df690015ea65d01bcfcf5683767ce74ad91d5f /usr/share/doc/dolly/host/packages/dolly-packages-0.wat
 SOURCE /host/clipboard/dolly-clipboard-0.wat 469c7eb570a0249c4287fc18108cad8f3f5bd276e42798d72d8bd4132f2eabd4 /usr/share/doc/dolly/host/clipboard/dolly-clipboard-0.wat
-SOURCE /host/input/dolly-input-0.wat 15209f808975fbb3cdde3dff14b445d1162964589be99503387dd2ad0d535534 /usr/share/doc/dolly/host/input/dolly-input-0.wat
+SOURCE /host/input/dolly-input-0.wat 54f6fe812dee5d9d6f77ed2bd516e341610783d26369f5c8c628ba609f2f8680 /usr/share/doc/dolly/host/input/dolly-input-0.wat
 SOURCE /host/display/dolly-display-0.wat 1deb4bbdc090abdc9bc300a1daab1e008ca140e922e86c7e53ec6cc164e3f9be /usr/share/doc/dolly/host/display/dolly-display-0.wat
 SOURCE /host/download/dolly-download-0.wat 6aacfaf743af4bc16ce3099e0068369370d5924c3783bd297039eec458498943 /usr/share/doc/dolly/host/download/dolly-download-0.wat
 SOURCE /host/html/dolly-html-0.wat 3d2227e25d3e2972973a8698511eb4114d4f664fe4a6425a673529feca0d50ba /usr/share/doc/dolly/host/html/dolly-html-0.wat

@@ -6,15 +6,15 @@ REQUIRES HOST runtime@0
 # builds with Bazel, the standard library and the package gpu it precompiles,
 # and what a program links against: mojo build NAME.mojo makes a Dolly
 # executable.
-FROM /demos/mojo/Dollyfile-mojo-llvm 5b33d98b2b94ede40089a6bee532a81a25172a10abbe80fc217f915024b53fc4
+FROM /demos/mojo/Dollyfile-mojo-llvm d24080a0e2a58d5665ab05d7b391654860590569348531a1637aba45daecf757
 # mojo build links what it compiles with the C toolchain.
 INSTALL /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
 INSTALL /Dollyfile-cc 3c50048026aec1c0c21ac6c0b74d93f53b5c0a3fa83b5c9930d86924a3b59eaa
 # {fmt}, which the compiler's log formats with, xxHash and OpenTelemetry's
 # headers; mojo-llvm brings Zstandard's package.
-USE /demos/tools/Dollyfile-fmt de962c9c55465cab32d8996d673d856e4d891832b9af300aa76446943a00a483
-USE /demos/mojo/Dollyfile-xxhash 22ce4754c6b40d811de320f5644f98e1ac301b1b9bd1b2ffcbe32ba3f851e508
-USE /demos/mojo/Dollyfile-opentelemetry-cpp d1ac8e24aeb5b0e805a5e4a5bd4af3c4bec1040db980077c657bb0c8ed221edb
+USE /demos/tools/Dollyfile-fmt 99497886647d758ab09efd99bb518614ce57c30e7ce15c144a3a13eaec825723
+USE /demos/mojo/Dollyfile-xxhash e6c0894c4beeca848ff3913723e56952dd79e6d2dd7652707f71a50f33a8f581
+USE /demos/mojo/Dollyfile-opentelemetry-cpp a0a949daddf02db45bdd1374e07e4dc6f8bbee2d610fb3428e62ab22c53ef9ae
 REQUIRES HEADER gpu
 REQUIRES LIB    dolly-gpu
 REQUIRES TOOL cmake

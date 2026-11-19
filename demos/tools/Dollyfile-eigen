@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # the commit Blender 5.3 pins, unchanged: its headers, installed by its CMake
 # project with its CMake package and pkg-config file, for programs the cc
 # package builds.
-FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+FROM /demos/cmake/Dollyfile-cmake-build ec172ae8a3b79bf8dcf9ea2b9c070699dcf05b337ea738e2b6657bb1d0fb7004
 REQUIRES HEADER libc
 REQUIRES TOOL cmake
 REQUIRES TOOL gzip

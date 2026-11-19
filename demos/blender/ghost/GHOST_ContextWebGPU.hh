@@ -65,6 +65,12 @@ class GHOST_ContextWebGPU : public GHOST_Context {
     r_height = height_;
     return width_ ? GHOST_kSuccess : GHOST_kFailure;
   }
+  /** The window's new size, which the backend's next frame takes. */
+  void setSize(uint32_t width, uint32_t height)
+  {
+    width_ = width;
+    height_ = height;
+  }
 
  private:
   uint32_t width_, height_;

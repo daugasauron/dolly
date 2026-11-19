@@ -79,6 +79,7 @@ class GHOST_SystemDolly : public GHOST_System {
   void readText(const dolly_input_event &event);
   void readPointer(const dolly_input_event &event);
   void readScroll(const dolly_input_event &event);
+  void resizePage(uint32_t width, uint32_t height);
   void setModifiers(uint32_t modifiers);
 
   bool background_;

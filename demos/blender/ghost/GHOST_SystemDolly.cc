@@ -562,6 +562,29 @@ void GHOST_SystemDolly::readEvent(const dolly_input_event &event)
       modifiers_ = 0;
       buttons_ = 0;
       break;
+    case DOLLY_INPUT_EVENT_SURFACE:
+      resizePage(uint32_t(event.x), uint32_t(event.y));
+      break;
+  }
+}
+
+/* The page's canvas changed size: every window is the page's size, as a desktop's maximized
+ * windows follow the screen. */
+void GHOST_SystemDolly::resizePage(uint32_t width, uint32_t height)
+{
+  width = std::min<uint32_t>(width, DOLLY_DISPLAY_MAX_WIDTH);
+  height = std::min<uint32_t>(height, DOLLY_DISPLAY_MAX_HEIGHT);
+  dolly_display_surface surface;
+  if ((width == screen_width_ && height == screen_height_) ||
+      dolly_display_set_size(display_, width, height, &surface) != 0)
+  {
+    return;
+  }
+  screen_width_ = surface.width;
+  screen_height_ = surface.height;
+  for (GHOST_WindowDolly *window : stack_) {
+    window->resize(screen_width_, screen_height_);
+    pushEvent(std::make_unique<GHOST_Event>(getMilliSeconds(), GHOST_kEventWindowSize, window));
   }
 }
 

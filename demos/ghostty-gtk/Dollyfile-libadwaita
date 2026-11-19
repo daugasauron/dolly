@@ -12,7 +12,7 @@ REQUIRES HOST threads@0
 # static link of both would hold twice: its build names its copies its own. A
 # program exports adw_get_resource and adw_stylesheet_get_resource, whose
 # constructors register its resources, so that wasm-ld keeps them.
-FROM /demos/gtk/Dollyfile-gtk-build d45afed0f2212ee5791bc1e1a4c21dc800e688dbeb22ea38072a9463ff1c5c56
+FROM /demos/gtk/Dollyfile-gtk-build d669480ef8c389e2b97ec595f10f773a19792330fa5d56870573915141b2714c
 REQUIRES TOOL meson
 REQUIRES TOOL mkdir
 REQUIRES TOOL cp

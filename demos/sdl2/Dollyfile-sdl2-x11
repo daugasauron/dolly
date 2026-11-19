@@ -12,8 +12,8 @@ REQUIRES HOST sockets@0
 # x11). No audio, threads or OpenGL, and no XFixes (clipboard tracking, pointer barriers): SDL
 # declares XFixesSelectSelectionInput to return Status, libXfixes returns
 # void, and WebAssembly traps on the call.
-FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
-INSTALL /demos/x11/Dollyfile-x11-libs 35717a8ff71126fc72d47fd6e4aa806e834865ad25f185db21013d98176ac100
+FROM /demos/cmake/Dollyfile-cmake-build ec172ae8a3b79bf8dcf9ea2b9c070699dcf05b337ea738e2b6657bb1d0fb7004
+INSTALL /demos/x11/Dollyfile-x11-libs 8b046f1893f2800aebb2bcfb1177bb5d57d4a895abc0cf200c9a8ab2e1b47827
 REQUIRES HEADER libc
 REQUIRES TOOL cmake
 REQUIRES TOOL make

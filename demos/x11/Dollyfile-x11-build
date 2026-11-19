@@ -10,8 +10,8 @@ REQUIRES HOST threads@0
 
 # Where X programs and libraries are built: tools-build with the x11-libs
 # package and Python.
-FROM /demos/tools/Dollyfile-tools-build 3c416d0813c5baabb63ce16ebbd9abda02d78c2f86dcb2bbb351a19ffcb32139
-INSTALL /demos/python/Dollyfile-python c39225e146dd9f27a77c5b8b534c4d3eec2246b777c435e766dd48495fa3a2c1
-INSTALL /demos/x11/Dollyfile-x11-libs 35717a8ff71126fc72d47fd6e4aa806e834865ad25f185db21013d98176ac100
+FROM /demos/tools/Dollyfile-tools-build f848aebbca736e17aa72bca3fb0387176bf8695f829e6c49d1664a4ed6b7868d
+INSTALL /demos/python/Dollyfile-python caf80d3cd27594e1ed0bc4bbd8d586359be411b6f5328e5d3fe89c4a6951576f
+INSTALL /demos/x11/Dollyfile-x11-libs 8b046f1893f2800aebb2bcfb1177bb5d57d4a895abc0cf200c9a8ab2e1b47827
 
 ENTRY /bin/foreground -i /bin/slop

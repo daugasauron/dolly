@@ -50,6 +50,15 @@ GHOST_Context *GHOST_WindowDolly::newDrawingContext(GHOST_TDrawingContextType ty
   return nullptr;
 }
 
+void GHOST_WindowDolly::resize(uint32_t width, uint32_t height)
+{
+  full_screen_width_ = width;
+  full_screen_height_ = height;
+  if (GHOST_ContextWebGPU *context = dynamic_cast<GHOST_ContextWebGPU *>(getContext())) {
+    context->setSize(width, height);
+  }
+}
+
 void GHOST_WindowDolly::getClientBounds(GHOST_Rect &bounds) const
 {
   bounds.l_ = 0;

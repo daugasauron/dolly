@@ -10,7 +10,8 @@
    surface's size, drawn by display@0 or by gpu@0, which a later layout of the page leaves as it
    is, as PhotoCraft's; after the first release it shows a button of touch@0, which brings the
    page's bar below the canvas. After RELEASES releases it prints where each press was, three
-   to a line as POINTERS X,Y X,Y X,Y, few lines for a terminal of few rows. */
+   to a line as POINTERS X,Y X,Y X,Y, few lines for a terminal of few rows, and the size the last
+   SURFACE record gave, as SURFACE WIDTH HEIGHT. */
 static void check(int ok, const char *what) {
   if (ok) return;
   printf("POINTER-FAILED %s\n", what);
@@ -56,14 +57,16 @@ int main(int argc, char **argv) {
     check(dolly_display_present(surface.generation, frame.buffer_index) == 0, "present");
   }
   const char *const bar[] = {"Bar"};
-  int presses = 0, x[64], y[64];
+  int presses = 0, x[64], y[64], width = 0, height = 0;
   for (int released = 0, releases = atoi(argv[2]); released < releases;) {
     dolly_input_event event;
-    if (dolly_input_next_event(input, &event, -1) != 1 || event.type != DOLLY_INPUT_EVENT_POINTER) continue;
+    if (dolly_input_next_event(input, &event, -1) != 1) continue;
+    if (event.type == DOLLY_INPUT_EVENT_SURFACE) width = event.x, height = event.y;
+    if (event.type != DOLLY_INPUT_EVENT_POINTER) continue;
     if (event.action == DOLLY_POINTER_ACTION_PRESS && presses < 64) x[presses] = event.x, y[presses++] = event.y;
     if (event.action == DOLLY_POINTER_ACTION_RELEASE && !released++) check(dolly_touch_buttons(touch, bar, 1) == 0, "a button");
   }
   for (int press = 0; press < presses; ++press) printf(press % 3 ? " %d,%d" : press ? "\nPOINTERS %d,%d" : "POINTERS %d,%d", x[press], y[press]);
-  puts("");
+  printf("\nSURFACE %d %d\n", width, height);
   return 0;
 }

@@ -8,10 +8,10 @@ REQUIRES HOST threads@0
 # package builds: its libraries, with its compressors over the libdeflate and
 # OpenJPH packages and Imath's half floats. Compiled with -pthread: its
 # call_once links only so, and a program links it so, on threads@0.
-FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
-INSTALL /demos/tools/Dollyfile-imath a3569353a9d737851791da0ca7fb197fe58a1728b627e30bc309c4833a564d3b
-INSTALL /demos/tools/Dollyfile-libdeflate 57184e752a130bd38e01721b82bb9d6cf6f0351a9f6bc03a8c95c208ed006679
-INSTALL /demos/tools/Dollyfile-openjph 5639b38b41ebd0a558129466f29c0ebb42464c72bcf0a05de70edfca86ef4e00
+FROM /demos/cmake/Dollyfile-cmake-build ec172ae8a3b79bf8dcf9ea2b9c070699dcf05b337ea738e2b6657bb1d0fb7004
+INSTALL /demos/tools/Dollyfile-imath 16ed3e4e2900195d8f2ea5c291c0069f1544bee6db0b91370f80d0fc4d5caf2c
+INSTALL /demos/tools/Dollyfile-libdeflate 13aae859136e625eee1642aa3d87f93739658130e49c61128c7d0c344b58b608
+INSTALL /demos/tools/Dollyfile-openjph 84f5dcf66f1e5177f662c3328ec4273348c9b3e8dae6b8aa2a6f7f4467005ffa
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES HEADER Imath

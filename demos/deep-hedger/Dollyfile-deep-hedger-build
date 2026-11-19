@@ -11,9 +11,9 @@ REQUIRES HOST gpu@0
 # the GPU of the image that runs it, and dh-gui, an ImGui program over SDL2.
 # The compilers and the libraries are linked in and needed by no one who
 # installs it.
-FROM /Dollyfile-system-tools 1606024fba5919c1fb6c0369ad86cc69f3ecf38099dff75bddb3eccb97da71e5
-USE /demos/sdl2/Dollyfile-imgui 1533b320e6514e9f794e60d3db730c3cce421853bb90cc26b8bba0874c414a94
-USE /demos/mojo/Dollyfile-mojo 781f0578f0adcbad585190d4e203549e50c4ef526333745419e85dd266d2e08c
+FROM /Dollyfile-system-tools 7dc08859cff6c590c9bf42278822be15b530cc9d18438481449469995c2bf8fe
+USE /demos/sdl2/Dollyfile-imgui 50b68fbe20dd7d84d73c3f3e4f2a1962f40d52be687fdaf4403b0abf3acd4cdf
+USE /demos/mojo/Dollyfile-mojo 7b253fabd4d9415410267736e57cd86bbe967edc2e8e669ecfa0386a861253ff
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES HEADER sdl2
@@ -42,7 +42,7 @@ FILE /usr/share/man/cat1/dh-gui.1
       dh-fit check CHAIN PATHS  its gradients against finite differences
     
     dh-fit needs gpu@0; curl fetches the chain through http@0.
-COPY /demos/sdl2/Dollyfile-sdl2 d3938a1d871d053e813e0b039fb4bc209ab08cc461e1e80431180616b03b931e /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
-COPY /demos/sdl2/Dollyfile-imgui 1533b320e6514e9f794e60d3db730c3cce421853bb90cc26b8bba0874c414a94 /usr/share/licenses/imgui /usr/share/licenses/imgui
-COPY /demos/mojo/Dollyfile-mojo 781f0578f0adcbad585190d4e203549e50c4ef526333745419e85dd266d2e08c /usr/share/licenses/mojo /usr/share/licenses/mojo
+COPY /demos/sdl2/Dollyfile-sdl2 d2348c23eb7966bbf28440f94df9c615917889681f121f8ed3e3d19e05a97a06 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+COPY /demos/sdl2/Dollyfile-imgui 50b68fbe20dd7d84d73c3f3e4f2a1962f40d52be687fdaf4403b0abf3acd4cdf /usr/share/licenses/imgui /usr/share/licenses/imgui
+COPY /demos/mojo/Dollyfile-mojo 7b253fabd4d9415410267736e57cd86bbe967edc2e8e669ecfa0386a861253ff /usr/share/licenses/mojo /usr/share/licenses/mojo
 SLOP rm -rf /tmp/deep-hedger

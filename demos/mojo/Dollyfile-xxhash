@@ -7,8 +7,8 @@ REQUIRES HOST runtime@0
 # them as sha256sum does, and libxxhash and its headers for programs the cc
 # package builds (the Mojo compiler's). Upstream's Makefile is for its x86
 # dispatch and shared library: the recipe compiles the sources it names.
-FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
-USE /Dollyfile-mandoc 483a559eb568966844e5ef06ca4b9fd848a5b7ae1ff12bdfd9605123c34dcfb9
+FROM /demos/cmake/Dollyfile-cmake-build ec172ae8a3b79bf8dcf9ea2b9c070699dcf05b337ea738e2b6657bb1d0fb7004
+USE /Dollyfile-mandoc dbd78781612d0a1e380901d92439cdfa17a919ed6b7f7c316152117382aabdfe
 REQUIRES HEADER libc
 REQUIRES TOOL ar
 REQUIRES TOOL cc

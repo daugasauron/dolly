@@ -3,7 +3,8 @@
 // (test/fixtures/pointer.c), each of the size the surface had when the program took it, as
 // PhotoCraft's is. After the first click the program's button brings the page's bar below the
 // canvas, and then the window grows narrower: a click lands on the pixel of the frame under it
-// before, at once after and a second after each change of the canvas's box.
+// before, at once after and a second after each change of the canvas's box, and the program
+// reads the canvas's new size (input@0's SURFACE records).
 //   node test/pointer-browser.mjs chromium|firefox
 import assert from "node:assert/strict";
 import { chromium } from "playwright-core";
@@ -59,8 +60,13 @@ try {
       await page.mouse.click(...point);
     };
     await click([0.5, 0.5]);
+    let canvas;
     for (const change of changes) {
       await change();
+      canvas = await page.evaluate(() => {
+        const box = document.querySelector("#display");
+        return `${Math.round(box.clientWidth * devicePixelRatio)} ${Math.round(box.clientHeight * devicePixelRatio)}`;
+      });
       for (const pause of [0, 1000]) {
         await page.waitForTimeout(pause);
         for (const fraction of [[0.5, 0.33], [0.1, 0.1], [0.9, 0.85]]) await click(fraction);
@@ -72,6 +78,8 @@ try {
     assert.equal(landed.length, expected.length, await screen());
     landed.forEach((pixel, index) => assert.ok(pixel.every((value, axis) => Math.abs(value - expected[index][axis]) <= 1),
       `${mode}: click ${index} landed on ${pixel}, shown at ${expected[index]}`));
+    // The program was told the canvas's size after the last change, in device pixels.
+    assert.match(await screen(), new RegExp(`^SURFACE ${canvas}$`, "m"), `${mode}: the program reads the canvas's size`);
     console.log(`pointer: ${name} ${mode}: ${landed.length} clicks on the pixels under them`);
   }
   for (const mode of ["gpu", "display"]) {

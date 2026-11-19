@@ -5,9 +5,9 @@ REQUIRES HOST runtime@0
 # FreeType from upstream's release archive, unchanged, built by its CMake
 # project, for programs the cc package builds, with the libpng, zlib and
 # Brotli it reads fonts with (Brotli's decoder for WOFF2).
-FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
-INSTALL /demos/tools/Dollyfile-libpng b30b694311392c7242c13b8d263d86fa14806f27657ed493bdf5d5a487850b6d
-INSTALL /demos/tools/Dollyfile-brotli c515a521e9dd408498fba9bbf9d262b7b625744f5b032b610190f683fbabd25e
+FROM /demos/cmake/Dollyfile-cmake-build ec172ae8a3b79bf8dcf9ea2b9c070699dcf05b337ea738e2b6657bb1d0fb7004
+INSTALL /demos/tools/Dollyfile-libpng 1819c51ce77b670220ddd0297212c2ce3c7575fda5712173cc65642656f194ac
+INSTALL /demos/tools/Dollyfile-brotli 0ca72e263c99afcd0a564f1ab0e79a1e334bb067a871561c42eb106e78053199
 REQUIRES HEADER libc
 REQUIRES HEADER brotli
 REQUIRES HEADER png

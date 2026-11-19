@@ -30,12 +30,12 @@ REQUIRES HOST threads@0
 #   extension modules linked so too: Blender's NumPy (below).
 # - Brotli for FreeType, which Blender puts on the link line only with its
 #   precompiled libraries.
-FROM /demos/blender/Dollyfile-blender-deps 9ad42ac72388394c12fe4b6e04b54f9cb062e1fc3c2afdc0789de7865c5e0425
-INSTALL /demos/python/Dollyfile-python c39225e146dd9f27a77c5b8b534c4d3eec2246b777c435e766dd48495fa3a2c1
-USE /demos/godot/Dollyfile-spirv-wgsl 4d95ade7ab7d86a6ba38e84d6ebf8fe523521175ef7cceb28b86758374905288
+FROM /demos/blender/Dollyfile-blender-deps abcb411dbd674d4c64c224f8ab18f422d84fe090dd5ea92d54406f3007f9d811
+INSTALL /demos/python/Dollyfile-python caf80d3cd27594e1ed0bc4bbd8d586359be411b6f5328e5d3fe89c4a6951576f
+USE /demos/godot/Dollyfile-spirv-wgsl 304bf70bcd809487bcb46bdca5da2d2461502104a2d7d509f2e82636140bb586
 USE /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
 USE /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
-USE /Dollyfile-libdolly-input b49e7c2e3af3ce6f77b321bf959634101ec8fa2fb62fa071e4acad8ecd3d42b3
+USE /Dollyfile-libdolly-input 22d9db2a107fd5721f70d9662921b2e3fd9432549056e9e27e0ee36e6a898c84
 USE /Dollyfile-libdolly-clipboard 99746a8bd9b9eb136098753ccc526ac94a14540e6d26082ae8748eb6e3fa08a6
 REQUIRES TOOL cmake
 REQUIRES TOOL make
@@ -49,7 +49,7 @@ REQUIRES TOOL mkdir
 # carry it: built as the numpy package's (demos/python) and linked with cc
 # --dolly-cast-emulation, into Blender's scripts/modules, which its Python
 # searches before python's site-packages, where the numpy package serves python.
-USE /demos/tools/Dollyfile-meson 1b12743f4d6bbb9cd96b6088dd4b61d4de8915f4df0a52414ae2177726dde8b9
+USE /demos/tools/Dollyfile-meson e388b70e271dd313d88f9ef1de369f9dde67e1598f77f56bb15fb89eaebb447f
 SOURCE /dist/static/python-data/numpy-2.5.4.tar.gz 9a94cf751c9ad8ebaa835bcd3d40dacf8534ad086b88c38029b65123c7999d2a /tmp/numpy/numpy-2.5.4.tar.gz
 SOURCE /dist/static/python-data/meson_python-0.22.1-py3-none-any.whl 258fde948cf45aab5df23fcc9e17a9050ee73d4e1002fe6cf86519f61c414778 /tmp/numpy/meson_python-0.22.1-py3-none-any.whl
 SOURCE /dist/static/python-data/cython-3.3.1-py3-none-any.whl 61abc7feedd20dac6c4ff7ab3a30e17136a067b242ab9253e2b4a6d9a72c2b61 /tmp/numpy/cython-3.3.1-py3-none-any.whl

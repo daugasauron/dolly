@@ -92,6 +92,8 @@ class GHOST_WindowDolly : public GHOST_Window {
     invalid_ = false;
     return invalid;
   }
+  /** The page's new size: the window and its drawing context take it. */
+  void resize(uint32_t width, uint32_t height);
   /** Only the window shown presents its frame. */
   GHOST_TSuccess swapBufferRelease() override;
 

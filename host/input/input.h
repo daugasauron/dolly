@@ -36,6 +36,9 @@ extern "C" {
 //   POINTER_PRESENCE  action 1 while the pointer is over the canvas, 0 after
 //   DROPPED  action: records lost since the page loaded. The ring was full
 //            here: let go of held keys and buttons
+//   SURFACE  x and y: the canvas's size in device pixels (its CSS size times
+//            the device's scale), at which a frame shows pixel for pixel;
+//            whenever the page resizes the canvas while the lease is held
 typedef struct {
   uint32_t type;
   uint32_t action;

@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 # nostd types (OPENTELEMETRY_STL_VERSION=2020), as the Mojo compiler takes its
 # headers. The archives and their CMake package and pkg-config files are in
 # /usr/lib/opentelemetry-cpp, the headers in /usr/include/opentelemetry.
-FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
+FROM /demos/cmake/Dollyfile-cmake-build ec172ae8a3b79bf8dcf9ea2b9c070699dcf05b337ea738e2b6657bb1d0fb7004
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES TOOL cmake

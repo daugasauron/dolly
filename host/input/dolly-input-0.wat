@@ -43,6 +43,7 @@
   (global (export "DOLLY_INPUT_EVENT_POINTER_CAPTURE") i32 (i32.const 9))
   (global (export "DOLLY_INPUT_EVENT_POINTER_PRESENCE") i32 (i32.const 10))
   (global (export "DOLLY_INPUT_EVENT_DROPPED") i32 (i32.const 11))
+  (global (export "DOLLY_INPUT_EVENT_SURFACE") i32 (i32.const 12))
   ;; A key record's action, a pointer record's action and a scroll record's
   ;; unit, as a browser WheelEvent's deltaMode numbers it.
   (global (export "DOLLY_KEY_ACTION_RELEASE") i32 (i32.const 0))

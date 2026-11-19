@@ -11,14 +11,14 @@ REQUIRES HOST threads@0
 # packages: its libraries and its programs (oiiotool, iinfo, iconvert, idiff, igrep, maketx,
 # testtex) with -pthread, on threads@0. No TBB, FreeType, video, camera raw,
 # HEIF, WebP, GIF, JPEG 2000 or OpenGL.
-FROM /demos/cmake/Dollyfile-cmake-build 2baf4bb61a256fbae4111b9adb7fc6438ee52f52d4c6dfb4e325c8245edaf0e7
-INSTALL /demos/tools/Dollyfile-openexr c1965396dd436bdf404514605d9b29c518c865b989b076e8d7451ffa6c81b27c
-INSTALL /demos/tools/Dollyfile-libtiff 7d9e63783c9c99e4e9a90184e546ec8b21eee2f926cdc9614a144f9d1d245bf3
-INSTALL /demos/tools/Dollyfile-libpng b30b694311392c7242c13b8d263d86fa14806f27657ed493bdf5d5a487850b6d
-INSTALL /demos/tools/Dollyfile-pugixml 8935115aed96c4d664514720d00d043c611482951d029c0eac320346ccf771ce
-INSTALL /demos/tools/Dollyfile-fmt de962c9c55465cab32d8996d673d856e4d891832b9af300aa76446943a00a483
-INSTALL /demos/tools/Dollyfile-opencolorio 168f390e67f7385c9c4e794e30fc74025ad82be8c1ed690b161bf46545094752
-USE /demos/tools/Dollyfile-robin-map c75b52aac6155bd0e357e8a325e7d68a5f43bc3574d8ce56748a27b1f05e2ddf
+FROM /demos/cmake/Dollyfile-cmake-build ec172ae8a3b79bf8dcf9ea2b9c070699dcf05b337ea738e2b6657bb1d0fb7004
+INSTALL /demos/tools/Dollyfile-openexr 2ff9d6d3cf79d6e87f5d23d831ef02c7564f7f5734ba9acb466a929d38221070
+INSTALL /demos/tools/Dollyfile-libtiff 4a75a029e6d17819b84a7c43811d8857bb35d0cbfbffa5eaec272e6e981f6001
+INSTALL /demos/tools/Dollyfile-libpng 1819c51ce77b670220ddd0297212c2ce3c7575fda5712173cc65642656f194ac
+INSTALL /demos/tools/Dollyfile-pugixml c8488c8597d5ef41a7dc3df59c23b7f0762549978a420ead0b452b517fd20bdb
+INSTALL /demos/tools/Dollyfile-fmt 99497886647d758ab09efd99bb518614ce57c30e7ce15c144a3a13eaec825723
+INSTALL /demos/tools/Dollyfile-opencolorio 360838ca8830eba5e8c3723a919f2f93e0be33e07482f639990733c010e5ef2f
+USE /demos/tools/Dollyfile-robin-map 0f4259b415ac58885804731a89a7c10f3220b68d0424f3a7f284f045a400ebb6
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES HEADER tsl

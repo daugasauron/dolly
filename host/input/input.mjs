@@ -216,6 +216,11 @@ export class InputTransport {
     return this.pushRecord({ type: A.DOLLY_INPUT_EVENT_POINTER_PRESENCE, action: inside ? 1 : 0 });
   }
 
+  // The canvas's size in device pixels, for the program holding the lease.
+  pushSurface(width, height) {
+    return !this.leased() || this.pushRecord({ type: A.DOLLY_INPUT_EVENT_SURFACE, x: width, y: height });
+  }
+
   inputIdle() {
     return Atomics.load(this.words, this.word + A.DOLLY_INPUT_WORD_EVENT_READ) ===
       Atomics.load(this.words, this.word + A.DOLLY_INPUT_WORD_EVENT_WRITE);
@@ -409,6 +414,15 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
   function pushPointerPresence(inside) {
     if (leased()) post({ type: "input-presence", inside });
   }
+
+  // The program holding the lease follows the canvas when the page resizes it,
+  // as a window follows its frame on a desktop.
+  function pushSurface() {
+    if (leased()) post({ type: "input-surface", width: Math.round(canvas.clientWidth * devicePixelRatio),
+      height: Math.round(canvas.clientHeight * devicePixelRatio) });
+  }
+  const surfaceObserver = new ResizeObserver(pushSurface);
+  surfaceObserver.observe(canvas);
   canvas.addEventListener("pointerenter", () => pushPointerPresence(true));
   canvas.addEventListener("pointerleave", () => pushPointerPresence(false));
   window.addEventListener("blur", () => {
@@ -659,6 +673,7 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
       started = false;
       endStaleCapture();
       watching.abort();
+      surfaceObserver.disconnect();
       bar.remove();
     },
   };
@@ -693,6 +708,7 @@ export function worker({ get, send }) {
       "input-focus": record(({ focused }) => transport.pushFocus(focused)),
       "input-capture": record(({ captured }) => transport.pushPointerCapture(captured)),
       "input-presence": record(({ inside }) => transport.pushPointerPresence(inside)),
+      "input-surface": record(({ width, height }) => transport.pushSurface(width, height)),
       // A command typed at the shell, resolving to the shell's status for it.
       // The page hears of the foreground the shell left before it hears the status.
       async "input-submit"(message) {
