@@ -153,6 +153,10 @@ its vertex modules 10.1 s to 7.5 s. The WGSL is the same as the upstream opaque 
 module, the same three modules fail as before (FSR's 16-bit path, the volumetric fog with
 image atomics, VRS with multiview: variants for native Vulkan features that Godot in Dolly does
 not pick), and no function takes a pointer outside the function and private address spaces.
+The new converter gives the same bytes run to run: three runs over the 1,012 modules (two at
+once on two cores, one earlier) gave every module the same WGSL, by length and FNV-1a 64. Its
+pass keeps only ordered sets of ids, for membership, and walks the functions in the module's
+order and the call tree in SPIRV-Tools' queue order.
 Tried and left: no inlining at all (19 s) fails
 48 modules whose arrays of textures a callee indexes; inlining only the calls that pass an
 element of such an array broke Tint on the shadows' samplers, which reach their texture through
