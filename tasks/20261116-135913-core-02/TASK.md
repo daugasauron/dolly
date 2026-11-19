@@ -1,6 +1,6 @@
 # snapshot@0 and build@0 are site code: host modules import site/, and 12 manifests do not name their files
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 230
 - TAGS: audit,core,host-modules,architecture,0.1.8
 
@@ -8,7 +8,15 @@ From the core audit of 2026-11-16 (`work/audit-1116`, source of `b09b1e243`). Re
 `20261112-074501-modules-modular` (the core naming modules); this is the other direction, a
 module reaching outside its directory.
 
-## State (2026-11-17): fixed on `fix/module-files` (`d4763c72d`, on main `b09b1e243`), not merged
+## Closed (2026-11-19)
+
+The fix below is in the 0.1.8 integration (`902f85636`). On `fix/rc-core` (from `8d666a4e4`):
+`manifest-files.mjs` prints no unnamed file and no import of `site/` from `host/`, only
+`page/`, `host/*.mjs` and the runtime's files, as `host/README.md` allows;
+`test/host-modules.test.mjs` passes (7/7). With the round `dolly-round-018k`'s images,
+session-save, session-offline, custom-session and host-compute pass in Chrome and Firefox.
+
+## Fix (2026-11-17), on `fix/module-files` (`d4763c72d`, on main `b09b1e243`)
 
 - Every manifest names every file of its directory but itself and `abi.mjs`: a `files` field
   (the JavaScript `host` and `processWorker` import, input's `ring.h`, `snapshot.h`, threads@0's
@@ -40,10 +48,6 @@ with `browser: "firefox"`; it ran with main's pins of the 13 recipes and 4 docum
 pins this branch changes, as round1113 built them). `test/npm-browser.mjs` was not run: the
 packager's code is unchanged and its runtime closure was compared instead. Logs and runners:
 `work/audit-1116-evidence/core/fix-core02/`.
-
-## State (2026-11-16)
-
-Found by reading and a script; nothing changed.
 
 ## Found
 

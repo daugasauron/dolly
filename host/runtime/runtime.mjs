@@ -116,8 +116,9 @@ export function browser({ ask, send }) {
 // A Worker the page makes for this one, which reaches it on the port the page
 // sends it first: in Firefox 159, new Worker() in a Worker whose other Workers
 // were ending waited for good, one launch in a few under load
-// (tasks/20261117-090000-dh-34); the page's never did. It has a Worker's
-// postMessage, terminate and events.
+// (tasks/20261117-090000-dh-34); the page's never did. A process's, a thread's, a module
+// holder and packages@0's are the page's. It has a Worker's postMessage,
+// terminate and events.
 function pageWorkers(send) {
   const workers = new Map();
   let last = 0;
@@ -235,6 +236,8 @@ export function worker({ send, runtimeBase, abi, service }) {
       },
     },
     setBuildInputs(blobs) { buildInputs = blobs; },
+    // A Worker the page makes, from a blob: URL (pageWorkers above).
+    pageWorker: workers.create,
     // Both follow their modules, which nena@0 may enable or disable while the
     // supervisor runs: undefined takes the provider or the module away.
     setThreadProvider(provider) {

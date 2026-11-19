@@ -7,14 +7,18 @@
 import { DOLLY_IMAGES, loadImages } from "../../page/images.mjs";
 import { loadPackagedSnapshotMetadata, packagedSystemSnapshot } from "../../page/packaged-snapshot.mjs";
 
-let chunks, admissions = 0;
+let chunks, admissions = 0, transport;
 const admitted = new Map();
+// The page makes this Worker (host/runtime/runtime.mjs pageWorkers): its asks
+// come, and its answers go, on the port the page sends first.
+const post = (message, transfer) => transport.postMessage(message, transfer);
+onmessage = ({ data }) => { transport = data.supervisor; transport.onmessage = answer; };
 
 // The limits of the rule by which the page's HTTP policy admits a GET of URL;
 // a refusal throws.
 const admit = url => new Promise((resolve, reject) => {
   admitted.set(++admissions, { resolve, reject });
-  postMessage({ admit: url.href, id: admissions });
+  post({ admit: url.href, id: admissions });
 });
 
 // Another directory's file, read as the broker reads one for the guest:
@@ -58,7 +62,7 @@ async function bounded(response, limit) {
   }
 }
 
-onmessage = async ({ data }) => {
+async function answer({ data }) {
   if (data.admitted !== undefined) {
     const { resolve, reject } = admitted.get(data.admitted);
     admitted.delete(data.admitted);
@@ -68,21 +72,21 @@ onmessage = async ({ data }) => {
     if (data.index) {
       const url = new URL("amy-index.txt", data.directory);
       const response = await (data.judged ? judgedFetch(url) : fetch(url, { credentials: "same-origin", redirect: "error" }));
-      if (!response.ok) return postMessage({ missing: true });
+      if (!response.ok) return post({ missing: true });
       const bytes = await bounded(response, data.index);
-      postMessage({ bytes }, bytes ? [bytes.buffer] : []);
+      post({ bytes }, bytes ? [bytes.buffer] : []);
     } else if (data.directory) {
       await loadImages(data.directory, data.judged ? judgedFetch : undefined);
       const definition = DOLLY_IMAGES.find(candidate => candidate.role === "package" && candidate.sha256 === data.sha256);
-      if (!definition) return postMessage({ missing: true });
+      if (!definition) return post({ missing: true });
       const metadata = await loadPackagedSnapshotMetadata(definition.image);
       chunks = await packagedSystemSnapshot(metadata);
-      postMessage({ done: false, size: metadata.byteLength });
+      post({ done: false, size: metadata.byteLength });
     } else {
       const { done, value } = await chunks.next();
-      postMessage({ done, value }, done ? [] : [value.buffer]);
+      post({ done, value }, done ? [] : [value.buffer]);
     }
   } catch (error) {
-    postMessage({ error: error.message });
+    post({ error: error.message });
   }
-};
+}

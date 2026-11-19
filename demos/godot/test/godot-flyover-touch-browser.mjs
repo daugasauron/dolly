@@ -2,12 +2,13 @@
 // names: Chrome on Vulkan with its own touch events (CDP), or the installed Firefox with the touch
 // PointerEvents its touchscreen sends a page. A phone's screen held sideways: a tap takes the
 // board; a finger's drag steers it as the mouse does, up the screen to raise its nose, and
-// the board climbs; two fingers moving apart zoom in. Then, in Chrome, the phone upright: a tap takes the board and the ring at the top right
+// the board climbs; two fingers moving apart zoom in. Then the phone upright: a tap takes the board and the ring at the top right
 // gives it back. No key is pressed but the Q that ends each flight, whose report says what the
 // fingers did (the game counts its touches: none is the page's pointer).
 // Usage: node demos/godot/test/godot-flyover-touch-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
-import { chromium, firefox } from "playwright-core";
+import { chromium } from "playwright-core";
+import { launchInstalledFirefox } from "../../../test/browser.mjs";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -16,7 +17,7 @@ for (const name of browsers) {
   assert.ok(["chromium", "firefox"].includes(name));
   const server = await startBrowserServer(new URL("../../..", import.meta.url).pathname, "godot-voxel-flyover");
   const browser = name === "firefox"
-    ? await firefox.launch({ channel: "moz-firefox", headless: false, firefoxUserPrefs: { "dom.webgpu.enabled": true } })
+    ? await launchInstalledFirefox()
     : await chromium.launch({ channel: "chrome", headless: false,
       args: ["--no-sandbox", "--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan", "--enable-features=Vulkan,VulkanFromANGLE",
         "--disable-vulkan-surface"] });
@@ -69,9 +70,7 @@ for (const name of browsers) {
 
     // Sideways: a finger drags a fifth of the screen's shorter side up, which raises the board's nose 31 degrees
     // (a drag across that side steers as the mouse does in 1,080 pixels), and the board climbs for eight seconds.
-    // A phone's screen in Chrome, a tablet's in Firefox, which at 844 by 390 with a touchscreen presents one frame of gpu@0 and
-    // no more (it draws at that size without one, and with one at 1600 by 900: found 2026-11-17, not looked into).
-    const sideways = await flight(name === "firefox" ? { width: 1180, height: 820 } : { width: 844, height: 390 }, async ({ fingers, at, unit, sleep, shot }) => {
+    const sideways = await flight({ width: 844, height: 390 }, async ({ fingers, at, unit, sleep, shot }) => {
       await sleep(3000);
       await fingers([at(0.5, 0.5)]);
       await fingers([]);
@@ -98,9 +97,8 @@ for (const name of browsers) {
     assert.ok(sideways.helm === 1 && sideways.high > 120 && sideways.pitch >= 15 && sideways.zoom < 0.95 && sideways.touches >= 4,
       `fingers fly the board on a phone held sideways: ${sideways.report}`);
 
-    // Upright (in Chrome: Firefox draws no frame once a surface of gpu@0 is sized again, which an upright screen needs): a tap
-    // takes the board, and the ring gives it back.
-    const upright = name === "firefox" ? { helm: 0, touches: 2, report: "" } : await flight({ width: 390, height: 844 }, async ({ fingers, at, unit, sleep, shot }) => {
+    // Upright: a tap takes the board, and the ring gives it back.
+    const upright = await flight({ width: 390, height: 844 }, async ({ fingers, at, unit, sleep, shot }) => {
       await sleep(3000);
       await fingers([at(0.5, 0.5)]);
       await fingers([]);

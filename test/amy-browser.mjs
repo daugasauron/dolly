@@ -239,6 +239,13 @@ await browserTest("amy another directory", { image: "default", server: { handle 
   const counted = await open({ policy: { maxRequests: 2, rules } }), before = requests("mirror");
   assert.equal(await counted.submit(`amy server ${server.origin}/mirror/ && amy install less`), 1);
   assert.ok(requests("mirror") - before <= 2);
+  // The image's own HTTP rows narrow the page's policy for these reads too: a
+  // recipe declaring only the index refuses the catalog the page admits.
+  const declaring = await open({ policy: { rules }, ...await composed([], [], { base: "default",
+    entry: "/bin/foreground -i /bin/slop /etc/dolly/init.slop", http: [`HTTP GET ${server.origin}/mirror/amy-index.txt`] }) });
+  const served = mirror.served.length;
+  await check(declaring)(`amy server ${server.origin}/mirror/ && amy list > /dev/null && ! amy install less 2> /tmp/refused && grep -q "policy does not admit" /tmp/refused`);
+  assert.deepEqual([...new Set(mirror.served.slice(served))], ["amy-index.txt"]);
 });
 
 // The core's packages in default sessions (test/cases/amy-*.json); a demo's are

@@ -464,7 +464,12 @@ export class DollyProcessSupervisor {
       // __dolly_dso_allocate) by name; dso@0 finds the others in the table.
       const byTable = exportFunctionsByTable(bytes, parsed, { has: name => name === "_start" || /^(__)?dolly_/.test(name) });
       const thunks = parsed.castEmulationParameters ? castThunkTargets(bytes, parsed) : undefined;
-      if (byTable) bytes = byTable.bytes;
+      if (byTable) {
+        // The copy is compiled (compileHeld takes it): the bytes read go now,
+        // not at this Worker's next collection, which Firefox makes seconds later.
+        bytes.buffer.transfer(0);
+        bytes = byTable.bytes;
+      }
       module = bytes.byteLength >= heldModuleBytes ? await compileHeld(bytes, this.pageWorker) : await WebAssembly.compile(bytes);
       processInterface = { imports: parsed.imports, exports: exportIndex(parsed.exports, byTable?.slots, thunks),
         castEmulationParameters: parsed.castEmulationParameters };

@@ -23,12 +23,17 @@ export function browser({ network, showStatus }) {
 }
 
 // The kernel's mailbox reports each request at the service tick.
-export function worker({ images, send, ask }) {
+export function worker({ images, send, ask, get }) {
   let transport;
+  // The packages Worker (worker.mjs), which the page makes from a blob: URL
+  // that imports it (runtime.mjs pageWorkers).
+  const workerUrl = URL.createObjectURL(new Blob([`import ${JSON.stringify(new URL("./worker.mjs", import.meta.url).href)};`],
+    { type: "text/javascript" }));
   return {
     start({ kernel, memory }) {
       transport = new PackagesTransport(memory.buffer, Number(kernel.dolly_packages_mailbox_address()), images,
-        () => send({ type: "packages-quota" }), url => ask({ type: "packages-admit", url: url.href }));
+        () => send({ type: "packages-quota" }), url => ask({ type: "packages-admit", url: url.href }),
+        () => get("runtime").pageWorker(workerUrl, { type: "module", name: "dolly-packages" }));
     },
     service() { transport?.service(); },
     dispose() { transport?.close(); },

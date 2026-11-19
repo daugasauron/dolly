@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 
 # Seven Kingdoms as rts-build compiled it, and its arena: rts-arena runs matches
 # between agents, rts-viewer shows one.
-FROM /demos/pi/Dollyfile-pi-runtime 0d39284b79332e8ced3a020561b8f16ef5d9f539ac696517e30967dedada76ca
+FROM /demos/pi/Dollyfile-pi-runtime 1c7aaf99a52c6d71c0b86e8fd678850857ac7943640133e43b697b15e38bd13a
 USE /demos/sdl2/Dollyfile-sdl2 d3938a1d871d053e813e0b039fb4bc209ab08cc461e1e80431180616b03b931e
 COPY /demos/rts/Dollyfile-rts-build 86981a57defc8625d6c2c111faedf48f969eb53feef7c26045d8141d32ea68ec /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
 COPY /demos/rts/Dollyfile-rts-build 86981a57defc8625d6c2c111faedf48f969eb53feef7c26045d8141d32ea68ec /usr/share/7kaa /usr/share/7kaa

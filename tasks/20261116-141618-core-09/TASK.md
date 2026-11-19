@@ -1,6 +1,6 @@
 # dolly-image-0.wat carries two items with nothing in them: an export no host calls and a parameter that must be 1
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 70
 - TAGS: audit,core,abi,cleanup,0.1.8
 
@@ -9,7 +9,17 @@ the kernel audit of 2026-11-01 (`tasks/20261101-074306-audit-kernel`, "two expor
 nothing": "Dropping both changes the image contract, an image input: a catalog round"); that task
 closed without a task for it, and the 0.1.6 and 0.1.7 catalog rounds passed without it.
 
-## State (2026-11-17)
+## Closed (2026-11-19)
+
+A seed change. It is in the 0.1.8 integration (`ff0ae4e7d`, ws/modules), and the round
+`dolly-round-018k` (`work/integrate-018`, `8d666a4e4`) built the runtime and the whole catalog
+on it (images passed 08:03, the compiler stage at its fixed point). `abi/dolly-image-0.wat` has
+neither item, and nothing outside `tasks/` names them. On `fix/rc-core` with that round's
+runtime and images: `test/image-browser.mjs` passes in Chrome (150 s) and Firefox (176 s),
+`test/host-compute-browser.mjs` in both. Donna's task `~/dev/donna/tasks/20261117-033130`
+lists the change for its host. The next round rebuilds the catalog on this runtime again.
+
+## Change (2026-11-17)
 
 Done on `ws/modules`: `abi/dolly-image-0.wat` has no `dolly_snapshot_format_version` (removed
 from `kernel/system-snapshot.c` and `.h`, `test/image-browser.mjs` and
@@ -21,10 +31,6 @@ runtime and the core's images rebuilt (43, image inputs `f3edb8bb…`), `test/im
 its builder with `resume_prepare`: the core suites' `workbench()`, `custom-session-browser.mjs`)
 and the build suites (`host-compute-browser.mjs`, `default-browser.mjs`'s
 composed builds) pass in Chromium and Firefox (logs `work/modules/build/modules-tests/e/`).
-Left: Donna's task for the image contract (`~/dev/donna/tasks`, outside this tree) is to be
-told by the integrator; the change is listed in `tasks/20261112-074501-modules-modular` (For
-Donna). The 0.1.8 round rebuilds the catalog.
-
 ## Found
 
 Of the 65 functions the kernel's contracts export (`abi/dolly-supervisor-0.wat`,

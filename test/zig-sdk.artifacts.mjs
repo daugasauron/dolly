@@ -35,6 +35,8 @@ test("default copies Ghostty runtime bytes without its compiler or development f
   }
   const environment = decodeSnapshotEnvironment(runtime.files.get("/etc/dolly/environment"));
   assert.equal(environment.get("DOLLY_DISPLAY_LIBRARY"), "/usr/lib/libdisplay.so");
+  // No X server: upstream programs read DISPLAY as one.
+  assert.equal(environment.has("DISPLAY"), false);
   assert.equal(environment.has("ZIG_LIB_DIR"), false);
 });
 
