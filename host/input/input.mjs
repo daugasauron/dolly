@@ -388,10 +388,12 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
       }
       return;
     }
-    // The interrupt key interrupts the foreground program where the terminal
-    // lets it; the Worker decides on the key it holds then, and otherwise
-    // writes the key.
-    post(interruptChord(event) ? { type: "input-interrupt-key", ...keyRecord(event), interrupt: controlCharacter(event) }
+    // Any control chord may be the interrupt key: the Worker decides on the
+    // key the terminal holds then, and otherwise writes the key. The page's
+    // copy lags a command just started, and a Ctrl+C written as input waits
+    // for a reader that may never come.
+    post(event.type === "keydown" && controlCharacter(event) !== 0
+      ? { type: "input-interrupt-key", ...keyRecord(event), interrupt: controlCharacter(event) }
       : { type: "input-key", ...keyRecord(event) });
     if (event.type === "keyup") heldKeys.delete(event.code);
     else heldKeys.set(event.code, {key:event.key,code:event.code,type:"keydown",repeat:false,
