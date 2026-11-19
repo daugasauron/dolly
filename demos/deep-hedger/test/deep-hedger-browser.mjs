@@ -135,6 +135,9 @@ try {
       const net = await run("awk '/^DH net/ { sizes[$3 $4] = NF - 4 } END { for (key in sizes) print \"net\", key, sizes[key] }' /tmp/dh/fit.out");
       assert.deepEqual(Object.fromEntries([...net.matchAll(/^net (\d\d) (\d+)$/gm)].map(match => [match[1], Number(match[2])])),
         { "00": 417, "01": 417, "02": 417, 10: 196, 11: 196, 12: 196, 20: 3, 21: 3, 22: 3 }, net);
+      // The Picks tab's table of the backtest is a file of the image.
+      const table = await run("awk 'END { print \"table rows\", NR }' /usr/share/deep-hedger/backtest.tsv");
+      assert.ok(Number(/^table rows (\d+)$/m.exec(table)?.[1]) > 5, table);
       // dh-fit check: the kernels' bids and asks beside the host's own ledger on the same
       // paths, and each gradient beside its central difference, its section's largest
       // gradients to a few percent; the same for the state's three numbers.

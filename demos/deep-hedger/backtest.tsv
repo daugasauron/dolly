@@ -1,0 +1,15 @@
+# The model on AAPL's history: weekly trade days, each day's model fitted from that day's chain alone, its trades entered at that day's bid or ask and carried to expiry on the closes that followed. Two seeds: where two numbers stand with a comma, seed 1 then seed 2; a single number is the two seeds' mean, a range runs over both. The rules were chosen on the first period and the second was scored once. THEORY.md, section 8.
+measure	2020-09 to 2022-12 (rules chosen here)	2023-01 to 2025-11 (scored once)
+trade days	96	118
+model's values inside the market's band, all contracts / out of the money	75% / 62%	66% / 50%
+risk left of an out-of-the-money trade, bp of the forward: the model's hedge / a Black-Scholes delta / unhedged	59 / 57 / 216	82 / 76 / 177
+best deal among contracts within 1.5 deviations of the forward, bp a trade	+0.24, -0.18	-1.84, -2.05
+best deal among all out-of-the-money contracts, bp a trade	+1.51, +1.38	+1.63, -0.06
+the same entered a day late	+0.82, +0.81	+1.13, -0.74
+the same less 65 cents a contract	+1.20, +1.07	+1.28, -0.45
+its worst trade	-7, -10	-31, -75
+single picks, bp a day	+6.6, +5.4	-0.6, -5.5
+short straddle, deviation of its result by expiry, bp: hedged with other contracts as the model chooses	44 to 90	41 to 100
+the same with a Black-Scholes delta alone	130 to 188	149 to 204
+the same with a Black-Scholes vega hedge in the next expiry	108 to 200	123 to 140
+# What it says: the picks did not hold up. Within 1.5 deviations, where the model fits the quotes, its best deal made nothing and then lost; beyond, it is the sale of far options, which paid until the fall of April 2025. The model's stock hedge is no better than a Black-Scholes delta. Hedging a straddle with other contracts as the model chooses them left less risk than the Black-Scholes hedges in both periods.

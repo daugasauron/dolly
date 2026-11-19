@@ -1,3 +1,3 @@
 [
-{"name": "Dolly's deep hedger", "use": "dh-fit.mojo and dh-gui.cpp of the deep-hedger demo", "licence": "MIT", "repository": "https://github.com/daugasauron/dolly", "sources": ["dist/static/deep-hedger/dh-fit.mojo", "dist/static/deep-hedger/dh-gui.cpp"]}
+{"name": "Dolly's deep hedger", "use": "dh-fit.mojo, dh-gui.cpp and the backtest's table of the deep-hedger demo", "licence": "MIT", "repository": "https://github.com/daugasauron/dolly", "sources": ["dist/static/deep-hedger/dh-fit.mojo", "dist/static/deep-hedger/dh-gui.cpp", "dist/static/deep-hedger/backtest.tsv"]}
 ]
