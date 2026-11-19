@@ -27,6 +27,15 @@
     },
     { "script": "amy install cc", "status": 0 },
     { "script": "amy install pkgconf", "status": 0 },
-    { "script": "printf '%s\\n' '#include <X11/fonts/fontstruct.h>' '#include <X11/fonts/libxfont2.h>' 'int main(void) {' '  xfont2_init_glyph_caching();' '  int first = xfont2_allocate_font_private_index();' '  int second = xfont2_allocate_font_private_index();' '  return xfont2_parse_glyph_caching_mode(\"all\") && second == first + 1 ? 0 : 1;' '}' > /tmp/amy-libxfont2.c && cc -D_XSERVER64 $(pkg-config --cflags xfont2) /tmp/amy-libxfont2.c $(pkg-config --libs xfont2) -o /tmp/amy-libxfont2 && /tmp/amy-libxfont2", "status": 0 }
+    { "script": "printf '%s\\n' '#include <X11/fonts/fontstruct.h>' '#include <X11/fonts/libxfont2.h>' 'int main(void) {' '  xfont2_init_glyph_caching();' '  int first = xfont2_allocate_font_private_index();' '  int second = xfont2_allocate_font_private_index();' '  return xfont2_parse_glyph_caching_mode(\"all\") && second == first + 1 ? 0 : 1;' '}' > /tmp/amy-libxfont2.c && cc -D_XSERVER64 $(pkg-config --cflags xfont2) /tmp/amy-libxfont2.c $(pkg-config --libs xfont2) -o /tmp/amy-libxfont2 && /tmp/amy-libxfont2", "status": 0 },
+    {
+      "fresh": true,
+      "why": "XKB's keymap file library, linked as its pkg-config file says: Xlib and the protocol headers its header uses come with it.",
+      "script": "amy install libxkbfile",
+      "status": 0
+    },
+    { "script": "amy install cc", "status": 0 },
+    { "script": "amy install pkgconf", "status": 0 },
+    { "script": "printf '%s\\n' '#include <stdio.h>' '#include <X11/XKBlib.h>' '#include <X11/extensions/XKBfile.h>' 'int main(void) { return XkbConfigText(0, XkbMessage) == NULL; }' > /tmp/amy-libxkbfile.c && cc /tmp/amy-libxkbfile.c $(pkg-config --cflags --static --libs xkbfile) -o /tmp/amy-libxkbfile && /tmp/amy-libxkbfile", "status": 0 }
   ]
 }
