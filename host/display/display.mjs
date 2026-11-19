@@ -295,9 +295,17 @@ export function browser({ canvas, keyboard, fatal, showStatus, send, ask }) {
   // transition of them on the canvas, which shows nothing.
   canvas.style.transition = themeProperties.map(name => `${name} 1ms allow-discrete`).join(", ");
   canvas.addEventListener("transitionend", publishPalette);
-  // The terminal is the canvas's box: what the element holds beside it (input@0's bar) is not.
-  const publishSurface = () => send({ type: "display-surface", width: canvas.clientWidth, height: canvas.clientHeight,
-    devicePixelRatio });
+  // The terminal is the canvas's box: what the element holds beside it (input@0's bar) is not. It
+  // is published when the ResizeObserver reports it, at the page's next frame, and before anything
+  // else the page sends (beforeSend): a command typed or submitted right after a resize, and a
+  // lease it takes, start at the page's size.
+  let published;
+  const publishSurface = () => {
+    const surface = { type: "display-surface", width: canvas.clientWidth, height: canvas.clientHeight, devicePixelRatio };
+    if (JSON.stringify(surface) === published) return;
+    published = JSON.stringify(surface);
+    send(surface);
+  };
   const copySelection = () => ask({ type: "display-copy" });
 
   // Ctrl+Shift+C writes the terminal's selection to the clipboard.
@@ -376,6 +384,7 @@ export function browser({ canvas, keyboard, fatal, showStatus, send, ask }) {
       resizeObserver.observe(canvas);
       document.documentElement.dataset.terminal = "ghostty-rgba-wasm";
     },
+    beforeSend() { if (resizeObserver) publishSurface(); },
     dispose() { resizeObserver?.disconnect(); },
   };
 }
