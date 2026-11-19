@@ -4,9 +4,9 @@
 - PRIORITY: 140
 - TAGS: audit,ports,lean,rust,ocaml,dso,0.1.8
 
-## State (2026-11-17)
+## State (2026-11-19)
 
-On `ws/ports`:
+Lean, OCaml and Wine on `ws/ports`, merged into `integrate/0.1.8`:
 
 - Lean: `lean-dolly.mk` links `lean`, `lake` and `leanc` with `-rdynamic`, as upstream's CMake
   links its programs (`CMAKE_DYN_EXE_LINKER_FLAGS`), with what upstream's shared libraries hold
@@ -28,25 +28,58 @@ On `ws/ports`:
   the release's `Init` library in place it runs a program by the interpreter, whose calls into
   `Init` (`List.range`, `Nat.toDigits`, `String.join`, `IO.Process.output`) it finds among the
   exports, and prints `285 0149 beef`, then `spawned 0` from the child it spawned
-  (`lean-replay.log`, Chromium, 746 s). The round confirms `lean-stage0`, `lean-std`,
-  `lean-meta` and `lean` on the seed with the libc change, and the lean test.
-- rustc stays serial, now said as a choice (AGENTS.md: "Prefer simple serial semantics over
-  multiprocessing or performance machinery"): `rust-linker.c`'s comment and the Rust README no
-  longer say that `cc` cannot link a threaded host. Making it threaded is a rewrite of
-  `toolchain/rust.patch` (its frontend thread, codegen coordinator and LLVM's thread check), an
-  LLVM with threads in the seed and in `rust-llvm`, and a seed rebuild before any image, none of
-  which a tree short of the round can try; Cargo already runs `rustc` processes in parallel.
+  (`lean-replay.log`, Chromium, 746 s). Round 018k (`integrate/0.1.8` `8d666a4e4`) built
+  `lean-stage0`, `lean-std`, `lean-meta` and `lean` on the seed with the libc change, and the
+  lean test passed in Chromium (94.9 s) and Firefox (126.7 s): done.
+- rustc (seed: it changes the Rust seed), on `fix/rc-ports`: rustc generates code on
+  upstream's threads. `toolchain/rust.patch` no longer has the serial coordinator (`serial.rs`
+  and `write.rs`'s hunks), LLVM's thread check, the compiler run on the main thread or the
+  jobserver proxy without its helper (479 lines off, 12 on). Its one new hunk: no jobserver
+  crosses a process here (Cargo's child gets none), so each `rustc` makes its own, with one
+  token for each processor Dolly reports (`available_parallelism`, 4 in a threaded program,
+  measured) instead of upstream's 32: threads@0 runs 64 threads in a session, 32 a process.
+  `rust-linker.c` links rustc `-pthread -rdynamic`, and exports `__dolly_dso_threads`: it links
+  with `--no-export-dynamic` (rustc's functions are too many to export), so the loader's record
+  for the other threads went unexported and the threaded rustc loaded no procedural macro,
+  measured: `tinystr`'s build failed "can't find crate for `displaydoc`", rustc's log
+  "Failed to load proc-macro", and a C host linked `-pthread -rdynamic -Wl,--no-export-dynamic`
+  got "not in a program using threads@0 without -rdynamic" from `dlopen`, which the export
+  fixes (`dso-export.log`). `rust-llvm` builds LLVM with threads and runs its CMake checks
+  `-pthread`, against the libc rustc links: without it LLVM found dlmalloc's `mallinfo`, which
+  the threaded libc lacks, and rustc's link failed on it.
+
+  Measured in `work/rc-ports` (Chrome, `CPUWeight=20` beside round 018k's suites; evidence in
+  `work/evidence-2026-11-19/rc-ports/threaded-rustc/`): `rust-build` took 1,420 s, round 018k's
+  serial one 2,732 s. By step, threaded against that round: the first rustc, by the serial seed,
+  8 min 59 s (12 min 55 s); the library 39 s (1 min 17 s); the second rustc 6 min 27 s
+  (14 min 38 s); rustdoc 1 min 32 s (4 min 14 s); the library again 41 s (1 min 18 s); Cargo
+  3 min 59 s (9 min 23 s). The same 251 crates of rustc took the serial seed 8 min 59 s and the
+  threaded first rustc 6 min 27 s in the same build. Peak memory 8,753 MiB (7,478). The rust demo
+  test passed in Chromium (64.1 s; round 018k 101.7 s) and three times in a row in Firefox (81.0,
+  80.7, 85.6 s; 113.3 s).
+
+  The bytes are the serial build's: against round 018k's images, 3,816 of `rust-build`'s 3,824
+  files are the same, byte for byte, the 25 standard library rlibs the second rustc built and
+  Cargo, which it compiled, among them; the rest are `rustc-real` and the linker adapter (of
+  changed sources) and the recipe records. So are the programs of `ripgrep`, `fd`, `protox`,
+  `cbindgen` and `naga`, built by the threaded rustc here (`compare-rust-build.txt`,
+  `compare-packages.txt`). The recipe's own check, the library of the first rustc against that
+  of the second, both threaded, passed.
+
+  Left: `codex` (and the other Rust images) built by it and its test, in the round; the round
+  pins the Rust seed it gives, and the round after must leave that pin unchanged.
 - OCaml: `prepare-ocaml.sh` and the README give upstream's reason for `--disable-shared` (its
   configure makes shared libraries only for the systems it lists; measured in the pinned
   archive's `configure.ac`, which without it sets `supports_shared_libraries=true` with
-  `mkdll=shared-libs-not-available`). `ocaml` builds in this tree and its test passes in
-  Chromium and Firefox (`both-7`).
+  `mkdll=shared-libs-not-available`). Round 018k built `ocaml`, and its test and fixpoint passed
+  in Chromium and Firefox: done.
 - Wine's `gmoduleconf.h`, README and `wine_dlopen` message (`port/libwine.c`) and GTK's README
   no longer name the lifted limit: what Wine opens is what is linked into its one program.
 
 Images the change rebuilds: the four Lean images, `ocaml` (the script's comment is in its
 staging key), `wine-build` and `wine` (`gmoduleconf.h`), and the Rust chain from the package
-that compiles `rust-linker.c`.
+that compiles `rust-linker.c`; rustc's threads rebuild `rust-llvm`, `rust-sdk` and every image
+after them.
 
 ## What
 

@@ -33,12 +33,13 @@ SLOP rm /tmp/rust-llvm.tar.gz
 SOURCE /dist/static/rust/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/rust-llvm -i /tmp/llvm-host-triple.patch
 
-# As demos/llvm configures LLVM 24, and position-independent: rustc is linked
-# as a host of procedural-macro libraries.
+# As demos/llvm configures LLVM 24, with threads and position-independent:
+# rustc is a threaded host of procedural-macro libraries. Its checks link the
+# libc of threaded programs, which rustc links (mallinfo is dlmalloc's alone).
 FILE /tmp/rust-llvm/Dolly.cmake
     set(CMAKE_BUILD_TYPE Release CACHE STRING "")
-    set(CMAKE_C_FLAGS "-std=gnu17 -fPIC" CACHE STRING "")
-    set(CMAKE_CXX_FLAGS "-include endian.h -fPIC" CACHE STRING "")
+    set(CMAKE_C_FLAGS "-std=gnu17 -fPIC -pthread" CACHE STRING "")
+    set(CMAKE_CXX_FLAGS "-include endian.h -fPIC -pthread" CACHE STRING "")
     set(CMAKE_POSITION_INDEPENDENT_CODE ON CACHE BOOL "")
     set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON CACHE BOOL "")
     set(CMAKE_RULE_MESSAGES OFF CACHE BOOL "")
@@ -46,7 +47,7 @@ FILE /tmp/rust-llvm/Dolly.cmake
     set(LLVM_TARGETS_TO_BUILD WebAssembly CACHE STRING "")
     set(LLVM_HOST_TRIPLE wasm64-unknown-emscripten CACHE STRING "")
     set(LLVM_DEFAULT_TARGET_TRIPLE wasm64-unknown-emscripten CACHE STRING "")
-    foreach(option THREADS TERMINFO LIBEDIT LIBPFM ZLIB ZSTD LIBXML2 CURL BINDINGS)
+    foreach(option TERMINFO LIBEDIT LIBPFM ZLIB ZSTD LIBXML2 CURL BINDINGS)
       set(LLVM_ENABLE_${option} OFF CACHE STRING "")
     endforeach()
     foreach(option TESTS EXAMPLES BENCHMARKS DOCS)
