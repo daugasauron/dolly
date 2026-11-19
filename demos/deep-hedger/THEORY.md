@@ -49,7 +49,7 @@ asset pricing, with frictions (cher-sim, 04-09; braut, 07-22).
 | 6 | No ad hoc structure: no jump channels, no targeted statistics. | "these kind of jumps should be something that emerges from the fundamental model and not something that is hard coded" (cher-sim, 06-02) |
 | 7 | One hedger network for all contracts, generic across days; it never sees market quotes. It replicates; a profit-seeking copy is a later tool with its own weights. | "I want the generator to represent the market view of the distribution of the underlying, and the hedger to be sort of a generic hedger - not specific to the current market prices." (braut, 07-23) |
 | 8 | The hedger's previous position is its input. | "If the next hedge didn't depend on the current hedge the transaction costs would not be relevant." (cher, 02-22) |
-| 9 | Daily rebalancing; an order decided today fills tomorrow. | "Are you taking into consideration that you can't buy/sell at the same day?" (braut, 07-22) |
+| 9 | Daily rebalancing. A decision made on a day's information trades at that day's prices, the stock at its spread and options at their bid or ask. A position entered on a day is held until the next decision, so a contract cannot be bought and closed the same day, and closing it later pays that day's spread. Until 2026-11-19 this row read "an order decided today fills tomorrow", from the same words of 07-22; that was a misreading, and it cost the hedger a day it could have hedged. | "This makes no sense to me, can we just remove it? I think what I meant was regarding \"self trading\" a contract, where the initial pushback from claude was that you can just exit the contract directly as a hedge. But my pushback to the pushback was that the option position entered at any day won't change until the next hedge (next day) and then to exit that position you'd have to pay the spread." (2026-11-19); "Are you taking into consideration that you can't buy/sell at the same day?" (braut, 07-22) |
 | 10 | Two frictions make the spread. | "For me the 2 reasons for frictions are 1: transaction costs and 2: discrete time hedging." (sig-mmd, 07-08) |
 | 11 | Costs are inside the hedge, never added to a backtest afterwards; options have costs too. | "The transaction costs are built in to the model at a fundamental level" (cher-sim, 05-24); "it is crucial that the options have transaction cost" (braut, 08-13) |
 | 12 | The hedger may trade the stock and every listed option at the model's own quotes, the contract being priced included. No stock-only fallback. | "Why would it make sense that the intermediate prices are the prices of hedging with stock only? Other people can hedge with options as well. This is a core idea" (braut, 07-22) |
@@ -71,6 +71,9 @@ asset pricing, with frictions (cher-sim, 04-09; braut, 07-22).
 | 28 | On every day of a path the stock's price with its spread and every option's quote are known that day; a book may hedge with options at them. | "there is no such thing as a \"pathwise rule\" [...] the things that are known to me today are the price of the underlying (including spread), and all the option quotes today, induced backwards from yesterday *somehow*" (2026-11-17) |
 | 29 | The tick is no parameter of the model, and must not distort the wings. | "The trader doesn't care bout the tick."; "I just dont want weird errors because tick sizeo nthe wings." (2026-11-17) |
 | 30 | The model is a fundamental theorem of asset pricing with spreads and slippage as first class parameters: market makers set the spread, offer the quotes, keep the spread as profit and hedge everything else. Demand for options as hedges of other contracts is set aside. | "The idea is to do something like the fundamental theorem of asset pricing, but with spreads and slippage as first class parameters. In classical financial mathematics, there is no edge, and no spread. [...] the spread is determined by the sell side/market makers. The market makers think that they can offer those quotes, get the \"spread\" as profit, and hedge everything else. This is not entirely true since there is some demand for options as hedges for other types of contracts as well but lets disregard that for now." (2026-11-18) |
+| 31 | No model is decided: assumptions are tried until one gives a model that makes sense. The spread may be an output of the network, or the bids and asks directly. | "there is no model decided yet, this is still in experimentation phase where we are trying to use assumptions to deriva a model that makes sense. [...] somehow the spread would be an output of the neural net, or even that the bids/asks are the output directly." (2026-11-18) |
+| 32 | The model is good when it finds statistical arbitrage in a calibrated model and that holds up in backtests. | "If you get a model that finds statistical arbitrage in a calibrated model and it holds up in backtests we're good." (2026-11-18) |
+| 33 | The model must hedge volatility without a Black-Scholes core: some way to express hedging the implied moments of the underlying. The desk's question is which contract to pick. | "a model that can be used to hedge Vol in a realistic setting but where the core has nothing to do with \"black sholes\" or SDEs"; "if you're at a desk and want to hege 2week Vega at some level - what contract do you pick?" (2026-11-18) |
 
 ## 3. Assumptions
 
@@ -82,8 +85,9 @@ before the expiry, which is assumed; that gives each expiry its discount `D`
 and forward `F` from the strikes near the money (decision 4). Every price is
 then divided by `D F` and every strike by `F`. The model has no rate.
 
-**Time.** Business days. One decision a day; it fills at the next day's price
-(decision 9), so the last day before expiry cannot be hedged at all.
+**Time.** Business days. One decision a day, at the close, traded at that
+close and held to the next (decision 9). A book trades from the day it is
+opened to the last day before its expiry.
 
 **The path law.** `x_0 = 1`, `log x_{t+1} = log x_t + s_t z_t`. The shock
 `z_t` is drawn from a density that is a weighted sum of N fixed kernels on a
@@ -252,7 +256,7 @@ prices every contract, so the levels are consistent in strike and expiry, and
 | `c` | what a stock trade costs | the stock's own market |
 | the floor, in ticks | the least any contract of the name costs to deal in | implied by today's spreads |
 | an expiry's number: `k`, or `h` in days | what a day's risk costs in that expiry, or how long its holder is in before he is out | implied by today's spreads |
-| the clock and the lag | one decision a day, filled the next | the trader's situation |
+| the clock | one decision a day, traded at that day's close and held to the next | the trader's situation |
 
 The hedger's network is not among them: it is the solver, judged by the risk
 it leaves.
@@ -342,3 +346,47 @@ Not implemented, in the order the theory needs them:
    and with the path's own turbulence ("the spreads increase/decrease with
    vol, they should definitely increase during e.g. COVID", fable, 06-28).
 4. An illiquid name (conflict 5); the realized backtest (decision 22).
+
+## 8. Exposure to volatility in the model's terms, and the backtest (2026-11-18)
+
+Sources: the owner's (decisions 32, 33); the lay-off rule and the measurements are this work's
+(tasks dh-38, dh-39; `work/research/deep-hedger-2026-11-18.md` outside the tree).
+
+**What an exposure is.** The model has no vega. A book has a residual on every path of the law:
+what its payoff costs less what its stock hedge made. The residual's mean is the book's value;
+its movement across the paths is everything the stock cannot hedge, which is the book's exposure
+to how the law's days come out: quiet or wild (the volatility state), and with what tails (each
+interval's law, which is where the quotes' implied moments are). Two books share an exposure as
+far as their residuals move together under the law.
+
+**What hedging it is.** Holdings in other listed contracts, bought at their asks and sold at
+their bids, that make the deviation of the whole book's residual small, net of what their spreads
+cost: one number, the price at which a deviation is worth paying a spread for, sets how far to
+go. This is decision 28 with the options bought today and held; trading them on later days
+needs the model's later-day quotes, which are not built.
+
+**Why other dealers' quotes close the model.** If every dealer asks its mean replication cost
+plus a price times its residual's deviation, no dealer gains by passing part of a position to
+another at that dealer's quote, because the deviation of a sum is at most the sum of the
+deviations. So that rule is consistent with "everything is other dealers giving prices"; a rule
+on a variance is not.
+
+**What was measured, under the fill lag that decision 9 had until 2026-11-19** (AAPL, weekly
+trade days 2020-09 to 2022-12, each day's model fitted from that day's chain alone and scored on
+the real closes after it; two seeds; task dh-39). These numbers are history: the model they
+measured filled every stock trade a day late. The same period is fitted again without the lag;
+its numbers are in task dh-39 and replace these when they are in.
+
+- A short straddle hedged this way left 46 to 84 bp of deviation in its realised P&L, by
+  expiry; a Black delta alone 130 to 188; a Black vega hedge in the next expiry's straddle 108
+  to 200. The option hedge's spreads cost 5 to 12 bp. The model may use many contracts where
+  the vega hedge uses one.
+- The hedger's stock hedge is as good as a Black delta given the same one-day lag, and no
+  better; the lag itself costs about 40% more risk than a delta traded the same day.
+- Where the law fits (within 1.5 deviations of the forward) the best deal the model sees at the
+  market's quotes made nothing (+0.19 bp a trade, t 0.25). Beyond 1.5 deviations the law prices
+  under the market, the model sells those wings, and that paid in this period (+1.9 to +2.1 bp a
+  trade at a deviation of 3.5 to 3.8, both seeds, still +1.3 a day late): the premium of far
+  options, which a law too thin there cannot tell from a mispricing.
+- 2023-01 to 2025-11 is scored once, with the rules fixed on the first period.
+

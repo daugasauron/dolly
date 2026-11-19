@@ -615,8 +615,9 @@ static void hedge_tab() {
     Plot plot(title, size, 0, expiry.business_days, 0, 1);
     for (size_t path = 0; at < state.hedges.size() && state.hedges[at][0] == state.hedges[at - path][0]; at++, path++) {
       const std::vector<float> &held = state.hedges[at];
-      std::vector<ImVec2> line = {plot.at(0, 0)};
-      for (size_t u = 1; u < held.size(); u++) line.push_back(plot.at((double)u, held[u]));
+      // held[1 + u] is the position bought at day u's close.
+      std::vector<ImVec2> line;
+      for (size_t u = 1; u < held.size(); u++) line.push_back(plot.at((double)(u - 1), held[u]));
       bool in_the_money = path < state.paths.size() && (int)state.paths[path].size() > expiry.business_days &&
                           c.call * (exp(state.paths[path][(size_t)expiry.business_days]) * expiry.forward - c.strike) > 0;
       plot.draw->AddPolyline(line.data(), (int)line.size(), in_the_money ? ask_colour : bid_colour, 1.5f);
