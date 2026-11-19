@@ -9,9 +9,21 @@ static func paint(colour: Color, roughness: float, glow := 0.0) -> StandardMater
 	var material := StandardMaterial3D.new()
 	material.albedo_color = colour
 	material.roughness = roughness
-	material.emission_enabled = glow > 0.0
 	material.emission = colour
 	material.emission_energy_multiplier = glow
+	return lit(material)
+
+
+## Gives a lit material the one set of features the lit standard materials of Blender's flyer and
+## of the painted parts have, so that they are one shader to the engine, which makes each of its
+## shaders' variants before the first frame (a few dozen shader modules a shader): cull disabled
+## (the flyer's are double-sided, the painted parts are closed), the mesh's vertex colours (white
+## where it has none), emission (black where it has none). None of it changes how they look. The
+## coats' skins keep their back faces culled: drawn, they show through the fur.
+static func lit(material: BaseMaterial3D) -> BaseMaterial3D:
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.vertex_color_use_as_albedo = true
+	material.emission_enabled = true
 	return material
 
 

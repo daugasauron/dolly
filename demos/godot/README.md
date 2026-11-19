@@ -383,6 +383,16 @@ first level drew 5 frames a second 200 ms apart, the game settles on the last le
 seconds and draws 30 a second 33 ms apart, as it does in Chrome on that GPU (2026-11-15); on the
 NVIDIA RTX 5070 it stays on the first, at 60 in Chrome and 59 in Firefox with the GPU at 5.5 ms
 a frame.
+
+Most of the start is the engine making its shaders: Godot compiles every variant of each shader
+in the program (glslang in Wasm), gpu@0 makes a shader module of each, and the browser compiles
+the pipelines drawn, some 200 ms each in Chrome (`tasks/20261119-140500-flyover-start`). Each kind
+of standard material is a shader of its own to the engine, so the lit ones of Blender's flyer and
+of the painted parts (the landmarks, the jets, the dolphins) have the same features (`Parts.lit`:
+cull disabled, the mesh's vertex colours, white where it has none, and emission, black where it
+has none), which change nothing that is seen: one shader where they were three, and the flight
+makes no shader once it is under way. The coats' skins keep their back faces culled: drawn, they
+show through the fur.
 ### The planet
 
 The world is a planet: a sphere of 600,000 units (a lap along the ground at the board's 30 a

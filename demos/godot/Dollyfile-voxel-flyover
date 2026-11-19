@@ -32,7 +32,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /dist/static/godot/voxel-flyover.tar 4494d05d74ae83fdb67f43ac5e69bdde89b1592babda37e414491d54ae4a0788 /tmp/voxel-flyover.tar
+SOURCE /dist/static/godot/voxel-flyover.tar 379c846db5adb86d8646d056f6d60755b50b72d5a55f28e9c9ef6e59765cdb16 /tmp/voxel-flyover.tar
 SLOP CWD / tar -xf /tmp/voxel-flyover.tar
 SLOP mkdir -p /usr/share/voxel-flyover
 SLOP cp -r /usr/src/voxel-flyover /usr/share/voxel-flyover/project

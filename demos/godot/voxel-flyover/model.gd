@@ -7,6 +7,7 @@ extends Node3D
 ## the corgi's parts, which this finds by their names. A part whose extras ask for a coat gets
 ## fur.gdshader's shells over it, a cloth cape.gdshader's wind.
 
+const Parts := preload("res://parts.gd")
 const MODEL := "/usr/share/voxel-flyover/flyer.glb"
 const SHELLS := 18 # of a coat
 
@@ -77,9 +78,10 @@ func dress(part: MeshInstance3D) -> void:
 	# import does not.
 	var mesh := part.mesh as ArrayMesh
 	for surface in mesh.get_surface_count():
+		# A mesh without them has white ones (Parts.lit).
 		var material := mesh.surface_get_material(surface) as BaseMaterial3D
-		if material and mesh.surface_get_format(surface) & Mesh.ARRAY_FORMAT_COLOR:
-			material.vertex_color_use_as_albedo = true
+		if material:
+			Parts.lit(material)
 	var extras: Dictionary = part.get_meta("extras", {})
 	if extras.has("coat"):
 		var coat: Dictionary = extras["coat"]
