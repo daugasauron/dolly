@@ -4,7 +4,7 @@
 - PRIORITY: 200
 - TAGS: audit,repo,release,deployment,0.1.8
 
-## State (2026-11-17): fixed on `ws/release`; 0.1.8's release confirms it
+## State (2026-11-19): fixed on `ws/release`, RC1's first half rehearsed; 0.1.8's release confirms it
 
 The rule stays and is in the repository (the second of the two directions: the owner wants the
 recordings made on the deployed site, `tasks/20261115-021459-videos-live`), `df6a9389a`:
@@ -30,8 +30,14 @@ recordings made on the deployed site, `tasks/20261115-021459-videos-live`), `df6
 
 Checked: `refuseChange` on v0.1.7's real lists (`work/round1113/build/pages-v0.1.7-core` against
 `work/locks/published/v0.1.7`, 5,180 and 5,269 rows) accepts the showcase's addition and refuses
-the same list a second time; `node --test test/cloudflare-pages.test.mjs` passes (6). A whole
-export of a showcase was not run: it writes 19 GB of parts.
+the same list a second time; `node --test test/cloudflare-pages.test.mjs` passes (6). The first
+half rehearsed for RC1 on 2026-11-19 (`work/rc-release`, `tasks/20261116-140720-repo-07`): the
+site packaged by `package-pages.sh RELEASES` alone, which step 3 found without `agents/`, and
+its deployment beside v0.1.6 and v0.1.7, whose own files are 98 and 1.25 GB, the rest links to
+the release and the archive (the 19 GB of parts 0.1.7's export wrote are now linked where a
+published version holds them). The `--showcase` run needs the tag and the version in the
+archive, so the release runs it first; its printed line names the releases directory it was
+given (`445d47bc7`).
 
 v0.1.6's link to `./agents/` stays, by the owner's decision on its removal ("Doesn't matter",
 `tasks/20261115-115901-drop-v016`): it answers 404 while v0.1.6 is online. What only 0.1.8's
