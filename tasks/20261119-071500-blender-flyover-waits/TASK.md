@@ -65,7 +65,7 @@ The X workbench's server (xsdl) has no RandR resize: it keeps its size.
   browser's compiling stays in the way, and the contract kept its error at the batch that
   makes the pipeline.
 - Next: the planet agent takes fewer pipelines at start; the shader baker at build time (gpu@0
-  in builds, which AGENTS.md's "the build's four" rules out) is the owner's to decide.
+  in builds, which AGENTS.md's "the build's four" rules out): the owner declined it (2026-11-20).
 
 **A program's start size after a resize (round 018m, 2026-11-20).** The round built the catalog
 on input@0's new digest and passed its suites; its GPU stage failed `test/pointer-browser.mjs` in

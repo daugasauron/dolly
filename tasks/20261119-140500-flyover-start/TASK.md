@@ -245,8 +245,8 @@ it: threads change no pixel, and on a machine of 4 cores the 4 more only wait th
   program from GLSL, whatever the project asks for (now 3.8 s of the converter natively where
   they were 8.8). Godot's shader cache (`user://`) spares that on a second start (48 s to 29 s,
   the Firefox/GPU agent's measure); an image that came with it needs the cache made where the
-  image is built, which needs a RenderingDevice there (gpu@0 in builds, not for 0.1.8: the
-  owner's call), or Godot's shader baker at export, which needs the same.
+  image is built, which needs a RenderingDevice there (gpu@0 in builds, which the owner
+  declined on 2026-11-20), or Godot's shader baker at export, which needs the same.
 - **The converter's rest**: its 31 passes rebuild their analyses each, some 30 ms a pass on the
   largest modules; the optimizer's own validation of its input is 7 %. No inlining at all would
   halve the rest again (19 s natively for the 1,012 modules) if the converter's passes followed an
