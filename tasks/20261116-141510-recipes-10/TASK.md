@@ -1,13 +1,24 @@
 # pi-llm and pi-dolly both hold Pi's settings.json, so the order of two installs decides the model; pi-llm brings no Pi
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: audit,recipes,amy,local-llm,pi,0.1.8
 
 From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`).
 
-## State (2026-11-19)
+## Closed (2026-11-19)
+
+Redone on `fix/rc-recipes` (935e46c5b), with the Done-when as amended below: pi-local, not a
+package, chooses the model. `demos/local-llm/test/local-llm-browser.mjs` on the rebuilt pi-local
+(display `:155`, the hardware GPU) passed in Chromium and Firefox: the agent task with the bundled
+Qwen3.5-2B (4 tool calls; 19.6 s and 42.2 s), inference, cancellation, session restore and a fresh
+boot, then minicpm5-2b installed and chosen with `/local`, its temperature and context changed,
+and the task again (`build/rc-recipes-evidence/pi-local-gpu.log` in `work/rc-recipes`). Its
+snapshot holds the same files as the round's pi-local, byte for byte, but for the records under
+`/etc/dolly` (one 2 MB pack of its 52 differs, in those alone).
+
+## How (2026-11-19)
 
 Redone on `fix/rc-recipes`. Since this was written, `feature/npm-policy` (in `integrate/0.1.8`,
 527426654) made npm's template start Pi unconfigured, with no provider written for the user; the
@@ -26,10 +37,8 @@ workstream's brief keeps that for packages too: a package chooses no model. So t
   provider in Pi's settings, and `amy install pi-dolly` afterwards says it is already installed.
   Passed on the 0.1.8 round's images with pi-llm and pi-local rebuilt, in Chromium (10.8 s) and
   Firefox (17.4 s); before, the same case fails (pi-llm brought the weights and the provider).
-- No two packages hold `settings.json` now (`tasks/20261116-141510-recipes-14`).
-
-Left: `demos/local-llm/test/local-llm-browser.mjs` on the rebuilt pi-local (a hardware GPU), whose
-task with the bundled model proves pi-local's settings choose it. Rebuilds pi-llm and pi-local.
+- No two packages hold `settings.json` now (`tasks/20261116-141510-recipes-14`). Rebuilds pi-llm
+  and pi-local.
 
 ## Done on ws/recipes (2026-11-17)
 

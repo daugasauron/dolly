@@ -1,20 +1,21 @@
 # pi-llm holds a second copy of the 1.4 GB Qwen3.5-2B model; python re-exports libffi's files
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 230
 - TAGS: audit,recipes,amy,local-llm,0.1.8
 
 From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`).
 
-## State (2026-11-19)
+## Closed (2026-11-19)
 
 The 0.1.8 round (`integrate/0.1.8` at 8d666a4e4, `work/integrate-018`) built pi-llm at 379,482
 bytes, and python's record holds no `/usr/lib/libffi.a`, `/usr/include/ffi*.h` or libffi licence
 (its manifest names only `/etc/dolly/recipes/Dollyfile-libffi`). On `fix/rc-recipes` pi-llm no
 longer installs the model either (`tasks/20261116-141510-recipes-10`): 375,480 bytes, and the
 local-llm demo's amy case checks that `amy install pi-llm` reports under a megabyte of its own
-(passed in Chromium and Firefox). Left: pi-local's GPU test on the rebuilt pi-local.
+(passed in Chromium and Firefox). pi-local's GPU test passed on the rebuilt pi-local in both
+browsers, the round's run on its own pi-local as well (`tasks/20261116-141510-recipes-10`).
 
 ## Done on ws/recipes (2026-11-17)
 
