@@ -9,7 +9,7 @@ From the build-time audit of 2026-11-16 (`work/audit-1116`). Evidence and script
 `record-diff.py`, `record-diff-016-017.txt`, `record-diff-python-data-build.txt`,
 `scratch-codex-build.log`).
 
-## State (2026-11-19): seven of eight build the same bytes again; zig-llvm's cache manifests left
+## State (2026-11-19): all eight build the same bytes again; the round confirms the three fixed today
 
 What `ws/speed` fixed is in the 0.1.8 round (`work/integrate-018` at `8d666a4e4`): `cc` stages a
 link under the output's own name (`StagedLink`, `programs/compiler.cpp`, in the seed compiler
@@ -44,20 +44,24 @@ today, built twice.
   bug#25556), eieio-core not among them; the recipe compiles `emacs-lisp/eieio-core.elc` alone
   first. Built twice: `3b224b81…` both times (a race two builds show absent, not a proof). On it,
   gnu-emacs built and `demos/emacs/test/emacs-browser.mjs` passes in Chrome and Firefox.
-- zig-llvm differs from the round's in its three cache manifests (`/home/dolly/.cache/zig/h/`), in
-  every entry's time and in nothing else (2,203 entries): a manifest records the time of each
+- zig-llvm differed from the round's in its three cache manifests (`/home/dolly/.cache/zig/h/`),
+  in every entry's time and in nothing else (2,203 entries): a manifest records the time of each
   source it hashed, and in a build a base image's files carry their restore's time, new each
   build, where a session's carry 1980-01-02, which the kernel gives every image file at boot
-  (`kernel/system-snapshot.c:106`). Tried, and not kept: the lib's files given that time before
-  the warmup leave one entry varying, the builtin module the first run writes
-  (`b/…/builtin.zig`); given it after, and the tools run again, Zig keeps the times it has; with
-  the manifests removed and the tools compiled again, one of the three is not made again, so a
-  session would compile that tool. Left: a build's restored base with the image time, as at boot
-  (the kernel, a seed change: after 0.1.8), or a step that writes the builtin module before the
-  warmup (a recipe, possible by Friday).
+  (`kernel/system-snapshot.c:106`); the builtin modules carry their writing's. The recipe gives
+  the lib's files that time before the setup, and the builtin modules after a first run writes
+  them, then runs the setup again from them (`USE` posix, for `find`; 8 min where it took 4 to 7).
+  Built twice: `a6bf183c…` both times, every manifest entry at the image time;
+  `demos/zig/test/zig-llvm-browser.mjs` passes in Chrome and Firefox. The general cause, a build's
+  restored base without the image time, is the kernel's: given it at restore, as at boot, the
+  recipe's extra steps go (a seed change, after 0.1.8).
 
 What the round confirms: these images and their dependents (godot-voxel-flyover,
-godot-lantern-drift, godot-airtime, blender-flyover, gnu-emacs) built in it, and their tests.
+godot-lantern-drift, godot-airtime, blender-flyover, gnu-emacs, ghostty-gtk) built in it, and
+their tests. Then each of the five built once more in the round's tree on its dependencies
+(`build/rehearse/repro.sh`'s way), the round's bytes again, closes this task; where the round's
+inputs are this tree's, its digests are these: voxel-flyover `1ae901fe…`, lantern-drift
+`cc820668…`, airtime-godot `25d065e9…`, emacs `3b224b81…`, zig-llvm `a6bf183c…`.
 
 ## Found
 
