@@ -1,6 +1,6 @@
 # A resize during a display lease can paint the lease's frame at the terminal's size
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: display,input,bug,0.1.8
 
@@ -55,3 +55,14 @@ display-plugin code: it needs a runtime build.
 Done when a resize during a lease never paints a frame at another size than the lease's
 (`demos/fingers/test/fingers-browser.mjs` no longer needs to wait for the program's own frame
 after the lift).
+
+## Closed (2026-11-19)
+
+Confirmed on 0.1.8's integration seed (`d3b9b401a`, image inputs `4a2d66c9`), with `ghostty-build`,
+`display` and the images above them built on it (`work/integrate-018`'s first pass), in
+`work/blender-anim`: `demos/fingers/test/fingers-browser.mjs`, which no longer waits for the program's
+own frame after the lift (`5f050d8ea`), and `test/display-browser.mjs` pass in Chromium and Firefox;
+`test/pointer-browser.mjs` (branch `feature/page-resize`, the bar below the canvas and a narrower
+window during a lease) lands every click on the pixel under it in both. A program not following the
+page's new size at all was another cause, of its own: input@0's `SURFACE` record
+([20261119-071500-blender-flyover-waits](../20261119-071500-blender-flyover-waits/TASK.md)).

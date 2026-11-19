@@ -707,29 +707,32 @@ def build_corgi(root):
 
 # --- Animations -------------------------------------------------------------------------------
 
-def bake(name, frames, pose, rest=0.0):
-    """Keys the placements `pose(phase)` gives, phase 0 to 1 over the frames, into an action for
-    each object, on an NLA track named for the animation, which the export makes one animation
-    of. Leaves each object at its placement at phase `rest`."""
+def bake(name, frames, pose, first=0):
+    """Keys the placements `pose(phase)` gives, phase 0 to 1 over the frames from `first`, into
+    one action, a slot of it for each object, which the export makes one animation of. The
+    scene's frame 0 is the flyer at rest: `first` puts the pose of rest there."""
     things = list(pose(0.0))
-    actions = {}
+    action = bpy.data.actions.new(name)
     for thing in things:
-        thing.animation_data_create()
-        actions[thing] = bpy.data.actions.new(f"{name} {thing.name}")
+        data = thing.animation_data_create()
+        data.action = action
+        data.action_slot = action.slots.new(id_type="OBJECT", name=thing.name)
+    paths = ("location", "rotation_quaternion", "scale")
+    values = {thing: [] for thing in things}
     for frame in range(frames + 1):
         placements = pose(frame / frames)
         for thing in things:
             put(thing, placements[thing])
-            thing.animation_data.action = actions[thing]
-            for path in ("location", "rotation_quaternion", "scale"):
-                thing.keyframe_insert(path, frame=frame)
-    placements = pose(rest)
+            values[thing].append([tuple(getattr(thing, path)) for path in paths])
+    # Only what moves is keyed: what does not stays as it was put.
     for thing in things:
-        thing.animation_data.action = None
-        track = thing.animation_data.nla_tracks.new()
-        track.name = name
-        track.strips.new(name, 0, actions[thing])
-        put(thing, placements[thing])
+        for index, path in enumerate(paths):
+            keys = [frame[index] for frame in values[thing]]
+            if all(max(abs(a - b) for a, b in zip(key, keys[0])) < 1e-6 for key in keys):
+                continue
+            for frame, key in enumerate(keys):
+                setattr(thing, path, key)
+                thing.keyframe_insert(path, frame=first + frame)
 
 
 def knee(hip, foot, first, second, bend):
@@ -809,7 +812,7 @@ def main():
                 poses[flight] = place(root + V(0, -0.02, 0.03))
         return poses
 
-    bake("steer", STEERS, steering, rest=0.5)
+    bake("steer", STEERS, steering, first=-STEERS // 2)
 
     def living(phase):
         """8 s: the pelican looks about, blinks at 1.2 s and 5.6 s, and claps its bill at 3.5 s;
@@ -830,8 +833,11 @@ def main():
         return poses
 
     bake("alive", ALIVE, living)
-    bpy.ops.export_scene.gltf(filepath=out, export_format="GLB", export_extras=True, export_animation_mode="NLA_TRACKS",
-                              export_vertex_color="ACTIVE")
+    bpy.context.scene.frame_set(0)
+    # An animation of each action, sampled for all its objects at once (by NLA track, each object
+    # was sampled by itself: ten times as long).
+    bpy.ops.export_scene.gltf(filepath=out, export_format="GLB", export_extras=True, export_animation_mode="ACTIONS",
+                              export_anim_slide_to_zero=True, export_vertex_color="ACTIVE")
     print("flyer.py: wrote", out)
 
 

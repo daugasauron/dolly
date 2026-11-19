@@ -23,8 +23,9 @@ Built and run in Dolly on the branch's own images (`feature/blender-anim`):
   trunk and head, painted tan and white on its vertices, in a cape with a gold paw print. It
   bakes "pedal" (five turns of the cranks and all they drive), "steer" and "alive" (8 s: the
   pelican looks about, blinks and claps its bill; the corgi pants, tilts its head and looks down
-  at the pelican) onto NLA tracks, and exports a GLB (1.4 MB) with extras for fur and cloth. In
-  the voxel-flyover build it runs in Dolly's Blender, the export taking 16.6 s (9.7 natively).
+  at the pelican), each one action with a slot per object, and exports a GLB (1.7 MB) with extras
+  for fur and cloth. In the voxel-flyover build it runs in Dolly's Blender (2.4 s natively; it
+  was 13 s, the waits' task).
 - `model.gd` reads it at start with `GLTFDocument`, dresses coats and cloths with the game's
   shaders (which now take vertex colours too), seeks "pedal" and "steer" and plays "alive".
   `pelican.gd`, `drive.gdshader` and the primitive-built parts of `main.gd`'s `build_flyer` and
