@@ -53,6 +53,13 @@ try {
     assert.equal(await submit("clear"), 0);
     const running = submit(`/tmp/pointer ${mode} ${1 + changes.length * 6}`);
     await page.waitForFunction(gpu => __dolly.inputTransport.leased() && (!gpu || __dolly.gpu.active), mode === "gpu");
+    // The first click is on the program's first frame: display@0's in pointer.c's colour, on the
+    // canvas at its size (the lease may start at the size the canvas had before a change).
+    if (mode === "display") await page.evaluate(async () => {
+      const canvas = document.querySelector("#display"), painted = frame => frame?.data[0] === 0x20 &&
+        frame.data[1] === 0x40 && frame.data[2] === 0x80 && canvas.width === frame.width && canvas.height === frame.height;
+      while (!painted(await __dolly.frame())) await new Promise(resolve => setTimeout(resolve, 20));
+    });
     const expected = [];
     const click = async fraction => {
       const { point, pixel } = await shown(fraction);

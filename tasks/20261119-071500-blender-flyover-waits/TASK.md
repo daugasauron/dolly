@@ -67,5 +67,18 @@ The X workbench's server (xsdl) has no RandR resize: it keeps its size.
 - Next: the planet agent takes fewer pipelines at start; the shader baker at build time (gpu@0
   in builds, which AGENTS.md's "the build's four" rules out) is the owner's to decide.
 
-Left: the round that builds the catalog on input@0's new digest, then Blender's window followed in
+**A program's start size after a resize (round 018m, 2026-11-20).** The round built the catalog
+on input@0's new digest and passed its suites; its GPU stage failed `test/pointer-browser.mjs` in
+Chrome only, 4 of 4 runs alone. In display mode, run after gpu mode narrowed the page to 700 and
+the test set it back to 1000, the first click landed on 500,350 of the program's frame where the
+test computed 350,350 from the canvas. Logged around that click in three runs: the program's
+first frame was 700 wide in one and 1000 in two, though in each the terminal's frame and the
+canvas had been 1000 wide before the program started; the SURFACE record then told it 1000. A
+click is mapped on the canvas's size, the terminal's frame's until the program's first frame is
+painted, so a click in that moment lands on the other size. The test now clicks first on the
+program's first frame (pointer.c's colour, the canvas at its size): 4 of 4 in Chrome, Firefox
+passes.
+
+Left: where the lease's 700 comes from (display@0's kernel starts a lease at the frame on screen),
+so that a program started after a resize starts at the page's size; Blender's window followed in
 both browsers; the flyover's start.
