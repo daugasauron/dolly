@@ -23,8 +23,9 @@
 //   tools (the template's, the packages' and a C program the recipe compiles), the
 //   workspace and the user's theme; the page admits the requests the recipe's HTTP rows
 //   declare, one of them the test's, and refuses another path, method and host; Neovim
-//   edits a file; Python draws a figure with NumPy and Matplotlib; Save keeps a session
-//   the page opens again from its address. A change to the page alone is built again
+//   edits a file; Python draws a figure with NumPy and Matplotlib; Save, whose row init's
+//   recipe leaves out and the project adds, keeps a session the page opens again from its
+//   address. A change to the page alone is built again
 //   without building the image.
 // - The project as CI builds it: committed, cloned, and the workflow's own npm ci and
 //   build lines run in the clone write the same site.
@@ -229,7 +230,10 @@ try {
   const theme = await readFile(join(piApp, "public/theme.json"), "utf8");
   assert.ok(theme.includes('"#f2d45c"') && theme.includes('"#262626"'));
   await writeFile(join(piApp, "public/theme.json"), theme.replace('"#f2d45c"', '"#0fa9e6"').replace('"#262626"', '"#102030"'));
-  const recipe = (await readFile(join(piApp, "Dollyfile-my-pi"), "utf8")).replace("\nENTRY ",
+  // init's recipe has no Save; this project adds it, as docs/npm.md says.
+  const written = await readFile(join(piApp, "Dollyfile-my-pi"), "utf8");
+  assert.ok(!written.includes("REQUIRES HOST snapshot@0"), "init's recipe declares no Save");
+  const recipe = written.replace("REQUIRES HOST input@0\n", "REQUIRES HOST input@0\nREQUIRES HOST snapshot@0\n").replace("\nENTRY ",
     "\nFILE /tmp/count-lines.c\n    #include <stdio.h>\n    int main(void) { int c, n = 0; while ((c = getchar()) != EOF) n += c == '\\n'; printf(\"%d lines\\n\", n); }\n" +
     "SLOP cc /tmp/count-lines.c -o /usr/bin/count-lines\nEXPORTS TOOL count-lines\n\nENTRY ");
   await writeFile(join(piApp, "Dollyfile-my-pi"), recipe);

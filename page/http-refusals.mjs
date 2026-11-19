@@ -1,32 +1,21 @@
+import { holdIndicators, indicatorCorner } from "./page-indicators.mjs";
+
 // What the HTTP policy refuses, for whoever runs the page: each refusal is a line in the
 // browser's console, and a notice in boot()'s element that stays until the user closes it.
 // Refusals of one method and URL are one notice with a count; the newest few show, with a
 // line for the rest and Close all. A URL is shown without its query, which may hold a key.
-// The list lies over the display: its words let the pointer through to the program, and only
-// its buttons take a click.
+// The list is one of the page's indicators, in the top right corner with the alert's border,
+// and holds them shown while it has a notice; its words let the pointer through to the
+// program, and only its buttons take a click.
 const shownAtOnce = 5;
-
-const style = `
-  #http-refusals { position: absolute; left: 0.6rem; top: 0.6rem; z-index: 7; width: min(34rem, calc(100% - 1.2rem));
-    margin: 0; padding: 0.35rem 0.35rem 0; list-style: none; color: var(--dolly-ui-color); background: var(--dolly-ui-background); font-size: 14px; line-height: 1.4;
-    pointer-events: none; }
-  #http-refusals[hidden] { display: none; }
-  #http-refusals li { display: flex; gap: 0.5rem; align-items: baseline; margin-bottom: 0.35rem; padding: 0.4rem 0.5rem;
-    background: var(--dolly-ui-background); border: 1px solid var(--dolly-ui-alert); overflow-wrap: anywhere; }
-  #http-refusals li span { flex: 1; }
-  #http-refusals li.rest { border-color: var(--dolly-ui-quiet); }
-  #http-refusals button { color: inherit; background: var(--dolly-ui-raised); border: 1px solid var(--dolly-ui-quiet); font: inherit; cursor: pointer;
-    pointer-events: auto; }
-`;
 
 export function refusalNotices(mount, keyboard) {
   const notices = new Map();
-  let list, look;
+  let list;
   if (mount) {
-    look = new CSSStyleSheet();
-    look.replaceSync(style);
-    document.adoptedStyleSheets = [...document.adoptedStyleSheets, look];
-    list = mount.appendChild(Object.assign(document.createElement("ul"), { id: "http-refusals", hidden: true }));
+    list = indicatorCorner(mount, "top-right").appendChild(document.createElement("ul"));
+    Object.assign(list, { id: "http-refusals", className: "page-indicator", hidden: true });
+    Object.assign(list.style, { borderColor: "var(--dolly-ui-alert)", maxWidth: "min(34rem, 100%)" });
     list.setAttribute("role", "status");
     list.setAttribute("aria-label", "Requests the HTTP policy refused");
   }
@@ -53,10 +42,12 @@ export function refusalNotices(mount, keyboard) {
       rest.className = "rest";
       const hidden = notices.size - shown.length;
       words.textContent = hidden ? `${hidden} more refused (the console lists every one)` : "";
+      words.style.color = "var(--dolly-ui-quiet)";
       rest.append(words, button("Close all", "Close all refusals", () => notices.clear()));
       list.append(rest);
     }
     list.hidden = notices.size === 0;
+    holdIndicators("http-refusals", !list.hidden);
   }
   return {
     refused({ method, target, reason }) {
@@ -70,8 +61,8 @@ export function refusalNotices(mount, keyboard) {
     },
     claimsKey: event => list?.contains(event.target) ?? false,
     dispose() {
+      if (list) holdIndicators("http-refusals", false);
       list?.remove();
-      if (look) document.adoptedStyleSheets = document.adoptedStyleSheets.filter(sheet => sheet !== look);
     },
   };
 }

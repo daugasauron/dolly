@@ -19,6 +19,13 @@ to the next. The packages of one project are all of one version.
   OpenRouter's model. Its recipe declares the APIs of the providers Pi offers
   that answer a page, in place of the policy `public/main.mjs` held; its skill
   is `sandbox`, its extension `/network`. The `tmux` package is published.
+- `init`'s recipe no longer declares `snapshot@0`: its sites have no Save
+  button and no note of it in the corner. A recipe that wants saves adds
+  `REQUIRES HOST snapshot@0`.
+- The page's notes share its corners, one column each, in one look: the
+  refusals of the HTTP policy are at the top right, under the status line,
+  with the GPU adapter's, the download offers' and Save's colours, font and
+  borders.
 - The recipe language is `DOLLY 8`: a site path is `/PATH`, without the
   version (`FROM /Dollyfile-system SHA256`). A recipe no longer changes with
   every release, and a package that did not change keeps its pin and its

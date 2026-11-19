@@ -11,5 +11,5 @@ description: What this sandbox holds and reaches - the requests it may make, its
   Nothing installs another here (no npm, apt or `amy install`); one more is
   a row the project adds to its recipe.
 - `/workspace` is the project, written from the site at each boot. Changes
-  stay in this tab: the user keeps them with Save (Ctrl+Shift+S), and the
-  `download` tool hands them a file. The `upload` tool asks them for one.
+  stay in this tab until it closes: the `download` tool hands the user a
+  file, and the `upload` tool asks them for one.

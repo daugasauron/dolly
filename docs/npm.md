@@ -35,9 +35,11 @@ python3 -m http.server -d my-pi -b 127.0.0.1 8080
   https://example.com` in Pi's shell fails ([The network](#the-network)).
   Ctrl+D leaves Pi for a shell. When Pi needs
   a file of yours it asks with its `upload` tool: the page's file dialog opens,
-  and Pi gets the file's path and size, or that you cancelled. Save
-  (Ctrl+Shift+S) keeps the sandbox, files and all, in this browser and names it
-  in the address (`?session=NAME`), which opens it again as it was.
+  and Pi gets the file's path and size, or that you cancelled. The sandbox
+  lasts as long as the tab: a recipe that adds `REQUIRES HOST snapshot@0` has
+  the page's Save (Ctrl+Shift+S), which keeps it, files and all, in this
+  browser and names it in the address (`?session=NAME`), which opens it again
+  as it was. `init` leaves it out.
 
 After `npm install` and `init`, nothing is downloaded: the build, its browser,
 the site and its page fetch from `node_modules` and from each other alone. The
@@ -149,9 +151,9 @@ HTTP GET https://api.github.com/repos/OWNER/* authorization
   your account, which is a row of your own. A sign-in with a subscription
   (OAuth) works only where the provider's sign-in host answers a page too.
 - The key is Pi's: `/login` keeps it in `~/.pi/agent/auth.json` in the
-  sandbox, and a save keeps that. It is in no file of the site. Pi shows a key
-  as it is typed; a value such as `!cat FILE` makes Pi read it from a file
-  (Pi's `docs/providers.md`).
+  sandbox, and a save keeps that where the recipe has Save. It is in no file
+  of the site. Pi shows a key as it is typed; a value such as `!cat FILE`
+  makes Pi read it from a file (Pi's `docs/providers.md`).
 
 ## How it starts
 

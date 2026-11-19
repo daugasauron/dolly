@@ -115,7 +115,7 @@ page's: the colours above and these, unset Dolly's:
 
 ```css
 #dolly {
-  --dolly-html-font: ui-monospace, monospace;
+  --dolly-html-font: ui-monospace, monospace;   /* the notes in the element's corners take it too */
   --dolly-html-color-scheme: dark;       /* the form controls' own colours */
   --dolly-html-font-file: none;          /* or url(…): the font of the first family above */
 }

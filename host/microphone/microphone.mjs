@@ -8,16 +8,16 @@ export const lease = { type: "microphone", version: M.DOLLY_MICROPHONE_VERSION, 
   replyBytes: M.DOLLY_MICROPHONE_REPLY_BYTES, open: M.DOLLY_MICROPHONE_OPEN, close: M.DOLLY_MICROPHONE_CLOSE };
 
 // Trusted page DOM over the display, beside the browser's own recording mark:
-// shown for as long as a program has asked for or holds the microphone.
-function indicate({ mount, indicators }, state) {
+// shown in the bottom left corner for as long as a program has asked for or
+// holds the microphone.
+function indicate({ indicators }, state) {
   let element = document.querySelector("#microphone-status");
   if (!element) {
-    element = mount.appendChild(document.createElement("div"));
+    element = indicators.corner("bottom-left").appendChild(document.createElement("div"));
     element.id = "microphone-status";
     element.className = "page-indicator";
     element.setAttribute("role", "status");
-    element.style.cssText = "position:absolute;left:0.5rem;bottom:2rem;z-index:8;max-width:calc(100% - 1rem);" +
-      "padding:0.15rem 0.45rem;background:var(--dolly-ui-background);border:1px solid var(--dolly-ui-alert);color:var(--dolly-ui-alert);font-size:13px;pointer-events:none";
+    element.style.borderColor = element.style.color = "var(--dolly-ui-alert)";
   }
   const text = { waiting: "Microphone: waiting for permission", capturing: "Microphone on" }[state];
   element.hidden = !text;
@@ -48,7 +48,7 @@ function asked(mount) {
 export function browser({ mount, send, indicators, switched }) {
   let consented = !switched;
   const consent = async () => consented ||= await asked(mount);
-  const provider = createMicrophoneProvider(() => indicate({ mount, indicators }, provider.status().state), consent);
+  const provider = createMicrophoneProvider(() => indicate({ indicators }, provider.status().state), consent);
   return {
     page: { get microphone() { return provider.status(); } },
     messages: {

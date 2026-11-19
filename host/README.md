@@ -81,8 +81,9 @@ page's HTTP policy, which judges and counts what leaves the page for the guest:
 `admit(url)` for a GET a module makes for it, `fetch(url, limit)` for a
 build's `SOURCE` file, `refused`, `inherited()` and `builder()`,
 [`network.mjs`](../page/network.mjs)), `showStatus`, `fatal`
-and `indicators` (`hold(holder, held)` and `show()`, the page's corner
-indicators)), and `claimsKey(event)` and `surfaceSize()`, what the other
+and `indicators` (`hold(holder, held)`, `show()` and `corner(name)`, the
+column of a corner an indicator goes in, which gives it the indicators' look,
+[`page-indicators.mjs`](../page/page-indicators.mjs))), and `claimsKey(event)` and `surfaceSize()`, what the other
 modules' `claimsKey` and `surfaceSize` (below) say; its `worker()` receives
 `runtimeBase` (where the runtime's files are served) and `abi` (the modules
 executables may record now, with their digests). Both receive `send` to the

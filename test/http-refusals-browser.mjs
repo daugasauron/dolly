@@ -1,5 +1,5 @@
-// Each request the HTTP policy refuses is a line in the console and a notice on the page,
-// without the URL's query, until the user closes it: one notice and a count for refusals of
+// Each request the HTTP policy refuses is a line in the console and a notice in the page's top
+// right corner, without the URL's query, until the user closes it: one notice and a count for refusals of
 // one method and URL, the five newest with a line for the rest, × and Close all.
 // Usage: node test/http-refusals-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
@@ -15,6 +15,13 @@ await browserTest("http refusals", { image: "system" }, async ({ server, open })
   assert.equal(await page.locator("#http-refusals").isHidden(), true);
   for (let time = 0; time < 2; time++) assert.notEqual(await submit("curl -fsS 'https://example.com/private?key=secret'"), 0);
   assert.deepEqual(await texts(), ["The HTTP policy refused GET https://example.com/private (2 times)"]);
+  // In the top right corner of Dolly's element, as the page's other indicators are in theirs.
+  const corner = await page.evaluate(() => {
+    const list = document.querySelector("#http-refusals").getBoundingClientRect();
+    const box = document.querySelector("#display").parentElement.getBoundingClientRect();
+    return { right: box.right - list.right, top: list.top - box.top, left: list.left - box.left };
+  });
+  assert.ok(corner.right < 16 && corner.top < 16 && corner.left > 0, JSON.stringify(corner));
   assert.deepEqual(warnings.filter(text => text.includes("example.com/private")),
     Array(2).fill("Dolly HTTP policy denied the request: GET https://example.com/private"));
   assert.equal(warnings.some(text => text.includes("secret")), false);

@@ -20,7 +20,7 @@ again from the published packages (`build/video/` of the branch's tree, `retake.
 seed. Close after both.
 
 The video, from this branch's packages (`scripts/package-npm.mjs`, served by a registry on
-127.0.0.1): `build/video/npm-pi-agent.mp4` of `work/npm-policy` (3:00, take 2; `build/video/README.md`
+127.0.0.1): `build/video/npm-pi-agent.mp4` of `work/npm-policy` (2:50, take 4; `build/video/README.md`
 there says what it shows and how it was made). The key never shows: the page's upload dialog brings
 `~/.openrouter` in, and Pi's `/login` reads it with `!cat FILE`.
 
@@ -52,6 +52,35 @@ Measured on this tree's images (the round's pass 1 linked, and `clip`, `dolly-do
   hosts are refused with the page's notices; `anthropic/claude-haiku-4.5` answers through
   `POST /api/v1/messages?beta=true` with `x-api-key` alone, so OpenRouter's Claude models need no
   `models.json` entry.
+
+## The owner on the video (2026-11-19, 07:40)
+
+"1: I don't like the saved/notsaved notification that comes up in the bottom right corner sometimes. I
+want it removed. 2: The blocked policy stuff should be top right, and I didn't like the styling, use the
+same theme and colors as other stuff."
+
+- `init`'s recipe no longer declares `snapshot@0` (Save's button and its notes); a project that wants
+  saves adds the row (`docs/npm.md`, the changelog, Upgrading for a 0.1.7 recipe that has it). Nothing
+  else of npm's flow needs it: the workspace is the page's `files`, the kept runtime is the site's, and
+  `?session=` in `main.mjs` works where the row is. The site's own pages keep Save.
+- The page's notes share one renderer: `indicatorCorner` (`page/page-indicators.mjs`) gives each corner
+  of boot()'s element a column, and `browser.mjs`'s style gives every note in it one look (the
+  embedding's colours, 13px, one border, a state's colour: quiet, accent, alert). The status line and
+  the refusals are at the top right, the status above; Save's button and the GPU adapter's at the bottom
+  right; the download offers and the microphone's at the bottom left; host modules get the column by
+  `indicators.corner(name)`. The refusals are one of the indicators, which they hold shown while a
+  notice is open (Ctrl+Shift+F still hides them); Close and Close all as before. The notes take the
+  popups' font, `--dolly-html-font` (an embedding's page font was serif on npm's page). Screenshots
+  before and after, Chrome and Firefox: `build/video/indicators-{before,after}-{chromium,firefox}.png`.
+- Checked: `http-refusals` (now also its place), `indicators`, `embedding`, `upload`, `display`,
+  `csp`, `microphone` and `gpu-indicator` browser tests in Chrome and Firefox; `test:source`.
+- The video again (take 4, 2:50): no Save element at any moment of the take (the page watched for
+  one), the refusals at the top right in the notes' look.
+- Round 018k's suites failed on `clip`, a core package their checks did not name (`b095b55d6`):
+  `test/dolly.artifacts.mjs` now maps it to `/usr/bin/clip`, and `test/clipboard-browser.mjs`
+  installs it and copies a typed pipeline's text to the browser's clipboard with it, which
+  `test/amy-browser.mjs` names. Both browser tests pass in Chrome and Firefox; the sealed-snapshot
+  test passes over the 85 images this tree holds.
 
 ## Design, as decided
 
