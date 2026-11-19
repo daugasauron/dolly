@@ -151,7 +151,9 @@ npm run serve build/domain-releases     # the candidate as it will be deployed
 [`release-checklist.sh`](../scripts/release-checklist.sh)
 `RELEASES [ARCHIVE]` checks steps 1 to 3, assembles the deployment of step 6
 and boots it, then prints the commands of the others, which work as printed.
-It never tags, pushes, publishes, uploads or deploys.
+It never tags, pushes, publishes, uploads or deploys. A release candidate ends
+before step 4, its site served by `npm run serve RELEASES` and its npm packages
+by [`npm-registry.mjs`](../scripts/npm-registry.mjs) (the checklist's header).
 
 1. A green round on the commit: [`round.sh`](../scripts/round.sh) (the runtime,
    every image until its pins hold, the seeds' compilers a fixed point, lint,

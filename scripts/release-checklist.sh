@@ -5,13 +5,20 @@
 #   scripts/release-checklist.sh --showcase RELEASES [ARCHIVE]   its later one, with its showcase
 # It verifies, assembles the deployment and boots it. It never tags, pushes, publishes, uploads
 # or deploys: it ends by printing the commands that do, for the owner to run.
+# A release candidate is the release before its step 4, on this machine alone:
+#   1. bash scripts/round.sh, until bash scripts/round.sh verdict passes on the commit
+#   2. DOLLY_BUILD_IMAGES="$(paste -sd, config/domain-pages-images.txt)" bash scripts/package-pages.sh RELEASES
+#   3. bash scripts/release-checklist.sh RELEASES ARCHIVE
+#   4. the candidate's two commands it prints: its site served as it will be deployed, and its
+#      npm packages from a registry of their own.
 set -euo pipefail
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 showcase=""
 [[ "${1:-}" != --showcase ]] || { showcase=1; shift; }
 [[ $# -ge 1 ]] || { echo "usage: release-checklist.sh [--showcase] RELEASES [ARCHIVE]" >&2; exit 64; }
-domain="$(realpath -- "$1")/current"
+releases="$(realpath -- "$1")"
+domain="${releases}/current"
 archive="$(realpath -- "${2:-${project_dir}/published}")"
 cd "${project_dir}"
 # The npm packages are of the whole catalog, whichever images were packaged last.
@@ -36,7 +43,7 @@ else
   [[ -z "${tagged}" || "${tagged}" == "${commit}" ]] || stop "tag ${version} names ${tagged}, not HEAD"
   [[ ! -e "${archive}/${version}" ]] || stop "${version} is already published; a fix is a new version"
   bash scripts/round.sh verdict || stop "no round passed on HEAD: scripts/round.sh"
-  source config/source-pins.sh
+  source config/source-pins.sh && source demos/rust/source-pins.sh && source demos/go/source-pins.sh
   # The seeds this release was built with, which its GitHub release carries (docs/sources.md):
   # each pinned to this release's asset, its pinned bytes in .cache.
   seeds=() seed_checks=""
@@ -105,7 +112,16 @@ fi
 step "6 the deployment: every published version and ${version}${showcase:+ with its showcase}"
 deployment="build/pages-${version}"
 rm -rf -- "${deployment}"
-node scripts/export-cloudflare-pages.mjs "${archive}" "${deployment}" "${domain}"
+exported="$(node scripts/export-cloudflare-pages.mjs "${archive}" "${deployment}" "${domain}" 2>&1)" || {
+  echo "${exported}" >&2
+  # A version that does not fit Pages: the oldest leaves the site first (docs/deployment.md).
+  [[ "${exported}" != *"20,000-file limit"* ]] ||
+    stop "the deployment exceeds Pages' 20,000 files: the oldest version leaves first, and the release notes say so:
+   mkdir -p $(dirname -- "${archive}")/retired && mv ${archive}/$(ls "${archive}" | sort -V | head -1) $(dirname -- "${archive}")/retired/
+   then run this again"
+  stop "the deployment was not assembled"
+}
+echo "${exported}"
 [[ -d "${deployment}/${version}" ]] || stop "the domain site is not ${version}"
 versions="$(cd "${deployment}" && echo v*)"
 step "6 every version boots from the deployment, served as Pages serves it"
@@ -123,18 +139,23 @@ cat <<COMMANDS
    node scripts/published-version.mjs verify ${site} ${deployment} ${version} ${archive}
 8  mv ${archive}/${version} build/pages-${version}-core && mv ${deployment}/${version} ${archive}/ && rm -rf ${deployment} build/pages-${version}-core
    git push origin main
-   gh release edit ${version} --notes-file NOTES, which names ${version}'s list as deployed now:
-   $(sha256sum "${deployment}/${version}/deployment.sha256" | cut -d' ' -f1)
+   gh release edit ${version} --notes-file NOTES.md, the release's notes naming ${version}'s list as
+   deployed now: $(sha256sum "${deployment}/${version}/deployment.sha256" | cut -d' ' -f1)
    Then the next version: DOLLY_VERSION in page/version.mjs, the one line that names it.
 COMMANDS
   exit
 fi
 cat <<COMMANDS
 == checked at ${commit} ($(((SECONDS - began) / 60)) min): deployment $(find "${deployment}" -type f | wc -l) files.
-   Nothing was tagged, pushed, published or deployed. The owner runs, in ${project_dir}:
+   Nothing was tagged, pushed, published or deployed. In ${project_dir}, the candidate:
+   npm run serve ${releases}    its site as it will be deployed (DOLLY_PORT, 8080 by default)
+   node scripts/npm-registry.mjs ${npm_dir}    its npm packages, for npm_config_registry
+   A release candidate ends here. The owner runs:
 4  git tag -a ${version} -m "Dolly ${version#v}" ${commit}
    git push origin main ${version}
-5  gh release create ${version} ${seeds[*]} --verify-tag --title "Dolly ${version}" --notes-file NOTES
+5  gh release create ${version} ${seeds[*]} --verify-tag --title "Dolly ${version}" --notes-file NOTES.md
+   NOTES.md: the release's notes, written for it, naming ${version}'s list as deployed:
+   $(sha256sum "${deployment}/${version}/deployment.sha256" | cut -d' ' -f1)
    the release holds each seed's pinned bytes:
 ${seed_checks}   bash scripts/publish-npm.sh ${npm_dir}    (in a terminal: npm signs in and approves in a browser)
 6  with CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN set, where nothing interrupts it (an
@@ -144,9 +165,7 @@ ${seed_checks}   bash scripts/publish-npm.sh ${npm_dir}    (in a terminal: npm s
    node scripts/published-version.mjs boot https://daugasauron.com ${versions}
    node scripts/published-version.mjs verify ${site} ${deployment} ${version}
 8  mv ${deployment}/${version} ${archive}/ && rm -rf ${deployment}
-   then move page/version.mjs to the next version
-   ${version}'s list, for the release notes: $(sha256sum "${deployment}/${version}/deployment.sha256" | cut -d' ' -f1)
-   Then its showcase, recorded on ${site}/${version}/ and committed to sites/slopshare.dev/agents/,
-   before the version moves on:
-   bash scripts/package-pages.sh RELEASES slopshare.dev && bash scripts/release-checklist.sh --showcase RELEASES ${archive}
+   Then its showcase, recorded on ${site}/${version}/ and committed to sites/slopshare.dev/agents/:
+   bash scripts/package-pages.sh ${releases} slopshare.dev && bash scripts/release-checklist.sh --showcase ${releases} ${archive}
+   After it, or with no showcase now, the next version: DOLLY_VERSION in page/version.mjs.
 COMMANDS

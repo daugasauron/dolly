@@ -1,6 +1,6 @@
 # A version bump rebuilds all 230 images: 5 h 49 min of 0.1.7's release for five images' change
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: audit,build,release,0.1.8
 
@@ -191,3 +191,35 @@ With (2): after a bump in a scratch tree (`page/version.mjs`, `package.json`,
 `dist/` lists `reuse` for every image whose recipes and inputs did not change. With (1) only: the
 bump is the commit after each release (0.1.8's now, before its round), and this task closes on
 that with the owner's choice recorded.
+
+## Closed 2026-11-19
+
+The done-when, (2), holds on the 0.1.8 round's images (`dolly-round-018k`, `work/integrate-018`
+at `8d666a4e4`), hard-linked into `work/rc-release` (`fix/rc-release` at `1e4fedfb7`, whose
+commits since change no image input): `bump-proof.sh 0.1.9` there (`build/rehearse/bump-proof.log`)
+
+```text
+files the bump changed:
+   M page/version.mjs
+image inputs before: sha256:c22a18a724e06cd6293d5f057cc419f5d83f4399223c6ae1cdba527f62bb8d1f
+image inputs after:  sha256:c22a18a724e06cd6293d5f057cc419f5d83f4399223c6ae1cdba527f62bb8d1f
+plan: 267 reuse, 0 build of 267 images
+plan after the bump: identical to the plan before it
+```
+
+What the round was to confirm:
+
+- Every recipe begins `DOLLY 8` (268 files) and the lint passed (267 recipes); the compiler stage
+  passed with no change, the three seeds those the round's images gave again: the fixed point
+  with the DOLLY 8 engine in the seed.
+- Chrome and Firefox on its catalog: `demos/wine/test/wine-browser.mjs` drew NetSurf's `site:/`
+  home page, the site's own landing page, in both (the Chromium run failed later, on GIMP's
+  display: not this task's); `demos/studio/test/studio-browser.mjs` and `test/npm-browser.mjs`
+  passed in both.
+- `published-version.mjs boot` of the candidate from its deployment (the release checklist's
+  step 6, rehearsed in `work/rc-release`): v0.1.6, v0.1.7 and v0.1.8 boot default in Chromium
+  and Firefox. v0.1.5 leaves the site with 0.1.8, which takes the deployment past Pages'
+  20,000 files (`tasks/20261116-140720-repo-07`).
+
+`convert-dolly8.mjs` and `bump-proof.sh` are removed; they are in git at `1e4fedfb7`. A
+`DOLLY 7` recipe a branch still brings is refused by the lint at its first line.
