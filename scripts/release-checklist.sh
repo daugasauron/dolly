@@ -112,7 +112,16 @@ fi
 step "6 the deployment: every published version and ${version}${showcase:+ with its showcase}"
 deployment="build/pages-${version}"
 rm -rf -- "${deployment}"
-node scripts/export-cloudflare-pages.mjs "${archive}" "${deployment}" "${domain}"
+exported="$(node scripts/export-cloudflare-pages.mjs "${archive}" "${deployment}" "${domain}" 2>&1)" || {
+  echo "${exported}" >&2
+  # A version that does not fit Pages: the oldest leaves the site first (docs/deployment.md).
+  [[ "${exported}" != *"20,000-file limit"* ]] ||
+    stop "the deployment exceeds Pages' 20,000 files: the oldest version leaves first, and the release notes say so:
+   mkdir -p $(dirname -- "${archive}")/retired && mv ${archive}/$(ls "${archive}" | sort -V | head -1) $(dirname -- "${archive}")/retired/
+   then run this again"
+  stop "the deployment was not assembled"
+}
+echo "${exported}"
 [[ -d "${deployment}/${version}" ]] || stop "the domain site is not ${version}"
 versions="$(cd "${deployment}" && echo v*)"
 step "6 every version boots from the deployment, served as Pages serves it"
