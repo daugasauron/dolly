@@ -18,13 +18,14 @@ and after in both browsers, three cold starts each.
 
 ## State (2026-11-19)
 
-Measured, and the one cut the project could make without a change to the look is made: four kinds
-of standard material for six (below). It spares a quarter to two fifths of the shader modules and
-every module the flight made once under way, but the start only a second or two in Firefox and
-nothing in Chrome, whose waits are its pipelines. What is left is the engine's and gpu@0's (the last
-section): a cache of modules by code in gpu@0, Godot's own shaders and its shader cache, Chrome's
-compiling. Fewer pipelines from the project would take fewer features (SSAO's depth with normals
-is one pipeline a material and vertex format) or fewer of the world's 15 shaders.
+Two cuts are made, neither changing the look. The project's: four kinds of standard material for
+six (below), a quarter to two fifths fewer shader modules, the start a second or two sooner in
+Firefox and the same in Chrome. Then the one in the program: most of Godot's start was compiling
+shaders in Wasm, most of that the SPIR-V to WGSL converter, which inlined every call. It now
+inlines only the calls that carry images and samplers (spirv-wgsl's `InlineOpaqueCalls`, below):
+half its time over all of the flight's modules, a quarter less WGSL, and Godot's 120th frame
+some 40 s sooner in Chrome and 15 s in Firefox at the evening's load of 20. What is left is the
+engine's and gpu@0's (the last section).
 
 ## What is made (2026-11-19)
 
@@ -107,6 +108,80 @@ WGSL, and every module the flight made once under way; the start is a second or 
 pipelines' (the module-only batches wait behind the pipelines the browser is still compiling), which
 the cut leaves as they were. The four tests passed on the image with it.
 
+## Compiling in the program (2026-11-19)
+
+Where Godot's time goes between its start and its first frames, by phase and thread:
+
+- One traced start in Chrome (`build/planet/timeline.mjs`, a thread busy unless it waits in the
+  futex or for the host): first a CPU phase of some 12 s, Godot's four workers 92 % busy each,
+  then some 16 s of gpu@0 waiting for Chrome's pipelines. The four are all Godot has: the
+  pool is the processors sysconf reports (4), and shader compiles are high-priority tasks
+  (`ShaderRD::_compile_version_start`), one per variant.
+- Each variant is glslang (GLSL to SPIR-V) and then spirv-wgsl (SPIR-V to WGSL). Timed in the
+  program on one shader (the probe's `--shaderbench`: a fragment shader with
+  `terrain.gdshaderinc`): glslang 13 to 15 ms, the converter 443 to 507 ms. The compiling is
+  the converter's.
+- The converter on every module of the flight, natively (`build/planet/native-spirv`: the
+  converter and Tint built for Linux from the package's sources; the modules from Godot
+  4.7.2's own Vulkan shader cache of the same flight, 834 of them, and 178 more the editor
+  compiles; debug info stripped, which Godot in Dolly does not write), one core: 66.9 s in all.
+  Godot's own effects (338 modules: canvas, sky, copy, GI, SSAO, tonemap, ...) 8.8 s, the
+  scene shader's 248 fragment modules 44.7 s and 248 vertex modules 10.1 s. The scene shader's
+  modules are the materials': the surface pipelines (122) and specializations (67) Godot's
+  monitors count at the game's first frame, and each material's ubershader twice that
+  (Forward+'s base variants are four, each with and without the ubershader, `shader_rd`;
+  Godot 4.7.2 has no setting that leaves the ubershader out).
+- Why the converter: its first passes inlined every call (`--inline-entry-points-exhaustive`),
+  so a material's helpers, called many times, were copied at each call. The terrain shader
+  grew from 9,387 SPIR-V words to 99,801, its WGSL from 28 KB to 333 KB, its translation from
+  some 25 ms to 400, and Tint read and lowered every copy.
+- Recipe flags: Godot builds as `template_release` (`optimize=speed`, -O3; Dolly's
+  `platform/detect.py` does not override it), spirv-wgsl with CMake's Release and -O2 for its
+  own file: nothing to fix there.
+
+The converter needs inlined only the calls that carry an image, a sampler or a sampled image:
+its passes after the inlining (an array of descriptors indexed by a variable, the depth
+twins, storage images) look for each descriptor and its use in one function. That is
+SPIRV-Tools' `--inline-entry-points-opaque`, which looked each argument's type up in the
+def-use analysis that every inlining invalidates: it rebuilt that for the whole module at each
+call, 0.9 s of the 1.3 s one of the scene's fragment modules took. The converter's own
+`InlineOpaqueCalls` inlines the same calls, telling them by the function called.
+
+On the 1,012 modules, as built against it, side by side on two cores: 66.9 s to 35.9 s, WGSL
+31.0 MB to 22.8 MB; Godot's own 8.8 s to 3.8 s, the scene's fragment modules 44.7 s to 21.8 s,
+its vertex modules 10.1 s to 7.5 s. The WGSL is the same as the upstream opaque pass's in every
+module, the same three modules fail as before (FSR's 16-bit path, the volumetric fog with
+image atomics, VRS with multiview: variants for native Vulkan features that Godot in Dolly does
+not pick), and no function takes a pointer outside the function and private address spaces.
+Tried and left: no inlining at all (19 s) fails
+48 modules whose arrays of textures a callee indexes; inlining only the calls that pass an
+element of such an array broke Tint on the shadows' samplers, which reach their texture through
+a parameter. Without the optimizer's own validation of its input (Tint validates its output) the
+corpus took 7 % less: kept.
+
+Looked at: the same two stills of a flight at a fixed 60 steps a second, before and after, are
+the same in Firefox (bit for bit) and in Chrome (105 and 109 dB). One Firefox run first came
+out different: the game had stepped its quality down at 0.3 s (its levels follow the GPU
+time), which the same build did not do again.
+
+Measured interleaved in the evening (`build/planet/ab-conv.sh`: the Godot package alone, as
+built and with the converter changed, on HEAD's project, cold each, one at a time under the
+GPU lock), the round building images beside it: Godot's clock to its probe, its first frame
+and its 120th, the WGSL gpu@0 was given, its waits for the browser, the load.
+
+| | as built | calls with images and samplers inlined |
+| --- | --- | --- |
+| Chromium 1 | 14.8, 75.9, 94.7 s; 29.1 MB, waited 48.3 s (load 20.4) | 10.0, 35.0, 61.4 s; 21.9 MB, waited 30.3 s (19.9) |
+| Chromium 2 | 18.2, 78.7, 97.8 s; 29.1 MB, waited 48.3 s (20.8) | 11.2, 35.0, 54.0 s; 21.9 MB, waited 22.9 s (21.4) |
+| Chromium 3 | 15.5, 71.2, 89.3 s; 29.1 MB, waited 43.8 s (19.5) | 11.6, 34.2, 49.1 s; 21.9 MB, waited 19.1 s (18.2) |
+| Firefox 1 | 9.4, 47.4, 52.4 s; 28.9 MB, waited 8.9 s (21.5) | 7.4, 29.4, 34.8 s; 21.8 MB, waited 3.0 s (19.8) |
+| Firefox 2 | 9.0, 43.7, 48.3 s; 28.9 MB, waited 8.4 s (18.9) | gpu@0 never started (15.0) |
+| Firefox 3 | 7.4, 37.1, 41.2 s; 28.9 MB, waited 7.3 s (15.8) | 5.9, 23.3, 29.1 s; 21.8 MB, waited 3.8 s (17.2) |
+
+The same 843 and 834 shader modules either way. Chrome's waits shrank with the WGSL: it parses
+and compiles each module's. Firefox 2 after is Firefox's start-up stall (gpu@0 not started
+120 s after Godot), which the build as it was showed the same evening too.
+
 ## What is left, and what it would take
 
 - **gpu@0 makes a module for each request, the same code again and again**: 311 of the 834 are
@@ -116,10 +191,15 @@ the cut leaves as they were. The four tests passed on the image with it.
   pipeline's compile more. Fewer of them take fewer features or fewer shaders: the world's 15 shaders are 6 pipelines
   each (colour, depth with normals for SSAO, shadow, specializations).
 - **Godot's own shaders**: 330 modules and 192 compute pipelines at its start, compiled in the
-  program from GLSL, whatever the project asks for. Godot's shader cache (`user://`) spares that on
-  a second start (48 s to 29 s, the Firefox/GPU agent's measure); an image that came with it needs
-  the cache made where the image is built, which needs a RenderingDevice there (gpu@0 in builds),
-  or Godot's shader baker at export, which needs the same.
+  program from GLSL, whatever the project asks for (now 3.8 s of the converter natively where
+  they were 8.8). Godot's shader cache (`user://`) spares that on a second start (48 s to 29 s,
+  the Firefox/GPU agent's measure); an image that came with it needs the cache made where the
+  image is built, which needs a RenderingDevice there (gpu@0 in builds, not for 0.1.8: the
+  owner's call), or Godot's shader baker at export, which needs the same.
+- **The converter's rest**: its 31 passes rebuild their analyses each, some 30 ms a pass on the
+  largest modules; the optimizer's own validation of its input is 7 %. No inlining at all would
+  halve the rest again (19 s natively for the 1,012 modules) if the converter's passes followed an
+  image or a sampler through a call's parameter.
 - The flyer's meshes come in four vertex formats (with and without colours, one without UVs,
   primitives), each a pipeline of every pass: the same format for all of them (colours added where
   they are missing) would spare some ten. That is Blender's model's code (`model.gd`).

@@ -21,9 +21,9 @@ REQUIRES HOST clipboard@0
 # flyer.py into flyer.glb, which the game reads when it starts: Blender run on the script again
 # makes it anew.
 FROM /Dollyfile-system 8d54b8fd95bd265381fcacf4d97044d3ad3deb0e969deeed8e4b5e791e71dcb5
-INSTALL /demos/godot/Dollyfile-godot a07eb1a7b241b23dd68aa49582ca0338d8949ff94273d58b8f2010b2c764305e
-USE /demos/godot/Dollyfile-godot-editor 41a3f6f8e56c4de02b5a9498ffd4be8bf8ac37780d7215b9e1a15e72af4c7a5e
-USE /demos/blender/Dollyfile-blender c7162bd0097e17bd6ceaa9644694d7aa5bfeca853f12834d00ce01a31bfd5dda
+INSTALL /demos/godot/Dollyfile-godot 0f9bcba54ab956c8c746880465b4ef7905288772fd7b2d8a28217073ab301105
+USE /demos/godot/Dollyfile-godot-editor 260f74d1b308783b82262afa22c133628e7bbdb8610a874c7ca5aec7eb06cf77
+USE /demos/blender/Dollyfile-blender 6f0abb360219e6af10181218f5bf70a0df76c67898c27b3cd342abdfbbea00fb
 
 REQUIRES TOOL blender
 REQUIRES TOOL cp

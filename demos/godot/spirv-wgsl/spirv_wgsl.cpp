@@ -3,6 +3,7 @@
 // that Tint does not read or WGSL cannot express, and leaves everything else to the standard ones.
 #include "spirv_wgsl.h"
 
+#include "source/opt/inline_pass.h"
 #include "source/opt/instruction.h"
 #include "source/opt/ir_builder.h"
 #include "source/opt/ir_context.h"
@@ -50,6 +51,81 @@ Instruction *decoration(IRContext *context, uint32_t id, Decoration which) {
 	}
 	return nullptr;
 }
+
+// Inlines each call of a function that takes or returns an image, a sampler or a sampled image, as
+// --inline-entry-points-opaque does, so the passes below find each descriptor and its use in one
+// function; any other function stays one. Every call inlined (--inline-entry-points-exhaustive) took
+// ten times the SPIR-V, the WGSL and the time for a shader of Voxel Flyover's terrain (2026-11-19).
+// The opaque pass looks each argument's type up in the def-use analysis, which each inlining
+// invalidates, so it built that anew for the whole module at every call: 0.9 s of the 1.3 s one of
+// Godot's scene shaders took. Here the function called says it.
+class InlineOpaqueCalls : public InlinePass {
+public:
+	const char *name() const override { return "dolly-inline-opaque-calls"; }
+	Status Process() override {
+		InitializeInline();
+		std::set<uint32_t> opaque;  // image, sampler and sampled image types, pointers to them, structs holding them
+		for (Instruction &type : context()->types_values()) {
+			switch (type.opcode()) {
+				case Op::OpTypeImage:
+				case Op::OpTypeSampler:
+				case Op::OpTypeSampledImage:
+					opaque.insert(type.result_id());
+					break;
+				case Op::OpTypePointer:
+					if (opaque.count(type.GetSingleWordInOperand(1))) opaque.insert(type.result_id());
+					break;
+				case Op::OpTypeStruct:
+					type.ForEachInId([&](const uint32_t *member) {
+						if (opaque.count(*member)) opaque.insert(type.result_id());
+					});
+					break;
+				default:
+					break;
+			}
+		}
+		std::set<uint32_t> callees;
+		for (Function &function : *get_module()) {
+			bool takes = opaque.count(function.type_id());
+			function.ForEachParam([&](Instruction *parameter) { takes |= opaque.count(parameter->type_id()) > 0; });
+			if (takes) callees.insert(function.result_id());
+		}
+		Status status = Status::SuccessWithoutChange;
+		ProcessFunction inline_calls = [&](Function *function) {
+			if (status == Status::Failure) return false;
+			bool modified = false;
+			for (auto bi = function->begin(); bi != function->end(); ++bi) {
+				for (auto ii = bi->begin(); ii != bi->end();) {
+					if (!IsInlinableFunctionCall(&*ii) || !callees.count(ii->GetSingleWordInOperand(0))) {
+						++ii;
+						continue;
+					}
+					Instruction *before = ii == bi->begin() ? nullptr : &*std::prev(ii);
+					std::vector<std::unique_ptr<BasicBlock>> blocks;
+					std::vector<std::unique_ptr<Instruction>> variables;
+					if (!GenInlineCode(&blocks, &variables, ii, bi)) {
+						status = Status::Failure;
+						return false;
+					}
+					if (blocks.size() > 1) UpdateSucceedingPhis(blocks);
+					bi = bi.Erase();
+					for (auto &block : blocks) block->SetParent(function);
+					bi = bi.InsertBefore(&blocks);
+					if (!variables.empty()) function->begin()->begin().InsertBefore(std::move(variables));
+					ii = before ? ++InstructionList::iterator(before) : bi->begin();
+					modified = true;
+				}
+			}
+			if (modified) {
+				FixDebugDeclares(function);
+				status = Status::SuccessWithChange;
+			}
+			return false;
+		};
+		context()->ProcessReachableCallTree(inline_calls);
+		return status;
+	}
+};
 
 // Descriptor set s, binding b becomes bind group s and the binding spirv_wgsl_plan gave the
 // uniform; the sampler half of a split combined image sampler follows its images.
@@ -1154,7 +1230,7 @@ extern "C" void spirv_wgsl_translate(const uint32_t *words, size_t word_count, c
 	optimizer.RegisterPass(spvtools::CreateSplitCombinedImageSamplerPass())
 			.RegisterPass(pass<o::RemapBindings>(uniforms, uniform_count, &ours))
 			.RegisterPass(spvtools::CreateMergeReturnPass())
-			.RegisterPass(spvtools::CreateInlineExhaustivePass())
+			.RegisterPass(pass<o::InlineOpaqueCalls>())
 			.RegisterPass(spvtools::CreateEliminateDeadFunctionsPass())
 			.RegisterPass(pass<o::SinkDescriptorAccess>())
 			.RegisterPass(spvtools::CreateReplaceDescArrayAccessUsingVarIndexPass())

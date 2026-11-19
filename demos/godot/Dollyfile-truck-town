@@ -16,8 +16,8 @@ REQUIRES HOST clipboard@0
 # its assets and exports its pack here, and truck-town plays the pack with
 # godot, which installs with it. Its physics is Godot's own (Jolt's is not built).
 FROM /Dollyfile-system 8d54b8fd95bd265381fcacf4d97044d3ad3deb0e969deeed8e4b5e791e71dcb5
-INSTALL /demos/godot/Dollyfile-godot a07eb1a7b241b23dd68aa49582ca0338d8949ff94273d58b8f2010b2c764305e
-USE /demos/godot/Dollyfile-godot-editor 41a3f6f8e56c4de02b5a9498ffd4be8bf8ac37780d7215b9e1a15e72af4c7a5e
+INSTALL /demos/godot/Dollyfile-godot 0f9bcba54ab956c8c746880465b4ef7905288772fd7b2d8a28217073ab301105
+USE /demos/godot/Dollyfile-godot-editor 260f74d1b308783b82262afa22c133628e7bbdb8610a874c7ca5aec7eb06cf77
 USE /demos/tools/Dollyfile-unzip 9e5879c496bf641d5bcf962ff725b582cf24fd9ea50a1c6b2104a7bc7a7c0edb
 
 REQUIRES TOOL cp
