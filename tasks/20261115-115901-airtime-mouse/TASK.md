@@ -1,8 +1,21 @@
 # Airtime's mouse look is not checked with a captured mouse
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: godot,0.1.8
+
+## Closed 2026-11-19
+
+The 0.1.8 round (`integrate/0.1.8` at 8d666a4e4, its GPU stage on Xvfb :148) passed the test in
+Chrome (`chromium view 19 6`). In Firefox it never started the browser: the test launched the
+snap Firefox with Playwright's profile in the host's `/tmp`, which the snap's own `/tmp` hides,
+and Playwright's launch timed out after 180 s; so did `godot-flyover-touch-browser.mjs`'s. Every
+other Firefox test there launches through `launchInstalledFirefox` (`test/browser.mjs`), which
+puts the profile under `build/`. Reproduced on :160 with a launch alone: 60 s and no browser with
+the profile in `/tmp`, 1.3 s under `build/firefox-tmp`. Both tests now launch through it
+(`fix/rc-browser`). On the round's `godot-airtime` image, in Firefox 159 on the NVIDIA adapter
+(:160, under the GPU lock): `firefox view 29 3`, `godot-airtime: firefox passed` (19 and 6
+expected, two thirds to five thirds of them in Firefox); the touch test passed in Firefox too.
 
 ## State (2026-11-17)
 
