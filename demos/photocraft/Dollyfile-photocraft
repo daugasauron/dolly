@@ -20,7 +20,7 @@ REQUIRES HOST sockets@0
 # dialogs, on the same platforms. Where DISPLAY names an X server (x11-desktop) the app and zenity
 # are windows of it (x11-window, over Xlib), their frames read back from gpu@0; copy and paste
 # are the page's clipboard (clipboard@0) on the page and there.
-FROM /demos/rust/Dollyfile-rust-build 2a0e41c3be3d1ccf64c8d10895dcd06af747514ac776544896e226f6cb4d0da6
+FROM /demos/rust/Dollyfile-rust-build 85ebd97b5f4297263c49b682ce2bebb2eb0b3545c60a0bd5251dfacc5ec6a31c
 USE /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
 USE /Dollyfile-libdolly-clipboard 99746a8bd9b9eb136098753ccc526ac94a14540e6d26082ae8748eb6e3fa08a6
 USE /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a40b55b3a58f8eddf41af0

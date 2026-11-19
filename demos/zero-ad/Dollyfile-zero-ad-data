@@ -9,7 +9,7 @@ REQUIRES HOST runtime@0
 FROM /Dollyfile-system-tools 1606024fba5919c1fb6c0369ad86cc69f3ecf38099dff75bddb3eccb97da71e5
 USE /demos/python/Dollyfile-python c39225e146dd9f27a77c5b8b534c4d3eec2246b777c435e766dd48495fa3a2c1
 USE /demos/tools/Dollyfile-xz 459f0cc5ab2cda8ede96f9c9434f947f97b7e5faef4bfd3543abcb2be3e8e909
-USE /demos/rust/Dollyfile-naga 54458da404ce61c7da97dec0e095fb878b2484d4ea4c19ae19b0d3cc566ee311
+USE /demos/rust/Dollyfile-naga dfabcce235ad95eb87de1434c5d6d1120bb442c938c598a8b733fafa798f4394
 REQUIRES TOOL python3
 REQUIRES TOOL xz
 REQUIRES TOOL naga

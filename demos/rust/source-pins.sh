@@ -2,5 +2,5 @@
 
 # The seed: rustc, its standard library and Cargo as the previous round built them
 # (demos/rust/pin-seed.mjs writes both lines).
-DOLLY_RUST_SEED_URL='https://github.com/daugasauron/dolly/releases/download/v0.1.8/dolly-rust-seed-70be972668adaf992b8b162ed90884dd2acfc2ed06ec7897eb2b9ad33e076024.tar.gz'
-DOLLY_RUST_SEED_SHA256=70be972668adaf992b8b162ed90884dd2acfc2ed06ec7897eb2b9ad33e076024
+DOLLY_RUST_SEED_URL='https://github.com/daugasauron/dolly/releases/download/v0.1.8/dolly-rust-seed-8b779884632ab9b57dcabf2b50c337c1b7fd5765417923c4ee8b7485ee6afc5d.tar.gz'
+DOLLY_RUST_SEED_SHA256=8b779884632ab9b57dcabf2b50c337c1b7fd5765417923c4ee8b7485ee6afc5d

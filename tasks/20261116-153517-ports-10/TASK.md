@@ -66,8 +66,15 @@ Lean, OCaml and Wine on `ws/ports`, merged into `integrate/0.1.8`:
   `compare-packages.txt`). The recipe's own check, the library of the first rustc against that
   of the second, both threaded, passed.
 
-  Left: `codex` (and the other Rust images) built by it and its test, in the round; the round
-  pins the Rust seed it gives, and the round after must leave that pin unchanged.
+  The second pass, in the same tree: this `rust-build` and `cargo` pinned as the Rust seed
+  (`8b779884…`, `demos/rust/source-pins.sh`), `rust-build` built from it in 1,265 s (the first
+  rustc, by the threaded seed, 6 min 05 s) gave every file of the first pass again, `rustc-real`
+  among them (`compare-second-pass.txt`), and pinning the seed from it gave `8b779884…` again:
+  the threaded rustc is a fixed point. The archive is
+  `work/rc-ports/.cache/dolly-rust-seed-8b779884….tar.gz`.
+
+  Left: `codex` and the other Rust images built by it, and the codex test, in the round, whose
+  compiler stage must leave the Rust seed pin unchanged.
 - OCaml: `prepare-ocaml.sh` and the README give upstream's reason for `--disable-shared` (its
   configure makes shared libraries only for the systems it lists; measured in the pinned
   archive's `configure.ac`, which without it sets `supports_shared_libraries=true` with
