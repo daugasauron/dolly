@@ -64,26 +64,26 @@ billboard_mode = 3
 material = SubResource("burst_material")
 size = Vector2(0.16, 0.16)
 
-[node name="Ring" type="Area3D"]
+[node name="Ring" type="Area3D" unique_id=37]
 monitorable = false
 script = ExtResource("1")
 
-[node name="Band" type="MeshInstance3D" parent="."]
+[node name="Band" type="MeshInstance3D" parent="." unique_id=38]
 transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0)
 cast_shadow = 0
 mesh = SubResource("band")
 
-[node name="Glow" type="OmniLight3D" parent="."]
+[node name="Glow" type="OmniLight3D" parent="." unique_id=39]
 light_color = Color(1, 0.76, 0.4, 1)
 light_energy = 1.5
 light_volumetric_fog_energy = 1.4
 omni_range = 16.0
 omni_attenuation = 1.6
 
-[node name="Gate" type="CollisionShape3D" parent="."]
+[node name="Gate" type="CollisionShape3D" parent="." unique_id=40]
 shape = SubResource("gate")
 
-[node name="Burst" type="GPUParticles3D" parent="."]
+[node name="Burst" type="GPUParticles3D" parent="." unique_id=41]
 emitting = false
 amount = 48
 lifetime = 0.8

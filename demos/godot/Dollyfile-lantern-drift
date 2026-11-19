@@ -25,7 +25,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL tar
 
-SOURCE /dist/static/godot/lantern-drift.tar 48d6b38d8862f7a56372f5dbaf26f38d255cfd6c949b2b3c216aee122eeb6f13 /tmp/lantern-drift.tar
+SOURCE /dist/static/godot/lantern-drift.tar 7bf4f9acb4945dafe2185aa5fe6ce8e8f884446217780d0977e9b659083d1a03 /tmp/lantern-drift.tar
 SLOP CWD / tar -xf /tmp/lantern-drift.tar
 SLOP mkdir -p /usr/share/lantern-drift
 SLOP cp -r /usr/src/lantern-drift /usr/share/lantern-drift/project
