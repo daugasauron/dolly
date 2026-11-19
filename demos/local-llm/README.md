@@ -7,7 +7,7 @@ or remote fallback.
 ## Images
 
 - `pi-local`: Pi with the bundled Qwen3.5-2B; `/local` installs and switches models. Requires WebGPU.
-- `pi-llm`: Pi with its provider for the models `dolly-llama` runs in the tab and the bundled Qwen3.5-2B, which its settings choose; it needs `gpu@0`.
+- `pi-llm`: Pi with its provider for the models `dolly-llama` runs in the tab, which `/local` installs and switches; it needs `gpu@0`.
 - `llama-cpp`: llama.cpp's libraries with ggml's WebGPU backend over the GPU interface, for programs the `cc` package builds; they need `gpu@0`.
 - `llama`: `dolly-llama`, linked on `llama-cpp`, serving a GGUF over stdin and stdout; it needs `gpu@0`.
 - `qwen3.5-2b`: Model package: Qwen3.5-2B weights, description and license.
@@ -45,9 +45,10 @@ licensed below 10 million US dollars of annual revenue.
 ## A model is a package
 
 A model package installs `/usr/share/dolly/llm/ID.json` beside its weights; the
-provider lists that directory and names no model. `pi-llm` holds the other models'
-descriptions too, so that `/local` lists them before their packages are installed, each
-the same file as its package's. Adding one is
+provider lists that directory and names no model. `pi-llm` holds every model's
+description too, so that `/local` lists them before their packages are installed, each
+the same file as its package's; it installs no model and chooses none, and `pi-local`
+installs `qwen3.5-2b` and chooses it in Pi's settings. Adding one is
 [`models/ID.json`](models/), a recipe per package, its description's `FILE` row in
 [`Dollyfile-pi-llm`](Dollyfile-pi-llm) and a row in
 [`upstreams.json`](upstreams.json). The description holds

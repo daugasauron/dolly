@@ -7,6 +7,13 @@
       "why": "dolly-llama computes on the GPU, a host module default does not declare: amy has nena enable gpu@0, which a page admits with or without WebGPU.",
       "script": "amy install llama && grep -qx gpu@0 /etc/dolly/enabled && command -v dolly-llama",
       "status": 0
-    }
+    },
+    {
+      "fresh": true,
+      "why": "pi-llm is Pi with the provider and the descriptions /local lists, under a megabyte of its own: it installs Pi, no model, and chooses none, so pi-dolly is already there and Pi's settings are its own.",
+      "script": "amy install pi-llm > /tmp/amy-pi-llm && grep -q '^amy: pi-llm installed: [0-9]* files, [0-9]\\{1,6\\} bytes' /tmp/amy-pi-llm && command -v pi && test -f /home/dolly/.pi/agent/extensions/local-model-provider.js && test -f /usr/share/dolly/llm/qwen3.5-2b.json && ! ls /usr/share/dolly/llm/*.gguf 2> /dev/null && ! grep -q defaultProvider /home/dolly/.pi/agent/settings.json",
+      "status": 0
+    },
+    { "script": "test \"$(amy install pi-dolly)\" = 'amy: pi-dolly is already installed'", "status": 0 }
   ]
 }

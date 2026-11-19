@@ -16,9 +16,8 @@ test("every model description is installed by the packages it names", () => {
       assert.match(recipes, new RegExp(` /usr/share/dolly/llm/${file.replaceAll(".", "\\.")}$`, "m"), `${id}: no recipe writes ${file}`);
     }
     assert.match(recipes, new RegExp(`^FILE /usr/share/dolly/llm/${name.replaceAll(".", "\\.")}$`, "m"), `${id}: its description is not retained`);
-    // /local lists the models pi-llm does not install by the descriptions it holds.
-    assert.ok(model.packages.every(image => provider.includes(`/Dollyfile-${image} `)) ||
-      provider.split("\n").includes(`FILE /usr/share/dolly/llm/${name}`), `${id}: pi-llm does not list it`);
+    // /local lists every model by the description pi-llm holds, before its package is installed.
+    assert.ok(provider.split("\n").includes(`FILE /usr/share/dolly/llm/${name}`), `${id}: pi-llm does not list it`);
     assert.ok(model.gpu.f16 > 0 && model.gpu.f32 > 0, `${id}: /local shows the GPU memory measured with each shader kind`);
     assert.ok(model.pi.contextWindow >= 16384, `${id}: Pi's prompt and compaction settings need 16,384 tokens of context`);
   }

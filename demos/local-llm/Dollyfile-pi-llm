@@ -8,13 +8,12 @@ REQUIRES HOST http@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-# Pi's provider for the models dolly-llama runs in the tab on gpu@0, with Pi
-# and the bundled Qwen3.5-2B, which Pi's settings choose: /local installs and
-# switches models. Its settings replace pi-dolly's, which it installs first.
+# Pi with its provider for the models dolly-llama runs in the tab on gpu@0:
+# /local installs and switches models, and Pi's /model chooses among them. It
+# installs no model and chooses none: pi-local bundles Qwen3.5-2B and chooses it.
 FROM /Dollyfile-system-build 0c72e09eba84571d4f8634cf6e7507eb1be1b9b8aa1fae61f6b0ec884b26b6fb
 INSTALL /demos/pi/Dollyfile-pi-dolly 57d6bff7645b13d86f881d445b8b96e94ca5ecad3f75fbf59aef174c5fe874fa
 INSTALL /demos/local-llm/Dollyfile-llama c7a231b757aa831f183b831b585ad01a3f560cff272734891de434a8e3815cf5
-INSTALL /demos/local-llm/Dollyfile-qwen3.5-2b 84cc08039903045351fee61e1985492d27b9f4f025d14917c6d31df320cdf6b2
 
 REQUIRES TOOL tar
 REQUIRES TOOL dolly-llama
@@ -22,13 +21,11 @@ REQUIRES TOOL dolly-llama
 SOURCE /dist/static/llama/provider.tar 68b75b1b327c2c3000ef964e4a1f00ec7fb4536abae00baa7622d6734aaecce2 /tmp/llm-provider.tar
 SLOP tar -xf /tmp/llm-provider.tar -C /
 
-FILE /home/dolly/.pi/agent/settings.json
-    {"enableInstallTelemetry":false,"images":{"autoResize":false},"shellPath":"/bin/slop","theme":"dolly","tuiMode":"regular","defaultProvider":"webgpu","defaultModel":"qwen3.5-2b","defaultThinkingLevel":"off","compaction":{"reserveTokens":4096,"keepRecentTokens":6144}}
-
 EXPORTS FOLDER local-llm /usr/lib/dolly-llm
 EXPORTS FILE local-model-provider /home/dolly/.pi/agent/extensions/local-model-provider.js
-# /local lists the release's models by their descriptions; a model's package
-# holds its own, the bundled one's among them.
+# /local lists the release's models by their descriptions, each the same file
+# as its model package's.
 FILE /usr/share/dolly/llm/lfm2.5.json
 FILE /usr/share/dolly/llm/minicpm5-2b.json
+FILE /usr/share/dolly/llm/qwen3.5-2b.json
 FILE /usr/share/dolly/llm/qwen3.5-4b.json
