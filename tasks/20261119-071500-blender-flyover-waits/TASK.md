@@ -1,6 +1,6 @@
 # blender-flyover: the window does not follow the page, and the waits
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: blender,godot,display,input,0.1.8
 
@@ -79,6 +79,46 @@ painted, so a click in that moment lands on the other size. The test now clicks 
 program's first frame (pointer.c's colour, the canvas at its size): 4 of 4 in Chrome, Firefox
 passes.
 
-Left: where the lease's 700 comes from (display@0's kernel starts a lease at the frame on screen),
-so that a program started after a resize starts at the page's size; Blender's window followed in
-both browsers; the flyover's start.
+What was left then is done or closed elsewhere (below).
+
+## Closed (2026-11-20)
+
+**The start size after a resize.** The 700 was the page's size before Chrome reported the change.
+The page sent its canvas's size from a ResizeObserver, which Chrome runs at its next frame: 3 to
+17 ms after Playwright's `setViewportSize` returned, in three runs of the pointer test logged on
+the page and the Worker. The test started the program at once (`clear` and the command took 13
+ms), and a lease starts at the frame on screen, the terminal's for the size the page sent last:
+where the program's `dolly_display_acquire` came first, that was still 700 (the terminal had not
+drawn at 1000), and the new size came after it, as the `SURFACE` record. Firefox's
+`setViewportSize` returns after its observer ran. The fix is the page's (`fix/lease-size`,
+`8ecff154a`): a message the page sends goes after what a module would report only at the page's
+next frame (each module's `beforeSend`, `host/modules.mjs`), and display@0's sends the canvas's
+size when it changed. A command typed or submitted right after a resize, and a lease it takes,
+start at the page's size. No contract, runtime or image is built again: page code only, and
+`scripts/update-recipe-pins.mjs` pins no Dollyfile anew. A program the guest starts by itself
+within a frame of a resize (on a timer, not the page's input) still starts at the size sent
+last and then reads the `SURFACE` record.
+
+Measured with a probe (`build/start-size-probe.mjs` in `work/lease-size`, not kept) that draws
+the terminal 700 wide, widens the page to 1000 and starts `test/fixtures/pointer.c` at once, 20
+times in one page, Xvfb :159 under the GPU lock: the program's first frame was 700 wide in 9 of
+20 in Chrome before and 0 of 20 after; Firefox 0 of 20 before and after.
+`test/pointer-browser.mjs` now checks that display mode's first frame, after gpu mode's narrower
+page and the wider one, has the canvas's size: 3 of 3 runs pass in Chrome and in Firefox. On
+the same tree `test/display-`, `terminal-`, `touch-` and `display-cursor-browser.mjs` pass
+headless in both, and the source tests (477).
+
+**Blender's window follows the page**, on round 018m's catalog (input@0's new digest), in Chrome
+and Firefox on the NVIDIA adapter (`build/blender-resize-probe.mjs`, not kept: Blender on
+`system` as `demos/blender/test/blender-gpu-browser.mjs` composes it, a timer in its Python
+printing its window's size). The page 1600 by 1000, then 1200 by 800, then 1600 by 1000: within
+0.1 s of each change gpu@0's presented frame had the canvas's size in device pixels, the gpu
+canvas sat at 0,0 with its box's size (the columns it has beyond the frame, to a multiple of 32,
+clipped), so no letterbox, and Blender's window was 1600 by 1000, 1200 by 800 and 1600 by 1000.
+Chrome's screenshots show its interface edge to edge at each size. The owner's page,
+`/blender-flyover/`, Blender with the flyer made, the same in both browsers
+(`build/flyover-resize-probe.mjs`): the presented frame the canvas's size within 0.1 s of each
+change, no letterbox.
+
+**The flyover's start** is closed in its own task, `tasks/20261119-140500-flyover-start`, on
+`feature/planet` (`53869a6d4`).
