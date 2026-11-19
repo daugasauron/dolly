@@ -7,35 +7,52 @@
 From the build-time audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`). Evidence and scripts: `work/audit-1116-evidence/buildtime/`.
 
-## State (2026-11-17)
+## State (2026-11-19): the round builds 4 at a time; one whole catalog at 4 is left to time
 
-Fixed on `ws/speed`; what is left only the 0.1.8 round can measure. No image rebuilds: the
-builder is not an image input.
+Fixed on `ws/speed` and in the 0.1.8 round (no image rebuilds: the builder is not an image input):
 
-- Each build's log ends with its peak memory, and the catalog log has it beside the build's
-  lines: `[IMAGE] dolly: peak memory N MiB, the PSS of the build's Node and Chrome every 5 s`
+- Each build's log ends with its peak memory, beside the build's lines in the catalog log:
+  `[IMAGE] dolly: peak memory N MiB, the PSS of the build's Node and Chrome every 5 s`
   (`scripts/build-system-snapshot.mjs` samples `/proc/PID/smaps_rollup` of the builder's process
   tree, the method of the table below).
 - The ready image that starts the longest chain, counted in images, starts first. Replayed on
   0.1.7's times (`work/audit-1116-evidence/buildtime/fix-speed/simulate-priorities.mjs`,
-  `priorities-1117.txt`): at 4 builds 2.89 h against 3.05 h in plan order (2.88 h with the
-  measured durations, which the builder would have to store); at 3, 3.80 h against 3.93 h.
-  Checked: anykey, fingers-build and fingers built one at a time, fingers-build (a chain of two)
-  before anykey, which plan order starts first; every snapshot the same bytes as before
+  `priorities-1117.txt`): at 4 builds 2.89 h against 3.05 h in plan order; at 3, 3.80 h against
+  3.93 h. anykey, fingers-build and fingers built one at a time gave the same bytes as before
   (`fix-speed/order-and-peak.log`).
 - The count: 4, from one build per four cores (a guest runs up to four processes, `nproc`) and
-  one per 9 GiB of the memory both the machine and the builder's cgroup still have
-  (`os.freemem()` and `process.availableMemory()`): in the round's 36 GB scope on an idle machine,
-  4; the four heaviest that can build at once peaked at 34.9 GiB together. `DOLLY_IMAGE_JOBS`
-  still overrides it.
+  one per 9 GiB of the memory both the machine (`os.freemem()`) and the builder's cgroup
+  (`process.constrainedMemory()`) allow; `DOLLY_IMAGE_JOBS` still overrides it. The five recipe
+  comments that gave the kernel's old 32-process cap as the reason for `-j4` say it is `nproc`'s
+  count (`4202ce360`).
+- `scripts/round.sh` sets no count, and the round's unit none (`dolly-round-018k`: the unit,
+  `MemoryMax=36G`, the display and the lock).
 
-- The five recipe comments that gave the kernel's old 32-process cap as the reason for `-j4` say
-  it is `nproc`'s count (`4202ce360`; the jobs are unchanged).
+Measured in that round (`work/integrate-018/build/round/images.log`; each build's end the time
+of its `build/image-logs/IMAGE.log`, its start that less its packaging time):
 
-The round: build the catalog without `DOLLY_IMAGE_JOBS` (the count is the default, 4, in the
-`MemoryMax=36G` scope), then put its wall time and the peak lines
-(`grep "peak memory" catalog-1.log`) in this task against 5 h 49 min at 2. The round scripts
-(WS release's) must drop `DOLLY_IMAGE_JOBS=2`.
+- "building with 4 concurrent browsers": 137 images in one pass in 14,573 s (4.05 h), the 130
+  others reused at the same inputs from the 018 rounds before it. The 137 hold the whole longest
+  chain and the longest builds: llvm22 6,462 s, lean-meta 5,125, llvm-build 4,796, blender
+  4,297 (new since 0.1.7), mojo-llvm 3,951, lean-std 3,467, photocraft 3,321, codex 2,771,
+  rust-build 2,732.
+- Their build times sum to 57,198 s: 3.92 builds at once on average. The 125 of them that 0.1.7's
+  round built took 31,821 s there, two at a time, so a build took 1.8 times as long at 4 (lean-meta
+  2.6, llvm22 1.4): four builds of about three threads each fill the 8 cores, the other
+  workstreams' jobs beside them. Those 125 alone need at least 15,911 s at 2.
+- CPU: the round before it, `dolly-round-018i` (20:35 to 02:34, 355 min of it its image stage),
+  consumed 2 d 8 h 54 min of CPU time (user journal), 9.6 threads on average, against 5.7 at 2.
+- Memory, every build's peak: codex 12,832 MiB, blender 7,886, lean 7,679, rust-build 7,478,
+  photocraft 7,184, lean-meta 6,796, zero-ad-data 6,431, ghostty-gtk 6,150, godot-editor 6,147,
+  llvm22 5,677; 84 under 2 GiB. The largest sum of the peaks of builds that ran at once was
+  30.5 GiB (codex, lean-meta, llvm22, llvm-build, imgui-x11), inside the 36 GB scope; the user
+  journal has no OOM kill in a round since 17 November. default, closed-source-agent and
+  tmux-panes ended before the first sample and print 0 MiB.
+
+Left for the done-when: one catalog pass that builds every image at 4, its wall time against
+5 h 49 min at 2. No 0.1.8 round made one in a single pass (018c failed after 368 min of images;
+018i's 355 min held passes its log no longer has). The next round that changes the seed or the
+image ABI times it: `grep -E "building with|snapshots took|peak memory" build/round/images.log`.
 
 ## Found
 
