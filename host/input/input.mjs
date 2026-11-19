@@ -591,10 +591,12 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
   // The page's bar below the canvas: the buttons of the program holding the
   // touch lease (touch@0) and Paste, which reads the clipboard only inside the
   // user's press of it, for a device without a paste chord (a phone or a
-  // tablet): no pointer is fine, and a finger has touched the page, never a
-  // mouse. A laptop with a touchscreen has its touchpad and Ctrl+V: its browser
-  // reports a fine pointer or, where it calls the laptop a tablet (as Chrome on
-  // Windows may beside a rotation sensor), the touchpad moves a mouse's pointer.
+  // tablet): no pointer hovers, and a finger has touched the page, never a
+  // mouse. A phone's stylus is a fine pointer that does not hover (Chrome and
+  // Firefox on Android). A laptop with a touchscreen has its touchpad and
+  // Ctrl+V: its browser reports a pointer that hovers or, where it calls the
+  // laptop a tablet (as Chrome on Windows may beside a rotation sensor), the
+  // touchpad moves a mouse's pointer.
   const bar = mount.appendChild(document.createElement("div"));
   bar.id = "buttons";
   bar.style.cssText = "grid-area:2/1;display:none;flex-wrap:wrap;gap:0.5rem;padding:0.4rem";
@@ -614,10 +616,10 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
       .then(deliverPaste, () => showStatus("Paste refused: the browser did not let the page read the clipboard"));
   });
   pasteButton.id = "paste";
-  const touchOnly = matchMedia("not (any-pointer: fine)"), watching = new AbortController();
+  const hoverless = matchMedia("not (any-hover: hover)"), watching = new AbortController();
   let programButtons = 0, touched = false, moused = false;
   const showBar = () => {
-    const paste = touchOnly.matches && touched && !moused;
+    const paste = hoverless.matches && touched && !moused;
     pasteButton.hidden = !paste;
     bar.style.display = programButtons || paste ? "flex" : "none";
   };
@@ -634,7 +636,7 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
     window.addEventListener(type, pointerSeen, { capture: true, passive: true, signal: watching.signal });
   }
   showBar();
-  touchOnly.addEventListener("change", showBar, { signal: watching.signal });
+  hoverless.addEventListener("change", showBar, { signal: watching.signal });
 
   return {
     page: {

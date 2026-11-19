@@ -29,14 +29,15 @@ flowchart LR
   finger's position, so it scrolls where a mouse's drag selects.
   Two fingers moving apart or together are sent as the keys Ctrl+= and
   Ctrl+-, a font size for each 20 CSS px.
-- A phone or a tablet has no paste chord. Where no pointer is fine and a
-  finger, never a mouse, has touched the page, the page shows its own Paste
-  button in its bar below the terminal: it reads the clipboard only inside
-  the user's press of it and delivers the text as a paste, to the terminal or
-  to a program holding the lease. A laptop with a touchscreen shows none: its
-  browser reports the touchpad as a fine pointer, or, where it calls the
-  laptop a tablet (Chrome on Windows may), the touchpad moves a mouse's
-  pointer.
+- A phone or a tablet has no paste chord, nor does a phone's stylus, which
+  its browser reports as a fine pointer that does not hover. Where no pointer
+  hovers and a finger, never a mouse, has touched the page, the page shows its
+  own Paste button in its bar below the terminal: it reads the clipboard only
+  inside the user's press of it and delivers the text as a paste, to the
+  terminal or to a program holding the lease. A laptop with a touchscreen
+  shows none: its browser reports the touchpad as a pointer that hovers, or,
+  where it calls the laptop a tablet (Chrome on Windows may), the touchpad
+  moves a mouse's pointer.
 - `dolly_input_acquire` gives the foreground process or a descendant the
   lease, one at a time. It then reads every record with
   `dolly_input_next_event`, and the terminal reads none. The page sends it
