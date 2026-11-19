@@ -73,8 +73,15 @@ Lean, OCaml and Wine on `ws/ports`, merged into `integrate/0.1.8`:
   the threaded rustc is a fixed point. The archive is
   `work/rc-ports/.cache/dolly-rust-seed-8b779884….tar.gz`.
 
-  Left: `codex` and the other Rust images built by it, and the codex test, in the round, whose
-  compiler stage must leave the Rust seed pin unchanged.
+  `codex`, built by it here (`CPUWeight=20`, `MemoryMax=20G`): 1,683 s, round 018k's serial
+  build 2,771 s (Cargo's step 26 min 40 s against 44 min 27 s); peak memory 18,856 MiB against
+  12,832 (each `rustc` of `cargo rustc -j 4` holds up to four modules in code generation); its
+  1,958 files but the recipe records are the serial build's, byte for byte
+  (`compare-codex.txt`); the codex test, its device sign-in included, passed in Chromium
+  (29.6 s) and Firefox (36.5 s).
+
+  Left: the round builds the other Rust images with it (`photocraft`, SpiderMonkey's chain), and
+  its compiler stage must leave the Rust seed pin at `8b779884…`.
 - OCaml: `prepare-ocaml.sh` and the README give upstream's reason for `--disable-shared` (its
   configure makes shared libraries only for the systems it lists; measured in the pinned
   archive's `configure.ac`, which without it sets `supports_shared_libraries=true` with
