@@ -24,7 +24,7 @@ const allowed = {
   runtime: ["Worker"],
   snapshot: ["navigator.storage", "navigator.serviceWorker", "indexedDB", "caches", "fetch"],
   stack: ["fetch"],
-  threads: ["fetch", "Worker"],
+  threads: ["fetch"],
   upload: ["file picker"],
   page: ["fetch", "Worker", "navigator.storage", "navigator.locks", "requestFullscreen", "URL.createObjectURL"],
   site: ["fetch", "Worker", "sessionStorage", "window.open", "URL.createObjectURL", "indexedDB", "click()",

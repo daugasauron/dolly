@@ -31,7 +31,7 @@ INSTALL /Dollyfile-amy 95b7ecb251d9d5c3d28eb8aaa63b6bd2a465fac35756bdf95b520884a
 INSTALL /Dollyfile-nena 67a37d644a04e3eddd12fe2e5d335dcf473b1b549337f0a9ce2f445f00b91ad8
 # Pi with its provider of the models it runs in the tab: pi-dolly, dolly-llama
 # and Qwen3.5-2B.
-INSTALL /demos/local-llm/Dollyfile-pi-llm 23c36aec7b4497897742b68265574ecfe77e17dee2e0abf8e47cf92e28675474
+INSTALL /demos/local-llm/Dollyfile-pi-llm 955786e4357d83e12789a1422b0e972e9b0b04966a9fe992d715bd46116f1037
 
 FILE /etc/dolly/init.slop
     if test -f "$HOME/.dollyrc"; then

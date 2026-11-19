@@ -45,14 +45,21 @@ export function worker({ get, runtimeBase }) {
     available(pid) {
       return workers.size < workerLimit && [...workers.values()].filter(owner => owner === pid).length < processWorkerLimit;
     },
+    // The page makes it, as a process's (runtime.mjs pageWorkers): Firefox 159's new
+    // Worker() here waited for good while the Workers it had made for threads ended
+    // (tasks/20261117-122407-godot-firefox-start).
     create(pid, url, name) {
       if (!provider.available(pid)) return null;
-      const worker = new Worker(url, { type: "module", name });
+      const worker = get("runtime").pageWorker(url, { type: "module", name });
       workers.set(worker, pid);
       return worker;
     },
-    // A Worker the supervisor leaves to end itself is not terminated.
-    release(worker, terminate = true) { if (terminate) worker.terminate(); workers.delete(worker); },
+    // A Worker the supervisor leaves to end itself says so, and is terminated then.
+    release(worker, terminate = true) {
+      if (terminate) worker.terminate();
+      else worker.addEventListener("message", () => worker.terminate(), { once: true });
+      workers.delete(worker);
+    },
     dispose() { for (const worker of workers.keys()) worker.terminate(); workers.clear(); },
     // The runtime goes on without the module: the programs on its Workers end.
     disabled() { get("runtime").setThreadProvider(undefined); },

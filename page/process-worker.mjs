@@ -385,7 +385,8 @@ try {
   }
 } catch (caught) {
   if (caught === UNSTARTED) {
-    // Nobody waits for a thread ended before it started.
+    // Its Worker ends once it says so (host/threads/threads.mjs release).
+    supervisor.postMessage({ type: "unstarted", pid: configuration.pid, tid: configuration.tid });
   } else if (ending === THREAD_EXIT && configuration.threaded && typeof threadResult === "bigint") {
     reportThreadFinished();
   } else if (ending === PROCESS_EXIT) {
