@@ -1,11 +1,26 @@
 # X11's client libraries are in no package: x11-window and libxkbfile cannot be used in a session, photocraft ships libX11 copied for its link
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 240
 - TAGS: audit,recipes,amy,x11,0.1.8
 
 From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`): every package `amy` offers installed alone into a fresh `default` session.
+
+## Closed (2026-11-19)
+
+The 0.1.8 round (unit `dolly-round-018k`, `integrate/0.1.8` at 8d666a4e4, `work/integrate-018`)
+rebuilt x11-libs, libxkbfile, x11-window and photocraft. `demos/x11/test/amy-cases.json` installs
+each package alone in a fresh `default` session; on `fix/rc-recipes` it gained `libxkbfile`'s
+Done-when (`amy install libxkbfile cc pkgconf`, then a program including `X11/XKBlib.h` and
+`X11/extensions/XKBfile.h`, built with `pkg-config --cflags --static --libs xkbfile`, which failed
+before x11-libs with `Package 'kbproto' ... not found`). On the round's images "amy x11" passed with
+it in Chromium (12.7 s) and Firefox (19.5 s), its x11-window case (cc links a program calling
+`x11_window_open`) among them; the round's own run passed in 8.6 s and 11.2 s. photocraft's
+snapshot record (`dist/dolly-photocraft-system-snapshot.json`), whose manifest is the file list
+`amy files photocraft` prints, holds no `/usr/lib/libX*` or `libxcb.a`: it `USE`s x11-libs and keeps
+only the licences of the three libraries linked into its program (its recipe's three `FOLDER` rows).
+The regenerated overlaps of the round's catalog have no photocraft line.
 
 ## State (2026-11-17)
 

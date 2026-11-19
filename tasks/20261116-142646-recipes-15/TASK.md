@@ -1,11 +1,22 @@
 # zig-llvm and imgui-x11 fail in the session that installed them: their variables apply only after a reload, and amy says the rest works now
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: audit,recipes,amy,zig,x11,0.1.8
 
 From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`): every package `amy` offers installed alone into a fresh `default` session.
+
+## Closed (2026-11-19)
+
+The 0.1.8 round (unit `dolly-round-018k`, `integrate/0.1.8` at 8d666a4e4, `work/integrate-018`,
+`build/round/suites.log`) rebuilt zig-llvm, imgui-x11 and x11-desktop. No recipe exports
+`ZIG_LIBC`, `ZIG_LIB_DIR` or `SDL_RENDER_DRIVER` any more; the launchers `/usr/bin/zig` and
+`/usr/bin/imgui-x11` default them. `demos/zig/test/zig-llvm-browser.mjs`, which installs zig-llvm
+into a fresh `default` session and sets no variable, built and ran its programs (`thread 42` among
+them) in Chromium (57.4 s) and Firefox (57.4 s). `demos/x11/test/x11-browser.mjs` started
+`imgui-x11` in x11-desktop's xterm, where no variable names the renderer, and it drew in Chromium
+(39.8 s) and Firefox (42.6 s); in a fresh `default` session it ran on ws/recipes (below).
 
 ## State (2026-11-17)
 

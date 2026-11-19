@@ -29,9 +29,13 @@ INSTALL /Dollyfile-curl bce8c6fafa9e15aa65c9804fc4fec07a309e6174c8e1cb80b7396ac6
 INSTALL /Dollyfile-amy 95b7ecb251d9d5c3d28eb8aaa63b6bd2a465fac35756bdf95b520884a61547e4
 # nena enables the host modules a package needs beyond these.
 INSTALL /Dollyfile-nena 67a37d644a04e3eddd12fe2e5d335dcf473b1b549337f0a9ce2f445f00b91ad8
-# Pi with its provider of the models it runs in the tab: pi-dolly, dolly-llama
-# and Qwen3.5-2B.
-INSTALL /demos/local-llm/Dollyfile-pi-llm 955786e4357d83e12789a1422b0e972e9b0b04966a9fe992d715bd46116f1037
+# Pi with its provider of the models it runs in the tab (pi-dolly and
+# dolly-llama), and the bundled Qwen3.5-2B, which Pi's settings here choose,
+# with a context its compaction keeps within.
+INSTALL /demos/local-llm/Dollyfile-pi-llm f2dd60a6807b9dbd4801970d39034eae3d50c5cda3ce795bb5b14e1075dd7a9e
+INSTALL /demos/local-llm/Dollyfile-qwen3.5-2b 84cc08039903045351fee61e1985492d27b9f4f025d14917c6d31df320cdf6b2
+FILE /home/dolly/.pi/agent/settings.json
+    {"enableInstallTelemetry":false,"images":{"autoResize":false},"shellPath":"/bin/slop","theme":"dolly","tuiMode":"regular","defaultProvider":"webgpu","defaultModel":"qwen3.5-2b","defaultThinkingLevel":"off","compaction":{"reserveTokens":4096,"keepRecentTokens":6144}}
 
 FILE /etc/dolly/init.slop
     if test -f "$HOME/.dollyrc"; then

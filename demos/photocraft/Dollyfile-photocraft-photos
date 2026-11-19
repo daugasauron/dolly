@@ -17,6 +17,9 @@ INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cf
 INSTALL /Dollyfile-posix c24b7cb8dfc057769bc7f644f68c2922514adb89272756d8ed793c0318d5f3d5
 INSTALL /Dollyfile-display cc98bc6edc0e5dea2bfb79e3095ea1fb6744e28282d28cec6c2e013cf6435992
 INSTALL /demos/photocraft/Dollyfile-photocraft 2166d31069f81303c93f2776fcca48426236ce4da9fb8856be1b72a03c25ab85
+# PhotoCraft's own dialogs use upload@0 and download@0; the shell it leaves, where
+# photocraft-cli works on pictures without a window, has download and upload (transfer).
+INSTALL /Dollyfile-transfer 06c7f7e4b4d53f6ef7d342f48293d1e61af6e9a330d4d857b597f26471ce8c07
 REQUIRES TOOL photocraft
 SLOP mkdir -p /home/dolly/Pictures && cp /usr/share/photocraft/pictures/great-wave.jpg /home/dolly/Pictures/
 FILE /home/dolly/Pictures/great-wave.jpg

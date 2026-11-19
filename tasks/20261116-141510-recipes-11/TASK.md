@@ -1,11 +1,24 @@
 # truck-town and dodge-the-creeps are not published, though the showcase and Godot's README install them with amy
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 140
 - TAGS: audit,recipes,amy,godot,site,0.1.8
 
 From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`).
+
+## Closed (2026-11-19)
+
+On the 0.1.8 round's images (`integrate/0.1.8` at 8d666a4e4, which rebuilt the Godot chain), on
+`fix/rc-recipes`: the domain catalog's `amy-index.txt`, generated as `package-pages.sh` generates
+a release's (`generate-routes.mjs SITE` with `DOLLY_BUILD_IMAGES` set to
+`config/domain-pages-images.txt`), has 202 packages, `truck-town` and `dodge-the-creeps` among them.
+Each installed alone with `amy` into a fresh `default` session and ran `godot --version` and
+`GAME --headless --quit`: truck-town in 4.6 s and dodge-the-creeps in 3.9 s in Chromium, 7.5 s and
+15.0 s in Firefox (`build/rc-recipes-evidence/godot-games-browser.mjs`, `godot-games.log`,
+`domain-amy-index.txt` in `work/rc-recipes`). The round's `godot-editor-browser.mjs` installs
+dodge-the-creeps with amy too and passed in both. The release candidate's packaging serves these
+same snapshots; its checklist confirms them as served.
 
 ## State (2026-11-17)
 

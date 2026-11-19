@@ -8,7 +8,7 @@ round's build of it, the seed, and builds Go programs that run as Dolly commands
 
 - `go-sdk`: Go's GOROOT for dolly/wasm64: its patched source and the seed, the previous round's commands.
 - `go-build`: the seed with the `go` package installed over it; the base of every Go build.
-- `go-tools`: interactive shell: `system` with the `go` and `esbuild` packages.
+- `go-tools`: interactive shell: `system` with the `go`, `esbuild` and `transfer` packages.
 - `go`: `go` and `gofmt`, the Go toolchain and standard library compiled again inside Dolly by the seed.
 - `esbuild`: `esbuild`, the JavaScript and TypeScript bundler, built by `go`.
 

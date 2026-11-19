@@ -12,6 +12,8 @@ REQUIRES HOST threads@0
 FROM /Dollyfile-system 8d54b8fd95bd265381fcacf4d97044d3ad3deb0e969deeed8e4b5e791e71dcb5
 INSTALL /demos/slopyard/Dollyfile-raylib b7745886a62b4115327d71ca77a90da22344d9aec06bf50edbc8481f11b5eef4
 INSTALL /demos/slopyard/Dollyfile-box3d 14c4248c4951f0654de8f17dec17f76bde9997863bd4d6806edd49ec517ac1e0
+# download and upload, which move files in and out of its shell (transfer).
+INSTALL /Dollyfile-transfer 06c7f7e4b4d53f6ef7d342f48293d1e61af6e9a330d4d857b597f26471ce8c07
 REQUIRES TOOL   tar
 
 # raylib and Box3D are the packages'. Box3D's sources stay here for Slopyard,

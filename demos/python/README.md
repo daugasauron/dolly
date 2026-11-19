@@ -31,7 +31,8 @@ Install it with `INSTALL` or `amy install python`; build with
 - A program that embeds Python (Blender) links `-lpython3.14` and, from
   `/usr/lib/python3.14/embed`, CPython's own expat (`-lpyexpat`) and its HACL
   archives (`-lHacl_Hash_*`), which its build makes and installs nowhere, with
-  SQLite, bzip2, XZ, zlib, libffi and curl, which the program installs.
+  SQLite, bzip2, XZ, zlib, libffi, curl and `-ldolly-sockets`, which the program
+  installs: in a session, `amy install python sqlite bzip2 xz zlib curl libdolly-sockets`.
 - pip's settings live in `/etc/pip.conf` ([`Dollyfile-python`](Dollyfile-python)); sdists build
   as upstream builds its wheels.
 

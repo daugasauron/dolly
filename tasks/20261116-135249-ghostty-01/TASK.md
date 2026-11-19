@@ -1,11 +1,23 @@
 # Remove the ghostty-x11 image; Ghostty's GTK application stays a package on x11-desktop
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: cleanup,x11,0.1.8
 
 Owner (2026-11-16): "just remove the ghostty-x11 image since it kinda works on the X11 desktop
 anyway."
+
+## Closed (2026-11-19)
+
+Merged; the 0.1.8 round (unit `dolly-round-018k`, `integrate/0.1.8` at 8d666a4e4,
+`work/integrate-018`) rebuilt `ghostty-gtk` with zig-llvm on LLVM 22. Its catalog
+(`dist/dolly-images.json`) has no `ghostty-x11`, and the domain catalog's `amy-index.txt`, as
+`package-pages.sh` generates it (`generate-routes.mjs` with `config/domain-pages-images.txt`, run on
+`fix/rc-recipes`), lists `ghostty-gtk` among its 202 packages. `node
+demos/ghostty-gtk/test/ghostty-gtk-browser.mjs` passed on the rebuilt package in Chromium (7.0 s;
+installed and started in 2.2 s, prompt 0.8 s later) and Firefox (8.7 s; 2.6 s and 0.8 s)
+(`build/round/suites.log`). The GLib criticals, the icon and softpipe's shading remain in
+`tasks/20261113-101500-ghostty-gtk-leftovers`.
 
 ## State (2026-11-17)
 

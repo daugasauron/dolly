@@ -16,5 +16,7 @@ INSTALL /Dollyfile-libdolly-sockets 6b09a69a442e3002873b97f13b5ebef36beea3b660a4
 INSTALL /demos/rust/Dollyfile-cargo ee11df57befc454d476b84309955fe39c6a0e72497154155894c9e5a83b119eb
 # Cargo fetches a Git dependency with git, whose HTTP helpers are git-http's.
 INSTALL /Dollyfile-git-http fe182caf88022592ea0a2dda7a7e9fd53a31f46d92d2ffa37e97a12782ded615
+# download and upload, which move files in and out of its shell (transfer).
+INSTALL /Dollyfile-transfer 06c7f7e4b4d53f6ef7d342f48293d1e61af6e9a330d4d857b597f26471ce8c07
 
 ENTRY /bin/foreground -i /bin/slop

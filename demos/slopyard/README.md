@@ -9,7 +9,7 @@ a shared coastal scrapyard where two teams compete to deliver cargo.
 - `slopyard`: Build machines, haul cargo and compete across a coastal scrapyard. Requires WebGPU.
 - `slopyard-game`: the game the `slopyard` image opens, with the sources it reads when it runs.
 - `slopyard-build`: where the game is compiled: `gamedev-sdk`, Lua 5.5, its Box3D build, the game and its sources. Its tests compile here.
-- `gamedev-sdk`: the `raylib` and `box3d` packages, Box3D's sources (Slopyard compiles them again with threads and SIMD) and the float math functions.
+- `gamedev-sdk`: the `raylib`, `box3d` and `transfer` packages, Box3D's sources (Slopyard compiles them again with threads and SIMD) and the float math functions.
 - `raylib`: raylib 6.0 with its software renderer and a Dolly platform backend: `InitWindow` shows the frames through `display@0`, keys, text and the pointer come from `input@0`, `GetTime` runs. A hidden window, or a program holding the display itself (`<dolly/raylib.h>`), renders to memory. For programs the `cc` package builds; it brings no compiler.
 - `box3d`: libbox3d, the Box3D physics library, for programs the `cc` package builds; it brings no compiler.
 - `lua5.5`: Lua 5.5: `lua5.5` and `luac5.5`, beside the `lua` package's 5.1, and its library and headers for programs the `cc` package builds; it brings no compiler.

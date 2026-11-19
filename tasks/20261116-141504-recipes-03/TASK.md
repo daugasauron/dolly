@@ -7,7 +7,27 @@
 From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1113` at
 `b09b1e243`), answering the owner's "sometimes amy install doesn't work, missing dependencies".
 
-## State (2026-11-17)
+## State (2026-11-19)
+
+The 0.1.8 round (unit `dolly-round-018k`, `integrate/0.1.8` at 8d666a4e4, `work/integrate-018`,
+`build/round/suites.log`) ran every package's case in a page of its own (`test/amy-sessions.mjs`,
+four at once), the core's in `test/amy-browser.mjs` and each demo's in its
+`test/amy-browser.mjs`. All passed but one, in Chromium and Firefox (s):
+
+| Test | Chromium | Firefox |
+| --- | ---: | ---: |
+| core: amy programs, amy tools | 5.3, 15.8 | 7.4, 24.1 |
+| demos: pi, codex, javascript, cmake, tmux | 11.4, 9.4, 15.6, 12.9, 8.8 | 14.2, 13.9, 19.8, 19.7, 13.9 |
+| emacs, neovim, sdl2, gtk, local-llm | 6.4, 8.0, 20.5, 6.7, 1.2 | 8.8, 13.9, 23.8, 8.4, 2.2 |
+| mojo, rust, slopyard, x11, xonotic, zero-ad | 15.9, 14.2, 12.4, 8.6, 4.7, 15.6 | 21.1, 18.0, 15.3, 11.2, 6.4, 19.8 |
+| tools | 90.4 | over 900: stopped |
+
+That is 284 s of Chromium and 262 s of Firefox without tools' Firefox run. Left: tools' Firefox
+run, which hung past its 900 s (`fix/rc-core` investigates it), and the core test's last
+assertion, which failed on `clip`, a core package that no case installed yet (`fix/rc-core` adds
+the case). This closes when both pass.
+
+## Merged on 2026-11-17
 
 Merged into `integrate/0.1.8` (02b7ba436). On `ws/recipes` (`work/recipes`), with raylib, tar,
 x11-libs and x11-window rebuilt, the sessions of the packages it found missing a dependency now
@@ -16,10 +36,6 @@ the two) and tar ("amy tools", 2.2 s and 3.9 s), run through a copy of the test 
 named sessions (`work/audit-1116-evidence/recipes/ws-recipes/scratch-test.sh`, `PACKAGES=`;
 `logs/a-programs.log`, `logs/a-tools.log`). Before the fixes the same sessions failed
 (`fix-amy/amy-before-chromium.log`, `tools-before-*.log`).
-
-Left for the 0.1.8 round: the whole test passes once every package is built at its pin (this
-tree rebuilds only what its workstream changed: python's change alone reaches 83 images, the
-Rust, LLVM and Godot chains among them), and its time in each browser is recorded here then. Rebuilds: none (a test).
 
 ## Found
 

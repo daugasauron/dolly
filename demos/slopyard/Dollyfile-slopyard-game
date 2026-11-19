@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 
 # Slopyard as slopyard-build compiled it, with the sources it reads when it
 # runs: the game the slopyard application opens.
-FROM /demos/slopyard/Dollyfile-slopyard-build 6effb0381675efed8cd1537e4b1cee54e28c41ec8c9818844353ca277afe67d5
+FROM /demos/slopyard/Dollyfile-slopyard-build 81571af156f7137fd24b19905fd7cfb95bb5790b23ded5520d2df1d074f32d19
 EXPORTS TOOL slopyard
 EXPORTS FOLDER slopyard-source /usr/src/dolly/slopyard
 FILE /usr/share/licenses/lua5.5/readme.html

@@ -146,5 +146,13 @@ for (const browser of browsers) {
     await run("! cc --version 2> /dev/null && amy install python && ! ninja --version 2> /dev/null && amy install ninja");
     await run(`pip install --no-index --find-links ${server.origin}/fixture/wheels/ numpy`);
     await run("python -c 'import numpy as np; assert int((np.array([1,2,3])**2).sum()) == 14'");
+    // A program that embeds Python links libpython with what its built-in modules link (README).
+    await run("amy install sqlite bzip2 xz zlib curl libdolly-sockets");
+    await run("printf '%s\\n' '#include <Python.h>' 'int main(void) { Py_Initialize();' " +
+      "'int status = PyRun_SimpleString(\"import sqlite3, hashlib, pyexpat, bz2, lzma, zlib; print(6 * 7)\");' " +
+      "'Py_Finalize(); return status != 0; }' > /tmp/embed.c");
+    await run("cc -pthread /tmp/embed.c -I/usr/include/python3.14 -o /tmp/embed -lpython3.14 -lffi -llzma -lbz2 -lsqlite3 -lcurl " +
+      "-L/usr/lib/python3.14/embed -lpyexpat -lHacl_Hash_BLAKE2 -lHacl_Hash_MD5 -lHacl_Hash_SHA1 -lHacl_Hash_SHA2 -lHacl_Hash_SHA3 " +
+      "-ldolly-sockets -lz -lm && test \"$(/tmp/embed)\" = 42");
   });
 }

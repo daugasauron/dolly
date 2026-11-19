@@ -1,6 +1,6 @@
 # Recipe rows and files held twice: cc's make, INSTALL rows another row brings, zig and zig-llvm over the same paths; slopyard-build's unused html@0
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: audit,recipes,cleanup,0.1.8
 
@@ -9,6 +9,24 @@ From the recipes audit of 2026-11-16 (`work/audit-1116`, released tree `work/rou
 and of every path two packages hold (`overlaps.txt`). None of these breaks an install; each is a
 line or a file that does not earn its place, or a conflict amy does not name. The two that cost
 measurably are their own tasks (`20261116-141504-recipes-05`: pi-llm's model and python's libffi).
+
+## Closed (2026-11-19)
+
+The audit's `overlaps.mjs` and `static-checks.mjs`, run again on the 0.1.8 round's catalog
+(`integrate/0.1.8` at 8d666a4e4, which rebuilt photocraft on the Rust chain) with `fix/rc-recipes`'
+pi-llm (`tasks/20261116-141510-recipes-10`; `build/rc-recipes-evidence/overlaps-rc.txt`,
+`static-checks.txt` in `work/rc-recipes`). Paths two packages hold: zig and zig-llvm, toybox over
+posix and tar over core (each documented as a replacement), classicube-agent and seven-kingdoms'
+shared agent code, the Python data packages' directories (`/usr/lib`, `/usr/bin`, site-packages),
+and the model descriptions pi-llm holds beside each model's package, the same file, which
+`demos/local-llm/README.md` documents. No photocraft line (its libX11.a went with
+`tasks/20261116-141504-recipes-04`), no model copy and no second `settings.json`. Redundant rows,
+each kept for a need of its own recipe: the earlier ones above; `blender-deps`' libraries, each also
+a `REQUIRES LIB` row of the recipe, since Blender links each itself; `gtk-build`'s libpng,
+libjpeg-turbo and Mesa, which its header names as packages its libraries build over; the agents'
+`libdolly-download` (the client libraries for Pi's `cc`). The one repeated `COPY` is SDL2's licence
+in `deep-hedger-build` and `xonotic`: each copies the licence of a library linked into its program,
+from that library's package, as xonotic's licence rows do.
 
 ## State (2026-11-17)
 

@@ -474,8 +474,10 @@ flowchart TD
   Each build's log is in `build/image-logs/IMAGE.log`, ending with its peak
   memory; a failed image skips only its dependents and fails the command.
 - `npm run lint:dollyfiles` checks every catalog graph (references, pins,
-  names, roles, host requirements, and that a recipe of the chain declares
-  ENTRY's programs) without running anything. A catalog recipe names the
+  names, roles, host requirements, that a recipe of the chain declares
+  ENTRY's programs, and that an image with ENTRY that declares `upload@0` or
+  `download@0` has the `upload` and `download` commands, `transfer`'s) without
+  running anything. A catalog recipe names the
   site's files by site paths: a URL of the public site is refused.
 
 ## Custom images and Studio

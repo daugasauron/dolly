@@ -5,6 +5,7 @@ REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST download@0
+REQUIRES HOST upload@0
 REQUIRES HOST http@0
 REQUIRES HOST packages@0
 REQUIRES HOST threads@0
@@ -19,6 +20,8 @@ INSTALL /demos/javascript/Dollyfile-janis-install 17cd1a7e3e21a3346346b6f0861cd5
 INSTALL /demos/closed-source-agent/Dollyfile-secretenv 5486fdd9ea56dc2548493724774e9f6eeffe67b07019ee6aceadd654a9b1a551
 INSTALL /demos/closed-source-agent/Dollyfile-anykey 77b27f70bc88545d47fd11a17929eb41f89dce1f06c16a1dffaf88a484cfddaf
 INSTALL /demos/rust/Dollyfile-ripgrep 881918e854c63b992314cdeeb362cccdc618fc2004b4663c97f24c806f2231a7
+# download and upload, which move files in and out of the agent's workspace (transfer).
+INSTALL /Dollyfile-transfer 06c7f7e4b4d53f6ef7d342f48293d1e61af6e9a330d4d857b597f26471ce8c07
 REQUIRES TOOL foreground
 REQUIRES TOOL janis
 REQUIRES TOOL janis-install
