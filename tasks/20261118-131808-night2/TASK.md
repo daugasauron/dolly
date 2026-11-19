@@ -1,6 +1,6 @@
 # Voxel Flyover: the controls of before, clouds that chain to space, and the moon
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: godot,demo,planet
 
@@ -23,7 +23,137 @@ Done when, each in Chrome and Firefox on the GPU, committed in this order:
 3. the moon is a second world to fly to from orbit, over or onto, and back, as smooth as the way to
    orbit.
 
-## State (2026-11-19)
+## The owner's morning (2026-11-19)
+
+The owner (07:45): "Ok. The moon is great as an initial step. I want to go back completely with
+the controls, so its WASD and I can use the mouse freely to look around without changing the
+direction. I like the concept of the new cloud things but they should be a lot more colorful and
+visually striking, go crazy. Also sometimes they don't do anything seems some of them are like
+"dead"." Done when, each in Chrome and Firefox on the GPU, committed in this order:
+
+1. the controls of v0.1.7 (`22140c51b`): WASD or the arrows fly, the mouse only turns the view;
+   kept from since: the nose to almost straight up, L to let go, `346f0cbad`'s first-motion fix on
+   the look, the crossings to the moon; touch the same way; tested: the mouse turns the view and
+   leaves the heading, the keys turn the heading;
+2. no dead cloud: every cloud flown through gives its reward, a single one is worth taking, and a
+   test flight through every cloud of a chain, to the 640 boost, finds each counted;
+3. the clouds far more colourful and striking, round and in chains as now, seen from far off, with
+   their frame times against these.
+
+### 1. The keys fly, the mouse looks
+
+As v0.1.7 flew (`hand` in main.gd): A and D or the arrows turn the heading by degrees, up to 0.55
+radians a second; W and S or the arrows raise and lower the nose, no faster than 0.9 radians a
+second, toward 86 degrees while held (the longer, the steeper: a tap climbs gently, held it goes
+almost straight up and out of the air), and let go, the board turns no more and comes level. The
+mouse (0.0035 radians a pixel, its first motion after a capture left) and a finger off the stick
+turn the view around the flyer and over or under it; the camera follows the heading and the pitch
+a little late and the look is turned on from there; let go, it comes back behind the board.
+Enter takes the board as in v0.1.7, Z and X zoom, L lets go (no key is Escape). Touch: v0.1.7's
+stick under the left thumb, which steers as the keys do, and a finger elsewhere that looks; the
+chain's arc and the arrow to the next cloud stay. The game prints the heading, pitch and view at
+each change of hands (`FLYOVER helm ... pointer ...`), which the tests read. L asks for the
+pointer to be free, and only 0.3 s later for it to be captured at the next click: asked for both in
+one frame, the page could see only the second (it reads the game's request by a Worker that waits
+on its word and may wake after both), and the pointer stayed held; the flyover test found that
+(`e1a01cb8c`).
+
+The chains had to follow: laid for a mouse that turned the board at once, they could not be flown
+on the keys (the `--chain` corgi on the keys' rates took one cloud in 35 s). A chain's first cloud
+is now all of it until it is flown through; then the rest is laid from there, from the way the
+board flew through it, as a hand on the keys flies them (`lay_chain`: each link the flight of
+3.5 s at the earned boost, turned 20 to 60 degrees and climbing, at six tenths of the keys' rates).
+Over 400 plots (the probe's survey): the fifth cloud 1,800 to 19,700 units up (5,100 the median),
+the sixth at 60,000; 2.1 ms to lay the rest (4.9 at most), on the frame the first is taken. The
+corgi with `--chain 1` now holds the keys toward each next cloud (`chase` through `hand`):
+headless, a chain of six in 3.45 s a cloud to 57,151 units; the moon voyage, also steered by
+`chase`, still crosses twice (76 units over the moon's ground, 23 over the planet's).
+
+### 2. No dead cloud
+
+Why some clouds gave nothing, found by reading the pass test against what is drawn and flying it:
+
+- **The hit was smaller than the cloud.** A cloud counted within one radius of its middle, and its
+  drawn ball boils out to 1.55 radii (puffs to 1.9). Flown through 1.3 radii off each middle (the
+  corgi's new `--aside 1.3`), a chain counted none of its six (`c-dead-reach1`, headless); with a
+  reach of 1.6 radii (`CLOUD_REACH`, the ball's furthest bulge) all six count, boosts 20 to 640.
+- **Clouds that were drawn and could not count**: a cloud flown through stayed as a ghost of its
+  full size; the faint cloud after the next showed at its full size; a chain let lapse faded its
+  next cloud out, uncountable as it went. Now every cloud that is there counts (`counts`): a chain
+  shows its next cloud only, the next of the chain going on beats and the faint one after it counts
+  too; a cloud flown through goes; a lapsed chain keeps its next cloud as one to start at, and
+  flown through, the rest is laid anew from there (as is another chain's met in a chain going on,
+  which carries the chain on).
+- **The frame the chart's anchor moves** (high up, 26 times in the chain's flight): `move_anchor`
+  set the way flown that frame to nothing, so a cloud passed on it was missed. The way is carried
+  into the new chart now.
+- Looked for and not a cause: a cloud passed at speed between two frames (the test is the
+  segment flown since the last frame, the 640 boost's included) and the crossing to the moon
+  (which lays the chains anew).
+
+The flyover test's chain flight is now that flight: through every cloud 1.3 radii off its middle,
+and the report lists each cloud taken with its chain and boost (`FLYOVER taken 1/20 2/40 3/80
+4/160 5/320 6/640`), which must be all six.
+Tested on the image of steps 1 and 2 with L's fix (`e1a01cb8c`), served on 9055. Chrome: the flyover
+test passed (the mouse turned the view 52 degrees and left the heading at 143; D turned the board
+40 degrees right; W raised the nose to 85; the chain flight took 1/20 2/40 3/80 4/160 5/320 6/640
+to 221,052 units; the moon: two crossings, 78 units over its ground and 26 over the planet's after;
+the morning at 39.1 frames a second with the machine's load at 19). The first run of step 1's
+test had failed at L: the pointer stayed held (L's race, above, `e1a01cb8c`); run by hand on the
+same image (`build/planet/lrepro.mjs`), L gave it back with and without Enter first, so the race
+is the timing's. The touch test passed in Chrome (the stick climbed the board to 214 and turned it
+109 degrees, the second finger turned the view 97, the pinch zoomed to 0.45, the ring gave the board
+back upright) and in Firefox (210, 108, 86, 0.45). Firefox's flyover test held the heading at 143
+through the mouse's move, turned the board 57 degrees at D and raised the nose to 85, but the view
+had not turned: the test moved the mouse 300 pixels in 30 quick steps, which Firefox gave the game
+as fewer motions, the first of them the one after the capture that the game leaves. Run by hand on
+the image (`build/planet/lookrepro.mjs`): the quick move turned the view 42 degrees, the same move
+as a hand makes it (a small move, then 30 of ten pixels a frame apart) 60. The test moves the mouse
+so now.
+
+### 3. Clouds in every colour
+
+A cloud is now a ball that boils, turns and breathes, swirled through with hard bands of every
+colour (a sixth of the wheel each, a dark seam between two), lit from within and brightest at its
+rim in each band's own hue; five sparks, each its own colour, whirl round it; and a haze of its
+colours lies around it, faint by day and a glow by night (`wisp.gdshader`, `halo.gdshader`,
+`wisp.gdshaderinc`). Far off it is drawn no smaller than a two-hundredth of its distance, and no fog
+veils it. Tuned on stills by day and by night (`build/planet/out/crazy1-9` to `crazy5-21`): bright
+emission bloomed it white and the tone mapping washed it pale; a rim in the colour across the wheel
+added up to white with the band under it; the haze, added over a bright sky or over the cloud
+itself, whitened it. So the emission stays under what whitens, the rim takes each band's hue, the
+haze is faint by day and dim over the cloud.
+
+Frame times, the chain flight of the test (40 s from before a chain's first cloud, through its six)
+in Chrome on the NVIDIA card, two runs each, interleaved (`build/planet/measure3.sh`; the machine's
+load 10 to 19):
+
+| | frames a second | GPU ms | median / p95 / p99 ms |
+| --- | --- | --- | --- |
+| the clouds before | 43.1, 46.9 | 8.2, 8.3 | 19.6 / 48.2 / 56.2; 17.9 / 44.0 / 49.6 |
+| the new clouds | 46.2, 49.2 | 7.7, 8.6 | 17.7 / 44.5 / 53.7; 17.2 / 42.5 / 59.4 |
+
+No worse. Every run but the first had one frame of 527 to 708 ms, the flights before as well as
+after (the ground flight's too), so it is the machine's, not the clouds'.
+
+## State (2026-11-19, morning)
+
+The owner's three changes of the morning are done, in order (above): 1. the keys fly and the mouse
+looks, `4c3d0a8ed`, L's race `e1a01cb8c`, the test's hand-like move `4b944a56f`; 2. no dead cloud,
+`6d1795622`; 3. the clouds in every colour, in this commit. Served on
+`http://127.0.0.1:9055/godot-voxel-flyover/` (`dolly-serve-planet`). On that image (`592d5699e` with the rivers of `1f1964bb6`) all four tests passed. The flyover test in
+Chrome: the mouse turned the view 60 degrees and left the heading at 142, D turned the board 49
+degrees, W raised the nose to 85, the chain flight took 1/20 2/40 3/80 4/160 5/320 6/640 to 221,075
+units, the moon two crossings (76 units over its ground, 24 over the planet's after); in Firefox: 60
+degrees with the heading at 143, 56, 85, the same six to 221,941, two crossings (70, 33), the morning
+at 45.3 frames a second. The touch test in Chrome (the stick climbed the board to 215 and turned it
+109 degrees, the second finger turned the view 97, the pinch zoomed to 0.45, the ring gave the board
+back upright) and in Firefox (210, 108, 86, 0.45). On the AMD GPU in Firefox (`build/planet/measure-amd.sh`)
+the chain flight drew 34.6 frames a second with the clouds before (GPU 16.1 ms) and 35.9 with the new
+ones (16.2), and the ground flight 28.9 before the clouds and rivers (GPU 20.9) and 28.8 after (21.9),
+its median frame 33.3 ms in both, the pacing's even 30.
+
+## The night (2026-11-18 to 19)
 
 1. The controls: `1e9e49edd`. Chrome: the flyover test's mouse checks passed (L gave the pointer
    back, the second capture worked, the nose stood at 80 to 86 degrees) and its old ring check
@@ -58,7 +188,10 @@ Done when, each in Chrome and Firefox on the GPU, committed in this order:
    3,400 units only). From 5,000 units up the near sea now takes the far sea's look, level,
    without foam, with land.gdshader's colour, ice and gloss: recorded again (`t-moon6`), the jump
    is gone; the frames that remain with a few tiles over the others (2 or 3, in five frames) are in
-   the turn-over's glide and in the corgi's turn off the moon.
+   the turn-over's glide and in the corgi's turn off the moon. In `45ec9a344`'s round the flyover test
+   passed in Chrome (a chain of six to 230,964, two crossings, 84 and 21) and Firefox (221,431, 82
+   and 22, the morning at 58.5 frames a second) and the touch test in Chrome; Firefox's touch test
+   was left for the merge of feature/blender-anim, whose tree is tested next.
 
 ## 3. The moon
 
@@ -146,3 +279,10 @@ frames' median 16.5, p95 34.0, p99 38.4, longest 265.2, 204 over 2x (6.7%), the 
 busy. So the GPU's time is the new flight's way, not the clouds' or the moon's: the tests' 30-second
 morning flight, the same flight in each round, took 7.8 ms of GPU in step 2's round (Chrome), 7.9
 in step 3's, and 7.8 with the fixes.
+
+## Closed (2026-11-19)
+
+Both done-whens hold: the night's, its first step since superseded by the owner's morning (the keys
+fly again, the mouse looks), and the morning's three, each committed in order and tested in Chrome
+and Firefox on the GPU (the State, above).
+

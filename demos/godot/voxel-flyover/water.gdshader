@@ -1,5 +1,5 @@
 // The sea, a mirror for the sky: its colour deepens with the ground under it, which the ground's
-// texture gives, and ripples break the reflection. Foam follows the shore and glows at night, as
+// texture gives, and ripples break the reflection. On a river the water flows, and its ripples with it. Foam follows the shore and glows at night, as
 // does the light of passed rings that crosses the water. In winter the cold seas carry ice: floes
 // that drift with the wind, with open water between them.
 shader_type spatial;
@@ -19,6 +19,37 @@ float ripples(vec2 p, float wide) {
 	return noise(p * 0.11 + vec2(clock * 0.3, clock * 0.17)) * (1.0 - smoothstep(2.0, 6.0, wide))
 		+ 0.5 * noise(p * 0.37 - vec2(clock * 0.4, -clock * 0.3)) * (1.0 - smoothstep(0.6, 1.8, wide))
 		+ 0.25 * noise(p * 1.1 + vec2(-clock * 0.5, clock * 0.6)) * (1.0 - smoothstep(0.2, 0.6, wide));
+}
+
+// How a river's water flows at a place: along the contour the river follows (river_field), a
+// quarter round from the way its noise rises, so a river runs one way all along; as long as the
+// share it is of a river. The sea has none: it is shallower or deeper than a river's bed, 2.5 units
+// under its level, or off a river's contour.
+vec2 river_flow(vec2 p, float depth, float wide) {
+	if (on_moon || depth < 1.8 || depth > 3.2 || wide > 8.0) {
+		return vec2(0.0);
+	}
+	vec3 planet = planet_at(p);
+	float field = river_field(planet);
+	float river = smoothstep(0.075, 0.03, abs(field)) * smoothstep(3.2, 2.7, depth) * smoothstep(1.8, 2.3, depth);
+	if (river <= 0.0) {
+		return vec2(0.0);
+	}
+	// Over 40 units, not fewer: a place of the planet is good to some 0.03 units in single floats, and
+	// a way taken over less turns from one pixel to the next.
+	vec2 rise = vec2(river_field(planet_at(p + vec2(40.0, 0.0))), river_field(planet_at(p + vec2(0.0, 40.0)))) - field;
+	return normalize(vec2(-rise.y, rise.x) + vec2(1e-9, 0.0)) * river;
+}
+
+// The ripples where the water flows: a flow map's two phases, each carried 12 units along in four
+// seconds, and blended so that neither is seen to start again.
+float flowing(vec2 p, vec2 flow, float wide) {
+	if (flow == vec2(0.0)) {
+		return ripples(p, wide);
+	}
+	float phase = fract(clock * 0.25);
+	float later = fract(phase + 0.5);
+	return mix(ripples(p - flow * later * 12.0 + 37.0, wide), ripples(p - flow * phase * 12.0, wide), 1.0 - abs(1.0 - 2.0 * phase));
 }
 
 // The swell of the open sea at a place: two trains of long waves that run with the wind, bent
@@ -47,9 +78,10 @@ void fragment() {
 	}
 	float depth = max(SEA - ground_under.x, 0.0);
 	float wide = max(length(dFdx(p)), length(dFdy(p)));
-	float here = ripples(p, wide);
+	vec2 flow = river_flow(p, depth, wide);
+	float here = flowing(p, flow, wide);
 	float calm = 1.0 / (1.0 + length(VERTEX) * 0.01);
-	vec2 slope = vec2(ripples(p + vec2(0.4, 0.0), wide) - here, ripples(p + vec2(0.0, 0.4), wide) - here) * 0.9 * calm;
+	vec2 slope = vec2(flowing(p + vec2(0.4, 0.0), flow, wide) - here, flowing(p + vec2(0.0, 0.4), flow, wide) - here) * 0.9 * calm;
 	// The swell rolls where the sea is deep, and is seen from farther than the ripples are.
 	float open = smoothstep(2.0, 10.0, depth) * (1.0 - smoothstep(8.0, 30.0, wide));
 	float crest = open > 0.0 ? swell(p) : 0.0;
@@ -58,9 +90,10 @@ void fragment() {
 	}
 	NORMAL = normalize((VIEW_MATRIX * vec4(normalize(vec3(-slope.x, 1.0, -slope.y)), 0.0)).xyz);
 	float foam = smoothstep(1.5, 0.3, depth + (ripples(p, 0.0) - 0.9) * 1.1 * (1.0 - smoothstep(0.5, 3.0, wide)));
-	// Surf: lines of foam that roll in over the shallows, one behind another, toward the shore.
+	// Surf: lines of foam that roll in over the shallows, one behind another, toward the shore; not on
+	// a river, which flows past its banks.
 	float surf = smoothstep(5.0, 0.6, depth) * smoothstep(0.78, 0.96, sin(depth * 2.1 + clock * 1.2 + 5.0 * noise(p * 0.03))) * (1.0 - smoothstep(0.5, 2.5, wide));
-	foam = max(foam, 0.75 * surf);
+	foam = max(foam, 0.75 * surf * (1.0 - length(flow)));
 	// White horses: in a gust the swell's crests break.
 	float horses = 0.7 * open * smoothstep(0.3, 0.55, gust(p)) * smoothstep(0.72, 0.98, crest) * smoothstep(0.35, 0.7, noise(p * 0.5 + vec2(clock * 0.3, 0.0))); // they do not glow at night
 	foam = max(foam, horses);

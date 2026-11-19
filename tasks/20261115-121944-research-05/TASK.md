@@ -1,6 +1,6 @@
 # Voxel Flyover research 5: Rivers, lakes and their valleys
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 195
 - TAGS: godot,demo,flyover,research,0.1.8
 
@@ -41,3 +41,37 @@ start (a town on a river that runs to the sea).
 
 Not done: lakes above the sea (a lake's one level for all of it is not a function of the place
 alone), a flow drawn on the water, waterfalls, bridges; rivers seen from far and from orbit.
+
+## Closed (2026-11-19): against its first step for 0.1.8
+
+The coordinator split the step on 2026-11-19: for 0.1.8 the flow drawn on the river water and
+rivers seen to the middle distance; lakes above the sea, waterfalls, bridges and rivers seen from
+orbit moved to `tasks/20261119-083500-planet-rivers-2` (0.1.9), with what was found. Done in the
+commit that closes this task, on `feature/planet`:
+
+- **A river flows** (`river_flow`, `flowing` in `water.gdshader`): where the water is a river's (its
+  bed 2.5 units under the sea's level, on the contour `river_field` gives, the signed noise that
+  `river_on` takes the distance from), its ripples are carried along the contour, a quarter round
+  from the way the noise rises, so each river runs one way all along; a flow map's two phases,
+  each carried 12 units in four seconds and blended, so they run on without stretching. No surf
+  rolls in on a river any more (it drew white patches in its middle). The way is taken over 40
+  units: over 4 a place of the planet (good to 0.03 units in single floats) turned it from pixel to
+  pixel, and the foam streaks first drawn along it broke into specks; drawn longer they were
+  scratches, and they were left out.
+- **Rivers seen to the middle distance** (`land.gdshader`): where a grid's ground is too coarse to
+  cut a river (cells of 96 units and more), a line of water along its contour on the low land, as
+  wide as the river or a pixel, as strong as the share of the pixel it covers, out to pixels of 250
+  units.
+
+Looked at: near, flying along a river at 30 units, before and after
+(`build/planet/out/rivers-low-now2`, `rivers-low3`: the river's water clean, no white patches in it);
+the middle distance at 600 units (`rivers-before-600`, `rivers-600`: the river through the pink
+country shows as a line of water, which before was not there). Frame times, the ground flight of
+40 s from the start in Chrome on the NVIDIA card, two runs each, interleaved
+(`build/planet/measure3.sh`): before 36.1 and 36.4 frames a second, the GPU at 14.4 and 15.2 ms;
+after 32.5 and 35.7, the GPU at 15.3 and 14.1, the same within the machine's noise (its load 10 to
+19). On the AMD GPU in Firefox, the same flight with the rivers and the new clouds of the night's task:
+28.9 frames a second before (GPU 20.9 ms), 28.8 after (21.9), the median frame 33.3 ms in both, the
+pacing's even 30; in Chrome after, 28.7 (22.0). No take was recorded: the stills and these runs are
+the evidence.
+

@@ -17,7 +17,9 @@ islands, fantasy places; each addition's cost measured.
 In progress. Found and fixed: the near sea's patches that changed at each step of grid 2 (the
 climb's spikes gone). Added: mesa country, atolls, salt flats, flower fields, red sandstone, spires
 of an old world, sky lanterns. The four tests pass in Chrome and Firefox on the final image. Open:
-Firefox's stall at the start (Tests, below).
+Firefox's stall at the start (Tests, below). 2026-11-19: showing the near sea only while grid 2 is
+made it come back at once at 7,200 units on the way down, a jump the climb recorded here (to 3,400)
+did not reach; fixed in `45ec9a344` (task 20261118-131808-night2).
 
 ## The tour, frame by frame
 

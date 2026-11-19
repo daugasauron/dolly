@@ -1,6 +1,6 @@
 # Voxel Flyover is the planet, with mobile controls (2026-11-17)
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: godot,demo,planet,0.1.8
 
@@ -135,3 +135,26 @@ level lost its shadows, which changes nothing on that card.
 planet's make-up measured against the owner's word on flat land and rare peaks.
 `research-05` (rivers and lakes): its State is the planet's; open for what it lists.
 `research-15` (the weak adapter): its State is the planet's; FSR 1 measured and not kept.
+
+## Closed (2026-11-19)
+
+The owner's request holds: Voxel Flyover is the planet, and it plays on a touchscreen. Since the
+17th the controls went to a fighter's and back: on 2026-11-19 the owner asked for v0.1.7's, and
+they are back (`tasks/20261118-131808-night2`), touch with them: the left thumb's stick steers as
+the keys do, a finger elsewhere turns the view, two zoom, the ring gives the board back. The touch
+test passed in both browsers on the image of 2026-11-19 (`592d5699e`, `1f1964bb6`), and the game
+is served for the owner on `http://127.0.0.1:9055/godot-voxel-flyover/`. What the State listed:
+
+- A phone held upright in Firefox: Firefox's lost device at widths that are not a multiple of 32
+  pixels was found and fixed in the core (`tasks/20261117-083224-ffgpu-resize`, closed); a
+  phone-sized touch screen in Firefox presenting one frame is `tasks/20261117-083224-ffgpu-phone`'s.
+- The owner's own phone: nothing here is one; a session on it waits for the owner, who has the
+  page on 9055.
+- The other Godot images on the new Godot: the 0.1.8 round built them on 2026-11-19
+  (`airtime-godot`, `godot-airtime`, `lantern-drift`, `godot-lantern-drift`, `dodge-the-creeps`,
+  `truck-town` in `work/integrate-018/dist`).
+- An even 30 a second on the AMD GPU, measured on 2026-11-19: on the ground flight 28.8 frames a
+  second in Firefox and 28.7 in Chrome, the GPU at 21.9 and 22.0 ms, the median frame 33.3 and
+  33.5 ms: the pacing's even 30 holds (`tasks/20261115-121944-research-15`, closed).
+- The planet's stages 3 to 8 are tasks of 0.1.9 (`tatr ls :planet`).
+
