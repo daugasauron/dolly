@@ -1,8 +1,24 @@
 # The same libraries are built twice from different pins, and the generic libpng, freetype and pkgconf packages are staged from 0 A.D.'s 1.4 GB build sources
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 95
 - TAGS: audit,ports,demo,packages,x11,0ad,cleanup,0.1.8
+
+## Closed (2026-11-19)
+
+- `git grep -n 'libpng-1.6\|freetype-.*2-14\|pixman-0.46' -- 'demos/*/Dollyfile-*'` names only
+  `demos/x11/Dollyfile-pixman`; libpng and FreeType are each one `SOURCE` of their own recipe
+  (`demos/tools/Dollyfile-libpng`, `Dollyfile-freetype`).
+- On `fix/rc-recipes` (from `integrate/0.1.8` at 8d666a4e4), `DOLLY_BUILD_IMAGES=gtk-build,python-data
+  bash scripts/prepare-image-sources.sh` staged their closures (Mesa, X11, GTK, Python and the data
+  packages) with status 0, created no `build/generated/zero-ad-build-*` (the directory before and
+  after: `build/rc-recipes-evidence/stage1.log` in `work/rc-recipes`) and changed no source pin.
+- The demos' tests on the 0.1.8 round's images (unit `dolly-round-018k`, `build/round/suites.log`):
+  gtk's amy cases, ghostty-gtk (in place of the removed ghostty-x11), python-data, sdl2, xonotic and
+  every 0 A.D. test passed in Chromium and Firefox. wine passed in Firefox there and stopped in
+  Chromium at GIMP's start ("the display never showed what was awaited"); run again on the same
+  images on `fix/rc-recipes`, it passed in Chromium (144.7 s, GIMP's toolbox 1677 ms after the
+  Start menu's key; `wine-chromium.log`).
 
 ## State (2026-11-17)
 
