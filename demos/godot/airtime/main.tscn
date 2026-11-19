@@ -5,19 +5,19 @@
 [ext_resource type="Script" path="res://foundry.gd" id="3"]
 [ext_resource type="Script" path="res://hud.gd" id="4"]
 
-[node name="Main" type="Node3D"]
+[node name="Main" type="Node3D" unique_id=1]
 script = ExtResource("1")
 
-[node name="Camera" type="Camera3D" parent="."]
+[node name="Camera" type="Camera3D" parent="." unique_id=2]
 fov = 74.0
 near = 0.05
 far = 700.0
 
-[node name="Pads" type="Node3D" parent="."]
+[node name="Pads" type="Node3D" parent="." unique_id=3]
 script = ExtResource("2")
 
-[node name="Foundry" type="Node3D" parent="."]
+[node name="Foundry" type="Node3D" parent="." unique_id=4]
 script = ExtResource("3")
 
-[node name="Hud" type="CanvasLayer" parent="."]
+[node name="Hud" type="CanvasLayer" parent="." unique_id=5]
 script = ExtResource("4")

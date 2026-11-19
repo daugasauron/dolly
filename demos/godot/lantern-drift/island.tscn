@@ -2,5 +2,5 @@
 
 [ext_resource type="Script" path="res://island.gd" id="1"]
 
-[node name="Island" type="StaticBody3D"]
+[node name="Island" type="StaticBody3D" unique_id=26]
 script = ExtResource("1")

@@ -11,8 +11,11 @@ FROM /demos/zig/Dollyfile-zig-llvm-build 4ce2bddbb37d85dc421a72699aa55bade71e76d
 USE /demos/llvm/Dollyfile-llvm22 d4674665ae5cabf1dd4cdc90251f2512d119906cc9de7473dcaefa0fc4683c43
 # Zig links a program for this target with cc (zig-0.17.0-dolly-llvm.patch).
 INSTALL /Dollyfile-cc 3c50048026aec1c0c21ac6c0b74d93f53b5c0a3fa83b5c9930d86924a3b59eaa
+# find, for the times of the cache's sources (below).
+USE /Dollyfile-posix c24b7cb8dfc057769bc7f644f68c2922514adb89272756d8ed793c0318d5f3d5
 REQUIRES TOOL   c++
 REQUIRES TOOL   ar
+REQUIRES TOOL   find
 
 # zigcpp, with upstream's flags (CMakeLists.txt, "zigcpp target"), LLVM's
 # headers where its llvm-config says (cmake/Findllvm.cmake), and the endian.h
@@ -69,8 +72,14 @@ FILE /usr/share/man/cat1/zig.1
 # translation itself in a cache of its own. A session needs the manifests (h),
 # builtin modules (b) and outputs (o): Zig reads a cached source (z) only for a
 # file of the same inode, which an installed file is not, and the objects
-# (_zcu.o) went into the links.
-SLOP zig init --help > /dev/null
-SLOP CWD /tmp : > zig-setup.h && zig translate-c --cache-dir zig-setup zig-setup.h > /dev/null
+# (_zcu.o) went into the links. A manifest records each source's time, which
+# would be the build's: the lib's are its base's restore, the builtin modules'
+# their writing. Both get the one every image file has in a session
+# (kernel/system-snapshot.c, 1980-01-02): the lib's first, the builtin modules'
+# after a first run that writes them, and the setup runs again from them.
+SLOP find /usr/lib/zig -exec touch -t 198001020000 {} +
+SLOP CWD /tmp : > zig-setup.h && zig init --help > /dev/null && zig translate-c --cache-dir zig-setup zig-setup.h > /dev/null
+SLOP find /home/dolly/.cache/zig/b -exec touch -t 198001020000 {} + && rm -r /home/dolly/.cache/zig/h /home/dolly/.cache/zig/o /tmp/zig-setup
+SLOP CWD /tmp zig init --help > /dev/null && zig translate-c --cache-dir zig-setup zig-setup.h > /dev/null
 SLOP rm -r /home/dolly/.cache/zig/z /home/dolly/.cache/zig/tmp /home/dolly/.cache/zig/o/*/*_zcu.o
 FOLDER /home/dolly/.cache/zig
