@@ -276,13 +276,18 @@ float realm_on(vec3 planet) {
 	return smoothstep(0.72, 0.82, slow3(planet, 53000.0, vec3(10.0, 28.0, 66.0)));
 }
 
-// How far from a river's middle a place is, as a share of a noise whose contour the river
-// follows: a river is under 0.012 of it and its valley under 0.1. The contour meanders with a
-// second noise.
-float river_on(vec3 planet) {
+// The noise whose contour a river follows, less the contour's value: its sign says which bank a
+// place is on. The contour meanders with a second noise.
+float river_field(vec3 planet) {
 	vec3 bend = planet / 310.0;
 	vec3 q = planet / 900.0 + 0.35 * vec3(noise3(bend + vec3(7.0, 3.0, 11.0)), noise3(bend + vec3(51.0, 23.0, 5.0)), noise3(bend + vec3(19.0, 88.0, 61.0)));
-	return abs(noise3(q + vec3(140.0, 77.0, 9.0)) - 0.5);
+	return noise3(q + vec3(140.0, 77.0, 9.0)) - 0.5;
+}
+
+// How far from a river's middle a place is, as a share of that noise: a river is under 0.012 of
+// it and its valley under 0.1.
+float river_on(vec3 planet) {
+	return abs(river_field(planet));
 }
 
 // A crater of the moon (moon_on): in a cell of a lattice of `size` in one of `share`, a bowl with

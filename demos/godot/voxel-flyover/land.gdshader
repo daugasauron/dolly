@@ -231,6 +231,19 @@ void fragment() {
 	ROUGHNESS = mix(mix(mix(0.9, 0.7, bare), 0.3, max(max(max(max(vein * night_here, snow * 0.6), sand * 0.5), wet * 0.8), salt * (0.3 + 0.7 * wet))), mix(0.05, 0.35, winter), max(pool, flooded));
 	SPECULAR = 0.35;
 	vec3 facing = normalize(mix(normal + vec3(tilt.x, 0.0, tilt.y), vec3(0.0, 1.0, 0.0), pool));
+	// A river where the grid's ground is too coarse to cut it (terrain_on's gate, from cells of 30
+	// units): a line of water along its contour on the low land, as wide as the river or a pixel and
+	// as strong as the share of the pixel it covers, out to pixels of 250 units.
+	if (cell > 30.0 && !on_moon && wide < 250.0 && here.x > SEA - 3.0 && here.x < SEA + 60.0) {
+		// A pixel spans some wide / 900 of the noise (its scale, terrain.gdshaderinc's river_field).
+		float off = river_on(planet);
+		float half_wide = max(0.012, wide / 900.0);
+		float river = (1.0 - smoothstep(half_wide * 0.5, half_wide, off)) * min(0.018 / half_wide, 1.0) * (1.0 - smoothstep(120.0, 250.0, wide));
+		ALBEDO = mix(ALBEDO, vec3(0.02, 0.1, 0.13) * cloud_shade_seen(world, wide), river);
+		ROUGHNESS = mix(ROUGHNESS, 0.25, river);
+		SPECULAR = mix(SPECULAR, 0.8, river);
+		facing = normalize(mix(facing, vec3(0.0, 1.0, 0.0), river));
+	}
 	if (seas && here.x < SEA) {
 		// The sea far off, as water.gdshader shows it from afar: its colour by its depth and
 		// its country, ice on the cold seas, the sun's glint.

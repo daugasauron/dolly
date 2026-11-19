@@ -192,7 +192,13 @@ combinations do not come round again. Oceans and continents of 7.3 thousand unit
 its ranges low or high; a massif, rare, raises its peaks to two and a half times
 (the nearest is some eleven thousand units from the start); rivers at the sea's level follow a
 meandering noise's contour through valleys, widen into lakes in some stretches, and narrow to
-their springs in the hills; warmth and
+their springs in the hills. A river flows: on its water the ripples and streaks of foam run along
+its contour (`river_flow` in [`water.gdshader`](voxel-flyover/water.gdshader), a flow map's two
+phases, so they run on without stretching), each river one way all along. Where a grid's ground
+is too coarse to cut a river (cells of 96 units and more) it is drawn as a line of water along
+its contour, as wide as the river or a pixel and as strong as the share of the pixel it covers, out
+to pixels of 250 units (`land.gdshader`); lakes above the sea, waterfalls, bridges and rivers seen
+from orbit are `tasks/20261119-083500-planet-rivers-2`'s. Warmth and
 moisture have countries of 19 and 11 thousand units; and a realm of wonders, a tenth of the
 world at 53 thousand (the nearest fourteen thousand north of the start), has a sea alight at
 night, groves that mostly glow and bright veins. The ground's textures also carry the realm, and
