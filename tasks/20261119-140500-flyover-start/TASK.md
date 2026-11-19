@@ -186,6 +186,14 @@ The same 843 and 834 shader modules either way. Chrome's waits shrank with the W
 and compiles each module's. Firefox 2 after is Firefox's start-up stall (gpu@0 not started
 120 s after Godot), which the build as it was showed the same evening too.
 
+Godot's shader cache off (`shader_compiler/shader_cache/enabled=false`), with the new converter,
+interleaved with it on (`build/planet/ab-settings.sh`), load 15 to 24: Godot's 120th frame at
+44.3 and 47.3 s for 45.0 and 49.0 in Chrome, 36.0 s for 37.2 in Firefox, the same modules and
+waits; the page's 120th frame at 55.8 and 64.7 s for 58.8 and 65.7. A second or so at most, within
+the runs' spread: left on (its files are in Dolly's filesystem in memory, which a new page starts
+without, so it spares nothing at a start either way). Of the four Firefox starts of that
+series, two stalled before gpu@0 started, one each way.
+
 ## What is left, and what it would take
 
 - **gpu@0 makes a module for each request, the same code again and again**: 311 of the 834 are
