@@ -3,7 +3,7 @@
 // lists each of its tarballs, and its latest is its version that is no prerelease.
 //   node scripts/npm-registry.mjs DIR   serves DIR on 127.0.0.1 (DOLLY_PORT, default 4873) and
 //                                       sends every other name to npmjs: a release candidate's
-//                                       packages, installed as from the registry before they are
+//                                       packages, installed as from npmjs before they are published
 // test/npm-browser.mjs serves its packages offline with it.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
