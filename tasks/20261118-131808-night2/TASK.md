@@ -1,6 +1,6 @@
 # Voxel Flyover: the controls of before, clouds that chain to space, and the moon
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: godot,demo,planet
 
@@ -136,7 +136,24 @@ load 10 to 19):
 No worse. Every run but the first had one frame of 527 to 708 ms, the flights before as well as
 after (the ground flight's too), so it is the machine's, not the clouds'.
 
-## State (2026-11-19)
+## State (2026-11-19, morning)
+
+The owner's three changes of the morning are done, in order (above): 1. the keys fly and the mouse
+looks, `4c3d0a8ed`, L's race `e1a01cb8c`, the test's hand-like move `4b944a56f`; 2. no dead cloud,
+`6d1795622`; 3. the clouds in every colour, in this commit. Served on
+`http://127.0.0.1:9055/godot-voxel-flyover/` (`dolly-serve-planet`). On that image (`592d5699e` with the rivers of `1f1964bb6`) all four tests passed. The flyover test in
+Chrome: the mouse turned the view 60 degrees and left the heading at 142, D turned the board 49
+degrees, W raised the nose to 85, the chain flight took 1/20 2/40 3/80 4/160 5/320 6/640 to 221,075
+units, the moon two crossings (76 units over its ground, 24 over the planet's after); in Firefox: 60
+degrees with the heading at 143, 56, 85, the same six to 221,941, two crossings (70, 33), the morning
+at 45.3 frames a second. The touch test in Chrome (the stick climbed the board to 215 and turned it
+109 degrees, the second finger turned the view 97, the pinch zoomed to 0.45, the ring gave the board
+back upright) and in Firefox (210, 108, 86, 0.45). On the AMD GPU in Firefox (`build/planet/measure-amd.sh`)
+the chain flight drew 34.6 frames a second with the clouds before (GPU 16.1 ms) and 35.9 with the new
+ones (16.2), and the ground flight 28.9 before the clouds and rivers (GPU 20.9) and 28.8 after (21.9),
+its median frame 33.3 ms in both, the pacing's even 30.
+
+## The night (2026-11-18 to 19)
 
 1. The controls: `1e9e49edd`. Chrome: the flyover test's mouse checks passed (L gave the pointer
    back, the second capture worked, the nose stood at 80 to 86 degrees) and its old ring check
@@ -262,3 +279,10 @@ frames' median 16.5, p95 34.0, p99 38.4, longest 265.2, 204 over 2x (6.7%), the 
 busy. So the GPU's time is the new flight's way, not the clouds' or the moon's: the tests' 30-second
 morning flight, the same flight in each round, took 7.8 ms of GPU in step 2's round (Chrome), 7.9
 in step 3's, and 7.8 with the fixes.
+
+## Closed (2026-11-19)
+
+Both done-whens hold: the night's, its first step since superseded by the owner's morning (the keys
+fly again, the mouse looks), and the morning's three, each committed in order and tested in Chrome
+and Firefox on the GPU (the State, above).
+

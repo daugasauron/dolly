@@ -1,6 +1,6 @@
 # Voxel Flyover research 15: The weak adapter
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 185
 - TAGS: godot,demo,flyover,research,0.1.8
 
@@ -44,3 +44,17 @@ is the planet's own to keep (`tasks/20261116-223911-planet-day`); the slope in t
 trees read the ground three times, the buildings five) has no free channel now.
 
 Since 15:29 the weakest level also has no shadows of the sun: 18.7 ms a frame in Firefox and 18.3 in Chrome on that GPU, under the flat flyover's 19.6; the rate at that was 23 a second on a machine with a load of 15, and is to be measured on a quiet one.
+
+## Closed (2026-11-19)
+
+What was left, an even 30 a second on the AMD GPU, measured on the image of 2026-11-19
+(`feature/planet` `1f1964bb6`: the new clouds and the rivers of research 5), the machine's load 6
+to 17 (`build/planet/measure-amd.sh`, `m.sh amd`): the ground flight of 40 s from the start drew 28.8
+frames a second in Firefox, the GPU at 21.9 ms, its median frame 33.3 ms and p95 37.6, and 28.7 in
+Chrome (22.0 ms, median 33.5, p95 41.9); the chain flight 35.9 in Firefox (16.2 ms). The pacing takes
+30 a second under 24 ms of GPU (`tasks/20261116-223911-planet-day`), and holds it: the median frame
+is the even 30's. The rest of the second is a few long frames (p99 110 ms in Firefox, 54 in Chrome)
+on a loaded machine. The step's other parts were done another way or measured and not kept
+(above): the settled channel in place of the slope, FSR 1 dearer than the pixels it saves, the
+weakest level without the sun's shadows.
+

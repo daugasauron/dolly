@@ -70,5 +70,8 @@ country shows as a line of water, which before was not there). Frame times, the 
 40 s from the start in Chrome on the NVIDIA card, two runs each, interleaved
 (`build/planet/measure3.sh`): before 36.1 and 36.4 frames a second, the GPU at 14.4 and 15.2 ms;
 after 32.5 and 35.7, the GPU at 15.3 and 14.1, the same within the machine's noise (its load 10 to
-19). No take was recorded and the AMD GPU was not measured for this step.
+19). On the AMD GPU in Firefox, the same flight with the rivers and the new clouds of the night's task:
+28.9 frames a second before (GPU 20.9 ms), 28.8 after (21.9), the median frame 33.3 ms in both, the
+pacing's even 30; in Chrome after, 28.7 (22.0). No take was recorded: the stills and these runs are
+the evidence.
 
