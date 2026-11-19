@@ -20,7 +20,7 @@ const allowed = {
   http: ["fetch"],
   input: ["navigator.clipboard", "requestPointerLock"],
   microphone: ["navigator.mediaDevices", "AudioContext", "audioWorklet", "AudioWorkletNode"],
-  packages: ["fetch", "Worker"],
+  packages: ["fetch", "URL.createObjectURL"],
   runtime: ["Worker"],
   snapshot: ["navigator.storage", "navigator.serviceWorker", "indexedDB", "caches", "fetch"],
   stack: ["fetch"],
