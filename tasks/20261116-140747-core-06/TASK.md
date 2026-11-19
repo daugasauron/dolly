@@ -1,6 +1,6 @@
 # packages@0 reads a guest-named image directory outside the HTTP policy: 15 files no rule admits, with the page origin's cookies
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: audit,core,security,http,packages,0.1.8
 
@@ -9,9 +9,28 @@ From the core audit of 2026-11-16 (`work/audit-1116`, released tree `work/round1
 directory over packages@0's own channel, each URL admitted); that task waits on an owner decision
 about `http@0` in `default`, and this is a reproduced bypass of the policy now, so it is its own.
 
-## State (2026-11-17)
+## Closed (2026-11-19)
 
-Fixed on `fix/packages-policy` (`fdfea7188`, from main `b09b1e243`), not merged. The package
+The fix below (`fdfea7188`) is in the 0.1.8 integration (`02b7ba436`, merged with `fix/amy`).
+The image's own `HTTP` rows (feature/npm-policy) narrow these reads too: packages@0 asks the
+page network's one `admit`, whose policy is the embedding's intersected with the inherited and
+declared ones (`page/network.mjs`). `test/amy-browser.mjs` "amy another directory" now also opens
+an image built `FROM default` that declares only `GET /mirror/amy-index.txt`, under a page
+admitting all of `/mirror/`: `amy list` reads the index, `amy install less` is refused, and the
+directory serves the index alone. On `fix/rc-core` with the 0.1.8 round's images (default of
+07:25): the whole case passes in Chrome and Firefox; with `declared` dropped from
+`pageNetwork` (a mutation) it fails at the new assertion. The review map says the image's rows
+are included.
+
+Not done, by decision: a fixed byte bound on the catalog and metadata JSON beyond the rule's
+`maxResponseBytes`. An unbounded body costs the package Worker's memory, an availability effect
+(the review map's "CPU and memory use" row), and an embedding that wants a bound sets
+`maxResponseBytes`. A relayed origin is fetched directly, not through its relay: its responses
+are then unreadable, so it fails, which widens nothing.
+
+## Fix (2026-11-17)
+
+Fixed on `fix/packages-policy` (`fdfea7188`, from main `b09b1e243`). The package
 Worker asks the page before each read of another directory (`admit` in `host/http/http.mjs` now
 returns the rule; `host/packages/service.mjs` answers and ends a refused transfer with 403, the
 policy's reason in the body) and reads with `judgedFetch` (`host/packages/worker.mjs`): no
@@ -30,14 +49,6 @@ both (`after-*.log`), so do http-refusals, network, boundary, session-without-ht
 in Chrome, the page's own reads of its packs), the review map's node checks
 (41/41) and `validate-browser`; `npm run test:source` 463/471, the 8 failures being `build/`
 fixtures a source-only tree lacks (17/17 with round1113's linked in).
-
-Left: merge with a round: the two documents' pins changed `Dollyfile-dolly-docs` and 12 demo
-recipes (the pi chain, classicube, rts, slopyard, studio), which need rebuilding; the code
-needs none. Not done, as beyond the broker's behaviour: a fixed byte bound on the JSON (the
-default policy's `maxResponseBytes` is unbounded); a relayed origin is fetched directly, not
-through its relay; a size or timeout failure answers 502 with the browser's message, a
-metadata file's as "snapshot is missing"; a foreign directory's packs are still kept in the
-origin's store (`modules-r5`).
 
 ## Found
 

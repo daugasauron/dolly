@@ -15,11 +15,13 @@ const maxIndexBytes = capacity;
 // image directory, `imageBase`, or another the guest names, each of whose
 // files `admit(url)` judges: it resolves to the limits of the page's rule for
 // it, or rejects. `spent()` tells the page when a snapshot is refused for the quota.
+// `makeWorker()` makes a packages Worker (worker.mjs) for a request.
 export class PackagesTransport {
-  constructor(buffer, address, imageBase, spent, admit) {
+  constructor(buffer, address, imageBase, spent, admit, makeWorker) {
     this.imageBase = imageBase;
     this.spent = spent;
     this.admit = admit;
+    this.makeWorker = makeWorker;
     if (!(buffer instanceof SharedArrayBuffer) || !Number.isSafeInteger(address) || address <= 0 || address % 4 ||
         address > buffer.byteLength - A.DOLLY_PACKAGES_CHUNK_OFFSET - capacity) throw new TypeError("invalid packages mailbox");
     this.words = new Int32Array(buffer, address, 16);
@@ -88,16 +90,18 @@ export class PackagesTransport {
       // and merges its checked packs into its snapshot, a chunk per message.
       // Of another directory it asks before each file it reads: a refusal of
       // the page's policy ends the request with EACCES.
-      worker = new Worker(new URL("./worker.mjs", import.meta.url), { type: "module", name: "dolly-packages" });
+      worker = this.makeWorker();
+      let asked;
+      worker.addEventListener("message", ({ data }) => {
+        if (data.admit === undefined) return data.error === undefined ? asked.resolve(data) : asked.reject(new Error(data.error));
+        this.admit(new URL(data.admit)).then(limits => worker.postMessage({ admitted: data.id, limits }), error => {
+          refused = true;
+          worker.postMessage({ admitted: data.id, refused: error.message });
+        });
+      });
+      worker.addEventListener("error", event => { event.preventDefault(); asked.reject(new Error(event.message || "package Worker failed")); });
       const ask = message => new Promise((resolve, reject) => {
-        worker.onmessage = ({ data }) => {
-          if (data.admit === undefined) return data.error === undefined ? resolve(data) : reject(new Error(data.error));
-          this.admit(new URL(data.admit)).then(limits => worker.postMessage({ admitted: data.id, limits }), error => {
-            refused = true;
-            worker.postMessage({ admitted: data.id, refused: error.message });
-          });
-        };
-        worker.onerror = event => { event.preventDefault(); reject(new Error(event.message || "package Worker failed")); };
+        asked = { resolve, reject };
         worker.postMessage(message);
       });
       const judged = directory !== this.imageBase.href;
