@@ -386,4 +386,17 @@ table and the commands, and what the same period gave under the fill lag decisio
   law prices under the market, the model sells those wings, and that paid in this period (+1.4
   to +1.5 bp a trade at a deviation of 4 to 5, both seeds, half of it gone a day late): the
   premium of far options, which a law too thin there cannot tell from a mispricing.
-- 2023-01 to 2025-11 is scored once, with the rules fixed on the first period.
+
+**2023-01 to 2025-11, scored once with the rules fixed on the first period** (118 days, both
+seeds; task dh-39): the model does not find statistical arbitrage that holds up (decision 32).
+
+- Within 1.5 deviations its best deal lost (-1.8 and -2.1 bp a trade). The sale of wings paid
+  for one seed (+1.6 bp, t 3.0) and not for the other (-0.1), and lost 75 to 86 bp on the trade
+  entered before the fall of April 2025: a premium with a tail, and a result that depends on the
+  seed is not one (decision 20).
+- The hedger's stock hedge left 8% more deviation than a Black delta at the entry's implied
+  volatility (82 against 76 bp over all out-of-the-money trades; 177 unhedged).
+- The straddle's option hedge held: 41 to 100 bp of deviation by expiry, against 149 to 204 with
+  a Black delta and 123 to 140 with a Black vega hedge, for 3 to 8 bp of spreads. This is the
+  one thing the model does better than the classical hedge on real data, in both periods and on
+  both seeds, and what task dh-40 builds on.
