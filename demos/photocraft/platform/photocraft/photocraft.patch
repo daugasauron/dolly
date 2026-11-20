@@ -23,6 +23,39 @@
  mod file_dialog_probe;
  mod gpu_startup;
  #[cfg(target_os = "linux")]
+@@ -731,15 +734,32 @@
+         if let Some(s) = sentinel.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take() {
+             s.finish();
+         }
++        // Dolly's wgpu has the browser's WebGPU alone, which the CPU renderer's window needs too:
++        // without an adapter a second start cannot help.
++        #[cfg(target_os = "emscripten")]
++        {
++            let instance = eframe::wgpu::Instance::default();
++            let mut adapter = std::pin::pin!(instance.request_adapter(&Default::default()));
++            let context = &mut std::task::Context::from_waker(std::task::Waker::noop());
++            if matches!(std::future::Future::poll(adapter.as_mut(), context), std::task::Poll::Ready(Err(_))) {
++                eprintln!("PhotoCraft needs WebGPU, which the browser does not give this page.");
++                std::process::exit(1);
++            }
++        }
+         if let Ok(exe) = std::env::current_exe() {
+             // `--safe-gpu` first: after a `--`, it would be a file name.
+             let launched = std::process::Command::new(exe)
+                 .arg("--safe-gpu")
+                 .args(std::env::args_os().skip(1))
+                 .env_remove("WGPU_BACKEND")
+                 .env("PHOTOCRAFT_GPU_STARTUP_FAILURE", &reason)
+                 .spawn();
+             match launched {
++                // Dolly's page serves the foreground job alone: this process waits for its
++                // relaunched self, which keeps the screen, and ends with its status.
++                #[cfg(target_os = "emscripten")]
++                Ok(mut child) => std::process::exit(child.wait().ok().and_then(|status| status.code()).unwrap_or(1)),
++                #[cfg(not(target_os = "emscripten"))]
+                 Ok(_) => return Ok(()),
+                 Err(error) => log::error!("could not start CPU compatibility mode: {error}"),
+             }
 --- a/apps/photocraft/src/services.rs
 +++ b/apps/photocraft/src/services.rs
 @@ -207,6 +207,10 @@

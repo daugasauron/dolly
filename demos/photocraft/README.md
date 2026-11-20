@@ -57,6 +57,11 @@ characters: twm reads `WM_NAME`, where x11-window stores the UTF-8 title as Lati
   file a save writes into Dolly is offered to the browser as well (`download@0`): the page shows
   its Save button ([`platform/photocraft`](platform/photocraft); the C calls are a crate of their
   own, as PhotoCraft keeps its one other `unsafe` crate).
+- Without a WebGPU adapter PhotoCraft says it needs WebGPU and quits: its CPU renderer's window
+  is a wgpu surface too, and Dolly's wgpu has the browser's WebGPU alone. Where its GPU renderer
+  fails with an adapter, it starts itself again with `--safe-gpu` and waits for that second
+  PhotoCraft, so the page's foreground job, which alone gets the display, lasts until it quits
+  (`photocraft.patch`).
 - rfd's other dialogs are the `zenity` command, as its Linux backend's are without a desktop portal
   (`rfd.patch`); [`zenity`](zenity) is an egui program on the same platforms, which takes the page
   from PhotoCraft and gives it back when it exits.
