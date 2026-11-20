@@ -557,7 +557,7 @@ def build_drive(root, rig):
     hangers = []
     for side in (-1, 1):
         out = V(side * 0.075, 0, 0)
-        for a, b in ((flyer_point(REAR + out), V(side * 0.8, -0.1, 1.25)), (flyer_point(HEAD_TOP), V(side * 0.85, -0.1, -1.25))):
+        for a, b in ((flyer_point(REAR + out), V(side * 0.8, -0.1, 1.25)), (flyer_point(HEAD_TOP), V(side * 0.9, -0.1, -0.6))):
             hangers.append((rod("hanger", (b - a).length, 0.035), place(a, aim(b - a))))
     obj("hangers", join("hangers", hangers), chrome, root)
     return cranks, pedals, links, shaft
@@ -751,10 +751,10 @@ def build_corgi(root):
     jaw = obj("dog_jaw", None, None, face, DOG_JAW)
     chin = body("chin", (0.2, 0.075, 0.3))
     obj("dog_chin", chin, furred, jaw, V(0, -0.04, -0.24), turn((1, 0, 0), math.radians(-5)), coat(chin, 0.03, 0.012))
-    # The tongue lolls out of the mouth's left side and back in the wind.
-    lolling = through([(0.0, 0.03, -0.2), (-0.04, 0.03, -0.44), (-0.18, 0.0, -0.56), (-0.33, -0.08, -0.46), (-0.42, -0.16, -0.28)], 12)
-    obj("dog_tongue", loft("tongue", [V(*p) for p in lolling], [(0.12 - 0.04 * (i / 11) ** 3, 0.026) for i in range(12)],
-                           up=V(0.4, 1, 0), around=10), paint("tongue", PINK, 0.3), jaw)
+    # The tongue lolls out over the front of the chin, a little to the left.
+    lolling = through([(0.0, 0.03, -0.25), (-0.01, 0.035, -0.46), (-0.03, 0.01, -0.6), (-0.05, -0.1, -0.67), (-0.06, -0.22, -0.66)], 12)
+    obj("dog_tongue", loft("tongue", [V(*p) for p in lolling], [(0.115 - 0.075 * (i / 11) ** 4, 0.03 - 0.012 * (i / 11) ** 4) for i in range(12)],
+                           up=V(0, 1, 0.3), around=10), paint("tongue", (1.0, 0.52, 0.6), 0.6), jaw)
     for index, x in enumerate((-1.0, 1.0)):
         ear = obj(f"dog_ear_{index}", None, None, face, V(x * 0.4, 0.3, 0.12))
         lean = turn((0, 0, 1), math.radians(x * -16))

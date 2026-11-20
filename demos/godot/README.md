@@ -114,7 +114,7 @@ pelican in a cyclist's cap, flying goggles and a scarf pedals for the jets. The 
 one surface from its rump along its back and up its neck into its head, and the script winds
 every surface outward: a coat's skin and shells cull their back faces. A chain runs from the chainring up to a sprocket on a shaft between the
 two engines, and a fan turns in each engine's intake. The bicycle hangs from the board by its
-rear axle and by two rods from its head tube that pass the rider's head on either side.
+rear axle and by two rods from its head tube that pass beside the rider's head and behind its eyes.
 
 The script bakes three animations, which the game plays by their names. "pedal" is five turns of
 the cranks and all they drive: the legs, laid from hip to knee to pedal, the chain's sixty links
