@@ -12,9 +12,9 @@ const MODEL := "/usr/share/voxel-flyover/flyer.glb"
 const SHELLS := 18 # of a coat
 
 var coats: Array[ShaderMaterial] = [] # the fur and feathers, which the wind is told to
-var plumes: Array[ShaderMaterial] = [] # the cloths but the corgi's: the pelican's long feathers
+var plumes: Array[ShaderMaterial] = [] # the cloths but the cape: the pelican's long feathers and its scarf
 var cape: ShaderMaterial
-var tongue: ShaderMaterial
+var skin := StandardMaterial3D.new() # under every coat
 var dog: Node3D
 var dog_head: Node3D
 var legs: Array[MeshInstance3D] = []
@@ -72,7 +72,7 @@ static func named(scene: Node, name: String) -> Node:
 
 
 ## Gives a part what its extras ask for: a coat of fur or feathers in SHELLS shells over its skin,
-## which is the coat's colour, darker; or cape.gdshader's cloth.
+## or cape.gdshader's cloth.
 func dress(part: MeshInstance3D) -> void:
 	# glTF multiplies a material's colour by its mesh's vertex colours (the jets' livery); Godot's
 	# import does not.
@@ -85,10 +85,8 @@ func dress(part: MeshInstance3D) -> void:
 	var extras: Dictionary = part.get_meta("extras", {})
 	if extras.has("coat"):
 		var coat: Dictionary = extras["coat"]
-		var colour := Color(coat["colour"][0], coat["colour"][1], coat["colour"][2])
-		# Under it the skin is its colour, darker; both take the colours of the mesh's vertices too.
-		var skin := StandardMaterial3D.new()
-		skin.albedo_color = colour * 0.6
+		# Under it the skin is the colours of the mesh's vertices, as the coat is, darker.
+		skin.albedo_color = Color(0.6, 0.6, 0.6)
 		skin.vertex_color_use_as_albedo = true
 		skin.roughness = 0.8
 		part.material_override = skin
@@ -100,7 +98,6 @@ func dress(part: MeshInstance3D) -> void:
 			shells.set_instance_transform(shell, Transform3D.IDENTITY)
 		var fur := ShaderMaterial.new()
 		fur.shader = preload("res://fur.gdshader")
-		fur.set_shader_parameter("colour", colour)
 		fur.set_shader_parameter("shells", float(SHELLS))
 		fur.set_shader_parameter("hair", coat["hair"])
 		fur.set_shader_parameter("hairs", Vector2(coat["hairs"][0], coat["hairs"][1]))
@@ -114,16 +111,12 @@ func dress(part: MeshInstance3D) -> void:
 		var measures: Dictionary = extras["cloth"]
 		var material := ShaderMaterial.new()
 		material.shader = preload("res://cape.gdshader")
-		for key: String in ["colour", "tip"]:
-			material.set_shader_parameter(key, Color(measures[key][0], measures[key][1], measures[key][2]))
 		material.set_shader_parameter("widens", Vector2(measures["widens"][0], measures["widens"][1]))
 		material.set_shader_parameter("flaps", measures["flaps"])
 		material.set_shader_parameter("own", measures["own"])
 		part.material_override = material
 		if part.name == "cape":
 			cape = material
-		elif part.name == "dog_tongue":
-			tongue = material
 		else:
 			plumes.append(material)
 

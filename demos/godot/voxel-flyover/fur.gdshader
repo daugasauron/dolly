@@ -1,11 +1,10 @@
 // Fur, in shells: the same mesh drawn a number of times (the instances of a MultiMesh), each a
 // little further out along its normals and a little further down the wind, and each keeping only
 // the pixels where a hair is at least that long. The hairs lean and shiver in the air the flight
-// drives past them. Its colour is the coat's times the colours of the mesh's vertices.
+// drives past them. Its colour is its mesh's vertices'.
 shader_type spatial;
 render_mode world_vertex_coords, shadows_disabled;
 
-uniform vec3 colour : source_color = vec3(0.85, 0.47, 0.16);
 uniform float shells = 14.0;
 uniform float hair = 0.14; // a hair's length
 uniform vec2 hairs = vec2(70.0, 35.0); // hairs around and along the mesh
@@ -30,14 +29,17 @@ void fragment() {
 	vec2 cell = floor(at);
 	// Hairs finer than the pixels would sparkle: from afar they merge into a coat of their mean length.
 	float merged = smoothstep(0.3, 0.9, max(length(dFdx(at)), length(dFdy(at))));
-	float tall = mix(0.45 + 0.55 * fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453), 0.72, merged);
-	float off = length(fract(at) - 0.5) * 2.0 * (1.0 - merged);
+	float chance = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
+	float tall = mix(0.45 + 0.55 * chance, 0.72, merged);
+	// Each hair stands somewhere in its cell: in the cells' middles they were rows.
+	vec2 root = 0.5 + 0.5 * (fract(chance * vec2(57.0, 113.0)) - 0.5);
+	float off = length(fract(at) - root) * 2.0 * (1.0 - merged);
 	if (shell > tall || off > 1.3 * (1.0 - shell / tall) + 0.25) {
 		discard;
 	}
-	// Of its colour and its mesh's vertices', dark at the roots, where little light gets in.
-	ALBEDO = colour * COLOR.rgb * mix(0.5, 1.1, shell) * (0.85 + 0.3 * tall);
+	// Dark at the roots, where little light gets in.
+	ALBEDO = COLOR.rgb * mix(0.5, 1.1, shell) * (0.85 + 0.3 * tall);
 	ROUGHNESS = 0.85;
 	SPECULAR = 0.25;
-	BACKLIGHT = colour * 0.3;
+	BACKLIGHT = COLOR.rgb * 0.3;
 }

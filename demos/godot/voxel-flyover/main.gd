@@ -163,7 +163,6 @@ var legs: Array[MeshInstance3D] = []
 var paws: Array[MeshInstance3D] = []
 var ears: Array[Node3D] = []
 var tail: MeshInstance3D
-var tongue: ShaderMaterial # the corgi's, a cloth in the wind
 var furs: Array[ShaderMaterial] = []
 var cape_material: ShaderMaterial
 var glows: Array[StandardMaterial3D] = [] # the jets' throats
@@ -1019,7 +1018,6 @@ func build_flyer() -> void:
 	paws = model.paws
 	ears = model.ears
 	tail = model.tail
-	tongue = model.tongue
 	cape_material = model.cape
 	furs = model.coats
 	var ball := SphereMesh.new()
@@ -1122,7 +1120,7 @@ func ride(delta: float) -> void:
 	cape_material.set_shader_parameter("flaps", 1.0 + 1.2 * blown)
 	for fur in furs:
 		fur.set_shader_parameter("wind", air)
-	for cloth: ShaderMaterial in model.plumes + [cape_material, tongue]:
+	for cloth: ShaderMaterial in model.plumes + [cape_material]:
 		cloth.set_shader_parameter("phase", flutter)
 		cloth.set_shader_parameter("lean", turn)
 	# The wakes keep a place for every stretch flown, the newest at the board's tail: each exactly

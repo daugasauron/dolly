@@ -29,19 +29,33 @@ REQUIRES TOOL voxel-flyover
 # the script's and the file it writes, so quitting asks to save no scene.
 FILE /usr/share/voxel-flyover/open-flyer.py
     import bpy
+    from mathutils import Vector
     bpy.context.preferences.view.use_save_prompt = False
     text = bpy.data.texts.load("/usr/share/voxel-flyover/project/flyer.py")
     workspace = bpy.data.workspaces["Scripting"]
-    for area in workspace.screens[0].areas:
-        if area.type == "TEXT_EDITOR":
-            area.spaces[0].text = text
-        if area.type == "VIEW_3D":
-            area.spaces[0].shading.color_type = "MATERIAL"
     bpy.context.window.workspace = workspace
-    # Once the window has drawn, which it does after this script.
+    # Once the window has drawn, which it does after this script: the script at the left, from the
+    # top of the window to its foot, and the 3D view in the middle, where the Text Editor was.
     def run():
-        with bpy.context.temp_override(window=bpy.context.window_manager.windows[0]):
+        window = bpy.context.window_manager.windows[0]
+        areas = {area.type: area for area in window.screen.areas}
+        with bpy.context.temp_override(window=window):
+            for other in ("CONSOLE", "INFO"):
+                low, high = areas[other], areas["VIEW_3D"]
+                bpy.ops.screen.area_join(source_xy=(high.x + 50, high.y + 50), target_xy=(low.x + 50, low.y + 50))
+            view = areas["TEXT_EDITOR"]
+            areas["VIEW_3D"].type = "TEXT_EDITOR"
+            areas["VIEW_3D"].spaces[0].text = text
+            view.type = "VIEW_3D"
+            space = view.spaces[0]
+            space.shading.color_type = "VERTEX"
+            space.overlay.show_extras = space.overlay.show_relationship_lines = False
+            space.overlay.show_floor = space.overlay.show_axis_x = space.overlay.show_axis_y = space.overlay.show_cursor = False
             exec(compile(text.as_string(), text.filepath, "exec"), {"__name__": "__main__"})
+            space.region_3d.view_rotation = Vector((5.0, -8.0, -2.2)).to_track_quat("-Z", "Y")
+            space.region_3d.view_location = (0.0, 0.2, -0.5)
+            space.region_3d.view_distance = 8.5
+            bpy.ops.screen.animation_play()
     bpy.app.timers.register(run, first_interval=1.0)
 
 FILE /etc/dolly/init.slop
