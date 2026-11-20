@@ -44,9 +44,10 @@ static void *waiter(void *unused) {
   return check(unused);
 }
 
+// Its first allocation is the library's thread-locals, made as its read returns.
 static void *reader(void *unused) {
   char byte;
-  return read(ends[0], &byte, 1) == 1 ? check(unused) : NULL;
+  return read(ends[0], &byte, 1) == 1 && byte == 'x' ? check(unused) : NULL;
 }
 
 // It enters the kernel at least every millisecond, so a load waits for it.

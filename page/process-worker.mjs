@@ -291,7 +291,11 @@ function call(operation, requestAddressValue, requestSizeValue,
       // instead of sleeping after the notification has already happened.
       Atomics.wait(control, controlWord.answered, observed);
     }
-    return decodeResult();
+    const result = decodeResult();
+    // The answer leaves the mailbox before the wait ends: leaving it, dso@0 applies the
+    // libraries other threads loaded, whose code calls through this mailbox too.
+    if (result > 0n) gate.exports.response(mailbox, BigInt(response.address), result);
+    return result;
   });
   if (channel) {
     if (result < 0n) channel.port2.close();
@@ -302,7 +306,6 @@ function call(operation, requestAddressValue, requestSizeValue,
     }
   }
   if (result === deferredResult) return ended(PROCESS_EXIT);
-  if (result > 0n) gate.exports.response(mailbox, BigInt(response.address), result);
   lastSignalCheck = result === -BigInt(DOLLY_ERRNO.EINTR) ? -Infinity : performance.now();
   if (operation === threadOperations.exit && result >= 0n) {
     threadResult = exitingResult;
