@@ -129,8 +129,8 @@ def loft(name, points, radii, up=V(0, 1, 0), around=16, caps=True, colours=None)
         v0, v1 = i / (rings - 1), (i + 1) / (rings - 1)
         for j in range(around):
             k = (j + 1) % around
-            faces.append((i * around + j, i * around + k, (i + 1) * around + k, (i + 1) * around + j))
-            uvs.append(((j / around, v0), ((j + 1) / around, v0), ((j + 1) / around, v1), (j / around, v1)))
+            faces.append((i * around + j, (i + 1) * around + j, (i + 1) * around + k, i * around + k))
+            uvs.append(((j / around, v0), (j / around, v1), ((j + 1) / around, v1), ((j + 1) / around, v0)))
     if caps:
         for ring, v, backward in ((0, 0.0, True), (rings - 1, 1.0, False)):
             centre = len(verts)
@@ -140,8 +140,8 @@ def loft(name, points, radii, up=V(0, 1, 0), around=16, caps=True, colours=None)
             for j in range(around):
                 face = (ring * around + j, ring * around + (j + 1) % around, centre)
                 uv = ((j / around, v), ((j + 1) / around, v), ((j + 0.5) / around, v))
-                faces.append(face[::-1] if backward else face)
-                uvs.append(uv[::-1] if backward else uv)
+                faces.append(face if backward else face[::-1])
+                uvs.append(uv if backward else uv[::-1])
     return mesh(name, verts, faces, uvs, colours=painted)
 
 
