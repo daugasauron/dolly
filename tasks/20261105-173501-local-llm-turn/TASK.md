@@ -27,3 +27,11 @@ There has been no reproduction in eleven days. The GPU stage of four later round
 passed ("pi-local firefox task with qwen3.5-2b, minicpm5-2b installed … passed with external
 requests denied"), with no failure line. If a turn hangs again, the test's 10-minute limit prints
 the screen, which is what this task lacked. Reopen from that output.
+
+## 2026-11-21: a turn cut short, not one that hung
+
+Round 018q's GPU stage (`work/evidence-2026-11-21/round-018q-gpu.log`) failed in
+Chromium on `first.txt`: each of the three asks shared one conversation, the model's replies
+ran to their 2048-token limit, and with about 12,000 of the 16,384 tokens filled Pi clamps a
+reply to the context less 4096 (`clampMaxTokensToContext`), so its compact-and-retry failed
+and the third ask ended before the test saw Working. A retry now starts with `/new`.
