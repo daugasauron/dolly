@@ -1,16 +1,14 @@
 # Without a WebGPU adapter, PhotoCraft's CPU relaunch is refused the display
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: bug,photocraft,0.1.8
 
 ## State (2026-11-20)
 
-The lease is fixed on `fix/paste-devices`: the first PhotoCraft waits for its `--safe-gpu` self,
-which gets the display and the input. Left: without a WebGPU adapter the relaunched PhotoCraft
-cannot open its window either, since its CPU renderer still presents through wgpu, which Dolly
-backs with the browser's WebGPU alone (below). Whether PhotoCraft should have a window there at
-all is the integrator's call.
+Fixed on `fix/paste-devices`: without a WebGPU adapter PhotoCraft says it needs WebGPU and quits
+to the shell; where its GPU renderer fails with an adapter, the first PhotoCraft waits for its
+`--safe-gpu` self, which gets the display and the input.
 
 ## Seen
 
@@ -56,3 +54,20 @@ NVIDIA adapter.
 
 Done when photocraft-photos without a WebGPU adapter either opens on the CPU renderer or quits
 at once saying it needs WebGPU, back to the shell.
+
+The integrator chose the first (2026-11-20). A CPU-rendered window through display@0 is not part
+of 0.1.8: a later feature, if it is wanted.
+
+## Closed (2026-11-20)
+
+On Dolly's target, after a failed start, PhotoCraft asks wgpu for an adapter; with none it prints
+"PhotoCraft needs WebGPU, which the browser does not give this page." and exits with status 1,
+without starting again; with one, it starts its `--safe-gpu` self and waits for it
+(`photocraft.patch`, one hunk of `main.rs`; the demo's README). photocraft and photocraft-photos
+rebuilt in `work/paste-devices` (Cargo 22 min). On the rebuilt image, served from the tree on
+Xvfb `:157` (`touch-lab/scripts/photocraft-cpu.mjs`):
+- Chrome 156 without `--enable-unsafe-webgpu` and Firefox 159 with `dom.webgpu.enabled` off:
+  the line shows after the GPU start's error, then the image's "PhotoCraft has quit", the shell
+  is in front (`echo` runs), `photocraft` from the shell exits 1 with the same line, and the
+  page's "No GPU" notice shows.
+- `photocraft-gpu-browser.mjs` passes on the NVIDIA adapter in Chrome and Firefox.
