@@ -601,8 +601,8 @@ def build_pelican(rig):
         at = V(side * PELICAN_EYE.x, PELICAN_EYE.y, PELICAN_EYE.z)
         obj("eye", join("eye", [
             (body("ball", (0.08, 0.08, 0.08), around=16, rings=8), place(at + V(side * 0.02, 0, 0)), WHITE),
-            (body("pupil", (0.03, 0.042, 0.042), around=12, rings=6), place(at + V(side * 0.078, 0.004, -0.014)), BLACK),
-            (body("glint", (0.012, 0.012, 0.012), around=6, rings=4), place(at + V(side * 0.103, 0.022, -0.028)), (1.0, 1.0, 1.0)),
+            (body("pupil", (0.03, 0.054, 0.054), around=12, rings=6), place(at + V(side * 0.074, 0.004, -0.016)), BLACK),
+            (body("glint", (0.014, 0.014, 0.014), around=6, rings=4), place(at + V(side * 0.1, 0.026, -0.034)), (1.0, 1.0, 1.0)),
         ]), paint("eye", WHITE, 0.12), look)
         lids.append(obj(f"lid_{'L' if side < 0 else 'R'}", body("lid", (0.075, 0.075, 0.075), around=12, rings=6),
                         paint("lid", patch, 0.6), look, at + V(side * 0.02, 0, 0), Matrix.Diagonal((0.9, 0.9, 0.9))))
