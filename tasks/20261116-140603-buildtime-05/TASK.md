@@ -1,6 +1,6 @@
 # godot-editor, numpy and spirv-wgsl differ by a few bytes each build of the same inputs
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 90
 - TAGS: audit,build,reproducibility,0.1.8
 
@@ -8,6 +8,57 @@ From the build-time audit of 2026-11-16 (`work/audit-1116`). Evidence and script
 `work/audit-1116-evidence/buildtime/` (`changed-files.py`, `changed-files-016-017.txt`,
 `record-diff.py`, `record-diff-016-017.txt`, `record-diff-python-data-build.txt`,
 `scratch-codex-build.log`).
+
+## Closed (2026-11-20)
+
+Round 018n passed on `282bc58c4` (`integrate/0.1.8`, `work/integrate-018`). Each of the five images
+then built once more in that tree on the round's own dependencies, its record moved aside, in a
+fresh browser profile (`repro-018n.sh`; it, its logs, the decoders and the logs and records of the
+builds below are kept in `work/emacs-repro/build/repro-emacs/`):
+
+- The round's bytes: voxel-flyover `2999254f…` (a first try failed on a `.cache` source link,
+  fixed), lantern-drift `91efc447…`, airtime-godot `d4b980a2…`, zig-llvm `45010e50…`.
+- emacs: round `17b695e3…`, rebuilt `7c42e764…`, in two files. `net/tramp-sh.elc` (249,506 against
+  249,486 bytes): tramp-message.el's `defsubst` `tramp-error-with-buffer` inlined into
+  `tramp-do-copy-or-rename-file-directly` from its source, where tramp.el's `defsubst`
+  `tramp-get-default-directory` is inlined in turn, or from its bytecode, which calls it.
+  `calendar/diary-icalendar.elc` (the same size): a UID, below.
+
+The first is eieio-datadebug's race again: under `make -j4 compile-main` a file loads each library
+it requires as bytecode if that is compiled by then, else as source (`load-prefer-newer`), and its
+bytecode differs with it. Upstream compiles a few such files first (`MAIN_FIRST`, bug#25556) and the
+recipe had added eieio-core; one more file each round does not hold. A second pass on the first
+one's bytecode would not either: bytecomp writes each `.elc` by rename, but what the second pass
+inlines from the first depended on timing.
+
+Fixed by construction (`88d9377bd`), configuration only, in `Dollyfile-emacs`: `compile-main` runs 4
+at once in batches of 16 (upstream's `XARGS_LIMIT='-n 16'`), each compile writing its bytecode as
+`.elc-next` (`byte-compile-dest-file-function`, from `BYTE_COMPILE_EXTRA_FLAGS`) and a recipe for
+`compile-targets` (given through `MAKEFILES`) moving the batch's into place when it ends, so a file
+sees the bytecode of exactly the batches before it. `main-first` and `autoloads`, which compile-main
+makes beside the first batch under `-j4`, run before it, one after the other. The eieio-core step
+goes. Tried first, `compile-main` without `-j4` (one file at a time) has no race either, its builds
+agreeing but for diary-icalendar (below), but emacs took 63 min (3,761 to 3,785 s, four builds at
+once): the gnus and org files each load their package's main library as source, which is compiled
+after them. Batched, emacs takes 29 to 31 min (1,738 s beside three serial builds; 1,826 to 2,004 s,
+three batched builds at once), where the round's took 17 (1,040 s).
+
+diary-icalendar's UID: `icalendar-make-component`, which `diary-icalendar` expands for its rrule
+sexps, makes the component's UID while it expands, by `icalendar-uid-format`'s default `%h`, the
+`sxhash` of its forms, and `sxhash` hashes a symbol by its address (`fns.c:5511`). Of seven builds
+whose other files agreed (three serial, four batched), it differed in two (`271445661004744` against
+`271446180090472` serial; `280420552608903` against `280420485441111` batched). What moves the
+addresses between builds is not found: a probe image (not kept) compiling diary-icalendar against
+its libraries' sources gave one UID six times in a build and the same in a build of other recipe
+text, and a fresh symbol's hash was the same in builds with either catalog. The recipe sets
+`icalendar-uid-format` to `%c`, a counter, for compile-main: the UID is `1`.
+
+Built three times from a cold record, each in a fresh profile in a tree of its own
+(`work/emacs-waves` registering gnu-emacs and default, `work/emacs-repro-2` and `-3` emacs alone;
+removed since), all at once: `a8f08029…` each time, in 1,826 to 1,842 s. Against the batched build
+before the counter only diary-icalendar.elc and the recipe differ. On it gnu-emacs built
+(`e0fe9334…`) and `demos/emacs/test/emacs-browser.mjs` passes in Chrome and Firefox (a private
+Xvfb). `npm run -s lint:dollyfiles` passes on the re-pinned recipes.
 
 ## State (2026-11-19): all eight build the same bytes again; the round confirms the three fixed today
 
