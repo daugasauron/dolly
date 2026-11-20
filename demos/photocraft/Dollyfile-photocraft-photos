@@ -16,7 +16,7 @@ REQUIRES HOST sockets@0
 INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
 INSTALL /Dollyfile-posix bd721815ffc3d3b9d887f57c3260749cb1db05ed2fe3f46a38b37e00ee66391b
 INSTALL /Dollyfile-display a03812d93e51c6338e43063f954fb9492ee0535f94a39e5c377d504a3d9eedb8
-INSTALL /demos/photocraft/Dollyfile-photocraft 7c6f48f6962334035040d28553fc145be65660394fb821a218a630ec10a3c6ea
+INSTALL /demos/photocraft/Dollyfile-photocraft 13a4656e68d1c3b0f59482b57204eaf7e7d916f0cd0e6900ed1927147482f209
 # PhotoCraft's own dialogs use upload@0 and download@0; the shell it leaves, where
 # photocraft-cli works on pictures without a window, has download and upload (transfer).
 INSTALL /Dollyfile-transfer 06c7f7e4b4d53f6ef7d342f48293d1e61af6e9a330d4d857b597f26471ce8c07

@@ -32,7 +32,7 @@ REQUIRES HOST threads@0
 #   precompiled libraries.
 FROM /demos/blender/Dollyfile-blender-deps abcb411dbd674d4c64c224f8ab18f422d84fe090dd5ea92d54406f3007f9d811
 INSTALL /demos/python/Dollyfile-python caf80d3cd27594e1ed0bc4bbd8d586359be411b6f5328e5d3fe89c4a6951576f
-USE /demos/godot/Dollyfile-spirv-wgsl 304bf70bcd809487bcb46bdca5da2d2461502104a2d7d509f2e82636140bb586
+USE /demos/godot/Dollyfile-spirv-wgsl a61eb044758180b58a2f24b5563b5a3a1c5df282752bf6d065862132d873aab3
 USE /Dollyfile-libdolly-gpu e3d09def5ec1b5113da429c6165bc288646fbd48dda2bdb6471e22e2d8867b3f
 USE /Dollyfile-libdolly-display afbf05e4d39eda376f6195f86762fb635a3effb3f2e5414ef1ffa70b298af919
 USE /Dollyfile-libdolly-input 22d9db2a107fd5721f70d9662921b2e3fd9432549056e9e27e0ee36e6a898c84
