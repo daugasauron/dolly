@@ -26,6 +26,7 @@ Dolly, as it exported Dodge the Creeps for `amy install dodge-the-creeps`
 
 - `godot`: Godot 4.7's engine with GDScript, 2D and 3D with Godot's own physics, the fallback text server, its renderers on `gpu@0` and the Compatibility renderer on Mesa, and sound, which runs a project or the pack the editor exported.
 - `godot-editor`: Godot 4.7's editor, which imports a project's assets and exports its pack inside Dolly, and draws its own window on the page, or on the X server DISPLAY names.
+- `godot-editor-ui`: Godot's editor on the page at once, on a copy of Lantern Drift's project, the islands in its 3D view; quitting it leaves a shell.
 - `spirv-wgsl`: A build stage: Tint, from Dawn, and SPIRV-Tools under Dolly's passes, which translate the SPIR-V Godot compiles its shaders to into WGSL for `gpu@0`.
 - `dodge-the-creeps`: Dodge the Creeps, the game of Godot's first 2D tutorial, which Godot's editor imported and exported here; `dodge-the-creeps` plays it.
 - `truck-town`: Truck Town, the demo projects' vehicle physics demo: a minivan, a semi-truck and a tow truck in a town at four times of day, drawn by Godot's Forward+ renderer on `gpu@0`; `truck-town` plays it.

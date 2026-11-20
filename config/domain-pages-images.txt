@@ -22,6 +22,7 @@ python-dateutil
 openblas
 ffmpeg
 blender
+blender-ui
 rts-arena
 rust-tools
 zero-ad
@@ -30,6 +31,7 @@ fingers
 godot-lantern-drift
 godot-airtime
 godot-voxel-flyover
+godot-editor-ui
 truck-town
 dodge-the-creeps
 photocraft-photos

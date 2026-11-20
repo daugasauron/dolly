@@ -1,0 +1,30 @@
+DOLLY 8
+APPLICATION godot-editor-ui
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST touch@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST audio@0
+REQUIRES HOST gpu@0
+REQUIRES HOST threads@0
+REQUIRES HOST sockets@0
+REQUIRES HOST clipboard@0
+
+# Godot's editor on the page at once, on a copy of Lantern Drift's project in the home
+# directory; quitting it leaves a shell.
+INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cfe3e86b10
+INSTALL /Dollyfile-posix bd721815ffc3d3b9d887f57c3260749cb1db05ed2fe3f46a38b37e00ee66391b
+INSTALL /Dollyfile-display a03812d93e51c6338e43063f954fb9492ee0535f94a39e5c377d504a3d9eedb8
+INSTALL /demos/godot/Dollyfile-lantern-drift 365972e26d5b01d0500c77252d3c1b8bdbe76858a3ebc963f39c5deb12f915f9
+INSTALL /demos/godot/Dollyfile-godot-editor 4a7d61e07102a1f273d1e625e7821b691f224c9ffcd7773161b48ba41376238e
+COPY /demos/godot/Dollyfile-lantern-drift 365972e26d5b01d0500c77252d3c1b8bdbe76858a3ebc963f39c5deb12f915f9 /usr/share/lantern-drift/project /home/dolly/lantern-drift
+REQUIRES TOOL godot-editor
+REQUIRES TOOL lantern-drift
+
+FILE /etc/dolly/init.slop
+    /bin/foreground /usr/bin/godot-editor -e --path /home/dolly/lantern-drift
+    printf '\nThe Godot editor has quit; godot-editor -e --path ~/lantern-drift opens it again, lantern-drift plays the game.\n'
+    /bin/foreground -i /bin/slop
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
