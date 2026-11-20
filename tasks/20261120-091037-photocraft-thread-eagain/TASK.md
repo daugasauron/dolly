@@ -1,15 +1,14 @@
 # A threaded program starts no thread where the browser cannot commit its whole memory maximum
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 330
 - TAGS: bug,threads,memory,photocraft,browser,0.1.8
 
 ## State (2026-11-20)
 
-Reproduced on this host and the layer found; not fixed, since the fix is a choice of memory
-policy (below). PhotoCraft, and any program linked with threads@0, fails its first
-`pthread_create` with EAGAIN when the page's process cannot commit the program's whole memory
-maximum (8 GiB by default).
+PhotoCraft, and any program linked with threads@0, failed its first `pthread_create` with EAGAIN
+when the page's process could not commit the program's whole memory maximum (8 GiB by default).
+Fixed on `fix/paste-devices` by the integrator's policy (below, "The fix").
 
 ## Seen
 
@@ -79,6 +78,30 @@ Done when a threaded program (PhotoCraft, `test/thread-workers-browser.mjs`) sta
 in Chrome and Firefox on a machine of 6 GB, or under `prlimit --data` of 6 GiB, and a browser
 test covers it.
 
-Seen alongside, not this task: without a WebGPU adapter PhotoCraft's second start, on the CPU
-renderer, fails on `display: Operation not permitted (os error 63)` (Android emulator Chrome 145;
-host Chrome 156 and Firefox 160 on Xvfb).
+Seen alongside, not this task: tasks/20261120-092900-photocraft-safe-gpu-lease.
+
+## The fix (2026-11-20)
+
+The integrator's policy: a threaded program's memory (every process memory is shared, so the
+rule follows `configuration.threaded`) is made at its declared maximum and grown to it as its
+Worker starts; where the browser refuses (`RangeError`), that memory is dropped and one of half
+the maximum is asked, down to the initial size, and the Worker's console says what was given.
+The process then never grows, so a threaded memory still never grows while two threads run;
+`reserveMaximum()` and its EAGAIN at a spawn are gone, and the spawn budget counts a threaded
+process at its initial size (`page/process-worker.mjs`, `page/process-supervisor.mjs`,
+`docs/process-model.md`). A single-threaded program's memory grows as before.
+`test/thread-workers-browser.mjs` runs itself once more under `prlimit --data` of 6 GiB on Linux.
+
+## Closed (2026-11-20)
+
+On `fix/paste-devices`, on this host, Xvfb `:157`, the GPU lock held per run (Chrome 156, the
+installed Firefox 159):
+- `test/thread-workers-browser.mjs`: Chromium 3000 threads in 9.7 s, then 200 with 6 GiB of
+  data; Firefox 3000 in 7.6 s, then 200. The 6 GiB case fails in both with the page before the
+  fix (its first `pthread_create`).
+- PhotoCraft (`photocraft-photos`, this tree served on 9058, WebGPU on the NVIDIA adapter) starts
+  under `prlimit --data` of 6 GiB: Chrome with 2048 MiB ("the browser committed 2048 MiB of
+  memory, not the 8192 MiB its program may use"), Firefox with 4096 MiB; and without a limit.
+- `test/process-memory-browser.mjs` (resident memory: a committed page is not resident until
+  touched) and `test/pointer-browser.mjs` (13 clicks each on gpu@0 and display@0) pass in both;
+  `demos/godot/test/godot-flyover-browser.mjs` passes in Chrome and Firefox.
