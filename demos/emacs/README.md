@@ -29,7 +29,9 @@ commands run Slop through `posix_spawn` over pipes.
   details, so that each build dumps the same bytes.
 - [`Dollyfile-emacs`](Dollyfile-emacs): builds at `-O0` with the deeper stack
   (`dolly.process.stack`), compiles the release's Lisp sources by upstream's
-  bootstrap (most of the build's time), dumps with pdumper, installs, and
+  bootstrap (most of the build's time) in batches, each file seeing only the
+  bytecode of the batches before its own, so that each build gives the same
+  bytecode; dumps with pdumper, installs, and
   checks files, processes, timers, the installed Lisp sources and the
   collector.
 

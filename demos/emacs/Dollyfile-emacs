@@ -34,11 +34,24 @@ SLOP cat /tmp/emacs-stack.c >> /tmp/emacs/src/emacs.c
 SLOP make -C /tmp/emacs/lib -j4
 SLOP make -C /tmp/emacs/lib-src -j4
 SLOP make -C /tmp/emacs/src bootstrap-emacs bootstrap-emacs.pdmp
-# A file compiled while a library it requires is compiled beside it loads that
-# library's source or its bytecode, whichever exists then, and its own bytecode
-# differs: eieio-datadebug's did, by eieio-core's. eieio-core goes first.
-SLOP make -C /tmp/emacs/lisp emacs-lisp/eieio-core.elc EMACS=../src/bootstrap-emacs
-SLOP make -C /tmp/emacs/lisp -j4 compile-main EMACS=../src/bootstrap-emacs
+# A file loads each library it requires as bytecode if that is compiled by
+# then, else as source, and its own bytecode differs with it: under make -j4,
+# by timing. compile-main runs 4 at once in batches of 16 (upstream's
+# XARGS_LIMIT), each batch's bytecode written aside and moved into place when
+# the batch ends: a file sees the bytecode of the batches before it and no
+# other. Upstream's first files and the loaddefs, which compile-main makes
+# beside the first batch, go before it, one after the other. diary-icalendar's
+# vevent macro makes a UID while it expands, by default from the sxhash of its
+# forms, which hashes symbols by their address: a counter makes it instead.
+FILE /tmp/emacs-batch.el
+    ;;; -*- lexical-binding: t -*-
+    (setq byte-compile-dest-file-function (lambda (source) (concat source "c-next")))
+    (setq icalendar-uid-format "%c")
+FILE /tmp/emacs-batch.mk
+    compile-targets: ; @for elc in $(TARGETS); do if test -f $$elc-next; then mv -f $$elc-next $$elc; fi; done
+SLOP make -C /tmp/emacs/lisp main-first autoloads EMACS=../src/bootstrap-emacs
+SLOP MAKEFILES=/tmp/emacs-batch.mk make -C /tmp/emacs/lisp -j4 compile-main \
+  EMACS=../src/bootstrap-emacs XARGS_LIMIT='-n 16' BYTE_COMPILE_EXTRA_FLAGS='-l /tmp/emacs-batch.el'
 SLOP make -C /tmp/emacs/src -j4
 
 # Install as upstream's make install lays it out, which needs tar -c, and
