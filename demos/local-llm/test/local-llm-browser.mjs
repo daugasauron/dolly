@@ -131,7 +131,8 @@ for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local').split(',')) {
 
         // From here on the keyboard only, in Pi.
         // A turn is over when Pi worked and then shows no work for a while; a small model may
-        // need a second ask.
+        // need a second ask, in a new session: a reply it ran on with fills the context, and Pi
+        // then cuts the next replies short.
         const task=async file=>{
           for(let attempt=1;;attempt++) {
             await type(`Create /workspace/${file} containing the word dolly, then show it with cat.`);
@@ -143,6 +144,7 @@ for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local').split(',')) {
             await type(`! grep -q dolly /workspace/${file} && printf 'FILE${attempt}-%s\\n' WRITTEN || printf 'FILE${attempt}-%s\\n' MISSING`);
             if((await until(new RegExp(`FILE${attempt}-(WRITTEN|MISSING)`),'file check')).includes(`FILE${attempt}-WRITTEN`))return;
             assert.ok(attempt<3,`${image} ${name}: ${file} was not written:\n${await text()}`);
+            await type('/new');await page.waitForTimeout(2500);
           }
         };
         // Moves the selector's arrow to the row holding text, then takes it.

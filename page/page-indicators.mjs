@@ -1,5 +1,5 @@
 // The page's own elements over the display's corners (class page-indicator:
-// the GPU adapter, the session Save button, download offers, the HTTP policy's
+// the GPU adapter, download offers, the microphone, the HTTP policy's
 // refusals). They show when the page is ready and when one changes state, hide
 // ten seconds later unless a state the user must not miss holds them, and
 // Ctrl+Shift+F shows or hides them (page-chords.mjs). Only page code calls

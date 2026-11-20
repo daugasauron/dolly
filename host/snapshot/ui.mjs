@@ -14,7 +14,6 @@ import { keepRuntime } from "./offline.mjs";
 
 // An adopted style sheet, which a page's style-src without 'unsafe-inline' allows.
 const style = `
-  #session-open[data-failed] { border-color: var(--dolly-ui-alert); }
   #session-dialog { width: min(420px, calc(100vw - 2rem)); padding: 1.2rem;
     background: var(--dolly-ui-background); color: inherit; border: 1px solid var(--dolly-ui-quiet); font: inherit; }
   #session-dialog::backdrop { background: #0008; }
@@ -29,7 +28,6 @@ const style = `
   #session-dialog nav { display: flex; gap: 0.6rem; align-items: center; margin-top: 1rem; }
   #session-dialog nav a { margin-right: auto; font-size: 14px; }
 `;
-const openMarkup = `<button id="session-open" class="page-indicator" type="button" aria-label="Save session" title="Save session (Ctrl+Shift+S)" hidden>Save</button>`;
 const markup = `<dialog id="session-dialog" aria-labelledby="session-title">
   <form id="session-form">
     <h2 id="session-title">Save session</h2>
@@ -47,20 +45,18 @@ const markup = `<dialog id="session-dialog" aria-labelledby="session-title">
   </form>
 </dialog>`;
 
-// The Save button, its dialog and Ctrl+Shift+S. A save captures the session
+// Ctrl+Shift+S and its dialog, and the status line says how a save went: the
+// page shows no button of its own for it. A save captures the session
 // delta through the snapshot mailbox and keeps it in this browser. The page
 // describes the running image once its ENTRY starts; restored names the
 // session this page booted from, if any. A save names itself in the tab's URL
 // (the site's session route, or ?session= on a page of one's own), and on a
 // page with a site the dialog links the site's list of saves.
-export function mountSessionSave({ mount, keyboard, showStatus, site, indicators }, transport, restored) {
+export function mountSessionSave({ mount, keyboard, showStatus, site }, transport, restored) {
   const look = new CSSStyleSheet();
   look.replaceSync(style);
   document.adoptedStyleSheets = [...document.adoptedStyleSheets, look];
-  // The button in the bottom right corner, the dialog in Dolly's element.
-  indicators.corner("bottom-right").insertAdjacentHTML("beforeend", openMarkup);
   mount.insertAdjacentHTML("beforeend", markup);
-  const button = document.querySelector("#session-open");
   const dialog = document.querySelector("#session-dialog");
   const nameField = document.querySelector("#session-name");
   const detail = document.querySelector("#session-detail");
@@ -79,15 +75,6 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
   if (site) addEventListener("beforeunload", event => { if (sessionName !== null && (changed || unsaved)) event.preventDefault(); });
 
   function update(message) {
-    const failed = dataset.sessionStatus === "failed";
-    button.toggleAttribute("data-failed", failed);
-    button.textContent = failed ? "Save failed" : lastSave
-      ? `Save · ${lastSave.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`
-      : sessionName ? "Save · restored" : "Save · not saved";
-    button.title = message ?? (lastSave
-      ? `Last saved ${lastSave.toLocaleTimeString()} · Ctrl+Shift+S saves again`
-      : sessionName ? `Restored ${sessionName} · Ctrl+Shift+S saves changes`
-      : "Not saved yet · Ctrl+Shift+S saves this session");
     detail.textContent = message ?? (lastSave
       ? `${sessionName} · Last saved ${lastSave.toLocaleTimeString()}.`
       : sessionName ? `Restored ${sessionName}. Later changes need another save.`
@@ -103,7 +90,6 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
     nameField.select();
   }
 
-  button.addEventListener("click", open);
   document.querySelector("#session-close").addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => keyboard.focus({ preventScroll: true }));
   const list = document.querySelector("#session-list");
@@ -140,9 +126,8 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
         return null;
       }
       showStatus(`Saving ${name}…`, true);
-      indicators.hold("session", true);
       update(`Saving ${name}…`);
-      button.disabled = nameField.disabled = saveButton.disabled = true;
+      nameField.disabled = saveButton.disabled = true;
       controller = new AbortController();
       const capture = async onChunk => {
         const result = await transport().capture({ signal: controller.signal, onChunk });
@@ -177,7 +162,6 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
       address.searchParams.set("session", name);
       history.replaceState(null, "", site ? sessionLoadUrl(name, site) : address);
       showStatus(`Saved ${name} locally${site ? " · /sessions lists your saves" : ""}`);
-      indicators.hold("session", false);
       update();
       // The site's runtime is kept beside the save, which then opens without a
       // network (offline.mjs); the save does not wait for it.
@@ -190,13 +174,12 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
         ? "this browser has no room left for the site. Delete saves or clear downloads on the sessions page; the previous save is unchanged"
         : error instanceof Error ? error.message : String(error);
       showStatus(`Save failed: ${saveError}`, true);
-      indicators.hold("session", true);
       update(`Save failed: ${saveError}`);
       throw error;
     }).finally(() => {
       saving = null;
       controller = null;
-      button.disabled = nameField.disabled = saveButton.disabled = false;
+      nameField.disabled = saveButton.disabled = false;
     });
     return saving;
   }
@@ -205,10 +188,9 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
     get name() { return sessionName; },
     save,
     changed(value) { changed = value; unsaved ||= value; },
-    // The dialog and the Save button keep their keys; Ctrl+Shift+S saves, the
-    // first time through the dialog.
+    // The dialog keeps its keys; Ctrl+Shift+S saves, the first time through the dialog.
     claimsKey(event) {
-      if (dialog.open || button.contains(event.target)) return true;
+      if (dialog.open) return true;
       if (event.target !== document.body && !mount.contains(event.target)) return false;
       if (!base || !event.ctrlKey || !event.shiftKey || event.altKey || event.metaKey || event.code !== "KeyS") return false;
       event.preventDefault();
@@ -233,7 +215,6 @@ export function mountSessionSave({ mount, keyboard, showStatus, site, indicators
         dataset.session = restored.name;
         dataset.sessionStatus = "restored";
       }
-      button.hidden = false;
       update();
     },
     abort() { controller?.abort(new Error("The runtime stopped; the previous save is unchanged")); },

@@ -40,8 +40,8 @@ site may reach. A recipe of 0.1.7's `init` keeps its OpenRouter key prompt and
 model entry, which still work; a new `init` writes neither
 ([changelog](npm-changelog.md)).
 
-A 0.1.7 project's recipe declares `REQUIRES HOST snapshot@0`, the page's Save:
-keep the row for its button and saves, or remove it, as a new `init` does,
+A 0.1.7 project's recipe declares `REQUIRES HOST snapshot@0`, the page's saves:
+keep the row for them (`Ctrl+Shift+S`), or remove it, as a new `init` does,
 for a page without them; its page then opens no `?session=` address.
 
 ## From 0.1.5 to 0.1.7

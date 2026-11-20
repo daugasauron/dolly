@@ -589,14 +589,14 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
     void deliverPaste(event.clipboardData?.getData("text/plain") ?? "");
   });
   // The page's bar below the canvas: the buttons of the program holding the
-  // touch lease (touch@0) and Paste, which reads the clipboard only inside the
-  // user's press of it, for a device without a paste chord (a phone or a
-  // tablet): no pointer hovers, and a finger has touched the page, never a
-  // mouse. A phone's stylus is a fine pointer that does not hover (Chrome and
-  // Firefox on Android). A laptop with a touchscreen has its touchpad and
-  // Ctrl+V: its browser reports a pointer that hovers or, where it calls the
-  // laptop a tablet (as Chrome on Windows may beside a rotation sensor), the
-  // touchpad moves a mouse's pointer.
+  // touch lease (touch@0) and, beside them alone, Paste, which reads the
+  // clipboard only inside the user's press of it, for a device without a paste
+  // chord (a phone or a tablet): no pointer hovers, and a finger has touched
+  // the page, never a mouse. A phone's stylus is a fine pointer that does not
+  // hover (Chrome and Firefox on Android). A laptop with a touchscreen has its
+  // touchpad and Ctrl+V: its browser reports a pointer that hovers or, where it
+  // calls the laptop a tablet (as Chrome on Windows may beside a rotation
+  // sensor), the touchpad moves a mouse's pointer.
   const bar = mount.appendChild(document.createElement("div"));
   bar.id = "buttons";
   bar.style.cssText = "grid-area:2/1;display:none;flex-wrap:wrap;gap:0.5rem;padding:0.4rem";
@@ -619,7 +619,7 @@ export function browser({ mount, canvas, keyboard, showStatus, claimsKey, frameP
   const hoverless = matchMedia("not (any-hover: hover)"), watching = new AbortController();
   let programButtons = 0, touched = false, moused = false;
   const showBar = () => {
-    const paste = hoverless.matches && touched && !moused;
+    const paste = programButtons > 0 && hoverless.matches && touched && !moused;
     pasteButton.hidden = !paste;
     bar.style.display = programButtons || paste ? "flex" : "none";
   };

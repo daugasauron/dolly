@@ -26,12 +26,9 @@ flowchart LR
   A line typed at the shell is one, as it goes into the shell's history; a
   program that only reads is none. A tab that was never saved, and an
   embedding's page, ask nothing.
-- The Save button is one of the page's indicators
-  ([`page-indicators.mjs`](../page/page-indicators.mjs)): it shows for ten
-  seconds once the page is ready and `Ctrl+Shift+F` shows or hides it, so a
-  program's own controls in that corner stay reachable. `Ctrl+Shift+S` saves
-  while it is hidden. A save in progress or a failed one shows it until the
-  save succeeds; a download offer shows it until every offer is answered.
+- The page shows no button for saves: `Ctrl+Shift+S` saves, the first time
+  through a dialog that names the save, and the status line says when a save
+  is under way, done, or failed and why.
 - A save holds every file, directory and symlink with its modification time:
   the image's, what the session changed, credentials, Pi conversations
   (`~/.pi/agent/sessions`) and packages installed with `amy`

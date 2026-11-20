@@ -19,9 +19,11 @@ to the next. The packages of one project are all of one version.
   OpenRouter's model. Its recipe declares the APIs of the providers Pi offers
   that answer a page, in place of the policy `public/main.mjs` held; its skill
   is `sandbox`, its extension `/network`. The `tmux` package is published.
-- `init`'s recipe no longer declares `snapshot@0`: its sites have no Save
-  button and no note of it in the corner. A recipe that wants saves adds
-  `REQUIRES HOST snapshot@0`.
+- `init`'s recipe no longer declares `snapshot@0`: its sites have no saves.
+  A recipe that wants them adds `REQUIRES HOST snapshot@0`.
+- No page shows a Save button: `Ctrl+Shift+S` saves where `snapshot@0` is,
+  and the status line says how the save went. The page's Paste button shows
+  only beside a program's own buttons (pi-phone's), on a phone or a tablet.
 - The page's notes share its corners, one column each, in one look: the
   refusals of the HTTP policy are at the top right, under the status line,
   with the GPU adapter's, the download offers' and Save's colours, font and
