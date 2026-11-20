@@ -352,15 +352,21 @@ def feather(parent, root, way, face, size, colour, tip, widens=(1.0, -0.85), fla
 # --- The board and its jets -------------------------------------------------------------------
 
 def build_board(root):
-    """A surfboard: a pointed nose that lifts, a squared tail, a domed deck with a cream stripe
-    down its middle and a red line each side of it, and three fins under the tail."""
+    """A surfboard: a pointed nose that lifts, a squared tail, a domed deck of BOARD's colour
+    with a cream stripe down its middle and a red line each side of it, cream rails, a golden
+    underside, and three fins under the tail."""
     points, radii = [], []
     for i in range(41):
         t = i / 40  # nose to tail
         outline = math.sin(math.pi * (0.04 + 0.96 * t) ** 0.85) ** 0.6
         points.append(V(0, 0.32 * max(0.0, 0.32 - t) ** 2 / 0.1, -3.2 + 6.4 * t))
         radii.append((max(1.0 * outline + 0.12 * t * t, 0.03), max(0.15 * outline ** 0.5, 0.01)))
-    board = obj("board", loft("board", points, radii, around=32), paint("board", BOARD, 0.2, 0.1), root)
+
+    def livery(v, angle):
+        up = math.sin(angle)
+        return mix(mix(GOLD, BOARD, between(-0.1, 0.1, up)), CREAM, 1 - between(0.1, 0.3, abs(up)))
+
+    board = obj("board", loft("board", points, radii, around=32, colours=livery), paint("board", BOARD, 0.2, 0.1), root)
     deck = [(p + V(0, r[1] * 0.9, 0), r) for p, r in zip(points, radii)][3:-2]
     obj("stripe", loft("stripe", [p for p, _ in deck], [(0.2 * min(1.0, r[0] * 3.0), 0.025) for _, r in deck], around=12),
         paint("cream", CREAM, 0.3), board)
@@ -567,16 +573,16 @@ def build_pelican(rig):
     feathered = paint("feathers", WHITE, 0.8)
     horn = paint("bill", YELLOW, 0.5)
     orange = paint("legs", ORANGE, 0.6)
-    cell = 0.014
+    cell = 0.012
     bird = obj("bird", None, None, rig)
     plump = body("body", (0.35, 0.34, 0.58), around=28, rings=16,
                  shape=lambda t: (1.0 - 0.18 * max(t, 0) ** 2, 1.0 + 0.1 * max(-t, 0), -0.12 * t * t))
-    obj("body", plump, feathered, bird, V(0, -1.33, 0.22), turn((1, 0, 0), math.radians(-14)), coat(plump, 0.08, cell))
+    obj("body", plump, feathered, bird, V(0, -1.33, 0.22), turn((1, 0, 0), math.radians(-14)), coat(plump, 0.1, cell))
     # The neck: an S up from the chest, back over itself and forward under the head.
     neck = [V(0, -1.2 + (PELICAN_HEAD.y + 1.2) * t, -0.18 + (PELICAN_HEAD.z + 0.18) * t + 0.14 * math.sin(TAU * 0.9 * t))
             for t in (i / 12 for i in range(13))]
     tube = loft("neck", neck, [(0.18 - 0.05 * i / 12, 0.19 - 0.06 * i / 12) for i in range(13)], around=18)
-    obj("neck", tube, feathered, bird, extras=coat(tube, 0.035, cell))
+    obj("neck", tube, feathered, bird, extras=coat(tube, 0.05, cell))
     # An aviator's scarf round the neck, its two ends streaming back over the shoulders.
     knot, way = neck[4], (neck[5] - neck[3]).normalized()
     obj("scarf", ring("scarf", 0.2, 0.05, around=32, section=8, axis=way), paint("scarf", SCARF, 0.6), bird, knot)
@@ -587,7 +593,7 @@ def build_pelican(rig):
     head = obj("head", None, None, bird, PELICAN_HEAD)
     look = obj("head_look", None, None, head)
     skull = body("skull", (0.22, 0.21, 0.25), around=24, rings=12)
-    obj("skull", skull, feathered, look, extras=coat(skull, 0.035, cell))
+    obj("skull", skull, feathered, look, extras=coat(skull, 0.045, cell))
     # Each eye has a lid that closes over it.
     patch = (1.0, 0.78, 0.25)
     lids = []

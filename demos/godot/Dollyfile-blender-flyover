@@ -20,13 +20,14 @@ INSTALL /Dollyfile-core f92e986b840d0d46883b4a8d6eee8082aebd56f944f318083bda74cf
 INSTALL /Dollyfile-posix bd721815ffc3d3b9d887f57c3260749cb1db05ed2fe3f46a38b37e00ee66391b
 INSTALL /Dollyfile-display a03812d93e51c6338e43063f954fb9492ee0535f94a39e5c377d504a3d9eedb8
 INSTALL /demos/blender/Dollyfile-blender 35409c0a94f9d2281189de352bf0b8bcb5919070939db0d55e25b337ecd3c071
-INSTALL /demos/godot/Dollyfile-voxel-flyover 506e6c617f910a8f2de6015bddb8e338d3a881a77aaacaf57d2b08db6b36a609
+INSTALL /demos/godot/Dollyfile-voxel-flyover b17502cff9300916818c0a922320a3f1b297393c4861f3076039eab5b3a3984d
 REQUIRES TOOL blender
 REQUIRES TOOL voxel-flyover
 
-# Blender's Scripting workspace, flyer.py in its Text Editor, run once, and
-# the 3D view showing the colours of its materials. What Blender makes here is
-# the script's and the file it writes, so quitting asks to save no scene.
+# Blender's Scripting workspace with flyer.py in a Text Editor down its left
+# side, run once, and a large 3D view of the flyer in its vertices' colours,
+# playing its animations. What Blender makes here is the script's and the
+# file it writes, so quitting asks to save no scene.
 FILE /usr/share/voxel-flyover/open-flyer.py
     import bpy
     from mathutils import Vector
@@ -46,6 +47,7 @@ FILE /usr/share/voxel-flyover/open-flyer.py
             view = areas["TEXT_EDITOR"]
             areas["VIEW_3D"].type = "TEXT_EDITOR"
             areas["VIEW_3D"].spaces[0].text = text
+            areas["VIEW_3D"].spaces[0].font_size = 16
             view.type = "VIEW_3D"
             space = view.spaces[0]
             space.shading.color_type = "VERTEX"

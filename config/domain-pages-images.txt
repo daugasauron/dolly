@@ -31,6 +31,7 @@ fingers
 godot-lantern-drift
 godot-airtime
 godot-voxel-flyover
+blender-flyover
 godot-editor-ui
 truck-town
 dodge-the-creeps
