@@ -1,11 +1,10 @@
 // PhotoCraft on a touchscreen with no fine pointer, 900 by 900, on gpu@0 on a real adapter in
 // Chrome, on the private X display DISPLAY names (docs/gpu.md). Its window keeps the size it took
-// at the start, and the page's bar comes below the canvas once a finger has lifted, which fits the
-// window in less room. A tap lands on the window's pixel under the finger before the bar and after
-// it: one on a field of the colour panel focuses the field, whose Ctrl+A and Ctrl+C then give the
-// browser's clipboard its text: the hex field's 000000 before, the red field's 0 after. Firefox
-// through WebDriver BiDi has no touch to give; the bar over gpu@0 is test/pointer-browser.mjs's
-// there. The page is narrower than half the display, where the X server's pointer rests: a window
+// at the start, and the page shows no bar: PhotoCraft shows no buttons, and Paste comes only beside
+// a program's. A tap lands on the window's pixel under the finger: one on a field of the colour
+// panel focuses the field, whose Ctrl+A and Ctrl+C then give the browser's clipboard its text: the
+// hex field's 000000, then the red field's 0. Firefox through WebDriver BiDi has no touch to give;
+// the bar over gpu@0 is test/pointer-browser.mjs's. The page is narrower than half the display, where the X server's pointer rests: a window
 // under it is told a mouse is there, as a laptop's.
 // Usage: node demos/photocraft/test/photocraft-touch-browser.mjs
 import assert from "node:assert/strict";
@@ -48,12 +47,11 @@ try {
     }
     return page.evaluate(() => navigator.clipboard.readText());
   }
-  assert.equal(await page.locator("#paste").isHidden(), true);
   await tap(hex);
-  assert.equal(await copied(), "000000", "before the bar");
-  await page.locator("#paste").waitFor();
+  assert.equal(await copied(), "000000", "the hex field");
   await tap(red);
-  assert.equal(await copied(), "0", "after the bar");
+  assert.equal(await copied(), "0", "the red field");
+  assert.equal(await page.locator("#buttons").isHidden(), true, "a bar without a program's buttons");
   assert.deepEqual(errors, []);
   console.log("photocraft-touch: chromium passed");
 } finally {

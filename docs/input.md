@@ -32,8 +32,9 @@ flowchart LR
 - A phone or a tablet has no paste chord, nor does a phone's stylus, which
   its browser reports as a fine pointer that does not hover. Where no pointer
   hovers and a finger, never a mouse, has touched the page, the page shows its
-  own Paste button in its bar below the terminal: it reads the clipboard only
-  inside the user's press of it and delivers the text as a paste, to the
+  own Paste button beside the buttons a program shows in the bar below the
+  terminal (`dolly_touch_buttons`), and nowhere else: it reads the clipboard
+  only inside the user's press of it and delivers the text as a paste, to the
   terminal or to a program holding the lease. A laptop with a touchscreen
   shows none: its browser reports the touchpad as a pointer that hovers, or,
   where it calls the laptop a tablet (Chrome on Windows may), the touchpad

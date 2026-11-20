@@ -6,9 +6,10 @@
 // holds the lease no finger is the pointer; without a holder a finger still
 // scrolls the terminal and two change its font. A process beside the
 // foreground program is refused. On a phone (Chromium's Pixel 7) the terminal
-// fits 48 columns. Where no pointer hovers, the page's Paste button shows once a
-// finger has lifted, not before nor after a mouse has moved, and reads the
-// clipboard, on a phone with a stylus too; a laptop with a touchscreen never shows it.
+// fits 48 columns. Where no pointer hovers, the page's Paste button shows beside
+// a program's buttons alone, once a finger has lifted, not before nor after a
+// mouse has moved, and reads the clipboard, on a phone with a stylus too; a
+// laptop with a touchscreen never shows it.
 // Usage: node test/touch-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { devices } from "playwright-core";
@@ -49,19 +50,21 @@ const line = number => new RegExp(`DOLLY-SCROLL-${String(number).padStart(3, "0"
 await browserTest("touch", { image: "system", server: { fixtures }, timeout: 300_000 }, async ({ name, server, open }) => {
   const session = await opened(open, server, { hasTouch: true });
   const { page, submit, text, waitForText, waitForSelection, run, errors } = session;
-  // No pointer hovers: Paste comes once a finger has lifted, and goes for good once a mouse moves.
+  // No pointer hovers: a finger has lifted, and the shell shows no Paste.
   assert.equal(await pasteShown(page), false);
   await page.locator("#display").tap();
-  await page.locator("#paste").waitFor();
   // The program and its refusals are test/cases/touch.json.
   await runSteps(submit, touchCases);
+  assert.equal(await pasteShown(page), false, "Paste beside no program's buttons");
 
-  // The holder's buttons are the page's, below the canvas: a press is read as
-  // that button's, and its buttons go with the lease.
+  // The holder's buttons are the page's, below the canvas, with Paste beside
+  // them until a mouse moves: a press is read as that button's, and its
+  // buttons go with the lease.
   const pressing = submit("/tmp/touch buttons");
   pressing.catch(() => {});
   const button = label => page.locator("#buttons button", { hasText: label });
   await button("Two").waitFor();
+  await page.locator("#paste").waitFor();
   const [display, bar] = await Promise.all(["#display", "#buttons"].map(selector =>
     page.locator(selector).evaluate(node => node.getBoundingClientRect().toJSON())));
   assert.ok(bar.height > 0 && bar.top >= display.bottom - 1, JSON.stringify({ display, bar }));
@@ -217,13 +220,19 @@ async function phone(open, server) {
   await page.evaluate(() => __dolly.key("-", "Minus", 2));
   await page.waitForFunction(({ cols }) => __dolly.transport.dimensions().cols === cols, bare);
 
-  // A touchscreen has the page's Paste button once a finger has lifted: a tap
-  // reads the clipboard and the shell reads it as a paste, Enter runs it.
+  // A touchscreen has the page's Paste button beside a program's buttons once a
+  // finger has lifted: a tap reads the clipboard into the terminal, which the
+  // shell reads as a paste once the program has gone, and Enter runs it.
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.evaluate(() => navigator.clipboard.writeText("echo PASTED-made-up-42"));
-  assert.equal(await pasteShown(page), false);
+  await runSteps(session.submit, touchCases);
   await page.locator("#display").tap();
+  assert.equal(await pasteShown(page), false);
+  const pressing = session.submit("/tmp/touch buttons");
+  pressing.catch(() => {});
   await page.locator("#paste").tap();
+  for (const label of ["Two", "Three"]) await page.locator("#buttons button", { hasText: label }).tap();
+  assert.equal(await pressing, 0, await text());
   await waitForText(/echo PASTED-made-up-42$/m);
   assert.equal(await result(() => page.keyboard.press("Enter")), 0);
   assert.match(await text(), /^PASTED-made-up-42$/m);
@@ -247,7 +256,9 @@ async function phone(open, server) {
   const refused = await opened(open, server, devices["Pixel 7"], () => {
     navigator.clipboard.readText = () => Promise.reject(new DOMException("refused", "NotAllowedError"));
   });
+  await runSteps(refused.submit, touchCases);
   await refused.page.locator("#display").tap();
+  refused.submit("/tmp/touch buttons").catch(() => {});
   await refused.page.locator("#paste").tap();
   await refused.page.waitForFunction(() => /Paste refused/.test(document.querySelector("#session-status").textContent));
   assert.deepEqual(refused.errors, []);
@@ -296,14 +307,17 @@ for (const [label, chromiumPointers, firefoxPointers] of [["beside a fine pointe
 
 // A phone with a stylus has no paste chord either: its browser reports the pen as a fine
 // pointer that does not hover (in Android's emulator, Chrome 145 coarse and fine, Firefox 160
-// fine alone), and Paste comes once a finger has lifted.
+// fine alone), and Paste comes beside a program's buttons once a finger has lifted.
 await browserTest("touch: Paste on a phone with a stylus", { image: "system", server: { fixtures }, timeout: 300_000,
   launch: { chromium: ["--blink-settings=availablePointerTypes=6,primaryPointerType=2,availableHoverTypes=1,primaryHoverType=1",
     "--touch-events=enabled"], firefox: { "ui.primaryPointerCapabilities": 2, "ui.allPointerCapabilities": 2 } } },
 async ({ name, server, open }) => {
-  const { page, errors } = await opened(open, server, {});
+  const { page, submit, errors } = await opened(open, server, {});
   assert.deepEqual(await page.evaluate(() => ["(any-pointer: fine)", "(any-hover: hover)"].map(query => matchMedia(query).matches)),
     [true, false]);
+  await runSteps(submit, touchCases);
+  submit("/tmp/touch buttons").catch(() => {});
+  await page.locator("#buttons button", { hasText: "Two" }).waitFor();
   assert.equal(await pasteShown(page), false);
   await finger(name, page);
   await page.locator("#paste").waitFor();

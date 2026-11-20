@@ -22,11 +22,11 @@ await browserTest("embedding", { image: "system" }, async ({ open }) => {
   assert.equal(await result(() => page.keyboard.type("echo TYPED-$((40 + 2))\n")), 0);
   await waitForText(/^TYPED-42$/m);
 
-  // snapshot@0's Save button and download@0's offer, each inside the element.
+  // download@0's offer, inside the element.
   assert.equal(await submit("download /etc/dolly/Dollyfile"), 0);
   const outside = await page.evaluate(() => {
     const box = document.querySelector("#terminal").getBoundingClientRect();
-    return ["#session-open", "#downloads"].filter(selector => {
+    return ["#downloads"].filter(selector => {
       const { left, top, right, bottom } = document.querySelector(selector).getBoundingClientRect();
       return left < box.left || top < box.top || right > box.right || bottom > box.bottom;
     });
