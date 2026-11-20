@@ -491,11 +491,12 @@ of the calling process (`DOLLY_PROCESS_EXEC`, [`process.h`](../include/dolly/pro
   programs, one Worker per thread sharing the process memory, at most 32 per
   process and 64 in total; `sysconf` reports 4 processors to them (1 without
   `-pthread`). The memory takes its
-  maximum, 8 GiB, before a second thread starts and never grows while two run:
-  Chrome checks a copy, fill or atomic access against each thread's own record
-  of the size, which another thread's growth updates late. Firefox charges that
-  maximum to Linux's commit limit; a reservation the browser refuses fails
-  `pthread_create` with `EAGAIN`. Handlers run on the
+  maximum, 8 GiB, as the process starts and never grows: Chrome checks a copy,
+  fill or atomic access against each thread's own record of the size, which
+  another thread's growth updates late. Where the browser will not commit it
+  (Chrome's sandbox limits a renderer's data, Linux's heuristic overcommit
+  Firefox's), half is asked, down to the initial size; the console says what
+  was given, and malloc fails with `ENOMEM` beyond it. Handlers run on the
   main thread, also while it waits in `pthread_join`. A host of libraries
   loads them in every thread (below); no cancellation or directed signals.
 - Without `-pthread` a program is one thread

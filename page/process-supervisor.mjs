@@ -577,7 +577,7 @@ export class DollyProcessSupervisor {
   #start(process, compiled, local) {
     const { memoryRequirements, processInterface, threaded, largeStack } = compiled;
     Object.assign(process, { memoryRequirements, memoryBytes: Number(memoryRequirements.initial) * 65536,
-      maximumBytes: Number(memoryRequirements.maximum) * 65536, compiled, processInterface, threaded, largeStack, local });
+      compiled, processInterface, threaded, largeStack, local });
     if (threaded) {
       const tid = this.threadHost.attach(process.pid);
       if (tid <= 0) throw new Error(`kernel could not reserve main thread: ${tid}`);
@@ -749,9 +749,9 @@ export class DollyProcessSupervisor {
       this.#fail(process, new Error(`process ${process.pid} sent an invalid syscall`));
       return;
     }
-    // The size the budget counts: a threaded process keeps the one it reported
-    // before its memory took its maximum (page/process-worker.mjs).
-    if (!(process.threaded && message.memoryBytes >= process.maximumBytes)) process.memoryBytes = message.memoryBytes;
+    // The size the budget counts: a threaded process's memory takes its maximum
+    // as it starts (page/process-worker.mjs), and it counts its initial size.
+    if (!process.threaded) process.memoryBytes = message.memoryBytes;
     let result;
     let threadArgument;
     let portTaken = false;

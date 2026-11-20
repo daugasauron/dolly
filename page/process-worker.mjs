@@ -70,7 +70,6 @@ if (!(configuration.module instanceof WebAssembly.Module || configuration.module
 const control = new Int32Array(configuration.control);
 const callFieldValues = new Float64Array(configuration.control, callFieldsOffset, callFields.length);
 const mailbox = BigInt(configuration.mailbox);
-const maximumBytes = configuration.memory.maximum * 65536n;
 const clockOffset = performance.timeOrigin - configuration.clockOrigin;
 // When this thread last returned from the kernel without EINTR. For a
 // millisecond after that, clock reads and interrupt polls are answered here
@@ -138,7 +137,31 @@ async function processMemory() {
     Atomics.notify(received, 0);
     return memory;
   }
-  const { initial, maximum } = configuration.memory;
+  const { initial } = configuration.memory;
+  // A threaded program's memory takes its maximum here and never grows: Chrome
+  // checks a copy, fill or atomic access of a shared memory against each
+  // thread's own record of its size, which another thread's growth updates
+  // late. Where the browser will not commit that maximum (Chrome's sandbox
+  // limits a renderer's data, Linux's heuristic its commit), half of it is
+  // asked, down to the initial size, and the program's malloc meets ENOMEM at
+  // what was given.
+  for (let maximum = configuration.memory.maximum; ; maximum = maximum / 2n > initial ? maximum / 2n : initial) {
+    const memory = await reservedMemory(initial, maximum);
+    if (!configuration.threaded) return memory;
+    try {
+      memory.grow(maximum - initial);
+    } catch (error) {
+      if (!(error instanceof RangeError) || maximum === initial) throw error;
+      continue;
+    }
+    if (maximum < configuration.memory.maximum) {
+      console.warn(`Dolly process ${configuration.pid}: the browser committed ${maximum / 16n} MiB of memory, ` +
+        `not the ${configuration.memory.maximum / 16n} MiB its program may use`);
+    }
+    return memory;
+  }
+}
+async function reservedMemory(initial, maximum) {
   for (let waited = 0; ; waited += reservationRetryMilliseconds) {
     try {
       return new WebAssembly.Memory({ initial, maximum, shared: true, address: "i64" });
@@ -202,19 +225,6 @@ function copyRequest(request) {
   return true;
 }
 
-// Chrome checks a copy, fill or atomic access of a shared memory against each
-// thread's own record of its size, which another thread's growth updates
-// late: the memory takes its maximum before a second thread starts and never
-// grows while two run. The thread
-// that spawns does it, so its own record is current at once; a reservation
-// the browser refuses fails this spawn, and the next one asks again.
-function reserveMaximum() {
-  const size = BigInt(memory.buffer.byteLength);
-  if (size >= maximumBytes) return true;
-  try { memory.grow(configuration.memory.maximum - size / 65536n); } catch { return false; }
-  return true;
-}
-
 function call(operation, requestAddressValue, requestSizeValue,
               responseAddressValue, responseCapacityValue) {
   // A malformed call is the program's error: it gets an errno and keeps running.
@@ -248,16 +258,13 @@ function call(operation, requestAddressValue, requestSizeValue,
   if (request.size > DOLLY_PROCESS_PACKET_LIMIT || response.size > DOLLY_PROCESS_PACKET_LIMIT) {
     return -BigInt(DOLLY_ERRNO.E2BIG);
   }
-  // The size the spawn budget counts: a threaded process's before its reservation.
+  // The size the spawn budget counts (a threaded process counts its initial size: page/process-supervisor.mjs).
   const memoryBytes = memory.buffer.byteLength;
   // A new thread's Worker gets the memory from this one, over a channel the
   // supervisor hands it without opening.
   let channel;
   if (openChannels.length) closeReceivedChannels();
-  if (operation === threadOperations.spawn && configuration.threaded) {
-    if (!reserveMaximum()) return -BigInt(DOLLY_ERRNO.EAGAIN);
-    channel = new MessageChannel();
-  }
+  if (operation === threadOperations.spawn && configuration.threaded) channel = new MessageChannel();
   const result = awaitHost(() => {
     // Positive 31-bit sequences wrap from 2^31 - 1 back to one.
     const sequence = Atomics.load(control, controlWord.call) % 0x7fffffff + 1;
