@@ -23,6 +23,18 @@
  mod file_dialog_probe;
  mod gpu_startup;
  #[cfg(target_os = "linux")]
+@@ -740,6 +743,11 @@
+                 .env("PHOTOCRAFT_GPU_STARTUP_FAILURE", &reason)
+                 .spawn();
+             match launched {
++                // Dolly's page serves the foreground job alone: this process waits for its
++                // relaunched self, which keeps the screen, and ends with its status.
++                #[cfg(target_os = "emscripten")]
++                Ok(mut child) => std::process::exit(child.wait().ok().and_then(|status| status.code()).unwrap_or(1)),
++                #[cfg(not(target_os = "emscripten"))]
+                 Ok(_) => return Ok(()),
+                 Err(error) => log::error!("could not start CPU compatibility mode: {error}"),
+             }
 --- a/apps/photocraft/src/services.rs
 +++ b/apps/photocraft/src/services.rs
 @@ -207,6 +207,10 @@

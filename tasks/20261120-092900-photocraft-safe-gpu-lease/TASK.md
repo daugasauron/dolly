@@ -1,12 +1,16 @@
 # Without a WebGPU adapter, PhotoCraft's CPU relaunch is refused the display
 
 - STATUS: OPEN
-- PRIORITY: 200
+- PRIORITY: 150
 - TAGS: bug,photocraft,0.1.8
 
 ## State (2026-11-20)
 
-Cause read, not fixed: the fix is in the port (a rebuild), not on the page.
+The lease is fixed on `fix/paste-devices`: the first PhotoCraft waits for its `--safe-gpu` self,
+which gets the display and the input. Left: without a WebGPU adapter the relaunched PhotoCraft
+cannot open its window either, since its CPU renderer still presents through wgpu, which Dolly
+backs with the browser's WebGPU alone (below). Whether PhotoCraft should have a window there at
+all is the integrator's call.
 
 ## Seen
 
@@ -26,11 +30,29 @@ process was the foreground one and ends; its child, whose parent is gone, descen
 foreground process, and display@0 gives a lease only to the foreground process or its
 descendants (`host/display/kernel.c`, `process_may_acquire_display`): `EPERM`.
 
-## Choices
+## The fix (2026-11-20)
 
-- The port waits for the relaunched child on Dolly (`Command::status` for `spawn`), so the parent
-  stays in the foreground while the child holds the display: a patch and a rebuild of PhotoCraft.
-- PhotoCraft's Dolly platform reports no adapter before the first start, so its plan takes the
-  CPU renderer at once and there is no relaunch.
+On Dolly's target the first PhotoCraft waits for the `--safe-gpu` child and exits with its
+status (`demos/photocraft/platform/photocraft/photocraft.patch`, `main.rs`), so the foreground
+job lasts until the second PhotoCraft quits; display@0's rule stays. photocraft and
+photocraft-photos rebuilt in `work/paste-devices` (Cargo 20 min).
 
-Done when photocraft-photos opens on the CPU renderer in a browser without a WebGPU adapter.
+Measured on the rebuilt image (served from the tree, Xvfb `:157`): in Chrome 156 without
+`--enable-unsafe-webgpu` and in Firefox 159 with `dom.webgpu.enabled` off, the second PhotoCraft
+now gets the display (no `EPERM`); the image's "PhotoCraft has quit" comes after its lines, and
+the shell is in front (`echo` runs, `touch-lab/scripts/photocraft-cpu.mjs`). The second one then
+stops on the same `WGPU error: Failed to create surface for any enabled backend`: its CPU renderer
+still asks wgpu for the window's surface ("a software adapter for the window", `main.rs`), and on
+Dolly wgpu's one backend is the browser's WebGPU through gpu@0. `photocraft-gpu-browser.mjs`
+(both browsers) and `photocraft-touch-browser.mjs` (Chrome) pass on the rebuilt image with the
+NVIDIA adapter.
+
+## Choices for what is left
+
+- On Dolly without an adapter, PhotoCraft does not relaunch and says that it needs WebGPU (the
+  page already shows its "No GPU" notice).
+- A window for the CPU renderer without WebGPU: its frames through display@0, a new path in the
+  wgpu platform.
+
+Done when photocraft-photos without a WebGPU adapter either opens on the CPU renderer or quits
+at once saying it needs WebGPU, back to the shell.
