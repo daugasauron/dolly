@@ -3,16 +3,25 @@
 # in sunglasses and a cape on the board, with their animations. It writes the glTF file the
 # flyover reads when it starts (model.gd), MODEL or the path after "--":
 #   blender -b --factory-startup --python flyer.py -- /usr/share/voxel-flyover/flyer.glb
-# Run in Blender's window (the Text Editor's Run Script) it makes the flyer anew in the scene,
-# where it can be looked at and changed, and writes MODEL.
+# Run in Blender's window (the Text Editor's Run Script, Alt+P) it makes the flyer anew in the
+# scene, where it can be looked at and changed, and writes MODEL.
+
+# Colours to change, as they are picked (red, green, blue):
+CAPE = (0.8, 0.05, 0.08)  # the corgi's
+BOARD = (0.03, 0.42, 0.5)
+SCARF = (0.78, 0.16, 0.62)  # the pelican's
+CAP = (0.8, 0.05, 0.06)  # the pelican's
+
 # The animations: "pedal", TURNS turns of the cranks and all they drive (the legs, the chain, the
 # shaft, the fans, the wheels, the pelican rocking on its saddle); "steer", the handlebar from
 # full left to full right with the wings on its grips; "alive", a loop of the pelican looking
 # about, blinking and clapping its bill, and the corgi panting, tilting its head and looking
-# down at the pelican. The flyover seeks "pedal" by the cranks' angle and "steer" by the turn,
-# and plays "alive". Parts with a coat of fur or feathers, and cloths in the wind (the cape, the
-# tongue, the scarf, long feathers), carry their measures in their extras; the flyover draws
-# those with its own shaders, a coat in the colours of its vertices too.
+# down over its sunglasses at the pelican, which looks up. The flyover seeks "pedal" by the
+# cranks' angle and "steer" by the turn, and plays "alive". Parts with a coat of fur or feathers,
+# and cloths in the wind (the cape, the scarf, long feathers), carry their measures in their
+# extras; the flyover draws those with its own shaders.
+# Every colour is in its mesh's vertices (a material has a roughness and a metalness), which is
+# what Blender's solid view shows and what the flyover's shaders read.
 # Everything is placed in the flyover's frame, y up and looking along -z, and taken to Blender's
 # axes as it is written.
 
@@ -26,7 +35,7 @@ TAU = math.tau
 FRAMES = 32  # a turn of the cranks, in frames
 TURNS = 5  # the cranks' turns in "pedal", after which each of the chain's links is where it was
 STEERS = 24  # "steer", from full left to full right
-ALIVE = 240  # "alive": 8 s at 30 frames a second
+ALIVE = 320  # "alive": twice as long as "pedal", so that Blender plays both round together
 SIZE = 1.4  # the bicycle and its rider, in the flyer's frame
 HANG = Vector((0.0, 0.2, 0.0))  # where they hang
 RING_TEETH = 12  # the chainring's teeth
@@ -36,44 +45,23 @@ JETS = (-0.95, 0.95)
 MODEL = "/usr/share/voxel-flyover/flyer.glb"  # where the flyover reads it
 GODOT = Matrix(((1, 0, 0), (0, 0, -1), (0, 1, 0)))  # a Godot vector's coordinates in Blender's
 
-
-def V(x, y, z):
-    return Vector((x, y, z))
-
-
-# --- Materials --------------------------------------------------------------------------------
-
-def linear(colour):
-    """A colour as it is picked and as the flyover's shaders take it (sRGB), as Blender and glTF
-    store it."""
-    return tuple(c ** 2.2 for c in colour)
-
-
-def paint(name, colour, rough=0.5, metal=0.0):
-    material = bpy.data.materials.get(name)
-    if material is None:
-        material = bpy.data.materials.new(name)
-        material.use_nodes = True
-        shader = material.node_tree.nodes["Principled BSDF"]
-        shader.inputs["Base Color"].default_value = (*linear(colour), 1.0)
-        shader.inputs["Roughness"].default_value = rough
-        shader.inputs["Metallic"].default_value = metal
-        material.diffuse_color = (*linear(colour), 1.0)  # in Blender's solid view
-    return material
-
-
-# Colours, as they are picked (linear() gives them to Blender).
 WHITE = (0.97, 0.95, 0.9)
-TAN = (0.8, 0.46, 0.2)
+TAN = (0.84, 0.47, 0.18)
+SABLE = (0.6, 0.3, 0.1)  # the darker hairs along the corgi's back
 BLACK = (0.03, 0.03, 0.04)
-PAINTED = (1.0, 1.0, 1.0)  # a coat of its vertices' colours
-SCARF = (0.05, 0.5, 0.62)  # the pelican's
-CAPE = (0.8, 0.05, 0.08)  # the corgi's
-TONGUE = (0.9, 0.38, 0.48)
+PINK = (0.93, 0.42, 0.5)
 GOLD = (1.0, 0.72, 0.2)
 RED = (0.8, 0.05, 0.06)
 STEEL = (0.55, 0.57, 0.6)
 CREAM = (0.95, 0.9, 0.75)
+CHROME = (0.8, 0.82, 0.86)
+DARK = (0.04, 0.04, 0.05)
+YELLOW = (1.0, 0.7, 0.05)
+ORANGE = (1.0, 0.48, 0.1)
+
+
+def V(x, y, z):
+    return Vector((x, y, z))
 
 
 def between(low, high, value):
@@ -86,7 +74,62 @@ def mix(first, second, amount):
     return tuple(a + (b - a) * amount for a, b in zip(first, second))
 
 
+def bump(t, at, width):
+    return math.exp(-((t - at) / width) ** 2)
+
+
+def through(keys, count):
+    """`count` tuples on a smooth curve (Catmull-Rom) through the tuples `keys`."""
+    samples = []
+    for i in range(count):
+        x = i / (count - 1) * (len(keys) - 1)
+        k = min(int(x), len(keys) - 2)
+        f = x - k
+        p0, p1, p2, p3 = (keys[max(k - 1, 0)], keys[k], keys[k + 1], keys[min(k + 2, len(keys) - 1)])
+        samples.append(tuple(0.5 * (2 * b + (c - a) * f + (2 * a - 5 * b + 4 * c - d) * f * f + (3 * b - a - 3 * c + d) * f ** 3)
+                             for a, b, c, d in zip(p0, p1, p2, p3)))
+    return samples
+
+
+# --- Materials --------------------------------------------------------------------------------
+
+def linear(colour):
+    """A colour as it is picked (sRGB), as Blender and glTF store it."""
+    return tuple(c ** 2.2 for c in colour)
+
+
+COLOURS = {}  # a material's, which the meshes it is given to carry in their vertices
+
+
+def paint(name, colour, rough=0.5, metal=0.0):
+    """A material: its colour is its meshes' vertices'."""
+    material = bpy.data.materials.get(name)
+    if material is None:
+        material = bpy.data.materials.new(name)
+        material.use_nodes = True
+        nodes = material.node_tree.nodes
+        shader = nodes["Principled BSDF"]
+        shader.inputs["Roughness"].default_value = rough
+        shader.inputs["Metallic"].default_value = metal
+        material.node_tree.links.new(nodes.new("ShaderNodeVertexColor").outputs["Color"], shader.inputs["Base Color"])
+        material.diffuse_color = (*linear(colour), 1.0)
+        COLOURS[name] = colour
+    return material
+
+
+def painted(data, material):
+    """Gives a mesh its material, and the material's colour if it has none of its own."""
+    if not data.color_attributes:
+        layer = data.color_attributes.new("Color", "FLOAT_COLOR", "POINT")
+        layer.data.foreach_set("color", (*linear(COLOURS[material.name]), 1.0) * len(data.vertices))
+    data.materials.append(material)
+    return data
+
+
 # --- Meshes, made in the flyover's frame ------------------------------------------------------
+
+SIZES = {}  # a loft's girth and length, by its mesh's name: a coat's hairs are counted by them
+
 
 def mesh(name, verts, faces, uvs=None, smooth=True, colours=None):
     data = bpy.data.meshes.new(name)
@@ -106,13 +149,13 @@ def mesh(name, verts, faces, uvs=None, smooth=True, colours=None):
     return data
 
 
-def loft(name, points, radii, up=V(0, 1, 0), around=16, caps=True, colours=None):
+def loft(name, points, radii, up=V(0, 1, 0), around=16, caps=True, colours=None, bulge=None):
     """A tube through `points`, its cross-section at each an ellipse of `radii` (across, and
-    toward `up`). Its UVs run around (u) and along (v), as a coat's hairs want them.
-    `colours(v, angle)` gives each vertex a colour, by v from 0 to 1 along and its angle from
-    across toward up."""
+    toward `up`), times `bulge(v, angle)` if given. Its UVs run around (u) and along (v), as a
+    coat's hairs want them. `colours(v, angle)` gives each vertex a colour, by v from 0 to 1
+    along and its angle from across toward up."""
     rings = len(points)
-    verts, faces, uvs, painted = [], [], [], []
+    verts, faces, uvs, painted_in = [], [], [], []
     for i, point in enumerate(points):
         along = (points[min(i + 1, rings - 1)] - points[max(i - 1, 0)]).normalized()
         across = along.cross(up)
@@ -122,27 +165,31 @@ def loft(name, points, radii, up=V(0, 1, 0), around=16, caps=True, colours=None)
         upward = across.cross(along)
         for j in range(around):
             angle = TAU * j / around
-            verts.append(point + across * radii[i][0] * math.cos(angle) + upward * radii[i][1] * math.sin(angle))
+            out = bulge(i / (rings - 1), angle) if bulge else 1.0
+            verts.append(point + (across * radii[i][0] * math.cos(angle) + upward * radii[i][1] * math.sin(angle)) * out)
             if colours:
-                painted.append(colours(i / (rings - 1), angle))
+                painted_in.append(colours(i / (rings - 1), angle))
     for i in range(rings - 1):
         v0, v1 = i / (rings - 1), (i + 1) / (rings - 1)
         for j in range(around):
             k = (j + 1) % around
-            faces.append((i * around + j, i * around + k, (i + 1) * around + k, (i + 1) * around + j))
-            uvs.append(((j / around, v0), ((j + 1) / around, v0), ((j + 1) / around, v1), (j / around, v1)))
+            faces.append((i * around + j, (i + 1) * around + j, (i + 1) * around + k, i * around + k))
+            uvs.append(((j / around, v0), (j / around, v1), ((j + 1) / around, v1), ((j + 1) / around, v0)))
     if caps:
         for ring, v, backward in ((0, 0.0, True), (rings - 1, 1.0, False)):
             centre = len(verts)
             verts.append(points[ring])
             if colours:
-                painted.append(colours(v, math.pi / 2))
+                painted_in.append(colours(v, math.pi / 2))
             for j in range(around):
                 face = (ring * around + j, ring * around + (j + 1) % around, centre)
                 uv = ((j / around, v), ((j + 1) / around, v), ((j + 0.5) / around, v))
-                faces.append(face[::-1] if backward else face)
-                uvs.append(uv[::-1] if backward else uv)
-    return mesh(name, verts, faces, uvs, colours=painted)
+                faces.append(face if backward else face[::-1])
+                uvs.append(uv if backward else uv[::-1])
+    data = mesh(name, verts, faces, uvs, colours=painted_in)
+    girth = max(math.pi * (3 * (a + b) - math.sqrt((3 * a + b) * (a + 3 * b))) for a, b in radii)
+    SIZES[data.name] = (girth, sum((b - a).length for a, b in zip(points, points[1:])))
+    return data
 
 
 def body(name, semi, around=24, rings=14, shape=None, full=2.0, colours=None):
@@ -165,20 +212,23 @@ def rod(name, length, radius, around=12, tip=None):
                 up=V(0, 0, -1), around=around)
 
 
-def strip(name, length=1.0, width=1.0, along=8, across=1, colours=None):
-    """A cloth for cape.gdshader: flat in y = 0, fixed along z = 0 and free to z = `length`.
-    `colours(x, z)` paints its vertices."""
-    verts, faces, uvs = [], [], []
+def strip(name, colours, length=1.0, along=8, across=1, notch=0.0):
+    """A cloth for cape.gdshader: flat in y = 0, one unit wide, fixed along z = 0 and free to
+    z = `length`, less `notch` of it in the middle of its free end (a swallow's tail).
+    `colours(x, z)` paints its vertices, x across it from -0.5 to 0.5 and z from 0 to 1 along."""
+    verts, faces, uvs, painted_in = [], [], [], []
     for i in range(along + 1):
         for j in range(across + 1):
-            verts.append(V(width * (j / across - 0.5), 0, length * i / along))
+            x = j / across - 0.5
+            verts.append(V(x, 0, length * i / along * (1 - notch * (1 - abs(2 * x)))))
+            painted_in.append(colours(x, i / along))
     for i in range(along):
         for j in range(across):
             a = i * (across + 1) + j
             faces.append((a, a + 1, a + across + 2, a + across + 1))
             uvs.append(((j / across, i / along), ((j + 1) / across, i / along),
                         ((j + 1) / across, (i + 1) / along), (j / across, (i + 1) / along)))
-    return mesh(name, verts, faces, uvs, smooth=False, colours=colours and [colours(v.x, v.z) for v in verts])
+    return mesh(name, verts, faces, uvs, smooth=False, colours=painted_in)
 
 
 def gear(name, radius, thick, teeth, tooth, hole):
@@ -208,18 +258,24 @@ def ring(name, radius, thick, around=40, section=10, axis=V(1, 0, 0)):
 
 
 def join(name, parts):
-    """One mesh of several (mesh, placement) pairs, the placements in the flyover's frame."""
-    verts, faces, uvs = [], [], []
+    """One mesh of several (mesh, placement) or (mesh, placement, colour) parts, the placements
+    in the flyover's frame. A part keeps its own colours, or takes the colour given with it; if
+    none has either, the mesh takes its material's."""
+    verts, faces, uvs, colours = [], [], [], []
     back = GODOT.transposed()
-    for data, at in parts:
+    for data, at, *colour in parts:
         first = len(verts)
         verts += [at @ (back @ vertex.co) for vertex in data.vertices]
+        if data.color_attributes:
+            colours += [tuple(c ** (1 / 2.2) for c in value.color[:3]) for value in data.color_attributes[0].data]
+        else:
+            colours += [colour[0] if colour else None] * len(data.vertices)
         layer = data.uv_layers[0] if data.uv_layers else None
         for polygon in data.polygons:
             faces.append(tuple(first + v for v in polygon.vertices))
             uvs.append(tuple(tuple(layer.data[loop].uv) if layer else (0.0, 0.0) for loop in polygon.loop_indices))
         bpy.data.meshes.remove(data)
-    return mesh(name, verts, faces, uvs)
+    return mesh(name, verts, faces, uvs, colours=None if None in colours else colours)
 
 
 # --- Objects ----------------------------------------------------------------------------------
@@ -253,7 +309,7 @@ def obj(name, data, material=None, parent=None, at=V(0, 0, 0), basis=None, extra
     thing = bpy.data.objects.new(name, data)
     bpy.context.scene.collection.objects.link(thing)
     if material is not None:
-        data.materials.append(material)
+        painted(data, material)
     thing.parent = parent
     thing.rotation_mode = "QUATERNION"
     put(thing, place(at, basis))
@@ -268,39 +324,49 @@ def put(thing, matrix):
     thing.matrix_basis = axes @ matrix @ axes.transposed()
 
 
-def coat(colour, hair, hairs):
-    return {"coat": {"colour": list(colour), "hair": hair, "hairs": list(hairs)}}
+def coat(data, hair, cell=0.017):
+    """A coat of hairs `hair` long, one to each `cell` of the loft's skin."""
+    girth, length = SIZES[data.name]
+    return {"coat": {"hair": hair, "hairs": [round(girth / cell), round(length / cell)]}}
 
 
-def cloth(colour, tip, widens=(1.0, -0.85), flaps=0.3, own=0.0):
-    return {"cloth": {"colour": list(colour), "tip": list(tip), "widens": list(widens), "flaps": flaps, "own": own}}
+def cloth(widens=(1.0, -0.85), flaps=0.3, own=0.0):
+    return {"cloth": {"widens": list(widens), "flaps": flaps, "own": own}}
 
 
 feathers = 0  # each long feather's own phase in the wind
 
 
 def feather(parent, root, way, face, size, colour, tip, widens=(1.0, -0.85), flaps=0.3, name="feather"):
-    """A long feather, or another strip of cloth, from its root along `way`, its face toward `face`."""
+    """A long feather, or another strip of cloth, from its root along `way`, its face toward
+    `face`, its colour running to `tip`'s toward its free end."""
     global feathers
     way = way.normalized()
     side = face.cross(way).normalized()
     basis = Matrix((side * size[0], way.cross(side), way * size[1])).transposed()
     feathers += 1
-    return obj(name, strip(name, along=12), paint(f"{name} {colour}", colour, 0.6), parent, root, basis, cloth(colour, tip, widens, flaps, feathers * 1.7))
+    data = strip(name, lambda x, z: mix(colour, tip, between(0.45, 0.8, z)), along=12)
+    return obj(name, data, paint("cloth", WHITE, 0.6), parent, root, basis, cloth(widens, flaps, feathers * 1.7))
 
 
 # --- The board and its jets -------------------------------------------------------------------
 
 def build_board(root):
-    """A surfboard: a pointed nose that lifts, a squared tail, a domed deck with a cream stripe
-    down its middle and a red line each side of it, and three fins under the tail."""
+    """A surfboard: a pointed nose that lifts, a squared tail, a domed deck of BOARD's colour
+    with a cream stripe down its middle and a red line each side of it, cream rails, a golden
+    underside, and three fins under the tail."""
     points, radii = [], []
     for i in range(41):
         t = i / 40  # nose to tail
         outline = math.sin(math.pi * (0.04 + 0.96 * t) ** 0.85) ** 0.6
         points.append(V(0, 0.32 * max(0.0, 0.32 - t) ** 2 / 0.1, -3.2 + 6.4 * t))
         radii.append((max(1.0 * outline + 0.12 * t * t, 0.03), max(0.15 * outline ** 0.5, 0.01)))
-    board = obj("board", loft("board", points, radii, around=32), paint("board", (0.03, 0.42, 0.5), 0.2, 0.1), root)
+
+    def livery(v, angle):
+        up = math.sin(angle)
+        return mix(mix(GOLD, BOARD, between(-0.1, 0.1, up)), CREAM, 1 - between(0.1, 0.3, abs(up)))
+
+    board = obj("board", loft("board", points, radii, around=32, colours=livery), paint("board", BOARD, 0.2, 0.1), root)
     deck = [(p + V(0, r[1] * 0.9, 0), r) for p, r in zip(points, radii)][3:-2]
     obj("stripe", loft("stripe", [p for p, _ in deck], [(0.2 * min(1.0, r[0] * 3.0), 0.025) for _, r in deck], around=12),
         paint("cream", CREAM, 0.3), board)
@@ -319,8 +385,8 @@ def build_jets(root):
     nacelle with a red band and a cream stripe along its top, a nozzle of dark flaps, and a
     pylon up to the board. Returns the fans."""
     steel = paint("steel", STEEL, 0.25, 0.85)
-    chrome = paint("chrome", (0.8, 0.82, 0.86), 0.15, 1.0)
-    dark = paint("dark", (0.04, 0.04, 0.05), 0.35, 0.6)
+    chrome = paint("chrome", CHROME, 0.15, 1.0)
+    dark = paint("dark", DARK, 0.35, 0.6)
 
     def livery(v, angle):
         band = between(0.56, 0.59, v) * (1 - between(0.69, 0.72, v))
@@ -421,8 +487,8 @@ def chain_at(s):
 def build_bicycle(rig):
     """A yellow frame, a leather saddle, a chrome handlebar with black grips on a fork that
     steers, and spoked wheels. Returns the steering and the wheels."""
-    frame_paint = paint("frame", (1.0, 0.7, 0.05), 0.25, 0.5)
-    chrome = paint("chrome", (0.8, 0.82, 0.86), 0.15, 1.0)
+    frame_paint = paint("frame", YELLOW, 0.25, 0.5)
+    chrome = paint("chrome", CHROME, 0.15, 1.0)
     rubber = paint("rubber", (0.03, 0.03, 0.035), 0.9)
     tubes = []
     for a, b, r in ((BRACKET, SEAT, 0.04), (SEAT, HEAD_TOP, 0.04), (BRACKET, HEAD_LOW, 0.046),
@@ -464,7 +530,7 @@ def build_bicycle(rig):
 def build_drive(root, rig):
     """The cranks with their chainring and pedals, the chain's links, the shaft across between
     the jets with its sprocket, and the rods the bicycle hangs from."""
-    chrome = paint("chrome", (0.8, 0.82, 0.86), 0.15, 1.0)
+    chrome = paint("chrome", CHROME, 0.15, 1.0)
     gold = paint("gold", GOLD, 0.2, 0.9)
     rubber = paint("rubber", (0.03, 0.03, 0.035), 0.9)
     cranks = obj("cranks", None, None, rig, BRACKET)
@@ -481,9 +547,9 @@ def build_drive(root, rig):
     obj("arms", join("arms", arms), chrome, cranks)
     # The links, alternately dark and bright, each kind one mesh.
     plates = []
-    for material in (paint("dark", (0.04, 0.04, 0.05), 0.35, 0.6), chrome):
+    for material in (paint("dark", DARK, 0.35, 0.6), chrome):
         plates.append(loft("link", [V(0, -PITCH * 0.45, 0), V(0, PITCH * 0.45, 0)], [(0.03, 0.02)] * 2, up=V(0, 0, -1), around=8))
-        plates[-1].materials.append(material)
+        painted(plates[-1], material)
     links = [obj(f"link_{index:03}", plates[index % 2], None, root) for index in range(RING_TEETH * TURNS)]
     shaft = obj("shaft", None, None, root, V(0, SHAFT.y, SHAFT.z))
     obj("shaft_rod", loft("shaft", [V(JETS[0], 0, 0), V(JETS[1], 0, 0)], [(0.04, 0.04)] * 2, around=12), chrome, shaft)
@@ -491,72 +557,86 @@ def build_drive(root, rig):
     hangers = []
     for side in (-1, 1):
         out = V(side * 0.075, 0, 0)
-        for a, b in ((flyer_point(REAR + out), V(side * 0.8, -0.1, 1.25)), (flyer_point(HEAD_TOP), V(side * 0.85, -0.1, -1.25))):
+        for a, b in ((flyer_point(REAR + out), V(side * 0.8, -0.1, 1.25)), (flyer_point(HEAD_TOP), V(side * 0.9, -0.1, -0.6))):
             hangers.append((rod("hanger", (b - a).length, 0.035), place(a, aim(b - a))))
     obj("hangers", join("hangers", hangers), chrome, root)
     return cranks, pedals, links, shaft
+PELICAN_HEAD = V(0, -0.66, -0.68)
+PELICAN_JAW = V(0, -0.05, -0.14)
+PELICAN_EYE = V(0.17, 0.05, -0.13)
 
 
 def build_pelican(rig):
-    """The pelican: white, with a long yellow bill over an orange pouch, a red cyclist's cap with
-    flying goggles on it, a scarf, black-tipped wings stretched forward to the handlebar, orange
-    legs and webbed feet."""
-    white = paint("white", WHITE, 0.8)
-    bill = paint("bill", (1.0, 0.66, 0.1), 0.6)
-    orange = paint("legs", (1.0, 0.5, 0.1), 0.6)
-    red = paint("red", RED, 0.4)
+    """The pelican: white and plump, with a long yellow bill over an orange pouch, big eyes, a cyclist's cap with a white stripe and flying goggles pushed up on it,
+    a scarf, black-tipped wings stretched forward to the handlebar, orange legs and webbed
+    feet."""
+    feathered = paint("feathers", WHITE, 0.8)
+    horn = paint("bill", YELLOW, 0.5)
+    orange = paint("legs", ORANGE, 0.6)
+    cell = 0.012
     bird = obj("bird", None, None, rig)
-    obj("body", body("body", (0.32, 0.31, 0.56), around=28, rings=16,
-                     shape=lambda t: (1.0 - 0.18 * max(t, 0) ** 2, 1.0 + 0.1 * max(-t, 0), -0.12 * t * t)),
-        white, bird, V(0, -1.33, 0.22), turn((1, 0, 0), math.radians(-14)), coat(WHITE, 0.09, (36, 48)))
+    plump = body("body", (0.35, 0.34, 0.58), around=28, rings=16,
+                 shape=lambda t: (1.0 - 0.18 * max(t, 0) ** 2, 1.0 + 0.1 * max(-t, 0), -0.12 * t * t))
+    obj("body", plump, feathered, bird, V(0, -1.33, 0.22), turn((1, 0, 0), math.radians(-14)), coat(plump, 0.1, cell))
     # The neck: an S up from the chest, back over itself and forward under the head.
-    neck = [V(0, -1.2 + 0.5 * t, -0.18 - 0.48 * t + 0.14 * math.sin(TAU * 0.9 * t)) for t in (i / 12 for i in range(13))]
-    obj("neck", loft("neck", neck, [(0.16 - 0.06 * i / 12, 0.17 - 0.07 * i / 12) for i in range(13)], around=18),
-        white, bird, extras=coat(WHITE, 0.035, (44, 30)))
+    neck = [V(0, -1.2 + (PELICAN_HEAD.y + 1.2) * t, -0.18 + (PELICAN_HEAD.z + 0.18) * t + 0.14 * math.sin(TAU * 0.9 * t))
+            for t in (i / 12 for i in range(13))]
+    tube = loft("neck", neck, [(0.18 - 0.05 * i / 12, 0.19 - 0.06 * i / 12) for i in range(13)], around=18)
+    obj("neck", tube, feathered, bird, extras=coat(tube, 0.05, cell))
     # An aviator's scarf round the neck, its two ends streaming back over the shoulders.
     knot, way = neck[4], (neck[5] - neck[3]).normalized()
-    obj("scarf", ring("scarf", 0.165, 0.035, around=32, section=8, axis=way), paint("scarf", SCARF, 0.6), bird, knot)
-    behind = knot + V(0, -way.z, way.y) * 0.16
+    obj("scarf", ring("scarf", 0.2, 0.05, around=32, section=8, axis=way), paint("scarf", SCARF, 0.6), bird, knot)
+    behind = knot + V(0, -way.z, way.y) * 0.2
     for side, length in ((-1, 1.15), (1, 0.9)):
-        feather(bird, behind + V(side * 0.04, 0, 0), V(side * 0.18, -0.3, 1.0), V(0, 1, 0), (0.14, length),
-                SCARF, (0.2, 0.68, 0.78), (1.0, 0.0), 0.8, "scarf_end")
-    head = obj("head", None, None, bird, V(0, -0.7, -0.66))
+        feather(bird, behind + V(side * 0.05, 0, 0), V(side * 0.18, -0.3, 1.0), V(0, 1, 0), (0.17, length),
+                SCARF, mix(SCARF, GOLD, 0.8), (1.0, 0.0), 0.8, "scarf_end")
+    head = obj("head", None, None, bird, PELICAN_HEAD)
     look = obj("head_look", None, None, head)
-    obj("skull", body("skull", (0.17, 0.16, 0.2), around=24, rings=12), white, look, extras=coat(WHITE, 0.04, (40, 30)))
+    skull = body("skull", (0.22, 0.21, 0.25), around=24, rings=12)
+    obj("skull", skull, feathered, look, extras=coat(skull, 0.045, cell))
+    # Each eye has a lid that closes over it.
+    patch = (1.0, 0.78, 0.25)
     lids = []
     for side in (-1, 1):
-        eye = obj("eye", body("eye", (0.05, 0.05, 0.05), around=12, rings=6), paint("iris", (0.95, 0.85, 0.3), 0.3), look,
-                  V(side * 0.13, 0.04, -0.09))
-        obj("pupil", body("pupil", (0.025, 0.03, 0.025), around=10, rings=6), paint("black", BLACK, 0.1), eye, V(side * 0.035, 0, -0.02))
-        lids.append(obj(f"lid_{'L' if side < 0 else 'R'}", body("lid", (0.05, 0.05, 0.05), around=12, rings=6),
-                        paint("lid", WHITE, 0.7), look, V(side * 0.13, 0.04, -0.09), Matrix.Diagonal((0.9, 0.9, 0.9))))
-    # The bill: long and flat, hooked down at its tip; the lower mandible and the pouch hang from
-    # a jaw that opens.
-    upper = [V(0, 0.01 - 0.3 * t - 0.07 * max(0.0, t - 0.88) / 0.12, -0.12 - 1.0 * t) for t in (i / 14 for i in range(15))]
-    obj("bill", loft("bill", upper, [(0.08 - 0.035 * i / 14, 0.035 - 0.015 * i / 14) for i in range(15)], around=14), bill, look)
-    jaw = obj("jaw", None, None, look, V(0, -0.04, -0.12))
-    lower = [V(0, -0.02 - 0.3 * t, -0.98 * t) for t in (i / 12 for i in range(13))]
-    obj("mandible", loft("mandible", lower, [(0.07 - 0.03 * i / 12, 0.018) for i in range(13)], around=12), bill, jaw)
-    sack = [V(0, -0.07 - 0.3 * t - 0.12 * math.sin(math.pi * t), -0.88 * t) for t in (i / 12 for i in range(13))]
-    obj("pouch", loft("pouch", sack, [(0.06 - 0.02 * i / 12, 0.02 + 0.12 * math.sin(math.pi * i / 12)) for i in range(13)],
-                      around=14), paint("pouch", (1.0, 0.45, 0.1), 0.5), jaw)
-    # A red cyclist's cap, its little visor turned up.
-    obj("cap", body("cap", (0.18, 0.11, 0.2), shape=lambda t: (1.0, 1.0, 0.0)), red, look, V(0, 0.1, 0.02))
-    obj("visor", body("visor", (0.13, 0.015, 0.11)), red, look, V(0, 0.09, -0.19), turn((1, 0, 0), math.radians(18)))
+        at = V(side * PELICAN_EYE.x, PELICAN_EYE.y, PELICAN_EYE.z)
+        obj("eye", join("eye", [
+            (body("ball", (0.08, 0.08, 0.08), around=16, rings=8), place(at + V(side * 0.02, 0, 0)), WHITE),
+            (body("pupil", (0.03, 0.054, 0.054), around=12, rings=6), place(at + V(side * 0.074, 0.004, -0.016)), BLACK),
+            (body("glint", (0.014, 0.014, 0.014), around=6, rings=4), place(at + V(side * 0.1, 0.026, -0.034)), (1.0, 1.0, 1.0)),
+        ]), paint("eye", WHITE, 0.12), look)
+        lids.append(obj(f"lid_{'L' if side < 0 else 'R'}", body("lid", (0.075, 0.075, 0.075), around=12, rings=6),
+                        paint("lid", patch, 0.6), look, at + V(side * 0.02, 0, 0), Matrix.Diagonal((0.9, 0.9, 0.9))))
+    # The bill: long and flat, orange and hooked down at its tip; the lower mandible and the
+    # pouch hang from a jaw that opens.
+    upper = [V(0, -0.3 * t - 0.08 * max(0.0, t - 0.88) / 0.12, -0.14 - 1.05 * t) for t in (i / 14 for i in range(15))]
+    obj("bill", loft("bill", upper, [(0.095 - 0.04 * i / 14, 0.04 - 0.018 * i / 14) for i in range(15)], around=14,
+                     colours=lambda v, angle: mix(YELLOW, (0.95, 0.3, 0.08), between(0.8, 0.97, v))), horn, look)
+    jaw = obj("jaw", None, None, look, PELICAN_JAW)
+    lower = [V(0, -0.02 - 0.3 * t, -1.02 * t) for t in (i / 12 for i in range(13))]
+    obj("mandible", loft("mandible", lower, [(0.08 - 0.03 * i / 12, 0.02) for i in range(13)], around=12), horn, jaw)
+    sack = [V(0, -0.07 - 0.3 * t - 0.15 * math.sin(math.pi * t), -0.92 * t) for t in (i / 12 for i in range(13))]
+    obj("pouch", loft("pouch", sack, [(0.07 - 0.02 * i / 12, 0.02 + 0.15 * math.sin(math.pi * i / 12)) for i in range(13)],
+                      around=14), paint("pouch", (1.0, 0.42, 0.12), 0.45), jaw)
+    # A cyclist's cap, a white stripe over it and its little visor turned up.
+    obj("cap", join("cap", [
+        (body("cap", (0.235, 0.14, 0.26), colours=lambda v, angle: mix(CAP, WHITE, between(0.9, 0.96, math.sin(angle)))),
+         place(V(0, 0.14, 0.02))),
+        (body("visor", (0.15, 0.018, 0.13)), place(V(0, 0.13, -0.27), turn((1, 0, 0), math.radians(18))), CAP),
+    ]), paint("cap", CAP, 0.5), look)
     # Flying goggles pushed up on the cap: brass rims round amber lenses, on a black strap.
-    brass = paint("brass", (0.85, 0.6, 0.25), 0.25, 0.9)
-    facing = ahead(V(0, 0.75, -0.66))
-    obj("strap", ring("strap", 0.2, 0.016, around=40, section=6, axis=V(0, 1, 0)), paint("black", BLACK, 0.1), look,
-        V(0, 0.13, 0.02), turn((1, 0, 0), math.radians(20)))
+    brass, facing = (0.85, 0.6, 0.25), ahead(V(0, 0.75, -0.66))
+    goggles = [(ring("strap", 0.24, 0.018, around=40, section=6, axis=V(0, 1, 0)),
+                place(V(0, 0.15, 0.02), turn((1, 0, 0), math.radians(20))), BLACK)]
     for side in (-1, 1):
-        obj("goggle", ring("goggle", 0.058, 0.017, around=24, section=6, axis=V(0, 0, 1)), brass, look, V(side * 0.075, 0.19, -0.12), facing)
-        obj("lens", body("lens", (0.05, 0.05, 0.016), around=16, rings=6), paint("amber", (0.9, 0.5, 0.1), 0.05, 0.6), look,
-            V(side * 0.075, 0.19, -0.12), facing)
+        at = V(side * 0.085, 0.25, -0.12)
+        goggles.append((ring("rim", 0.065, 0.019, around=24, section=6, axis=V(0, 0, 1)), place(at, facing), brass))
+        goggles.append((body("lens", (0.056, 0.056, 0.018), around=16, rings=6), place(at, facing), (0.95, 0.5, 0.1)))
+    obj("goggles", join("goggles", goggles), paint("brass", brass, 0.2, 0.8), look)
     for index in range(3):
-        feather(look, V((index - 1) * 0.04, 0.12, 0.14), V((index - 1) * 0.25, 0.1, 1.0), V(0, 1, 0), (0.06, 0.3), WHITE, WHITE)
+        feather(look, V((index - 1) * 0.05, 0.2, 0.2), V((index - 1) * 0.25, 0.1, 1.0), V(0, 1, 0), (0.07, 0.34), WHITE, WHITE)
     for index in range(5):
-        feather(bird, V((index - 2) * 0.07, -1.26, 0.72), V((index - 2) * 0.3, 0.22, 1.0), V(0, 1, 0), (0.17, 0.46),
-                WHITE, (0.55, 0.55, 0.6))
+        feather(bird, V((index - 2) * 0.07, -1.26, 0.74), V((index - 2) * 0.3, 0.22, 1.0), V(0, 1, 0), (0.18, 0.5),
+                WHITE, (0.5, 0.5, 0.56))
     # The wings: an upper arm from the shoulder to the elbow and a forearm from there to the
     # grip, flight feathers along their trailing side, black-tipped, and the tips closed over the
     # grips. All hang from the bird; "steer" places them on the grips.
@@ -564,21 +644,21 @@ def build_pelican(rig):
     for side in (-1, 1):
         name = "L" if side < 0 else "R"
         upper_arm = obj(f"arm_{name}", None, None, bird, V(side * SHOULDER.x, SHOULDER.y, SHOULDER.z))
-        obj("arm", body("arm", (0.1, 0.05, ARM / 2), shape=lambda t: (1.0 - 0.3 * max(t, 0), 1.0, 0.0)), white, upper_arm,
-            V(0, 0, -ARM / 2), extras=coat(WHITE, 0.045, (26, 30)))
+        arm = body("arm", (0.11, 0.06, ARM / 2), shape=lambda t: (1.0 - 0.3 * max(t, 0), 1.0, 0.0))
+        obj("arm", arm, feathered, upper_arm, V(0, 0, -ARM / 2), extras=coat(arm, 0.045, cell))
         forearm = obj(f"forearm_{name}", None, None, bird)
-        obj("forearm", body("forearm", (0.08, 0.04, ARM / 2), shape=lambda t: (1.0 - 0.3 * max(-t, 0), 1.0, 0.0)), white, forearm,
-            V(0, 0, -ARM / 2), extras=coat(WHITE, 0.04, (22, 26)))
+        fore = body("forearm", (0.09, 0.05, ARM / 2), shape=lambda t: (1.0 - 0.3 * max(-t, 0), 1.0, 0.0))
+        obj("forearm", fore, feathered, forearm, V(0, 0, -ARM / 2), extras=coat(fore, 0.04, cell))
         hand = obj(f"hand_{name}", None, None, bird)
         for finger in range(3):
             feather(hand, V(side * (finger - 1) * 0.05, 0.03, 0.03), V(side * (finger - 1) * 0.25, -0.75, -1.0), V(0, 1, -0.6),
-                    (0.075, 0.2), BLACK, BLACK)
+                    (0.085, 0.2), BLACK, BLACK)
         flights = []
         for index in range(8):
             along = index / 7
             flight = obj(f"flight_{name}{index}", None, None, bird)
             feather(flight, V(0, 0, 0), V(side * (0.25 - 0.1 * along), -0.55 + 0.2 * along, 1.0 - 0.5 * along), V(side, 0.3, 0),
-                    (0.17, 0.62 - 0.3 * abs(along - 0.45)), WHITE, BLACK)
+                    (0.2, 0.62 - 0.3 * abs(along - 0.45)), WHITE, BLACK)
             flights.append(flight)
         wings.append((upper_arm, forearm, hand, flights))
     legs = []
@@ -599,31 +679,19 @@ def build_pelican(rig):
 
 
 # --- The corgi --------------------------------------------------------------------------------
-# Its moving parts are where main.gd's ride() expects them, and as tall: a leg is a body two
-# units tall at its middle, scaled to its length, as a capsule of Godot's is.
+# Its moving parts are where main.gd's ride() expects them, and as tall: a leg is two units tall
+# at its middle, scaled to its length.
 
-def bump(t, at, width):
-    return math.exp(-((t - at) / width) ** 2)
-
-
-def through(keys, count):
-    """`count` tuples on a smooth curve (Catmull-Rom) through the tuples `keys`."""
-    samples = []
-    for i in range(count):
-        x = i / (count - 1) * (len(keys) - 1)
-        k = min(int(x), len(keys) - 2)
-        f = x - k
-        p0, p1, p2, p3 = (keys[max(k - 1, 0)], keys[k], keys[k + 1], keys[min(k + 2, len(keys) - 1)])
-        samples.append(tuple(0.5 * (2 * b + (c - a) * f + (2 * a - 5 * b + 4 * c - d) * f * f + (3 * b - a - 3 * c + d) * f ** 3)
-                             for a, b, c, d in zip(p0, p1, p2, p3)))
-    return samples
+DOG_JAW = V(0, -0.36, -0.2)
+SHADES = V(0, 0.13, -0.53)
 
 
 def trunk_coat(v, angle):
-    """A Pembroke's coat on its trunk, v from the chest to the rump: tan above, white under it,
-    up over the chest and round the seat."""
-    line = -0.3 + 1.4 * (1 - between(0.06, 0.3, v)) + 0.25 * between(0.86, 0.98, v)
-    return mix(TAN, WHITE, between(-0.12, 0.12, line - math.sin(angle)))
+    """A Pembroke's coat on its trunk, v from the rump to the head: tan, darker along the back;
+    white under it, round the seat, and up over the chest and the throat."""
+    up = math.sin(angle)
+    line = -0.3 + 0.9 * between(0.6, 0.76, v) + 0.5 * (1 - between(0.04, 0.16, v))
+    return mix(mix(TAN, SABLE, 0.6 * between(0.5, 0.95, up)), WHITE, between(-0.12, 0.12, line - up))
 
 
 def head_coat(v, angle):
@@ -637,72 +705,86 @@ def head_coat(v, angle):
 
 def cape_colours(x, z):
     """The cape's: CAPE, with a gold paw print high on its back and a gold edge down each side;
-    x across it from -0.5 to 0.5, z from the clasp. The toes are toward the clasp."""
-    pads = (((0.0, 1.0), (0.17, 0.14)), ((-0.1, 0.77), (0.055, 0.07)), ((0.1, 0.77), (0.055, 0.07)),
-            ((-0.21, 0.86), (0.05, 0.065)), ((0.21, 0.86), (0.05, 0.065)))
+    x across it from -0.5 to 0.5, z from the nape to its end. The toes are toward the nape."""
+    pads = (((0.0, 0.52), (0.2, 0.11)), ((-0.11, 0.35), (0.065, 0.055)), ((0.11, 0.35), (0.065, 0.055)),
+            ((-0.26, 0.42), (0.06, 0.05)), ((0.26, 0.42), (0.06, 0.05)))
     paw = max(1 - between(0.75, 1.15, ((x - cx) / rx) ** 2 + ((z - cz) / rz) ** 2) for (cx, cz), (rx, rz) in pads)
     return mix(CAPE, GOLD, max(paw, between(0.44, 0.47, abs(x))))
 
 
 def build_corgi(root):
-    """A Pembroke corgi standing on the board in sunglasses and a red cape, its tongue out."""
-    tan, white = paint("tan", TAN, 0.8), paint("white", WHITE, 0.8)
-    muzzle = paint("muzzle", WHITE, 0.8)
+    """A Pembroke corgi standing on the board: a long loaf of a trunk on short legs, a big head
+    with tall ears, mirrored sunglasses over its eyes, its tongue out, and a cape from a collar."""
+    furred = paint("fur", WHITE, 0.8)
     gold = paint("gold", GOLD, 0.2, 0.9)
     dog = obj("dog", None, None, root, V(0, 0.09, 0.2))
-    # Its trunk, a loaf: a deep chest, a tucked waist, round hips.
-    trunk = body("trunk", (0.42, 0.44, 1.38), around=32, rings=26, full=2.6, colours=trunk_coat,
-                 shape=lambda t: (1.0 - 0.1 * bump(t, 0.15, 0.4) + 0.04 * bump(t, 0.65, 0.25),
-                                  1.0 + 0.1 * bump(t, -0.55, 0.35) - 0.1 * bump(t, 0.2, 0.4),
-                                  -0.1 * bump(t, -0.55, 0.35) + 0.08 * bump(t, 0.2, 0.4)))
-    obj("dog_body", trunk, tan, dog, V(0, 0.9, 0.3), extras=coat(PAINTED, 0.11, (150, 170)))
-    neck = [V(0, 0.9, -0.55), V(0, 1.2, -0.8), V(0, 1.5, -0.98)]  # from inside the chest into the head
-    obj("dog_neck", loft("neck", neck, [(0.26, 0.28), (0.33, 0.33), (0.3, 0.3)], up=V(0, 0, 1), around=24,
-                         colours=lambda v, angle: mix(TAN, WHITE, between(-0.2, 0.2, -math.sin(angle)))),
-        tan, dog, extras=coat(PAINTED, 0.12, (90, 30)))
-    obj("dog_tail", body("tail", (0.15, 0.15, 0.22)), tan, dog, V(0, 1.0, 1.72), extras=coat(TAN, 0.12, (70, 35)))
-    for index, (x, z) in enumerate(((-0.26, -0.6), (0.26, -0.6), (-0.26, 1.1), (0.26, 1.1))):
-        leg = loft("leg", [V(0, -1.0, 0), V(0, -0.4, 0), V(0, 1.0, 0)], [(0.13, 0.14), (0.14, 0.15), (0.17, 0.18)], up=V(0, 0, -1), around=14)
-        obj(f"dog_leg_{index}", leg, white, dog, V(x, 0.3, z), Matrix.Diagonal((1.0, 0.32, 1.0)), coat(WHITE, 0.05, (60, 50)))
-        paw = body("paw", (0.16, 0.09, 0.22), shape=lambda t: (1.0, 1.0 - 0.3 * max(-t, 0), 0.0))
-        obj(f"dog_paw_{index}", paw, muzzle, dog, V(x, 0.06, z - 0.08))
+    # Its trunk, one surface from the rump along the back and up the neck into the head:
+    # (z, height of the middle, half width, half height). The seat is cleft.
+    spine = through([(1.74, 0.94, 0.05, 0.05), (1.67, 0.94, 0.32, 0.31), (1.45, 0.93, 0.49, 0.45), (1.1, 0.92, 0.51, 0.46),
+                     (0.5, 0.95, 0.44, 0.41), (-0.2, 0.91, 0.46, 0.46), (-0.7, 0.9, 0.48, 0.5), (-1.0, 1.02, 0.43, 0.45),
+                     (-1.08, 1.3, 0.37, 0.37), (-1.02, 1.55, 0.33, 0.33)], 40)
+    trunk = loft("trunk", [V(0, y, z) for z, y, _, _ in spine], [(w, h) for _, _, w, h in spine], around=32, colours=trunk_coat,
+                 bulge=lambda v, angle: 1 - 0.16 * (1 - between(0.03, 0.14, v)) * between(0.8, 1.0, abs(math.sin(angle))))
+    obj("dog_body", trunk, furred, dog, extras=coat(trunk, 0.11))
+    nub = body("tail", (0.14, 0.14, 0.2), colours=lambda v, angle: mix(TAN, WHITE, between(0.55, 0.8, v)))
+    obj("dog_tail", nub, furred, dog, V(0, 1.12, 1.72), extras=coat(nub, 0.1))
+    for index, (x, z) in enumerate(((-0.27, -0.62), (0.27, -0.62), (-0.27, 1.12), (0.27, 1.12))):
+        leg = loft("leg", [V(0, -1.0, 0), V(0, -0.4, 0), V(0, 1.0, 0)], [(0.14, 0.15), (0.15, 0.16), (0.19, 0.2)], up=V(0, 0, -1), around=14)
+        obj(f"dog_leg_{index}", leg, furred, dog, V(x, 0.3, z), Matrix.Diagonal((1.0, 0.32, 1.0)), coat(leg, 0.05))
+        paw = body("paw", (0.18, 0.1, 0.25), shape=lambda t: (1.0, 1.0 - 0.3 * max(-t, 0), 0.0))
+        obj(f"dog_paw_{index}", paw, furred, dog, V(x, 0.06, z - 0.1), extras=coat(paw, 0.03))
     head = obj("dog_head", None, None, dog, V(0, 1.62, -1.0))  # turned by main.gd as the corgi rides
     face = obj("dog_look", None, None, head)  # turned by "alive"
     # Its head, one surface from the back of the skull over the stop to the end of the muzzle:
     # (z, height of the middle, half width, half height).
-    shape = through([(0.52, 0.02, 0.06, 0.06), (0.45, 0.02, 0.33, 0.33), (0.32, 0.03, 0.48, 0.45), (0.12, 0.03, 0.56, 0.5),
-                     (-0.08, 0.0, 0.54, 0.47), (-0.25, -0.06, 0.45, 0.37), (-0.38, -0.11, 0.33, 0.27), (-0.5, -0.13, 0.27, 0.22),
+    shape = through([(0.52, 0.02, 0.06, 0.06), (0.45, 0.02, 0.33, 0.33), (0.32, 0.03, 0.48, 0.45), (0.12, 0.03, 0.57, 0.5),
+                     (-0.08, 0.0, 0.57, 0.47), (-0.25, -0.06, 0.46, 0.37), (-0.38, -0.11, 0.33, 0.27), (-0.5, -0.13, 0.27, 0.22),
                      (-0.65, -0.13, 0.25, 0.2), (-0.8, -0.12, 0.21, 0.17), (-0.9, -0.11, 0.14, 0.12), (-0.95, -0.1, 0.05, 0.05)], 30)
-    obj("dog_skull", loft("head", [V(0, y, z) for z, y, _, _ in shape], [(w, h) for _, _, w, h in shape], around=32,
-                          colours=head_coat), tan, face, extras=coat(PAINTED, 0.06, (190, 120)))
-    obj("dog_nose", body("nose", (0.1, 0.075, 0.07)), paint("nose", (0.02, 0.02, 0.025), 0.25), face, V(0, -0.05, -0.92))
-    jaw = obj("dog_jaw", None, None, face, V(0, -0.36, -0.2))
-    obj("dog_chin", body("chin", (0.22, 0.08, 0.32)), muzzle, jaw, V(0, -0.04, -0.24), turn((1, 0, 0), math.radians(-5)))
-    # The tongue: a strip of cloth out of the mouth's left side, trailing back in the wind.
-    back = V(-0.8, -0.2, 1.0).normalized()
-    across = V(-0.75, 0.65, 0.0).cross(back).normalized()
-    obj("dog_tongue", strip("tongue", along=10, across=2), paint("tongue", TONGUE, 0.6), jaw, V(-0.06, 0.015, -0.48),
-        Matrix((across * 0.24, back.cross(across), back * 0.85)).transposed(),
-        cloth(TONGUE, (0.96, 0.5, 0.58), (1.0, -0.75), 0.3, 3.1))
+    skull = loft("head", [V(0, y, z) for z, y, _, _ in shape], [(w, h) for _, _, w, h in shape], around=32, colours=head_coat)
+    obj("dog_skull", skull, furred, face, extras=coat(skull, 0.06, 0.012))
+    # What has no fur, one mesh: the nose, the eyes behind the sunglasses, and the ears' insides.
+    bare = [(body("nose", (0.11, 0.08, 0.075)), place(V(0, -0.05, -0.92)), BLACK)]
+    for x in (-1.0, 1.0):
+        bare.append((body("eye", (0.1, 0.11, 0.1), around=12, rings=6), place(V(x * 0.23, 0.15, -0.36)), (0.1, 0.05, 0.03)))
+        bare.append((body("glint", (0.028, 0.028, 0.028), around=6, rings=4), place(V(x * 0.2, 0.2, -0.445)), (1.0, 1.0, 1.0)))
+    obj("dog_face", join("face", bare), paint("bare", BLACK, 0.2), face)
+    jaw = obj("dog_jaw", None, None, face, DOG_JAW)
+    chin = body("chin", (0.2, 0.075, 0.3))
+    obj("dog_chin", chin, furred, jaw, V(0, -0.04, -0.24), turn((1, 0, 0), math.radians(-5)), coat(chin, 0.03, 0.012))
+    # The tongue lolls out over the front of the chin, a little to the left.
+    lolling = through([(0.0, 0.03, -0.25), (-0.01, 0.035, -0.46), (-0.03, 0.01, -0.6), (-0.05, -0.1, -0.67), (-0.06, -0.22, -0.66)], 12)
+    obj("dog_tongue", loft("tongue", [V(*p) for p in lolling], [(0.115 - 0.075 * (i / 11) ** 4, 0.03 - 0.012 * (i / 11) ** 4) for i in range(12)],
+                           up=V(0, 1, 0.3), around=10), paint("tongue", (1.0, 0.52, 0.6), 0.6), jaw)
     for index, x in enumerate((-1.0, 1.0)):
         ear = obj(f"dog_ear_{index}", None, None, face, V(x * 0.4, 0.3, 0.12))
-        flap = loft("ear", [V(0, 0, 0), V(0, 0.45, 0), V(0, 0.84, 0)], [(0.3, 0.15), (0.2, 0.1), (0.02, 0.01)], up=V(0, 0, -1), around=16)
-        obj("ear", flap, tan, ear, V(0, -0.02, 0), turn((0, 0, 1), math.radians(x * -16)), coat(TAN, 0.03, (40, 30)))
-        inside = loft("inside", [V(0, 0, 0), V(0, 0.4, 0), V(0, 0.72, 0)], [(0.2, 0.06), (0.13, 0.04), (0.02, 0.01)],
-                      up=V(0, 0, -1), around=12)
-        obj("inside", inside, paint("pink", (0.9, 0.45, 0.5), 0.6), ear, V(0, 0.0, -0.08), turn((0, 0, 1), math.radians(x * -16)))
-        # The sunglasses: dark mirrors in gold frames, a bridge over the nose, an arm to each ear.
-        lens_turn = turn((0, 1, 0), math.radians(x * -16)) @ turn((1, 0, 0), math.radians(8))
-        obj("lens", body("lens", (0.3, 0.21, 0.05)), paint("shades", (0.02, 0.03, 0.08), 0.04, 1.0), face, V(x * 0.29, 0.13, -0.53), lens_turn)
-        obj("frame", ring("frame", 0.26, 0.025, around=32, section=6, axis=V(0, 0, 1)), gold, face, V(x * 0.29, 0.13, -0.52),
-            lens_turn @ Matrix.Diagonal((1.15, 0.82, 1.0)))
-        obj("temple", loft("temple", [V(0, 0, -0.3), V(0, 0, 0.32)], [(0.02, 0.025)] * 2, around=6), gold, face, V(x * 0.6, 0.17, -0.2))
-    obj("bridge", loft("bridge", [V(-0.07, 0, 0), V(0.07, 0, 0)], [(0.03, 0.03)] * 2, around=8), gold, face, V(0, 0.2, -0.54))
-    obj("clasp", body("clasp", (0.08, 0.08, 0.08)), gold, dog, V(0, 1.0, -1.02))
-    obj("cape", strip("cape", length=2.5, along=80, across=48, colours=cape_colours), paint("cape", CAPE, 0.6), dog,
-        V(0, 1.8, -0.45), turn((1, 0, 0), math.radians(-22)),
-        cloth(PAINTED, PAINTED, (0.7, 0.45), 1.0))
-    return face, jaw
+        lean = turn((0, 0, 1), math.radians(x * -16))
+        outline = through([(0.0, 0.29, 0.1), (0.25, 0.3, 0.085), (0.52, 0.23, 0.065), (0.76, 0.12, 0.045), (0.9, 0.02, 0.015)], 12)
+        flap = loft("ear", [V(0, h, 0) for h, _, _ in outline], [(w, t) for _, w, t in outline], up=V(0, 0, -1), around=16,
+                    colours=lambda v, angle: mix(TAN, SABLE, 0.5 * between(0.5, 1.0, v)))
+        obj("ear", flap, furred, ear, V(0, -0.02, 0), lean, coat(flap, 0.03, 0.012))
+        hollow = through([(0.06, 0.19, 0.04), (0.28, 0.2, 0.04), (0.5, 0.14, 0.03), (0.72, 0.03, 0.015)], 8)
+        obj("inside", loft("inside", [V(0, h, 0) for h, _, _ in hollow], [(w, t) for _, w, t in hollow], up=V(0, 0, -1), around=12),
+            paint("pink", PINK, 0.6), ear, V(0, -0.02, -0.085), lean)
+    # The sunglasses: mirrors that run from blue to amber in gold frames, a bridge over the
+    # nose and an arm to each ear. "alive" slides them down the muzzle.
+    shades = obj("dog_shades", None, None, face, SHADES)
+    frames = [(loft("bridge", [V(-0.07, 0, 0), V(0.07, 0, 0)], [(0.03, 0.03)] * 2, around=8), place(V(0, 0.07, -0.01)))]
+    for x in (-1.0, 1.0):
+        turned = turn((0, 1, 0), math.radians(x * -16)) @ turn((1, 0, 0), math.radians(8))
+        mirror = body("lens", (0.27, 0.2, 0.05), colours=lambda v, angle: mix((1.0, 0.5, 0.12), (0.1, 0.25, 0.8),
+                                                                               between(-0.7, 0.6, math.sin(angle))))
+        obj("lens", mirror, paint("mirror", WHITE, 0.06, 1.0), shades, V(x * 0.29, 0, 0), turned)
+        frames.append((ring("frame", 0.25, 0.028, around=32, section=6, axis=V(0, 0, 1)),
+                       place(V(x * 0.29, 0, 0.01), turned @ Matrix.Diagonal((1.12, 0.84, 1.0)))))
+        frames.append((loft("temple", [V(0, 0, -0.3), V(0, 0, 0.32)], [(0.02, 0.025)] * 2, around=6), place(V(x * 0.6, 0.04, 0.33))))
+    obj("frames", join("frames", frames), gold, shades)
+    # The cape, clasped with gold under the throat, has a swallow's tail.
+    obj("clasp", body("clasp", (0.12, 0.12, 0.08)), gold, dog, V(0, 0.92, -1.45))
+    obj("cape", strip("cape", cape_colours, length=2.4, along=80, across=48, notch=0.16), paint("cape", CAPE, 0.6), dog,
+        V(0, 1.53, -0.5), turn((1, 0, 0), math.radians(-14)), cloth((1.05, 0.4), 1.0))
+    return face, jaw, shades
+
+
 
 
 # --- Animations -------------------------------------------------------------------------------
@@ -745,6 +827,8 @@ def knee(hip, foot, first, second, bend):
     return hip + along * to_knee + out * math.sqrt(max(first * first - to_knee * to_knee, 0.0))
 
 
+
+
 def main():
     out = sys.argv[sys.argv.index("--") + 1] if "--" in sys.argv else MODEL
     # Run again in Blender's window, it clears the scene and makes the flyer anew.
@@ -759,7 +843,7 @@ def main():
     steer, wheels = build_bicycle(rig)
     cranks, pedals, links, shaft = build_drive(root, rig)
     bird, head, look, lids, jaw, wings, legs = build_pelican(rig)
-    dog_look, dog_jaw = build_corgi(root)
+    dog_look, dog_jaw, shades = build_corgi(root)
 
     def pedalling(phase):
         """The cranks at TURNS * phase turns. Forward is the top of the chainring going ahead."""
@@ -778,9 +862,9 @@ def main():
             poses[link] = place((a + b) / 2, aim(b - a, up=V(1, 0, 0)))
         # The pelican rocks on its saddle with each stroke, its head keeping level against it.
         rock = math.sin(angle)
-        sway = V(rock * 0.025, 0.012 * math.cos(angle * 2), 0)
-        poses[bird] = place(sway, turn((0, 0, 1), rock * 0.05))
-        poses[head] = place(V(0, -0.7, -0.66), turn((1, 0, 0), 0.05 * math.cos(angle * 2)) @ turn((0, 0, 1), -rock * 0.07))
+        sway = V(rock * 0.03, 0.015 * math.cos(angle * 2), 0)
+        poses[bird] = place(sway, turn((0, 0, 1), rock * 0.06))
+        poses[head] = place(PELICAN_HEAD, turn((1, 0, 0), 0.06 * math.cos(angle * 2)) @ turn((0, 0, 1), -rock * 0.08))
         for side, (thigh, shin, foot) in zip((-1, 1), legs):
             on_pedal = BRACKET + V(side * PEDAL, 0.05, 0) + spin @ V(0, 0, -side * CRANK)
             hip = V(side * HIP.x, HIP.y, HIP.z) + sway
@@ -815,29 +899,42 @@ def main():
     bake("steer", STEERS, steering, first=-STEERS // 2)
 
     def living(phase):
-        """8 s: the pelican looks about, blinks at 1.2 s and 5.6 s, and claps its bill at 3.5 s;
-        the corgi pants, tilts its head at 2 s and looks down at the pelican at 6 s."""
+        """The pelican looks about, blinks at 1.2 s and 4.9 s, and claps its bill at 3.5 s;
+        the corgi pants and tilts its head at 2 s. At 6 s the corgi looks down over its
+        sunglasses at the pelican, which looks up at it and claps its bill twice."""
         seconds = phase * ALIVE / 30
-        yaw = 0.35 * math.sin(TAU * phase) + 0.12 * math.sin(TAU * phase * 3)
-        nod = 0.15 * math.sin(TAU * phase * 2 + 1.0) * math.sin(TAU * phase)
-        poses = {look: place(V(0, 0, 0), turn((0, 1, 0), yaw) @ turn((1, 0, 0), nod))}
-        shut = max(0.0, 1.0 - abs(seconds - 1.2) / 0.12) + max(0.0, 1.0 - abs(seconds - 5.6) / 0.12)
+        meet = between(5.3, 5.8, seconds) * (1 - between(6.9, 7.4, seconds))
+        yaw = (0.35 * math.sin(TAU * phase) + 0.12 * math.sin(TAU * phase * 3)) * (1 - meet) + 0.5 * meet
+        nod = 0.15 * math.sin(TAU * phase * 2 + 1.0) * math.sin(TAU * phase) * (1 - meet) + 0.22 * meet
+        poses = {look: place(V(0, 0, 0), turn((0, 1, 0), yaw) @ turn((1, 0, 0), nod) @ turn((0, 0, 1), -0.35 * meet))}
+        shut = sum(max(0.0, 1.0 - abs(seconds - blink) / 0.12) for blink in (1.2, 4.9))
         for side, lid in zip((-1, 1), lids):
-            poses[lid] = place(V(side * 0.13, 0.04, -0.09), Matrix.Diagonal([0.9 + 0.25 * shut] * 3))
-        clap = math.sin(math.pi * (seconds - 3.3) / 1.2) if 3.3 < seconds < 4.5 else 0.0
-        poses[jaw] = place(V(0, -0.04, -0.12), turn((1, 0, 0), -0.35 * clap * abs(math.sin(TAU * (seconds - 3.3) * 2))))
-        poses[dog_jaw] = place(V(0, -0.36, -0.2), turn((1, 0, 0), -0.1 - 0.08 * math.sin(TAU * phase * 24)))
+            poses[lid] = place(V(side * (PELICAN_EYE.x + 0.02), PELICAN_EYE.y, PELICAN_EYE.z), Matrix.Diagonal([0.9 + 0.5 * shut] * 3))
+        clap = sum(math.sin(math.pi * (seconds - start) / long) * abs(math.sin(TAU * (seconds - start) * 2))
+                   for start, long in ((3.3, 1.2), (6.0, 0.75)) if start < seconds < start + long)
+        poses[jaw] = place(PELICAN_JAW, turn((1, 0, 0), -0.35 * clap))
+        poses[dog_jaw] = place(DOG_JAW, turn((1, 0, 0), -0.12 - 0.09 * math.sin(TAU * phase * 24)))
         tilt = between(1.6, 2.0, seconds) * (1 - between(2.8, 3.2, seconds))
-        down = between(5.2, 5.7, seconds) * (1 - between(6.8, 7.3, seconds))
-        poses[dog_look] = place(V(0, 0, 0), turn((0, 1, 0), 0.45 * down) @ turn((1, 0, 0), -0.4 * down) @ turn((0, 0, 1), 0.3 * tilt))
+        poses[dog_look] = place(V(0, 0, 0), turn((0, 1, 0), 0.45 * meet) @ turn((1, 0, 0), -0.4 * meet) @ turn((0, 0, 1), 0.3 * tilt))
+        peek = between(5.6, 6.0, seconds) * (1 - between(6.7, 7.1, seconds))
+        poses[shades] = place(SHADES + V(0, -0.17, -0.1) * peek, turn((1, 0, 0), -0.3 * peek))
         return poses
 
     bake("alive", ALIVE, living)
-    bpy.context.scene.frame_set(0)
+    scene = bpy.context.scene
+    scene.frame_set(0)
     # An animation of each action, sampled for all its objects at once (by NLA track, each object
     # was sampled by itself: ten times as long).
     bpy.ops.export_scene.gltf(filepath=out, export_format="GLB", export_extras=True, export_animation_mode="ACTIONS",
                               export_anim_slide_to_zero=True, export_vertex_color="ACTIVE")
+    # Left in the scene for Blender to play: "pedal" round and round under "alive", and the
+    # handlebar straight, as "steer" has it at frame 0.
+    for thing in steering(0.5):
+        thing.animation_data.action = None
+    for bag in bpy.data.actions["pedal"].layers[0].strips[0].channelbags:
+        for curve in bag.fcurves:
+            curve.modifiers.new("CYCLES")
+    scene.frame_start, scene.frame_end = 0, ALIVE - 1
     print("flyer.py: wrote", out)
 
 

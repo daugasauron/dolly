@@ -108,28 +108,31 @@ into their share's colour where a pixel covers a crown.
 The flyer is a character of our own, made by Blender from a script,
 [`flyer.py`](voxel-flyover/flyer.py), when the image is built, into the glTF file the game reads
 as it starts ([`model.gd`](voxel-flyover/model.gd), Godot's `GLTFDocument`): a Pembroke corgi in
-mirrored sunglasses and a red cape with a gold paw print, on a teal surfboard that two small jets
-carry, and under the board a bicycle, on which a pelican in a cyclist's cap, flying goggles and a
-scarf pedals for the jets. A chain runs from the chainring up to a sprocket on a shaft between the
+mirrored sunglasses and a red cape with a gold paw print and a swallow's tail, on a teal
+surfboard with cream rails that two small jets carry, and under the board a bicycle, on which a
+pelican in a cyclist's cap, flying goggles and a scarf pedals for the jets. The corgi's trunk is
+one surface from its rump along its back and up its neck into its head, and the script winds
+every surface outward: a coat's skin and shells cull their back faces. A chain runs from the chainring up to a sprocket on a shaft between the
 two engines, and a fan turns in each engine's intake. The bicycle hangs from the board by its
-rear axle and by two rods from its head tube that pass the rider's head on either side.
+rear axle and by two rods from its head tube that pass beside the rider's head and behind its eyes.
 
 The script bakes three animations, which the game plays by their names. "pedal" is five turns of
 the cranks and all they drive: the legs, laid from hip to knee to pedal, the chain's sixty links
 round the chainring and the sprocket, the shaft, the fans and the wheels, so nothing slips, and
 the pelican rocking on its saddle. "steer" turns the handlebar, the fork and the front wheel in
 the head tube, with the leading edge of each wing laid from shoulder to elbow to the wrist at a
-grip and its black-tipped flight feathers along it. "alive" is eight seconds of the pelican
-looking about, blinking and clapping its bill, and of the corgi panting, tilting its head and
-looking down at the pelican. The game seeks "pedal" by the cranks' angle, which turns faster the
+grip and its black-tipped flight feathers along it. "alive" is twice as long as "pedal": the
+pelican looks about, blinks and claps its bill, the corgi pants and tilts its head, and at six
+seconds the corgi looks down over its sunglasses at the pelican, which looks up at it. The game seeks "pedal" by the cranks' angle, which turns faster the
 faster the board flies, and "steer" by the flight's turn, and plays "alive" round.
 
 Parts the script marks in their extras get the game's own surfaces. A coat is fur in 18 shells
 ([`fur.gdshader`](voxel-flyover/fur.gdshader)): each furred part is drawn again and again a little
-further out along its normals, keeping the pixels where a hair is that long, in the colours the
-script painted on its vertices (the corgi's tan back and white chest, belly, blaze and muzzle),
-and the hairs lean and shiver in the air the flight drives past. A cloth, the cape, the corgi's
-tongue, the ends of the scarf and the pelican's long feathers, flutters and swings out of a turn
+further out along its normals, keeping the pixels where a hair is that long, and the hairs lean
+and shiver in the air the flight drives past. Every colour of the flyer is in its vertices (the
+corgi's tan back and white chest, belly, seat, blaze and muzzle, the cape's paw print), which is
+what Blender's solid view shows and what the game's shaders read; a material is a roughness and
+a metalness. A cloth, the cape, the ends of the scarf and the pelican's long feathers, flutters and swings out of a turn
 in its vertex stage ([`cape.gdshader`](voxel-flyover/cape.gdshader)). The corgi crouches lower the
 faster it goes and the harder it turns, leans and looks into its turns, and its ears lie back;
 each jet leaves a wake, a ribbon the vertex stage lays along the places the board has been
@@ -139,15 +142,15 @@ ring of brighter gas for it, the nozzles glow with it, and a pulse runs down eac
 
 ### The flyer in Blender
 
-`blender-flyover` holds Blender and the game on one filesystem. Blender's window opens on its
-Scripting workspace, `flyer.py` in the Text Editor and the flyer it made in the 3D view; Run Script
-(Alt+P) makes the flyer anew and writes `/usr/share/voxel-flyover/flyer.glb`, which the game reads
+`blender-flyover` holds Blender and the game on one filesystem. Blender's window opens with
+`flyer.py` in a Text Editor down its left side and the flyer it made in a large 3D view, in its
+vertices' colours, playing "pedal" and "alive"; Run Script (Alt+P) makes the flyer anew and writes `/usr/share/voxel-flyover/flyer.glb`, which the game reads
 the next time it starts. `blender -b --python /usr/share/voxel-flyover/project/flyer.py` does the
 same without the window. The steps of a video of it:
 
 1. Open `blender-flyover`: Blender shows the script and the flyer.
 2. In the Text Editor, change `CAPE = (0.8, 0.05, 0.08)` near the top to another colour, such as
-   `(0.1, 0.3, 0.9)`, and press Alt+P: the cape in the 3D view turns blue.
+   `(0.1, 0.3, 0.9)`, and `BOARD` under it, and press Alt+P: the cape in the 3D view turns blue.
 3. Quit Blender (Ctrl+Q) and run `voxel-flyover`: the corgi flies in a blue cape, the pelican
    pedalling and steering under it.
 
