@@ -27,13 +27,15 @@
 <main>
   <a href="../">← Dolly</a>
   <h1>Demos</h1>
-  <p class="lead">Dolly in Chrome: Godot playing one of its demos on the GPU, recorded on 8 November 2026, a game
+  <p class="lead">Dolly in Chrome: a flyer made in Blender and flown in a Godot game, an agent on a model inside the
+    tab, an option model fitted on the GPU, a session carried from Chrome to Firefox and Godot playing one of its
+    demos, recorded on 21 November 2026 on this site, on version 0.1.8; a game
     changed in Godot's editor, a C compiler at work on Wine's desktop, a terminal workbench installed on an X desktop
     and a folder kept in step with a machine's, recorded on 15 November 2026 on this site, and Claude
     Opus 5.5 at high effort working in Dolly, recorded on 1 and 2 November 2026. Each video's caption bar names its
     speed-ups.</p>
   <h2><a href="../blender-flyover/">Voxel Flyover</a>: a flyer made in Blender, a planet computed by the GPU</h2>
-  <p class="lead">One image with Blender and a Godot game made for Dolly, recorded on 21 November 2026. The game's
+  <p class="lead">One image with Blender and a Godot game made for Dolly, recorded on 21 November 2026 on this site. The game's
     flyer, a corgi in a cape and sunglasses on a jet surfboard with a pelican on a bicycle under it pedalling for
     the jets, is made and animated by a script that Blender runs, and written into the file the game reads when it
     starts: a colour changed in the script and the script run again in Blender is what the game then flies. The
@@ -56,20 +58,20 @@
       <video controls playsinline preload="none" poster="posters/voxel-flyover.jpg" aria-label="Voxel Flyover recording"><source src="videos/voxel-flyover.mp4" type="video/mp4"></video>
       <div>
         <h3>From Blender's script to the flight</h3>
-        <p>The blender-flyover image: Blender opens with the script that makes the flyer and the flyer it made, playing its animations; the 3D view is turned; the cape's and the board's colours are typed over in the script and Alt+P makes the flyer anew, in a blue cape on a pink board; Ctrl+Q quits to the shell, where voxel-flyover starts the game, which flies that flyer; a click takes the board, the view comes close and looks round the corgi and the pelican, and the board flies over the land, climbs out of the air until the planet is whole, and dives back, 59.9 frames a second while recorded · 2:52</p>
+        <p>The blender-flyover image: Blender opens with the script that makes the flyer and the flyer it made, playing its animations; the 3D view is turned; the cape's and the board's colours are typed over in the script and Alt+P makes the flyer anew, in a blue cape on a pink board; Ctrl+Q quits to the shell, where voxel-flyover starts the game, which flies that flyer; a click takes the board, the view comes close and looks round the corgi and the pelican, and the board flies over the land, climbs out of the air until the planet is whole, and dives back, 56.4 frames a second while recorded · 2:54</p>
       </div>
     </article>
   </div>
   <h2><a href="../pi-local/">Pi on a local model</a>: an agent with no model outside the tab</h2>
   <p class="lead">The pi-local image holds the Pi coding agent and the weights of Qwen3.5-2B. llama.cpp, built inside
-    Dolly, runs as an ordinary process of the session and computes on the GPU through gpu@0. Recorded on 15 November
+    Dolly, runs as an ordinary process of the session and computes on the GPU through gpu@0. Recorded on 21 November
     2026 on this site: the image is a download of 1,567 MiB, and the page made no request but to the site that served it.</p>
   <div class="grid">
     <article>
       <video controls playsinline preload="none" poster="posters/local-model.jpg" aria-label="Pi on a local model recording"><source src="videos/local-model.mp4" type="video/mp4"></video>
       <div>
         <h3>squares.c, written, compiled and run</h3>
-        <p>One prompt: the model lists the directory, writes a C program, compiles it with Dolly's cc, runs it and reports its output about 35 s later, at 17 to 25 tokens a second while recorded · 1:07</p>
+        <p>One prompt: the model lists the directory, writes a C program, compiles it with Dolly's cc, runs it and reports its output about 36 s later, at 15 to 21 tokens a second while recorded · 1:06</p>
       </div>
     </article>
   </div>
@@ -77,38 +79,39 @@
   <p class="lead">A model in which an option's bid and ask are what hedging its two sides costs: a law of stock paths
     and a hedging network, fitted together to a live option chain. The fit is Mojo kernels, compiled inside Dolly and
     run on the GPU through gpu@0; dh-gui, a Dear ImGui program, fetches AAPL's chain through Dolly's HTTP broker,
-    starts the fit and draws the model against the market while it runs. Recorded on 17 November 2026.</p>
+    starts the fit and draws the model against the market while it runs. Recorded on 21 November 2026 on this site.</p>
   <div class="grid">
     <article>
       <video controls playsinline preload="none" poster="posters/deep-hedger.jpg" aria-label="Deep hedger recording"><source src="videos/deep-hedger.mp4" type="video/mp4"></video>
       <div>
         <h3>AAPL's chain, fitted while it is drawn</h3>
-        <p>Load quotes, Fit: 208 contracts of 8 expiries as bars from bid to ask, the model's bid and ask as lines moving into them at two and a half iterations a second; then one expiry alone, prices, the law of a day and its paths, what the hedger holds and what a hedged trade comes to, every quote, the fit by expiry · 1:48</p>
+        <p>Load quotes, Fit: 208 contracts of 8 expiries as bars from bid to ask, the model's bid and ask as lines moving into them at 2.6 to 2.8 iterations a second; then one expiry alone, prices, what the spreads imply, the law of a day and its paths, what the hedger holds and what a hedged trade comes to, every quote, the fit by expiry, the fit's numbers as cells, and the trades the model would pick with what such picks did on AAPL's history · 2:16</p>
       </div>
     </article>
   </div>
   <h2><a href="../sessions/">Sessions</a>: saved in Chrome, opened in Firefox</h2>
-  <p class="lead">A session is a save of every file of a tab, kept in the browser. Recorded on 15 November 2026 on this site, with
-    the two browsers side by side: Chrome's session installs the C compiler and builds a program, the sessions
-    page exports the save as one file, and Firefox imports it and boots from it.</p>
+  <p class="lead">A session is a save of every file of a tab, kept in the browser. Recorded on 21 November 2026 on this site, with
+    the two browsers side by side: Chrome's session installs the C compiler and builds a program, Ctrl+Shift+S
+    saves it, the sessions page exports the save as one file, and Firefox imports it and boots from it.</p>
   <div class="grid">
     <article>
       <video controls playsinline preload="none" poster="posters/session-travel.jpg" aria-label="A session from Chrome to Firefox recording"><source src="videos/session-travel.mp4" type="video/mp4"></video>
       <div>
         <h3>One session, two browsers</h3>
-        <p>amy install cc, a Mandelbrot set in C compiled and run in Chrome, Ctrl+Shift+S, an export of 39.3 MiB; in Firefox the import, the same files, the program running and the compiler answering · 1:05</p>
+        <p>amy install cc, a Mandelbrot set in C compiled and run in Chrome, Ctrl+Shift+S and the save's name in its dialog, the status line's "Saved mandel locally", an export of 39.2 MiB; in Firefox the import, the same files, the program running and the compiler answering · 1:05</p>
       </div>
     </article>
   </div>
   <h2>Godot: its Forward+ renderer on WebGPU</h2>
   <p class="lead">Godot 4.7, built inside Dolly from its release, draws through gpu@0, Dolly's interface to the
-    browser's WebGPU. A script installs Truck Town with amy, starts it and drives.</p>
+    browser's WebGPU. A script installs Truck Town with amy, starts it and drives. Recorded on 21 November 2026 on
+    this site.</p>
   <div class="grid">
     <article>
       <video controls playsinline preload="none" poster="posters/truck-town.jpg" aria-label="Truck Town recording"><source src="videos/truck-town.mp4" type="video/mp4"></video>
       <div>
         <h3>Truck Town</h3>
-        <p>Godot's vehicle physics demo: the minivan, the semi-truck and the tow truck with its impound, by day, at sunset, at night and at sunrise, from behind, above and the driver's seat · 1:36</p>
+        <p>Godot's vehicle physics demo: the minivan, the semi-truck and the tow truck with its impound, by day, at sunset, at night and at sunrise, from behind, above and the driver's seat · 1:42</p>
       </div>
     </article>
   </div>
@@ -170,16 +173,20 @@
   </div>
   <h2>npm: a Pi agent of your own, as a static site</h2>
   <p class="lead">In an empty directory, npm installs dolly-build, and dolly-build init writes a project: the Pi coding
-    agent with Git, Python and Neovim, a page whose policy admits the model's provider alone, and a CI workflow. A
-    skill is a directory of the project. dolly-build builds the image in a headless browser and writes a site that
-    any static file server serves. The key goes in at a hidden prompt, and Pi gets one prompt: it reads the
-    project's skill, runs the skill's script with the sandbox's Python and writes the report.</p>
+    agent as it starts anywhere, and a recipe whose HTTP rows are the only requests the sandbox may make, the model
+    providers' APIs. dolly-build add puts tmux, Neovim and clip into the recipe, and three edits make it one's own:
+    one more request, a path of GitHub's files; a tmux configuration; and tmux at startup, with Pi in one window and
+    Neovim in another. dolly-build builds the image in a headless browser, prints what the site may reach and writes
+    a site that any static file server serves, here Python's on the machine that built it. Recorded on 21 November
+    2026 from the 0.1.8 packages on registry.npmjs.org. The page's upload dialog brings in a file with the key,
+    which is never shown, and Pi signs in by its own /login; it answers through the model and reads the declared
+    path, and the page refuses every other request.</p>
   <div class="grid">
     <article>
       <video controls playsinline preload="none" poster="posters/npm-pi-agent.jpg" aria-label="npm Pi agent recording"><source src="videos/npm-pi-agent.mp4" type="video/mp4"></video>
       <div>
         <h3>From npm install to the agent's tab</h3>
-        <p>npm install, dolly-build init with tools of choice, add for more, a skill pasted into public/skills, the build (at 6x), Python's file server, and Pi in Chrome reporting on a CSV file with the skill (Sonnet 5.5 through OpenRouter); then Neovim, Git, Python and jq in the sandbox's shell · 2:02</p>
+        <p>npm install, dolly-build init, the recipe's HTTP rows, add for tmux, Neovim and clip, the recipe edited in Vim, the build (at 6x), Python's file server, and Pi in Chrome in tmux: the key uploaded as a file, /login, an answer through the model (Kimi K2.6 through OpenRouter) with tmux's README from the declared path, two requests refused by the page, Alt+2 to Neovim and Alt+1 back · 2:47</p>
       </div>
     </article>
   </div>
